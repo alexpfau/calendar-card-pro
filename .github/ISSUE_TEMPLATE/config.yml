@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Questions & Support
+    url: https://community.home-assistant.io/t/calendar-card-pro-a-beautiful-high-performance-calendar-card-for-home-assistant/863711
+    about: For questions, help, and discussions about Calendar Card Pro, please use our dedicated Home Assistant community forum thread.
+  - name: 📚 Documentation
+    url: https://github.com/alexpfau/calendar-card-pro#readme
+    about: Check the README for detailed configuration options and examples.

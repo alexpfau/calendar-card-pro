@@ -1,0 +1,88 @@
+name: 🐞 Bug Report
+description: Report a bug in Calendar Card Pro
+title: '[Bug]: '
+labels: ['bug']
+body:
+  - type: checkboxes
+    attributes:
+      label: Requirements
+      options:
+        - label: I've checked that I'm using the latest version of Calendar Card Pro
+          required: true
+        - label: I've searched existing issues to verify this isn't a duplicate
+          required: true
+        - label: I've tried refreshing with a cleared browser cache (Ctrl+F5 or Cmd+Shift+R)
+          required: true
+  - type: textarea
+    attributes:
+      label: Current Behavior
+      description: A concise description of what you're experiencing.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+      description: A concise description of what you expected to happen.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps To Reproduce
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Add the Calendar Card Pro to dashboard
+        2. Configure with these settings...
+        3. Click on...
+        4. See error...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Card Configuration
+      description: Your Calendar Card Pro YAML configuration
+      render: yaml
+      placeholder: |
+        type: custom:calendar-card-pro
+        entities:
+          - calendar.example
+        # Your configuration here
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Calendar Entity State
+      description: |
+        If relevant, please provide the state/attributes of your calendar entity. You can find it in the [developer tools](https://my.home-assistant.io/redirect/developer_states/).
+      render: yaml
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Browser Console Logs
+      description: |
+        If you're seeing errors, please open your browser's developer console (F12) and share any relevant logs.
+      render: shell
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Environment
+      description: |
+        Your environment details
+      value: |
+        - Browser & Version: 
+        - Home Assistant Version: 
+        - Calendar Card Pro Version: 
+        - Device Type:
+      render: markdown
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Additional Information
+      description: |
+        Screenshots, additional context, or other details that might help resolve the issue.
+
+        Tip: You can attach images by clicking this area and dragging files in.
+    validations:
+      required: false
