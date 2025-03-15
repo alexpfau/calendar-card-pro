@@ -1,0 +1,11 @@
+{
+  "daysOfWeek": ["Dim", "Lun", "Mur", "Mer", "Jeu", "Ven", "Sam"],
+  "fullDaysOfWeek": ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"],
+  "months": ["Jan", "Fer", "Mar", "Avr", "Mai", "Jui", "Jui", "Aou", "Sep", "Oct", "Nov", "Dec"],
+  "allDay": "jour-entier",
+  "multiDay": "jusqu'à",
+  "at": "à",
+  "noEvents": "Aucun évènement à venir",
+  "loading": "Chargement des évènements...",
+  "error": "Erreur: Entité Calendrier introuvable ou mal configuré"
+}
