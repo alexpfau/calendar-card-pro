@@ -461,7 +461,7 @@ I am continuously working on improving **Calendar Card Pro**. Here’s what’s 
 
 ### 📖 Developer Documentation
 
-For those interested in contributing code, I maintain detailed **architecture documentation** that explains:
+For those interested in contributing code, I maintain detailed **[architecture documentation](./docs/architecture.md)** that explains:
 
 - **Code Organization** – Structure and module responsibilities.
 - **Data Flow & Processing** – How events are fetched, stored, and displayed.
