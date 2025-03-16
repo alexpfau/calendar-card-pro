@@ -1,0 +1,11 @@
+{
+  "daysOfWeek": ["Zon", "Maa", "Din", "Woe", "Don", "Vrij", "Zat"],
+  "fullDaysOfWeek": ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"],
+  "months": ["Jan", "Feb", "Maa", "Apr", "Mei", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"],
+  "allDay": "hele dag",
+  "multiDay": "tot",
+  "at": "op",
+  "noEvents": "Geen aankomende agenda items",
+  "loading": "Laden van agenda items...",
+  "error": "Fout: De agenda entiteit kan niet gevonden worden of is foutief geconfigureerd."
+}
