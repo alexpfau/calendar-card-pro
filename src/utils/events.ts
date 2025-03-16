@@ -248,19 +248,22 @@ export function groupEventsByDay(
   const upcomingEvents = events.filter((event) => {
     if (!event?.start || !event?.end) return false;
 
-    const startDate = event.start.dateTime
-      ? new Date(event.start.dateTime)
-      : event.start.date
-        ? new Date(event.start.date)
-        : null;
-    const endDate = event.end.dateTime
-      ? new Date(event.end.dateTime)
-      : event.end.date
-        ? new Date(event.end.date)
-        : null;
+    const isAllDayEvent = !event.start.dateTime;
+
+    let startDate: Date | null;
+    let endDate: Date | null;
+
+    if (isAllDayEvent) {
+      // Use special parsing for all-day events that preserves correct day
+      startDate = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) : null;
+      endDate = event.end.date ? FormatUtils.parseAllDayDate(event.end.date) : null;
+    } else {
+      startDate = event.start.dateTime ? new Date(event.start.dateTime) : null;
+      endDate = event.end.dateTime ? new Date(event.end.dateTime) : null;
+    }
+
     if (!startDate || !endDate) return false;
 
-    const isAllDayEvent = !event.start.dateTime;
     const isEventToday = startDate >= todayStart && startDate <= todayEnd;
     const isFutureEvent = startDate > todayEnd;
 
@@ -286,14 +289,21 @@ export function groupEventsByDay(
 
   // Process events into days
   upcomingEvents.forEach((event) => {
-    const startDate = event.start.dateTime
-      ? new Date(event.start.dateTime)
-      : event.start.date
-        ? new Date(event.start.date)
-        : null;
+    const isAllDayEvent = !event.start.dateTime;
+
+    let startDate: Date | null;
+
+    if (isAllDayEvent && event.start.date) {
+      // Use special parsing for all-day events that preserves correct day
+      startDate = FormatUtils.parseAllDayDate(event.start.date);
+    } else {
+      startDate = event.start.dateTime ? new Date(event.start.dateTime) : null;
+    }
+
     if (!startDate) return;
 
-    const eventDateKey = startDate.toISOString().split('T')[0];
+    // Use local date components for grouping instead of ISO string
+    const eventDateKey = FormatUtils.getLocalDateKey(startDate);
     const translations = Localize.getTranslations(language);
 
     if (!eventsByDay[eventDateKey]) {
@@ -321,16 +331,27 @@ export function groupEventsByDay(
   // Sort events within each day
   Object.values(eventsByDay).forEach((day) => {
     day.events.sort((a, b) => {
-      const aStart = a.start.dateTime
-        ? new Date(a.start.dateTime).getTime()
-        : a.start.date
-          ? new Date(a.start.date).getTime()
-          : 0;
-      const bStart = b.start.dateTime
-        ? new Date(b.start.dateTime).getTime()
-        : b.start.date
-          ? new Date(b.start.date).getTime()
-          : 0;
+      const aIsAllDay = !a.start.dateTime;
+      const bIsAllDay = !b.start.dateTime;
+
+      // All-day events should appear before timed events
+      if (aIsAllDay && !bIsAllDay) return -1;
+      if (!aIsAllDay && bIsAllDay) return 1;
+
+      let aStart, bStart;
+
+      if (aIsAllDay && a.start.date) {
+        aStart = FormatUtils.parseAllDayDate(a.start.date).getTime();
+      } else {
+        aStart = a.start.dateTime ? new Date(a.start.dateTime).getTime() : 0;
+      }
+
+      if (bIsAllDay && b.start.date) {
+        bStart = FormatUtils.parseAllDayDate(b.start.date).getTime();
+      } else {
+        bStart = b.start.dateTime ? new Date(b.start.dateTime).getTime() : 0;
+      }
+
       return aStart - bStart;
     });
   });

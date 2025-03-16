@@ -28,10 +28,22 @@ export function formatEventTime(
   config: Types.Config,
   language: string = 'en',
 ): string {
-  const startDate = new Date(event.start.dateTime || event.start.date || '');
-  const endDate = new Date(event.end.dateTime || event.end.date || '');
-  const translations = Localize.getTranslations(language);
   const isAllDayEvent = !event.start.dateTime;
+
+  let startDate;
+  let endDate;
+
+  if (isAllDayEvent) {
+    // Parse all-day dates using the specialized function to handle timezone issues
+    startDate = parseAllDayDate(event.start.date || '');
+    endDate = parseAllDayDate(event.end.date || '');
+  } else {
+    // Regular events with time use standard parsing
+    startDate = new Date(event.start.dateTime || '');
+    endDate = new Date(event.end.dateTime || '');
+  }
+
+  const translations = Localize.getTranslations(language);
 
   if (isAllDayEvent) {
     const adjustedEndDate = new Date(endDate);
@@ -111,6 +123,34 @@ export function formatLocation(location: string, removeCountry = true): string {
 //-----------------------------------------------------------------------------
 // CORE FORMATTING UTILITY
 //-----------------------------------------------------------------------------
+
+/**
+ * Parse all-day event date string to local date object
+ *
+ * Creates a date object at local midnight for the specified date
+ * which preserves the intended day regardless of timezone
+ *
+ * @param dateString - ISO format date string (YYYY-MM-DD)
+ * @returns Date object at local midnight on the specified date
+ */
+export function parseAllDayDate(dateString: string): Date {
+  // Extract year, month, day from date string
+  const [year, month, day] = dateString.split('-').map(Number);
+
+  // Create date at local midnight (months are 0-indexed in JS)
+  return new Date(year, month - 1, day);
+}
+
+/**
+ * Generate a date key string in YYYY-MM-DD format from a Date object
+ * Uses local date components instead of UTC
+ *
+ * @param date - Date object to format
+ * @returns Date key string in YYYY-MM-DD format
+ */
+export function getLocalDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 /**
  * Format time according to 12/24 hour setting
