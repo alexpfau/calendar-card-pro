@@ -174,6 +174,7 @@ export function generateBaseStyles(): string {
       text-align: center;
       padding-right: 12px;
       border-right: var(--card-line-width-vertical) solid var(--card-line-color-vertical);
+      vertical-align: top;
     }
 
     .weekday {
