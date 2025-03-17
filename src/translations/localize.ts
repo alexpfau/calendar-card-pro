@@ -12,6 +12,7 @@ import * as Logger from '../utils/logger';
 // Import language files
 import enTranslations from './languages/en.json';
 import deTranslations from './languages/de.json';
+import plTranslations from './languages/pl.json';
 
 /**
  * Available translations keyed by language code
@@ -19,6 +20,7 @@ import deTranslations from './languages/de.json';
 export const TRANSLATIONS: Record<string, Types.Translations> = {
   en: enTranslations,
   de: deTranslations,
+  pl: plTranslations,
 };
 
 /**
