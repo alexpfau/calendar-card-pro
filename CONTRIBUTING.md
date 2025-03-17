@@ -93,6 +93,8 @@ Example language file structure:
   "allDay": "toute la journée",
   "multiDay": "jusqu'au",
   "at": "à",
+  "endsToday": "ends today",
+  "endsTomorrow": "ends tomorrow",
   "noEvents": "Aucun événement à venir",
   "loading": "Chargement des événements...",
   "error": "Erreur: Entité de calendrier introuvable ou mal configurée"
