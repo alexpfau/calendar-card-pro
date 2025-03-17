@@ -19,6 +19,7 @@ import plTranslations from './languages/pl.json';
 import ruTranslations from './languages/ru.json';
 import svTranslations from './languages/sv.json';
 import ukTranslations from './languages/uk.json';
+import frTranslations from './languages/fr.json';
 
 /**
  * Available translations keyed by language code
@@ -34,6 +35,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   ru: ruTranslations,
   sv: svTranslations,
   uk: ukTranslations,
+  fr: frTranslations,
 };
 
 /**
