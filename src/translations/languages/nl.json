@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Zo", "Ma", "Di", "Wo", "Do", "Vr", "Za"],
+  "fullDaysOfWeek": ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"],
+  "months": ["Jan", "Feb", "Mrt", "Apr", "Mei", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"],
+  "allDay": "hele dag",
+  "multiDay": "tot",
+  "at": "om",
+  "noEvents": "Geen afspraken gepland",
+  "loading": "Kalender afspraken laden...",
+  "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd",
+  "endsToday": "eindigt vandaag",
+  "endsTomorrow": "eindigt morgen"
+}

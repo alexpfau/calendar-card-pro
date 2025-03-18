@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Ne", "Po", "Út", "St", "Čt", "Pá", "So"],
+  "fullDaysOfWeek": ["Neděle", "Pondělí", "Úterý", "Středa", "Čtvrtek", "Pátek", "Sobota"],
+  "months": ["Led", "Úno", "Bře", "Dub", "Kvě", "Čvn", "Čvc", "Srp", "Zář", "Říj", "Lis", "Pro"],
+  "allDay": "celý den",
+  "multiDay": "do",
+  "at": "v",
+  "endsToday": "končí dnes",
+  "endsTomorrow": "končí zítra",
+  "noEvents": "Žádné nadcházející události",
+  "loading": "Načítání událostí z kalendáře...",
+  "error": "Chyba: Entita kalendáře nebyla nalezena nebo je nesprávně nakonfigurována"
+}

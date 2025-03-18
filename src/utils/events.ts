@@ -248,24 +248,38 @@ export function groupEventsByDay(
   const upcomingEvents = events.filter((event) => {
     if (!event?.start || !event?.end) return false;
 
-    const startDate = event.start.dateTime
-      ? new Date(event.start.dateTime)
-      : event.start.date
-        ? new Date(event.start.date)
-        : null;
-    const endDate = event.end.dateTime
-      ? new Date(event.end.dateTime)
-      : event.end.date
-        ? new Date(event.end.date)
-        : null;
+    const isAllDayEvent = !event.start.dateTime;
+
+    let startDate: Date | null;
+    let endDate: Date | null;
+
+    if (isAllDayEvent) {
+      // Use special parsing for all-day events that preserves correct day
+      startDate = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) : null;
+      endDate = event.end.date ? FormatUtils.parseAllDayDate(event.end.date) : null;
+
+      // Adjust end date for all-day events (which is exclusive in iCal format)
+      if (endDate) {
+        const adjustedEndDate = new Date(endDate);
+        adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
+        endDate = adjustedEndDate;
+      }
+    } else {
+      startDate = event.start.dateTime ? new Date(event.start.dateTime) : null;
+      endDate = event.end.dateTime ? new Date(event.end.dateTime) : null;
+    }
+
     if (!startDate || !endDate) return false;
 
-    const isAllDayEvent = !event.start.dateTime;
     const isEventToday = startDate >= todayStart && startDate <= todayEnd;
     const isFutureEvent = startDate > todayEnd;
+    // NEW: Check if event ends today or in the future (is still ongoing)
+    const isOngoingEvent = endDate >= todayStart;
 
-    // Keep only current and future events
-    if (!isEventToday && !isFutureEvent) {
+    // Include events that:
+    // 1. Start today or in the future, OR
+    // 2. Started in the past BUT are still ongoing
+    if (!(isEventToday || isFutureEvent || isOngoingEvent)) {
       return false;
     }
 
@@ -286,22 +300,55 @@ export function groupEventsByDay(
 
   // Process events into days
   upcomingEvents.forEach((event) => {
-    const startDate = event.start.dateTime
-      ? new Date(event.start.dateTime)
-      : event.start.date
-        ? new Date(event.start.date)
-        : null;
-    if (!startDate) return;
+    const isAllDayEvent = !event.start.dateTime;
 
-    const eventDateKey = startDate.toISOString().split('T')[0];
+    let startDate: Date | null;
+    let endDate: Date | null;
+
+    if (isAllDayEvent) {
+      startDate = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) : null;
+      endDate = event.end.date ? FormatUtils.parseAllDayDate(event.end.date) : null;
+
+      // For all-day events, end date is exclusive in iCal format
+      if (endDate) {
+        const adjustedEndDate = new Date(endDate);
+        adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
+        endDate = adjustedEndDate;
+      }
+    } else {
+      startDate = event.start.dateTime ? new Date(event.start.dateTime) : null;
+      endDate = event.end.dateTime ? new Date(event.end.dateTime) : null;
+    }
+
+    if (!startDate || !endDate) return;
+
+    // NEW: Determine which day to display this event on
+    let displayDate: Date;
+
+    if (startDate >= todayStart) {
+      // Event starts today or in future: Display on start date
+      displayDate = startDate;
+    } else if (endDate.toDateString() === todayStart.toDateString()) {
+      // Event ends today: Display on today
+      displayDate = todayStart;
+    } else if (startDate < todayStart && endDate > todayStart) {
+      // Multi-day event that started in past and continues after today: Display on today
+      displayDate = todayStart;
+    } else {
+      // Fallback (shouldn't happen given our filter): Display on start date
+      displayDate = startDate;
+    }
+
+    // Use displayDate for grouping instead of startDate
+    const eventDateKey = FormatUtils.getLocalDateKey(displayDate);
     const translations = Localize.getTranslations(language);
 
     if (!eventsByDay[eventDateKey]) {
       eventsByDay[eventDateKey] = {
-        weekday: translations.daysOfWeek[startDate.getDay()],
-        day: startDate.getDate(),
-        month: translations.months[startDate.getMonth()],
-        timestamp: startDate.getTime(),
+        weekday: translations.daysOfWeek[displayDate.getDay()],
+        day: displayDate.getDate(),
+        month: translations.months[displayDate.getMonth()],
+        timestamp: displayDate.getTime(),
         events: [],
       };
     }
@@ -321,16 +368,27 @@ export function groupEventsByDay(
   // Sort events within each day
   Object.values(eventsByDay).forEach((day) => {
     day.events.sort((a, b) => {
-      const aStart = a.start.dateTime
-        ? new Date(a.start.dateTime).getTime()
-        : a.start.date
-          ? new Date(a.start.date).getTime()
-          : 0;
-      const bStart = b.start.dateTime
-        ? new Date(b.start.dateTime).getTime()
-        : b.start.date
-          ? new Date(b.start.date).getTime()
-          : 0;
+      const aIsAllDay = !a.start.dateTime;
+      const bIsAllDay = !b.start.dateTime;
+
+      // All-day events should appear before timed events
+      if (aIsAllDay && !bIsAllDay) return -1;
+      if (!aIsAllDay && bIsAllDay) return 1;
+
+      let aStart, bStart;
+
+      if (aIsAllDay && a.start.date) {
+        aStart = FormatUtils.parseAllDayDate(a.start.date).getTime();
+      } else {
+        aStart = a.start.dateTime ? new Date(a.start.dateTime).getTime() : 0;
+      }
+
+      if (bIsAllDay && b.start.date) {
+        bStart = FormatUtils.parseAllDayDate(b.start.date).getTime();
+      } else {
+        bStart = b.start.dateTime ? new Date(b.start.dateTime).getTime() : 0;
+      }
+
       return aStart - bStart;
     });
   });

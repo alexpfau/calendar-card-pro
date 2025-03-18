@@ -33,7 +33,7 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 - 🔧 **Highly Customizable** – Fine-tune layout, colors, event details, and behavior.
 - ⚡ **Optimized Performance** – Smart caching, progressive rendering, and minimal API calls.
 - 💡 **Deep Home Assistant Integration** – Theme-aware with native ripple effects.
-- 🌍 **Multi-Language Support** – Available in **English** and **German** (more to come).
+- 🌍 **Multi-Language Support** – [Available in 16 languages](#-adding-translations), community contributions welcome!
 - 🧩 **Modular & Extensible** – Designed for future enhancements and easy customization.
 
 ### 🔗 Dependencies
@@ -165,7 +165,7 @@ The following table provides an overview of all available configuration options.
 | **days_to_show**            | number  | `3`                           | Number of days to display                         |
 | **max_events_to_show**      | number  | `-`                           | Maximum number of events to show in compact mode  |
 | **show_past_events**        | boolean | `false`                       | Show today's events that have already ended       |
-| **language**                | string  | `System`                      | Interface language (`en`, `de`)                   |
+| **language**                | string  | `System`, fallback `en`       | Interface language (auto-detects from HA)         |
 | **time_24h**                | boolean | `true`                        | Use 24-hour time format                           |
 | **show_end_time**           | boolean | `true`                        | Show event end times                              |
 | **show_month**              | boolean | `true`                        | Show month names                                  |
@@ -472,15 +472,30 @@ For those interested in contributing code, I maintain detailed **[architecture d
 
 **Calendar Card Pro** currently supports:
 
-- **English (`en`)**
-- **German (`de`)**
+- **Czech** (`cs`)
+- **Danish** (`da`)
+- **Dutch** (`nl`)
+- **English** (`en`)
+- **Finnish** (`fi`)
+- **French** (`fr`)
+- **German** (`de`)
+- **Hebrew** (`he`)
+- **Icelandic** (`is`)
+- **Italian** (`it`)
+- **Polish** (`pl`)
+- **Portuguese** (`pt`)
+- **Russian** (`ru`)
+- **Spanish** (`es`)
+- **Swedish** (`sv`)
+- **Ukrainian** (`uk`)
 
 To add a new language:
 
 1. **Create a new file** in `src/translations/languages/[lang-code].json`
 2. **Copy the structure** from an existing language file.
-3. **Translate all strings** to your language.
-4. **Submit a Pull Request** with your changes.
+3. **Update the localize file** in `src/translations/localize.ts`
+4. **Translate all strings** to your language.
+5. **Submit a Pull Request** with your changes.
 
 ### 🏆 Acknowledgements
 

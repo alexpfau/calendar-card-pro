@@ -304,11 +304,17 @@ class CalendarCardPro extends HTMLElement implements Types.CalendarComponent {
       return;
     }
 
+    // Get the effective language based on priority order
+    const effectiveLanguage = Localize.getEffectiveLanguage(
+      this.config.language,
+      this._hass?.locale,
+    );
+
     const eventsByDay = EventUtils.groupEventsByDay(
       this.events,
       this.config,
       this.isExpanded,
-      this.config.language,
+      effectiveLanguage,
     );
 
     if (eventsByDay.length === 0) {
@@ -324,7 +330,7 @@ class CalendarCardPro extends HTMLElement implements Types.CalendarComponent {
       const { container: contentContainer, style } = await Render.renderCalendarCard(
         this.config,
         eventsByDay,
-        (event) => FormatUtils.formatEventTime(event, this.config, this.config.language),
+        (event) => FormatUtils.formatEventTime(event, this.config, effectiveLanguage),
         (location) => FormatUtils.formatLocation(location, this.config.remove_location_country),
         Constants.PERFORMANCE.CHUNK_SIZE,
         Constants.PERFORMANCE.RENDER_DELAY,
@@ -416,8 +422,12 @@ class CalendarCardPro extends HTMLElement implements Types.CalendarComponent {
   }
 
   get translations() {
-    const lang = this.config.language || 'en';
-    return Localize.getTranslations(lang);
+    // Use the effective language based on priority order
+    const effectiveLanguage = Localize.getEffectiveLanguage(
+      this.config.language,
+      this._hass?.locale,
+    );
+    return Localize.getTranslations(effectiveLanguage);
   }
 
   //-----------------------------------------------------------------------------

@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "Sb"],
+  "fullDaysOfWeek": ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"],
+  "months": ["Sty", "Lut", "Mar", "Kwi", "Maj", "Cze", "Lip", "Sie", "Wrz", "Paź", "Lis", "Gru"],
+  "allDay": "cały dzień",
+  "multiDay": "do",
+  "at": "o",
+  "endsToday": "kończy się dziś",
+  "endsTomorrow": "kończy się jutro",
+  "noEvents": "Brak nadchodzących wydarzeń",
+  "loading": "Ładowanie wydarzeń z kalendarza...",
+  "error": "Błąd: encja kalendarza nie została znaleziona lub jest niepoprawnie skonfigurowana"
+}

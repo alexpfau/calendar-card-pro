@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
+  "fullDaysOfWeek": ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"],
+  "months": ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
+  "allDay": "todo el día",
+  "multiDay": "hasta",
+  "at": "a las",
+  "endsToday": "termina hoy",
+  "endsTomorrow": "termina mañana",
+  "noEvents": "No hay eventos próximos",
+  "loading": "Cargando eventos del calendario...",
+  "error": "Error: La entidad del calendario no se encontró o está mal configurada"
+}
