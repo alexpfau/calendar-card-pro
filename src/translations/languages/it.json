@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab"],
+  "fullDaysOfWeek": ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"],
+  "months": ["Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic"],
+  "allDay": "tutto-il-giorno",
+  "multiDay": "fino a",
+  "at": "a",
+  "endsToday": "termina oggi",
+  "endsTomorrow": "termina domani",
+  "noEvents": "Nessun evento programmato",
+  "loading": "Sto caricando il calendario degli eventi...",
+  "error": "Errore: Entità Calendario non trovata o non configurata correttamente"
+}

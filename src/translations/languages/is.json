@@ -1,0 +1,21 @@
+{
+  "daysOfWeek": ["Sun", "Mán", "Þri", "Mið", "Fim", "Fös", "Lau"],
+  "fullDaysOfWeek": [
+    "Sunnudagur",
+    "Mánudagur",
+    "Þriðjudagur",
+    "Miðvikudagur",
+    "Fimmtudagur",
+    "Föstudagur",
+    "Laugardagur"
+  ],
+  "months": ["Jan", "Feb", "Mar", "Apr", "Maí", "Jún", "Júl", "Ágú", "Sep", "Okt", "Nóv", "Des"],
+  "allDay": "Allur Dagurinn",
+  "multiDay": "þar til",
+  "at": "hjá",
+  "endsToday": "lýkur í dag",
+  "endsTomorrow": "lýkur á morgun",
+  "noEvents": "Engir viðburðir á næstunni",
+  "loading": "Hleður inn dagatal...",
+  "error": "Villa: Dagatalseining finnst ekki eða er vanstillt"
+}

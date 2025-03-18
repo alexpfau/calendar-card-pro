@@ -161,6 +161,9 @@ export interface Hass {
   // Fix API call method signature to match what Home Assistant actually provides
   callApi: (method: string, path: string, parameters?: object) => Promise<unknown>;
   callService: (domain: string, service: string, serviceData?: object) => void;
+  locale?: {
+    language: string;
+  };
   // Add connection property that may be needed
   connection?: {
     subscribeEvents: (callback: (event: unknown) => void, eventType: string) => Promise<() => void>;
@@ -195,15 +198,17 @@ export interface HassMoreInfoEvent extends CustomEvent {
  * Interface for language translations
  */
 export interface Translations {
-  daysOfWeek: string[];
-  fullDaysOfWeek: string[];
-  months: string[];
+  loading: string;
+  noEvents: string;
+  error: string;
   allDay: string;
   multiDay: string;
   at: string;
-  noEvents: string;
-  loading: string;
-  error: string;
+  months: string[];
+  daysOfWeek: string[];
+  fullDaysOfWeek: string[];
+  endsToday: string;
+  endsTomorrow: string;
 }
 
 // -----------------------------------------------------------------------------

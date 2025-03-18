@@ -1,0 +1,14 @@
+{
+  "daysOfWeek": ["Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"],
+  "fullDaysOfWeek": ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"],
+  "months": ["Jan", "Feb", "Mar", "Apr", "Maj", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dec"],
+  "allDay": "hele dagen",
+  "multiDay": "indtil",
+  "at": "kl.",
+  "endsToday": "slutter i dag",
+  "endsTomorrow": "slutter i morgen", 
+  "noEvents": "Ingen kommende begivenheder",
+  "loading": "Indlæser kalenderbegivenheder...",
+  "error": "Fejl: Kalenderenheden blev ikke fundet eller er ikke konfigureret korrekt"
+}
+

@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"],
+  "fullDaysOfWeek": ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"],
+  "months": ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"],
+  "allDay": "toute la journée",
+  "multiDay": "jusqu'au",
+  "at": "à",
+  "endsToday": "finit aujourd'hui",
+  "endsTomorrow": "finit demain",
+  "noEvents": "Aucun événement à venir",
+  "loading": "Chargement des événements...",
+  "error": "Erreur: Entité de calendrier introuvable ou mal configurée"
+}

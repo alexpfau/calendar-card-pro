@@ -13,6 +13,8 @@
   "allDay": "ganztägig",
   "multiDay": "bis",
   "at": "um",
+  "endsToday": "endet heute",
+  "endsTomorrow": "endet morgen",
   "noEvents": "Keine anstehenden Termine",
   "loading": "Kalendereinträge werden geladen...",
   "error": "Fehler: Kalender-Entity nicht gefunden oder falsch konfiguriert"

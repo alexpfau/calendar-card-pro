@@ -5,6 +5,8 @@
   "allDay": "all-day",
   "multiDay": "until",
   "at": "at",
+  "endsToday": "ends today",
+  "endsTomorrow": "ends tomorrow",
   "noEvents": "No upcoming events",
   "loading": "Loading calendar events...",
   "error": "Error: Calendar entity not found or improperly configured"

@@ -28,10 +28,22 @@ export function formatEventTime(
   config: Types.Config,
   language: string = 'en',
 ): string {
-  const startDate = new Date(event.start.dateTime || event.start.date || '');
-  const endDate = new Date(event.end.dateTime || event.end.date || '');
-  const translations = Localize.getTranslations(language);
   const isAllDayEvent = !event.start.dateTime;
+
+  let startDate;
+  let endDate;
+
+  if (isAllDayEvent) {
+    // Parse all-day dates using the specialized function to handle timezone issues
+    startDate = parseAllDayDate(event.start.date || '');
+    endDate = parseAllDayDate(event.end.date || '');
+  } else {
+    // Regular events with time use standard parsing
+    startDate = new Date(event.start.dateTime || '');
+    endDate = new Date(event.end.dateTime || '');
+  }
+
+  const translations = Localize.getTranslations(language);
 
   if (isAllDayEvent) {
     const adjustedEndDate = new Date(endDate);
@@ -113,6 +125,34 @@ export function formatLocation(location: string, removeCountry = true): string {
 //-----------------------------------------------------------------------------
 
 /**
+ * Parse all-day event date string to local date object
+ *
+ * Creates a date object at local midnight for the specified date
+ * which preserves the intended day regardless of timezone
+ *
+ * @param dateString - ISO format date string (YYYY-MM-DD)
+ * @returns Date object at local midnight on the specified date
+ */
+export function parseAllDayDate(dateString: string): Date {
+  // Extract year, month, day from date string
+  const [year, month, day] = dateString.split('-').map(Number);
+
+  // Create date at local midnight (months are 0-indexed in JS)
+  return new Date(year, month - 1, day);
+}
+
+/**
+ * Generate a date key string in YYYY-MM-DD format from a Date object
+ * Uses local date components instead of UTC
+ *
+ * @param date - Date object to format
+ * @returns Date key string in YYYY-MM-DD format
+ */
+export function getLocalDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/**
  * Format time according to 12/24 hour setting
  *
  * @param date Date object to format
@@ -171,36 +211,100 @@ function formatMultiDayTime(
   language: string,
   translations: Types.Translations,
 ): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Case 3: Event ends today
+  if (endDate.toDateString() === today.toDateString()) {
+    const endTimeStr = formatTime(endDate, true);
+    return `${translations.endsToday} ${translations.at} ${endTimeStr}`;
+  }
+
+  // NEW Case 4: Event ends tomorrow
+  if (endDate.toDateString() === tomorrow.toDateString()) {
+    const endTimeStr = formatTime(endDate, true);
+    return `${translations.endsTomorrow} ${translations.at} ${endTimeStr}`;
+  }
+
   const endDay = endDate.getDate();
   const endMonthName = translations.months[endDate.getMonth()];
   const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
-
-  const startTimeStr = formatTime(startDate, true);
   const endTimeStr = formatTime(endDate, true);
+  const formatStyle = Localize.getDateFormatStyle(language);
 
-  // Different date formats based on language
-  if (language === 'de') {
-    // German: "7:00 bis Freitag, 21. Mär um 20:00"
-    return [
-      startTimeStr,
-      translations.multiDay,
-      endWeekday + ',',
-      `${endDay}.`,
-      endMonthName,
-      translations.at,
-      endTimeStr,
-    ].join(' ');
-  } else {
-    // English: "7:00 until Friday, Mar 21 at 20:00"
-    return [
-      startTimeStr,
-      translations.multiDay,
-      endWeekday + ',',
-      endMonthName,
-      endDay,
-      translations.at,
-      endTimeStr,
-    ].join(' ');
+  // Case 2: Today is after start date but before end date (middle day)
+  if (today.toDateString() !== startDate.toDateString() && today < endDate) {
+    // Create date format based on language style
+    switch (formatStyle) {
+      case 'day-dot-month':
+        return [
+          translations.multiDay,
+          endWeekday + ',',
+          `${endDay}.`,
+          endMonthName,
+          translations.at,
+          endTimeStr,
+        ].join(' ');
+      case 'month-day':
+        return [
+          translations.multiDay,
+          endWeekday + ',',
+          endMonthName,
+          endDay,
+          translations.at,
+          endTimeStr,
+        ].join(' ');
+      case 'day-month':
+      default:
+        return [
+          translations.multiDay,
+          endWeekday + ',',
+          endDay,
+          endMonthName,
+          translations.at,
+          endTimeStr,
+        ].join(' ');
+    }
+  }
+
+  // Case 1: Default - Today is on start date (or before start)
+  const startTimeStr = formatTime(startDate, true);
+
+  // Use existing format with start time based on language style
+  switch (formatStyle) {
+    case 'day-dot-month':
+      return [
+        startTimeStr,
+        translations.multiDay,
+        endWeekday + ',',
+        `${endDay}.`,
+        endMonthName,
+        translations.at,
+        endTimeStr,
+      ].join(' ');
+    case 'month-day':
+      return [
+        startTimeStr,
+        translations.multiDay,
+        endWeekday + ',',
+        endMonthName,
+        endDay,
+        translations.at,
+        endTimeStr,
+      ].join(' ');
+    case 'day-month':
+    default:
+      return [
+        startTimeStr,
+        translations.multiDay,
+        endWeekday + ',',
+        endDay,
+        endMonthName,
+        translations.at,
+        endTimeStr,
+      ].join(' ');
   }
 }
 
@@ -217,15 +321,33 @@ function formatMultiDayAllDayTime(
   language: string,
   translations: Types.Translations,
 ): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // UPDATED: On the end date, just show "All-day"
+  if (endDate.toDateString() === today.toDateString()) {
+    return translations.allDay;
+  }
+
+  // NEW: Day before end date shows "ends tomorrow"
+  if (endDate.toDateString() === tomorrow.toDateString()) {
+    return `${translations.allDay}, ${translations.endsTomorrow}`;
+  }
+
   const endDay = endDate.getDate();
   const endMonthName = translations.months[endDate.getMonth()];
+  const formatStyle = Localize.getDateFormatStyle(language);
 
-  // Different date formats based on language
-  if (language === 'de') {
-    // German: All-Day, until 21. März
-    return `${translations.allDay}, ${translations.multiDay} ${endDay}. ${endMonthName}`;
-  } else {
-    // English: All-Day, until Mar 21
-    return `${translations.allDay}, ${translations.multiDay} ${endMonthName} ${endDay}`;
+  // Different date formats based on language style
+  switch (formatStyle) {
+    case 'day-dot-month':
+      return `${translations.allDay}, ${translations.multiDay} ${endDay}. ${endMonthName}`;
+    case 'month-day':
+      return `${translations.allDay}, ${translations.multiDay} ${endMonthName} ${endDay}`;
+    case 'day-month':
+    default:
+      return `${translations.allDay}, ${translations.multiDay} ${endDay} ${endMonthName}`;
   }
 }

@@ -28,7 +28,7 @@ export const DEFAULTS = {
   /** Default number of days to show if not specified */
   DAYS_TO_SHOW: 3,
   /** Default language */
-  LANGUAGE: 'en',
+  LANGUAGE: '',
   /** Default showPastEvents setting */
   SHOW_PAST_EVENTS: false,
   /** Default max events to show when compact */
