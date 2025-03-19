@@ -400,14 +400,37 @@ export function groupEventsByDay(
 
   // Apply max_events_to_show limit if configured and not expanded
   if (config.max_events_to_show && !isExpanded) {
-    let totalEvents = 0;
-    days = days.filter((day) => {
-      if (totalEvents >= (config.max_events_to_show ?? 0)) {
-        return false;
+    let eventsShown = 0;
+    const maxEvents = config.max_events_to_show ?? 0;
+    const limitedDays: Types.EventsByDay[] = [];
+
+    for (const day of days) {
+      // If we've already hit the limit, stop adding days
+      if (eventsShown >= maxEvents) {
+        break;
       }
-      totalEvents += day.events.length;
-      return true;
-    });
+
+      // Calculate how many events we can still add from this day
+      const remainingEvents = maxEvents - eventsShown;
+
+      // If this day has events to show (considering our remaining limit)
+      if (remainingEvents > 0 && day.events.length > 0) {
+        // Create a new day object with limited events
+        const limitedDay: Types.EventsByDay = {
+          ...day,
+          events: day.events.slice(0, remainingEvents),
+        };
+
+        // Add this day to our result
+        limitedDays.push(limitedDay);
+
+        // Update our counter
+        eventsShown += limitedDay.events.length;
+      }
+    }
+
+    // Replace the original days array with our limited version
+    days = limitedDays;
   }
 
   return days;

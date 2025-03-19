@@ -18,6 +18,7 @@ import esTranslations from './languages/es.json';
 import fiTranslations from './languages/fi.json';
 import frTranslations from './languages/fr.json';
 import heTranslations from './languages/he.json';
+import huTranslations from './languages/hu.json';
 import isTranslations from './languages/is.json';
 import itTranslations from './languages/it.json';
 import nlTranslations from './languages/nl.json';
@@ -26,6 +27,7 @@ import ptTranslations from './languages/pt.json';
 import ruTranslations from './languages/ru.json';
 import svTranslations from './languages/sv.json';
 import ukTranslations from './languages/uk.json';
+import viTranslations from './languages/vi.json';
 
 /**
  * Available translations keyed by language code
@@ -40,6 +42,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   fi: fiTranslations,
   fr: frTranslations,
   he: heTranslations,
+  hu: huTranslations,
   is: isTranslations,
   it: itTranslations,
   nl: nlTranslations,
@@ -48,6 +51,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   ru: ruTranslations,
   sv: svTranslations,
   uk: ukTranslations,
+  vi: viTranslations,
 };
 
 /**

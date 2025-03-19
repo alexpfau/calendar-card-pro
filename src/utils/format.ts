@@ -61,7 +61,7 @@ export function formatEventTime(
 
   // Handle multi-day events with start/end times
   if (startDate.toDateString() !== endDate.toDateString()) {
-    return formatMultiDayTime(startDate, endDate, language, translations);
+    return formatMultiDayTime(startDate, endDate, language, translations, config.time_24h);
   }
 
   // Single day event with start/end times
@@ -203,6 +203,7 @@ function formatSingleDayTime(
  * @param endDate End date of the event
  * @param language Language code for translations
  * @param translations Translations object
+ * @param time24h Whether to use 24-hour format
  * @returns Formatted time string
  */
 function formatMultiDayTime(
@@ -210,6 +211,7 @@ function formatMultiDayTime(
   endDate: Date,
   language: string,
   translations: Types.Translations,
+  time24h: boolean,
 ): string {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -218,20 +220,20 @@ function formatMultiDayTime(
 
   // Case 3: Event ends today
   if (endDate.toDateString() === today.toDateString()) {
-    const endTimeStr = formatTime(endDate, true);
+    const endTimeStr = formatTime(endDate, time24h);
     return `${translations.endsToday} ${translations.at} ${endTimeStr}`;
   }
 
   // NEW Case 4: Event ends tomorrow
   if (endDate.toDateString() === tomorrow.toDateString()) {
-    const endTimeStr = formatTime(endDate, true);
+    const endTimeStr = formatTime(endDate, time24h);
     return `${translations.endsTomorrow} ${translations.at} ${endTimeStr}`;
   }
 
   const endDay = endDate.getDate();
   const endMonthName = translations.months[endDate.getMonth()];
   const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
-  const endTimeStr = formatTime(endDate, true);
+  const endTimeStr = formatTime(endDate, time24h);
   const formatStyle = Localize.getDateFormatStyle(language);
 
   // Case 2: Today is after start date but before end date (middle day)
@@ -270,7 +272,7 @@ function formatMultiDayTime(
   }
 
   // Case 1: Default - Today is on start date (or before start)
-  const startTimeStr = formatTime(startDate, true);
+  const startTimeStr = formatTime(startDate, time24h);
 
   // Use existing format with start time based on language style
   switch (formatStyle) {
