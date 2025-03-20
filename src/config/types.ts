@@ -56,6 +56,7 @@ export interface Config {
   location_font_size: string;
   location_color: string;
   location_icon_size: string;
+  show_single_allday_time: boolean;
 
   // Actions
   tap_action: ActionConfig;

@@ -101,10 +101,14 @@ export function renderEvent(
         <div class="event-content">
           <div class="event-title" style="color: ${entityColor}">${event.summary}</div>
           <div class="time-location">
+            ${eventTime
+              ? html`
             <div class="time">
               <ha-icon icon="mdi:clock-outline"></ha-icon>
               <span>${eventTime}</span>
             </div>
+                `
+              : ''}
             ${eventLocation
               ? html`
                   <div class="location">

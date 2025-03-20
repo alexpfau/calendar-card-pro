@@ -59,6 +59,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   location_font_size: '12px',
   location_color: 'var(--secondary-text-color)',
   location_icon_size: '14px',
+  show_single_allday_time: true,
 
   // Actions
   tap_action: { action: 'none' },

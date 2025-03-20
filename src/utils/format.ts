@@ -56,7 +56,7 @@ export function formatEventTime(
     }
 
     // Single day all-day event
-    return translations.allDay;
+    return config.show_single_allday_time ? translations.allDay : '';
   }
 
   // Handle multi-day events with start/end times
