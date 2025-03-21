@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Søn", "Mån", "Tys", "Ons", "Tor", "Fre", "Lau"],
+  "fullDaysOfWeek": ["Søndag", "Måndag", "Tysdag", "Onsdag", "Torsdag", "Fredag", "Laurdag"],
+  "months": ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"],
+  "allDay": "heile dagen",
+  "multiDay": "inntil",
+  "at": "kl. ",
+  "endsToday": "sluttar i dag",
+  "endsTomorrow": "sluttar i morgon",
+  "noEvents": "Ingen kommande hendingar",
+  "loading": "Lastar kalenderhendingar...",
+  "error": "Feil: Kalendereininga vart ikkje funnen eller er ikkje konfigurert riktig"
+}

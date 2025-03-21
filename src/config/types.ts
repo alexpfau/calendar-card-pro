@@ -31,6 +31,7 @@ export interface Config {
   vertical_line_color: string;
   horizontal_line_width: string;
   horizontal_line_color: string;
+  show_event_highlight: boolean;
 
   // Date column
   date_vertical_alignment: string;
@@ -72,6 +73,7 @@ export interface Config {
 export interface EntityConfig {
   entity: string;
   color?: string;
+  accent_color?: string;
 }
 
 // -----------------------------------------------------------------------------

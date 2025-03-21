@@ -34,6 +34,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   vertical_line_color: '#03a9f4',
   horizontal_line_width: '0px',
   horizontal_line_color: 'var(--secondary-text-color)',
+  show_event_highlight: false,
 
   // Date column
   date_vertical_alignment: 'middle',
@@ -77,7 +78,7 @@ export const DEFAULT_CONFIG: Types.Config = {
  * Normalizes entity configuration to ensure consistent format
  */
 export function normalizeEntities(
-  entities: Array<string | { entity: string; color?: string }>,
+  entities: Array<string | { entity: string; color?: string; accent_color?: string }>,
 ): Array<Types.EntityConfig> {
   if (!Array.isArray(entities)) {
     return [];
@@ -89,12 +90,14 @@ export function normalizeEntities(
         return {
           entity: item,
           color: 'var(--primary-text-color)',
+          accent_color: 'var(--calendar-card-line-color-vertical)',
         };
       }
       if (typeof item === 'object' && item.entity) {
         return {
           entity: item.entity,
           color: item.color || 'var(--primary-text-color)',
+          accent_color: item.accent_color || 'var(--calendar-card-line-color-vertical)',
         };
       }
       return null;

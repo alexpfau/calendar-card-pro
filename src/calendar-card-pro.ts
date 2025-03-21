@@ -23,9 +23,8 @@
  */
 
 // Import Lit libraries
-import { LitElement, PropertyValues, css, html } from 'lit';
+import { LitElement, PropertyValues, html } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { unsafeCSS } from 'lit';
 
 // Import all types via namespace for cleaner imports
 import * as Config from './config/config';
@@ -132,9 +131,7 @@ class CalendarCardPro extends LitElement {
   //-----------------------------------------------------------------------------
 
   static get styles() {
-    return css`
-      ${unsafeCSS(Styles.getBaseCardStyles())}
-    `;
+    return Styles.cardStyles;
   }
 
   //-----------------------------------------------------------------------------
@@ -497,10 +494,8 @@ class CalendarCardPro extends LitElement {
         @pointerleave=${this._handlePointerCancel}
       >
         <ha-ripple></ha-ripple>
-        <div class="calendar-card">
-          ${this.config.title ? html`<h1 class="header">${this.config.title}</h1>` : ''}
-          ${eventsByDay.map((day) => Render.renderDay(day, this.config, this.effectiveLanguage))}
-        </div>
+        ${this.config.title ? html`<h1 class="card-header">${this.config.title}</h1>` : ''}
+        ${eventsByDay.map((day) => Render.renderDay(day, this.config, this.effectiveLanguage))}
       </ha-card>
     `;
   }

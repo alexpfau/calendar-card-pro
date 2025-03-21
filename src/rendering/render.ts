@@ -63,6 +63,8 @@ export function renderEvent(
 ): TemplateResult {
   // Get color from config based on entity ID
   const entityColor = EventUtils.getEntityColor(event._entityId, config);
+  const entityAccentColor = EventUtils.getEntityAccentColorHex(event._entityId, config);
+  const entityAccentBackgroundColor = config.show_event_highlight ? entityAccentColor + "33" : "";
 
   // Format event time and location
   const eventTime = FormatUtils.formatEventTime(event, config, language);
@@ -97,7 +99,7 @@ export function renderEvent(
             </td>
           `
         : ''}
-      <td class=${classMap(eventClasses)}>
+      <td class=${classMap(eventClasses)} style="border-left: var(--calendar-card-line-width-vertical) solid ${entityAccentColor}; background-color: ${entityAccentBackgroundColor};">
         <div class="event-content">
           <div class="event-title" style="color: ${entityColor}">${event.summary}</div>
           <div class="time-location">

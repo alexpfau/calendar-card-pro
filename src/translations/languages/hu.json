@@ -3,10 +3,10 @@
   "fullDaysOfWeek": ["Vasárnap", "Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat"],
   "months": ["Jan", "Feb", "Már", "Ápr", "Máj", "Jún", "Júl", "Aug", "Szep", "Okt", "Nov", "Dec"],
   "allDay": "egész napos",
-  "multiDay": "eddig",
+  "multiDay": "eddig:",
   "endsToday": "ma este ér véget",
   "endsTomorrow": "holnap ér véget",
-  "at": "itt",
+  "at": "itt:",
   "noEvents": "Mára nincs több esemény",
   "loading": "Naptárbejegyzések betöltése...",
   "error": "Hiba: Naptár entitás nem található vagy nem megfelelően konfigutált"

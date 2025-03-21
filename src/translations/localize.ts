@@ -22,8 +22,9 @@ import heTranslations from './languages/he.json';
 import huTranslations from './languages/hu.json';
 import isTranslations from './languages/is.json';
 import itTranslations from './languages/it.json';
+import nbTranslations from './languages/nb.json';
 import nlTranslations from './languages/nl.json';
-import noTranslations from './languages/no.json';
+import nnTranslations from './languages/nn.json';
 import plTranslations from './languages/pl.json';
 import ptTranslations from './languages/pt.json';
 import ruTranslations from './languages/ru.json';
@@ -51,8 +52,9 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   hu: huTranslations,
   is: isTranslations,
   it: itTranslations,
+  nb: nbTranslations,
   nl: nlTranslations,
-  no: noTranslations,
+  nn: nnTranslations,
   pl: plTranslations,
   pt: ptTranslations,
   ru: ruTranslations,
@@ -187,8 +189,8 @@ export function getDateFormatStyle(language: string): 'day-dot-month' | 'month-d
     return 'day-dot-month';
   }
 
-  // English uses month then day (e.g., "Mar 17")
-  if (lang === 'en') {
+  // English and Hungarian use month then day (e.g., "Mar 17")
+  if (lang === 'en' || lang === 'hu') {
     return 'month-day';
   }
 

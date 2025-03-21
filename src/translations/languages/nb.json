@@ -8,6 +8,6 @@
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
   "noEvents": "Ingen kommende hendelser",
-  "loading": "Lasting kalenderhendelser...",
+  "loading": "Laster kalenderhendelser...",
   "error": "Feil: Kalenderenheten ble ikke funnet eller er ikke konfigurert riktig"
 }

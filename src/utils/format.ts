@@ -218,13 +218,13 @@ function formatMultiDayTime(
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // Case 3: Event ends today
+  // Case 1: Event ends today
   if (endDate.toDateString() === today.toDateString()) {
     const endTimeStr = formatTime(endDate, time24h);
     return `${translations.endsToday} ${translations.at} ${endTimeStr}`;
   }
 
-  // NEW Case 4: Event ends tomorrow
+  // Case 2: Event ends tomorrow
   if (endDate.toDateString() === tomorrow.toDateString()) {
     const endTimeStr = formatTime(endDate, time24h);
     return `${translations.endsTomorrow} ${translations.at} ${endTimeStr}`;
@@ -236,7 +236,7 @@ function formatMultiDayTime(
   const endTimeStr = formatTime(endDate, time24h);
   const formatStyle = Localize.getDateFormatStyle(language);
 
-  // Case 2: Today is after start date but before end date (middle day)
+  // Case 3: Today is after start date but before end date (middle day)
   if (today.toDateString() !== startDate.toDateString() && today < endDate) {
     // Create date format based on language style
     switch (formatStyle) {
@@ -271,7 +271,7 @@ function formatMultiDayTime(
     }
   }
 
-  // Case 1: Default - Today is on start date (or before start)
+  // Case 4: Default - Today is on start date (or before start)
   const startTimeStr = formatTime(startDate, time24h);
 
   // Use existing format with start time based on language style
@@ -328,9 +328,9 @@ function formatMultiDayAllDayTime(
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // UPDATED: On the end date, just show "All-day"
+  // On the end date, show "ends today"
   if (endDate.toDateString() === today.toDateString()) {
-    return translations.allDay;
+    return `${translations.allDay}, ${translations.endsToday}`;
   }
 
   // NEW: Day before end date shows "ends tomorrow"

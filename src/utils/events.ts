@@ -274,6 +274,30 @@ export function getEntityColor(entityId: string | undefined, config: Types.Confi
     : entityConfig.color || 'var(--primary-text-color)';
 }
 
+/**
+ * Get entity accent color in hex from configuration based on entity ID
+ *
+ * @param entityId - The entity ID to find color for
+ * @param config - Current card configuration
+ * @returns Color string from entity config or default
+ */
+export function getEntityAccentColorHex(entityId: string | undefined, config: Types.Config): string {
+  // TODO: convert return values to hex
+
+  if (!entityId) return 'var(--calendar-card-line-color-vertical)';
+
+  const entityConfig = config.entities.find(
+    (e) =>
+      (typeof e === 'string' && e === entityId) || (typeof e === 'object' && e.entity === entityId),
+  );
+
+  if (!entityConfig) return 'var(--calendar-card-line-color-vertical)';
+
+  return typeof entityConfig === 'string'
+    ? 'var(--calendar-card-line-color-vertical)'
+    : entityConfig.accent_color || 'var(--calendar-card-line-color-vertical)';
+}
+
 //-----------------------------------------------------------------------------
 // DATA FETCHING FUNCTIONS
 //-----------------------------------------------------------------------------
