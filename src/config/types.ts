@@ -72,6 +72,7 @@ export interface Config {
  */
 export interface EntityConfig {
   entity: string;
+  label?: string;
   color?: string;
   accent_color?: string;
 }
@@ -89,6 +90,7 @@ export interface CalendarEventData {
   summary?: string;
   location?: string;
   _entityId?: string;
+  _entityLabel?: string;
   time?: string;
 }
 

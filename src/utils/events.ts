@@ -178,6 +178,7 @@ export function groupEventsByDay(
       start: event.start,
       end: event.end,
       _entityId: event._entityId,
+      _entityLabel: getEntityLabel(event._entityId, config),
     });
   });
 
@@ -281,7 +282,10 @@ export function getEntityColor(entityId: string | undefined, config: Types.Confi
  * @param config - Current card configuration
  * @returns Color string from entity config or default
  */
-export function getEntityAccentColorHex(entityId: string | undefined, config: Types.Config): string {
+export function getEntityAccentColorHex(
+  entityId: string | undefined,
+  config: Types.Config,
+): string {
   // TODO: convert return values to hex
 
   if (!entityId) return 'var(--calendar-card-line-color-vertical)';
@@ -296,6 +300,29 @@ export function getEntityAccentColorHex(entityId: string | undefined, config: Ty
   return typeof entityConfig === 'string'
     ? 'var(--calendar-card-line-color-vertical)'
     : entityConfig.accent_color || 'var(--calendar-card-line-color-vertical)';
+}
+
+/**
+ * Get entity label from configuration based on entity ID
+ *
+ * @param entityId - The entity ID to find label for
+ * @param config - Current card configuration
+ * @returns Label string or undefined if not set
+ */
+export function getEntityLabel(
+  entityId: string | undefined,
+  config: Types.Config,
+): string | undefined {
+  if (!entityId) return undefined;
+
+  const entityConfig = config.entities.find(
+    (e) =>
+      (typeof e === 'string' && e === entityId) || (typeof e === 'object' && e.entity === entityId),
+  );
+
+  if (!entityConfig || typeof entityConfig === 'string') return undefined;
+
+  return entityConfig.label;
 }
 
 //-----------------------------------------------------------------------------
@@ -320,12 +347,58 @@ export function getTimeWindow(daysToShow: number): { start: Date; end: Date } {
 }
 
 /**
- * Fetch calendar events from Home Assistant API
+ * Fetch calendar event data with caching support
+ * This function handles both API fetching and cache retrieval
  *
- * @param hass - Home Assistant instance
- * @param entities - Calendar entities to fetch events for
- * @param timeWindow - Time window to fetch events in
- * @returns Array of calendar events
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param instanceId Component instance ID for caching
+ * @param force Whether to force API refresh
+ * @returns Promise resolving to calendar event data array
+ */
+export async function fetchEventData(
+  hass: Types.Hass,
+  config: Types.Config,
+  instanceId: string,
+  force = false,
+): Promise<Types.CalendarEventData[]> {
+  // Generate cache key based on configuration
+  const cacheKey = getBaseCacheKey(
+    instanceId,
+    config.entities,
+    config.days_to_show,
+    config.show_past_events,
+  );
+
+  // Try cache first
+  const isManualPageReload = isManualPageLoad();
+  if (!force) {
+    const cachedEvents = getCachedEvents(cacheKey, config, isManualPageReload);
+    if (cachedEvents) {
+      Logger.info(`Using ${cachedEvents.length} events from cache`);
+      return [...cachedEvents];
+    }
+  }
+
+  // Fetch from API if needed
+  Logger.info('Fetching events from API');
+  const entities = config.entities.map((e) =>
+    typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
+  );
+
+  const timeWindow = getTimeWindow(config.days_to_show);
+  const fetchedEvents = await fetchEvents(hass, entities, timeWindow);
+
+  // Create a mutable copy and cache the results
+  const eventData = Array.from(fetchedEvents);
+  cacheEvents(cacheKey, eventData);
+
+  return eventData;
+}
+
+/**
+ * Fetch calendar events from Home Assistant API
+ * @private Internal utility used by fetchEventData
  */
 export async function fetchEvents(
   hass: Types.Hass,
@@ -415,13 +488,13 @@ export function getCacheDuration(config?: Types.Config): number {
  *
  * @param key - Cache key
  * @param config - Card configuration for cache duration
- * @param isManualReload - Whether this check is during a manual page reload
+ * @param isManualPageReload - Whether this check is during a manual page reload
  * @returns Valid cache entry or null if invalid/expired
  */
 export function getValidCacheEntry(
   key: string,
   config?: Types.Config,
-  isManualReload: boolean = false,
+  isManualPageReload: boolean = false,
 ): Types.CacheEntry | null {
   try {
     const item = localStorage.getItem(key);
@@ -432,7 +505,7 @@ export function getValidCacheEntry(
 
     // For manual reloads, use a much shorter cache validity
     // This ensures fresh data on manual reloads while preserving normal caching for auto-refreshes
-    const cacheDuration = isManualReload
+    const cacheDuration = isManualPageReload
       ? Constants.CACHE.MANUAL_RELOAD_CACHE_DURATION_SECONDS * 1000
       : getCacheDuration(config);
 
@@ -459,15 +532,15 @@ export function getValidCacheEntry(
  *
  * @param key - Cache key
  * @param config - Card configuration
- * @param isManualReload - Whether this check is during a manual page reload
+ * @param isManualPageReload - Whether this check is during a manual page reload
  * @returns Cached events or null if expired/unavailable
  */
 export function getCachedEvents(
   key: string,
   config?: Types.Config,
-  isManualReload: boolean = false,
+  isManualPageReload: boolean = false,
 ): Types.CalendarEventData[] | null {
-  const cacheEntry = getValidCacheEntry(key, config, isManualReload);
+  const cacheEntry = getValidCacheEntry(key, config, isManualPageReload);
   if (cacheEntry) {
     return [...cacheEntry.events];
   }

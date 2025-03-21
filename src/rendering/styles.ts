@@ -7,41 +7,51 @@ import { css } from 'lit';
 import type * as Types from '../config/types';
 
 /**
- * Generate CSS custom properties based on card configuration
+ * Generate CSS custom properties object based on card configuration
+ * Returns an object with property-value pairs for use with styleMap
  */
-export function generateCustomProperties(config: Types.Config): string {
-  return `
-    --calendar-card-background-color: ${config.background_color};
-    ${config.title_font_size ? `--calendar-card-font-size-title: ${config.title_font_size};` : ''}
-    ${config.title_color ? `--calendar-card-color-title: ${config.title_color};` : ''}
-    --calendar-card-font-size-weekday: ${config.weekday_font_size};
-    --calendar-card-font-size-day: ${config.day_font_size};
-    --calendar-card-font-size-month: ${config.month_font_size};
-    --calendar-card-font-size-event: ${config.event_font_size};
-    --calendar-card-font-size-time: ${config.time_font_size};
-    --calendar-card-font-size-location: ${config.location_font_size};
-    --calendar-card-color-weekday: ${config.weekday_color};
-    --calendar-card-color-day: ${config.day_color};
-    --calendar-card-color-month: ${config.month_color};
-    --calendar-card-color-event: ${config.event_color};
-    --calendar-card-color-time: ${config.time_color};
-    --calendar-card-color-location: ${config.location_color};
-    --calendar-card-line-color-vertical: ${config.vertical_line_color};
-    --calendar-card-line-color-horizontal: ${config.horizontal_line_color};
-    --calendar-card-line-width-vertical: ${config.vertical_line_width};
-    --calendar-card-line-width-horizontal: ${config.horizontal_line_width};
-    --calendar-card-spacing-row: ${config.row_spacing};
-    --calendar-card-spacing-additional: ${config.additional_card_spacing};
-    --calendar-card-icon-size-time: ${config.time_icon_size || '14px'};
-    --calendar-card-icon-size-location: ${config.location_icon_size || '14px'};
-    --calendar-card-date-column-width: ${parseFloat(config.day_font_size) * 1.75}px;
-    --calendar-card-date-column-vertical-alignment: ${config.date_vertical_alignment};
-    --calendar-card-event-border-radius: calc(var(--ha-card-border-radius, 10px) / 2);
-    --ha-ripple-hover-opacity: 0.04;
-    --ha-ripple-hover-color: ${config.vertical_line_color};
-    --ha-ripple-pressed-opacity: 0.12;
-    --ha-ripple-pressed-color: ${config.vertical_line_color};
-  `;
+export function generateCustomPropertiesObject(config: Types.Config): Record<string, string> {
+  const props: Record<string, string> = {
+    '--calendar-card-background-color': config.background_color,
+    '--calendar-card-font-size-weekday': config.weekday_font_size,
+    '--calendar-card-font-size-day': config.day_font_size,
+    '--calendar-card-font-size-month': config.month_font_size,
+    '--calendar-card-font-size-event': config.event_font_size,
+    '--calendar-card-font-size-time': config.time_font_size,
+    '--calendar-card-font-size-location': config.location_font_size,
+    '--calendar-card-color-weekday': config.weekday_color,
+    '--calendar-card-color-day': config.day_color,
+    '--calendar-card-color-month': config.month_color,
+    '--calendar-card-color-event': config.event_color,
+    '--calendar-card-color-time': config.time_color,
+    '--calendar-card-color-location': config.location_color,
+    '--calendar-card-line-color-vertical': config.vertical_line_color,
+    '--calendar-card-line-color-horizontal': config.horizontal_line_color,
+    '--calendar-card-line-width-vertical': config.vertical_line_width,
+    '--calendar-card-line-width-horizontal': config.horizontal_line_width,
+    '--calendar-card-spacing-row': config.row_spacing,
+    '--calendar-card-spacing-additional': config.additional_card_spacing,
+    '--calendar-card-icon-size-time': config.time_icon_size || '14px',
+    '--calendar-card-icon-size-location': config.location_icon_size || '14px',
+    '--calendar-card-date-column-width': `${parseFloat(config.day_font_size) * 1.75}px`,
+    '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
+    '--calendar-card-event-border-radius': 'calc(var(--ha-card-border-radius, 10px) / 2)',
+    '--ha-ripple-hover-opacity': '0.04',
+    '--ha-ripple-hover-color': config.vertical_line_color,
+    '--ha-ripple-pressed-opacity': '0.12',
+    '--ha-ripple-pressed-color': config.vertical_line_color,
+  };
+
+  // Optional properties
+  if (config.title_font_size) {
+    props['--calendar-card-font-size-title'] = config.title_font_size;
+  }
+
+  if (config.title_color) {
+    props['--calendar-card-color-title'] = config.title_color;
+  }
+
+  return props;
 }
 
 /**
@@ -78,6 +88,16 @@ export const cardStyles = css`
 
   ha-card:focus-visible {
     outline: 2px solid var(--calendar-card-line-color-vertical);
+  }
+
+  /* Structure containers for stable DOM */
+  .header-container,
+  .content-container {
+    width: 100%;
+  }
+
+  .card-header-placeholder {
+    height: 0;
   }
 
   /* ===== HEADER STYLES ===== */
@@ -196,6 +216,10 @@ export const cardStyles = css`
     line-height: 1.2;
     color: var(--calendar-card-color-event);
     padding-bottom: 2px;
+  }
+
+  .calendar-label {
+    display: inline;
   }
 
   /* ===== TIME & LOCATION STYLES ===== */

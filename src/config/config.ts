@@ -78,7 +78,9 @@ export const DEFAULT_CONFIG: Types.Config = {
  * Normalizes entity configuration to ensure consistent format
  */
 export function normalizeEntities(
-  entities: Array<string | { entity: string; color?: string; accent_color?: string }>,
+  entities: Array<
+    string | { entity: string; label?: string; color?: string; accent_color?: string }
+  >,
 ): Array<Types.EntityConfig> {
   if (!Array.isArray(entities)) {
     return [];
@@ -96,6 +98,7 @@ export function normalizeEntities(
       if (typeof item === 'object' && item.entity) {
         return {
           entity: item.entity,
+          label: item.label,
           color: item.color || 'var(--primary-text-color)',
           accent_color: item.accent_color || 'var(--calendar-card-line-color-vertical)',
         };
