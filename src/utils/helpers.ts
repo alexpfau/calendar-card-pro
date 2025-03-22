@@ -6,6 +6,59 @@
  */
 
 //-----------------------------------------------------------------------------
+// COLOR UTILITIES
+//-----------------------------------------------------------------------------
+
+/**
+ * Convert any color format to RGBA with specific opacity
+ *
+ * @param color - Color in any valid CSS format
+ * @param opacity - Opacity value (0-100)
+ * @returns RGBA color string
+ */
+export function convertToRGBA(color: string, opacity: number): string {
+  // If color is a CSS variable, we need to handle it specially
+  if (color.startsWith('var(')) {
+    // Create a temporary CSS variable with opacity
+    return `rgba(var(--calendar-color-rgb, 3, 169, 244), ${opacity / 100})`;
+  }
+
+  if (color === 'transparent') {
+    return color;
+  }
+
+  // Create temporary element to compute the color
+  const tempElement = document.createElement('div');
+  tempElement.style.display = 'none';
+  tempElement.style.color = color;
+  document.body.appendChild(tempElement);
+
+  // Get computed color in RGB format
+  const computedColor = getComputedStyle(tempElement).color;
+  document.body.removeChild(tempElement);
+
+  // If computation failed, return original color
+  if (!computedColor) return color;
+
+  // Handle RGB format (rgb(r, g, b))
+  const rgbMatch = computedColor.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+  if (rgbMatch) {
+    const [, r, g, b] = rgbMatch;
+    return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
+  }
+
+  // If already RGBA, replace the alpha component
+  const rgbaMatch = computedColor.match(/^rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)$/);
+  if (rgbaMatch) {
+    const [, r, g, b] = rgbaMatch;
+    return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
+  }
+
+  // Fallback to original color if parsing fails
+  return color;
+}
+
+//-----------------------------------------------------------------------------
 // ID GENERATION FUNCTIONS
 //-----------------------------------------------------------------------------
 

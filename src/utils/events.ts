@@ -10,6 +10,7 @@ import * as Localize from '../translations/localize';
 import * as FormatUtils from './format';
 import * as Logger from './logger';
 import * as Constants from '../config/constants';
+import * as Helpers from './helpers';
 
 //-----------------------------------------------------------------------------
 // HIGH-LEVEL API FUNCTIONS
@@ -276,30 +277,41 @@ export function getEntityColor(entityId: string | undefined, config: Types.Confi
 }
 
 /**
- * Get entity accent color in hex from configuration based on entity ID
+ * Get entity accent color with applied opacity
+ * Retrieves accent color from entity config and converts it to RGBA in one step
  *
  * @param entityId - The entity ID to find color for
  * @param config - Current card configuration
- * @returns Color string from entity config or default
+ * @param opacity - Opacity value (0-100), if omitted returns solid color
+ * @returns Color string ready for use in CSS with opacity applied if requested
  */
-export function getEntityAccentColorHex(
+export function getEntityAccentColorWithOpacity(
   entityId: string | undefined,
   config: Types.Config,
+  opacity?: number,
 ): string {
-  // TODO: convert return values to hex
-
   if (!entityId) return 'var(--calendar-card-line-color-vertical)';
 
+  // Find entity config
   const entityConfig = config.entities.find(
     (e) =>
       (typeof e === 'string' && e === entityId) || (typeof e === 'object' && e.entity === entityId),
   );
 
-  if (!entityConfig) return 'var(--calendar-card-line-color-vertical)';
+  // Get base color - whether from entity config or from vertical_line_color config
+  const baseColor =
+    typeof entityConfig === 'string'
+      ? config.vertical_line_color // Use vertical_line_color for simple entity strings
+      : entityConfig?.accent_color || config.vertical_line_color;
 
-  return typeof entityConfig === 'string'
-    ? 'var(--calendar-card-line-color-vertical)'
-    : entityConfig.accent_color || 'var(--calendar-card-line-color-vertical)';
+  // Explicitly check if opacity is undefined or 0
+  // If opacity is undefined, 0, or NaN, return the base color with no transparency
+  if (opacity === undefined || opacity === 0 || isNaN(opacity)) {
+    return baseColor;
+  }
+
+  // Convert to RGBA with the specified opacity
+  return Helpers.convertToRGBA(baseColor, opacity);
 }
 
 /**
@@ -503,11 +515,17 @@ export function getValidCacheEntry(
     const cache = JSON.parse(item) as Types.CacheEntry;
     const now = Date.now();
 
-    // For manual reloads, use a much shorter cache validity
-    // This ensures fresh data on manual reloads while preserving normal caching for auto-refreshes
-    const cacheDuration = isManualPageReload
-      ? Constants.CACHE.MANUAL_RELOAD_CACHE_DURATION_SECONDS * 1000
-      : getCacheDuration(config);
+    // Determine cache duration based on context
+    let cacheDuration;
+
+    // Only apply short cache duration if refresh_on_navigate is enabled
+    // and this is a manual page reload/navigation
+    if (isManualPageReload && config?.refresh_on_navigate) {
+      cacheDuration = Constants.CACHE.MANUAL_RELOAD_CACHE_DURATION_SECONDS * 1000;
+    } else {
+      // Otherwise use normal cache duration
+      cacheDuration = getCacheDuration(config);
+    }
 
     const isValid = now - cache.timestamp < cacheDuration;
 

@@ -23,9 +23,8 @@
  */
 
 // Import Lit libraries
-import { LitElement, PropertyValues, html } from 'lit';
+import { LitElement, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
-import { styleMap } from 'lit/directives/style-map.js';
 
 // Import all types via namespace for cleaner imports
 import * as Config from './config/config';
@@ -192,8 +191,6 @@ class CalendarCardPro extends LitElement {
     ) {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
     }
-
-    // No style updates needed - handled by styleMap
   }
 
   //-----------------------------------------------------------------------------

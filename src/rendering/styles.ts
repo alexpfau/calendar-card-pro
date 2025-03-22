@@ -274,16 +274,18 @@ export const cardStyles = css`
   }
 
   /* ===== STATUS MESSAGES ===== */
-  .no-events,
+  .no-events {
+    font-size: var(--calendar-card-font-size-event);
+    line-height: 1.2;
+    color: var(--calendar-card-color-event);
+    font-style: italic;
+    padding-bottom: 2px;
+  }
+    
   .loading,
   .error {
     text-align: center;
     padding: 16px;
-  }
-
-  .no-events {
-    color: var(--secondary-text-color);
-    font-style: italic;
   }
 
   .error {
