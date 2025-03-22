@@ -227,6 +227,7 @@ entities:
 - An **object with `entity` and optional parameters** allows customization per calendar:
   - `entity`: The **calendar entity ID** (required).
   - `color`: Custom event title color (optional) – **Overrides** the default `event_color` setting.
+  - `show_location`:  Whether to show event locations (optional) – **Overrides** the default `show_location` setting.
 
 ### 🏗️ Event Display & Compact Mode
 
