@@ -156,10 +156,7 @@ export function renderEvent(
 
   // Format event time and location
   const eventTime = FormatUtils.formatEventTime(event, config, language);
-  const eventLocation =
-    event.location && config.show_location
-      ? FormatUtils.formatLocation(event.location, config.remove_location_country)
-      : '';
+  const eventLocation = EventUtils.getLocation(event._entityId, event.location, config);
 
   // Determine event position for styling
   const isFirst = index === 0;

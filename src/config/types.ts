@@ -74,6 +74,7 @@ export interface EntityConfig {
   label?: string;
   color?: string;
   accent_color?: string;
+  show_location?: boolean;
 }
 
 // -----------------------------------------------------------------------------

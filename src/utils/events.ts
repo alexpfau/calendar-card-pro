@@ -325,6 +325,35 @@ export function getEntityLabel(
   return entityConfig.label;
 }
 
+/**
+ * Get entity location based on configuration based on entity ID
+ *
+ * @param entityId - The entity ID to find color for
+ * @param location - the location for the event
+ * @param config - Current card configuration
+ * @returns Formatted location string
+ */
+export function getLocation(entityId: string | undefined, location: string | undefined, config: Types.Config): string {
+  if (!entityId) return '';
+  if (!location) return '';
+
+  var entity_show_location: boolean = true;
+
+  const entityConfig = config.entities.find(
+    (e) =>
+      (typeof e === 'string' && e === entityId) || (typeof e === 'object' && e.entity === entityId),
+  );
+
+  if (entityConfig && typeof entityConfig === 'object' && entityConfig.show_location !== undefined && entityConfig.show_location !== null) 
+  {
+    entity_show_location = entityConfig.show_location
+  }
+
+  return location && config.show_location && entity_show_location
+    ? FormatUtils.formatLocation(location, config.remove_location_country)
+    : '';
+}
+
 //-----------------------------------------------------------------------------
 // DATA FETCHING FUNCTIONS
 //-----------------------------------------------------------------------------
@@ -383,7 +412,7 @@ export async function fetchEventData(
   // Fetch from API if needed
   Logger.info('Fetching events from API');
   const entities = config.entities.map((e) =>
-    typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
+    typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)', show_location: true } : e,
   );
 
   const timeWindow = getTimeWindow(config.days_to_show);
