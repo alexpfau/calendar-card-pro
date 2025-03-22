@@ -164,7 +164,10 @@ export function renderEvent(
       : ''; // Empty string for no background
 
   // Format event time and location
-  const eventTime = FormatUtils.formatEventTime(event, config, language);
+  const eventTime = 
+    config.show_time 
+      ? FormatUtils.formatEventTime(event, config, language) 
+      : '';
   const eventLocation =
     event.location && config.show_location
       ? FormatUtils.formatLocation(event.location, config.remove_location_country)
@@ -207,7 +210,7 @@ export function renderEvent(
               : ''}${event.summary}
           </div>
           <div class="time-location">
-            ${config.show_time
+            ${eventTime
               ? html`
                   <div class="time">
                     <ha-icon icon="mdi:clock-outline"></ha-icon>
