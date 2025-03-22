@@ -193,6 +193,7 @@ show_location: true
 | show_time                | boolean | `true`                            | Whether to show event times                                                      |
 | time_24h                 | boolean | `true`                            | Whether to use 24-hour time format                                               |
 | show_end_time            | boolean | `true`                            | Whether to show event end times                                                  |
+| show_single_allday_time  | boolean | `true`                            | Whether to show the "All Day" text for single day events                                                            |
 | time_icon_size           | string  | `14px`                            | Clock icon size                                                                  |
 | time_font_size           | string  | `12px`                            | Event time font size                                                             |
 | time_color               | string  | `--secondary-text-color`          | Event time font color                                                            |
