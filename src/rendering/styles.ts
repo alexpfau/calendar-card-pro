@@ -116,6 +116,7 @@ export const cardStyles = css`
     height: var(--calendar-card-height, auto);
     overflow-y: auto;
     padding-bottom: 1px;
+    hyphens: auto;
 
     /* Hide scrollbars across browsers */
     scrollbar-width: none; /* Firefox */
