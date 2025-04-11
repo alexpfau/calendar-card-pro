@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Du", "Lu", "Ma", "Mi", "Jo", "Vi", "Sa"],
+  "fullDaysOfWeek": ["Duminica", "Luni", "Marti", "Miercuri", "Joi", "Vineri", "Sambata"],
+  "months": ["Ian", "Feb", "Mart", "Apr", "Mai", "Iun", "Iul", "Aug", "Sept", "Oct", "Nov", "Dec"],
+  "allDay": "toata ziua",
+  "multiDay": "pana la",
+  "at": "la",
+  "endsToday": "se incheie astazi",
+  "endsTomorrow": "se incheie maine",
+  "noEvents": "Nu sunt evenimente viitoare",
+  "loading": "Incarcare evenimente de calendar...",
+  "error": "Eroare: Entitatea de calendar nu a fost gasita sau este configurata incorect"
+}
