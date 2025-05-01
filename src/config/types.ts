@@ -98,6 +98,7 @@ export interface Config {
   location_font_size: string;
   location_color: string;
   location_icon_size: string;
+  description_regex: string;
 
   // Weather
   weather?: WeatherConfig;
@@ -200,6 +201,7 @@ export interface CalendarEventData {
   readonly start: { readonly dateTime?: string; readonly date?: string };
   readonly end: { readonly dateTime?: string; readonly date?: string };
   summary?: string;
+  description?: string;
   location?: string;
   _entityId?: string;
   _entityLabel?: string;

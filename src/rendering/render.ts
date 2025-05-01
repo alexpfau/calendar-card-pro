@@ -976,6 +976,7 @@ export function renderEventTitle(
   const entityColor = isEmptyDay
     ? 'var(--calendar-card-empty-day-color)'
     : event._matchedConfig?.color || config.event_color;
+  const summary = renderSummary(event, config);
 
   return html`
     <div class="summary-row">
@@ -987,12 +988,25 @@ export function renderEventTitle(
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
           style="color: ${entityColor}"
         >
-          ${isEmptyDay ? `✓ ${event.summary}` : event.summary}
+          ${isEmptyDay ? `✓ ${summary}` : summary}
         </span>
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
     </div>
   `;
+}
+
+function renderSummary(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+): string | undefined {
+  if (config.description_regex && event.description) {
+    const arr = new RegExp(config.description_regex, 'm').exec(event.description);
+    if (arr) {
+      return arr[1];
+    }
+  }
+  return event.summary;
 }
 
 /**

@@ -193,6 +193,7 @@
     "progress_bar_height": "Progress bar height",
     "progress_bar_width": "Progress bar width",
     "multiday_event_handling": "Multi-day Event Handling",
+    "description_regex": "Regular expression to create summary from a part of description. Must contain one matching group.",
 
     "weather_integration": "Weather Integration",
     "weather_entity_position": "Weather Entity & Position",

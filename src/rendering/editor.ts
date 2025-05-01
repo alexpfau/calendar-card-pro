@@ -1179,6 +1179,9 @@ export class CalendarCardProEditor extends LitElement {
               'split_multiday_events',
               this._getTranslation('split_multiday_events'),
             )}
+
+            <!-- Description regex -->
+            ${this.addTextField('description_regex', this._getTranslation('description_regex'))}
           `,
         )}
 
