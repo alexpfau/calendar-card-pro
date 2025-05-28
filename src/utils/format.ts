@@ -216,7 +216,7 @@ export function formatTime(date: Date, use24h = true): string {
     return `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
   }
 
-  return `${hours}:${minutes.toString().padStart(2, '0')}`;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
 /**
