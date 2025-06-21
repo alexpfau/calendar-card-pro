@@ -130,8 +130,14 @@ export const cardStyles = css`
 
   /* Content container with unified scrolling behavior */
   .content-container {
+    /* Use flexbox to take remaining space within ha-card */
+    flex: 1;
+    min-height: 0; /* Allow shrinking in flex container */
+
+    /* Apply explicit height/max-height when configured */
     max-height: var(--calendar-card-max-height, none);
     height: var(--calendar-card-height, auto);
+
     overflow-x: hidden;
     overflow-y: auto;
     padding-bottom: 1px;
