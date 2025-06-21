@@ -587,7 +587,8 @@ class CalendarCardPro extends LitElement {
     }
 
     // Render main card structure with content
-    const useFlexLayout = !this.config.height; // Use flex when no explicit height
+    // Use flex layout by default to respect grid constraints, only disable for explicit height
+    const useFlexLayout = !this.config.height; // Use flex unless explicit height is set
     return Render.renderMainCardStructure(
       customStyles,
       this.config.title,

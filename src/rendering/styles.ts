@@ -132,22 +132,23 @@ export const cardStyles = css`
   /* Content container with unified scrolling behavior */
   .content-container {
     max-height: var(--calendar-card-max-height, none);
-    height: var(--calendar-card-height, auto);
     overflow-x: hidden;
     overflow-y: auto;
     padding-bottom: 1px;
     hyphens: auto;
+    /* Default to flex layout to respect card boundaries */
+    flex: 1;
+    min-height: 0;
 
     /* Hide scrollbars across browsers */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
   }
 
-  /* When no explicit height is configured, use flex layout */
-  .content-container.use-flex {
-    flex: 1;
-    min-height: 0;
-    height: auto;
+  /* When explicit height is configured, override flex behavior */
+  .content-container:not(.use-flex) {
+    height: var(--calendar-card-height, auto);
+    flex: none;
   }
 
   /* Show scrollbars on hover */
