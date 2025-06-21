@@ -587,7 +587,15 @@ class CalendarCardPro extends LitElement {
     }
 
     // Render main card structure with content
-    return Render.renderMainCardStructure(customStyles, this.config.title, content, handlers);
+    const useFlexLayout = !this.config.height; // Use flex when no explicit height
+    return Render.renderMainCardStructure(
+      customStyles,
+      this.config.title,
+      content,
+      handlers,
+      false,
+      useFlexLayout,
+    );
   }
 }
 

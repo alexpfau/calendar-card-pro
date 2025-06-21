@@ -100,6 +100,7 @@ export const cardStyles = css`
     display: flex;
     flex-direction: column;
     height: 100%;
+    max-height: 100%; /* Prevent growing beyond grid constraints */
     position: relative;
     overflow: hidden;
 
@@ -130,14 +131,8 @@ export const cardStyles = css`
 
   /* Content container with unified scrolling behavior */
   .content-container {
-    /* Use flexbox to take remaining space within ha-card */
-    flex: 1;
-    min-height: 0; /* Allow shrinking in flex container */
-
-    /* Apply explicit height/max-height when configured */
     max-height: var(--calendar-card-max-height, none);
     height: var(--calendar-card-height, auto);
-
     overflow-x: hidden;
     overflow-y: auto;
     padding-bottom: 1px;
@@ -146,6 +141,13 @@ export const cardStyles = css`
     /* Hide scrollbars across browsers */
     scrollbar-width: none; /* Firefox */
     -ms-overflow-style: none; /* IE/Edge */
+  }
+
+  /* When no explicit height is configured, use flex layout */
+  .content-container.use-flex {
+    flex: 1;
+    min-height: 0;
+    height: auto;
   }
 
   /* Show scrollbars on hover */

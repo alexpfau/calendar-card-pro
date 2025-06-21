@@ -46,6 +46,7 @@ export function renderMainCardStructure(
     pointerLeave: (ev: Event) => void;
   },
   maxHeightSet: boolean = false,
+  useFlexLayout: boolean = false,
 ): TemplateResult {
   return html`
     <ha-card
@@ -68,7 +69,7 @@ export function renderMainCardStructure(
       </div>
 
       <!-- Content container is always present -->
-      <div class="content-container">${content}</div>
+      <div class="content-container ${useFlexLayout ? 'use-flex' : ''}">${content}</div>
     </ha-card>
   `;
 }
