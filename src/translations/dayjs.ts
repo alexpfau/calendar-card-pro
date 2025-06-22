@@ -12,6 +12,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 dayjs.extend(relativeTime);
 
 // Explicitly import all locales supported by our card
+import 'dayjs/locale/bg';
 import 'dayjs/locale/ca';
 import 'dayjs/locale/cs';
 import 'dayjs/locale/da';
@@ -69,6 +70,7 @@ function mapLocale(locale: string): string {
 
   // Complete list of supported locales matching our translations
   const supportedLocales = [
+    'bg',
     'cs',
     'da',
     'de',

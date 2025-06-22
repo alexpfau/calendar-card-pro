@@ -12,6 +12,7 @@
 ## Related Issues
 
 - [#230](https://github.com/alexpfau/calendar-card-pro/pull/230) - Update Slovak translation by @jose1711
+- [#232](https://github.com/alexpfau/calendar-card-pro/pull/232) - Update FUNDING.yml by @benjamin-dcs
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.0.5...v3.0.6
 

@@ -1057,6 +1057,22 @@ card_mod:
     }
 ```
 
+**Highlight tomorrow's events:**
+
+This works analogously to "today" as seen above, but using the "tomorrow" class. For example:
+
+```yaml
+type: custom:calendar-card-pro
+card_mod:
+  style: |
+    /* Make tomorrow's events stand out */
+    .day-table.tomorrow .event-title {
+      font-size: 16px !important;     /* Larger text */
+      font-weight: bold !important;   /* Bold text */
+      color: var(--accent-color) !important; /* Use theme accent color */
+    }
+```
+
 **Frameless calendar integration:**
 
 ```yaml
@@ -1425,6 +1441,7 @@ For those interested in contributing code, I maintain detailed **[architecture d
 
 **Calendar Card Pro** currently supports:
 
+- **Bulgarian** (`bg`)
 - **Catalan** (`ca`)
 - **Czech** (`cs`)
 - **Danish** (`da`)

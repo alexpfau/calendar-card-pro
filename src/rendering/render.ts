@@ -517,7 +517,7 @@ function renderDateColumn(
       const dateConfig = config.weather?.date || {};
       const showConditions = dateConfig.show_conditions !== false;
       const showHighTemp = dateConfig.show_high_temp !== false;
-      const showLowTemp = dateConfig.show_low_temp === true && dailyForecast.templow;
+      const showLowTemp = dateConfig.show_low_temp === true && dailyForecast.templow !== undefined;
 
       // Get styling from config
       const iconSize = dateConfig.icon_size || '14px';
@@ -604,7 +604,15 @@ export function renderDay(
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayDate = new Date(day.timestamp);
-  const isToday = dayDate.toDateString() === todayStart.toDateString();
+  const dayDateString = dayDate.toDateString();
+  const todayStartString = todayStart.toDateString();
+  const isToday = dayDateString === todayStartString;
+
+  // Check if this day is tomorrow
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+  const tomorrowStartString = tomorrowStart.toDateString();
+  const isTomorrow = dayDateString === tomorrowStartString;
 
   // Separator precedence hierarchy (highest to lowest):
   // 1. Month boundaries (with month separator enabled)
@@ -641,7 +649,14 @@ export function renderDay(
 
   return html`
     ${daySeparator}
-    <table class="day-table ${isToday ? 'today' : 'future-day'}">
+    <table
+      class=${classMap({
+        'day-table': true,
+        today: isToday,
+        tomorrow: isTomorrow,
+        'future-day': !isToday,
+      })}
+    >
       ${repeat(
         day.events,
         (event, index) => `${event._entityId}-${event.summary}-${index}`,

@@ -10,6 +10,7 @@ import * as Types from '../config/types';
 import * as Logger from '../utils/logger';
 
 // Import language files (sorted alphabetically by language code)
+import bgTranslations from './languages/bg.json';
 import csTranslations from './languages/cs.json';
 import caTranslations from './languages/ca.json';
 import daTranslations from './languages/da.json';
@@ -45,6 +46,7 @@ import zhTWTranslations from './languages/zh-TW.json';
  */
 export const TRANSLATIONS: Record<string, Types.Translations> = {
   // Sorted alphabetically by language code
+  bg: bgTranslations,
   cs: csTranslations,
   ca: caTranslations,
   da: daTranslations,
