@@ -93,7 +93,7 @@ export const cardStyles = css`
 
   :host {
     display: block;
-    height: 100%; /* Respect grid container height constraints */
+    height: 100%;
   }
 
   ha-card {
@@ -101,7 +101,6 @@ export const cardStyles = css`
     display: flex;
     flex-direction: column;
     height: 100%;
-    max-height: 100%; /* Prevent growing beyond grid constraints */
     position: relative;
     overflow: hidden;
 
