@@ -38,6 +38,7 @@ import 'dayjs/locale/sk';
 import 'dayjs/locale/sl';
 import 'dayjs/locale/sv';
 import 'dayjs/locale/th';
+import 'dayjs/locale/tr';
 import 'dayjs/locale/uk';
 import 'dayjs/locale/vi';
 import 'dayjs/locale/zh-cn';
@@ -94,6 +95,7 @@ function mapLocale(locale: string): string {
     'sl',
     'sv',
     'th',
+    'tr',
     'uk',
     'vi',
     'zh-cn',
