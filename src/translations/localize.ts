@@ -75,7 +75,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   uk: ukTranslations,
   vi: viTranslations,
   th: thTranslations,
-  tr: thTranslations,
+  tr: trTranslations,
   'zh-cn': zhCNTranslations,
   'zh-tw': zhTWTranslations,
 };
