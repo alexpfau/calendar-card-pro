@@ -542,10 +542,10 @@ function renderDateColumn(
             : nothing}
           ${showUvIndex
             ? html`<ha-icon icon="mdi:sun-wireless" style="--mdc-icon-size: ${iconSize};"></ha-icon>
-                <span
-                  style="font-size: ${fontSize}; color: ${color};">
-                  ${dailyForecast.uvindex}
-                </span>`
+                   <span style="font-size: ${fontSize}; color: ${color};">
+                     ${dailyForecast.uvindex}
+                   </span>
+              `
             : nothing}
         </div>
       `;
@@ -1066,9 +1066,9 @@ function renderEventWeather(
         : nothing}
       ${showUvIndex
         ? html`<ha-icon icon="mdi:sun-wireless" style="--mdc-icon-size: ${iconSize};"></ha-icon>
-            <span style="font-size: ${fontSize}; color: ${color};">
-              ${forecast.uvindex}
-            </span>`
+               <span style="font-size: ${fontSize}; color: ${color};">
+                 ${forecast.uvindex}
+               </span>`
         : nothing}
     </div>
   `;
