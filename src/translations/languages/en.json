@@ -210,7 +210,9 @@
     "color": "Color",
     "event_row_weather": "Event Row Weather",
     "show_temp": "Show temperature",
-
+    "show_uvindex": "Show UV index",
+    "show_uvindex_threshold": "Threshold when to show UV index",        
+    
     "interactions": "Interactions",
     "tap_action": "Tap Action",
     "hold_action": "Hold Action",

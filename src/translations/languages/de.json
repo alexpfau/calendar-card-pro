@@ -218,6 +218,8 @@
     "color": "Farbe",
     "event_row_weather": "Ereignisreihe Wetter",
     "show_temp": "Temperatur anzeigen",
+    "show_uvindex": "Zeige UV Index",
+    "show_uvindex_threshold": "Grenzwert ab dem der UV Index angezeigt werden soll",    
 
     "interactions": "Interaktionen",
     "tap_action": "Aktion antippen",

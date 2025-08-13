@@ -517,6 +517,7 @@ function renderDateColumn(
       const showConditions = dateConfig.show_conditions !== false;
       const showHighTemp = dateConfig.show_high_temp !== false;
       const showLowTemp = dateConfig.show_low_temp === true && dailyForecast.templow !== undefined;
+      const showUvIndex = (dateConfig.show_uvindex !== false) && (dailyForecast.uvindex >= dateConfig.show_uvindex_threshold); 
 
       // Get styling from config
       const iconSize = dateConfig.icon_size || '14px';
@@ -538,6 +539,13 @@ function renderDateColumn(
             : nothing}
           ${showLowTemp
             ? html` <span class="weather-temp-low">/${dailyForecast.templow}°</span> `
+            : nothing}
+          ${showUvIndex
+            ? html`<ha-icon icon="mdi:sun-wireless" style="--mdc-icon-size: ${iconSize};"></ha-icon>
+                   <span style="font-size: ${fontSize}; color: ${color};">
+                     ${dailyForecast.uvindex}
+                   </span>
+              `
             : nothing}
         </div>
       `;
@@ -1038,6 +1046,7 @@ function renderEventWeather(
   const eventConfig = config.weather?.event || {};
   const showConditions = eventConfig.show_conditions !== false;
   const showTemp = eventConfig.show_temp !== false;
+  const showUvIndex = eventConfig.show_uvindex !== false && forecast.uvindex >= eventConfig.show_uvindex_threshold;
 
   // Get styling from config
   const iconSize = eventConfig.icon_size || '14px';
@@ -1054,6 +1063,12 @@ function renderEventWeather(
         ? html`<span style="font-size: ${fontSize}; color: ${color};">
             ${forecast.temperature}°
           </span>`
+        : nothing}
+      ${showUvIndex
+        ? html`<ha-icon icon="mdi:sun-wireless" style="--mdc-icon-size: ${iconSize};"></ha-icon>
+               <span style="font-size: ${fontSize}; color: ${color};">
+                 ${forecast.uvindex}
+               </span>`
         : nothing}
     </div>
   `;

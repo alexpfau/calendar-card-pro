@@ -110,6 +110,8 @@ export const DEFAULT_CONFIG: Types.Config = {
       show_conditions: true,
       show_high_temp: true,
       show_low_temp: false,
+      show_uvindex: true,
+      show_uvindex_threshold: 0,
       icon_size: '14px',
       font_size: '12px',
       color: 'var(--primary-text-color)',
@@ -117,6 +119,8 @@ export const DEFAULT_CONFIG: Types.Config = {
     event: {
       show_conditions: true,
       show_temp: true,
+      show_uvindex: true,
+      show_uvindex_threshold: 0,
       icon_size: '14px',
       font_size: '12px',
       color: 'var(--primary-text-color)',
