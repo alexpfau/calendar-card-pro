@@ -1270,7 +1270,7 @@ export class CalendarCardProEditor extends LitElement {
                           ${this.addTextField(
                             'weather.event.show_uvindex_threshold',
                             this._getTranslation('show_uvindex_threshold'),
-                          )}                          
+                          )}
                           ${this.addTextField(
                             'weather.event.icon_size',
                             this._getTranslation('icon_size'),
