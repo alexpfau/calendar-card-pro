@@ -97,7 +97,7 @@ function processForecastData(
       hour,
       precipitation: item.precipitation,
       precipitation_probability: item.precipitation_probability,
-      uvindex: item.uv_index !== undefined ? Math.round(item.uv_index) : undefined, // not sure if the check !== undefined is really needed
+      uvindex: item.uv_index !== undefined ? Math.round(item.uv_index) : undefined, 
     };
   });
 
