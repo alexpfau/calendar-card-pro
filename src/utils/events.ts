@@ -234,6 +234,11 @@ export function groupEventsByDay(
           config.show_location)
             ? FormatUtils.formatLocation(event.location || '', config.remove_location_country)
             : '',
+        description:
+          (getEntitySetting(event._entityId, 'show_description', config, event) ??
+          config.show_description)
+            ? event.description || ''
+            : '',
         start: event.start,
         end: event.end,
         _entityId: event._entityId,

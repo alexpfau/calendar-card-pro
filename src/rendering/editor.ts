@@ -1147,6 +1147,28 @@ export class CalendarCardProEditor extends LitElement {
               `;
             })()}
 
+            <!-- Description Display -->
+            <h3>${this._getTranslation('description')}</h3>
+            ${this.addBooleanField('show_description', this._getTranslation('show_description'))}
+            ${(() => {
+              // Only show additional description fields if show_description is true
+              if (this.getConfigValue('show_description') !== true) {
+                return html``;
+              }
+
+              return html`
+                ${this.addTextField(
+                  'description_font_size',
+                  this._getTranslation('description_font_size'),
+                )}
+                ${this.addTextField('description_color', this._getTranslation('description_color'))}
+                ${this.addTextField(
+                  'description_icon_size',
+                  this._getTranslation('description_icon_size'),
+                )}
+              `;
+            })()}
+
             <!-- Progress Indicators -->
             <h3>${this._getTranslation('progress_indicators')}</h3>
             ${this.addBooleanField('show_countdown', this._getTranslation('show_countdown'))}
@@ -1770,6 +1792,14 @@ export class CalendarCardProEditor extends LitElement {
                   )}
                   <div class="helper-text">
                     ${this._getTranslation('entity_show_location_note')}
+                  </div>
+
+                  ${this.addBooleanField(
+                    `entities.${index}.show_description`,
+                    this._getTranslation('show_description'),
+                  )}
+                  <div class="helper-text">
+                    ${this._getTranslation('entity_show_description_note')}
                   </div>
 
                   ${this.addBooleanField(

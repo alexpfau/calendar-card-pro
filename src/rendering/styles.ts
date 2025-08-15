@@ -20,12 +20,14 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-font-size-event': config.event_font_size,
     '--calendar-card-font-size-time': config.time_font_size,
     '--calendar-card-font-size-location': config.location_font_size,
+    '--calendar-card-font-size-description': config.description_font_size,
     '--calendar-card-color-weekday': config.weekday_color,
     '--calendar-card-color-day': config.day_color,
     '--calendar-card-color-month': config.month_color,
     '--calendar-card-color-event': config.event_color,
     '--calendar-card-color-time': config.time_color,
     '--calendar-card-color-location': config.location_color,
+    '--calendar-card-color-description': config.description_color,
     '--calendar-card-line-color-vertical': config.accent_color,
     '--calendar-card-line-width-vertical': config.vertical_line_width,
     '--calendar-card-day-spacing': config.day_spacing,
@@ -38,6 +40,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-progress-bar-width': config.progress_bar_width,
     '--calendar-card-icon-size-time': config.time_icon_size || '14px',
     '--calendar-card-icon-size-location': config.location_icon_size || '14px',
+    '--calendar-card-icon-size-description': config.description_icon_size || '14px',
     '--calendar-card-date-column-width': `${parseFloat(config.day_font_size) * 1.75}px`,
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-border-radius': 'calc(var(--ha-card-border-radius, 10px) / 2)',
@@ -523,7 +526,7 @@ export const cardStyles = css`
     margin-right: 2px;
   }
 
-  /* ===== TIME & LOCATION STYLES ===== */
+  /* ===== TIME, LOCATION & DESCRIPTION STYLES ===== */
 
   .time-location {
     display: flex;
@@ -532,7 +535,8 @@ export const cardStyles = css`
   }
 
   .time,
-  .location {
+  .location,
+  .description {
     display: flex;
     align-items: center;
     line-height: 1.2;
@@ -541,7 +545,8 @@ export const cardStyles = css`
   }
 
   .time span,
-  .location span {
+  .location span,
+  .description span {
     display: inline-block;
     vertical-align: middle;
   }
@@ -573,6 +578,11 @@ export const cardStyles = css`
   .location {
     font-size: var(--calendar-card-font-size-location);
     color: var(--calendar-card-color-location);
+  }
+
+  .description {
+    font-size: var(--calendar-card-font-size-description);
+    color: var(--calendar-card-color-description);
   }
 
   /* ===== PROGRESS BAR STYLES ===== */
@@ -612,6 +622,10 @@ export const cardStyles = css`
 
   .location ha-icon {
     --mdc-icon-size: var(--calendar-card-icon-size-location, 14px);
+  }
+
+  .description ha-icon {
+    --mdc-icon-size: var(--calendar-card-icon-size-description, 14px);
   }
 
   /* ===== STATUS MESSAGES ===== */

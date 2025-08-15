@@ -101,6 +101,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   location_font_size: '12px',
   location_color: 'var(--secondary-text-color)',
   location_icon_size: '14px',
+  show_description: false,
+  description_font_size: '12px',
+  description_color: 'var(--secondary-text-color)',
+  description_icon_size: '14px',
 
   // Weather
   weather: {
@@ -149,6 +153,7 @@ export function normalizeEntities(
         accent_color?: string;
         show_time?: boolean;
         show_location?: boolean;
+        show_description?: boolean;
         compact_events_to_show?: number;
         blocklist?: string;
         allowlist?: string;
@@ -177,6 +182,7 @@ export function normalizeEntities(
           accent_color: item.accent_color || undefined,
           show_time: item.show_time,
           show_location: item.show_location,
+          show_description: item.show_description,
           compact_events_to_show: item.compact_events_to_show,
           blocklist: item.blocklist,
           allowlist: item.allowlist,
