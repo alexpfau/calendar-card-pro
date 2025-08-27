@@ -35,10 +35,11 @@ import * as EventUtils from './utils/events';
 import * as Actions from './interaction/actions';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
-import * as Editor from './rendering/editor';
 import * as Styles from './rendering/styles';
 import * as Feedback from './interaction/feedback';
 import * as Render from './rendering/render';
+import * as Weather from './utils/weather';
+import * as Editor from './rendering/editor';
 
 //-----------------------------------------------------------------------------
 // GLOBAL TYPE DECLARATIONS
@@ -80,12 +81,27 @@ class CalendarCardPro extends LitElement {
   @property({ attribute: false }) events: Types.CalendarEventData[] = [];
   @property({ attribute: false }) isLoading = true;
   @property({ attribute: false }) isExpanded = false;
+  @property({ attribute: false }) weatherForecasts: Types.WeatherForecasts = {
+    daily: {},
+    hourly: {},
+  };
+
+  /**
+   * Static method that returns a new instance of the editor
+   * This is how Home Assistant discovers and loads the editor
+   */
+  static getConfigElement() {
+    return document.createElement('calendar-card-pro-dev-editor');
+  }
+
+  static getStubConfig = Config.getStubConfig;
 
   // Private, non-reactive properties
   private _instanceId = Helpers.generateInstanceId();
   private _language = '';
   private _refreshTimerId?: number;
   private _lastUpdateTime = Date.now();
+  private _weatherUnsubscribers: Array<() => void> = [];
 
   // Interaction state
   private _activePointerId: number | null = null;
@@ -154,12 +170,18 @@ class CalendarCardPro extends LitElement {
     // Load events on initial connection
     this.updateEvents();
 
+    // Set up weather subscriptions if configured
+    this._setupWeatherSubscriptions();
+
     // Set up visibility listener
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+
+    // Clean up weather subscriptions
+    this._cleanupWeatherSubscriptions();
 
     // Clean up timers
     if (this._refreshTimerId) {
@@ -190,6 +212,14 @@ class CalendarCardPro extends LitElement {
       (changedProps.has('config') && changedProps.get('config')?.language !== this.config.language)
     ) {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
+    }
+
+    // Check if weather config has changed
+    if (
+      changedProps.has('config') &&
+      this.config?.weather?.entity !== (changedProps.get('config') as Types.Config)?.weather?.entity
+    ) {
+      this._setupWeatherSubscriptions();
     }
   }
 
@@ -238,6 +268,55 @@ class CalendarCardPro extends LitElement {
     }, refreshMs);
 
     Logger.debug(`Scheduled next refresh in ${refreshMinutes} minutes`);
+  }
+
+  /**
+   * Set up weather forecast subscriptions
+   */
+  private _setupWeatherSubscriptions(): void {
+    // Clean up existing subscriptions
+    this._cleanupWeatherSubscriptions();
+
+    // Skip if no weather configuration or no entity
+    if (!this.config?.weather?.entity || !this.hass) {
+      return;
+    }
+
+    // Determine which forecast types to subscribe to
+    const forecastTypes = Weather.getRequiredForecastTypes(this.config.weather);
+
+    // Subscribe to each required forecast type
+    forecastTypes.forEach((type) => {
+      const unsubscribe = Weather.subscribeToWeatherForecast(
+        this.hass!,
+        this.config,
+        type,
+        (forecasts) => {
+          // Update the appropriate forecast type
+          this.weatherForecasts = {
+            ...this.weatherForecasts,
+            [type]: forecasts,
+          };
+          this.requestUpdate();
+        },
+      );
+
+      if (unsubscribe) {
+        this._weatherUnsubscribers.push(unsubscribe);
+      }
+    });
+  }
+
+  /**
+   * Clean up weather subscriptions
+   */
+  private _cleanupWeatherSubscriptions(): void {
+    this._weatherUnsubscribers.forEach((unsubscribe) => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    });
+    this._weatherUnsubscribers = [];
   }
 
   /**
@@ -347,25 +426,12 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle configuration updates from Home Assistant
    */
-  setConfig(config: Partial<Types.Config>) {
+  setConfig(config: Partial<Types.Config>): void {
     const previousConfig = this.config;
 
     // First do the standard merging
     let mergedConfig = { ...Config.DEFAULT_CONFIG, ...config };
 
-    //============================================================================
-    // DEPRECATED PARAMETERS HANDLING - WILL BE REMOVED IN v3.0
-    // The following code provides backwards compatibility for deprecated parameters
-    // horizontal_line_width -> day_separator_width
-    // horizontal_line_color -> day_separator_color
-    //============================================================================
-    if (!config.day_separator_width && config.horizontal_line_width) {
-      mergedConfig.day_separator_width = config.horizontal_line_width;
-    }
-
-    if (!config.day_separator_color && config.horizontal_line_color) {
-      mergedConfig.day_separator_color = config.horizontal_line_color;
-    }
     //============================================================================
     // END OF DEPRECATED PARAMETERS HANDLING
     //============================================================================
@@ -380,6 +446,16 @@ class CalendarCardPro extends LitElement {
       this.config.show_past_events,
       this.config.start_date,
     );
+
+    // Track if weather config changes
+    const weatherEntityChanged =
+      this.config?.weather?.entity !== config.weather?.entity ||
+      this.config?.weather?.position !== config.weather?.position;
+
+    // Update weather subscriptions if entity or position changed
+    if (weatherEntityChanged) {
+      this._setupWeatherSubscriptions();
+    }
 
     // Check if we need to reload data
     const configChanged = Config.hasConfigChanged(previousConfig, this.config);
@@ -433,13 +509,16 @@ class CalendarCardPro extends LitElement {
       Logger.error('Failed to update events:', error);
       this.isLoading = false;
     }
+
+    // Ensure we have weather forecast subscriptions too
+    this._setupWeatherSubscriptions();
   }
 
   /**
    * Toggle expanded state for view modes with limited events
    */
   toggleExpanded(): void {
-    if (this.config.max_events_to_show) {
+    if (this.config.compact_events_to_show || this.config.compact_days_to_show) {
       this.isExpanded = !this.isExpanded;
     }
   }
@@ -481,13 +560,30 @@ class CalendarCardPro extends LitElement {
       // Error state - missing entities
       content = Render.renderCardContent('error', this.effectiveLanguage);
     } else if (this.events.length === 0) {
-      // Empty state - generate synthetic empty days
-      const emptyDays = EventUtils.generateEmptyStateEvents(this.config, this.effectiveLanguage);
-      // Use renderGroupedEvents to handle week numbers and separators
-      content = Render.renderGroupedEvents(emptyDays, this.config, this.effectiveLanguage);
+      // Even with no events, use the regular groupEventsByDay function
+      // which now handles empty API results correctly
+      const groupedEmptyDays = EventUtils.groupEventsByDay(
+        [], // Empty events array
+        this.config,
+        this.isExpanded,
+        this.effectiveLanguage,
+      );
+      content = Render.renderGroupedEvents(
+        groupedEmptyDays,
+        this.config,
+        this.effectiveLanguage,
+        this.weatherForecasts,
+        this.safeHass,
+      );
     } else {
       // Normal state with events - use renderGroupedEvents to handle week numbers and separators
-      content = Render.renderGroupedEvents(this.groupedEvents, this.config, this.effectiveLanguage);
+      content = Render.renderGroupedEvents(
+        this.groupedEvents,
+        this.config,
+        this.effectiveLanguage,
+        this.weatherForecasts,
+        this.safeHass,
+      );
     }
 
     // Render main card structure with content

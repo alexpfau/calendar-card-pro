@@ -26,22 +26,29 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-color-event': config.event_color,
     '--calendar-card-color-time': config.time_color,
     '--calendar-card-color-location': config.location_color,
-    '--calendar-card-line-color-vertical': config.vertical_line_color,
+    '--calendar-card-line-color-vertical': config.accent_color,
     '--calendar-card-line-width-vertical': config.vertical_line_width,
     '--calendar-card-day-spacing': config.day_spacing,
     '--calendar-card-event-spacing': config.event_spacing,
     '--calendar-card-spacing-additional': config.additional_card_spacing,
     '--calendar-card-height': config.height || 'auto',
     '--calendar-card-max-height': config.max_height,
+    '--calendar-card-progress-bar-color': config.progress_bar_color,
+    '--calendar-card-progress-bar-height': config.progress_bar_height,
+    '--calendar-card-progress-bar-width': config.progress_bar_width,
     '--calendar-card-icon-size-time': config.time_icon_size || '14px',
     '--calendar-card-icon-size-location': config.location_icon_size || '14px',
     '--calendar-card-date-column-width': `${parseFloat(config.day_font_size) * 1.75}px`,
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-border-radius': 'calc(var(--ha-card-border-radius, 10px) / 2)',
     '--ha-ripple-hover-opacity': '0.04',
-    '--ha-ripple-hover-color': config.vertical_line_color,
+    '--ha-ripple-hover-color': config.accent_color,
     '--ha-ripple-pressed-opacity': '0.12',
-    '--ha-ripple-pressed-color': config.vertical_line_color,
+    '--ha-ripple-pressed-color': config.accent_color,
+
+    // Today indicator settings
+    '--calendar-card-today-indicator-color': config.today_indicator_color,
+    '--calendar-card-today-indicator-size': config.today_indicator_size,
 
     // Week and month separator properties
     '--calendar-card-week-number-font-size': config.week_number_font_size,
@@ -51,8 +58,18 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // Custom empty day color with opacity for default value
     '--calendar-card-empty-day-color':
       config.empty_day_color === Config.DEFAULT_CONFIG.empty_day_color
-        ? 'rgba(var(--rgb-primary-text-color, 255, 255, 255), 0.6)'
+        ? 'color-mix(in srgb, var(--primary-text-color) 60%, transparent)'
         : config.empty_day_color,
+
+    // Weather styling properties
+    '--calendar-card-weather-date-icon-size': config.weather?.date?.icon_size || '14px',
+    '--calendar-card-weather-date-font-size': config.weather?.date?.font_size || '12px',
+    '--calendar-card-weather-date-color':
+      config.weather?.date?.color || 'var(--primary-text-color)',
+    '--calendar-card-weather-event-icon-size': config.weather?.event?.icon_size || '14px',
+    '--calendar-card-weather-event-font-size': config.weather?.event?.font_size || '12px',
+    '--calendar-card-weather-event-color':
+      config.weather?.event?.color || 'var(--primary-text-color)',
   };
 
   // Optional properties
@@ -76,6 +93,7 @@ export const cardStyles = css`
 
   :host {
     display: block;
+    height: 100%;
   }
 
   ha-card {
@@ -88,7 +106,8 @@ export const cardStyles = css`
 
     /* Box model */
     box-sizing: border-box;
-    padding: calc(var(--calendar-card-spacing-additional) + 16px) 16px;
+    padding: calc(var(--calendar-card-spacing-additional) + 16px) 16px
+      calc(var(--calendar-card-spacing-additional) + 16px) 8px;
 
     /* Visual */
     background: var(--calendar-card-background-color, var(--card-background-color));
@@ -114,6 +133,7 @@ export const cardStyles = css`
   .content-container {
     max-height: var(--calendar-card-max-height, none);
     height: var(--calendar-card-height, auto);
+    overflow-x: hidden;
     overflow-y: auto;
     padding-bottom: 1px;
     hyphens: auto;
@@ -141,7 +161,7 @@ export const cardStyles = css`
     float: left;
 
     /* Spacing */
-    margin: 0 0 16px 0;
+    margin: 0 0 16px 8px;
     padding: 0;
 
     /* Typography */
@@ -166,6 +186,7 @@ export const cardStyles = css`
     height: calc(var(--calendar-card-week-number-font-size) * 1.5);
     width: 100%;
     table-layout: fixed;
+    padding-left: 8px;
     border-spacing: 0;
     border: none !important;
   }
@@ -230,6 +251,7 @@ export const cardStyles = css`
    * Used when days aren't at week or month boundaries */
   .separator {
     width: 100%;
+    margin-left: 8px;
   }
 
   /* Week separator (full-width) - Used when show_week_numbers is null
@@ -237,6 +259,7 @@ export const cardStyles = css`
    * Margins are applied dynamically in createSeparatorStyle in render.ts */
   .week-separator {
     width: 100%;
+    margin-left: 8px;
     border-top-style: solid; /* Ensure line is visible */
   }
 
@@ -245,6 +268,7 @@ export const cardStyles = css`
    * Margins are applied dynamically in createSeparatorStyle in render.ts */
   .month-separator {
     width: 100%;
+    margin-left: 8px;
     border-top-style: solid; /* Ensure line is visible */
   }
 
@@ -276,16 +300,33 @@ export const cardStyles = css`
   .date-column {
     /* Layout */
     width: var(--calendar-card-date-column-width);
+    min-width: var(--calendar-card-date-column-width);
+    max-width: var(--calendar-card-date-column-width);
     vertical-align: var(--calendar-card-date-column-vertical-alignment);
     text-align: center;
+    position: relative;
 
     /* Borders & Spacing */
+    padding-left: 8px;
     padding-right: 12px;
   }
 
   .date-content {
     display: flex;
     flex-direction: column;
+    position: relative;
+    z-index: 2; /* Ensure date content is above indicator */
+  }
+
+  /* Today indicator styling */
+  .today-indicator-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
   }
 
   /* Date components */
@@ -307,6 +348,87 @@ export const cardStyles = css`
     line-height: var(--calendar-card-font-size-month);
     text-transform: uppercase;
     color: var(--calendar-card-color-month);
+  }
+
+  /* Today indicator styling */
+  .today-indicator-container {
+    position: absolute;
+    color: var(--calendar-card-today-indicator-color);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Set proper sizing for icon-based indicators */
+  ha-icon.today-indicator {
+    --mdc-icon-size: var(--calendar-card-today-indicator-size);
+  }
+
+  /* Special styling for image type */
+  img.today-indicator.image {
+    width: var(--calendar-card-today-indicator-size);
+    height: auto;
+    max-height: var(--calendar-card-today-indicator-size);
+    object-fit: contain;
+  }
+
+  /* Special styling for emoji type */
+  span.today-indicator.emoji {
+    font-size: var(--calendar-card-today-indicator-size);
+    line-height: 1;
+  }
+
+  /* Animation for pulse indicator */
+  ha-icon.today-indicator.pulse {
+    animation: pulse-animation 2s infinite ease-in-out;
+  }
+
+  /* Special styling for glow effect */
+  ha-icon.today-indicator.glow {
+    filter: drop-shadow(
+      0 0 calc(var(--calendar-card-today-indicator-size) * 0.5)
+        var(--calendar-card-today-indicator-color)
+    );
+  }
+
+  /* Pulse animation keyframes */
+  @keyframes pulse-animation {
+    0% {
+      transform: scale(0.95);
+      opacity: 0.7;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(0.95);
+      opacity: 0.7;
+    }
+  }
+
+  /* Date column weather */
+  .date-column .weather {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .weather ha-icon {
+    margin-right: 1px;
+  }
+
+  .weather-temp-high,
+  .weather-temp-low {
+    line-height: 1;
+    vertical-align: middle;
+  }
+
+  .weather-temp-high {
+    font-weight: 500;
+  }
+
+  .weather-temp-low {
+    opacity: 0.8;
   }
 
   /* ===== EVENT STYLES ===== */
@@ -346,11 +468,25 @@ export const cardStyles = css`
     flex-direction: column;
   }
 
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .summary {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .event-title {
     font-size: var(--calendar-card-font-size-event);
     font-weight: 500;
     line-height: 1.2;
     color: var(--calendar-card-color-event);
+    margin-right: 12px;
     padding-bottom: 2px;
   }
 
@@ -375,6 +511,18 @@ export const cardStyles = css`
     margin-right: 4px;
   }
 
+  /* Event weather */
+  .event-weather {
+    display: flex;
+    font-weight: 500;
+    margin-left: 8px;
+    margin-right: 12px;
+  }
+
+  .event-weather ha-icon {
+    margin-right: 2px;
+  }
+
   /* ===== TIME & LOCATION STYLES ===== */
 
   .time-location {
@@ -389,6 +537,7 @@ export const cardStyles = css`
     align-items: center;
     line-height: 1.2;
     margin-top: 2px;
+    margin-right: 12px;
   }
 
   .time span,
@@ -400,11 +549,48 @@ export const cardStyles = css`
   .time {
     font-size: var(--calendar-card-font-size-time);
     color: var(--calendar-card-color-time);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+
+  .time-actual {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .time-countdown {
+    text-align: right;
+    color: var(--calendar-card-color-time);
+    font-size: var(--calendar-card-font-size-time);
+    margin-left: 8px;
+    margin-right: 12px;
+    white-space: nowrap;
   }
 
   .location {
     font-size: var(--calendar-card-font-size-location);
     color: var(--calendar-card-color-location);
+  }
+
+  /* ===== PROGRESS BAR STYLES ===== */
+
+  .progress-bar {
+    width: var(--calendar-card-progress-bar-width);
+    height: var(--calendar-card-progress-bar-height);
+    background-color: color-mix(in srgb, var(--calendar-card-progress-bar-color) 20%, transparent);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-left: 8px;
+    margin-right: 12px;
+  }
+
+  .progress-bar-filled {
+    height: 100%;
+    background-color: var(--calendar-card-progress-bar-color);
+    border-radius: 999px 0 0 999px;
   }
 
   /* ===== ICON STYLES ===== */

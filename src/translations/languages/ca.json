@@ -1,0 +1,21 @@
+{
+  "daysOfWeek": ["Dg", "Dl", "Dm", "Dc", "Dj", "Dv", "Ds"],
+  "fullDaysOfWeek": [
+    "Diumenge",
+    "Dilluns",
+    "Dimarts",
+    "Dimecres",
+    "Dijous",
+    "Divendres",
+    "Dissabte"
+  ],
+  "months": ["Gen", "Febr", "Març", "Abr", "Maig", "Juny", "Jul", "Ag", "Set", "Oct", "Nov", "Des"],
+  "allDay": "tot el dia",
+  "multiDay": "fins a",
+  "at": "a les",
+  "endsToday": "acaba avui",
+  "endsTomorrow": "acaba damà",
+  "noEvents": "Cap event proper",
+  "loading": "Carregant events...",
+  "error": "Error: No s'ha trobat l'entitat del calendari o aquesta està mal configurada"
+}

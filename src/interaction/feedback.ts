@@ -29,7 +29,7 @@ export function createHoldIndicator(event: PointerEvent, config: Types.Config): 
   holdIndicator.style.position = 'absolute';
   holdIndicator.style.pointerEvents = 'none';
   holdIndicator.style.borderRadius = '50%';
-  holdIndicator.style.backgroundColor = config.vertical_line_color;
+  holdIndicator.style.backgroundColor = config.accent_color;
   holdIndicator.style.opacity = `${Constants.UI.HOLD_INDICATOR_OPACITY}`;
   holdIndicator.style.transform = 'translate(-50%, -50%) scale(0)';
   holdIndicator.style.transition = `transform ${Constants.TIMING.HOLD_INDICATOR_TRANSITION}ms ease-out`;

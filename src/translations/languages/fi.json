@@ -1,7 +1,28 @@
 {
   "daysOfWeek": ["Su", "Ma", "Ti", "Ke", "To", "Pe", "La"],
-  "fullDaysOfWeek": ["Sunnuntai", "Maanantai", "Tiistai", "Keskiviikko", "Torstai", "Perjantai", "Lauantai"],
-  "months": ["Tammi", "Helmi", "Maalis", "Huhti", "Touko", "Kesä", "Heinä", "Elo", "Syys", "Loka", "Marras", "Joulu"],
+  "fullDaysOfWeek": [
+    "Sunnuntai",
+    "Maanantai",
+    "Tiistai",
+    "Keskiviikko",
+    "Torstai",
+    "Perjantai",
+    "Lauantai"
+  ],
+  "months": [
+    "Tammi",
+    "Helmi",
+    "Maalis",
+    "Huhti",
+    "Touko",
+    "Kesä",
+    "Heinä",
+    "Elo",
+    "Syys",
+    "Loka",
+    "Marras",
+    "Joulu"
+  ],
   "allDay": "koko päivä",
   "multiDay": "asti",
   "at": "klo",

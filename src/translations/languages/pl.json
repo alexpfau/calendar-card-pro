@@ -1,6 +1,14 @@
 {
   "daysOfWeek": ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "Sb"],
-  "fullDaysOfWeek": ["niedzieli", "poniedziałku", "wtorku", "środy", "czwartku", "piątku", "soboty"],
+  "fullDaysOfWeek": [
+    "niedzieli",
+    "poniedziałku",
+    "wtorku",
+    "środy",
+    "czwartku",
+    "piątku",
+    "soboty"
+  ],
   "months": ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"],
   "allDay": "cały dzień",
   "multiDay": "do",

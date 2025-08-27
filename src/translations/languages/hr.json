@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Ned", "Pon", "Uto", "Sri", "Čet", "Pet", "Sub"],
+  "fullDaysOfWeek": ["Nedjelja", "Ponedjeljak", "Utorak", "Srijeda", "Četvrtak", "Petak", "Subota"],
+  "months": ["Sij", "Velj", "Ožu", "Tra", "Svi", "Lip", "Srp", "Kol", "Ruj", "Lis", "Stu", "Pro"],
+  "allDay": "cijeli dan",
+  "multiDay": "do",
+  "at": "u",
+  "endsToday": "završava danas",
+  "endsTomorrow": "završava sutra",
+  "noEvents": "Nema nadolazećih događaja",
+  "loading": "Učitavanje događaja...",
+  "error": "Greška: Kalendar entitet nije pronađen ili je neispravno postavljen"
+}

@@ -19,9 +19,12 @@ export const DEFAULT_CONFIG: Types.Config = {
   entities: [],
   start_date: undefined,
   days_to_show: 3,
-  max_events_to_show: undefined,
+  compact_days_to_show: undefined,
+  compact_events_to_show: undefined,
+  compact_events_complete_days: false,
   show_empty_days: false,
   filter_duplicates: false,
+  split_multiday_events: false,
   language: undefined,
 
   // Header
@@ -31,18 +34,13 @@ export const DEFAULT_CONFIG: Types.Config = {
 
   // Layout and spacing
   background_color: 'var(--ha-card-background)',
+  accent_color: '#03a9f4',
+  vertical_line_width: '2px',
   day_spacing: '10px',
   event_spacing: '4px',
   additional_card_spacing: '0px',
   height: 'auto',
   max_height: 'none',
-  vertical_line_width: '2px',
-  vertical_line_color: '#03a9f4',
-
-  /** @deprecated Use day_separator_width instead. Will be removed in v3.0 */
-  horizontal_line_width: '0px',
-  /** @deprecated Use day_separator_color instead. Will be removed in v3.0 */
-  horizontal_line_color: 'var(--secondary-text-color)',
 
   // Week numbers and horizontal separators
   first_day_of_week: 'system',
@@ -58,6 +56,12 @@ export const DEFAULT_CONFIG: Types.Config = {
   month_separator_width: '0px',
   month_separator_color: 'var(--primary-text-color)',
 
+  // Today indicator
+  today_indicator: false,
+  today_indicator_position: '15% 50%',
+  today_indicator_color: '#03a9f4',
+  today_indicator_size: '6px',
+
   // Date column
   date_vertical_alignment: 'middle',
   weekday_font_size: '14px',
@@ -67,16 +71,27 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_month: true,
   month_font_size: '12px',
   month_color: 'var(--primary-text-color)',
+  weekend_weekday_color: undefined, // Inherit from weekday_color
+  weekend_day_color: undefined, // Inherit from day_color
+  weekend_month_color: undefined, // Inherit from month_color
+  today_weekday_color: undefined, // Inherit from weekday_color or weekend_weekday_color
+  today_day_color: undefined, // Inherit from day_color or weekend_day_color
+  today_month_color: undefined, // Inherit from month_color or weekend_month_color,
 
   // Event column
   event_background_opacity: 0,
   show_past_events: false,
+  show_countdown: false,
+  show_progress_bar: false,
+  progress_bar_color: 'var(--secondary-text-color)',
+  progress_bar_height: 'calc(var(--calendar-card-font-size-time) * 0.75)',
+  progress_bar_width: '60px',
   event_font_size: '14px',
   event_color: 'var(--primary-text-color)',
   empty_day_color: 'var(--primary-text-color)',
   show_time: true,
   show_single_allday_time: true,
-  time_24h: true,
+  time_24h: 'system',
   show_end_time: true,
   time_font_size: '12px',
   time_color: 'var(--secondary-text-color)',
@@ -86,6 +101,27 @@ export const DEFAULT_CONFIG: Types.Config = {
   location_font_size: '12px',
   location_color: 'var(--secondary-text-color)',
   location_icon_size: '14px',
+
+  // Weather
+  weather: {
+    entity: undefined,
+    position: 'date',
+    date: {
+      show_conditions: true,
+      show_high_temp: true,
+      show_low_temp: false,
+      icon_size: '14px',
+      font_size: '12px',
+      color: 'var(--primary-text-color)',
+    },
+    event: {
+      show_conditions: true,
+      show_temp: true,
+      icon_size: '14px',
+      font_size: '12px',
+      color: 'var(--primary-text-color)',
+    },
+  },
 
   // Actions
   tap_action: { action: 'none' },
@@ -113,9 +149,10 @@ export function normalizeEntities(
         accent_color?: string;
         show_time?: boolean;
         show_location?: boolean;
-        max_events_to_show?: number;
+        compact_events_to_show?: number;
         blocklist?: string;
         allowlist?: string;
+        split_multiday_events?: boolean;
       }
   >,
 ): Array<Types.EntityConfig> {
@@ -129,7 +166,7 @@ export function normalizeEntities(
         return {
           entity: item,
           color: 'var(--primary-text-color)',
-          accent_color: 'var(--calendar-card-line-color-vertical)',
+          accent_color: undefined,
         };
       }
       if (typeof item === 'object' && item.entity) {
@@ -137,12 +174,13 @@ export function normalizeEntities(
           entity: item.entity,
           label: item.label,
           color: item.color || 'var(--primary-text-color)',
-          accent_color: item.accent_color || 'var(--calendar-card-line-color-vertical)',
+          accent_color: item.accent_color || undefined,
           show_time: item.show_time,
           show_location: item.show_location,
-          max_events_to_show: item.max_events_to_show,
+          compact_events_to_show: item.compact_events_to_show,
           blocklist: item.blocklist,
           allowlist: item.allowlist,
+          split_multiday_events: item.split_multiday_events,
         };
       }
       return null;
