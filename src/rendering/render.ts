@@ -996,10 +996,7 @@ export function renderEventTitle(
   `;
 }
 
-function renderSummary(
-  event: Types.CalendarEventData,
-  config: Types.Config,
-): string | undefined {
+function renderSummary(event: Types.CalendarEventData, config: Types.Config): string | undefined {
   if (config.description_regex && event.description) {
     const arr = new RegExp(config.description_regex, 'm').exec(event.description);
     if (arr) {
