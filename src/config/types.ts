@@ -89,6 +89,7 @@ export interface Config {
   show_time: boolean;
   show_single_allday_time: boolean;
   time_24h: boolean | 'system';
+  two_digit_hours: boolean;
   show_end_time: boolean;
   time_font_size: string;
   time_color: string;

@@ -17,7 +17,7 @@ Before contributing code, I strongly recommend reviewing my [architecture docume
 2. Clone your fork: `git clone https://github.com/[your-username]/calendar-card-pro.git`
 3. Install dependencies: `npm install`
 4. Start development mode: `npm run dev`
-5. The compiled card will be available in `dist/calendar-card-pro.js`
+5. The compiled card will be available in `dist/calendar-card-pro-dev.js`
 6. For testing in Home Assistant, follow the [testing instructions](#testing-in-home-assistant)
 
 ## Branch Structure

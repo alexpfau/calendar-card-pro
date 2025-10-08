@@ -84,6 +84,7 @@
     "custom": "Custom",
     "12h": "12-hour",
     "24h": "24-hour",
+    "two_digit_hours": "2 digit hours",
 
     "appearance_layout": "Appearance & Layout",
     "title_styling": "Title Styling",

@@ -80,6 +80,7 @@ export function formatEventTime(
         translations,
         useNativeFormatting,
         use24h,
+        config.two_digit_hours,
         hass,
       ),
     );
@@ -93,6 +94,7 @@ export function formatEventTime(
       config.show_end_time,
       useNativeFormatting,
       use24h,
+      config.two_digit_hours,
       hass,
     ),
   );
@@ -103,8 +105,7 @@ export function formatEventTime(
  * Uses dayjs for consistent, localized relative time formatting
  *
  * @param event Calendar event to generate countdown for
- * @param hass Home Assistant instance (used to extract language)
- * @param config Card configuration options
+ * @param language Language to use
  * @returns Countdown string or null if event is past or empty day
  */
 export function getCountdownString(
@@ -204,19 +205,27 @@ export function getLocalDateKey(date: Date): string {
  *
  * @param date Date object to format
  * @param use24h Whether to use 24-hour format
+ * @param twoDigitHours Whether to use 2 digits in hours
  * @returns Formatted time string
  */
-export function formatTime(date: Date, use24h = true): string {
+export function formatTime(date: Date, use24h = true, twoDigitHours = false): string {
   let hours = date.getHours();
   const minutes = date.getMinutes();
 
   if (!use24h) {
     const ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12 || 12;
-    return `${hours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+    return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)} ${ampm}`;
   }
 
-  return `${hours}:${minutes.toString().padStart(2, '0')}`;
+  return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)}`;
+}
+
+/**
+ * Pad with 0 if only one digit.
+ */
+function pad(n: number): string {
+  return n.toString().padStart(2, '0');
 }
 
 /**
@@ -238,9 +247,7 @@ export function getISOWeekNumber(date: Date): number {
   const yearStart = new Date(d.getFullYear(), 0, 1);
 
   // Calculate full weeks to nearest Thursday
-  const weekNumber = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-
-  return weekNumber;
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
 /**
@@ -265,9 +272,7 @@ export function getSimpleWeekNumber(date: Date, firstDayOfWeek: number = 0): num
   const dayOfWeekOffset = (startOfYear.getDay() - firstDayOfWeek + 7) % 7;
 
   // Calculate week number (adding 1 because we want weeks to start from 1)
-  const weekNumber = Math.ceil((days + dayOfWeekOffset + 1) / 7);
-
-  return weekNumber;
+  return Math.ceil((days + dayOfWeekOffset + 1) / 7);
 }
 
 /**
@@ -340,7 +345,10 @@ export function getWeekNumber(
  * @param startDate Start date of the event
  * @param endDate End date of the event
  * @param showEndTime Whether to show end time
- * @param time24h Whether to use 24-hour format
+ * @param useNativeFormatting Wheter to use native formatting
+ * @param use24h Whether to use 24-hour format
+ * @param twoDigitHours Whether to use 2 digits in hours
+ * @param hass Home Assistant
  * @returns Formatted time string
  */
 function formatSingleDayTime(
@@ -349,6 +357,7 @@ function formatSingleDayTime(
   showEndTime: boolean,
   useNativeFormatting: boolean,
   use24h: boolean = true,
+  twoDigitHours: boolean = false,
   hass?: Types.Hass | null,
 ): string {
   if (useNativeFormatting && hass?.locale) {
@@ -357,14 +366,14 @@ function formatSingleDayTime(
 
     // Use our formatter with the detected format preference
     return showEndTime
-      ? `${formatTime(startDate, use24hFormat)} - ${formatTime(endDate, use24hFormat)}`
-      : formatTime(startDate, use24hFormat);
+      ? `${formatTime(startDate, use24hFormat, twoDigitHours)} - ${formatTime(endDate, use24hFormat, twoDigitHours)}`
+      : formatTime(startDate, use24hFormat, twoDigitHours);
   }
 
   // For explicit settings, use our formatter with the specified format
   return showEndTime
-    ? `${formatTime(startDate, use24h)} - ${formatTime(endDate, use24h)}`
-    : formatTime(startDate, use24h);
+    ? `${formatTime(startDate, use24h, twoDigitHours)} - ${formatTime(endDate, use24h, twoDigitHours)}`
+    : formatTime(startDate, use24h, twoDigitHours);
 }
 
 /**
@@ -374,7 +383,10 @@ function formatSingleDayTime(
  * @param endDate End date of the event
  * @param language Language code for translations
  * @param translations Translations object
- * @param time24h Whether to use 24-hour format
+ * @param useNativeFormatting Wheter to use native formatting
+ * @param use24h Whether to use 24-hour format
+ * @param twoDigitHours Whether to use 2 digits in hours
+ * @param hass Home Assistant
  * @returns Formatted time string
  */
 function formatMultiDayTime(
@@ -384,6 +396,7 @@ function formatMultiDayTime(
   translations: Types.Translations,
   useNativeFormatting: boolean,
   use24h: boolean = true,
+  twoDigitHours: boolean = false,
   hass?: Types.Hass | null,
 ): string {
   const now = new Date();
@@ -396,9 +409,9 @@ function formatMultiDayTime(
     if (useNativeFormatting && hass?.locale) {
       // Use the helper to determine time format preference
       const use24hFormat = Helpers.getTimeFormat24h(hass.locale, use24h);
-      return formatTime(date, use24hFormat);
+      return formatTime(date, use24hFormat, twoDigitHours);
     }
-    return formatTime(date, use24h);
+    return formatTime(date, use24h, twoDigitHours);
   };
 
   // Format the end time part based on when the event ends
