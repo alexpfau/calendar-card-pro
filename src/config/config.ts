@@ -86,6 +86,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   progress_bar_color: 'var(--secondary-text-color)',
   progress_bar_height: 'calc(var(--calendar-card-font-size-time) * 0.75)',
   progress_bar_width: '60px',
+  event_icon_vertical_alignment: 'middle',
   event_font_size: '14px',
   event_color: 'var(--primary-text-color)',
   empty_day_color: 'var(--primary-text-color)',

@@ -1169,6 +1169,18 @@ export class CalendarCardProEditor extends LitElement {
               `;
             })()}
 
+            <!-- Event Icon Alignment -->
+            <h3>${this._getTranslation('event_icon_alignment')}</h3>
+            ${this.addSelectField(
+              'event_icon_vertical_alignment',
+              this._getTranslation('event_icon_vertical_alignment'),
+              [
+                { value: 'top', label: this._getTranslation('top') },
+                { value: 'middle', label: this._getTranslation('middle') },
+                { value: 'bottom', label: this._getTranslation('bottom') },
+              ],
+            )}
+
             <!-- Progress Indicators -->
             <h3>${this._getTranslation('progress_indicators')}</h3>
             ${this.addBooleanField('show_countdown', this._getTranslation('show_countdown'))}

@@ -110,6 +110,8 @@
     "date_display": "Datovisning",
     "vertical_alignment": "Vertikal justering",
     "date_vertical_alignment": "Dato vertikal justering",
+    "event_icon_alignment": "Ikonjustering",
+    "event_icon_vertical_alignment": "Vertikal ikonjustering",
     "date_formatting": "Datoformatering",
     "top": "Topp",
     "middle": "Midten",

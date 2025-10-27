@@ -106,6 +106,8 @@
     "date_display": "Datumvisning",
     "vertical_alignment": "Vertikal justering",
     "date_vertical_alignment": "Datum vertikal justering",
+    "event_icon_alignment": "Ikonjustering",
+    "event_icon_vertical_alignment": "Vertikal ikonjustering",
     "date_formatting": "Datumformatering",
     "top": "Topp",
     "middle": "Mitten",

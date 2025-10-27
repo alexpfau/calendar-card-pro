@@ -120,6 +120,8 @@
     "date_display": "Datumsanzeige",
     "vertical_alignment": "Vertikale Ausrichtung",
     "date_vertical_alignment": "Vertikale Datumsausrichtung",
+    "event_icon_alignment": "Icon-Ausrichtung",
+    "event_icon_vertical_alignment": "Vertikale Icon-Ausrichtung",
     "date_formatting": "Datumsformatierung",
     "top": "Oben",
     "middle": "Mitte",

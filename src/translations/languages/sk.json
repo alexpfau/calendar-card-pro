@@ -109,6 +109,8 @@
     "date_display": "Zobrazenie dátumu",
     "vertical_alignment": "Zvislé zarovnanie",
     "date_vertical_alignment": "Zvislé zarovnanie dátumu",
+    "event_icon_alignment": "Zarovnanie ikon",
+    "event_icon_vertical_alignment": "Zvislé zarovnanie ikon",
     "date_formatting": "Formátovanie dátumu",
     "top": "Hore",
     "middle": "Stred",
