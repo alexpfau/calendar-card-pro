@@ -1,4 +1,6 @@
 {
-  "name": "Calendar Card Pro",
-  "filename": "calendar-card-pro.js"
+  "name": "Calendar Card Pro (TR)",
+  "content_in_root": true,
+  "filename": "calendar-card-pro.js",
+  "render_readme": true
 }
