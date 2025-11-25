@@ -30,4 +30,4 @@ Code:
       label: mdi:recycle
       accent_color: "#ffc170"
       label_icon_color: "#ffc170"
-</code>code>
+</code>
