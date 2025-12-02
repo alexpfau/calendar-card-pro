@@ -1,6 +1,8 @@
 {
   "name": "Calendar Card Pro (TR)",
-  "content_in_root": true,
+  "render_readme": true,
   "filename": "calendar-card-pro.js",
-  "render_readme": true
+  "content_in_root": true,
+  "mod_name": "calendar-card-pro",
+  "homeassistant": "2023.10.0" 
 }
