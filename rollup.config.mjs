@@ -43,9 +43,31 @@ export default {
       tsconfig: 'tsconfig.json',
       target: 'es2017',
       sourceMap: true,
+      // Define NODE_ENV as production to ensure Lit uses production builds
+      define: {
+        'process.env.NODE_ENV': JSON.stringify('production'),
+      },
     }),
-    resolve(),
+    resolve({
+      // Prefer browser versions and use production exports
+      browser: true,
+      exportConditions: ['production', 'default'],
+      // Ensure we get production builds of dependencies
+      mainFields: ['browser', 'module', 'main'],
+    }),
     commonjs(),
-    terser(),
+    terser({
+      // Ensure production optimizations
+      compress: {
+        // Remove development-only code
+        drop_console: false,
+        drop_debugger: true,
+        pure_funcs: ['console.debug'],
+      },
+      format: {
+        // Remove comments in production
+        comments: false,
+      },
+    }),
   ],
 };

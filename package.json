@@ -53,6 +53,7 @@
   "dependencies": {
     "@material/web": "^2.2.0",
     "@mdi/js": "^7.4.47",
-    "dayjs": "^1.11.13"
+    "dayjs": "^1.11.13",
+    "lit": "^3.3.2"
   }
 }
