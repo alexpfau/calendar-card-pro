@@ -18,6 +18,7 @@ import deTranslations from './languages/de.json';
 import elTranslations from './languages/el.json';
 import enTranslations from './languages/en.json';
 import esTranslations from './languages/es.json';
+import etTranslations from './languages/et.json';
 import fiTranslations from './languages/fi.json';
 import frTranslations from './languages/fr.json';
 import heTranslations from './languages/he.json';
@@ -54,6 +55,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   el: elTranslations,
   en: enTranslations,
   es: esTranslations,
+  et: esTranslations,
   fi: fiTranslations,
   fr: frTranslations,
   he: heTranslations,
