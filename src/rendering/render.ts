@@ -903,7 +903,7 @@ export function renderEvent(
         : ''}
       <td
         class=${classMap(eventClasses)}
-        style="border-left: var(--calendar-card-line-width-vertical) solid ${entityAccentColor}; background-color: ${entityAccentBackgroundColor};"
+        style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${entityAccentColor}; background-color: ${entityAccentBackgroundColor};"
       >
         <div class="event-content">
           ${renderEventTitle(event, config, weatherForecasts)}

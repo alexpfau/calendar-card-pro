@@ -441,12 +441,15 @@ export const cardStyles = css`
 
   /* Event positioning variations */
   .event-first.event-last {
-    border-radius: 0 var(--calendar-card-event-border-radius)
-      var(--calendar-card-event-border-radius) 0;
+    border-start-start-radius: 0;
+    border-start-end-radius: var(--calendar-card-event-border-radius);
+    border-end-end-radius: var(--calendar-card-event-border-radius);
+    border-end-start-radius: 0;
   }
 
   .event-first {
-    border-radius: 0 var(--calendar-card-event-border-radius) 0 0;
+    border-start-end-radius: var(--calendar-card-event-border-radius);
+    border-start-start-radius: 0;
   }
 
   .event-middle {
@@ -454,7 +457,8 @@ export const cardStyles = css`
   }
 
   .event-last {
-    border-radius: 0 0 var(--calendar-card-event-border-radius) 0;
+    border-end-end-radius: var(--calendar-card-event-border-radius);
+    border-end-start-radius: 0;
   }
 
   /* Past event styling */
