@@ -79,7 +79,8 @@ class CalendarCardPro extends LitElement {
   @property({ attribute: false }) hass?: Types.Hass;
   @property({ attribute: false }) config: Types.Config = { ...Config.DEFAULT_CONFIG };
   @property({ attribute: false }) events: Types.CalendarEventData[] = [];
-  @property({ attribute: false }) isLoading = true;
+  @property({ attribute: false }) isInitialLoad = true;
+  @property({ attribute: false }) isLoading = false;
   @property({ attribute: false }) isExpanded = false;
   @property({ attribute: false }) weatherForecasts: Types.WeatherForecasts = {
     daily: {},
@@ -482,10 +483,8 @@ class CalendarCardPro extends LitElement {
     }
 
     try {
-      // Set loading state first (triggers render with stable DOM)
+      // Signal loading — initial load shows loading screen; background refresh shows spinner
       this.isLoading = true;
-
-      // Wait for loading render to complete
       await this.updateComplete;
 
       // Get event data (from cache or API) using modularized function
@@ -496,8 +495,8 @@ class CalendarCardPro extends LitElement {
         force,
       );
 
-      // Critical: Complete loading state before updating events
       this.isLoading = false;
+      this.isInitialLoad = false;
       await this.updateComplete;
 
       // Finally set events data
@@ -508,6 +507,7 @@ class CalendarCardPro extends LitElement {
     } catch (error) {
       Logger.error('Failed to update events:', error);
       this.isLoading = false;
+      this.isInitialLoad = false;
     }
 
     // Ensure we have weather forecast subscriptions too
@@ -553,7 +553,10 @@ class CalendarCardPro extends LitElement {
     // Determine card content based on state
     let content: TemplateResult;
 
-    if (!this.safeHass || !this.config.entities.length) {
+    if (this.isInitialLoad) {
+      // Initial load — no data yet, show minimal loading screen
+      content = Render.renderCardContent('loading', this.effectiveLanguage);
+    } else if (!this.safeHass || !this.config.entities.length) {
       // Error state - missing entities
       content = Render.renderCardContent('error', this.effectiveLanguage);
     } else if (this.events.length === 0) {
