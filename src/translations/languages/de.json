@@ -190,6 +190,7 @@
     "time": "Zeit",
     "show_single_allday_time": "Zeit für ganztägige Einzelveranstaltungen anzeigen",
     "show_end_time": "Endzeit anzeigen",
+    "time_two_digit_hours": "Zweistellige Stunden",
     "time_font_size": "Zeit Schriftgröße",
     "time_color": "Zeit Farbe",
     "time_icon_size": "Zeit Symbol Größe",

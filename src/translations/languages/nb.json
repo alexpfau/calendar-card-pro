@@ -86,7 +86,6 @@
     "custom": "Egendefinert",
     "12h": "12-timer",
     "24h": "24-timer",
-    "two_digit_hours": "2 sifre i timer",
 
     "appearance_layout": "Utseende og layout",
     "title_styling": "Tittelformatering",
@@ -181,6 +180,7 @@
     "time": "Tid",
     "show_single_allday_time": "Vis tid for heldagshendelser",
     "show_end_time": "Vis sluttid",
+    "time_two_digit_hours": "Tosifret timer",
     "time_font_size": "Tidsskriftstørrelse",
     "time_color": "Tidsfarge",
     "time_icon_size": "Tidsikonstørrelse",

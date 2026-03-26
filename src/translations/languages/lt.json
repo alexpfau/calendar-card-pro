@@ -188,6 +188,7 @@
     "time": "Laikas",
     "show_single_allday_time": "Rodyti laiką vienos dienos įvykiams",
     "show_end_time": "Rodyti pabaigos laiką",
+    "time_two_digit_hours": "Dviženklis valandų formatas",
     "time_font_size": "Laiko šrifto dydis",
     "time_color": "Laiko spalva",
     "time_icon_size": "Laiko piktogramos dydis",

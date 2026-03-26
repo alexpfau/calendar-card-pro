@@ -80,7 +80,7 @@ export function formatEventTime(
         translations,
         useNativeFormatting,
         use24h,
-        config.two_digit_hours,
+        config.time_two_digit_hours,
         hass,
       ),
     );
@@ -94,7 +94,7 @@ export function formatEventTime(
       config.show_end_time,
       useNativeFormatting,
       use24h,
-      config.two_digit_hours,
+      config.time_two_digit_hours,
       hass,
     ),
   );

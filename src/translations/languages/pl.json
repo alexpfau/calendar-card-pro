@@ -188,6 +188,7 @@
     "time": "Czas",
     "show_single_allday_time": "Pokaż Czas dla Całodniowych Wydarzeń Jednodniowych",
     "show_end_time": "Pokaż Czas Zakończenia",
+    "time_two_digit_hours": "Dwucyfrowe godziny",
     "time_font_size": "Rozmiar Czcionki Czasu",
     "time_color": "Kolor Czasu",
     "time_icon_size": "Rozmiar Ikony Czasu",

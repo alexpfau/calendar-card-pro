@@ -88,7 +88,6 @@
     "custom": "Custom",
     "12h": "12-hour",
     "24h": "24-hour",
-    "two_digit_hours": "2 digit hours",
 
     "appearance_layout": "Appearance & Layout",
     "title_styling": "Title Styling",
@@ -183,6 +182,7 @@
     "time": "Time",
     "show_single_allday_time": "Show time for all-day single events",
     "show_end_time": "Show end time",
+    "time_two_digit_hours": "Two-digit hours",
     "time_font_size": "Time font size",
     "time_color": "Time color",
     "time_icon_size": "Time icon size",

@@ -736,7 +736,6 @@ export class CalendarCardProEditor extends LitElement {
               { value: 'true', label: this._getTranslation('24h') },
               { value: 'false', label: this._getTranslation('12h') },
             ])}
-            ${this.addBooleanField('two_digit_hours', this._getTranslation('two_digit_hours'))}
           `,
         )}
 
@@ -1114,6 +1113,10 @@ export class CalendarCardProEditor extends LitElement {
                   this._getTranslation('show_single_allday_time'),
                 )}
                 ${this.addBooleanField('show_end_time', this._getTranslation('show_end_time'))}
+                ${this.addBooleanField(
+                  'time_two_digit_hours',
+                  this._getTranslation('time_two_digit_hours'),
+                )}
                 ${this.addTextField('time_font_size', this._getTranslation('time_font_size'))}
                 ${this.addTextField('time_color', this._getTranslation('time_color'))}
                 ${this.addTextField('time_icon_size', this._getTranslation('time_icon_size'))}
