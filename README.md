@@ -48,7 +48,7 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 - 🌦️ **Weather Integration** – Display weather forecasts alongside your calendar events.
 - ⚡ **Optimized Performance** – Smart caching, progressive rendering, and minimal API calls.
 - 💡 **Deep Home Assistant Integration** – Theme-aware with native ripple effects.
-- 🌍 **Multi-Language Support** – [Available in 31 languages](#-adding-translations), community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 33 languages](#-adding-translations), community contributions welcome!
 
 ### 🔗 Dependencies
 
@@ -182,14 +182,13 @@ Once **Calendar Card Pro** is installed, follow these steps to add and configure
    - Select **"Configure"** to open the visual editor
    - Follow the intuitive interface to customize your calendar
 
-> **Note:** The visual configuration editor is currently only available in English, while the calendar itself supports 29 languages.
+> **Note:** The visual configuration editor is currently available in 8 languages, while the calendar itself supports 33 languages. Community contributions for additional editor translations are welcome!
 
 ### ⚙️ Customizing the Card
 
 Calendar Card Pro offers two ways to customize your card:
 
 1. **Visual Editor (Recommended)**
-
    - Open the comprehensive visual editor
    - Organized panels guide you through all available options
    - Changes are previewed in real-time
@@ -236,7 +235,7 @@ The editor is organized into logical panels that guide you through all configura
 - **Smart Validation** - Input validation prevents configuration errors
 - **Automatic Config Upgrader** - Detects deprecated settings from older versions
 
-> **Note:** The visual configuration editor is currently only available in English, while the calendar itself supports 29 languages. Calendar settings applied through the editor will still display properly in your configured language.
+> **Note:** The visual configuration editor is currently available in 8 languages. Calendar settings applied through the editor will still display properly in all 33 supported languages.
 
 <details>
 <summary>Configuration Upgrader Details</summary>
@@ -1447,6 +1446,7 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Danish** (`da`)
 - **Dutch** (`nl`)
 - **English** (`en`)
+- **Estonian** (`et`)
 - **Finnish** (`fi`)
 - **French** (`fr`)
 - **German** (`de`)
@@ -1468,6 +1468,7 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Spanish** (`es`)
 - **Swedish** (`sv`)
 - **Thai** (`th`)
+- **Turkish** (`tr`)
 - **Ukrainian** (`uk`)
 - **Vietnamese** (`vi`)
 - **Chinese (Simplified)** (`zh-cn`)
