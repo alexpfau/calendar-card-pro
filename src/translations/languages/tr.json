@@ -1,0 +1,13 @@
+{
+  "daysOfWeek": ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"],
+  "fullDaysOfWeek": ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"],
+  "months": ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
+  "allDay": "tüm gün",
+  "multiDay": "değin",
+  "at": "da",
+  "endsToday": "bugün sona eriyor",
+  "endsTomorrow": "yarın sona eriyor",
+  "noEvents": "Yaklaşan etkinlik yok",
+  "loading": "Takvim etkinlikleri yükleniyor...",
+  "error": "Hata: Takvim içeriği bulunamadı veya yanlış yapılandırılmış"
+}

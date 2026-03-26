@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2017",
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "lib": ["ES2017", "DOM", "DOM.Iterable"],
     "strict": true,
     "noImplicitAny": false,
@@ -15,12 +15,11 @@
     "sourceMap": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
-    "baseUrl": "src",
     "paths": {
-      "@config/*": ["config/*"],
-      "@translations/*": ["translations/*"],
-      "@utils/*": ["utils/*"],
-      "@rendering/*": ["rendering/*"]
+      "@config/*": ["./src/config/*"],
+      "@translations/*": ["./src/translations/*"],
+      "@utils/*": ["./src/utils/*"],
+      "@rendering/*": ["./src/rendering/*"]
     },
     "noEmit": true
   },

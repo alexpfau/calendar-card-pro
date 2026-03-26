@@ -38,6 +38,7 @@ import svTranslations from './languages/sv.json';
 import ukTranslations from './languages/uk.json';
 import viTranslations from './languages/vi.json';
 import thTranslations from './languages/th.json';
+import trTranslations from './languages/tr.json';
 import zhCNTranslations from './languages/zh-CN.json';
 import zhTWTranslations from './languages/zh-TW.json';
 
@@ -74,6 +75,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   uk: ukTranslations,
   vi: viTranslations,
   th: thTranslations,
+  tr: trTranslations,
   'zh-cn': zhCNTranslations,
   'zh-tw': zhTWTranslations,
 };

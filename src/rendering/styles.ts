@@ -441,12 +441,15 @@ export const cardStyles = css`
 
   /* Event positioning variations */
   .event-first.event-last {
-    border-radius: 0 var(--calendar-card-event-border-radius)
-      var(--calendar-card-event-border-radius) 0;
+    border-start-start-radius: 0;
+    border-start-end-radius: var(--calendar-card-event-border-radius);
+    border-end-end-radius: var(--calendar-card-event-border-radius);
+    border-end-start-radius: 0;
   }
 
   .event-first {
-    border-radius: 0 var(--calendar-card-event-border-radius) 0 0;
+    border-start-end-radius: var(--calendar-card-event-border-radius);
+    border-start-start-radius: 0;
   }
 
   .event-middle {
@@ -454,7 +457,8 @@ export const cardStyles = css`
   }
 
   .event-last {
-    border-radius: 0 0 var(--calendar-card-event-border-radius) 0;
+    border-end-end-radius: var(--calendar-card-event-border-radius);
+    border-end-start-radius: 0;
   }
 
   /* Past event styling */
@@ -624,5 +628,35 @@ export const cardStyles = css`
 
   .error {
     color: var(--error-color);
+  }
+
+  /* ===== CORNER LOADING INDICATOR ===== */
+  .loading-indicator {
+    position: absolute;
+    top: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
+    right: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .loading-indicator .spinner {
+    box-sizing: border-box;
+    width: 14px;
+    height: 14px;
+    border: 2px solid color-mix(in srgb, var(--primary-text-color) 25%, transparent);
+    border-top-color: var(--primary-text-color);
+    border-radius: 50%;
+    animation: ccp-spin 0.8s linear infinite;
+  }
+
+  @keyframes ccp-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 `;
