@@ -633,8 +633,8 @@ export const cardStyles = css`
   /* ===== CORNER LOADING INDICATOR ===== */
   .loading-indicator {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
+    right: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
     width: 16px;
     height: 16px;
     display: inline-flex;
