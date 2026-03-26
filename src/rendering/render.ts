@@ -885,7 +885,7 @@ export function renderEvent(
     event.location && showLocation
       ? FormatUtils.formatLocation(event.location, config.remove_location_country)
       : '';
-  const eventDescription = event.description && showDescription ? event.description : '';
+  const eventDescription = event.description && showDescription ? FormatUtils.stripHtmlTags(event.description) : '';
 
   // Determine event position for styling
   const isFirst = index === 0;

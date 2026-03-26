@@ -245,7 +245,7 @@ export function groupEventsByDay(
         description:
           (getEntitySetting(event._entityId, 'show_description', config, event) ??
           config.show_description)
-            ? event.description || ''
+            ? FormatUtils.stripHtmlTags(event.description || '')
             : '',
         start: event.start,
         end: event.end,

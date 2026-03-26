@@ -157,6 +157,15 @@ export function formatLocation(location: string, removeCountry: boolean | string
 }
 
 /**
+ * Strip HTML tags from a string, returning only the text content.
+ * Useful for calendar integrations that include HTML markup in descriptions.
+ */
+export function stripHtmlTags(text: string): string {
+  if (!text) return '';
+  return text.replace(/<[^>]*>/g, '').trim();
+}
+
+/**
  * Capitalize the first letter of a string
  *
  * @param text String to capitalize
