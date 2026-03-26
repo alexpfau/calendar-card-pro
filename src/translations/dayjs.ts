@@ -20,6 +20,7 @@ import 'dayjs/locale/de';
 import 'dayjs/locale/el';
 import 'dayjs/locale/en';
 import 'dayjs/locale/es';
+import 'dayjs/locale/et';
 import 'dayjs/locale/fi';
 import 'dayjs/locale/fr';
 import 'dayjs/locale/he';
@@ -79,6 +80,7 @@ function mapLocale(locale: string): string {
     'el',
     'en',
     'es',
+    'et',
     'fi',
     'fr',
     'he',
