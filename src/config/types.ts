@@ -256,25 +256,6 @@ export interface ActionConfig {
   open_tab?: string;
 }
 
-/**
- * Context data for action execution
- */
-export interface ActionContext {
-  element: Element;
-  hass: Hass | null;
-  entityId?: string;
-  toggleCallback?: () => void;
-}
-
-/**
- * Configuration for interaction module
- */
-export interface InteractionConfig {
-  tapAction?: ActionConfig;
-  holdAction?: ActionConfig;
-  context: ActionContext;
-}
-
 // -----------------------------------------------------------------------------
 // HOME ASSISTANT INTEGRATION
 // -----------------------------------------------------------------------------

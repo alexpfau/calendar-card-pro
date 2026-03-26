@@ -420,16 +420,10 @@ class CalendarCardPro extends LitElement {
     // Execute the appropriate action based on whether hold was triggered
     if (this._holdTriggered && this.config.hold_action) {
       Logger.debug('Executing hold action');
-      const entityId = Actions.getPrimaryEntityId(this.config.entities);
-      Actions.handleAction(this.config.hold_action, this.safeHass, this, entityId, () =>
-        this.toggleExpanded(),
-      );
+      Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
     } else if (!this._holdTriggered && this.config.tap_action) {
       Logger.debug('Executing tap action');
-      const entityId = Actions.getPrimaryEntityId(this.config.entities);
-      Actions.handleAction(this.config.tap_action, this.safeHass, this, entityId, () =>
-        this.toggleExpanded(),
-      );
+      Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
 
     // Reset state
@@ -470,10 +464,7 @@ class CalendarCardPro extends LitElement {
   private _handleKeyDown(ev: KeyboardEvent) {
     if (ev.key === 'Enter' || ev.key === ' ') {
       ev.preventDefault();
-      const entityId = Actions.getPrimaryEntityId(this.config.entities);
-      Actions.handleAction(this.config.tap_action, this.safeHass, this, entityId, () =>
-        this.toggleExpanded(),
-      );
+      Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
   }
 
@@ -580,8 +571,9 @@ class CalendarCardPro extends LitElement {
    * Handle user action
    */
   handleAction(actionConfig: Types.ActionConfig): void {
-    const entityId = Actions.getPrimaryEntityId(this.config.entities);
-    Actions.handleAction(actionConfig, this.safeHass, this, entityId, () => this.toggleExpanded());
+    // Determine action type based on which config matches
+    const action = actionConfig === this.config.hold_action ? 'hold' : 'tap';
+    Actions.handleAction(this, this.config, action, () => this.toggleExpanded());
   }
 
   //-----------------------------------------------------------------------------
