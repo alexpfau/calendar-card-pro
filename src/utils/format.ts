@@ -157,12 +157,15 @@ export function formatLocation(location: string, removeCountry: boolean | string
 }
 
 /**
- * Strip HTML tags from a string, returning only the text content.
+ * Strip HTML tags and decode HTML entities from a string, returning plain text.
  * Useful for calendar integrations that include HTML markup in descriptions.
  */
 export function stripHtmlTags(text: string): string {
   if (!text) return '';
-  return text.replace(/<[^>]*>/g, '').trim();
+  const stripped = text.replace(/<[^>]*>/g, '');
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = stripped;
+  return textarea.value.trim();
 }
 
 /**
