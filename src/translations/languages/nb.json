@@ -1,9 +1,9 @@
 {
   "daysOfWeek": ["Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"],
-  "fullDaysOfWeek": ["Søndag", "Mandag", "Tirsdag", "Onsdag", "Torsdag", "Fredag", "Lørdag"],
-  "months": ["Jan", "Feb", "Mar", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Des"],
+  "fullDaysOfWeek": ["søndag", "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag"],
+  "months": ["jan", "feb", "mar", "apr", "mai", "jun", "jul", "aug", "sep", "okt", "nov", "des"],
   "allDay": "hele dagen",
-  "multiDay": "inntil",
+  "multiDay": "til",
   "at": "kl. ",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
