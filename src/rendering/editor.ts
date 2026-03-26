@@ -425,6 +425,9 @@ export class CalendarCardProEditor extends LitElement {
       return; // Don't save the UI mode itself to config
     } else if (name === 'start_date_fixed' || name === 'start_date_offset') {
       // These are UI-only fields that map to the single 'start_date' parameter
+      // For offset field, only apply on blur/enter (change), not on every keystroke (keyup),
+      // because intermediate values (e.g. empty or "-") change the detected mode and hide the field
+      if (name === 'start_date_offset' && event.type === 'keyup') return;
       this.setConfigValue('start_date', target.value);
       this.requestUpdate();
       return; // Don't save these UI fields to config
