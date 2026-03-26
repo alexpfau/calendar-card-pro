@@ -966,7 +966,7 @@ export function renderEvent(
             ${eventLocation
               ? html`
                   <div class="location">
-                    <ha-icon icon="mdi:map-marker"></ha-icon>
+                    <ha-icon icon="mdi:map-marker-outline"></ha-icon>
                     <span>${eventLocation}</span>
                   </div>
                 `
@@ -974,7 +974,7 @@ export function renderEvent(
             ${eventDescription
               ? html`
                   <div class="description">
-                    <ha-icon icon="mdi:information"></ha-icon>
+                    <ha-icon icon="mdi:information-outline"></ha-icon>
                     <span>${eventDescription}</span>
                   </div>
                 `

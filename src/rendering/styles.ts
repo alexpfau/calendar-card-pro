@@ -43,6 +43,9 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-icon-size-description': config.description_icon_size || '14px',
     '--calendar-card-date-column-width': `${parseFloat(config.day_font_size) * 1.75}px`,
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
+    '--calendar-card-event-icon-vertical-alignment': 
+      config.event_icon_vertical_alignment === 'top' ? 'flex-start' :
+      config.event_icon_vertical_alignment === 'bottom' ? 'flex-end' : 'center',
     '--calendar-card-event-border-radius': 'calc(var(--ha-card-border-radius, 10px) / 2)',
     '--ha-ripple-hover-opacity': '0.04',
     '--ha-ripple-hover-color': config.accent_color,
@@ -542,7 +545,7 @@ export const cardStyles = css`
   .location,
   .description {
     display: flex;
-    align-items: center;
+    align-items: var(--calendar-card-event-icon-vertical-alignment);
     line-height: 1.2;
     margin-top: 2px;
     margin-right: 12px;
