@@ -287,7 +287,7 @@ export interface Hass {
     subscribeMessage: (
       callback: (message: WeatherForecastMessage) => void,
       options: SubscribeMessageOptions,
-    ) => () => void;
+    ) => Promise<() => void>;
   };
   formatEntityState?: (stateObj: HassEntity, state: string) => string;
 }

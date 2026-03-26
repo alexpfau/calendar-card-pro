@@ -104,6 +104,8 @@ class CalendarCardPro extends LitElement {
   private _lastUpdateTime = 0;
   private _initialLoadRetryId?: number;
   private _weatherUnsubscribers: Array<() => void> = [];
+  private _weatherSetupVersion = 0;
+  private _weatherSetupPending = false;
 
   // Interaction state
   private _activePointerId: number | null = null;
@@ -173,7 +175,7 @@ class CalendarCardPro extends LitElement {
     this.updateEvents();
 
     // Set up weather subscriptions if configured
-    this._setupWeatherSubscriptions();
+    this._scheduleWeatherSetup();
 
     // Set up visibility listener
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
@@ -181,6 +183,10 @@ class CalendarCardPro extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+
+    // Invalidate any in-flight or pending weather subscription setup
+    this._weatherSetupVersion++;
+    this._weatherSetupPending = false;
 
     // Clean up weather subscriptions
     this._cleanupWeatherSubscriptions();
@@ -226,12 +232,16 @@ class CalendarCardPro extends LitElement {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
     }
 
-    // Check if weather config has changed
-    if (
+    // Set up weather subscriptions when hass becomes available or weather config changes
+    const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');
+    const prevConfig = changedProps.get('config') as Types.Config | undefined;
+    const weatherConfigChanged =
       changedProps.has('config') &&
-      this.config?.weather?.entity !== (changedProps.get('config') as Types.Config)?.weather?.entity
-    ) {
-      this._setupWeatherSubscriptions();
+      (this.config?.weather?.entity !== prevConfig?.weather?.entity ||
+        this.config?.weather?.position !== prevConfig?.weather?.position);
+
+    if (hassJustAvailable || weatherConfigChanged) {
+      this._scheduleWeatherSetup();
     }
   }
 
@@ -283,9 +293,26 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Schedule weather subscription setup, debounced to collapse multiple calls
+   * within the same microtask into a single setup.
+   */
+  private _scheduleWeatherSetup(): void {
+    if (this._weatherSetupPending) return;
+    this._weatherSetupPending = true;
+    queueMicrotask(() => {
+      this._weatherSetupPending = false;
+      if (!this.isConnected) return;
+      this._setupWeatherSubscriptions();
+    });
+  }
+
+  /**
    * Set up weather forecast subscriptions
    */
-  private _setupWeatherSubscriptions(): void {
+  private async _setupWeatherSubscriptions(): Promise<void> {
+    // Increment version to invalidate any in-flight setup from a previous call
+    const version = ++this._weatherSetupVersion;
+
     // Clean up existing subscriptions
     this._cleanupWeatherSubscriptions();
 
@@ -298,8 +325,13 @@ class CalendarCardPro extends LitElement {
     const forecastTypes = Weather.getRequiredForecastTypes(this.config.weather);
 
     // Subscribe to each required forecast type
-    forecastTypes.forEach((type) => {
-      const unsubscribe = Weather.subscribeToWeatherForecast(
+    for (const type of forecastTypes) {
+      // If a newer setup call was initiated, abandon this one
+      if (this._weatherSetupVersion !== version) {
+        return;
+      }
+
+      const unsubscribe = await Weather.subscribeToWeatherForecast(
         this.hass!,
         this.config,
         type,
@@ -313,19 +345,33 @@ class CalendarCardPro extends LitElement {
         },
       );
 
+      // Check again after await — a newer call may have superseded this one
+      if (this._weatherSetupVersion !== version) {
+        if (unsubscribe) unsubscribe();
+        return;
+      }
+
       if (unsubscribe) {
         this._weatherUnsubscribers.push(unsubscribe);
       }
-    });
+    }
   }
 
   /**
    * Clean up weather subscriptions
    */
   private _cleanupWeatherSubscriptions(): void {
+    const count = this._weatherUnsubscribers.length;
+    if (count > 0) {
+      Logger.debug(`Unsubscribing ${count} weather forecast subscription(s)`);
+    }
     this._weatherUnsubscribers.forEach((unsubscribe) => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
+      try {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      } catch (error) {
+        Logger.warn('Failed to unsubscribe weather forecast', error);
       }
     });
     this._weatherUnsubscribers = [];
@@ -459,16 +505,6 @@ class CalendarCardPro extends LitElement {
       this.config.start_date,
     );
 
-    // Track if weather config changes
-    const weatherEntityChanged =
-      this.config?.weather?.entity !== config.weather?.entity ||
-      this.config?.weather?.position !== config.weather?.position;
-
-    // Update weather subscriptions if entity or position changed
-    if (weatherEntityChanged) {
-      this._setupWeatherSubscriptions();
-    }
-
     // Check if we need to reload data
     const configChanged = Config.hasConfigChanged(previousConfig, this.config);
     if (configChanged) {
@@ -529,9 +565,6 @@ class CalendarCardPro extends LitElement {
       this.isLoading = false;
       this.isInitialLoad = false;
     }
-
-    // Ensure we have weather forecast subscriptions too
-    this._setupWeatherSubscriptions();
   }
 
   /**
