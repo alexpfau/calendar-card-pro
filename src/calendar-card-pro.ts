@@ -550,10 +550,10 @@ class CalendarCardPro extends LitElement {
       pointerLeave: () => this._handlePointerCancel(),
     };
 
-  // Determine card content based on state
-  let content: TemplateResult;
+    // Determine card content based on state
+    let content: TemplateResult;
 
-  if (!this.safeHass || !this.config.entities.length) {
+    if (!this.safeHass || !this.config.entities.length) {
       // Error state - missing entities
       content = Render.renderCardContent('error', this.effectiveLanguage);
     } else if (this.events.length === 0) {
