@@ -550,13 +550,10 @@ class CalendarCardPro extends LitElement {
       pointerLeave: () => this._handlePointerCancel(),
     };
 
-    // Determine card content based on state
-    let content: TemplateResult;
+  // Determine card content based on state
+  let content: TemplateResult;
 
-    if (this.isLoading) {
-      // Loading state
-      content = Render.renderCardContent('loading', this.effectiveLanguage);
-    } else if (!this.safeHass || !this.config.entities.length) {
+  if (!this.safeHass || !this.config.entities.length) {
       // Error state - missing entities
       content = Render.renderCardContent('error', this.effectiveLanguage);
     } else if (this.events.length === 0) {
@@ -587,7 +584,14 @@ class CalendarCardPro extends LitElement {
     }
 
     // Render main card structure with content
-    return Render.renderMainCardStructure(customStyles, this.config.title, content, handlers);
+    return Render.renderMainCardStructure(
+      customStyles,
+      this.config.title,
+      content,
+      handlers,
+      false,
+      this.isLoading,
+    );
   }
 }
 
