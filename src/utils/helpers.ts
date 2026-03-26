@@ -63,6 +63,16 @@ export function convertToRGBA(color: string, opacity: number): string {
 //-----------------------------------------------------------------------------
 
 /**
+ * Checks if a string is a Home Assistant icon value (e.g., mdi:calendar, phu:octopusenergy, fas:home)
+ *
+ * @param value String to check
+ * @returns True if the string matches the HA icon format (prefix:icon-name)
+ */
+export function isIconValue(value: string): boolean {
+  return /^[a-z][a-z0-9]*:[a-z0-9]/i.test(value) && !value.startsWith('http');
+}
+
+/**
  * Checks if a string is an emoji
  *
  * @param str String to check
@@ -97,8 +107,8 @@ export function getTodayIndicatorType(value: string | boolean): string {
       return value;
     }
 
-    // Check for MDI icon format
-    if (value.startsWith('mdi:')) {
+    // Check for icon format (mdi:, phu:, fas:, hass:, etc.)
+    if (isIconValue(value)) {
       return 'mdi';
     }
 

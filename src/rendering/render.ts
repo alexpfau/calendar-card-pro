@@ -307,8 +307,8 @@ function renderWeekRow(
 function renderLabel(label: string | undefined): TemplateResult | typeof nothing {
   if (!label) return nothing;
 
-  // Handle Material Design Icons (mdi:icon-name syntax)
-  if (label.startsWith('mdi:')) {
+  // Handle icons (mdi:, phu:, fas:, hass:, etc.)
+  if (Helpers.isIconValue(label)) {
     return html`<ha-icon icon="${label}" class="label-icon"> </ha-icon>`;
   }
 
@@ -885,7 +885,8 @@ export function renderEvent(
     event.location && showLocation
       ? FormatUtils.formatLocation(event.location, config.remove_location_country)
       : '';
-  const eventDescription = event.description && showDescription ? FormatUtils.stripHtmlTags(event.description) : '';
+  const eventDescription =
+    event.description && showDescription ? FormatUtils.stripHtmlTags(event.description) : '';
 
   // Determine event position for styling
   const isFirst = index === 0;

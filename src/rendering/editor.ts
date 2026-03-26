@@ -2044,8 +2044,8 @@ export class CalendarCardProEditor extends LitElement {
 
     // String values - shared logic
     if (typeof value === 'string') {
-      // Check if value is an MDI icon path
-      if (value.startsWith('mdi:')) return 'icon';
+      // Check if value is an icon path (mdi:, phu:, fas:, hass:, etc.)
+      if (Helpers.isIconValue(value)) return 'icon';
 
       // Check if value is an image path
       if (value.startsWith('/') || /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(value)) return 'image';
@@ -2090,7 +2090,7 @@ export class CalendarCardProEditor extends LitElement {
       newValue = context === 'indicator' ? false : undefined;
     } else if (selectedType === 'icon') {
       newValue =
-        typeof currentValue === 'string' && currentValue.startsWith('mdi:')
+        typeof currentValue === 'string' && Helpers.isIconValue(currentValue)
           ? currentValue
           : context === 'indicator'
             ? 'mdi:star'
@@ -2192,13 +2192,10 @@ export class CalendarCardProEditor extends LitElement {
             .hass="${this.hass}"
             .value="${value as string}"
             @value-changed="${(event: CustomEvent<{ value: string }>) => {
-              // When an icon is selected, add 'mdi:' prefix if needed
+              // Store the icon value as-is — ha-icon-picker already returns the full prefixed value
               const selectedIcon = event.detail.value;
               if (selectedIcon) {
-                const prefixedIcon = selectedIcon.startsWith('mdi:')
-                  ? selectedIcon
-                  : `mdi:${selectedIcon}`;
-                this.setConfigValue(path, prefixedIcon);
+                this.setConfigValue(path, selectedIcon);
               } else {
                 // Default to dot if cleared for indicator, or empty for label
                 this.setConfigValue(path, context === 'indicator' ? 'dot' : '');
