@@ -96,7 +96,7 @@ export function renderCardContent(state: 'loading' | 'error', language: string):
   if (state === 'loading') {
     return html`
       <div class="calendar-card">
-  <div class="loading">${translations.loading}</div>
+        <div class="loading">${translations.loading}</div>
       </div>
     `;
   }
