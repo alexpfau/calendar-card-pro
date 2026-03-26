@@ -452,6 +452,64 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Handles value changes from ha-select elements (HA 2026.3+).
+   * The new ha-select fires a 'selected' CustomEvent with detail.value
+   * instead of the old 'change' DOM event with target.value.
+   */
+  _selectChanged(event: CustomEvent): void {
+    if (!event.target) return;
+
+    event.stopPropagation();
+
+    const target = event.target as HTMLElement;
+    const name = target.getAttribute('name');
+    const value = event.detail?.value ?? undefined;
+
+    if (!name) return;
+
+    // Handle special cases for UI controls that require custom processing
+    if (name === 'language_mode') {
+      if (value === 'system') {
+        this.setConfigValue('language', undefined);
+      } else if (value === 'custom') {
+        if (!this.getConfigValue('language')) {
+          this.setConfigValue('language', 'en');
+        }
+      }
+      return;
+    } else if (name === 'height_mode') {
+      const currentHeight = this.getConfigValue('height');
+      const currentMaxHeight = this.getConfigValue('max_height');
+
+      this.setConfigValue('height', undefined);
+      this.setConfigValue('max_height', undefined);
+
+      if (value === 'fixed') {
+        this.setConfigValue(
+          'height',
+          currentHeight && currentHeight !== 'auto' ? currentHeight : '300px',
+        );
+      } else if (value === 'maximum') {
+        this.setConfigValue(
+          'max_height',
+          currentMaxHeight && currentMaxHeight !== 'none' ? currentMaxHeight : '300px',
+        );
+      }
+      return;
+    } else if (name === 'start_date_mode') {
+      this._handleStartDateModeChange(value);
+      return;
+    } else if (name === 'remove_location_country_selector') {
+      return;
+    } else if (name === 'show_week_numbers' && value === 'null') {
+      this.setConfigValue(name, null);
+      return;
+    }
+
+    this.setConfigValue(name, value);
+  }
+
+  /**
    * Handles changes to service data fields (JSON inputs).
    * @param event Input event
    */
@@ -1420,20 +1478,15 @@ export class CalendarCardProEditor extends LitElement {
         label="${label ?? this._getTranslation(name)}"
         .value="${this.getConfigValue(name, defaultValue)}"
         .clearable="${clearable ?? false}"
-        @change="${(event: Event) => {
-          this._valueChanged(event);
-          if (changeCallback && event.target) {
-            const value = (event.target as HTMLSelectElement).value;
-            changeCallback(value);
+        .options="${options}"
+        @selected="${(event: CustomEvent) => {
+          this._selectChanged(event);
+          if (changeCallback) {
+            const value = event.detail?.value;
+            if (value !== undefined) changeCallback(value);
           }
         }}"
-        @closed="${(event: Event) => event.stopPropagation()}"
       >
-        ${options?.map(
-          (option) => html`
-            <mwc-list-item value="${option.value}">${option.label}</mwc-list-item>
-          `,
-        )}
       </ha-select>
     `;
   }
@@ -1870,17 +1923,16 @@ export class CalendarCardProEditor extends LitElement {
         <ha-select
           name="${configKey}.action"
           .value="${action}"
-          @change="${this._valueChanged}"
-          @closed="${(e: Event) => e.stopPropagation()}"
+          .options="${[
+            { value: 'none', label: this._getTranslation('none') },
+            { value: 'expand', label: this._getTranslation('expand') },
+            { value: 'more-info', label: this._getTranslation('more_info') },
+            { value: 'navigate', label: this._getTranslation('navigate') },
+            { value: 'url', label: this._getTranslation('url') },
+            { value: 'call-service', label: this._getTranslation('call_service') },
+          ]}"
+          @selected="${this._selectChanged}"
         >
-          <mwc-list-item value="none">${this._getTranslation('none')}</mwc-list-item>
-          <mwc-list-item value="expand">${this._getTranslation('expand')}</mwc-list-item>
-          <mwc-list-item value="more-info">${this._getTranslation('more_info')}</mwc-list-item>
-          <mwc-list-item value="navigate">${this._getTranslation('navigate')}</mwc-list-item>
-          <mwc-list-item value="url">${this._getTranslation('url')}</mwc-list-item>
-          <mwc-list-item value="call-service"
-            >${this._getTranslation('call_service')}</mwc-list-item
-          >
         </ha-select>
 
         ${action === 'navigate'
@@ -1984,7 +2036,7 @@ export class CalendarCardProEditor extends LitElement {
     // Stop event propagation
     event.stopPropagation();
 
-    const selectedType = (event.target as HTMLSelectElement).value;
+    const selectedType = (event as CustomEvent).detail?.value;
     let newValue: string | boolean | undefined;
 
     // Shared logic for both contexts
@@ -2063,12 +2115,9 @@ export class CalendarCardProEditor extends LitElement {
           name="${path}_type"
           label="${label}"
           .value="${valueType}"
-          @change="${(e: Event) => this._handleValueTypeChange(e, path, value, context)}"
-          @closed="${(e: Event) => e.stopPropagation()}"
+          .options="${options}"
+          @selected="${(e: CustomEvent) => this._handleValueTypeChange(e, path, value, context)}"
         >
-          ${options.map(
-            (opt) => html` <mwc-list-item value="${opt.value}">${opt.label}</mwc-list-item> `,
-          )}
         </ha-select>
 
         ${this._renderTypeField(valueType, path, value, context)}
