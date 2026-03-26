@@ -93,6 +93,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_time: true,
   show_single_allday_time: true,
   time_24h: 'system',
+  two_digit_hours: false,
   show_end_time: true,
   time_font_size: '12px',
   time_color: 'var(--secondary-text-color)',

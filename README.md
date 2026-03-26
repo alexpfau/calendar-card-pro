@@ -709,6 +709,7 @@ Configure how event times and locations are displayed:
 show_time: true # Show event start/end times
 show_single_allday_time: false # Hide time for single-day all-day events
 time_24h: false # Use 12-hour format (AM/PM)
+two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time
 time_font_size: '12px'
 time_color: 'var(--secondary-text-color)'
@@ -1205,6 +1206,7 @@ These examples demonstrate how Calendar Card Pro can be customized to match any 
 | `show_time`                                | boolean           | `true`                                             | Whether to show event times                                                                                                                                                                                                                                 |
 | `show_single_allday_time`                  | boolean           | `true`                                             | Whether to show time display for all-day single-day events                                                                                                                                                                                                  |
 | `time_24h`                                 | boolean           | `System`                                           | Whether to use 24-hour time format (auto-detects from HA)                                                                                                                                                                                                   |
+| `two_digit_hours`                          | boolean           | `false`                                            | Whether to use 2 digits in hours                                                                                                                                                                                                                            |
 | `show_end_time`                            | boolean           | `true`                                             | Whether to show event end times                                                                                                                                                                                                                             |
 | `time_icon_size`                           | string            | `14px`                                             | Clock icon size (replaces time_location_icon_size)                                                                                                                                                                                                          |
 | `time_font_size`                           | string            | `12px`                                             | Event time font size                                                                                                                                                                                                                                        |
@@ -1380,6 +1382,7 @@ show_past_events: false
 event_font_size: 14px
 event_color: '#baf1ff'
 time_24h: true
+two_digit_hours: false
 show_end_time: true
 time_font_size: 12px
 time_color: '#baf1ff'

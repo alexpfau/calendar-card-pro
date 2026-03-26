@@ -86,6 +86,7 @@
     "custom": "Egendefinert",
     "12h": "12-timer",
     "24h": "24-timer",
+    "two_digit_hours": "2 sifre i timer",
 
     "appearance_layout": "Utseende og layout",
     "title_styling": "Tittelformatering",

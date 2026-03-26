@@ -736,6 +736,7 @@ export class CalendarCardProEditor extends LitElement {
               { value: 'true', label: this._getTranslation('24h') },
               { value: 'false', label: this._getTranslation('12h') },
             ])}
+            ${this.addBooleanField('two_digit_hours', this._getTranslation('two_digit_hours'))}
           `,
         )}
 
