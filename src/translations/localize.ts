@@ -57,7 +57,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   el: elTranslations,
   en: enTranslations,
   es: esTranslations,
-  et: esTranslations,
+  et: etTranslations,
   fi: fiTranslations,
   fr: frTranslations,
   he: heTranslations,
