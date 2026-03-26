@@ -229,6 +229,7 @@ export interface EventsByDay {
 export interface CacheEntry {
   events: CalendarEventData[];
   timestamp: number;
+  ttlMs?: number;
 }
 
 // -----------------------------------------------------------------------------

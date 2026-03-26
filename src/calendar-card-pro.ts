@@ -101,7 +101,8 @@ class CalendarCardPro extends LitElement {
   private _instanceId = Helpers.generateInstanceId();
   private _language = '';
   private _refreshTimerId?: number;
-  private _lastUpdateTime = Date.now();
+  private _lastUpdateTime = 0;
+  private _initialLoadRetryId?: number;
   private _weatherUnsubscribers: Array<() => void> = [];
 
   // Interaction state
@@ -189,6 +190,11 @@ class CalendarCardPro extends LitElement {
       clearTimeout(this._refreshTimerId);
     }
 
+    if (this._initialLoadRetryId) {
+      clearTimeout(this._initialLoadRetryId);
+      this._initialLoadRetryId = undefined;
+    }
+
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
       this._holdTimer = null;
@@ -207,6 +213,11 @@ class CalendarCardPro extends LitElement {
   }
 
   updated(changedProps: PropertyValues) {
+    // If hass becomes available after initial connection, load events immediately
+    if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
+      this.updateEvents(true);
+    }
+
     // Update language if locale or config language changed
     if (
       (changedProps.has('hass') && this.hass?.locale) ||
@@ -479,6 +490,15 @@ class CalendarCardPro extends LitElement {
     // Skip update if no Home Assistant connection or no entities
     if (!this.safeHass || !this.config.entities.length) {
       this.isLoading = false;
+      if (!this.safeHass) {
+        // Retry shortly to handle hass initialization timing
+        if (this._initialLoadRetryId) {
+          clearTimeout(this._initialLoadRetryId);
+        }
+        this._initialLoadRetryId = window.setTimeout(() => {
+          this.updateEvents(true);
+        }, 1500);
+      }
       return;
     }
 

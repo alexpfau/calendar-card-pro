@@ -88,7 +88,15 @@ export async function fetchEventData(
   });
 
   // Cache and return the processed results
-  cacheEvents(cacheKey, processedEvents);
+  if (processedEvents.length > 0) {
+    cacheEvents(cacheKey, processedEvents);
+  } else {
+    const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
+    Logger.info(
+      `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
+    );
+    cacheEvents(cacheKey, processedEvents, emptyTtlMs);
+  }
 
   return processedEvents;
 }
@@ -1310,13 +1318,21 @@ export function getCachedEvents(
  * @param events - Calendar event data to cache
  * @returns Boolean indicating if caching was successful
  */
-export function cacheEvents(key: string, events: Types.CalendarEventData[]): boolean {
+export function cacheEvents(
+  key: string,
+  events: Types.CalendarEventData[],
+  ttlMs?: number,
+): boolean {
   try {
     Logger.info(`Caching ${events.length} events`);
     const cacheEntry: Types.CacheEntry = {
       events,
       timestamp: Date.now(),
     };
+
+    if (typeof ttlMs === 'number' && ttlMs > 0) {
+      cacheEntry.ttlMs = ttlMs;
+    }
 
     localStorage.setItem(key, JSON.stringify(cacheEntry));
 
@@ -1412,9 +1428,11 @@ export function getValidCacheEntry(
     // Determine cache duration based on context
     let cacheDuration;
 
-    // Only apply short cache duration if refresh_on_navigate is enabled
-    // and this is a manual page reload/navigation
-    if (isManualPageReload && config?.refresh_on_navigate) {
+    if (typeof cache.ttlMs === 'number' && cache.ttlMs > 0) {
+      cacheDuration = cache.ttlMs;
+    } else if (isManualPageReload && config?.refresh_on_navigate) {
+      // Only apply short cache duration if refresh_on_navigate is enabled
+      // and this is a manual page reload/navigation
       cacheDuration = Constants.CACHE.MANUAL_RELOAD_CACHE_DURATION_SECONDS * 1000;
     } else {
       // Otherwise use normal cache duration
