@@ -35,6 +35,8 @@ export const DEFAULT_CONFIG: Types.Config = {
   // Layout and spacing
   background_color: 'var(--ha-card-background)',
   accent_color: '#03a9f4',
+  // new;
+  label_icon_color: '#03a9f4',
   vertical_line_width: '2px',
   day_spacing: '10px',
   event_spacing: '4px',
@@ -153,6 +155,8 @@ export function normalizeEntities(
         label?: string;
         color?: string;
         accent_color?: string;
+        // new:
+	label_icon_color?: string;
         show_time?: boolean;
         show_location?: boolean;
         show_description?: boolean;
@@ -174,6 +178,8 @@ export function normalizeEntities(
           entity: item,
           color: 'var(--primary-text-color)',
           accent_color: undefined,
+	  // new:
+          label_icon_color: undefined,
         };
       }
       if (typeof item === 'object' && item.entity) {
@@ -182,6 +188,8 @@ export function normalizeEntities(
           label: item.label,
           color: item.color || 'var(--primary-text-color)',
           accent_color: item.accent_color || undefined,
+          // new:
+	  label_icon_color: item.label_icon_color || undefined,
           show_time: item.show_time,
           show_location: item.show_location,
           show_description: item.show_description,

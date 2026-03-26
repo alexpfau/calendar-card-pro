@@ -125,6 +125,8 @@ export interface EntityConfig {
   label?: string;
   color?: string;
   accent_color?: string;
+  // new
+  label_icon_color?: string;
   show_time?: boolean;
   show_location?: boolean;
   show_description?: boolean;

@@ -86,7 +86,7 @@ export function renderMainCardStructure(
 /**
  * Render card content based on state
  *
- * @param state Card state (loading, error)renderWeekRow
+ * @param state Card state (loading, error)
  * @param language Language code for translations
  * @returns Template result for card content
  */
@@ -302,19 +302,29 @@ function renderWeekRow(
  * Render calendar label with support for text, emojis, images, and icons
  *
  * @param label - Label content from entity configuration
+ * @param labelIconColor - Optional color for icon labels
  * @returns TemplateResult for the appropriate label type
  */
-function renderLabel(label: string | undefined): TemplateResult | typeof nothing {
+function renderLabel(
+  label: string | undefined,
+  labelIconColor?: string,
+): TemplateResult | typeof nothing {
   if (!label) return nothing;
+
+  // style attribute only if a color was provided
+  const styleAttr = labelIconColor ? `color: ${labelIconColor};` : nothing;
 
   // Handle icons (mdi:, phu:, fas:, hass:, etc.)
   if (Helpers.isIconValue(label)) {
-    return html`<ha-icon icon="${label}" class="label-icon"> </ha-icon>`;
+    return html`<ha-icon icon="${label}" class="label-icon" style=${styleAttr}></ha-icon>`;
   }
 
   // Handle image paths (either /local/ path or image file extension)
-  if (label.startsWith('/local/') || /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(label)) {
-    return html`<img src="${label}" class="label-image"> </img>`;
+  if (
+    label.startsWith('/local/') ||
+    /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(label)
+  ) {
+    return html`<img src="${label}" class="label-image"></img>`;
   }
 
   // Default: text/emoji (original behavior)
@@ -1000,12 +1010,17 @@ export function renderEventTitle(
     ? 'var(--calendar-card-empty-day-color)'
     : event._matchedConfig?.color || config.event_color;
 
+  const entityLabel = EventUtils.getEntityLabel(event._entityId, config, event);
+
+  // label_icon_color from the matched entity config
+  const labelIconColor = event._matchedConfig?.label_icon_color;
+
   return html`
     <div class="summary-row">
       <div class="summary">
-        ${EventUtils.getEntityLabel(event._entityId, config, event)
-          ? renderLabel(EventUtils.getEntityLabel(event._entityId, config, event))
-          : ''}
+        ${entityLabel
+          ? renderLabel(entityLabel, labelIconColor)
+          : nothing}
         <span
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
           style="color: ${entityColor}"
@@ -1081,3 +1096,4 @@ function renderEventWeather(
     </div>
   `;
 }
+
