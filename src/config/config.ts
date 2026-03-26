@@ -103,6 +103,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   location_color: 'var(--secondary-text-color)',
   location_icon_size: '14px',
   show_description: false,
+  description_max_lines: 0,
   description_font_size: '12px',
   description_color: 'var(--secondary-text-color)',
   description_icon_size: '14px',

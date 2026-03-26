@@ -1,6 +1,14 @@
 {
   "daysOfWeek": ["Sek", "Pir", "Ant", "Tre", "Ket", "Pen", "Šeš"],
-  "fullDaysOfWeek": ["Sekmadienis", "Pirmadienis", "Antradienis", "Trečiadienis", "Ketvirtadienis", "Penktadienis", "Šeštadienis"],
+  "fullDaysOfWeek": [
+    "Sekmadienis",
+    "Pirmadienis",
+    "Antradienis",
+    "Trečiadienis",
+    "Ketvirtadienis",
+    "Penktadienis",
+    "Šeštadienis"
+  ],
   "months": ["Sau", "Vas", "Kov", "Bal", "Geg", "Bir", "Lie", "Rgp", "Rgs", "Spa", "Lap", "Grd"],
   "allDay": "visą dieną",
   "multiDay": "iki",
@@ -186,6 +194,11 @@
     "location_font_size": "Vietos šrifto dydis",
     "location_color": "Vietos spalva",
     "location_icon_size": "Vietos piktogramos dydis",
+    "description": "Aprašymas",
+    "description_font_size": "Aprašymo šrifto dydis",
+    "description_color": "Aprašymo spalva",
+    "description_icon_size": "Aprašymo piktogramos dydis",
+    "description_max_lines": "Aprašymo maks. eilučių (0 = neribota)",
     "custom_country_pattern": "Šalių šablonai pašalinimui",
     "custom_country_pattern_note": "Įveskite šalių pavadinimus kaip reguliariųjų išraiškų šabloną (pvz., 'USA|United States|Canada'). Įvykiai su vietomis, besibaigančiais šiais šablonais, turės šalį pašalintą.",
     "progress_indicators": "Progreso indikatoriai",

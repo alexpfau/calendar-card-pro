@@ -192,6 +192,7 @@
     "description_font_size": "Description font size",
     "description_color": "Description color",
     "description_icon_size": "Description icon size",
+    "description_max_lines": "Description max lines (0 = unlimited)",
     "custom_country_pattern": "Country patterns to remove",
     "custom_country_pattern_note": "Enter country names as a regular expression pattern (e.g., 'USA|United States|Canada'). Events with locations ending with these patterns will have the country removed.",
     "progress_indicators": "Progress Indicators",

@@ -100,6 +100,7 @@ export interface Config {
   location_color: string;
   location_icon_size: string;
   show_description: boolean;
+  description_max_lines: number;
   description_font_size: string;
   description_color: string;
   description_icon_size: string;

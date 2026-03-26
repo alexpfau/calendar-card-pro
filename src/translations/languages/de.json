@@ -202,6 +202,7 @@
     "description_font_size": "Beschreibung Schriftgröße",
     "description_color": "Beschreibung Farbe",
     "description_icon_size": "Beschreibung Symbol Größe",
+    "description_max_lines": "Beschreibung max. Zeilen (0 = unbegrenzt)",
     "progress_indicators": "Fortschrittsindikatoren",
     "show_countdown": "Countdown anzeigen",
     "show_progress_bar": "Fortschrittsbalken anzeigen",

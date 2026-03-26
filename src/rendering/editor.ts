@@ -1224,6 +1224,10 @@ export class CalendarCardProEditor extends LitElement {
                   'description_icon_size',
                   this._getTranslation('description_icon_size'),
                 )}
+                ${this.addTextField(
+                  'description_max_lines',
+                  this._getTranslation('description_max_lines'),
+                )}
               `;
             })()}
 
