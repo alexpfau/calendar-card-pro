@@ -36,6 +36,8 @@
     "entity_color_note": "Egendefinert farge for hendelsestitlene fra denne kalenderen.",
     "accent_color": "Aksentfarge",
     "entity_accent_color_note": "Egendefinert aksentfarge for den vertikale linjen til hendelser fra denne kalenderen. Denne fargen vil også bli brukt som bakgrunnsfarge for hendelser når 'event_background_opacity' er >0.",
+    "label_icon_color": "Etikett-ikonfarge",
+    "label_icon_color_note": "Egendefinert farge for etikettikonet. Hvis ikke angitt, arver ikonet standard tekstfarge.",
     "event_filtering": "Hendelsesfiltrering",
     "blocklist": "Blokkeringsliste",
     "blocklist_note": "Pipe-separert liste med uttrykk for å ekskludere hendelser. Hendelser med titler som inneholder noen av disse uttrykkene vil bli skjult. Eksempel: 'Privat|Møte|Konferanse'",

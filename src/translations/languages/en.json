@@ -36,6 +36,8 @@
     "entity_color_note": "Custom color for event titles from this calendar.",
     "accent_color": "Accent color",
     "entity_accent_color_note": "Custom accent color for the vertical line of events from this calendar. This color will also be used as the event background color when 'event_background_opacity' is >0.",
+    "label_icon_color": "Label icon color",
+    "label_icon_color_note": "Custom color for the label icon. If not set, the icon inherits the default text color.",
     "event_filtering": "Event Filtering",
     "blocklist": "Blocklist",
     "blocklist_note": "Pipe-separated list of terms to exclude events. Events with titles containing any of these terms will be hidden. Example: 'Private|Meeting|Conference'",

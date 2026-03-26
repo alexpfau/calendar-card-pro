@@ -44,6 +44,8 @@
     "entity_color_note": "Benutzerdefinierte Farbe für Ereignistitel aus diesem Kalender.",
     "accent_color": "Akzentfarbe",
     "entity_accent_color_note": "Benutzerdefinierte Akzentfarbe für die vertikale Linie der Ereignisse in diesem Kalender. Diese Farbe wird auch als Hintergrundfarbe für Ereignisse verwendet, wenn 'event_background_opacity' >0 ist.",
+    "label_icon_color": "Label-Icon-Farbe",
+    "label_icon_color_note": "Benutzerdefinierte Farbe für das Label-Icon. Wenn nicht gesetzt, übernimmt das Icon die Standard-Textfarbe.",
     "event_filtering": "Ereignisfilterung",
     "blocklist": "Sperrliste",
     "blocklist_note": "Durch Pipes getrennte Liste von Begriffen zum Ausschließen von Ereignissen. Ereignisse, deren Titel einen dieser Begriffe enthalten, werden ausgeblendet. Beispiel: 'Privat|Meeting|Konferenz'",

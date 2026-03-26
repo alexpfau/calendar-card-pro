@@ -35,6 +35,8 @@
     "entity_color_note": "Vlastná farba pre názvy udalostí v tomto kalendári.",
     "accent_color": "Farba zvýraznenia",
     "entity_accent_color_note": "Vlastná farba zvýraznenia zvislej čiary udalostí v tomto kalendári. Táto farba sa zároveň použije aj ako pozadie udalosti, ak je atribút 'event_background_opacity' väčší ako nula.",
+    "label_icon_color": "Farba ikony štítku",
+    "label_icon_color_note": "Vlastná farba ikony štítku. Ak nie je nastavená, ikona zdedí predvolenú farbu textu.",
     "event_filtering": "Filtrovanie udalostí",
     "blocklist": "Zoznam zakázaných (blocklist)",
     "blocklist_note": "Zvislou čiarou (|) oddelený zoznam výrazov slúžiacich na výber ignorovaných udalostí. Udalosti s názvom obsahujúcim akýkoľvek z uvedených výrazov budú skryté. Príklad: 'Súkromné|Porada|Konferencia'",

@@ -10,7 +10,7 @@
 // IMPORTS & CONSTANTS
 //-----------------------------------------------------------------------------
 
-import { LitElement, TemplateResult, html } from 'lit';
+import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { property } from 'lit/decorators.js';
 import styles from './editor.styles';
 import * as Types from '../config/types';
@@ -1692,6 +1692,21 @@ export class CalendarCardProEditor extends LitElement {
                         options,
                         'label',
                       );
+                    })()}
+                    ${(() => {
+                      const labelValue = this.getConfigValue(`entities.${index}.label`);
+                      const labelType = this.getValueType(labelValue, 'label');
+                      return labelType === 'icon'
+                        ? html`
+                            ${this.addTextField(
+                              `entities.${index}.label_icon_color`,
+                              this._getTranslation('label_icon_color'),
+                            )}
+                            <div class="helper-text">
+                              ${this._getTranslation('label_icon_color_note')}
+                            </div>
+                          `
+                        : nothing;
                     })()}
                     <div class="helper-text">${this._getTranslation('label_note')}</div>
                   </div>

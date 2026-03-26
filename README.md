@@ -275,6 +275,7 @@ entities:
 | label                  | string  | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`) |
 | color                  | string  | Custom color for event titles from this calendar                                                                               |
 | accent_color           | string  | Custom color for the vertical line and event background (when event_background_opacity is >0)                                  |
+| label_icon_color       | string  | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                    |
 | show_time              | boolean | Whether to show event times for this calendar (overrides global show_time setting)                                             |
 | show_location          | boolean | Whether to show event locations for this calendar (overrides global show_location setting)                                     |
 | show_description       | boolean | Whether to show event descriptions for this calendar (overrides global show_description setting)                               |

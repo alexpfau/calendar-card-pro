@@ -35,6 +35,8 @@
     "entity_color_note": "Anpassad färg för händelsetitlar från denna kalender.",
     "accent_color": "Accentfärg",
     "entity_accent_color_note": "Anpassad accentfärg för den vertikala linjen för händelser från denna kalender. Denna färg används även som bakgrundsfärg för händelsen när 'event_background_opacity' är >0.",
+    "label_icon_color": "Etikettikonfärg",
+    "label_icon_color_note": "Anpassad färg för etikettikonen. Om den inte anges ärver ikonen standardtextfärgen.",
     "event_filtering": "Händelsefiltrering",
     "blocklist": "Blocklista",
     "blocklist_note": "Lista med termer (avgränsade med |) att exkludera händelser. Händelser med titlar som innehåller någon av dessa termer döljs. Exempel: 'Privat|Möte|Konferens'",

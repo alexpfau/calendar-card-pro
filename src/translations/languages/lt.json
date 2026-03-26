@@ -44,6 +44,8 @@
     "entity_color_note": "Pasirinktinė spalva įvykių pavadinimams iš šio kalendoriaus.",
     "accent_color": "Akcentinė spalva",
     "entity_accent_color_note": "Pasirinktinė akcentinė spalva vertikaliai įvykių linijai iš šio kalendoriaus. Ši spalva taip pat bus naudojama kaip įvykio fono spalva, kai 'event_background_opacity' yra >0.",
+    "label_icon_color": "Etiketės piktogramos spalva",
+    "label_icon_color_note": "Pasirinktinė etiketės piktogramos spalva. Jei nenustatyta, piktograma paveldi numatytąją teksto spalvą.",
     "event_filtering": "Įvykių filtravimas",
     "blocklist": "Blokuojamų sąrašas",
     "blocklist_note": "Vertikaliu brūkšniu atskirtas sąrašas terminų, kuriuos reikia pašalinti. Įvykiai, kurių pavadinimuose yra bet kuris iš šių terminų, bus paslėpti. Pavyzdys: 'Privatus|Susitikimas|Konferencija'",

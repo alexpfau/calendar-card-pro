@@ -44,6 +44,8 @@
     "entity_color_note": "Niestandardowy kolor dla tytułów wydarzeń z tego kalendarza.",
     "accent_color": "Kolor Akcentu",
     "entity_accent_color_note": "Niestandardowy kolor akcentu dla linii pionowej wydarzeń z tego kalendarza. Ten kolor będzie również używany jako kolor tła wydarzenia gdy 'event_background_opacity' jest >0.",
+    "label_icon_color": "Kolor ikony etykiety",
+    "label_icon_color_note": "Niestandardowy kolor ikony etykiety. Jeśli nie ustawiono, ikona dziedziczy domyślny kolor tekstu.",
     "event_filtering": "Filtrowanie Wydarzeń",
     "blocklist": "Lista Blokady",
     "blocklist_note": "Lista wyrazów oddzielonych pionową kreską do wykluczania wydarzeń. Wydarzenia z tytułami zawierającymi któryś z tych wyrazów będą ukryte. Przykład: 'Prywatne|Spotkanie|Konferencja'",
