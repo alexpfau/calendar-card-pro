@@ -1,6 +1,14 @@
 {
   "daysOfWeek": ["Nd", "Pn", "Wt", "Śr", "Cz", "Pt", "Sb"],
-  "fullDaysOfWeek": ["Niedziela", "Poniedziałek", "Wtorek", "Środa", "Czwartek", "Piątek", "Sobota"],
+  "fullDaysOfWeek": [
+    "Niedziela",
+    "Poniedziałek",
+    "Wtorek",
+    "Środa",
+    "Czwartek",
+    "Piątek",
+    "Sobota"
+  ],
   "months": ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"],
   "allDay": "cały dzień",
   "multiDay": "do",
@@ -110,6 +118,8 @@
     "date_display": "Wyświetlanie Daty",
     "vertical_alignment": "Wyrównanie Wertykalne",
     "date_vertical_alignment": "Wyrównanie Wertykalne Daty",
+    "event_icon_alignment": "Wyrównanie Ikon",
+    "event_icon_vertical_alignment": "Wyrównanie wertykalne ikon",
     "date_formatting": "Formatowanie Daty",
     "top": "Góra",
     "middle": "Środek",

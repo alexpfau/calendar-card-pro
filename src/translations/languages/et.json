@@ -110,6 +110,8 @@
     "date_display": "Kuupäeva kuvamine",
     "vertical_alignment": "Vertikaalne joondus",
     "date_vertical_alignment": "Kuupäeva vertikaalne joondus",
+    "event_icon_alignment": "Ikoonide joondus",
+    "event_icon_vertical_alignment": "Ikoonide vertikaalne joondus",
     "date_formatting": "Kuupäeva vorming",
     "top": "Üleval",
     "middle": "Keskel",

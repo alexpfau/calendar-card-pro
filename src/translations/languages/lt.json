@@ -110,6 +110,8 @@
     "date_display": "Datos rodymas",
     "vertical_alignment": "Vertikalus lygiavimas",
     "date_vertical_alignment": "Datos vertikalus lygiavimas",
+    "event_icon_alignment": "Piktogramų lygiavimas",
+    "event_icon_vertical_alignment": "Vertikalus piktogramų lygiavimas",
     "date_formatting": "Datos formatavimas",
     "top": "Viršuje",
     "middle": "Viduryje",
