@@ -843,6 +843,9 @@ export function renderEvent(
   const showLocation =
     EventUtils.getEntitySetting(event._entityId, 'show_location', config, event) ??
     config.show_location;
+  const showDescription =
+    EventUtils.getEntitySetting(event._entityId, 'show_description', config, event) ??
+    config.show_description;
 
   // Check if this is an all-day event
   const isAllDayEvent = !event.start.dateTime;
@@ -882,6 +885,7 @@ export function renderEvent(
     event.location && showLocation
       ? FormatUtils.formatLocation(event.location, config.remove_location_country)
       : '';
+  const eventDescription = event.description && showDescription ? event.description : '';
 
   // Determine event position for styling
   const isFirst = index === 0;
@@ -964,6 +968,14 @@ export function renderEvent(
                   <div class="location">
                     <ha-icon icon="mdi:map-marker"></ha-icon>
                     <span>${eventLocation}</span>
+                  </div>
+                `
+              : ''}
+            ${eventDescription
+              ? html`
+                  <div class="description">
+                    <ha-icon icon="mdi:information"></ha-icon>
+                    <span>${eventDescription}</span>
                   </div>
                 `
               : ''}

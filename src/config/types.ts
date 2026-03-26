@@ -98,6 +98,10 @@ export interface Config {
   location_font_size: string;
   location_color: string;
   location_icon_size: string;
+  show_description: boolean;
+  description_font_size: string;
+  description_color: string;
+  description_icon_size: string;
 
   // Weather
   weather?: WeatherConfig;
@@ -121,6 +125,7 @@ export interface EntityConfig {
   accent_color?: string;
   show_time?: boolean;
   show_location?: boolean;
+  show_description?: boolean;
   compact_events_to_show?: number;
   blocklist?: string;
   allowlist?: string;
@@ -201,6 +206,7 @@ export interface CalendarEventData {
   readonly end: { readonly dateTime?: string; readonly date?: string };
   summary?: string;
   location?: string;
+  description?: string;
   _entityId?: string;
   _entityLabel?: string;
   _isEmptyDay?: boolean;
