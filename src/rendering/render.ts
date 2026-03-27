@@ -860,13 +860,6 @@ export function renderEvent(
   // Get entity-specific settings with fallback to global settings
   const showTime =
     EventUtils.getEntitySetting(event._entityId, 'show_time', config, event) ?? config.show_time;
-  const showLocation =
-    EventUtils.getEntitySetting(event._entityId, 'show_location', config, event) ??
-    config.show_location;
-  const showDescription =
-    EventUtils.getEntitySetting(event._entityId, 'show_description', config, event) ??
-    config.show_description;
-
   // Check if this is an all-day event
   const isAllDayEvent = !event.start.dateTime;
 
@@ -901,12 +894,9 @@ export function renderEvent(
 
   // Format event time and location
   const eventTime = FormatUtils.formatEventTime(event, config, language, hass);
-  const eventLocation =
-    event.location && showLocation
-      ? FormatUtils.formatLocation(event.location, config.remove_location_country)
-      : '';
-  const eventDescription =
-    event.description && showDescription ? FormatUtils.stripHtmlTags(event.description) : '';
+  // location and description are already filtered and formatted by groupEventsByDay()
+  const eventLocation = event.location || '';
+  const eventDescription = event.description || '';
 
   // Determine event position for styling
   const isFirst = index === 0;
