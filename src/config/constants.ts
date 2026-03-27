@@ -31,6 +31,9 @@ export const CACHE = {
   /** Cache duration (milliseconds) to use when manual page reload is detected */
   MANUAL_RELOAD_CACHE_DURATION_SECONDS: 5, // 5 seconds
 
+  /** Short cache duration for empty results to avoid blank first loads */
+  EMPTY_RESULTS_CACHE_DURATION_SECONDS: 15, // 15 seconds
+
   /** Multiplier used with cache lifetime to calculate when entries should be purged */
   CACHE_EXPIRY_MULTIPLIER: 4,
 

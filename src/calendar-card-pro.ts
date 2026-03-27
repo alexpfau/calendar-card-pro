@@ -79,7 +79,8 @@ class CalendarCardPro extends LitElement {
   @property({ attribute: false }) hass?: Types.Hass;
   @property({ attribute: false }) config: Types.Config = { ...Config.DEFAULT_CONFIG };
   @property({ attribute: false }) events: Types.CalendarEventData[] = [];
-  @property({ attribute: false }) isLoading = true;
+  @property({ attribute: false }) isInitialLoad = true;
+  @property({ attribute: false }) isLoading = false;
   @property({ attribute: false }) isExpanded = false;
   @property({ attribute: false }) weatherForecasts: Types.WeatherForecasts = {
     daily: {},
@@ -100,8 +101,11 @@ class CalendarCardPro extends LitElement {
   private _instanceId = Helpers.generateInstanceId();
   private _language = '';
   private _refreshTimerId?: number;
-  private _lastUpdateTime = Date.now();
+  private _lastUpdateTime = 0;
+  private _initialLoadRetryId?: number;
   private _weatherUnsubscribers: Array<() => void> = [];
+  private _weatherSetupVersion = 0;
+  private _weatherSetupPending = false;
 
   // Interaction state
   private _activePointerId: number | null = null;
@@ -171,7 +175,7 @@ class CalendarCardPro extends LitElement {
     this.updateEvents();
 
     // Set up weather subscriptions if configured
-    this._setupWeatherSubscriptions();
+    this._scheduleWeatherSetup();
 
     // Set up visibility listener
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
@@ -180,12 +184,21 @@ class CalendarCardPro extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
 
+    // Invalidate any in-flight or pending weather subscription setup
+    this._weatherSetupVersion++;
+    this._weatherSetupPending = false;
+
     // Clean up weather subscriptions
     this._cleanupWeatherSubscriptions();
 
     // Clean up timers
     if (this._refreshTimerId) {
       clearTimeout(this._refreshTimerId);
+    }
+
+    if (this._initialLoadRetryId) {
+      clearTimeout(this._initialLoadRetryId);
+      this._initialLoadRetryId = undefined;
     }
 
     if (this._holdTimer) {
@@ -206,6 +219,11 @@ class CalendarCardPro extends LitElement {
   }
 
   updated(changedProps: PropertyValues) {
+    // If hass becomes available after initial connection, load events immediately
+    if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
+      this.updateEvents(true);
+    }
+
     // Update language if locale or config language changed
     if (
       (changedProps.has('hass') && this.hass?.locale) ||
@@ -214,12 +232,16 @@ class CalendarCardPro extends LitElement {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
     }
 
-    // Check if weather config has changed
-    if (
+    // Set up weather subscriptions when hass becomes available or weather config changes
+    const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');
+    const prevConfig = changedProps.get('config') as Types.Config | undefined;
+    const weatherConfigChanged =
       changedProps.has('config') &&
-      this.config?.weather?.entity !== (changedProps.get('config') as Types.Config)?.weather?.entity
-    ) {
-      this._setupWeatherSubscriptions();
+      (this.config?.weather?.entity !== prevConfig?.weather?.entity ||
+        this.config?.weather?.position !== prevConfig?.weather?.position);
+
+    if (hassJustAvailable || weatherConfigChanged) {
+      this._scheduleWeatherSetup();
     }
   }
 
@@ -271,9 +293,26 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Schedule weather subscription setup, debounced to collapse multiple calls
+   * within the same microtask into a single setup.
+   */
+  private _scheduleWeatherSetup(): void {
+    if (this._weatherSetupPending) return;
+    this._weatherSetupPending = true;
+    queueMicrotask(() => {
+      this._weatherSetupPending = false;
+      if (!this.isConnected) return;
+      this._setupWeatherSubscriptions();
+    });
+  }
+
+  /**
    * Set up weather forecast subscriptions
    */
-  private _setupWeatherSubscriptions(): void {
+  private async _setupWeatherSubscriptions(): Promise<void> {
+    // Increment version to invalidate any in-flight setup from a previous call
+    const version = ++this._weatherSetupVersion;
+
     // Clean up existing subscriptions
     this._cleanupWeatherSubscriptions();
 
@@ -286,8 +325,13 @@ class CalendarCardPro extends LitElement {
     const forecastTypes = Weather.getRequiredForecastTypes(this.config.weather);
 
     // Subscribe to each required forecast type
-    forecastTypes.forEach((type) => {
-      const unsubscribe = Weather.subscribeToWeatherForecast(
+    for (const type of forecastTypes) {
+      // If a newer setup call was initiated, abandon this one
+      if (this._weatherSetupVersion !== version) {
+        return;
+      }
+
+      const unsubscribe = await Weather.subscribeToWeatherForecast(
         this.hass!,
         this.config,
         type,
@@ -301,19 +345,33 @@ class CalendarCardPro extends LitElement {
         },
       );
 
+      // Check again after await — a newer call may have superseded this one
+      if (this._weatherSetupVersion !== version) {
+        if (unsubscribe) unsubscribe();
+        return;
+      }
+
       if (unsubscribe) {
         this._weatherUnsubscribers.push(unsubscribe);
       }
-    });
+    }
   }
 
   /**
    * Clean up weather subscriptions
    */
   private _cleanupWeatherSubscriptions(): void {
+    const count = this._weatherUnsubscribers.length;
+    if (count > 0) {
+      Logger.debug(`Unsubscribing ${count} weather forecast subscription(s)`);
+    }
     this._weatherUnsubscribers.forEach((unsubscribe) => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
+      try {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        }
+      } catch (error) {
+        Logger.warn('Failed to unsubscribe weather forecast', error);
       }
     });
     this._weatherUnsubscribers = [];
@@ -362,16 +420,10 @@ class CalendarCardPro extends LitElement {
     // Execute the appropriate action based on whether hold was triggered
     if (this._holdTriggered && this.config.hold_action) {
       Logger.debug('Executing hold action');
-      const entityId = Actions.getPrimaryEntityId(this.config.entities);
-      Actions.handleAction(this.config.hold_action, this.safeHass, this, entityId, () =>
-        this.toggleExpanded(),
-      );
+      Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
     } else if (!this._holdTriggered && this.config.tap_action) {
       Logger.debug('Executing tap action');
-      const entityId = Actions.getPrimaryEntityId(this.config.entities);
-      Actions.handleAction(this.config.tap_action, this.safeHass, this, entityId, () =>
-        this.toggleExpanded(),
-      );
+      Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
 
     // Reset state
@@ -412,10 +464,7 @@ class CalendarCardPro extends LitElement {
   private _handleKeyDown(ev: KeyboardEvent) {
     if (ev.key === 'Enter' || ev.key === ' ') {
       ev.preventDefault();
-      const entityId = Actions.getPrimaryEntityId(this.config.entities);
-      Actions.handleAction(this.config.tap_action, this.safeHass, this, entityId, () =>
-        this.toggleExpanded(),
-      );
+      Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
   }
 
@@ -447,16 +496,6 @@ class CalendarCardPro extends LitElement {
       this.config.start_date,
     );
 
-    // Track if weather config changes
-    const weatherEntityChanged =
-      this.config?.weather?.entity !== config.weather?.entity ||
-      this.config?.weather?.position !== config.weather?.position;
-
-    // Update weather subscriptions if entity or position changed
-    if (weatherEntityChanged) {
-      this._setupWeatherSubscriptions();
-    }
-
     // Check if we need to reload data
     const configChanged = Config.hasConfigChanged(previousConfig, this.config);
     if (configChanged) {
@@ -478,14 +517,21 @@ class CalendarCardPro extends LitElement {
     // Skip update if no Home Assistant connection or no entities
     if (!this.safeHass || !this.config.entities.length) {
       this.isLoading = false;
+      if (!this.safeHass) {
+        // Retry shortly to handle hass initialization timing
+        if (this._initialLoadRetryId) {
+          clearTimeout(this._initialLoadRetryId);
+        }
+        this._initialLoadRetryId = window.setTimeout(() => {
+          this.updateEvents(true);
+        }, 1500);
+      }
       return;
     }
 
     try {
-      // Set loading state first (triggers render with stable DOM)
+      // Signal loading — initial load shows loading screen; background refresh shows spinner
       this.isLoading = true;
-
-      // Wait for loading render to complete
       await this.updateComplete;
 
       // Get event data (from cache or API) using modularized function
@@ -496,8 +542,8 @@ class CalendarCardPro extends LitElement {
         force,
       );
 
-      // Critical: Complete loading state before updating events
       this.isLoading = false;
+      this.isInitialLoad = false;
       await this.updateComplete;
 
       // Finally set events data
@@ -508,10 +554,8 @@ class CalendarCardPro extends LitElement {
     } catch (error) {
       Logger.error('Failed to update events:', error);
       this.isLoading = false;
+      this.isInitialLoad = false;
     }
-
-    // Ensure we have weather forecast subscriptions too
-    this._setupWeatherSubscriptions();
   }
 
   /**
@@ -527,8 +571,9 @@ class CalendarCardPro extends LitElement {
    * Handle user action
    */
   handleAction(actionConfig: Types.ActionConfig): void {
-    const entityId = Actions.getPrimaryEntityId(this.config.entities);
-    Actions.handleAction(actionConfig, this.safeHass, this, entityId, () => this.toggleExpanded());
+    // Determine action type based on which config matches
+    const action = actionConfig === this.config.hold_action ? 'hold' : 'tap';
+    Actions.handleAction(this, this.config, action, () => this.toggleExpanded());
   }
 
   //-----------------------------------------------------------------------------
@@ -553,8 +598,8 @@ class CalendarCardPro extends LitElement {
     // Determine card content based on state
     let content: TemplateResult;
 
-    if (this.isLoading) {
-      // Loading state
+    if (this.isInitialLoad) {
+      // Initial load — no data yet, show minimal loading screen
       content = Render.renderCardContent('loading', this.effectiveLanguage);
     } else if (!this.safeHass || !this.config.entities.length) {
       // Error state - missing entities
@@ -587,7 +632,14 @@ class CalendarCardPro extends LitElement {
     }
 
     // Render main card structure with content
-    return Render.renderMainCardStructure(customStyles, this.config.title, content, handlers);
+    return Render.renderMainCardStructure(
+      customStyles,
+      this.config.title,
+      content,
+      handlers,
+      false,
+      this.isLoading,
+    );
   }
 }
 

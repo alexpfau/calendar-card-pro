@@ -83,12 +83,14 @@ export interface Config {
   progress_bar_color: string;
   progress_bar_height: string;
   progress_bar_width: string;
+  event_icon_vertical_alignment: string;
   event_font_size: string;
   event_color: string;
   empty_day_color: string;
   show_time: boolean;
   show_single_allday_time: boolean;
   time_24h: boolean | 'system';
+  time_two_digit_hours: boolean;
   show_end_time: boolean;
   time_font_size: string;
   time_color: string;
@@ -98,6 +100,11 @@ export interface Config {
   location_font_size: string;
   location_color: string;
   location_icon_size: string;
+  show_description: boolean;
+  description_max_lines: number;
+  description_font_size: string;
+  description_color: string;
+  description_icon_size: string;
 
   // Weather
   weather?: WeatherConfig;
@@ -119,8 +126,10 @@ export interface EntityConfig {
   label?: string;
   color?: string;
   accent_color?: string;
+  label_icon_color?: string;
   show_time?: boolean;
   show_location?: boolean;
+  show_description?: boolean;
   compact_events_to_show?: number;
   blocklist?: string;
   allowlist?: string;
@@ -201,6 +210,7 @@ export interface CalendarEventData {
   readonly end: { readonly dateTime?: string; readonly date?: string };
   summary?: string;
   location?: string;
+  description?: string;
   _entityId?: string;
   _entityLabel?: string;
   _isEmptyDay?: boolean;
@@ -229,6 +239,7 @@ export interface EventsByDay {
 export interface CacheEntry {
   events: CalendarEventData[];
   timestamp: number;
+  ttlMs?: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -245,25 +256,6 @@ export interface ActionConfig {
   service_data?: object;
   url_path?: string;
   open_tab?: string;
-}
-
-/**
- * Context data for action execution
- */
-export interface ActionContext {
-  element: Element;
-  hass: Hass | null;
-  entityId?: string;
-  toggleCallback?: () => void;
-}
-
-/**
- * Configuration for interaction module
- */
-export interface InteractionConfig {
-  tapAction?: ActionConfig;
-  holdAction?: ActionConfig;
-  context: ActionContext;
 }
 
 // -----------------------------------------------------------------------------
@@ -286,7 +278,7 @@ export interface Hass {
     subscribeMessage: (
       callback: (message: WeatherForecastMessage) => void,
       options: SubscribeMessageOptions,
-    ) => () => void;
+    ) => Promise<() => void>;
   };
   formatEntityState?: (stateObj: HassEntity, state: string) => string;
 }

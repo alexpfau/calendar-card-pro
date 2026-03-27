@@ -261,12 +261,12 @@ function getWeatherIcon(condition: string, hour?: number): string {
  * @param callback Callback function to receive forecast data
  * @returns Unsubscribe function or undefined
  */
-export function subscribeToWeatherForecast(
+export async function subscribeToWeatherForecast(
   hass: Types.Hass,
   config: Types.Config,
   forecastType: 'daily' | 'hourly',
   callback: (forecasts: Record<string, Types.WeatherData>) => void,
-): (() => void) | undefined {
+): Promise<(() => void) | undefined> {
   if (!hass?.connection || !config?.weather?.entity) {
     return undefined;
   }
@@ -275,7 +275,7 @@ export function subscribeToWeatherForecast(
 
   try {
     // Set up subscription to weather forecast data
-    const unsubscribe = hass.connection.subscribeMessage(
+    const unsubscribe = await hass.connection.subscribeMessage(
       (message: { forecast: Array<Types.WeatherForecast> }) => {
         if (message && Array.isArray(message.forecast)) {
           // Process forecast data

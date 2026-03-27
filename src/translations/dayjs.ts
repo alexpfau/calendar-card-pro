@@ -20,6 +20,7 @@ import 'dayjs/locale/de';
 import 'dayjs/locale/el';
 import 'dayjs/locale/en';
 import 'dayjs/locale/es';
+import 'dayjs/locale/et';
 import 'dayjs/locale/fi';
 import 'dayjs/locale/fr';
 import 'dayjs/locale/he';
@@ -27,6 +28,7 @@ import 'dayjs/locale/hr';
 import 'dayjs/locale/hu';
 import 'dayjs/locale/is';
 import 'dayjs/locale/it';
+import 'dayjs/locale/lt';
 import 'dayjs/locale/nb';
 import 'dayjs/locale/nl';
 import 'dayjs/locale/nn';
@@ -38,6 +40,7 @@ import 'dayjs/locale/sk';
 import 'dayjs/locale/sl';
 import 'dayjs/locale/sv';
 import 'dayjs/locale/th';
+import 'dayjs/locale/tr';
 import 'dayjs/locale/uk';
 import 'dayjs/locale/vi';
 import 'dayjs/locale/zh-cn';
@@ -77,6 +80,7 @@ function mapLocale(locale: string): string {
     'el',
     'en',
     'es',
+    'et',
     'fi',
     'fr',
     'he',
@@ -84,6 +88,7 @@ function mapLocale(locale: string): string {
     'hu',
     'is',
     'it',
+    'lt',
     'nb',
     'nl',
     'nn',
@@ -94,6 +99,7 @@ function mapLocale(locale: string): string {
     'sl',
     'sv',
     'th',
+    'tr',
     'uk',
     'vi',
     'zh-cn',

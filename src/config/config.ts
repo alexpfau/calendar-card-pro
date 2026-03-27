@@ -86,12 +86,14 @@ export const DEFAULT_CONFIG: Types.Config = {
   progress_bar_color: 'var(--secondary-text-color)',
   progress_bar_height: 'calc(var(--calendar-card-font-size-time) * 0.75)',
   progress_bar_width: '60px',
+  event_icon_vertical_alignment: 'middle',
   event_font_size: '14px',
   event_color: 'var(--primary-text-color)',
   empty_day_color: 'var(--primary-text-color)',
   show_time: true,
   show_single_allday_time: true,
   time_24h: 'system',
+  time_two_digit_hours: false,
   show_end_time: true,
   time_font_size: '12px',
   time_color: 'var(--secondary-text-color)',
@@ -101,6 +103,11 @@ export const DEFAULT_CONFIG: Types.Config = {
   location_font_size: '12px',
   location_color: 'var(--secondary-text-color)',
   location_icon_size: '14px',
+  show_description: false,
+  description_max_lines: 0,
+  description_font_size: '12px',
+  description_color: 'var(--secondary-text-color)',
+  description_icon_size: '14px',
 
   // Weather
   weather: {
@@ -147,8 +154,10 @@ export function normalizeEntities(
         label?: string;
         color?: string;
         accent_color?: string;
+        label_icon_color?: string;
         show_time?: boolean;
         show_location?: boolean;
+        show_description?: boolean;
         compact_events_to_show?: number;
         blocklist?: string;
         allowlist?: string;
@@ -167,6 +176,7 @@ export function normalizeEntities(
           entity: item,
           color: 'var(--primary-text-color)',
           accent_color: undefined,
+          label_icon_color: undefined,
         };
       }
       if (typeof item === 'object' && item.entity) {
@@ -175,8 +185,10 @@ export function normalizeEntities(
           label: item.label,
           color: item.color || 'var(--primary-text-color)',
           accent_color: item.accent_color || undefined,
+          label_icon_color: item.label_icon_color || undefined,
           show_time: item.show_time,
           show_location: item.show_location,
+          show_description: item.show_description,
           compact_events_to_show: item.compact_events_to_show,
           blocklist: item.blocklist,
           allowlist: item.allowlist,

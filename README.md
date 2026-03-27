@@ -48,7 +48,7 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 - 🌦️ **Weather Integration** – Display weather forecasts alongside your calendar events.
 - ⚡ **Optimized Performance** – Smart caching, progressive rendering, and minimal API calls.
 - 💡 **Deep Home Assistant Integration** – Theme-aware with native ripple effects.
-- 🌍 **Multi-Language Support** – [Available in 30 languages](#-adding-translations), community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 33 languages](#-adding-translations), community contributions welcome!
 
 ### 🔗 Dependencies
 
@@ -182,14 +182,13 @@ Once **Calendar Card Pro** is installed, follow these steps to add and configure
    - Select **"Configure"** to open the visual editor
    - Follow the intuitive interface to customize your calendar
 
-> **Note:** The visual configuration editor is currently only available in English, while the calendar itself supports 29 languages.
+> **Note:** The visual configuration editor is currently available in 8 languages, while the calendar itself supports 33 languages. Community contributions for additional editor translations are welcome!
 
 ### ⚙️ Customizing the Card
 
 Calendar Card Pro offers two ways to customize your card:
 
 1. **Visual Editor (Recommended)**
-
    - Open the comprehensive visual editor
    - Organized panels guide you through all available options
    - Changes are previewed in real-time
@@ -236,7 +235,7 @@ The editor is organized into logical panels that guide you through all configura
 - **Smart Validation** - Input validation prevents configuration errors
 - **Automatic Config Upgrader** - Detects deprecated settings from older versions
 
-> **Note:** The visual configuration editor is currently only available in English, while the calendar itself supports 29 languages. Calendar settings applied through the editor will still display properly in your configured language.
+> **Note:** The visual configuration editor is currently available in 8 languages. Calendar settings applied through the editor will still display properly in all 33 supported languages.
 
 <details>
 <summary>Configuration Upgrader Details</summary>
@@ -276,8 +275,10 @@ entities:
 | label                  | string  | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`) |
 | color                  | string  | Custom color for event titles from this calendar                                                                               |
 | accent_color           | string  | Custom color for the vertical line and event background (when event_background_opacity is >0)                                  |
+| label_icon_color       | string  | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                    |
 | show_time              | boolean | Whether to show event times for this calendar (overrides global show_time setting)                                             |
 | show_location          | boolean | Whether to show event locations for this calendar (overrides global show_location setting)                                     |
+| show_description       | boolean | Whether to show event descriptions for this calendar (overrides global show_description setting)                               |
 | compact_events_to_show | number  | Maximum number of events to show from this calendar (works with global compact_events_to_show)                                 |
 | blocklist              | string  | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                      |
 | allowlist              | string  | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                    |
@@ -708,6 +709,7 @@ Configure how event times and locations are displayed:
 show_time: true # Show event start/end times
 show_single_allday_time: false # Hide time for single-day all-day events
 time_24h: false # Use 12-hour format (AM/PM)
+time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time
 time_font_size: '12px'
 time_color: 'var(--secondary-text-color)'
@@ -1204,6 +1206,7 @@ These examples demonstrate how Calendar Card Pro can be customized to match any 
 | `show_time`                                | boolean           | `true`                                             | Whether to show event times                                                                                                                                                                                                                                 |
 | `show_single_allday_time`                  | boolean           | `true`                                             | Whether to show time display for all-day single-day events                                                                                                                                                                                                  |
 | `time_24h`                                 | boolean           | `System`                                           | Whether to use 24-hour time format (auto-detects from HA)                                                                                                                                                                                                   |
+| `time_two_digit_hours`                     | boolean           | `false`                                            | Whether to use 2 digits in hours                                                                                                                                                                                                                            |
 | `show_end_time`                            | boolean           | `true`                                             | Whether to show event end times                                                                                                                                                                                                                             |
 | `time_icon_size`                           | string            | `14px`                                             | Clock icon size (replaces time_location_icon_size)                                                                                                                                                                                                          |
 | `time_font_size`                           | string            | `12px`                                             | Event time font size                                                                                                                                                                                                                                        |
@@ -1213,6 +1216,11 @@ These examples demonstrate how Calendar Card Pro can be customized to match any 
 | `location_icon_size`                       | string            | `14px`                                             | Location icon size (replaces time_location_icon_size)                                                                                                                                                                                                       |
 | `location_font_size`                       | string            | `12px`                                             | Event location font size                                                                                                                                                                                                                                    |
 | `location_color`                           | string            | `--secondary-text-color`                           | Event location font color                                                                                                                                                                                                                                   |
+| `show_description`                         | boolean           | `false`                                            | Whether to show event descriptions                                                                                                                                                                                                                          |
+| `description_icon_size`                    | string            | `14px`                                             | Description icon size                                                                                                                                                                                                                                       |
+| `description_font_size`                    | string            | `12px`                                             | Event description font size                                                                                                                                                                                                                                 |
+| `description_color`                        | string            | `--secondary-text-color`                           | Event description font color                                                                                                                                                                                                                                |
+| `description_max_lines`                    | number            | `0`                                                | Maximum number of lines to show for event descriptions (0 = unlimited). Truncated text shows `...`                                                                                                                                                          |
 | **Weather**                                |                   |                                                    |                                                                                                                                                                                                                                                             |
 | `weather`                                  | object            | -                                                  | Weather configuration object containing the below settings                                                                                                                                                                                                  |
 | `weather → entity`                         | string            | -                                                  | Home Assistant weather entity to use for forecasts                                                                                                                                                                                                          |
@@ -1374,6 +1382,7 @@ show_past_events: false
 event_font_size: 14px
 event_color: '#baf1ff'
 time_24h: true
+time_two_digit_hours: false
 show_end_time: true
 time_font_size: 12px
 time_color: '#baf1ff'
@@ -1447,6 +1456,7 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Danish** (`da`)
 - **Dutch** (`nl`)
 - **English** (`en`)
+- **Estonian** (`et`)
 - **Finnish** (`fi`)
 - **French** (`fr`)
 - **German** (`de`)
@@ -1456,6 +1466,7 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Hungarian** (`hu`)
 - **Icelandic** (`is`)
 - **Italian** (`it`)
+- **Lithuanian** (`lt`)
 - **Norwegian Bokmål** (`nb`)
 - **Norwegian Nynorsk** (`nn`)
 - **Polish** (`pl`)
@@ -1467,6 +1478,7 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Spanish** (`es`)
 - **Swedish** (`sv`)
 - **Thai** (`th`)
+- **Turkish** (`tr`)
 - **Ukrainian** (`uk`)
 - **Vietnamese** (`vi`)
 - **Chinese (Simplified)** (`zh-cn`)
