@@ -1335,6 +1335,14 @@ export class CalendarCardProEditor extends LitElement {
                             'weather.date.show_low_temp',
                             this._getTranslation('show_low_temp'),
                           )}
+                          ${this.addBooleanField(
+                            'weather.date.show_uvindex',
+                            this._getTranslation('show_uvindex'),
+                          )}
+                          ${this.addTextField(
+                            'weather.date.show_uvindex_threshold',
+                            this._getTranslation('show_uvindex_threshold'),
+                          )}
                           ${this.addTextField(
                             'weather.date.icon_size',
                             this._getTranslation('icon_size'),
@@ -1357,6 +1365,14 @@ export class CalendarCardProEditor extends LitElement {
                           ${this.addBooleanField(
                             'weather.event.show_temp',
                             this._getTranslation('show_temp'),
+                          )}
+                          ${this.addBooleanField(
+                            'weather.event.show_uvindex',
+                            this._getTranslation('show_uvindex'),
+                          )}
+                          ${this.addTextField(
+                            'weather.event.show_uvindex_threshold',
+                            this._getTranslation('show_uvindex_threshold'),
                           )}
                           ${this.addTextField(
                             'weather.event.icon_size',

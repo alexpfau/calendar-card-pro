@@ -97,6 +97,7 @@ function processForecastData(
       hour,
       precipitation: item.precipitation,
       precipitation_probability: item.precipitation_probability,
+      uvindex: item.uv_index !== undefined ? Math.round(item.uv_index) : undefined, 
     };
   });
 
