@@ -57,6 +57,47 @@ export class CalendarCardProEditor extends LitElement {
 
   @property({ attribute: false }) hass?: Types.Hass;
   @property({ attribute: false }) _config?: Types.Config;
+  // Store unknown top-level keys from the original YAML so we can round-trip them (e.g., card_mod)
+  private _externalExtras: Record<string, unknown> = {};
+  // Keep the last raw config provided by HA/code editor to preserve any keys we don't manage
+  private _originalConfigRaw: Record<string, unknown> = {};
+
+  // Deep-merge helper: preserves unknown keys from source while letting target override known ones
+  private _deepMergeUnknown(source: unknown, target: unknown): unknown {
+    if (Array.isArray(source) && Array.isArray(target)) {
+      // Prefer target arrays (editor-managed), don't try to merge item-wise to avoid schema churn
+      return target.slice();
+    }
+    if (
+      source &&
+      typeof source === 'object' &&
+      !Array.isArray(source) &&
+      target &&
+      typeof target === 'object' &&
+      !Array.isArray(target)
+    ) {
+      const out: Record<string, unknown> = { ...(source as Record<string, unknown>) };
+      // Overlay target values; for nested objects, merge recursively so unknown children are kept
+      for (const [k, v] of Object.entries(target as Record<string, unknown>)) {
+        const sv = (source as Record<string, unknown>)[k];
+        if (
+          sv &&
+          typeof sv === 'object' &&
+          !Array.isArray(sv) &&
+          v &&
+          typeof v === 'object' &&
+          !Array.isArray(v)
+        ) {
+          out[k] = this._deepMergeUnknown(sv, v);
+        } else {
+          out[k] = v;
+        }
+      }
+      return out;
+    }
+    // Fallback: prefer target when provided, otherwise source
+    return target !== undefined ? target : source;
+  }
 
   //-----------------------------------------------------------------------------
   // LIFECYCLE METHODS
@@ -104,6 +145,30 @@ export class CalendarCardProEditor extends LitElement {
    * @param config Partial configuration object
    */
   setConfig(config: Partial<Types.Config>): void {
+    // Capture unknown top-level keys to preserve custom YAML like card_mod/view_layout/etc.
+    try {
+      const defaultKeys = new Set(
+        Object.keys(Config.DEFAULT_CONFIG as unknown as Record<string, unknown>),
+      );
+      const extras: Record<string, unknown> = {};
+      Object.entries(config || {}).forEach(([key, value]) => {
+        if (!defaultKeys.has(key)) {
+          extras[key] = value;
+        }
+      });
+      this._externalExtras = extras;
+    } catch {
+      // If anything goes wrong, fall back to empty extras to avoid breaking the editor
+      this._externalExtras = {};
+    }
+
+    // Remember the exact raw config HA provided (to preserve unknown keys even if UI changes)
+    try {
+      this._originalConfigRaw = config ? JSON.parse(JSON.stringify(config)) : {};
+    } catch {
+      this._originalConfigRaw = { ...(config as Record<string, unknown>) };
+    }
+
     this._config = { ...Config.DEFAULT_CONFIG, ...config };
   }
 
@@ -258,11 +323,20 @@ export class CalendarCardProEditor extends LitElement {
       Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
     );
 
+    // Merge back unknown keys captured from the original YAML and any extras (e.g., card_mod)
+    // Priority: minimalConfig (latest changes) overrides extras, which override original raw.
+    // Start with raw config from HA, overlay editor-captured extras, then overlay the minimal edits
+    const baseWithExtras = { ...(this._originalConfigRaw || {}), ...(this._externalExtras || {}) };
+    const mergedConfig = this._deepMergeUnknown(baseWithExtras, minimalConfig) as Record<
+      string,
+      unknown
+    >;
+
     // Update internal config for UI rendering (keep full config)
     this._config = config;
 
     // Send only non-default values to Home Assistant
-    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: minimalConfig } }));
+    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: mergedConfig } }));
   }
 
   /**
