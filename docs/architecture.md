@@ -16,11 +16,13 @@ src/
 │   └── feedback.ts               # Visual feedback (ripple, hold indicators)
 ├── rendering/                    # UI rendering code
 │   ├── editor.ts                 # Card editor component
+│   ├── editor.styles.ts          # Editor-specific CSS styles
 │   ├── render.ts                 # Component rendering functions
 │   └── styles.ts                 # CSS styles and dynamic styling
 ├── translations/                 # Localization support
+│   ├── dayjs.ts                  # Day.js locale configuration
 │   ├── localize.ts               # Translation functions
-│   └── languages/                # Translation files (24 supported languages)
+│   └── languages/                # Translation files (33 supported languages)
 │       ├── en.json               # English translations
 │       ├── de.json               # German translations
 │       └── ...                   # Other language files
@@ -28,7 +30,8 @@ src/
     ├── events.ts                 # Calendar event fetching and processing
     ├── format.ts                 # Date and text formatting
     ├── helpers.ts                # Generic utilities (color, ID generation)
-    └── logger.ts                 # Logging system
+    ├── logger.ts                 # Logging system
+    └── weather.ts                # Weather data fetching and processing
 ```
 
 ## Module Responsibilities
@@ -56,14 +59,12 @@ Key design patterns:
 Manages all configuration aspects of the card:
 
 - **config.ts**:
-
   - Defines default configuration (`DEFAULT_CONFIG`)
   - Provides helper functions for normalizing entity configurations
   - Detects configuration changes that require data refresh
   - Generates stub configurations for the card editor
 
 - **constants.ts**:
-
   - Defines global constants organized by category
   - Sets default values and timing parameters
   - Centralizes cache-related settings
@@ -78,7 +79,6 @@ Manages all configuration aspects of the card:
 Handles all user interaction with the card:
 
 - **actions.ts**:
-
   - Processes user actions (tap, hold, etc.)
   - Dispatches Home Assistant events
   - Handles navigation and service calls
@@ -94,14 +94,12 @@ Handles all user interaction with the card:
 Generates the HTML and CSS for the card:
 
 - **render.ts**:
-
   - Contains pure functions for rendering card elements
   - Generates HTML templates for days, events, and states
   - Uses the lit-html templating system
   - Implements optimized rendering of event lists
 
 - **styles.ts**:
-
   - Defines CSS styles as LitElement templates
   - Generates dynamic style properties based on configuration
   - Manages theme variable integration
@@ -115,7 +113,6 @@ Generates the HTML and CSS for the card:
 Provides internationalization support:
 
 - **localize.ts**:
-
   - Manages language detection and selection
   - Handles translation lookups with fallbacks
   - Formats dates according to locale-specific patterns
@@ -129,21 +126,18 @@ Provides internationalization support:
 Provides core functionality across the card:
 
 - **events.ts**:
-
   - Fetches calendar events from Home Assistant API
   - Implements caching system for calendar data
   - Processes and filters events based on configuration
   - Groups events by day for display
 
 - **format.ts**:
-
   - Formats dates and times for display
   - Handles all-day and multi-day events
   - Processes location strings
   - Manages time formatting (12/24 hour)
 
 - **helpers.ts**:
-
   - Provides color manipulation utilities
   - Generates deterministic IDs for caching
   - Implements hash functions for cache keys
@@ -204,14 +198,12 @@ graph TD
    - Cache is checked first, API used only if needed
    - Events are stored in local storage with configurable expiration
 2. **Data Processing**:
-
    - Raw calendar events are filtered for relevant dates
    - Events are grouped by day using `groupEventsByDay()`
    - Each event is enhanced with formatted time and location strings
    - Entity-specific styling is applied to each event
 
 3. **Rendering Flow**:
-
    - Main component calls `render()` which uses the `Render` module
    - Dynamic styles are generated based on configuration
    - Days and events are rendered with proper CSS classes
@@ -239,13 +231,11 @@ graph TD
 ### Performance Optimizations
 
 1. **Smart Caching**:
-
    - Cached event data with configurable lifetime
    - Deterministic cache keys based on configuration
    - Selective cache invalidation
 
 2. **Efficient Rendering**:
-
    - Pure rendering functions to improve performance
    - Stable DOM structure for card-mod compatibility
    - Efficient updates with lit-html
@@ -261,7 +251,6 @@ graph TD
    - Clean loading states during data fetching
    - Optimized transitions between states
 2. **Adaptive Display**:
-
    - Compact/expanded view modes
    - Empty state handling
    - Responsive sizing
@@ -341,14 +330,12 @@ export function renderEvent(
 The card implements a multi-level caching strategy:
 
 1. **Event Data Caching**:
-
    - Calendar events are cached in localStorage
    - Cache key includes entities, days to show, past events setting, and start date
    - Cache invalidation is automatic when configuration changes
    - Cache duration is configurable through refresh_interval setting
 
 2. **Deterministic IDs**:
-
    - Each card instance generates a deterministic ID based on configuration
    - The ID remains stable across page loads but changes when configuration changes
    - This ensures proper cache handling when multiple calendar cards exist
@@ -363,19 +350,16 @@ The card implements a multi-level caching strategy:
 The code follows these core principles:
 
 1. **Separation of Concerns**:
-
    - Each module has a clear, focused responsibility
    - Pure functions where possible for easier testing
    - Clear interfaces between subsystems
 
 2. **Progressive Enhancement**:
-
    - Works with minimal configuration
    - Gracefully handles missing data or API errors
    - Degrades elegantly in constrained environments
 
 3. **Type Safety**:
-
    - Comprehensive TypeScript interfaces
    - Minimal use of `any` type
    - Runtime type guards where needed
@@ -390,31 +374,26 @@ The code follows these core principles:
 When modifying code:
 
 1. **Module Boundaries**:
-
    - Keep changes within appropriate module boundaries
    - Update related modules when necessary
    - Follow existing patterns for consistency
 
 2. **Type Safety**:
-
    - Update types in types.ts when changing data structures
    - Use type annotations for clarity
    - Avoid using `any` type when possible
 
 3. **Testing Considerations**:
-
    - Test with various calendar types (Google Calendar, CalDAV, etc.)
    - Test with different screen sizes and device types
    - Test with large calendar datasets for performance
 
 4. **Performance**:
-
    - Consider performance implications of new features
    - Use pure functions for rendering components
    - Implement appropriate caching for expensive operations
 
 5. **Cleanup**:
-
    - Always clean up event listeners and timers
    - Manage memory carefully, especially for long-lived components
    - Implement proper disconnectedCallback handling
