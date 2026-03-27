@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Styling for the Calendar Card Pro editor
  */

@@ -320,10 +320,7 @@ function renderLabel(
   }
 
   // Handle image paths (either /local/ path or image file extension)
-  if (
-    label.startsWith('/local/') ||
-    /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(label)
-  ) {
+  if (label.startsWith('/local/') || /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(label)) {
     return html`<img src="${label}" class="label-image"></img>`;
   }
 
@@ -541,9 +538,7 @@ function renderDateColumn(
         dailyForecast.uv_index !== undefined &&
         dailyForecast.uv_index >= (dateConfig.uv_index_threshold ?? 0);
       const showLowTemp =
-        dateConfig.show_low_temp === true &&
-        !showUvIndex &&
-        dailyForecast.templow !== undefined;
+        dateConfig.show_low_temp === true && !showUvIndex && dailyForecast.templow !== undefined;
 
       // Get styling from config
       const iconSize = dateConfig.icon_size || '14px';
@@ -1018,9 +1013,7 @@ export function renderEventTitle(
   return html`
     <div class="summary-row">
       <div class="summary">
-        ${entityLabel
-          ? renderLabel(entityLabel, labelIconColor)
-          : nothing}
+        ${entityLabel ? renderLabel(entityLabel, labelIconColor) : nothing}
         <span
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
           style="color: ${entityColor}"
@@ -1105,4 +1098,3 @@ function renderEventWeather(
     </div>
   `;
 }
-

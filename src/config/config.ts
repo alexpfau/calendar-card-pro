@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Configuration module for Calendar Card Pro
  */

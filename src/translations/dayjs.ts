@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * dayjs configuration and utilities for Calendar Card Pro
  *

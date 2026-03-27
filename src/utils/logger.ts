@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Logging utilities for Calendar Card Pro
  * Provides consistent log formatting, level-based filtering, and error handling
