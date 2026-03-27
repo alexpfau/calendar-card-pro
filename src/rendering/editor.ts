@@ -10,7 +10,7 @@
 // IMPORTS & CONSTANTS
 //-----------------------------------------------------------------------------
 
-import { LitElement, TemplateResult, html } from 'lit';
+import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { property } from 'lit/decorators.js';
 import styles from './editor.styles';
 import * as Types from '../config/types';
@@ -425,6 +425,9 @@ export class CalendarCardProEditor extends LitElement {
       return; // Don't save the UI mode itself to config
     } else if (name === 'start_date_fixed' || name === 'start_date_offset') {
       // These are UI-only fields that map to the single 'start_date' parameter
+      // For offset field, only apply on blur/enter (change), not on every keystroke (keyup),
+      // because intermediate values (e.g. empty or "-") change the detected mode and hide the field
+      if (name === 'start_date_offset' && event.type === 'keyup') return;
       this.setConfigValue('start_date', target.value);
       this.requestUpdate();
       return; // Don't save these UI fields to config
@@ -446,6 +449,64 @@ export class CalendarCardProEditor extends LitElement {
     // Handle numeric inputs
     if (target.getAttribute('type') === 'number' && value !== '') {
       value = parseFloat(value as string);
+    }
+
+    this.setConfigValue(name, value);
+  }
+
+  /**
+   * Handles value changes from ha-select elements (HA 2026.3+).
+   * The new ha-select fires a 'selected' CustomEvent with detail.value
+   * instead of the old 'change' DOM event with target.value.
+   */
+  _selectChanged(event: CustomEvent): void {
+    if (!event.target) return;
+
+    event.stopPropagation();
+
+    const target = event.target as HTMLElement;
+    const name = target.getAttribute('name');
+    const value = event.detail?.value ?? undefined;
+
+    if (!name) return;
+
+    // Handle special cases for UI controls that require custom processing
+    if (name === 'language_mode') {
+      if (value === 'system') {
+        this.setConfigValue('language', undefined);
+      } else if (value === 'custom') {
+        if (!this.getConfigValue('language')) {
+          this.setConfigValue('language', 'en');
+        }
+      }
+      return;
+    } else if (name === 'height_mode') {
+      const currentHeight = this.getConfigValue('height');
+      const currentMaxHeight = this.getConfigValue('max_height');
+
+      this.setConfigValue('height', undefined);
+      this.setConfigValue('max_height', undefined);
+
+      if (value === 'fixed') {
+        this.setConfigValue(
+          'height',
+          currentHeight && currentHeight !== 'auto' ? currentHeight : '300px',
+        );
+      } else if (value === 'maximum') {
+        this.setConfigValue(
+          'max_height',
+          currentMaxHeight && currentMaxHeight !== 'none' ? currentMaxHeight : '300px',
+        );
+      }
+      return;
+    } else if (name === 'start_date_mode') {
+      this._handleStartDateModeChange(value);
+      return;
+    } else if (name === 'remove_location_country_selector') {
+      return;
+    } else if (name === 'show_week_numbers' && value === 'null') {
+      this.setConfigValue(name, null);
+      return;
     }
 
     this.setConfigValue(name, value);
@@ -1052,6 +1113,10 @@ export class CalendarCardProEditor extends LitElement {
                   this._getTranslation('show_single_allday_time'),
                 )}
                 ${this.addBooleanField('show_end_time', this._getTranslation('show_end_time'))}
+                ${this.addBooleanField(
+                  'time_two_digit_hours',
+                  this._getTranslation('time_two_digit_hours'),
+                )}
                 ${this.addTextField('time_font_size', this._getTranslation('time_font_size'))}
                 ${this.addTextField('time_color', this._getTranslation('time_color'))}
                 ${this.addTextField('time_icon_size', this._getTranslation('time_icon_size'))}
@@ -1147,6 +1212,44 @@ export class CalendarCardProEditor extends LitElement {
               `;
             })()}
 
+            <!-- Description Display -->
+            <h3>${this._getTranslation('description')}</h3>
+            ${this.addBooleanField('show_description', this._getTranslation('show_description'))}
+            ${(() => {
+              // Only show additional description fields if show_description is true
+              if (this.getConfigValue('show_description') !== true) {
+                return html``;
+              }
+
+              return html`
+                ${this.addTextField(
+                  'description_font_size',
+                  this._getTranslation('description_font_size'),
+                )}
+                ${this.addTextField('description_color', this._getTranslation('description_color'))}
+                ${this.addTextField(
+                  'description_icon_size',
+                  this._getTranslation('description_icon_size'),
+                )}
+                ${this.addTextField(
+                  'description_max_lines',
+                  this._getTranslation('description_max_lines'),
+                )}
+              `;
+            })()}
+
+            <!-- Event Icon Alignment -->
+            <h3>${this._getTranslation('event_icon_alignment')}</h3>
+            ${this.addSelectField(
+              'event_icon_vertical_alignment',
+              this._getTranslation('event_icon_vertical_alignment'),
+              [
+                { value: 'top', label: this._getTranslation('top') },
+                { value: 'middle', label: this._getTranslation('middle') },
+                { value: 'bottom', label: this._getTranslation('bottom') },
+              ],
+            )}
+
             <!-- Progress Indicators -->
             <h3>${this._getTranslation('progress_indicators')}</h3>
             ${this.addBooleanField('show_countdown', this._getTranslation('show_countdown'))}
@@ -1231,7 +1334,29 @@ export class CalendarCardProEditor extends LitElement {
                           ${this.addBooleanField(
                             'weather.date.show_low_temp',
                             this._getTranslation('show_low_temp'),
+                            undefined,
+                            undefined,
+                            false,
+                            this.getConfigValue('weather.date.show_uv_index') === true,
                           )}
+                          ${this.addBooleanField(
+                            'weather.date.show_uv_index',
+                            this._getTranslation('show_uv_index'),
+                            undefined,
+                            (event: Event) => {
+                              const checked = (event.target as HTMLInputElement).checked;
+                              if (checked) {
+                                this.setConfigValue('weather.date.show_low_temp', false);
+                                this.requestUpdate();
+                              }
+                            },
+                          )}
+                          ${this.getConfigValue('weather.date.show_uv_index') === true
+                            ? this.addTextField(
+                                'weather.date.uv_index_threshold',
+                                this._getTranslation('uv_index_threshold'),
+                              )
+                            : nothing}
                           ${this.addTextField(
                             'weather.date.icon_size',
                             this._getTranslation('icon_size'),
@@ -1255,6 +1380,16 @@ export class CalendarCardProEditor extends LitElement {
                             'weather.event.show_temp',
                             this._getTranslation('show_temp'),
                           )}
+                          ${this.addBooleanField(
+                            'weather.event.show_uv_index',
+                            this._getTranslation('show_uv_index'),
+                          )}
+                          ${this.getConfigValue('weather.event.show_uv_index') === true
+                            ? this.addTextField(
+                                'weather.event.uv_index_threshold',
+                                this._getTranslation('uv_index_threshold'),
+                              )
+                            : nothing}
                           ${this.addTextField(
                             'weather.event.icon_size',
                             this._getTranslation('icon_size'),
@@ -1371,6 +1506,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param defaultValue Default value
    * @param changeCallback Optional callback for change events
    * @param uiOnly When true, the field won't be saved to config (UI control only)
+   * @param disabled When true, the switch is disabled and cannot be toggled
    * @returns Lit template for the boolean field
    */
   addBooleanField(
@@ -1379,12 +1515,14 @@ export class CalendarCardProEditor extends LitElement {
     defaultValue?: boolean,
     changeCallback?: (event: Event) => void,
     uiOnly: boolean = false,
+    disabled: boolean = false,
   ): TemplateResult {
     return html`
       <ha-formfield label="${label ?? this._getTranslation(name)}">
         <ha-switch
           name="${name}"
           .checked="${this.getConfigValue(name, defaultValue)}"
+          .disabled="${disabled}"
           @change="${(event: Event) => {
             // Only call _valueChanged if this is not a UI-only field
             if (!uiOnly) this._valueChanged(event);
@@ -1420,20 +1558,15 @@ export class CalendarCardProEditor extends LitElement {
         label="${label ?? this._getTranslation(name)}"
         .value="${this.getConfigValue(name, defaultValue)}"
         .clearable="${clearable ?? false}"
-        @change="${(event: Event) => {
-          this._valueChanged(event);
-          if (changeCallback && event.target) {
-            const value = (event.target as HTMLSelectElement).value;
-            changeCallback(value);
+        .options="${options}"
+        @selected="${(event: CustomEvent) => {
+          this._selectChanged(event);
+          if (changeCallback) {
+            const value = event.detail?.value;
+            if (value !== undefined) changeCallback(value);
           }
         }}"
-        @closed="${(event: Event) => event.stopPropagation()}"
       >
-        ${options?.map(
-          (option) => html`
-            <mwc-list-item value="${option.value}">${option.label}</mwc-list-item>
-          `,
-        )}
       </ha-select>
     `;
   }
@@ -1449,115 +1582,10 @@ export class CalendarCardProEditor extends LitElement {
     let value = this.getConfigValue(name, defaultValue);
     if (value === undefined) value = '';
 
-    // Format date for display using locale settings
-    const displayDate =
-      value && (typeof value === 'string' || typeof value === 'number')
-        ? Helpers.formatDateByLocale(new Date(value as string | number), this.hass?.locale)
-        : '';
-
     return html`
-      <div class="date-input">
-        <div class="mdc-text-field mdc-text-field--filled">
-          <!-- Ripple overlay element for hover effect -->
-          <div class="mdc-text-field__ripple"></div>
-
-          <span class="mdc-floating-label mdc-floating-label--float-above">
-            ${label ?? this._getTranslation(name)}
-          </span>
-
-          <div class="value-container">
-            <span class="value-text">${displayDate}</span>
-          </div>
-        </div>
-
-        <input
-          type="date"
-          name="${name}"
-          .value="${value}"
-          @focus="${(e: FocusEvent) => {
-            // Apply focus styles when input gets focus
-            const parent = (e.target as HTMLElement).closest('.date-input') as HTMLElement;
-            const field = parent?.querySelector('.mdc-text-field') as HTMLElement;
-            const label = parent?.querySelector('.mdc-floating-label') as HTMLElement;
-            const ripple = parent?.querySelector('.mdc-text-field__ripple') as HTMLElement;
-
-            if (field) {
-              field.classList.add('focused');
-              // Add this line to set the border to blue when focused
-              field.style.borderBottom = '2px solid var(--primary-color)';
-              // Also set the label color to match the primary color
-              if (label) {
-                label.style.color = 'var(--primary-color)';
-              }
-            }
-
-            if (ripple) {
-              ripple.style.opacity = '0.08';
-            }
-          }}"
-          @blur="${(e: FocusEvent) => {
-            // Remove focus styles when input loses focus
-            const parent = (e.target as HTMLElement).closest('.date-input') as HTMLElement;
-            const field = parent?.querySelector('.mdc-text-field') as HTMLElement;
-            const label = parent?.querySelector('.mdc-floating-label') as HTMLElement;
-            const ripple = parent?.querySelector('.mdc-text-field__ripple') as HTMLElement;
-
-            if (field) {
-              field.classList.remove('focused');
-              // Reset the border when unfocused
-              field.style.borderBottom =
-                '1px solid var(--mdc-text-field-idle-line-color, var(--secondary-text-color))';
-              // Reset the label color
-              if (label) {
-                label.style.color = 'var(--mdc-select-label-ink-color, rgba(0,0,0,.6))';
-              }
-            }
-
-            if (ripple) {
-              ripple.style.opacity = '0';
-            }
-          }}"
-          @mouseover="${(e: MouseEvent) => {
-            // Apply hover styles
-            const parent = (e.target as HTMLElement).closest('.date-input') as HTMLElement;
-            const field = parent?.querySelector('.mdc-text-field') as HTMLElement;
-            const ripple = parent?.querySelector('.mdc-text-field__ripple') as HTMLElement;
-
-            if (field && !field.classList.contains('focused')) {
-              field.style.borderBottomColor = 'var(--primary-text-color)';
-
-              if (ripple) {
-                ripple.style.opacity = '0.04';
-              }
-            }
-          }}"
-          @mouseout="${(e: MouseEvent) => {
-            // Remove hover styles
-            const parent = (e.target as HTMLElement).closest('.date-input') as HTMLElement;
-            const field = parent?.querySelector('.mdc-text-field') as HTMLElement;
-            const ripple = parent?.querySelector('.mdc-text-field__ripple') as HTMLElement;
-
-            if (field && !field.classList.contains('focused')) {
-              field.style.borderBottomColor =
-                'var(--mdc-text-field-idle-line-color, var(--secondary-text-color))';
-
-              if (ripple) {
-                ripple.style.opacity = '0';
-              }
-            }
-          }}"
-          @change="${(e: Event) => {
-            this._valueChanged(e);
-
-            // Also update the display value
-            const target = e.target as HTMLInputElement;
-            const parent = target.closest('.date-input');
-            const valueSpan = parent?.querySelector('.value-container span');
-            if (valueSpan && target.value) {
-              valueSpan.textContent = new Date(target.value).toLocaleDateString();
-            }
-          }}"
-        />
+      <div class="date-field">
+        <label class="date-field-label">${label ?? this._getTranslation(name)}</label>
+        <input type="date" name="${name}" .value="${value}" @change="${this._valueChanged}" />
       </div>
     `;
   }
@@ -1704,6 +1732,21 @@ export class CalendarCardProEditor extends LitElement {
                         'label',
                       );
                     })()}
+                    ${(() => {
+                      const labelValue = this.getConfigValue(`entities.${index}.label`);
+                      const labelType = this.getValueType(labelValue, 'label');
+                      return labelType === 'icon'
+                        ? html`
+                            ${this.addTextField(
+                              `entities.${index}.label_icon_color`,
+                              this._getTranslation('label_icon_color'),
+                            )}
+                            <div class="helper-text">
+                              ${this._getTranslation('label_icon_color_note')}
+                            </div>
+                          `
+                        : nothing;
+                    })()}
                     <div class="helper-text">${this._getTranslation('label_note')}</div>
                   </div>
 
@@ -1770,6 +1813,14 @@ export class CalendarCardProEditor extends LitElement {
                   )}
                   <div class="helper-text">
                     ${this._getTranslation('entity_show_location_note')}
+                  </div>
+
+                  ${this.addBooleanField(
+                    `entities.${index}.show_description`,
+                    this._getTranslation('show_description'),
+                  )}
+                  <div class="helper-text">
+                    ${this._getTranslation('entity_show_description_note')}
                   </div>
 
                   ${this.addBooleanField(
@@ -1870,17 +1921,16 @@ export class CalendarCardProEditor extends LitElement {
         <ha-select
           name="${configKey}.action"
           .value="${action}"
-          @change="${this._valueChanged}"
-          @closed="${(e: Event) => e.stopPropagation()}"
+          .options="${[
+            { value: 'none', label: this._getTranslation('none') },
+            { value: 'expand', label: this._getTranslation('expand') },
+            { value: 'more-info', label: this._getTranslation('more_info') },
+            { value: 'navigate', label: this._getTranslation('navigate') },
+            { value: 'url', label: this._getTranslation('url') },
+            { value: 'call-service', label: this._getTranslation('call_service') },
+          ]}"
+          @selected="${this._selectChanged}"
         >
-          <mwc-list-item value="none">${this._getTranslation('none')}</mwc-list-item>
-          <mwc-list-item value="expand">${this._getTranslation('expand')}</mwc-list-item>
-          <mwc-list-item value="more-info">${this._getTranslation('more_info')}</mwc-list-item>
-          <mwc-list-item value="navigate">${this._getTranslation('navigate')}</mwc-list-item>
-          <mwc-list-item value="url">${this._getTranslation('url')}</mwc-list-item>
-          <mwc-list-item value="call-service"
-            >${this._getTranslation('call_service')}</mwc-list-item
-          >
         </ha-select>
 
         ${action === 'navigate'
@@ -1946,8 +1996,8 @@ export class CalendarCardProEditor extends LitElement {
 
     // String values - shared logic
     if (typeof value === 'string') {
-      // Check if value is an MDI icon path
-      if (value.startsWith('mdi:')) return 'icon';
+      // Check if value is an icon path (mdi:, phu:, fas:, hass:, etc.)
+      if (Helpers.isIconValue(value)) return 'icon';
 
       // Check if value is an image path
       if (value.startsWith('/') || /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(value)) return 'image';
@@ -1984,7 +2034,7 @@ export class CalendarCardProEditor extends LitElement {
     // Stop event propagation
     event.stopPropagation();
 
-    const selectedType = (event.target as HTMLSelectElement).value;
+    const selectedType = (event as CustomEvent).detail?.value;
     let newValue: string | boolean | undefined;
 
     // Shared logic for both contexts
@@ -1992,7 +2042,7 @@ export class CalendarCardProEditor extends LitElement {
       newValue = context === 'indicator' ? false : undefined;
     } else if (selectedType === 'icon') {
       newValue =
-        typeof currentValue === 'string' && currentValue.startsWith('mdi:')
+        typeof currentValue === 'string' && Helpers.isIconValue(currentValue)
           ? currentValue
           : context === 'indicator'
             ? 'mdi:star'
@@ -2063,12 +2113,9 @@ export class CalendarCardProEditor extends LitElement {
           name="${path}_type"
           label="${label}"
           .value="${valueType}"
-          @change="${(e: Event) => this._handleValueTypeChange(e, path, value, context)}"
-          @closed="${(e: Event) => e.stopPropagation()}"
+          .options="${options}"
+          @selected="${(e: CustomEvent) => this._handleValueTypeChange(e, path, value, context)}"
         >
-          ${options.map(
-            (opt) => html` <mwc-list-item value="${opt.value}">${opt.label}</mwc-list-item> `,
-          )}
         </ha-select>
 
         ${this._renderTypeField(valueType, path, value, context)}
@@ -2097,13 +2144,10 @@ export class CalendarCardProEditor extends LitElement {
             .hass="${this.hass}"
             .value="${value as string}"
             @value-changed="${(event: CustomEvent<{ value: string }>) => {
-              // When an icon is selected, add 'mdi:' prefix if needed
+              // Store the icon value as-is — ha-icon-picker already returns the full prefixed value
               const selectedIcon = event.detail.value;
               if (selectedIcon) {
-                const prefixedIcon = selectedIcon.startsWith('mdi:')
-                  ? selectedIcon
-                  : `mdi:${selectedIcon}`;
-                this.setConfigValue(path, prefixedIcon);
+                this.setConfigValue(path, selectedIcon);
               } else {
                 // Default to dot if cleared for indicator, or empty for label
                 this.setConfigValue(path, context === 'indicator' ? 'dot' : '');

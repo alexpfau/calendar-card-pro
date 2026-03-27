@@ -20,12 +20,14 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-font-size-event': config.event_font_size,
     '--calendar-card-font-size-time': config.time_font_size,
     '--calendar-card-font-size-location': config.location_font_size,
+    '--calendar-card-font-size-description': config.description_font_size,
     '--calendar-card-color-weekday': config.weekday_color,
     '--calendar-card-color-day': config.day_color,
     '--calendar-card-color-month': config.month_color,
     '--calendar-card-color-event': config.event_color,
     '--calendar-card-color-time': config.time_color,
     '--calendar-card-color-location': config.location_color,
+    '--calendar-card-color-description': config.description_color,
     '--calendar-card-line-color-vertical': config.accent_color,
     '--calendar-card-line-width-vertical': config.vertical_line_width,
     '--calendar-card-day-spacing': config.day_spacing,
@@ -38,8 +40,17 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-progress-bar-width': config.progress_bar_width,
     '--calendar-card-icon-size-time': config.time_icon_size || '14px',
     '--calendar-card-icon-size-location': config.location_icon_size || '14px',
+    '--calendar-card-icon-size-description': config.description_icon_size || '14px',
+    '--calendar-card-description-max-lines':
+      config.description_max_lines > 0 ? String(config.description_max_lines) : 'none',
     '--calendar-card-date-column-width': `${parseFloat(config.day_font_size) * 1.75}px`,
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
+    '--calendar-card-event-icon-vertical-alignment':
+      config.event_icon_vertical_alignment === 'top'
+        ? 'flex-start'
+        : config.event_icon_vertical_alignment === 'bottom'
+          ? 'flex-end'
+          : 'center',
     '--calendar-card-event-border-radius': 'calc(var(--ha-card-border-radius, 10px) / 2)',
     '--ha-ripple-hover-opacity': '0.04',
     '--ha-ripple-hover-color': config.accent_color,
@@ -431,6 +442,18 @@ export const cardStyles = css`
     opacity: 0.8;
   }
 
+  .weather .weather-uv-index {
+    line-height: 1;
+    vertical-align: middle;
+    font-weight: 500;
+    margin-left: 2px;
+  }
+
+  .event-weather .weather-uv-index {
+    font-weight: 500;
+    margin-left: 2px;
+  }
+
   /* ===== EVENT STYLES ===== */
 
   /* Base event */
@@ -441,12 +464,15 @@ export const cardStyles = css`
 
   /* Event positioning variations */
   .event-first.event-last {
-    border-radius: 0 var(--calendar-card-event-border-radius)
-      var(--calendar-card-event-border-radius) 0;
+    border-start-start-radius: 0;
+    border-start-end-radius: var(--calendar-card-event-border-radius);
+    border-end-end-radius: var(--calendar-card-event-border-radius);
+    border-end-start-radius: 0;
   }
 
   .event-first {
-    border-radius: 0 var(--calendar-card-event-border-radius) 0 0;
+    border-start-end-radius: var(--calendar-card-event-border-radius);
+    border-start-start-radius: 0;
   }
 
   .event-middle {
@@ -454,7 +480,8 @@ export const cardStyles = css`
   }
 
   .event-last {
-    border-radius: 0 0 var(--calendar-card-event-border-radius) 0;
+    border-end-end-radius: var(--calendar-card-event-border-radius);
+    border-end-start-radius: 0;
   }
 
   /* Past event styling */
@@ -514,6 +541,7 @@ export const cardStyles = css`
   /* Event weather */
   .event-weather {
     display: flex;
+    align-items: center;
     font-weight: 500;
     margin-left: 8px;
     margin-right: 12px;
@@ -523,7 +551,7 @@ export const cardStyles = css`
     margin-right: 2px;
   }
 
-  /* ===== TIME & LOCATION STYLES ===== */
+  /* ===== TIME, LOCATION & DESCRIPTION STYLES ===== */
 
   .time-location {
     display: flex;
@@ -532,16 +560,18 @@ export const cardStyles = css`
   }
 
   .time,
-  .location {
+  .location,
+  .description {
     display: flex;
-    align-items: center;
+    align-items: var(--calendar-card-event-icon-vertical-alignment);
     line-height: 1.2;
     margin-top: 2px;
     margin-right: 12px;
   }
 
   .time span,
-  .location span {
+  .location span,
+  .description span {
     display: inline-block;
     vertical-align: middle;
   }
@@ -573,6 +603,18 @@ export const cardStyles = css`
   .location {
     font-size: var(--calendar-card-font-size-location);
     color: var(--calendar-card-color-location);
+  }
+
+  .description {
+    font-size: var(--calendar-card-font-size-description);
+    color: var(--calendar-card-color-description);
+  }
+
+  .description span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-description-max-lines);
+    overflow: hidden;
   }
 
   /* ===== PROGRESS BAR STYLES ===== */
@@ -614,6 +656,10 @@ export const cardStyles = css`
     --mdc-icon-size: var(--calendar-card-icon-size-location, 14px);
   }
 
+  .description ha-icon {
+    --mdc-icon-size: var(--calendar-card-icon-size-description, 14px);
+  }
+
   /* ===== STATUS MESSAGES ===== */
 
   .loading,
@@ -624,5 +670,35 @@ export const cardStyles = css`
 
   .error {
     color: var(--error-color);
+  }
+
+  /* ===== CORNER LOADING INDICATOR ===== */
+  .loading-indicator {
+    position: absolute;
+    top: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
+    right: calc(var(--ha-card-border-radius, 12px) * 0.5 + 2px);
+    width: 16px;
+    height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  .loading-indicator .spinner {
+    box-sizing: border-box;
+    width: 14px;
+    height: 14px;
+    border: 2px solid color-mix(in srgb, var(--primary-text-color) 25%, transparent);
+    border-top-color: var(--primary-text-color);
+    border-radius: 50%;
+    animation: ccp-spin 0.8s linear infinite;
+  }
+
+  @keyframes ccp-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 `;

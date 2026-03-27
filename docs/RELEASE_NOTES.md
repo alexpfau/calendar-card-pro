@@ -1,3 +1,119 @@
+# Calendar Card Pro v3.2.0
+
+**Event descriptions, weather UV index, RTL support, and Home Assistant 2026.3 compatibility.** This release introduces major new display features alongside critical compatibility updates and significant bug fixes.
+
+## 🎉 New Features
+
+### 📝 Event Description Display
+
+Calendar Card Pro now supports displaying event descriptions directly below event titles, giving users more context at a glance without opening the event details:
+
+- **`show_description` Option** - Toggle display of event descriptions globally or per entity (Thanks @IT-BAER, #277)
+- **`description_max_lines` Option** - Limit displayed lines with CSS line-clamp and `...` truncation (0 = unlimited)
+- **Automatic HTML Processing** - HTML tags are stripped and HTML entities are decoded for clean, readable text
+- **Full Styling Control** - Configurable `description_font_size`, `description_color`, and `description_icon_size`
+
+### 🌤️ UV Index Display
+
+Weather forecasts now support UV index information, displayable in both date column and event positions:
+
+- **`show_uv_index` Option** - Show UV index in weather forecasts for both date and event positions (Thanks @jandechent, #273)
+- **`uv_index_threshold` Option** - Only display the UV index when it exceeds a configurable threshold value (e.g., set to 3 to hide low UV readings)
+
+### 🎨 Enhanced Customization
+
+- **Event Icon Vertical Alignment** - New `event_icon_vertical_alignment` option (`top`, `middle`, `bottom`) to control vertical positioning of time, location, and description icons relative to their text
+- **Label Icon Color** - New per-entity `label_icon_color` option to customize the color of `mdi:` and other icon-type labels independently from event text color, with full visual editor support (Thanks @aw1604, #302)
+- **Two-Digit Hours** - New `time_two_digit_hours` option to pad single-digit hours with a leading zero (e.g., `09:00` instead of `9:00`)
+
+### 🔄 Improved Loading UX
+
+- Events now remain visible during background data refresh instead of being replaced by a loading spinner
+- A subtle, non-intrusive spinner appears in the top-right corner during refresh
+- Added `aria-busy` attribute on the card for improved accessibility
+- Distinguished initial load (full spinner) from background refresh (subtle indicator)
+
+### ↔️ RTL Language Support
+
+- Added right-to-left (RTL) support for event borders and accent lines using CSS logical properties, enabling proper display for RTL languages such as Hebrew and Arabic (Thanks @baruchiro, #275)
+
+### 🌐 New Language Additions
+
+Three new languages bring the total to **33**:
+
+- **Estonian** (`et`) - Complete interface and editor translation
+- **Lithuanian** (`lt`) - Complete interface and editor translation
+- **Turkish** (`tr`) - Complete interface translation (Thanks @ofilis, #268)
+
+### 🌐 Expanded Editor Language Support
+
+Three new editor translations bring the visual editor to **8 languages** total (English, German, Norwegian Bokmål, Swedish, Slovak, Polish, Estonian, Lithuanian):
+
+- **Polish Editor Translation** - Complete translation for the visual configuration editor interface
+- **Estonian Editor Translation** - Complete translation for the visual configuration editor interface
+- **Lithuanian Editor Translation** - Complete translation for the visual configuration editor interface
+
+## 🐛 Bug Fixes
+
+### Compatibility
+
+- **Home Assistant 2026.3+ Compatibility** - Migrated `ha-select` dropdowns to the new WebAwesome API introduced in HA 2026.3, preventing visual editor rendering failures
+- **Browser_mod Compatibility** - Delegated tap/hold actions to Home Assistant's native action handler, restoring compatibility with browser_mod and similar custom integrations
+
+### Weather & Performance
+
+- **Weather WebSocket Subscription Leak** - Fixed a memory leak caused by weather forecast WebSocket subscriptions accumulating over time without proper cleanup (#291)
+- **Enhanced Refreshing and Caching Logic** - Improved data refresh reliability with better cache invalidation and smarter refresh triggers (#297)
+
+### Location & Description Processing
+
+- **Location Display Corruption Fix** - Removed redundant location/description processing in the renderer that could corrupt location strings when using a custom `remove_location_country` regex pattern—e.g., a regex like `New York|USA` could inadvertently blank the location after double-processing (Thanks @sevorl, #331)
+
+### Visual Editor
+
+- **Date Picker Fix** - Replaced the broken date picker component with a native date input for reliable start date selection
+- **Start Date Offset Field** - Fixed the start_date relative offset field (`today+N`) vanishing during editing
+- **Label Icon Color Editor** - Added `label_icon_color` to the visual editor entity configuration panels
+
+### Display & Rendering
+
+- **Non-MDI Icon Prefix Support** - Fixed rendering of non-`mdi:` icon prefixes (e.g., `fas:`, `hass:`) in labels and today indicators
+- **Loading Spinner Positioning** - Adjusted the loading spinner position to respect the card's border radius
+
+### Translation Fixes
+
+- **Norwegian** - Corrected day and month name capitalization and preposition usage
+- **Slovak** - Fixed a typo in the Slovak translation
+- **Estonian** - Corrected the Estonian language mapping in localize.ts
+
+### Build & Infrastructure
+
+- **Production Build Fixes** - Resolved production build issues by removing development mode warnings and optimizing build configurations
+- **Dependency Updates** - Updated project dependencies
+
+## Related Issues
+
+- [#259](https://github.com/alexpfau/calendar-card-pro/issues/259) - RTL Language event alignment by @dmatik
+- [#261](https://github.com/alexpfau/calendar-card-pro/issues/261) - Relative date goes back to fixed date when entering +1 by @iAmRenzo
+- [#267](https://github.com/alexpfau/calendar-card-pro/issues/267) - Multiple lit warnings in browser console by @Hitman247m
+- [#268](https://github.com/alexpfau/calendar-card-pro/pull/268) - Turkish Translation by @ofilis
+- [#273](https://github.com/alexpfau/calendar-card-pro/pull/273) - UV index display by @jandechent
+- [#275](https://github.com/alexpfau/calendar-card-pro/pull/275) - RTL support for event borders and accent lines by @baruchiro
+- [#277](https://github.com/alexpfau/calendar-card-pro/pull/277) - Event description display by @IT-BAER
+- [#280](https://github.com/alexpfau/calendar-card-pro/issues/280) - fire-dom-event not correctly implemented by @johnmph
+- [#291](https://github.com/alexpfau/calendar-card-pro/issues/291) - Weather integration does not unsubscribe from websocket forecast events by @PaulVanSchayck
+- [#297](https://github.com/alexpfau/calendar-card-pro/issues/297) - Calendar not updated by @L0bit0
+- [#302](https://github.com/alexpfau/calendar-card-pro/pull/302) - Label icon color support by @aw1604
+- [#307](https://github.com/alexpfau/calendar-card-pro/issues/307) - Icon labels prefix causes custom icons to be blank by @Xalvas
+- [#312](https://github.com/alexpfau/calendar-card-pro/pull/312) - Estonian translation by @taims11
+- [#326](https://github.com/alexpfau/calendar-card-pro/issues/326) - Reload UI Error and Constant erroring by @buckswheats14
+- [#328](https://github.com/alexpfau/calendar-card-pro/issues/328) - Start date dropdown doesn't work by @Hepatic
+- [#331](https://github.com/alexpfau/calendar-card-pro/pull/331) - Remove redundant double formatLocation call by @sevorl
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.1.0...v3.2.0
+
+---
+
 # Calendar Card Pro v3.1.0
 
 **Enhanced internationalization and improved customization.** This release significantly expands language support for the visual configuration editor while adding powerful new customization options and fixing important display issues.
@@ -1178,11 +1294,9 @@ This major release completely reimagines Calendar Card Pro with a new architectu
 ## 🛠 Breaking Changes
 
 1. **Parameter Renaming**:
-
    - `row_spacing` is now `day_spacing` (for clarity)
 
 2. **Split Parameters**:
-
    - `time_location_icon_size` has been split into separate parameters:
      ```yaml
      time_icon_size: '14px'
