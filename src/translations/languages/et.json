@@ -241,6 +241,8 @@
     "color": "Värv",
     "event_row_weather": "Ilm sündmuse reas",
     "show_temp": "Näita temperatuuri",
+    "show_uv_index": "Näita UV-indeksit",
+    "uv_index_threshold": "UV-indeksi künnis",
 
     "interactions": "Interaktsioonid",
     "tap_action": "Puudutuse tegevus",

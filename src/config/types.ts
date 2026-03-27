@@ -146,6 +146,8 @@ export interface WeatherPositionConfig {
   show_high_temp?: boolean;
   show_low_temp?: boolean;
   show_temp?: boolean;
+  show_uv_index?: boolean;
+  uv_index_threshold?: number;
   icon_size?: string;
   font_size?: string;
   color?: string;
@@ -174,6 +176,7 @@ export interface WeatherForecast {
   wind_speed?: number;
   wind_bearing?: number;
   humidity?: number;
+  uv_index?: number;
 }
 
 /**
@@ -184,6 +187,7 @@ export interface WeatherData {
   condition: string;
   temperature: string | number;
   templow?: string | number;
+  uv_index?: number;
   datetime: string;
   hour?: number;
   precipitation?: number;

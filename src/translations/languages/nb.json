@@ -220,6 +220,8 @@
     "color": "Farge",
     "event_row_weather": "Hendelsesrad vær",
     "show_temp": "Vis temperatur",
+    "show_uv_index": "Vis UV-indeks",
+    "uv_index_threshold": "UV-indeks terskel",
 
     "interactions": "Interaksjoner",
     "tap_action": "Trykkehandling",

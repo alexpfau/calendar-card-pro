@@ -219,6 +219,8 @@
     "color": "Farba",
     "event_row_weather": "Počasie v riadku s udalosťou",
     "show_temp": "Zobraziť teplotu",
+    "show_uv_index": "Zobraziť UV index",
+    "uv_index_threshold": "Prah UV indexu",
 
     "interactions": "Interakcie",
     "tap_action": "Akcia kliknutia",

@@ -228,6 +228,8 @@
     "color": "Kolor",
     "event_row_weather": "Pogoda Wiersza Wydarzenia",
     "show_temp": "Pokaż Temperaturę",
+    "show_uv_index": "Pokaż indeks UV",
+    "uv_index_threshold": "Próg indeksu UV",
 
     "interactions": "Interakcje",
     "tap_action": "Akcja Dotknięcia",

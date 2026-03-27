@@ -536,8 +536,14 @@ function renderDateColumn(
       const dateConfig = config.weather?.date || {};
       const showConditions = dateConfig.show_conditions !== false;
       const showHighTemp = dateConfig.show_high_temp !== false;
-      const showLowTemp = dateConfig.show_low_temp === true && dailyForecast.templow !== undefined;
-      const showUvIndex = (dateConfig.show_uvindex !== false) && (dailyForecast.uvindex >= dateConfig.show_uvindex_threshold); 
+      const showUvIndex =
+        dateConfig.show_uv_index === true &&
+        dailyForecast.uv_index !== undefined &&
+        dailyForecast.uv_index >= (dateConfig.uv_index_threshold ?? 0);
+      const showLowTemp =
+        dateConfig.show_low_temp === true &&
+        !showUvIndex &&
+        dailyForecast.templow !== undefined;
 
       // Get styling from config
       const iconSize = dateConfig.icon_size || '14px';
@@ -561,11 +567,7 @@ function renderDateColumn(
             ? html` <span class="weather-temp-low">/${dailyForecast.templow}°</span> `
             : nothing}
           ${showUvIndex
-            ? html`<ha-icon icon="mdi:sun-wireless" style="--mdc-icon-size: ${iconSize};"></ha-icon>
-                   <span style="font-size: ${fontSize}; color: ${color};">
-                     ${dailyForecast.uvindex}
-                   </span>
-              `
+            ? html` <span class="weather-uv-index">UV${dailyForecast.uv_index}</span> `
             : nothing}
         </div>
       `;
@@ -1084,7 +1086,10 @@ function renderEventWeather(
   const eventConfig = config.weather?.event || {};
   const showConditions = eventConfig.show_conditions !== false;
   const showTemp = eventConfig.show_temp !== false;
-  const showUvIndex = eventConfig.show_uvindex !== false && forecast.uvindex >= eventConfig.show_uvindex_threshold;
+  const showUvIndex =
+    eventConfig.show_uv_index === true &&
+    forecast.uv_index !== undefined &&
+    forecast.uv_index >= (eventConfig.uv_index_threshold ?? 0);
 
   // Get styling from config
   const iconSize = eventConfig.icon_size || '14px';
@@ -1103,10 +1108,9 @@ function renderEventWeather(
           </span>`
         : nothing}
       ${showUvIndex
-        ? html`<ha-icon icon="mdi:sun-wireless" style="--mdc-icon-size: ${iconSize};"></ha-icon>
-               <span style="font-size: ${fontSize}; color: ${color};">
-                 ${forecast.uvindex}
-               </span>`
+        ? html`<span class="weather-uv-index" style="font-size: ${fontSize}; color: ${color};">
+            UV${forecast.uv_index}
+          </span>`
         : nothing}
     </div>
   `;

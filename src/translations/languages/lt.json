@@ -228,6 +228,8 @@
     "color": "Spalva",
     "event_row_weather": "Oro prognozė įvykio eilutėje",
     "show_temp": "Rodyti temperatūrą",
+    "show_uv_index": "Rodyti UV indeksą",
+    "uv_index_threshold": "UV indekso riba",
 
     "interactions": "Sąveikos",
     "tap_action": "Paliesti veiksmas",

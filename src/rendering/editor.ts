@@ -1334,15 +1334,29 @@ export class CalendarCardProEditor extends LitElement {
                           ${this.addBooleanField(
                             'weather.date.show_low_temp',
                             this._getTranslation('show_low_temp'),
+                            undefined,
+                            undefined,
+                            false,
+                            this.getConfigValue('weather.date.show_uv_index') === true,
                           )}
                           ${this.addBooleanField(
-                            'weather.date.show_uvindex',
-                            this._getTranslation('show_uvindex'),
+                            'weather.date.show_uv_index',
+                            this._getTranslation('show_uv_index'),
+                            undefined,
+                            (event: Event) => {
+                              const checked = (event.target as HTMLInputElement).checked;
+                              if (checked) {
+                                this.setConfigValue('weather.date.show_low_temp', false);
+                                this.requestUpdate();
+                              }
+                            },
                           )}
-                          ${this.addTextField(
-                            'weather.date.show_uvindex_threshold',
-                            this._getTranslation('show_uvindex_threshold'),
-                          )}
+                          ${this.getConfigValue('weather.date.show_uv_index') === true
+                            ? this.addTextField(
+                                'weather.date.uv_index_threshold',
+                                this._getTranslation('uv_index_threshold'),
+                              )
+                            : nothing}
                           ${this.addTextField(
                             'weather.date.icon_size',
                             this._getTranslation('icon_size'),
@@ -1367,13 +1381,15 @@ export class CalendarCardProEditor extends LitElement {
                             this._getTranslation('show_temp'),
                           )}
                           ${this.addBooleanField(
-                            'weather.event.show_uvindex',
-                            this._getTranslation('show_uvindex'),
+                            'weather.event.show_uv_index',
+                            this._getTranslation('show_uv_index'),
                           )}
-                          ${this.addTextField(
-                            'weather.event.show_uvindex_threshold',
-                            this._getTranslation('show_uvindex_threshold'),
-                          )}
+                          ${this.getConfigValue('weather.event.show_uv_index') === true
+                            ? this.addTextField(
+                                'weather.event.uv_index_threshold',
+                                this._getTranslation('uv_index_threshold'),
+                              )
+                            : nothing}
                           ${this.addTextField(
                             'weather.event.icon_size',
                             this._getTranslation('icon_size'),
@@ -1490,6 +1506,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param defaultValue Default value
    * @param changeCallback Optional callback for change events
    * @param uiOnly When true, the field won't be saved to config (UI control only)
+   * @param disabled When true, the switch is disabled and cannot be toggled
    * @returns Lit template for the boolean field
    */
   addBooleanField(
@@ -1498,12 +1515,14 @@ export class CalendarCardProEditor extends LitElement {
     defaultValue?: boolean,
     changeCallback?: (event: Event) => void,
     uiOnly: boolean = false,
+    disabled: boolean = false,
   ): TemplateResult {
     return html`
       <ha-formfield label="${label ?? this._getTranslation(name)}">
         <ha-switch
           name="${name}"
           .checked="${this.getConfigValue(name, defaultValue)}"
+          .disabled="${disabled}"
           @change="${(event: Event) => {
             // Only call _valueChanged if this is not a UI-only field
             if (!uiOnly) this._valueChanged(event);

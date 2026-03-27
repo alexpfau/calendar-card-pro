@@ -442,6 +442,18 @@ export const cardStyles = css`
     opacity: 0.8;
   }
 
+  .weather .weather-uv-index {
+    line-height: 1;
+    vertical-align: middle;
+    font-weight: 500;
+    margin-left: 2px;
+  }
+
+  .event-weather .weather-uv-index {
+    font-weight: 500;
+    margin-left: 2px;
+  }
+
   /* ===== EVENT STYLES ===== */
 
   /* Base event */
@@ -529,6 +541,7 @@ export const cardStyles = css`
   /* Event weather */
   .event-weather {
     display: flex;
+    align-items: center;
     font-weight: 500;
     margin-left: 8px;
     margin-right: 12px;
