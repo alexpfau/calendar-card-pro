@@ -177,7 +177,7 @@ export function normalizeEntities(
       if (typeof item === 'string') {
         return {
           entity: item,
-          color: 'var(--primary-text-color)',
+          color: undefined,
           accent_color: undefined,
           label_icon_color: undefined,
         };
@@ -186,7 +186,7 @@ export function normalizeEntities(
         return {
           entity: item.entity,
           label: item.label,
-          color: item.color || 'var(--primary-text-color)',
+          color: item.color || undefined,
           accent_color: item.accent_color || undefined,
           label_icon_color: item.label_icon_color || undefined,
           show_time: item.show_time,
