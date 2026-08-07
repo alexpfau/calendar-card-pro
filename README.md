@@ -1576,6 +1576,8 @@ To add a new language:
 - **Interaction patterns** inspired by Home Assistant’s [Tile Card](https://github.com/home-assistant/frontend/blob/dev/src/panels/lovelace/cards/hui-tile-card.ts), which is licensed under the [Apache License 2.0](https://github.com/home-assistant/frontend/blob/dev/LICENSE.md).
 - **Material Design ripple interactions**, originally by Google, used under the [Apache License 2.0](https://github.com/material-components/material-components-web/blob/master/LICENSE).
 
+Calendar Card Pro is released under the [MIT License](./LICENSE). Full third-party attributions are listed in [NOTICE](./NOTICE).
+
 <p align="right"><a href="#top">⬆️ back to top</a></p>
 
  <!--Badges-->
