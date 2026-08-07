@@ -51,11 +51,13 @@ import 'dayjs/locale/zh-tw';
  *
  * @param date Target date
  * @param locale Language code
+ * @param reference Instant to measure from; defaults to now
  * @returns Formatted relative time string
  */
-export function getRelativeTimeString(date: Date, locale: string): string {
+export function getRelativeTimeString(date: Date, locale: string, reference?: Date): string {
   const mappedLocale = mapLocale(locale);
-  return dayjs(date).locale(mappedLocale).fromNow();
+  const target = dayjs(date).locale(mappedLocale);
+  return reference ? target.from(dayjs(reference)) : target.fromNow();
 }
 
 /**
