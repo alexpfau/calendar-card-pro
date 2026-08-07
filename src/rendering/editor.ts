@@ -326,6 +326,48 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Detects compact-mode settings that can never produce a visible change.
+   *
+   * Compact mode only alters the rendered output when one of its limits is
+   * genuinely lower than the corresponding full-view value. When that is not the
+   * case the card looks identical before and after expanding, which is easily
+   * mistaken for a broken expand action.
+   *
+   * @returns Flags for each inert-configuration case
+   */
+  private _getCompactModeWarnings(): { noLimits: boolean; daysInert: boolean } {
+    const isSet = (value: unknown) => value !== undefined && value !== null && value !== '';
+
+    const compactDays = this.getConfigValue('compact_days_to_show');
+    const compactEvents = this.getConfigValue('compact_events_to_show');
+
+    // Per-entity overrides count as a compact limit too
+    const entities = (this.getConfigValue('entities') ?? []) as unknown[];
+    const hasEntityLimit = entities.some(
+      (entity) =>
+        typeof entity === 'object' &&
+        entity !== null &&
+        isSet((entity as Record<string, unknown>).compact_events_to_show),
+    );
+
+    const expandsOnAction = (['tap_action', 'hold_action'] as const).some(
+      (key) => this.getConfigValue(`${key}.action`) === 'expand',
+    );
+
+    const daysToShow = Number(this.getConfigValue('days_to_show'));
+    const compactDaysNumber = Number(compactDays);
+
+    return {
+      noLimits: expandsOnAction && !isSet(compactDays) && !isSet(compactEvents) && !hasEntityLimit,
+      daysInert:
+        isSet(compactDays) &&
+        Number.isFinite(compactDaysNumber) &&
+        Number.isFinite(daysToShow) &&
+        compactDaysNumber >= daysToShow,
+    };
+  }
+
+  /**
    * Upgrades the config by replacing deprecated parameters with their replacements.
    */
   private _upgradeConfig(): void {
@@ -661,6 +703,8 @@ export class CalendarCardProEditor extends LitElement {
         `
       : null;
 
+    const compactWarnings = this._getCompactModeWarnings();
+
     return html`
       ${upgradeNotice}
       <div class="card-config">
@@ -722,16 +766,31 @@ export class CalendarCardProEditor extends LitElement {
             <!-- Compact Mode -->
             <h3>${this._getTranslation('compact_mode')}</h3>
             <div class="helper-text">${this._getTranslation('compact_mode_note')}</div>
+            ${compactWarnings.noLimits
+              ? html`
+                  <ha-alert alert-type="warning">
+                    ${this._getTranslation('compact_no_limits_warning')}
+                  </ha-alert>
+                `
+              : null}
             ${this.addTextField(
               'compact_days_to_show',
               this._getTranslation('compact_days_to_show'),
               'number',
             )}
+            ${compactWarnings.daysInert
+              ? html`
+                  <ha-alert alert-type="warning">
+                    ${this._getTranslation('compact_days_inert_warning')}
+                  </ha-alert>
+                `
+              : null}
             ${this.addTextField(
               'compact_events_to_show',
               this._getTranslation('compact_events_to_show'),
               'number',
             )}
+            <div class="helper-text">${this._getTranslation('compact_events_to_show_note')}</div>
             ${this.addBooleanField(
               'compact_events_complete_days',
               this._getTranslation('compact_events_complete_days'),
