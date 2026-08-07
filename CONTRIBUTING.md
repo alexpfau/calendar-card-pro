@@ -17,7 +17,7 @@ Before contributing code, I strongly recommend reviewing my [architecture docume
 2. Clone your fork: `git clone https://github.com/[your-username]/calendar-card-pro.git`
 3. Install dependencies: `npm install`
 4. Start development mode: `npm run dev`
-5. The compiled card will be available in `dist/calendar-card-pro.js`
+5. The compiled card will be available in `dist/calendar-card-pro-dev.js`
 6. For testing in Home Assistant, follow the [testing instructions](#testing-in-home-assistant)
 
 ## Branch Structure
@@ -78,11 +78,24 @@ Calendar Card Pro supports multiple languages through JSON translation files. He
 ### Method 1: Contributing a Language File to the Repository
 
 1. **Create a new file** in `src/translations/languages/[lang-code].json`
-2. **Copy the structure** from an existing language file (e.g., `en.json`)
-3. **Update the localize file** in `src/translations/localize.ts` to include your new language
-4. **Update the dayjs file** in `src/translations/dayjs.ts` to include your new language
-5. **Translate all strings** to your language
-6. **Submit a Pull Request** with your changes
+2. **Copy the structure** from an existing language file (e.g., `en.json`) — your file
+   must contain **every** key present in `en.json`, including the `editor` section
+3. **Update the localize file** in `src/translations/localize.ts`: add the `import` **and**
+   an entry in the `TRANSLATIONS` map. The map key must be **lowercase** (e.g. `'en-gb'`)
+4. **Update the dayjs file** in `src/translations/dayjs.ts` — this needs **two** edits, and
+   both are required:
+   - add `import 'dayjs/locale/[lang-code]';`
+   - add the base language code to the `supportedLocales` array in `mapLocale()`
+
+   > ⚠️ Forgetting the `supportedLocales` entry is a **silent failure**: the language will
+   > work everywhere except relative times, which quietly fall back to English.
+   >
+   > Regional variants normally need no dayjs entry at all, since `mapLocale()` reduces
+   > them to their base code (`en-gb` → `en`). Only add one if dayjs ships a distinct
+   > locale you actually need (as with `zh-cn` / `zh-tw`).
+5. **Translate all strings** to your language (translate values, never keys)
+6. **Add your language** to the supported-languages list in `README.md`
+7. **Submit a Pull Request** with your changes
 
 Example language file structure:
 
@@ -170,11 +183,12 @@ window.addEventListener('load', () => {
 
 ## Pull Request Process
 
-1. Create a feature branch from your fork (`feature/my-new-feature`)
+1. Create a feature branch from `dev` (`feature/my-new-feature`)
 2. Make your changes following our code style guidelines
 3. Ensure all linting passes (`npm run lint`)
 4. Build and test your changes (`npm run build`)
-5. Submit a PR against the `main` branch
+5. Submit a PR against the **`dev`** branch (not `main` — `main` only receives release
+   PRs from `dev`)
 6. Respond to any feedback during code review
 
 ## Bug Reports
