@@ -228,6 +228,7 @@
     "show_temp": "Rādīt temperatūru",
     "show_uv_index": "Rādīt UV indeksu",
     "uv_index_threshold": "UV indeksa slieksnis",
+    "daily_forecast_fallback": "Izmantot dienas prognozi kā rezerves variantu",
 
     "interactions": "Mijiedarbība",
     "tap_action": "Pieskāriena darbība",

@@ -220,6 +220,7 @@
     "show_temp": "Visa temperatur",
     "show_uv_index": "Visa UV-index",
     "uv_index_threshold": "UV-indextröskel",
+    "daily_forecast_fallback": "Använd daglig prognos som reserv",
     "interactions": "Interaktioner",
     "tap_action": "Tryckåtgärd",
     "hold_action": "Hållåtgärd",

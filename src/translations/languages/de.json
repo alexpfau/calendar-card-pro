@@ -236,6 +236,7 @@
     "show_temp": "Temperatur anzeigen",
     "show_uv_index": "UV-Index anzeigen",
     "uv_index_threshold": "UV-Index-Schwellenwert",
+    "daily_forecast_fallback": "Auf Tagesvorhersage zurückgreifen",
 
     "interactions": "Interaktionen",
     "tap_action": "Aktion antippen",

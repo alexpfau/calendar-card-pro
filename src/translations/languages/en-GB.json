@@ -228,6 +228,7 @@
     "show_temp": "Show temperature",
     "show_uv_index": "Show UV index",
     "uv_index_threshold": "UV index threshold",
+    "daily_forecast_fallback": "Use daily forecast as fallback",
     
     "interactions": "Interactions",
     "tap_action": "Tap Action",
