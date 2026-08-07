@@ -10,13 +10,49 @@
 //-----------------------------------------------------------------------------
 
 /**
+ * Cache of resolved RGBA strings, keyed by `${color}|${opacity}`.
+ *
+ * Resolving a color requires a synchronous layout flush (see computeRGBA), which is
+ * far too expensive to repeat for every event on every render. Colors and opacity both
+ * come from the card configuration, so the number of distinct keys stays very small.
+ *
+ * Theme-dependent colors are not cached by value here: `var(...)` colors short-circuit
+ * before any computed-style lookup and resolve to a CSS expression that the browser
+ * re-evaluates itself, so a theme switch is still picked up correctly.
+ */
+const rgbaCache = new Map<string, string>();
+
+/**
  * Convert any color format to RGBA with specific opacity
+ *
+ * Results are memoized because the underlying color resolution forces a synchronous
+ * reflow and this is called once per rendered event.
  *
  * @param color - Color in any valid CSS format
  * @param opacity - Opacity value (0-100)
  * @returns RGBA color string
  */
 export function convertToRGBA(color: string, opacity: number): string {
+  const cacheKey = `${color}|${opacity}`;
+
+  const cached = rgbaCache.get(cacheKey);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const result = computeRGBA(color, opacity);
+  rgbaCache.set(cacheKey, result);
+  return result;
+}
+
+/**
+ * Resolve a color to RGBA, without caching.
+ *
+ * @param color - Color in any valid CSS format
+ * @param opacity - Opacity value (0-100)
+ * @returns RGBA color string
+ */
+function computeRGBA(color: string, opacity: number): string {
   // If color is a CSS variable, we need to handle it specially
   if (color.startsWith('var(')) {
     // Create a temporary CSS variable with opacity
