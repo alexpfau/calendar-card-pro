@@ -560,10 +560,32 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Determine whether compact mode is actually limiting what the card renders.
+   *
+   * Mirrors the guards in `groupEventsByDay`: a limit counts as set when it is a
+   * finite number, not merely truthy. `compact_events_to_show: 0` is a valid
+   * configuration meaning "show nothing until expanded", and per-entity limits
+   * constrain the compact view even when no global limit is set.
+   */
+  private hasCompactModeLimits(): boolean {
+    const isLimit = (value: unknown): boolean =>
+      typeof value === 'number' && Number.isFinite(value);
+
+    if (isLimit(this.config.compact_events_to_show) || isLimit(this.config.compact_days_to_show)) {
+      return true;
+    }
+
+    return (this.config.entities ?? []).some(
+      (entity) =>
+        typeof entity === 'object' && entity !== null && isLimit(entity.compact_events_to_show),
+    );
+  }
+
+  /**
    * Toggle expanded state for view modes with limited events
    */
   toggleExpanded(): void {
-    if (this.config.compact_events_to_show || this.config.compact_days_to_show) {
+    if (this.hasCompactModeLimits()) {
       this.isExpanded = !this.isExpanded;
     }
   }
