@@ -1,3 +1,55 @@
+# Calendar Card Pro v3.3.0
+
+**Home Assistant 2026.5+ visual editor compatibility, two new languages, and important color and relative-time fixes.** This release restores the visual editor on recent Home Assistant versions, brings the card to 35 languages, and resolves several long-standing color and translation issues.
+
+## 🎉 New Features
+
+### 🌐 New Language Additions
+
+Two new languages bring the total to **35**:
+
+- **British English** (`en-GB`) - Complete interface and editor translation (Thanks @martinconroy, #334)
+- **Latvian** (`lv`) - Complete interface and editor translation (Thanks @djadjuks, #340)
+
+### 🌐 Expanded Editor Language Support
+
+Three new editor translations bring the visual editor to **11 languages** total (English, British English, German, Norwegian Bokmål, Swedish, Slovak, Polish, Estonian, Lithuanian, Italian, Latvian):
+
+- **Italian Editor Translation** - Complete translation for the visual configuration editor, along with refinements to existing Italian interface strings (Thanks @papperone, #333)
+- **British English Editor Translation** - Complete translation for the visual configuration editor
+- **Latvian Editor Translation** - Complete translation for the visual configuration editor
+
+## 🐛 Bug Fixes
+
+### Compatibility
+
+- **Home Assistant 2026.5+ Visual Editor** - Restored the text input fields in the visual editor, which disappeared entirely on Home Assistant 2026.5 and later after the `ha-textfield` component was removed. The editor now detects `ha-input` where available and falls back to `ha-textfield` on older versions, so a single build keeps working across both (#338)
+
+### Event Colors
+
+- **`event_color` Now Applied Correctly** - Fixed `event_color` being ignored whenever no per-entity color was configured, which caused affected events to always fall back to the default accent color (Thanks @astraios-de, #341)
+
+### Translations
+
+- **Catalan and Romanian Relative Times** - Fixed relative time strings such as "in 2 days" silently falling back to English for Catalan and Romanian, both of which were missing their Day.js locale registration
+- **Latvian Locale Registration** - Completed the Latvian registration so its relative times resolve correctly rather than falling back to English
+
+## 🔧 Technical Changes
+
+- Added `AGENTS.md` documenting repository conventions, the branch model, and the translation checklist for AI coding agents
+- Corrected contributor guidance in `CONTRIBUTING.md`, which previously directed pull requests at the wrong base branch
+- Added TypeScript type checking (`tsc --noEmit`) to the CI pipeline
+- The release workflow now publishes the curated notes from `docs/RELEASE_NOTES.md` instead of auto-generating a commit list
+
+## Related Issues
+
+- [#338](https://github.com/alexpfau/calendar-card-pro/issues/338) - Missing ha-textfield options in visual editor by @EMERALD0874
+- [#284](https://github.com/alexpfau/calendar-card-pro/issues/284) - event_color doesn't work by @ZakOyten
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.2.0...v3.3.0
+
+---
+
 # Calendar Card Pro v3.2.0
 
 **Event descriptions, weather UV index, RTL support, and Home Assistant 2026.3 compatibility.** This release introduces major new display features alongside critical compatibility updates and significant bug fixes.
