@@ -1286,6 +1286,19 @@ export class CalendarCardProEditor extends LitElement {
             <!-- Progress Indicators -->
             <h3>${this._getTranslation('progress_indicators')}</h3>
             ${this.addBooleanField('show_countdown', this._getTranslation('show_countdown'))}
+            ${(() => {
+              // Only show the all-day sub-option if show_countdown is true
+              if (this.getConfigValue('show_countdown') !== true) {
+                return html``;
+              }
+
+              return html`
+                ${this.addBooleanField(
+                  'show_countdown_allday',
+                  this._getTranslation('show_countdown_allday'),
+                )}
+              `;
+            })()}
             ${this.addBooleanField('show_progress_bar', this._getTranslation('show_progress_bar'))}
             ${(() => {
               // Only show additional progress bar fields if show_progress_bar is true

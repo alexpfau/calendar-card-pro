@@ -200,6 +200,7 @@
     "custom_country_pattern_note": "Inserisci nomi di paesi come espressione regolare (es. 'USA|United States|Canada').",
     "progress_indicators": "Indicatori di Progresso",
     "show_countdown": "Mostra conto alla rovescia",
+    "show_countdown_allday": "Mostra conto alla rovescia per eventi di un giorno intero",
     "show_progress_bar": "Mostra barra di progresso",
     "progress_bar_color": "Colore barra progresso",
     "progress_bar_height": "Altezza barra progresso",

@@ -200,6 +200,7 @@
     "custom_country_pattern_note": "Enter country names as a regular expression pattern (e.g., 'USA|United States|Canada'). Events with locations ending with these patterns will have the country removed.",
     "progress_indicators": "Progress Indicators",
     "show_countdown": "Show countdown",
+    "show_countdown_allday": "Show countdown for all-day events",
     "show_progress_bar": "Show progress bar",
     "progress_bar_color": "Progress bar color",
     "progress_bar_height": "Progress bar height",

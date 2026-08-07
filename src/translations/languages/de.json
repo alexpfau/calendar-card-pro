@@ -208,6 +208,7 @@
     "description_max_lines": "Beschreibung max. Zeilen (0 = unbegrenzt)",
     "progress_indicators": "Fortschrittsindikatoren",
     "show_countdown": "Countdown anzeigen",
+    "show_countdown_allday": "Countdown für ganztägige Termine anzeigen",
     "show_progress_bar": "Fortschrittsbalken anzeigen",
     "progress_bar_color": "Fortschrittsbalken Farbe",
     "progress_bar_height": "Fortschrittsbalken Höhe",

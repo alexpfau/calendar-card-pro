@@ -198,6 +198,7 @@
     "custom_country_pattern_note": "Skriv inn landsnavn som et regulært uttrykksmønster (f.eks. 'Norge|USA|Sverige'). Hendelser med steder som slutter med disse mønstrene vil få landet fjernet.",
     "progress_indicators": "Fremgangsindikatorer",
     "show_countdown": "Vis nedtelling",
+    "show_countdown_allday": "Vis nedtelling for heldagshendelser",
     "show_progress_bar": "Vis fremdriftslinje",
     "progress_bar_color": "Fremdriftslinjefarge",
     "progress_bar_height": "Fremdriftslinjehøyde",

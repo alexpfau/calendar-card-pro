@@ -219,6 +219,7 @@
     "custom_country_pattern_note": "Sisesta riiginimed regulaaravaldisena (nt „Eesti|Finland|Latvia“). Asukohad, mis lõppevad nende mustritega, puhastatakse.",
     "progress_indicators": "Edenemise indikaatorid",
     "show_countdown": "Näita loendurit",
+    "show_countdown_allday": "Näita loendurit kogupäevasündmustel",
     "show_progress_bar": "Näita edenemisriba",
     "progress_bar_color": "Edenemisriba värv",
     "progress_bar_height": "Edenemisriba kõrgus",

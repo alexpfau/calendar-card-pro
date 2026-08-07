@@ -200,6 +200,7 @@
     "custom_country_pattern_note": "Ievadiet valstu nosaukumus kā regulāro izteiksmi (piemēram 'USA|United States|Canada').",
     "progress_indicators": "Progresa indikatori",
     "show_countdown": "Rādīt atpakaļskaitīšanu",
+    "show_countdown_allday": "Rādīt atpakaļskaitīšanu visas dienas notikumiem",
     "show_progress_bar": "Rādīt progresa joslu",
     "progress_bar_color": "Progresa joslas krāsa",
     "progress_bar_height": "Progresa joslas augstums",

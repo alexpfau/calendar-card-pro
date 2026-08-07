@@ -877,8 +877,17 @@ export function renderEvent(
     !isEmptyDay;
 
   // Calculate countdown if enabled
+  // Hide if:
+  // 1. show_countdown is false OR
+  // 2. It's an all-day event AND show_countdown_allday is false OR
+  // 3. It's an empty day placeholder or a past event
   let countdownStr: string | null = null;
-  if (config.show_countdown && !isEmptyDay && !isPastEvent) {
+  if (
+    config.show_countdown &&
+    !(isAllDayEvent && !config.show_countdown_allday) &&
+    !isEmptyDay &&
+    !isPastEvent
+  ) {
     countdownStr = FormatUtils.getCountdownString(event, language);
   }
 

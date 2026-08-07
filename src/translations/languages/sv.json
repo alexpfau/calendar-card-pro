@@ -193,6 +193,7 @@
     "custom_country_pattern_note": "Ange länder som reguljära uttryck (t.ex. 'USA|Sverige|Norge'). Händelser med platser som slutar med dessa tas bort.",
     "progress_indicators": "Förloppsindikatorer",
     "show_countdown": "Visa nedräkning",
+    "show_countdown_allday": "Visa nedräkning för heldagshändelser",
     "show_progress_bar": "Visa förloppsindikator",
     "progress_bar_color": "Förloppsindikator färg",
     "progress_bar_height": "Förloppsindikator höjd",
