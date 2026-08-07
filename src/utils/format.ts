@@ -104,6 +104,9 @@ export function formatEventTime(
  * Generates a localized countdown string for an event
  * Uses dayjs for consistent, localized relative time formatting
  *
+ * All-day events are measured from the start of today rather than from the
+ * current instant, so the countdown reflects whole calendar days.
+ *
  * @param event Calendar event to generate countdown for
  * @param language Language to use
  * @returns Countdown string or null if event is past or empty day
@@ -116,6 +119,7 @@ export function getCountdownString(
   if (event._isEmptyDay || !event.start) return null;
 
   const now = new Date();
+  const isAllDayEvent = !event.start.dateTime;
   const startDate = event.start.dateTime
     ? new Date(event.start.dateTime)
     : event.start.date
@@ -124,8 +128,17 @@ export function getCountdownString(
 
   if (!startDate || startDate <= now) return null;
 
+  // All-day events start at local midnight and carry no meaningful time of day.
+  // Measuring from the current instant would count remaining 24-hour periods, so
+  // the countdown drops a day once the clock passes midday and renders tomorrow's
+  // event as "in 4 hours". Anchoring to the start of today makes the difference a
+  // whole number of calendar days, which is what an all-day countdown means.
+  const reference = isAllDayEvent
+    ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    : undefined;
+
   // Use dayjs for relative time formatting
-  return getRelativeTimeString(startDate, language);
+  return getRelativeTimeString(startDate, language, reference);
 }
 
 /**
