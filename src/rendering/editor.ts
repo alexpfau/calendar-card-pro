@@ -1498,6 +1498,10 @@ export class CalendarCardProEditor extends LitElement {
                                 this._getTranslation('uv_index_threshold'),
                               )
                             : nothing}
+                          ${this.addBooleanField(
+                            'weather.event.daily_forecast_fallback',
+                            this._getTranslation('daily_forecast_fallback'),
+                          )}
                           ${this.addTextField(
                             'weather.event.icon_size',
                             this._getTranslation('icon_size'),

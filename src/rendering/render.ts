@@ -1063,19 +1063,21 @@ function renderEventWeather(
     }
   }
 
+  // Get options from event-specific config
+  const eventConfig = config.weather?.event || {};
+
   // Find the appropriate forecast - pass both hourly and daily forecasts
   const forecast = Weather.findForecastForEvent(
     event,
     weatherForecasts.hourly,
     weatherForecasts.daily,
+    eventConfig.daily_forecast_fallback !== false,
   );
 
   if (!forecast) {
     return html``;
   }
 
-  // Get options from event-specific config
-  const eventConfig = config.weather?.event || {};
   const showConditions = eventConfig.show_conditions !== false;
   const showTemp = eventConfig.show_temp !== false;
   const showUvIndex =

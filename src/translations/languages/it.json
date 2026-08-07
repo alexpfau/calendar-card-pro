@@ -228,6 +228,7 @@
     "show_temp": "Mostra temperatura",
     "show_uv_index": "Mostra indice UV",
     "uv_index_threshold": "Soglia indice UV",
+    "daily_forecast_fallback": "Usa le previsioni giornaliere come alternativa",
 
     "interactions": "Interazioni",
     "tap_action": "Azione tap",

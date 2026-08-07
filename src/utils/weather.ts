@@ -134,15 +134,23 @@ export function findDailyForecast(
  * Find the appropriate forecast for an event
  * Uses hourly forecast for timed events, daily forecast for all-day events
  *
+ * Home Assistant's hourly forecast typically only spans about two days, while the
+ * daily forecast reaches considerably further. When `dailyFallback` is enabled,
+ * timed events beyond the hourly horizon fall back to that date's daily forecast
+ * instead of rendering nothing. This also covers weather entities that provide no
+ * hourly forecast at all.
+ *
  * @param event Calendar event
  * @param hourlyForecasts Hourly forecasts record
  * @param dailyForecasts Daily forecasts record
+ * @param dailyFallback Whether timed events may fall back to the daily forecast
  * @returns Weather data for the event or undefined
  */
 export function findForecastForEvent(
   event: Types.CalendarEventData,
   hourlyForecasts: Record<string, Types.WeatherData>,
   dailyForecasts?: Record<string, Types.WeatherData>,
+  dailyFallback = false,
 ): Types.WeatherData | undefined {
   // For all-day events (with start.date but no start.dateTime)
   if (event.start.date && !event.start.dateTime && dailyForecasts) {
@@ -153,7 +161,7 @@ export function findForecastForEvent(
   }
 
   // For regular events with start.dateTime
-  if (!event.start.dateTime || !hourlyForecasts) {
+  if (!event.start.dateTime) {
     return undefined;
   }
 
@@ -162,38 +170,45 @@ export function findForecastForEvent(
   const eventDate = FormatUtils.getLocalDateKey(eventStart);
   const eventHour = eventStart.getHours();
 
-  // Try to find the exact hour
-  const exactMatch = hourlyForecasts[`${eventDate}_${eventHour}`];
-  if (exactMatch) {
-    return exactMatch;
-  }
+  if (hourlyForecasts) {
+    // Try to find the exact hour
+    const exactMatch = hourlyForecasts[`${eventDate}_${eventHour}`];
+    if (exactMatch) {
+      return exactMatch;
+    }
 
-  // Find the closest hour forecast
-  let closestHour = -1;
-  let minDiff = 24;
+    // Find the closest hour forecast
+    let closestHour = -1;
+    let minDiff = 24;
 
-  // Look through all hourly forecasts for this date
-  Object.keys(hourlyForecasts).forEach((key) => {
-    if (key.startsWith(eventDate)) {
-      // Extract hour from the key
-      const hourPart = key.split('_')[1];
-      const hour = parseInt(hourPart);
+    // Look through all hourly forecasts for this date
+    Object.keys(hourlyForecasts).forEach((key) => {
+      if (key.startsWith(eventDate)) {
+        // Extract hour from the key
+        const hourPart = key.split('_')[1];
+        const hour = parseInt(hourPart);
 
-      if (!isNaN(hour)) {
-        // Calculate difference, accounting for hour wrapping
-        const diff = Math.abs(hour - eventHour);
+        if (!isNaN(hour)) {
+          // Calculate difference, accounting for hour wrapping
+          const diff = Math.abs(hour - eventHour);
 
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestHour = hour;
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestHour = hour;
+          }
         }
       }
-    }
-  });
+    });
 
-  // Return the closest forecast if found
-  if (closestHour >= 0) {
-    return hourlyForecasts[`${eventDate}_${closestHour}`];
+    // Return the closest forecast if found
+    if (closestHour >= 0) {
+      return hourlyForecasts[`${eventDate}_${closestHour}`];
+    }
+  }
+
+  // No hourly data for this date - fall back to the daily forecast if enabled
+  if (dailyFallback && dailyForecasts) {
+    return dailyForecasts[eventDate];
   }
 
   return undefined;

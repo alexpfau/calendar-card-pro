@@ -915,6 +915,7 @@ This flexible configuration allows you to create a personalized experience that 
 | `event → show_temp`          | boolean | `true`                      | Whether to show temperature in event column                                                 |
 | `event → show_uv_index`      | boolean | `false`                     | Whether to show UV index in event column                                                    |
 | `event → uv_index_threshold` | number  | `0`                         | Only show UV index when it exceeds this value (0 = always show when enabled)                |
+| `event → daily_forecast_fallback` | boolean | `true`                 | Fall back to the daily forecast for timed events beyond the hourly forecast horizon         |
 | `event → icon_size`          | string  | `14px`                      | Size of weather icons in event column                                                       |
 | `event → font_size`          | string  | `12px`                      | Size of weather text in event column                                                        |
 | `event → color`              | string  | `var(--primary-text-color)` | Color of weather text and icons in event column                                             |
@@ -926,6 +927,14 @@ You can choose where weather information appears in your calendar:
 - `date`: Shows daily forecasts in the date column (left side)
 - `event`: Shows hourly forecasts next to event titles
 - `both`: Displays weather in both positions simultaneously
+
+> [!NOTE]
+> Home Assistant weather entities typically provide hourly forecasts for about two days
+> ahead, while daily forecasts reach much further (six days or more, depending on the
+> provider). Beyond the hourly horizon, timed events fall back to that day's daily
+> forecast so weather keeps appearing across the whole calendar. Set
+> `event → daily_forecast_fallback: false` if you would rather show nothing than a daily
+> value. All-day events always use the daily forecast.
 
 #### Position-Specific Configuration
 
@@ -948,6 +957,7 @@ Each display position can be customized independently with different content and
 - `show_temp`: Show temperature
 - `show_uv_index`: Show UV index
 - `uv_index_threshold`: Minimum UV index value to display (0 = always)
+- `daily_forecast_fallback`: Use the daily forecast for timed events beyond the hourly forecast horizon
 - `icon_size`: Weather icon size
 - `font_size`: Temperature text size
 - `color`: Text and icon color

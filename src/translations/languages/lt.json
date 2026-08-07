@@ -234,6 +234,7 @@
     "show_temp": "Rodyti temperatūrą",
     "show_uv_index": "Rodyti UV indeksą",
     "uv_index_threshold": "UV indekso riba",
+    "daily_forecast_fallback": "Naudoti dienos prognozę kaip atsarginį variantą",
 
     "interactions": "Sąveikos",
     "tap_action": "Paliesti veiksmas",

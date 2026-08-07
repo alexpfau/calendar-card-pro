@@ -247,6 +247,7 @@
     "show_temp": "Näita temperatuuri",
     "show_uv_index": "Näita UV-indeksit",
     "uv_index_threshold": "UV-indeksi künnis",
+    "daily_forecast_fallback": "Kasuta päevaprognoosi varuvariandina",
 
     "interactions": "Interaktsioonid",
     "tap_action": "Puudutuse tegevus",

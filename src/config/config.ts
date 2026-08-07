@@ -128,6 +128,7 @@ export const DEFAULT_CONFIG: Types.Config = {
       show_temp: true,
       show_uv_index: false,
       uv_index_threshold: 0,
+      daily_forecast_fallback: true,
       icon_size: '14px',
       font_size: '12px',
       color: 'var(--primary-text-color)',

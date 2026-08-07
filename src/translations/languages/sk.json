@@ -225,6 +225,7 @@
     "show_temp": "Zobraziť teplotu",
     "show_uv_index": "Zobraziť UV index",
     "uv_index_threshold": "Prah UV indexu",
+    "daily_forecast_fallback": "Použiť dennú predpoveď ako záložnú",
 
     "interactions": "Interakcie",
     "tap_action": "Akcia kliknutia",

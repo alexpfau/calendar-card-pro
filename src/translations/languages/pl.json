@@ -234,6 +234,7 @@
     "show_temp": "Pokaż Temperaturę",
     "show_uv_index": "Pokaż indeks UV",
     "uv_index_threshold": "Próg indeksu UV",
+    "daily_forecast_fallback": "Użyj prognozy dziennej jako zapasowej",
 
     "interactions": "Interakcje",
     "tap_action": "Akcja Dotknięcia",
