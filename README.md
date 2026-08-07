@@ -1511,6 +1511,7 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Danish** (`da`)
 - **Dutch** (`nl`)
 - **English** (`en`)
+- **English (British)** (`en-gb`)
 - **Estonian** (`et`)
 - **Finnish** (`fi`)
 - **French** (`fr`)
@@ -1521,6 +1522,7 @@ For those interested in contributing code, I maintain detailed **[architecture d
 - **Hungarian** (`hu`)
 - **Icelandic** (`is`)
 - **Italian** (`it`)
+- **Latvian** (`lv`)
 - **Lithuanian** (`lt`)
 - **Norwegian Bokmål** (`nb`)
 - **Norwegian Nynorsk** (`nn`)
@@ -1542,17 +1544,31 @@ For those interested in contributing code, I maintain detailed **[architecture d
 To add a new language:
 
 1. **Create a new file** in `src/translations/languages/[lang-code].json`
-2. **Copy the structure** from an existing language file (e.g., `en.json`)
-3. **Update the localize file** in `src/translations/localize.ts` to include your new language
-4. **Update the dayjs file** in `src/translations/dayjs.ts` to include your new language
-5. **Translate all strings** to your language
-6. **Submit a Pull Request** with your changes
+2. **Copy the structure** from `en.json` and translate all values (never change the keys).
+   The file must contain **every** key present in `en.json`, including the `editor` section.
+3. **Register it in `src/translations/localize.ts`** — this is two edits:
+   - add the `import` for your JSON file
+   - add an entry to the `TRANSLATIONS` map. **The key must be lowercase**
+     (e.g. `'en-gb'`, `'zh-cn'`), because lookups lowercase the configured language.
+4. **Register it in `src/translations/dayjs.ts`** — this is also **two** edits, and both
+   are required. Forgetting the second one is a silent failure: the language will work
+   everywhere except relative times, which quietly fall back to English.
+   - add `import 'dayjs/locale/[lang-code]';`
+   - add the base language code to the `supportedLocales` array
+   - _Note:_ regional variants normally need no dayjs entry, since `mapLocale()` reduces
+     them to their base code (e.g. `en-gb` → `en`). Only add one if dayjs ships a distinct
+     locale you actually need (as with `zh-cn` / `zh-tw`).
+5. **Add your language to the supported list above** in this README, in alphabetical order.
+6. **Verify** with `npm run lint` and `npm run build`
+7. **Submit a Pull Request** with your changes
 
 **Example**: To add German support, you would:
 
 1. Create `src/translations/languages/de.json`
 2. Copy the structure from `en.json` and translate all values (not keys)
-3. Add the import and mapping in `localize.ts`
+3. Add `import deTranslations from './languages/de.json';` and `de: deTranslations,` in `localize.ts`
+4. Add `import 'dayjs/locale/de';` **and** `'de',` to `supportedLocales` in `dayjs.ts`
+5. Add a `- **German** (de)` entry to the list above
 
 ### 🏆 Acknowledgements
 

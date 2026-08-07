@@ -28,6 +28,7 @@ import 'dayjs/locale/hu';
 import 'dayjs/locale/is';
 import 'dayjs/locale/it';
 import 'dayjs/locale/lt';
+import 'dayjs/locale/lv';
 import 'dayjs/locale/nb';
 import 'dayjs/locale/nl';
 import 'dayjs/locale/nn';
@@ -70,9 +71,12 @@ function mapLocale(locale: string): string {
   // For other locales, extract the base language code
   const baseLocale = lowerLocale.split('-')[0];
 
-  // Complete list of supported locales matching our translations
+  // Complete list of supported locales matching our translations.
+  // IMPORTANT: every locale imported above must also be listed here,
+  // otherwise it silently falls back to English relative times.
   const supportedLocales = [
     'bg',
+    'ca',
     'cs',
     'da',
     'de',
@@ -88,11 +92,13 @@ function mapLocale(locale: string): string {
     'is',
     'it',
     'lt',
+    'lv',
     'nb',
     'nl',
     'nn',
     'pl',
     'pt',
+    'ro',
     'ru',
     'sk',
     'sl',
