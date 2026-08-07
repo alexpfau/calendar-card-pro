@@ -81,6 +81,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   event_background_opacity: 0,
   show_past_events: false,
   show_countdown: false,
+  show_countdown_allday: true,
   show_progress_bar: false,
   progress_bar_color: 'var(--secondary-text-color)',
   progress_bar_height: 'calc(var(--calendar-card-font-size-time) * 0.75)',

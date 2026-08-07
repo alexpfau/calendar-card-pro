@@ -206,6 +206,7 @@
     "custom_country_pattern_note": "Wpisz nazwy krajów jako wzorzec wyrażenia regularnego (np. 'USA|Polska|Niemcy'). Referenser z lokalizacjami kończącymi się tymi wzorcami będą miały kraj usunięty.",
     "progress_indicators": "Wskaźniki Postępu",
     "show_countdown": "Pokaż Odliczanie",
+    "show_countdown_allday": "Pokaż Odliczanie dla Całodniowych Wydarzeń",
     "show_progress_bar": "Pokaż Pasek Postępu",
     "progress_bar_color": "Kolor Paska Postępu",
     "progress_bar_height": "Wysokość Paska Postępu",

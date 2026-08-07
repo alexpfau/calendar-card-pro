@@ -197,6 +197,7 @@
     "custom_country_pattern_note": "Zadajte mená krajín ako vzor regulárneho výrazu (napr. 'USA|Spojené štáty|Kanada'). V udalosti, ktorých miesta sa končia na ktorýkoľvek z týchto výrazov, sa odstráni krajina.",
     "progress_indicators": "Ukazovateľ priebehu",
     "show_countdown": "Zobraziť odpočítavanie",
+    "show_countdown_allday": "Zobraziť odpočítavanie pri celodenných udalostiach",
     "show_progress_bar": "Zobraziť lištu priebehu",
     "progress_bar_color": "Farba lišty priebehu",
     "progress_bar_height": "Výška lišty priebehu",

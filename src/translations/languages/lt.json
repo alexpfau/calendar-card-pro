@@ -206,6 +206,7 @@
     "custom_country_pattern_note": "Įveskite šalių pavadinimus kaip reguliariųjų išraiškų šabloną (pvz., 'USA|United States|Canada'). Įvykiai su vietomis, besibaigančiais šiais šablonais, turės šalį pašalintą.",
     "progress_indicators": "Progreso indikatoriai",
     "show_countdown": "Rodyti atgalinį skaičiavimą",
+    "show_countdown_allday": "Rodyti atgalinį skaičiavimą visos dienos įvykiams",
     "show_progress_bar": "Rodyti progreso juostą",
     "progress_bar_color": "Progreso juostos spalva",
     "progress_bar_height": "Progreso juostos aukštis",

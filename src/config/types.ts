@@ -79,6 +79,7 @@ export interface Config {
   event_background_opacity: number;
   show_past_events: boolean;
   show_countdown: boolean;
+  show_countdown_allday: boolean;
   show_progress_bar: boolean;
   progress_bar_color: string;
   progress_bar_height: string;
