@@ -13,7 +13,7 @@ jobs:
     if: github.repository == 'alexpfau/calendar-card-pro'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
       - name: HACS validation
         uses: hacs/action@main
         with:
