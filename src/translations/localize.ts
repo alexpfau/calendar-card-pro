@@ -17,6 +17,7 @@ import daTranslations from './languages/da.json';
 import deTranslations from './languages/de.json';
 import elTranslations from './languages/el.json';
 import enTranslations from './languages/en.json';
+import enGBTranslations from './languages/en-GB.json';
 import esTranslations from './languages/es.json';
 import etTranslations from './languages/et.json';
 import fiTranslations from './languages/fi.json';
@@ -27,6 +28,7 @@ import huTranslations from './languages/hu.json';
 import isTranslations from './languages/is.json';
 import itTranslations from './languages/it.json';
 import ltTranslations from './languages/lt.json';
+import lvTranslations from './languages/lv.json';
 import nbTranslations from './languages/nb.json';
 import nlTranslations from './languages/nl.json';
 import nnTranslations from './languages/nn.json';
@@ -56,6 +58,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   de: deTranslations,
   el: elTranslations,
   en: enTranslations,
+  'en-gb': enGBTranslations,
   es: esTranslations,
   et: etTranslations,
   fi: fiTranslations,
@@ -66,6 +69,7 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   is: isTranslations,
   it: itTranslations,
   lt: ltTranslations,
+  lv: lvTranslations,
   nb: nbTranslations,
   nl: nlTranslations,
   nn: nnTranslations,

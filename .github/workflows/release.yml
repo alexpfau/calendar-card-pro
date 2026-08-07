@@ -21,8 +21,31 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # A tag that disagrees with package.json ships a bundle whose embedded version
+      # string does not match the release it is attached to. Cheap to check, painful
+      # to discover after publishing.
+      - name: Verify tag matches package.json
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${PKG_VERSION}."
+            exit 1
+          fi
+          echo "Version check passed: ${PKG_VERSION}"
+
+      # Fail before building if the curated notes are missing, so the problem surfaces
+      # in seconds rather than after a full lint + build cycle.
+      - name: Extract release notes
+        run: |
+          node scripts/extract-release-notes.mjs "${GITHUB_REF_NAME}" > release-body.md
+          echo "Release body: $(wc -l < release-body.md) lines"
+
       - name: Lint
         run: npm run lint
+
+      - name: Type check
+        run: npx tsc --noEmit
 
       - name: Build
         run: npm run build
@@ -31,5 +54,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          generate_release_notes: true
+          body_path: release-body.md
           files: dist/calendar-card-pro.js

@@ -11,6 +11,7 @@
 //-----------------------------------------------------------------------------
 
 import { LitElement, TemplateResult, html, nothing } from 'lit';
+import { literal, html as staticHtml } from 'lit/static-html.js';
 import { property } from 'lit/decorators.js';
 import styles from './editor.styles';
 import * as Types from '../config/types';
@@ -29,6 +30,37 @@ import {
   mdiPalette, // For Appearance & Layout
   mdiWeatherPartlyCloudy, // For Weather Integration
 } from '@mdi/js';
+
+/**
+ * Text input element tag.
+ *
+ * Home Assistant 2026.4 introduced `ha-input` as the successor of `ha-textfield`
+ * and removed `ha-textfield` in 2026.5, which made every text-based field in the
+ * visual editor render as nothing. Detect which element the running frontend
+ * provides so the editor keeps working on both old and new Home Assistant versions.
+ *
+ * Resolved lazily on first use rather than at module load, because the card bundle
+ * can be evaluated before Home Assistant has registered its own components. The
+ * result is only cached once one of the two elements is actually defined, so an
+ * early render can never permanently pin the editor to the wrong element.
+ */
+let haInputTag: ReturnType<typeof literal> | undefined;
+
+function getInputTag(): ReturnType<typeof literal> {
+  if (haInputTag !== undefined) return haInputTag;
+
+  if (customElements.get('ha-input')) {
+    haInputTag = literal`ha-input`;
+  } else if (customElements.get('ha-textfield')) {
+    haInputTag = literal`ha-textfield`;
+  } else {
+    // Neither is registered yet — assume the current element without caching,
+    // so the next render can still resolve the correct one.
+    return literal`ha-input`;
+  }
+
+  return haInputTag;
+}
 
 // Deprecated parameter mappings for config upgrade
 const DEPRECATED_CONFIG_MAP: Record<string, string> = {
@@ -425,9 +457,9 @@ export class CalendarCardProEditor extends LitElement {
       return; // Don't save the UI mode itself to config
     } else if (name === 'start_date_fixed' || name === 'start_date_offset') {
       // These are UI-only fields that map to the single 'start_date' parameter
-      // For offset field, only apply on blur/enter (change), not on every keystroke (keyup),
+      // For offset field, only apply on blur/enter (change), not on every keystroke,
       // because intermediate values (e.g. empty or "-") change the detected mode and hide the field
-      if (name === 'start_date_offset' && event.type === 'keyup') return;
+      if (name === 'start_date_offset' && event.type !== 'change') return;
       this.setConfigValue('start_date', target.value);
       this.requestUpdate();
       return; // Don't save these UI fields to config
@@ -1194,13 +1226,14 @@ export class CalendarCardProEditor extends LitElement {
                   // Show custom pattern field if we have a string value that's not 'true'/'false'
                   const value = this._config.remove_location_country;
                   if (typeof value === 'string' && value !== 'true' && value !== 'false') {
-                    return html`
-                      <ha-textfield
+                    const inputTag = getInputTag();
+                    return staticHtml`
+                      <${inputTag}
                         label="${this._getTranslation('custom_country_pattern')}"
                         .value="${value}"
                         @change="${(e) =>
                           this.setConfigValue('remove_location_country', e.target.value)}"
-                      ></ha-textfield>
+                      ></${inputTag}>
                       <div class="helper-text">
                         ${this._getTranslation('custom_country_pattern_note')}
                       </div>
@@ -1458,15 +1491,17 @@ export class CalendarCardProEditor extends LitElement {
       value = ''; // Empty string instead of undefined
     }
 
-    return html`
-      <ha-textfield
+    const inputTag = getInputTag();
+
+    return staticHtml`
+      <${inputTag}
         name="${name}"
         label="${label ?? this._getTranslation(name)}"
         type="${type ?? 'text'}"
         .value="${value}"
-        @keyup="${this._valueChanged}"
+        @input="${this._valueChanged}"
         @change="${this._valueChanged}"
-      ></ha-textfield>
+      ></${inputTag}>
     `;
   }
 
@@ -1915,6 +1950,7 @@ export class CalendarCardProEditor extends LitElement {
       unknown
     >;
     const action = (actionConfig.action as string) || 'none';
+    const inputTag = getInputTag();
 
     return html`
       <div class="action-config">
@@ -1934,41 +1970,41 @@ export class CalendarCardProEditor extends LitElement {
         </ha-select>
 
         ${action === 'navigate'
-          ? html`
-              <ha-textfield
+          ? staticHtml`
+              <${inputTag}
                 name="${configKey}.navigation_path"
                 .value="${actionConfig.navigation_path || ''}"
                 label="${this._getTranslation('navigation_path')}"
                 @change="${this._valueChanged}"
-              ></ha-textfield>
+              ></${inputTag}>
             `
           : html``}
         ${action === 'url'
-          ? html`
-              <ha-textfield
+          ? staticHtml`
+              <${inputTag}
                 name="${configKey}.url_path"
                 .value="${actionConfig.url_path || ''}"
                 label="${this._getTranslation('url_path')}"
                 @change="${this._valueChanged}"
-              ></ha-textfield>
+              ></${inputTag}>
             `
           : html``}
         ${action === 'call-service'
-          ? html`
-              <ha-textfield
+          ? staticHtml`
+              <${inputTag}
                 name="${configKey}.service"
                 .value="${actionConfig.service || ''}"
                 label="${this._getTranslation('service')}"
                 @change="${this._valueChanged}"
-              ></ha-textfield>
-              <ha-textfield
+              ></${inputTag}>
+              <${inputTag}
                 name="${configKey}.service_data"
-                .value="${actionConfig.service_data
-                  ? JSON.stringify(actionConfig.service_data)
-                  : '{}'}"
+                .value="${
+                  actionConfig.service_data ? JSON.stringify(actionConfig.service_data) : '{}'
+                }"
                 label="${this._getTranslation('service_data')}"
                 @change="${this._serviceDataChanged}"
-              ></ha-textfield>
+              ></${inputTag}>
             `
           : html``}
       </div>
@@ -2167,23 +2203,27 @@ export class CalendarCardProEditor extends LitElement {
           ? this._getTranslation('emoji_indicator_note')
           : this._getTranslation('text_label_note');
 
-      return html`
-        <ha-textfield
+      const inputTag = getInputTag();
+
+      return staticHtml`
+        <${inputTag}
           name="${path}"
           label="${fieldLabel}"
           .value="${value as string}"
           @change="${this._valueChanged}"
-        ></ha-textfield>
+        ></${inputTag}>
         <div class="helper-text">${helperText}</div>
       `;
     } else if (valueType === 'image') {
-      return html`
-        <ha-textfield
+      const inputTag = getInputTag();
+
+      return staticHtml`
+        <${inputTag}
           name="${path}"
           label="${this._getTranslation('image_path')}"
           .value="${value as string}"
           @change="${this._valueChanged}"
-        ></ha-textfield>
+        ></${inputTag}>
         <div class="helper-text">${this._getTranslation('image_indicator_note')}</div>
       `;
     }

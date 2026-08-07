@@ -25,5 +25,11 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # AGENTS.md prescribes tsc --noEmit as a validation step, but it was never
+      # enforced in CI. Rollup strips types without checking them, so a type error
+      # could build and ship cleanly.
+      - name: Type check
+        run: npx tsc --noEmit
+
       - name: Build
         run: npm run build
