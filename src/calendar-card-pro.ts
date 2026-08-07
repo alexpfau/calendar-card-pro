@@ -487,6 +487,7 @@ class CalendarCardPro extends LitElement {
 
     this.config = mergedConfig;
     this.config.entities = Config.normalizeEntities(this.config.entities);
+    Config.normalizeNumericOptions(this.config);
 
     // Generate deterministic ID for caching
     this._instanceId = Helpers.generateDeterministicId(

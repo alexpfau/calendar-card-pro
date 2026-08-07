@@ -406,7 +406,7 @@ export class CalendarCardProEditor extends LitElement {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     const name = target.getAttribute('name');
 
-    let value: string | boolean | number | null = target.value;
+    let value: string | boolean | number | null | undefined = target.value;
 
     if (!name) return;
 
@@ -479,8 +479,11 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     // Handle numeric inputs
-    if (target.getAttribute('type') === 'number' && value !== '') {
-      value = parseFloat(value as string);
+    if (target.getAttribute('type') === 'number') {
+      // An emptied field must remove the key instead of persisting an empty string.
+      // Empty strings survive `!== undefined` guards and then coerce to 0 in numeric
+      // comparisons, which silently hides events or blanks the card (issue #327).
+      value = value === '' ? undefined : parseFloat(value as string);
     }
 
     this.setConfigValue(name, value);
