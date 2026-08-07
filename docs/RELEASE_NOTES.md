@@ -43,8 +43,8 @@ Three new editor translations bring the visual editor to **11 languages** total 
 
 ## Related Issues
 
-- [#338](https://github.com/alexpfau/calendar-card-pro/issues/338) - Missing ha-textfield options in visual editor by @EMERALD0874
 - [#284](https://github.com/alexpfau/calendar-card-pro/issues/284) - event_color doesn't work by @ZakOyten
+- [#338](https://github.com/alexpfau/calendar-card-pro/issues/338) - Missing ha-textfield options in visual editor by @EMERALD0874
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.2.0...v3.3.0
 

@@ -84,8 +84,21 @@ when the release PR merges, or close them manually.
 This is the most error-prone area of the codebase; the same mistake has shipped
 repeatedly. A language is only fully wired up when **all** of these are done:
 
-1. `src/translations/languages/<code>.json` — must contain **every** key present in
-   `en.json`, including the large `editor` section. `en.json` is the reference.
+1. `src/translations/languages/<code>.json` — must contain every **top-level** key present
+   in `en.json`. `en.json` is the reference.
+
+   The `editor` section is the exception, and it is **all-or-nothing**. Only 11 of the 35
+   language files translate it; the other 24 omit it entirely and the editor renders in
+   English. That is supported and correct — `_getTranslation()` in `editor.ts` calls
+   `hasEditorTranslations()` and swaps the whole language to `en` for editor keys when the
+   section is absent.
+
+   But `hasEditorTranslations()` returns true when the section has **one or more** keys, so
+   a *partially* translated `editor` section defeats that fallback: the keys you did
+   translate render fine, and every key you missed renders as the **raw key name**
+   (`show_end_time`) in the UI, not as English. So either omit `editor` completely, or
+   copy every key from `en.json`. Never leave it half-done.
+
 2. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups
    lowercase the configured value before matching.
