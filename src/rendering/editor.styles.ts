@@ -14,6 +14,14 @@ export default css`
     margin: 8px 0;
   }
 
+  /*
+   * ha-input (HA 2026.4+) replaces ha-textfield. It is display: flex with its
+   * own vertical padding, so it only needs an explicit width to fill the editor.
+   */
+  ha-input {
+    width: 100%;
+  }
+
   .card-config {
     display: flex;
     flex-direction: column;
