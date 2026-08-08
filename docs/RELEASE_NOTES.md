@@ -1,3 +1,72 @@
+# Calendar Card Pro v3.4.0
+
+**Weather across the full day range, correct all-day countdowns, and a card that no longer empties itself when a number field is cleared.** This release closes a set of gaps where the card silently rendered less than it should, and adds editor guidance so the configurations that quietly do nothing become visible while you are creating them.
+
+## 🎉 New Features
+
+### ⏳ Countdown Control
+
+- **`show_countdown_allday` Option** - Hide the countdown on all-day events while keeping it on timed ones. Defaults to `true`, so existing cards are unchanged (#323)
+
+### 🧭 Compact Mode Guidance
+
+Two configurations look perfectly reasonable but produce a card that is identical before and after an `expand` action. Both now surface a warning in the visual editor:
+
+- **Missing Compact Limits** - Shown when an `expand` action is configured but no compact limit is set anywhere, including per-entity `compact_events_to_show` overrides
+- **Inert `compact_days_to_show`** - Shown when `compact_days_to_show` is not lower than `days_to_show`, in which case it is silently clamped and has no effect
+- **Helper Text for `compact_events_to_show`** - A note explaining that the limit only takes effect once the selected day range actually contains more events than the limit
+
+The warnings are advisory only — nothing is blocked and no runtime behavior changes.
+
+## 🐛 Bug Fixes
+
+### Countdown
+
+- **All-Day Countdowns Off By One** - All-day countdowns were measured from the current instant rather than the calendar day, so they showed the wrong number for roughly half of every day, flipping at midday. An all-day event on the following day also counted down in hours, which is meaningless for an event with no time of day. All-day countdowns now measure whole calendar days from the start of today; timed events are unchanged (#344)
+
+### Weather
+
+- **Missing Weather on Timed Events** - Home Assistant's hourly forecast only spans about two days, and with `weather.position: event` any timed event beyond that horizon silently showed nothing, even though the daily forecast for that same date was already loaded. Timed events now fall back to their day's forecast, so weather appears across the full range instead of only the first day or two. The new `weather.event.daily_forecast_fallback` option (default `true`) turns the fallback off for anyone who would rather see nothing than a daily high next to a 09:00 event (#336)
+
+### Configuration
+
+- **Cleared Number Fields Could Blank the Card** - Clearing a numeric field in the visual editor saved an empty string instead of removing the option. Empty strings slipped past the card's existing guards and then coerced to zero, which dropped every event from a single calendar or, in the case of `days_to_show` and the global `compact_events_to_show`, rendered the entire card empty. Empty and invalid numbers are now ignored throughout, and configurations already saved in this state repair themselves on load (#327)
+
+### Compact Mode
+
+- **Expand Blocked by Valid Limits** - `tap_action: expand` did nothing when the only compact limit in play was `compact_events_to_show: 0` or a per-entity override. The first case left a card that rendered empty with no way to get back, because zero was treated as "no limit set". Both configurations now expand and collapse correctly (#335)
+
+### Translations
+
+- **Raw Key Names in the Visual Editor** - The description toggle and its helper text rendered as the literal strings `show_description` and `entity_show_description_note` in Estonian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish. All eleven editor languages are now complete against the English reference
+
+### Console
+
+- **Source Map 404 on Every Page Load** - Every build appended a `sourceMappingURL` comment referencing a `.map` file that is never published through HACS, so anyone with browser devtools open saw a 404 on each load. Sourcemaps are no longer emitted, and CI now fails if the reference ever returns (#358)
+
+## ⚡ Performance
+
+- **Memoized Color Conversion** - Resolving a color to RGBA created a temporary element, appended it to the document and read back its computed style — a forced synchronous layout that ran once per rendered event, on every render. Results are now cached, removing hundreds of forced layouts per refresh on large calendars. Theme-dependent `var(...)` colors are unaffected and still repaint correctly on a theme change
+
+## 🔧 Technical Changes
+
+- Documented two previously unstated aspects of `filter_duplicates` in the README: the first-listed calendar wins a duplicate and takes its styling with it, and matching ignores the source calendar entirely, so identically named concurrent events merge even within a single calendar
+- Added a CI guard that fails the build if a `sourceMappingURL` comment or a `dist/*.map` file ever reappears
+
+## Related Issues
+
+- [#304](https://github.com/alexpfau/calendar-card-pro/issues/304) - 2 different calendars have an event at the same time and only 1 event shows in the calendar by @nytram-md
+- [#323](https://github.com/alexpfau/calendar-card-pro/issues/323) - Add option to disable countdown to all-day events by @doctorkb
+- [#327](https://github.com/alexpfau/calendar-card-pro/issues/327) - Standard view doesn't show all day events in initial view by @FS1961
+- [#335](https://github.com/alexpfau/calendar-card-pro/issues/335) - 'action: expand' does not work by @fredokl
+- [#336](https://github.com/alexpfau/calendar-card-pro/issues/336) - Weather icons missing on days containing timed events by @harryvandervossen
+- [#344](https://github.com/alexpfau/calendar-card-pro/issues/344) - Countdown display appears one day short for all-day calendar events by @Scooshie
+- [#358](https://github.com/alexpfau/calendar-card-pro/issues/358) - Source map error by @tomlut
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.3.0...v3.4.0
+
+---
+
 # Calendar Card Pro v3.3.0
 
 **Home Assistant 2026.5+ visual editor compatibility, two new languages, and important color and relative-time fixes.** This release restores the visual editor on recent Home Assistant versions, brings the card to 35 languages, and resolves several long-standing color and translation issues.
