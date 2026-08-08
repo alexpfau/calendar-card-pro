@@ -22,7 +22,12 @@ export default {
     format: 'es',
     // Use the dynamic filename based on NODE_ENV
     entryFileNames: outputFilename,
-    sourcemap: true,
+    // Sourcemaps are deliberately disabled. The release workflow attaches only
+    // dist/calendar-card-pro.js and hacs.json pins that single filename, so a .map is
+    // never published to /hacsfiles/. Emitting one anyway leaves a sourceMappingURL
+    // comment in the bundle that every user's browser resolves to a 404 (#315, #358).
+    // Do not re-enable without also shipping and serving the map.
+    sourcemap: false,
   },
   plugins: [
     replace({
@@ -42,7 +47,9 @@ export default {
     esbuild({
       tsconfig: 'tsconfig.json',
       target: 'es2017',
-      sourceMap: true,
+      // Kept in step with output.sourcemap above; input maps would only be built and
+      // then discarded.
+      sourceMap: false,
       // Define NODE_ENV as production to ensure Lit uses production builds
       define: {
         'process.env.NODE_ENV': JSON.stringify('production'),
