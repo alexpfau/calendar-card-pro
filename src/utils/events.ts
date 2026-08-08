@@ -358,8 +358,10 @@ export function groupEventsByDay(
         }
         const configKey = configIdx !== -1 ? `${entityId}__${configIdx}` : entityId || '';
         // Get entity-specific compact_events_to_show (if set)
+        // Guard on the type rather than `=== undefined`: a non-numeric value would
+        // otherwise coerce to 0 below and drop every event for this entity (issue #327).
         const entityMaxEvents = matchedConfig?.compact_events_to_show;
-        if (entityMaxEvents === undefined) {
+        if (typeof entityMaxEvents !== 'number' || !Number.isFinite(entityMaxEvents)) {
           filteredEvents.push(event);
           continue;
         }
@@ -385,7 +387,9 @@ export function groupEventsByDay(
     // Get the effective max events setting
     const maxEvents = config.compact_events_to_show;
 
-    if (maxEvents !== undefined) {
+    // Type guard mirrors the per-entity check above (issue #327): a non-numeric value
+    // must mean "no limit" rather than collapsing to 0 in the comparisons below.
+    if (typeof maxEvents === 'number' && Number.isFinite(maxEvents)) {
       let filteredDays: Types.EventsByDay[] = [];
       let totalEventsShown = 0;
 

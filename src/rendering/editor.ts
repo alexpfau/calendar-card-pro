@@ -326,6 +326,48 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * Detects compact-mode settings that can never produce a visible change.
+   *
+   * Compact mode only alters the rendered output when one of its limits is
+   * genuinely lower than the corresponding full-view value. When that is not the
+   * case the card looks identical before and after expanding, which is easily
+   * mistaken for a broken expand action.
+   *
+   * @returns Flags for each inert-configuration case
+   */
+  private _getCompactModeWarnings(): { noLimits: boolean; daysInert: boolean } {
+    const isSet = (value: unknown) => value !== undefined && value !== null && value !== '';
+
+    const compactDays = this.getConfigValue('compact_days_to_show');
+    const compactEvents = this.getConfigValue('compact_events_to_show');
+
+    // Per-entity overrides count as a compact limit too
+    const entities = (this.getConfigValue('entities') ?? []) as unknown[];
+    const hasEntityLimit = entities.some(
+      (entity) =>
+        typeof entity === 'object' &&
+        entity !== null &&
+        isSet((entity as Record<string, unknown>).compact_events_to_show),
+    );
+
+    const expandsOnAction = (['tap_action', 'hold_action'] as const).some(
+      (key) => this.getConfigValue(`${key}.action`) === 'expand',
+    );
+
+    const daysToShow = Number(this.getConfigValue('days_to_show'));
+    const compactDaysNumber = Number(compactDays);
+
+    return {
+      noLimits: expandsOnAction && !isSet(compactDays) && !isSet(compactEvents) && !hasEntityLimit,
+      daysInert:
+        isSet(compactDays) &&
+        Number.isFinite(compactDaysNumber) &&
+        Number.isFinite(daysToShow) &&
+        compactDaysNumber >= daysToShow,
+    };
+  }
+
+  /**
    * Upgrades the config by replacing deprecated parameters with their replacements.
    */
   private _upgradeConfig(): void {
@@ -406,7 +448,7 @@ export class CalendarCardProEditor extends LitElement {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     const name = target.getAttribute('name');
 
-    let value: string | boolean | number | null = target.value;
+    let value: string | boolean | number | null | undefined = target.value;
 
     if (!name) return;
 
@@ -479,8 +521,11 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     // Handle numeric inputs
-    if (target.getAttribute('type') === 'number' && value !== '') {
-      value = parseFloat(value as string);
+    if (target.getAttribute('type') === 'number') {
+      // An emptied field must remove the key instead of persisting an empty string.
+      // Empty strings survive `!== undefined` guards and then coerce to 0 in numeric
+      // comparisons, which silently hides events or blanks the card (issue #327).
+      value = value === '' ? undefined : parseFloat(value as string);
     }
 
     this.setConfigValue(name, value);
@@ -658,6 +703,8 @@ export class CalendarCardProEditor extends LitElement {
         `
       : null;
 
+    const compactWarnings = this._getCompactModeWarnings();
+
     return html`
       ${upgradeNotice}
       <div class="card-config">
@@ -719,16 +766,31 @@ export class CalendarCardProEditor extends LitElement {
             <!-- Compact Mode -->
             <h3>${this._getTranslation('compact_mode')}</h3>
             <div class="helper-text">${this._getTranslation('compact_mode_note')}</div>
+            ${compactWarnings.noLimits
+              ? html`
+                  <ha-alert alert-type="warning">
+                    ${this._getTranslation('compact_no_limits_warning')}
+                  </ha-alert>
+                `
+              : null}
             ${this.addTextField(
               'compact_days_to_show',
               this._getTranslation('compact_days_to_show'),
               'number',
             )}
+            ${compactWarnings.daysInert
+              ? html`
+                  <ha-alert alert-type="warning">
+                    ${this._getTranslation('compact_days_inert_warning')}
+                  </ha-alert>
+                `
+              : null}
             ${this.addTextField(
               'compact_events_to_show',
               this._getTranslation('compact_events_to_show'),
               'number',
             )}
+            <div class="helper-text">${this._getTranslation('compact_events_to_show_note')}</div>
             ${this.addBooleanField(
               'compact_events_complete_days',
               this._getTranslation('compact_events_complete_days'),
@@ -742,6 +804,7 @@ export class CalendarCardProEditor extends LitElement {
             ${this.addBooleanField('show_past_events', this._getTranslation('show_past_events'))}
             ${this.addBooleanField('show_empty_days', this._getTranslation('show_empty_days'))}
             ${this.addBooleanField('filter_duplicates', this._getTranslation('filter_duplicates'))}
+            <div class="helper-text">${this._getTranslation('filter_duplicates_note')}</div>
 
             <!-- Language & Time Formats -->
             <h3>${this._getTranslation('language_time_formats')}</h3>
@@ -1286,6 +1349,19 @@ export class CalendarCardProEditor extends LitElement {
             <!-- Progress Indicators -->
             <h3>${this._getTranslation('progress_indicators')}</h3>
             ${this.addBooleanField('show_countdown', this._getTranslation('show_countdown'))}
+            ${(() => {
+              // Only show the all-day sub-option if show_countdown is true
+              if (this.getConfigValue('show_countdown') !== true) {
+                return html``;
+              }
+
+              return html`
+                ${this.addBooleanField(
+                  'show_countdown_allday',
+                  this._getTranslation('show_countdown_allday'),
+                )}
+              `;
+            })()}
             ${this.addBooleanField('show_progress_bar', this._getTranslation('show_progress_bar'))}
             ${(() => {
               // Only show additional progress bar fields if show_progress_bar is true
@@ -1423,6 +1499,10 @@ export class CalendarCardProEditor extends LitElement {
                                 this._getTranslation('uv_index_threshold'),
                               )
                             : nothing}
+                          ${this.addBooleanField(
+                            'weather.event.daily_forecast_fallback',
+                            this._getTranslation('daily_forecast_fallback'),
+                          )}
                           ${this.addTextField(
                             'weather.event.icon_size',
                             this._getTranslation('icon_size'),

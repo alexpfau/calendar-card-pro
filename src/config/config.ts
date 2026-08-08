@@ -81,6 +81,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   event_background_opacity: 0,
   show_past_events: false,
   show_countdown: false,
+  show_countdown_allday: true,
   show_progress_bar: false,
   progress_bar_color: 'var(--secondary-text-color)',
   progress_bar_height: 'calc(var(--calendar-card-font-size-time) * 0.75)',
@@ -127,6 +128,7 @@ export const DEFAULT_CONFIG: Types.Config = {
       show_temp: true,
       show_uv_index: false,
       uv_index_threshold: 0,
+      daily_forecast_fallback: true,
       icon_size: '14px',
       font_size: '12px',
       color: 'var(--primary-text-color)',
@@ -145,6 +147,54 @@ export const DEFAULT_CONFIG: Types.Config = {
 //-----------------------------------------------------------------------------
 // CONFIGURATION UTILITIES
 //-----------------------------------------------------------------------------
+
+/**
+ * Coerces a raw configuration value into a usable number.
+ *
+ * The visual editor persists an empty string when a numeric field is cleared, and
+ * hand-written YAML can supply `null` or non-numeric text. Such values pass the
+ * `!== undefined` guards used throughout the card but then coerce to `0` in numeric
+ * comparisons, silently suppressing events or entire days (issue #327).
+ *
+ * @param value - Raw value taken from the user configuration
+ * @param minimum - Smallest value that should be treated as valid
+ * @returns The numeric value, or `undefined` when it cannot be used
+ */
+export function toValidNumber(value: unknown, minimum = 0): number | undefined {
+  const parsed = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+
+  if (typeof parsed !== 'number' || !Number.isFinite(parsed) || parsed < minimum) {
+    return undefined;
+  }
+
+  return parsed;
+}
+
+/**
+ * Sanitizes every numeric option so invalid values fall back to their defaults.
+ *
+ * Applied on each `setConfig` call, which means configurations already saved with an
+ * empty value recover automatically without the user having to edit them again.
+ *
+ * @param config - Configuration to normalize (mutated in place)
+ * @returns The same configuration instance, for chaining
+ */
+export function normalizeNumericOptions(config: Types.Config): Types.Config {
+  // Required values fall back to their defaults; a missing or invalid value must never
+  // reduce the visible range to zero.
+  config.days_to_show = toValidNumber(config.days_to_show, 1) ?? DEFAULT_CONFIG.days_to_show;
+  config.refresh_interval =
+    toValidNumber(config.refresh_interval, 1) ?? DEFAULT_CONFIG.refresh_interval;
+  config.event_background_opacity =
+    toValidNumber(config.event_background_opacity, 0) ?? DEFAULT_CONFIG.event_background_opacity;
+
+  // Optional limits: `undefined` means "no limit", so invalid values clear them rather
+  // than collapsing to zero and hiding content.
+  config.compact_days_to_show = toValidNumber(config.compact_days_to_show, 1);
+  config.compact_events_to_show = toValidNumber(config.compact_events_to_show, 0);
+
+  return config;
+}
 
 /**
  * Normalizes entity configuration to ensure consistent format
@@ -192,7 +242,7 @@ export function normalizeEntities(
           show_time: item.show_time,
           show_location: item.show_location,
           show_description: item.show_description,
-          compact_events_to_show: item.compact_events_to_show,
+          compact_events_to_show: toValidNumber(item.compact_events_to_show, 0),
           blocklist: item.blocklist,
           allowlist: item.allowlist,
           split_multiday_events: item.split_multiday_events,

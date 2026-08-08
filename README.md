@@ -349,6 +349,22 @@ This is especially useful for:
 - Work calendars with team events
 - Any scenario where you might see the same event in multiple calendars
 
+> [!IMPORTANT]
+> Two aspects of this option are easy to miss:
+>
+> - **The first-listed calendar wins, including its styling.** Only the copy from the
+>   calendar listed first in `entities` is kept, and it keeps that calendar's `label`,
+>   `color` and `accent_color`. A shared event can therefore appear under a different
+>   calendar's styling than you expect — reorder `entities` so the calendar you want to
+>   see takes precedence.
+> - **Matching ignores which calendar an event came from.** Any two events sharing a
+>   title, start time, end time and location are treated as duplicates, even if they are
+>   genuinely separate events, and even if both are in the _same_ calendar.
+>
+> Events are never hidden merely for starting at the same time — all four fields must
+> match. If events are disappearing unexpectedly, set `filter_duplicates: false` to
+> confirm whether this option is the cause.
+
 ##### Advanced Filtering Techniques
 
 You can combine filtering features with labels and accent colors to create sophisticated displays. For example, to apply different styling to specific event types within the same calendar:
@@ -915,6 +931,7 @@ This flexible configuration allows you to create a personalized experience that 
 | `event → show_temp`          | boolean | `true`                      | Whether to show temperature in event column                                                 |
 | `event → show_uv_index`      | boolean | `false`                     | Whether to show UV index in event column                                                    |
 | `event → uv_index_threshold` | number  | `0`                         | Only show UV index when it exceeds this value (0 = always show when enabled)                |
+| `event → daily_forecast_fallback` | boolean | `true`                 | Fall back to the daily forecast for timed events beyond the hourly forecast horizon         |
 | `event → icon_size`          | string  | `14px`                      | Size of weather icons in event column                                                       |
 | `event → font_size`          | string  | `12px`                      | Size of weather text in event column                                                        |
 | `event → color`              | string  | `var(--primary-text-color)` | Color of weather text and icons in event column                                             |
@@ -926,6 +943,14 @@ You can choose where weather information appears in your calendar:
 - `date`: Shows daily forecasts in the date column (left side)
 - `event`: Shows hourly forecasts next to event titles
 - `both`: Displays weather in both positions simultaneously
+
+> [!NOTE]
+> Home Assistant weather entities typically provide hourly forecasts for about two days
+> ahead, while daily forecasts reach much further (six days or more, depending on the
+> provider). Beyond the hourly horizon, timed events fall back to that day's daily
+> forecast so weather keeps appearing across the whole calendar. Set
+> `event → daily_forecast_fallback: false` if you would rather show nothing than a daily
+> value. All-day events always use the daily forecast.
 
 #### Position-Specific Configuration
 
@@ -948,6 +973,7 @@ Each display position can be customized independently with different content and
 - `show_temp`: Show temperature
 - `show_uv_index`: Show UV index
 - `uv_index_threshold`: Minimum UV index value to display (0 = always)
+- `daily_forecast_fallback`: Use the daily forecast for timed events beyond the hourly forecast horizon
 - `icon_size`: Weather icon size
 - `font_size`: Temperature text size
 - `color`: Text and icon color
@@ -1198,7 +1224,7 @@ These examples demonstrate how Calendar Card Pro can be customized to match any 
 | `compact_events_to_show`                   | number            | -                                                  | Number of events to show in compact mode                                                                                                                                                                                                                    |
 | `compact_events_complete_days`             | boolean           | `false`                                            | When true, shows all events for days that have at least one event displayed                                                                                                                                                                                 |
 | `show_empty_days`                          | boolean           | `false`                                            | Whether to show days with no events (with "No events" message)                                                                                                                                                                                              |
-| `filter_duplicates`                        | boolean           | `false`                                            | Remove duplicate events that appear in multiple calendars                                                                                                                                                                                                   |
+| `filter_duplicates`                        | boolean           | `false`                                            | Hide events whose title, start, end and location all match another event; the calendar listed first in `entities` wins                                                                                                                                      |
 | `split_multiday_events`                    | boolean           | `false`                                            | Display multi-day events on each day they cover                                                                                                                                                                                                             |
 | `language`                                 | string            | `System`, fallback `en`                            | Interface language (auto-detects from HA)                                                                                                                                                                                                                   |
 | **Header**                                 |                   |                                                    |                                                                                                                                                                                                                                                             |
@@ -1252,6 +1278,7 @@ These examples demonstrate how Calendar Card Pro can be customized to match any 
 | `event_icon_vertical_alignment`            | string            | `middle`                                           | Vertical alignment of event icons (time, location, description): `top`, `middle`, or `bottom`                                                                                                                                                               |
 | `show_past_events`                         | boolean           | `false`                                            | Whether to show today's events that have already ended                                                                                                                                                                                                      |
 | `show_countdown`                           | boolean           | `false`                                            | Show how much time remains until an event starts                                                                                                                                                                                                            |
+| `show_countdown_allday`                    | boolean           | `true`                                             | Whether the countdown is also shown for all-day events (requires `show_countdown`)                                                                                                                                                                          |
 | `show_progress_bar`                        | boolean           | `false`                                            | Whether to show a progress bar for currently running events                                                                                                                                                                                                 |
 | `progress_bar_color`                       | string            | `var(--secondary-text-color)`                      | Color of the progress bar                                                                                                                                                                                                                                   |
 | `progress_bar_height`                      | string            | `calc(var(--calendar-card-font-size-time) * 0.75)` | Height of the progress bar                                                                                                                                                                                                                                  |

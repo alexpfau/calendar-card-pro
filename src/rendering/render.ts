@@ -877,8 +877,17 @@ export function renderEvent(
     !isEmptyDay;
 
   // Calculate countdown if enabled
+  // Hide if:
+  // 1. show_countdown is false OR
+  // 2. It's an all-day event AND show_countdown_allday is false OR
+  // 3. It's an empty day placeholder or a past event
   let countdownStr: string | null = null;
-  if (config.show_countdown && !isEmptyDay && !isPastEvent) {
+  if (
+    config.show_countdown &&
+    !(isAllDayEvent && !config.show_countdown_allday) &&
+    !isEmptyDay &&
+    !isPastEvent
+  ) {
     countdownStr = FormatUtils.getCountdownString(event, language);
   }
 
@@ -1054,19 +1063,21 @@ function renderEventWeather(
     }
   }
 
+  // Get options from event-specific config
+  const eventConfig = config.weather?.event || {};
+
   // Find the appropriate forecast - pass both hourly and daily forecasts
   const forecast = Weather.findForecastForEvent(
     event,
     weatherForecasts.hourly,
     weatherForecasts.daily,
+    eventConfig.daily_forecast_fallback !== false,
   );
 
   if (!forecast) {
     return html``;
   }
 
-  // Get options from event-specific config
-  const eventConfig = config.weather?.event || {};
   const showConditions = eventConfig.show_conditions !== false;
   const showTemp = eventConfig.show_temp !== false;
   const showUvIndex =

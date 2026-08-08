@@ -33,3 +33,19 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # A sourceMappingURL comment in the bundle points at a .map that is never shipped
+      # (release.yml attaches only the .js, hacs.json pins that one filename), so every
+      # user's browser resolves it to a 404. This shipped for several releases before
+      # anyone traced it (#315, #358); the check is cheap, the symptom is silent.
+      - name: Verify no sourcemap references in bundle
+        run: |
+          if grep -q 'sourceMappingURL' dist/calendar-card-pro.js; then
+            echo "::error::dist/calendar-card-pro.js contains a sourceMappingURL comment. The .map file is not distributed, so this 404s in every user's browser. Check output.sourcemap in rollup.config.mjs."
+            exit 1
+          fi
+          if compgen -G 'dist/*.map' > /dev/null; then
+            echo "::error::Build emitted a sourcemap into dist/. Sourcemaps are not distributed; check output.sourcemap in rollup.config.mjs."
+            exit 1
+          fi
+          echo "Bundle is free of sourcemap references."

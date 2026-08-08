@@ -79,6 +79,7 @@ export interface Config {
   event_background_opacity: number;
   show_past_events: boolean;
   show_countdown: boolean;
+  show_countdown_allday: boolean;
   show_progress_bar: boolean;
   progress_bar_color: string;
   progress_bar_height: string;
@@ -148,6 +149,7 @@ export interface WeatherPositionConfig {
   show_temp?: boolean;
   show_uv_index?: boolean;
   uv_index_threshold?: number;
+  daily_forecast_fallback?: boolean;
   icon_size?: string;
   font_size?: string;
   color?: string;
