@@ -81,6 +81,7 @@
     "show_past_events": "Rādīt pagājušos notikumus",
     "show_empty_days": "Rādīt tukšas dienas",
     "filter_duplicates": "Filtrēt dublētos notikumus",
+    "filter_duplicates_note": "Noņem notikumus ar vienādu nosaukumu, laiku un atrašanās vietu. Tiek saglabāta kopija no pirmā sarakstā norādītā kalendāra kopā ar tā etiķeti un krāsu.",
     "language_time_formats": "Valoda un laika formāti",
     "language": "Valoda",
     "language_mode": "Valodas režīms",

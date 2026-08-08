@@ -51,6 +51,8 @@
     "entity_show_time_note": "Vis eller skjul hendelsestider bare for denne kalenderen.",
     "show_location": "Vis sted",
     "entity_show_location_note": "Vis eller skjul hendelsessteder bare for denne kalenderen.",
+    "show_description": "Vis beskrivelse",
+    "entity_show_description_note": "Vis eller skjul hendelsesbeskrivelser bare for denne kalenderen.",
     "split_multiday_events": "Del flerdagshendelser",
     "entity_split_multiday_note": "Del flerdagshendelser i individuelle dagssegmenter for denne kalenderen.",
 
@@ -79,6 +81,7 @@
     "show_past_events": "Vis tidligere hendelser",
     "show_empty_days": "Vis tomme dager",
     "filter_duplicates": "Filtrer duplikate hendelser",
+    "filter_duplicates_note": "Fjerner hendelser med samme tittel, tid og sted. Kopien fra kalenderen som er oppført først beholdes, sammen med dens etikett og farge.",
     "language_time_formats": "Språk og tidsformater",
     "language": "Språk",
     "language_mode": "Språkmodus",

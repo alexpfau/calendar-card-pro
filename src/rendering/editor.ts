@@ -804,6 +804,7 @@ export class CalendarCardProEditor extends LitElement {
             ${this.addBooleanField('show_past_events', this._getTranslation('show_past_events'))}
             ${this.addBooleanField('show_empty_days', this._getTranslation('show_empty_days'))}
             ${this.addBooleanField('filter_duplicates', this._getTranslation('filter_duplicates'))}
+            <div class="helper-text">${this._getTranslation('filter_duplicates_note')}</div>
 
             <!-- Language & Time Formats -->
             <h3>${this._getTranslation('language_time_formats')}</h3>

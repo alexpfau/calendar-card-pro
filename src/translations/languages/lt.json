@@ -59,6 +59,8 @@
     "entity_show_time_note": "Rodyti arba slėpti įvykių laikus tik šiam kalendoriui.",
     "show_location": "Rodyti vietą",
     "entity_show_location_note": "Rodyti arba slėpti įvykių vietas tik šiam kalendoriui.",
+    "show_description": "Rodyti aprašymą",
+    "entity_show_description_note": "Rodyti arba slėpti įvykių aprašymus tik šiam kalendoriui.",
     "split_multiday_events": "Skaidyti kelių dienų įvykius",
     "entity_split_multiday_note": "Skaidyti kelių dienų įvykius į atskirus dienos segmentus šiam kalendoriui.",
 
@@ -87,6 +89,7 @@
     "show_past_events": "Rodyti praėjusius įvykius",
     "show_empty_days": "Rodyti tuščias dienas",
     "filter_duplicates": "Filtruoti dubliuotus įvykius",
+    "filter_duplicates_note": "Pašalina įvykius, kurių pavadinimas, laikas ir vieta sutampa. Išsaugoma pirmojo sąraše nurodyto kalendoriaus kopija kartu su jo etikete ir spalva.",
     "language_time_formats": "Kalba ir laiko formatai",
     "language": "Kalba",
     "language_mode": "Kalbos režimas",

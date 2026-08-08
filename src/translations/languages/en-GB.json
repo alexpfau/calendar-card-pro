@@ -81,6 +81,7 @@
     "show_past_events": "Show past events",
     "show_empty_days": "Show empty days",
     "filter_duplicates": "Filter duplicate events",
+    "filter_duplicates_note": "Removes events with the same title, time and location. The copy from the calendar listed first is kept, along with its label and colour.",
     "language_time_formats": "Language & Time Formats",
     "language": "Language",
     "language_mode": "Language Mode",

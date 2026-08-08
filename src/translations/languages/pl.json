@@ -59,6 +59,8 @@
     "entity_show_time_note": "Pokaż lub ukryj czasy wydarzeń tylko dla tego kalendarza.",
     "show_location": "Pokaż lokalizację",
     "entity_show_location_note": "Pokaż lub ukryj lokalizacje wydarzeń tylko dla tego kalendarza.",
+    "show_description": "Pokaż opis",
+    "entity_show_description_note": "Pokaż lub ukryj opisy wydarzeń tylko dla tego kalendarza.",
     "split_multiday_events": "Podziel wydarzenia wielodniowe",
     "entity_split_multiday_note": "Podziel wydarzenia wielodniowe na poszczególne segmenty dni dla tego kalendarza.",
 
@@ -87,6 +89,7 @@
     "show_past_events": "Pokaż przeszłe wydarzenia",
     "show_empty_days": "Pokaż puste dni",
     "filter_duplicates": "Filtruj zduplikowane wydarzenia",
+    "filter_duplicates_note": "Usuwa wydarzenia o tym samym tytule, czasie i lokalizacji. Zachowywana jest kopia z kalendarza wymienionego jako pierwszy, wraz z jego etykietą i kolorem.",
     "language_time_formats": "Język i Formaty Czasu",
     "language": "Język",
     "language_mode": "Tryb Języka",
