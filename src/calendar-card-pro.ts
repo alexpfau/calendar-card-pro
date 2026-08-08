@@ -88,6 +88,23 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
+   * Set by Home Assistant's `hui-card` wrapper while the dashboard is in edit
+   * mode or the card is shown in the card picker. The card must never hide
+   * itself in these states, otherwise it becomes impossible to select and
+   * configure. `editMode` is the legacy alias used by older HA versions.
+   */
+  @property({ type: Boolean }) preview = false;
+  @property({ type: Boolean }) editMode = false;
+
+  /**
+   * Tells `hui-card` to keep this element in the DOM while it is hidden.
+   * Without this Home Assistant detaches the element, which runs
+   * `disconnectedCallback()` and tears down the refresh timer — the card would
+   * then never re-fetch events and stay hidden forever once it went empty.
+   */
+  public connectedWhileHidden = true;
+
+  /**
    * Static method that returns a new instance of the editor
    * This is how Home Assistant discovers and loads the editor
    */
@@ -106,6 +123,12 @@ class CalendarCardPro extends LitElement {
   private _weatherUnsubscribers: Array<() => void> = [];
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
+  private _visibleCountCache?: {
+    events: Types.CalendarEventData[];
+    config: Types.Config;
+    language: string;
+    count: number;
+  };
 
   // Interaction state
   private _activePointerId: number | null = null;
@@ -144,6 +167,47 @@ class CalendarCardPro extends LitElement {
       this.isExpanded,
       this.effectiveLanguage,
     );
+  }
+
+  /**
+   * Number of real events the card would show across its full configured range.
+   *
+   * Deliberately evaluated as if the card were expanded so that compact mode
+   * limits can never make the card look empty — `compact_events_to_show: 0` is
+   * a valid configuration meaning "show nothing until tapped", and a card
+   * hidden in that state could never be expanded again.
+   *
+   * Placeholder entries generated for empty days are excluded, so this counts
+   * only events that survive filtering (past events, blocklist/allowlist,
+   * duplicates) and therefore matches what the user actually sees.
+   *
+   * Memoized against the inputs it depends on, because `updated()` runs on
+   * every `hass` change and grouping the whole event list each time would be
+   * needless work.
+   */
+  get visibleEventCount(): number {
+    const language = this.effectiveLanguage;
+    const cache = this._visibleCountCache;
+
+    if (
+      cache &&
+      cache.events === this.events &&
+      cache.config === this.config &&
+      cache.language === language
+    ) {
+      return cache.count;
+    }
+
+    const count = this.events.length
+      ? EventUtils.groupEventsByDay(this.events, this.config, true, language).reduce(
+          (total, day) => total + day.events.filter((event) => !event._isEmptyDay).length,
+          0,
+        )
+      : 0;
+
+    this._visibleCountCache = { events: this.events, config: this.config, language, count };
+
+    return count;
   }
 
   //-----------------------------------------------------------------------------
@@ -243,11 +307,57 @@ class CalendarCardPro extends LitElement {
     if (hassJustAvailable || weatherConfigChanged) {
       this._scheduleWeatherSetup();
     }
+
+    // Hide or reveal the whole card when `hide_when_empty` is enabled
+    this._applyVisibility();
   }
 
   //-----------------------------------------------------------------------------
   // PRIVATE METHODS
   //-----------------------------------------------------------------------------
+
+  /**
+   * Hide the card entirely when it has no events and `hide_when_empty` is on.
+   *
+   * Home Assistant's `hui-card` wrapper watches its child for a
+   * `card-visibility-changed` event and mirrors `element.hidden` onto itself,
+   * which is what lets the surrounding grid or masonry column collapse rather
+   * than leaving an empty slot. The inline `display` is set as well so the card
+   * still disappears on older HA versions that predate that wrapper, and
+   * because the card's own `:host { display: block }` rule would otherwise
+   * override the browser default styling for the `hidden` attribute.
+   */
+  private _applyVisibility(): void {
+    // Missing hass or entities renders the error card — never hide that, or the
+    // user is left with no indication of why the card vanished. During the
+    // initial load neither is treated as an error yet (see `render()`).
+    const isErrorState =
+      !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
+
+    const shouldHide =
+      this.config.hide_when_empty === true &&
+      !this.preview &&
+      !this.editMode &&
+      !isErrorState &&
+      this.visibleEventCount === 0;
+
+    if (this.hidden === shouldHide) {
+      return;
+    }
+
+    Logger.debug(`hide_when_empty: ${shouldHide ? 'hiding' : 'revealing'} card`);
+
+    this.hidden = shouldHide;
+    this.style.display = shouldHide ? 'none' : '';
+
+    this.dispatchEvent(
+      new CustomEvent('card-visibility-changed', {
+        detail: { value: !shouldHide },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
 
   /**
    * Generate style properties from configuration

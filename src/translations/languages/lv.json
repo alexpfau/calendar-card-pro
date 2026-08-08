@@ -80,6 +80,8 @@
     "event_visibility": "Notikumu redzamība",
     "show_past_events": "Rādīt pagājušos notikumus",
     "show_empty_days": "Rādīt tukšas dienas",
+    "hide_when_empty": "Slēpt kartīti, kad tā ir tukša",
+    "hide_when_empty_note": "Paslēpj visu kartīti, kad nav gaidāmu notikumu. Rediģējot informācijas paneli, kartīte paliek redzama.",
     "filter_duplicates": "Filtrēt dublētos notikumus",
     "filter_duplicates_note": "Noņem notikumus ar vienādu nosaukumu, laiku un atrašanās vietu. Tiek saglabāta kopija no pirmā sarakstā norādītā kalendāra kopā ar tā etiķeti un krāsu.",
     "language_time_formats": "Valoda un laika formāti",

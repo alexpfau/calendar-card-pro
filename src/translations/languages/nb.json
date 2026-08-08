@@ -80,6 +80,8 @@
     "event_visibility": "Hendelsessynlighet",
     "show_past_events": "Vis tidligere hendelser",
     "show_empty_days": "Vis tomme dager",
+    "hide_when_empty": "Skjul kortet når det er tomt",
+    "hide_when_empty_note": "Skjuler hele kortet når det ikke finnes kommende hendelser å vise. Kortet forblir synlig mens du redigerer dashbordet.",
     "filter_duplicates": "Filtrer duplikate hendelser",
     "filter_duplicates_note": "Fjerner hendelser med samme tittel, tid og sted. Kopien fra kalenderen som er oppført først beholdes, sammen med dens etikett og farge.",
     "language_time_formats": "Språk og tidsformater",

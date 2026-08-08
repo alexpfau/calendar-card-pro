@@ -101,6 +101,8 @@
     "event_visibility": "Sündmuste nähtavus",
     "show_past_events": "Näita möödunud sündmusi",
     "show_empty_days": "Näita tühje päevi",
+    "hide_when_empty": "Peida kaart, kui see on tühi",
+    "hide_when_empty_note": "Peidab kogu kaardi, kui pole ühtegi eelseisvat sündmust. Töölaua muutmise ajal jääb kaart nähtavaks.",
     "filter_duplicates": "Filtreeri duplikaadid",
     "filter_duplicates_note": "Eemaldab sündmused, millel on sama pealkiri, aeg ja asukoht. Alles jääb esimesena loetletud kalendri koopia koos selle sildi ja värviga.",
     "language_time_formats": "Keel ja ajavormingud",
