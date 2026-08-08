@@ -80,6 +80,8 @@
     "event_visibility": "Visibilità Eventi",
     "show_past_events": "Mostra eventi passati",
     "show_empty_days": "Mostra giorni vuoti",
+    "hide_when_empty": "Nascondi la scheda quando è vuota",
+    "hide_when_empty_note": "Nasconde l'intera scheda quando non ci sono eventi imminenti da mostrare. La scheda resta visibile durante la modifica della dashboard.",
     "filter_duplicates": "Filtra eventi duplicati",
     "filter_duplicates_note": "Rimuove gli eventi con lo stesso titolo, orario e luogo. Viene mantenuta la copia del calendario elencato per primo, con la sua etichetta e il suo colore.",
     "language_time_formats": "Lingua e Formati Orari",

@@ -728,11 +728,19 @@ event_color: 'var(--primary-text-color)'
 # Empty days display
 show_empty_days: true # Show days with no events
 empty_day_color: 'var(--secondary-text-color)' # Color for "No events" text
+
+# Or remove the card entirely when there is nothing to show
+hide_when_empty: true
 ```
 
 When `show_empty_days` is set to `true`, days without events will display a "No events" message. This helps maintain visual consistency across your calendar, especially when showing longer date ranges.
 
 The new `empty_day_color` parameter lets you customize the color of this message to match your theme or stand out as needed.
+
+If you would rather the card disappear completely instead of showing "No upcoming events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
+
+> [!NOTE]
+> Compact mode limits never trigger hiding — a card limited to zero events with `compact_events_to_show: 0` stays visible so it can still be expanded. Configuration errors, such as a missing calendar entity, also remain visible so problems are not hidden silently.
 
 #### ⏱️ Time & Location Information
 
@@ -1224,6 +1232,7 @@ These examples demonstrate how Calendar Card Pro can be customized to match any 
 | `compact_events_to_show`                   | number            | -                                                  | Number of events to show in compact mode                                                                                                                                                                                                                    |
 | `compact_events_complete_days`             | boolean           | `false`                                            | When true, shows all events for days that have at least one event displayed                                                                                                                                                                                 |
 | `show_empty_days`                          | boolean           | `false`                                            | Whether to show days with no events (with "No events" message)                                                                                                                                                                                              |
+| `hide_when_empty`                          | boolean           | `false`                                            | Hide the entire card when there are no upcoming events to show                                                                                                                                                                                              |
 | `filter_duplicates`                        | boolean           | `false`                                            | Hide events whose title, start, end and location all match another event; the calendar listed first in `entities` wins                                                                                                                                      |
 | `split_multiday_events`                    | boolean           | `false`                                            | Display multi-day events on each day they cover                                                                                                                                                                                                             |
 | `language`                                 | string            | `System`, fallback `en`                            | Interface language (auto-detects from HA)                                                                                                                                                                                                                   |

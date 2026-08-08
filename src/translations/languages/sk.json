@@ -79,6 +79,8 @@
     "event_visibility": "Viditeľnosť udalostí",
     "show_past_events": "Zobrazovať udalosti, ktoré už prebehli",
     "show_empty_days": "Zobrazovať prázdne dni",
+    "hide_when_empty": "Skryť kartu, keď je prázdna",
+    "hide_when_empty_note": "Skryje celú kartu, keď nie sú žiadne nadchádzajúce udalosti. Počas úprav nástenky zostáva karta viditeľná.",
     "filter_duplicates": "Filtrovať duplicitné udalosti",
     "filter_duplicates_note": "Odstráni udalosti s rovnakým názvom, časom a miestom. Zachová sa kópia z kalendára uvedeného ako prvý, vrátane jeho menovky a farby.",
     "language_time_formats": "Jazyk a formát času",

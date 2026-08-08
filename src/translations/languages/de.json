@@ -88,6 +88,8 @@
     "event_visibility": "Sichtbarkeit von Ereignissen",
     "show_past_events": "Vergangene Ereignisse anzeigen",
     "show_empty_days": "Leere Tage anzeigen",
+    "hide_when_empty": "Karte ausblenden, wenn leer",
+    "hide_when_empty_note": "Blendet die gesamte Karte aus, sobald keine anstehenden Ereignisse vorhanden sind. Beim Bearbeiten des Dashboards bleibt die Karte sichtbar.",
     "filter_duplicates": "Doppelte Ereignisse filtern",
     "filter_duplicates_note": "Entfernt Ereignisse mit gleichem Titel, gleicher Zeit und gleichem Ort. Die Kopie aus dem zuerst aufgeführten Kalender wird beibehalten, einschließlich Label und Farbe.",
     "language_time_formats": "Sprach- & Zeitformate",

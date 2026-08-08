@@ -20,6 +20,7 @@ export interface Config {
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
   show_empty_days: boolean;
+  hide_when_empty: boolean;
   filter_duplicates: boolean;
   split_multiday_events: boolean;
   language?: string;

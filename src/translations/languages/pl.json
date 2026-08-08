@@ -88,6 +88,8 @@
     "event_visibility": "Widoczność Wydarzeń",
     "show_past_events": "Pokaż przeszłe wydarzenia",
     "show_empty_days": "Pokaż puste dni",
+    "hide_when_empty": "Ukryj kartę, gdy jest pusta",
+    "hide_when_empty_note": "Ukrywa całą kartę, gdy nie ma nadchodzących wydarzeń do wyświetlenia. Podczas edycji pulpitu karta pozostaje widoczna.",
     "filter_duplicates": "Filtruj zduplikowane wydarzenia",
     "filter_duplicates_note": "Usuwa wydarzenia o tym samym tytule, czasie i lokalizacji. Zachowywana jest kopia z kalendarza wymienionego jako pierwszy, wraz z jego etykietą i kolorem.",
     "language_time_formats": "Język i Formaty Czasu",

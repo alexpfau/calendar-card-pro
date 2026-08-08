@@ -88,6 +88,8 @@
     "event_visibility": "Įvykių matomumas",
     "show_past_events": "Rodyti praėjusius įvykius",
     "show_empty_days": "Rodyti tuščias dienas",
+    "hide_when_empty": "Slėpti kortelę, kai ji tuščia",
+    "hide_when_empty_note": "Paslepia visą kortelę, kai nėra būsimų įvykių. Redaguojant skydelį kortelė lieka matoma.",
     "filter_duplicates": "Filtruoti dubliuotus įvykius",
     "filter_duplicates_note": "Pašalina įvykius, kurių pavadinimas, laikas ir vieta sutampa. Išsaugoma pirmojo sąraše nurodyto kalendoriaus kopija kartu su jo etikete ir spalva.",
     "language_time_formats": "Kalba ir laiko formatai",
