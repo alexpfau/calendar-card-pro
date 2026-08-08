@@ -116,6 +116,14 @@ class CalendarCardPro extends LitElement {
 
   // Private, non-reactive properties
   private _instanceId = Helpers.generateInstanceId();
+  /**
+   * The `_instanceId` the events currently held in `events` were fetched for.
+   *
+   * Lets a failed refresh tell "these events are a few minutes old" apart from
+   * "these events answer a question the card is no longer asking", so previous
+   * events are only ever preserved for an unchanged configuration.
+   */
+  private _eventsInstanceId = '';
   private _language = '';
   private _refreshTimerId?: number;
   private _lastUpdateTime = 0;
@@ -123,6 +131,17 @@ class CalendarCardPro extends LitElement {
   private _weatherUnsubscribers: Array<() => void> = [];
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
+  /**
+   * True when the most recent fetch could not read at least one calendar.
+   *
+   * Kept separate from `events` because a failed request and an empty calendar
+   * both leave the event list empty, yet they mean opposite things. This flag is
+   * what lets the card tell them apart, and it drives three behaviours:
+   * keeping the card visible under `hide_when_empty` (`_applyVisibility`),
+   * keeping already-rendered events instead of blanking them (`updateEvents`),
+   * and showing the error state rather than "no upcoming events" (`render`).
+   */
+  private _hasFetchError = false;
   private _visibleCountCache?: {
     events: Types.CalendarEventData[];
     config: Types.Config;
@@ -180,6 +199,12 @@ class CalendarCardPro extends LitElement {
    * Placeholder entries generated for empty days are excluded, so this counts
    * only events that survive filtering (past events, blocklist/allowlist,
    * duplicates) and therefore matches what the user actually sees.
+   *
+   * That exclusion is the mechanism behind a deliberate precedence rule:
+   * hiding wins over anything that merely *decorates* an empty day. Neither
+   * `show_empty_days` nor any future custom empty-day text (#279) makes a card
+   * count as non-empty — a placeholder is not content. Anything added to the
+   * empty-day placeholder must stay filtered out here.
    *
    * Memoized against the inputs it depends on, because `updated()` runs on
    * every `hass` change and grouping the whole event list each time would be
@@ -334,11 +359,16 @@ class CalendarCardPro extends LitElement {
     const isErrorState =
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
 
+    // A calendar that could not be read looks identical to an empty one: both
+    // leave `events` empty. Hiding on that would make a transient API error
+    // silently delete the card from the dashboard, so a failed fetch keeps the
+    // card on screen and only a genuine empty result hides it.
     const shouldHide =
       this.config.hide_when_empty === true &&
       !this.preview &&
       !this.editMode &&
       !isErrorState &&
+      !this._hasFetchError &&
       this.visibleEventCount === 0;
 
     if (this.hidden === shouldHide) {
@@ -651,24 +681,57 @@ class CalendarCardPro extends LitElement {
       await this.updateComplete;
 
       // Get event data (from cache or API) using modularized function
-      const eventData = await EventUtils.fetchEventData(
+      const { events: eventData, failedEntities } = await EventUtils.fetchEventData(
         this.safeHass,
         this.config,
         this._instanceId,
         force,
       );
 
+      this._hasFetchError = failedEntities.length > 0;
+      if (this._hasFetchError) {
+        Logger.warn(`Could not load calendar(s): ${failedEntities.join(', ')}`);
+      }
+
       this.isLoading = false;
       this.isInitialLoad = false;
       await this.updateComplete;
 
-      // Finally set events data
-      this.events = [...eventData];
-      this._lastUpdateTime = Date.now();
+      // Keep whatever is already on screen when a refresh could not read any
+      // calendar and came back empty. Replacing good data with a blank card is a
+      // worse outcome than showing events that are a few minutes stale, and the
+      // next successful refresh overwrites them anyway. An empty result is only
+      // taken at face value when every calendar actually answered.
+      //
+      // Preserving is only valid while the events still answer the current
+      // question: `_instanceId` covers the entities, date range and past-event
+      // settings, so a config change makes the previous events stop counting as
+      // stale and start counting as wrong. Without that check, pointing a card at
+      // a broken entity would leave the old entity's events on screen forever.
+      const eventsMatchCurrentQuery = this._eventsInstanceId === this._instanceId;
+      const keepPreviousEvents =
+        this._hasFetchError &&
+        eventData.length === 0 &&
+        this.events.length > 0 &&
+        eventsMatchCurrentQuery;
 
-      Logger.info('Event update completed successfully');
+      if (keepPreviousEvents) {
+        Logger.warn('Refresh failed and returned nothing — keeping previously loaded events');
+      } else {
+        this.events = [...eventData];
+        this._eventsInstanceId = this._instanceId;
+      }
+
+      // Only a clean fetch counts as a completed update. Leaving the timestamp
+      // alone after a failure lets the visibility handler retry straight away
+      // instead of waiting out the refresh threshold.
+      if (!this._hasFetchError) {
+        this._lastUpdateTime = Date.now();
+        Logger.info('Event update completed successfully');
+      }
     } catch (error) {
       Logger.error('Failed to update events:', error);
+      this._hasFetchError = true;
       this.isLoading = false;
       this.isInitialLoad = false;
     }
@@ -741,6 +804,12 @@ class CalendarCardPro extends LitElement {
       content = Render.renderCardContent('loading', this.effectiveLanguage);
     } else if (!this.safeHass || !this.config.entities.length) {
       // Error state - missing entities
+      content = Render.renderCardContent('error', this.effectiveLanguage);
+    } else if (this.events.length === 0 && this._hasFetchError) {
+      // Calendars could not be read and there is nothing to fall back on.
+      // "No upcoming events" would be a claim about the calendar's contents,
+      // which is precisely what the card failed to find out — so say that the
+      // calendar could not be read instead.
       content = Render.renderCardContent('error', this.effectiveLanguage);
     } else if (this.events.length === 0) {
       // Even with no events, use the regular groupEventsByDay function

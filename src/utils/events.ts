@@ -31,7 +31,7 @@ export async function fetchEventData(
   config: Types.Config,
   instanceId: string,
   force = false,
-): Promise<Types.CalendarEventData[]> {
+): Promise<Types.EventFetchResult> {
   // Generate cache key based on configuration
   const cacheKey = getBaseCacheKey(
     instanceId,
@@ -48,7 +48,7 @@ export async function fetchEventData(
     const cachedEvents = getCachedEvents(cacheKey, config, isManualPageReload);
     if (cachedEvents) {
       Logger.info(`Using ${cachedEvents.length} events from cache`);
-      return [...cachedEvents];
+      return { events: [...cachedEvents], failedEntities: [] };
     }
   }
 
@@ -59,7 +59,7 @@ export async function fetchEventData(
   );
 
   const timeWindow = getTimeWindow(config.days_to_show, config.start_date);
-  const fetchedEvents = await fetchEvents(hass, entities, timeWindow);
+  const { events: fetchedEvents, failedEntities } = await fetchEvents(hass, entities, timeWindow);
 
   // Process events according to configuration rules
   let processedEvents = processEvents(fetchedEvents, config);
@@ -90,6 +90,14 @@ export async function fetchEventData(
   // Cache and return the processed results
   if (processedEvents.length > 0) {
     cacheEvents(cacheKey, processedEvents);
+  } else if (failedEntities.length > 0) {
+    // Every event we might have had could be sitting behind a failed request.
+    // Caching this empty result would make a transient outage look like a
+    // genuinely empty calendar for the whole TTL, so leave the cache alone and
+    // let the next refresh retry the API.
+    Logger.warn(
+      `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
+    );
   } else {
     const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
     Logger.info(
@@ -98,7 +106,7 @@ export async function fetchEventData(
     cacheEvents(cacheKey, processedEvents, emptyTtlMs);
   }
 
-  return processedEvents;
+  return { events: processedEvents, failedEntities };
 }
 
 /**
@@ -1104,14 +1112,21 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
 
 /**
  * Fetch calendar events from Home Assistant API
+ *
+ * A failure on one entity is logged and skipped rather than aborting the whole
+ * fetch, so a single broken calendar cannot blank out the others. The entity
+ * IDs that failed are returned alongside the events so callers can distinguish
+ * "this calendar is empty" from "this calendar could not be read".
+ *
  * @private Internal utility used by fetchEventData
  */
 export async function fetchEvents(
   hass: Types.Hass,
   entities: Array<Types.EntityConfig>,
   timeWindow: { start: Date; end: Date },
-): Promise<ReadonlyArray<Types.CalendarEventData>> {
+): Promise<Types.EventFetchResult> {
   const allEvents: Types.CalendarEventData[] = [];
+  const failedEntities: string[] = [];
 
   // Create a Set to track which entity IDs we've already fetched
   const fetchedEntityIds = new Set<string>();
@@ -1130,6 +1145,7 @@ export async function fetchEvents(
 
       if (!events || !Array.isArray(events)) {
         Logger.warn(`Invalid response for ${entityConfig.entity}`);
+        failedEntities.push(entityConfig.entity);
         continue;
       }
 
@@ -1146,6 +1162,7 @@ export async function fetchEvents(
       fetchedEntityIds.add(entityConfig.entity);
     } catch (error) {
       Logger.error(`Failed to fetch events for ${entityConfig.entity}:`, error);
+      failedEntities.push(entityConfig.entity);
 
       try {
         Logger.info(
@@ -1158,7 +1175,7 @@ export async function fetchEvents(
     }
   }
 
-  return allEvents;
+  return { events: allEvents, failedEntities };
 }
 
 /**
