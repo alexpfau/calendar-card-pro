@@ -89,6 +89,7 @@
     "show_past_events": "Vergangene Ereignisse anzeigen",
     "show_empty_days": "Leere Tage anzeigen",
     "filter_duplicates": "Doppelte Ereignisse filtern",
+    "filter_duplicates_note": "Entfernt Ereignisse mit gleichem Titel, gleicher Zeit und gleichem Ort. Die Kopie aus dem zuerst aufgeführten Kalender wird beibehalten, einschließlich Label und Farbe.",
     "language_time_formats": "Sprach- & Zeitformate",
     "language": "Sprache",
     "language_mode": "Sprachmodus",

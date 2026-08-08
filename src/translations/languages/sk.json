@@ -50,6 +50,8 @@
     "entity_show_time_note": "Zobraziť alebo skryť čas udalostí v tomto kalendári.",
     "show_location": "Zobrazovať miesto",
     "entity_show_location_note": "Zobraziť alebo skryť miesto udalostí v tomto kalendári.",
+    "show_description": "Zobrazovať popis",
+    "entity_show_description_note": "Zobraziť alebo skryť popis udalostí v tomto kalendári.",
     "split_multiday_events": "Rozdeľovať niekoľkodňové udalosti",
     "entity_split_multiday_note": "Rozdeliť niekoľkodňové udalosti v tomto kalendári do jednotlivých dní.",
 
@@ -78,6 +80,7 @@
     "show_past_events": "Zobrazovať udalosti, ktoré už prebehli",
     "show_empty_days": "Zobrazovať prázdne dni",
     "filter_duplicates": "Filtrovať duplicitné udalosti",
+    "filter_duplicates_note": "Odstráni udalosti s rovnakým názvom, časom a miestom. Zachová sa kópia z kalendára uvedeného ako prvý, vrátane jeho menovky a farby.",
     "language_time_formats": "Jazyk a formát času",
     "language": "Jazyk",
     "language_mode": "Režim jazyka",

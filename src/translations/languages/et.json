@@ -72,6 +72,8 @@
     "entity_show_time_note": "Näita või peida sündmuste kellaajad ainult selle kalendri jaoks.",
     "show_location": "Näita asukohta",
     "entity_show_location_note": "Näita või peida sündmuste asukohad ainult selle kalendri jaoks.",
+    "show_description": "Näita kirjeldust",
+    "entity_show_description_note": "Näita või peida sündmuste kirjeldused ainult selle kalendri jaoks.",
     "split_multiday_events": "Jaga mitmepäevased sündmused",
     "entity_split_multiday_note": "Jaga mitmepäevased sündmused eraldi päevadeks selle kalendri jaoks.",
 
@@ -100,6 +102,7 @@
     "show_past_events": "Näita möödunud sündmusi",
     "show_empty_days": "Näita tühje päevi",
     "filter_duplicates": "Filtreeri duplikaadid",
+    "filter_duplicates_note": "Eemaldab sündmused, millel on sama pealkiri, aeg ja asukoht. Alles jääb esimesena loetletud kalendri koopia koos selle sildi ja värviga.",
     "language_time_formats": "Keel ja ajavormingud",
     "language": "Keel",
     "language_mode": "Keele režiim",

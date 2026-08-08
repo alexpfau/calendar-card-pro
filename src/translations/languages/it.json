@@ -81,6 +81,7 @@
     "show_past_events": "Mostra eventi passati",
     "show_empty_days": "Mostra giorni vuoti",
     "filter_duplicates": "Filtra eventi duplicati",
+    "filter_duplicates_note": "Rimuove gli eventi con lo stesso titolo, orario e luogo. Viene mantenuta la copia del calendario elencato per primo, con la sua etichetta e il suo colore.",
     "language_time_formats": "Lingua e Formati Orari",
     "language": "Lingua",
     "language_mode": "Modalità lingua",

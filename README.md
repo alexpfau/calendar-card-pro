@@ -349,6 +349,22 @@ This is especially useful for:
 - Work calendars with team events
 - Any scenario where you might see the same event in multiple calendars
 
+> [!IMPORTANT]
+> Two aspects of this option are easy to miss:
+>
+> - **The first-listed calendar wins, including its styling.** Only the copy from the
+>   calendar listed first in `entities` is kept, and it keeps that calendar's `label`,
+>   `color` and `accent_color`. A shared event can therefore appear under a different
+>   calendar's styling than you expect — reorder `entities` so the calendar you want to
+>   see takes precedence.
+> - **Matching ignores which calendar an event came from.** Any two events sharing a
+>   title, start time, end time and location are treated as duplicates, even if they are
+>   genuinely separate events, and even if both are in the _same_ calendar.
+>
+> Events are never hidden merely for starting at the same time — all four fields must
+> match. If events are disappearing unexpectedly, set `filter_duplicates: false` to
+> confirm whether this option is the cause.
+
 ##### Advanced Filtering Techniques
 
 You can combine filtering features with labels and accent colors to create sophisticated displays. For example, to apply different styling to specific event types within the same calendar:
@@ -1208,7 +1224,7 @@ These examples demonstrate how Calendar Card Pro can be customized to match any 
 | `compact_events_to_show`                   | number            | -                                                  | Number of events to show in compact mode                                                                                                                                                                                                                    |
 | `compact_events_complete_days`             | boolean           | `false`                                            | When true, shows all events for days that have at least one event displayed                                                                                                                                                                                 |
 | `show_empty_days`                          | boolean           | `false`                                            | Whether to show days with no events (with "No events" message)                                                                                                                                                                                              |
-| `filter_duplicates`                        | boolean           | `false`                                            | Remove duplicate events that appear in multiple calendars                                                                                                                                                                                                   |
+| `filter_duplicates`                        | boolean           | `false`                                            | Hide events whose title, start, end and location all match another event; the calendar listed first in `entities` wins                                                                                                                                      |
 | `split_multiday_events`                    | boolean           | `false`                                            | Display multi-day events on each day they cover                                                                                                                                                                                                             |
 | `language`                                 | string            | `System`, fallback `en`                            | Interface language (auto-detects from HA)                                                                                                                                                                                                                   |
 | **Header**                                 |                   |                                                    |                                                                                                                                                                                                                                                             |
