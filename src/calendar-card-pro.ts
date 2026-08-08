@@ -636,6 +636,11 @@ class CalendarCardPro extends LitElement {
         this._initialLoadRetryId = window.setTimeout(() => {
           this.updateEvents(true);
         }, 1500);
+      } else {
+        // Home Assistant is available but no entities are configured, so no data
+        // will ever arrive. Leave the initial load state so `render()` falls
+        // through to the error card instead of showing "loading" indefinitely.
+        this.isInitialLoad = false;
       }
       return;
     }
