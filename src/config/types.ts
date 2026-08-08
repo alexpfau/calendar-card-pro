@@ -226,6 +226,20 @@ export interface CalendarEventData {
 }
 
 /**
+ * Result of a calendar fetch, including which entities failed.
+ *
+ * Per-entity fetch errors are tolerated so that one broken calendar cannot
+ * blank out the others, which means an empty `events` array on its own is
+ * ambiguous — it is either a genuinely empty calendar or a failed request.
+ * `failedEntities` is what lets callers tell those two apart.
+ */
+export interface EventFetchResult {
+  events: CalendarEventData[];
+  /** Entity IDs whose calendar could not be retrieved during this fetch. */
+  failedEntities: string[];
+}
+
+/**
  * Grouped events by day
  */
 export interface EventsByDay {

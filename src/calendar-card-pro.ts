@@ -123,6 +123,13 @@ class CalendarCardPro extends LitElement {
   private _weatherUnsubscribers: Array<() => void> = [];
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
+  /**
+   * True when the most recent fetch could not read at least one calendar.
+   *
+   * Kept separate from `events` because a failed request and an empty calendar
+   * both leave the event list empty — see `_applyVisibility`.
+   */
+  private _hasFetchError = false;
   private _visibleCountCache?: {
     events: Types.CalendarEventData[];
     config: Types.Config;
@@ -180,6 +187,12 @@ class CalendarCardPro extends LitElement {
    * Placeholder entries generated for empty days are excluded, so this counts
    * only events that survive filtering (past events, blocklist/allowlist,
    * duplicates) and therefore matches what the user actually sees.
+   *
+   * That exclusion is the mechanism behind a deliberate precedence rule:
+   * hiding wins over anything that merely *decorates* an empty day. Neither
+   * `show_empty_days` nor any future custom empty-day text (#279) makes a card
+   * count as non-empty — a placeholder is not content. Anything added to the
+   * empty-day placeholder must stay filtered out here.
    *
    * Memoized against the inputs it depends on, because `updated()` runs on
    * every `hass` change and grouping the whole event list each time would be
@@ -334,11 +347,16 @@ class CalendarCardPro extends LitElement {
     const isErrorState =
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
 
+    // A calendar that could not be read looks identical to an empty one: both
+    // leave `events` empty. Hiding on that would make a transient API error
+    // silently delete the card from the dashboard, so a failed fetch keeps the
+    // card on screen and only a genuine empty result hides it.
     const shouldHide =
       this.config.hide_when_empty === true &&
       !this.preview &&
       !this.editMode &&
       !isErrorState &&
+      !this._hasFetchError &&
       this.visibleEventCount === 0;
 
     if (this.hidden === shouldHide) {
@@ -651,12 +669,17 @@ class CalendarCardPro extends LitElement {
       await this.updateComplete;
 
       // Get event data (from cache or API) using modularized function
-      const eventData = await EventUtils.fetchEventData(
+      const { events: eventData, failedEntities } = await EventUtils.fetchEventData(
         this.safeHass,
         this.config,
         this._instanceId,
         force,
       );
+
+      this._hasFetchError = failedEntities.length > 0;
+      if (this._hasFetchError) {
+        Logger.warn(`Could not load calendar(s): ${failedEntities.join(', ')}`);
+      }
 
       this.isLoading = false;
       this.isInitialLoad = false;
@@ -669,6 +692,7 @@ class CalendarCardPro extends LitElement {
       Logger.info('Event update completed successfully');
     } catch (error) {
       Logger.error('Failed to update events:', error);
+      this._hasFetchError = true;
       this.isLoading = false;
       this.isInitialLoad = false;
     }
