@@ -727,8 +727,7 @@ event_color: 'var(--primary-text-color)'
 
 # Empty days display
 show_empty_days: true # Show days with no events
-empty_day_text: 'Leftovers' # Replaces "No upcoming events" on a gap day
-empty_calendar_text: 'Nothing planned' # ...and when the card has no events at all
+empty_day_text: 'Leftovers' # Replaces "No upcoming events" on any empty day
 empty_day_color: 'var(--secondary-text-color)' # Color for "No events" text
 
 # Or remove the card entirely when there is nothing to show
@@ -741,32 +740,24 @@ When `show_empty_days` is set to `true`, days without events will display a "No 
 
 The default message is deliberately neutral, but an empty day often means something specific to you. A meal-plan calendar reads far better with "Leftovers" than with "No upcoming events", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
 
-Two parameters cover the two different empty states, and both fall back to the translated default when unset:
-
-- **`empty_day_text`** replaces the message on a day that has no events while the rest of the card does, i.e. a gap that `show_empty_days: true` fills in the middle of the range.
-- **`empty_calendar_text`** replaces the message when the card as a whole has nothing to show, whether that renders as the full range of empty days (`show_empty_days: true`) or as a single row for today (`show_empty_days: false`).
+The **`empty_day_text`** parameter replaces that message on every day the card renders as empty, and falls back to the translated default when unset. It applies wherever an empty day appears: a gap in the middle of a planned week, an entire range with nothing scheduled, or the single row the card shows for today when `show_empty_days` is off and there is nothing at all to display.
 
 ```yaml
 days_to_show: 7
 show_empty_days: true
 empty_day_text: 'Leftovers'
-empty_calendar_text: 'No meal plan set up'
 ```
-
-Keeping them separate matters because the two states usually want different wording: "Leftovers" makes sense for a single gap in an otherwise planned week, but reads oddly as the only thing on a completely unplanned calendar. The card picks between them automatically based on whether it has any real events, so a single configuration covers both.
 
 By default, empty days are prefixed with a ✓ so they read as "nothing on". That prefix is dropped as soon as you set your own text, since a string such as "Leftovers" already carries its own meaning.
 
 > [!NOTE]
-> With `show_empty_days: true` and no events at all, every day in the range is an empty day and they all use `empty_calendar_text` — the card has nothing to show, so the gap-day wording would be misleading.
->
-> Both states share the single `empty_day_color` parameter; there is no separate colour for each.
+> `empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its colour by `empty_day_color`.
 
 The `empty_day_color` parameter lets you customize the color of this message to match your theme or stand out as needed.
 
 If you would rather the card disappear completely instead of showing "No upcoming events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
 
-Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. The same applies to `empty_day_text` and `empty_calendar_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
+Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
 
 > [!NOTE]
 > Compact mode limits never trigger hiding — a card limited to zero events with `compact_events_to_show: 0` stays visible so it can still be expanded. Configuration errors, such as a missing calendar entity, also remain visible so problems are not hidden silently.
@@ -1264,8 +1255,7 @@ These examples demonstrate how Calendar Card Pro can be customized to match any 
 | `compact_events_complete_days`             | boolean           | `false`                                            | When true, shows all events for days that have at least one event displayed                                                                                                                                                                                 |
 | `show_empty_days`                          | boolean           | `false`                                            | Whether to show days with no events (with "No events" message)                                                                                                                                                                                              |
 | `hide_when_empty`                          | boolean           | `false`                                            | Hide the entire card when there are no upcoming events to show                                                                                                                                                                                              |
-| `empty_day_text`                           | string            | _translated default_                               | Custom text shown on a day with no events when the card has events on other days (requires `show_empty_days: true`). Omits the ✓ prefix when set                                                                                                             |
-| `empty_calendar_text`                      | string            | _translated default_                               | Custom text shown when the card has no events at all, with `show_empty_days` either on or off. Omits the ✓ prefix when set                                                                                                                                   |
+| `empty_day_text`                           | string            | _translated default_                               | Custom text shown on any day the card renders as empty, whether a gap between event days, an entire empty range, or the single row shown when the card has nothing at all. Omits the ✓ prefix when set                                              |
 | `filter_duplicates`                        | boolean           | `false`                                            | Hide events whose title, start, end and location all match another event; the calendar listed first in `entities` wins                                                                                                                                      |
 | `split_multiday_events`                    | boolean           | `false`                                            | Display multi-day events on each day they cover                                                                                                                                                                                                             |
 | `language`                                 | string            | `System`, fallback `en`                            | Interface language (auto-detects from HA)                                                                                                                                                                                                                   |

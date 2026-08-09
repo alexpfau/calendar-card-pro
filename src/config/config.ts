@@ -24,7 +24,6 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_empty_days: false,
   hide_when_empty: false,
   empty_day_text: undefined,
-  empty_calendar_text: undefined,
   filter_duplicates: false,
   split_multiday_events: false,
   language: undefined,

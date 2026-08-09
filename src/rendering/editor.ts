@@ -803,21 +803,13 @@ export class CalendarCardProEditor extends LitElement {
             <h3>${this._getTranslation('event_visibility')}</h3>
             ${this.addBooleanField('show_past_events', this._getTranslation('show_past_events'))}
             ${this.addBooleanField('show_empty_days', this._getTranslation('show_empty_days'))}
-            ${this.getConfigValue('show_empty_days', false)
+            ${this.addBooleanField('hide_when_empty', this._getTranslation('hide_when_empty'))}
+            <div class="helper-text">${this._getTranslation('hide_when_empty_note')}</div>
+            ${this.getConfigValue('show_empty_days', false) ||
+            !this.getConfigValue('hide_when_empty', false)
               ? html`
                   ${this.addTextField('empty_day_text', this._getTranslation('empty_day_text'))}
                   <div class="helper-text">${this._getTranslation('empty_day_text_note')}</div>
-                `
-              : html``}
-            ${this.addBooleanField('hide_when_empty', this._getTranslation('hide_when_empty'))}
-            <div class="helper-text">${this._getTranslation('hide_when_empty_note')}</div>
-            ${!this.getConfigValue('hide_when_empty', false)
-              ? html`
-                  ${this.addTextField(
-                    'empty_calendar_text',
-                    this._getTranslation('empty_calendar_text'),
-                  )}
-                  <div class="helper-text">${this._getTranslation('empty_calendar_text_note')}</div>
                 `
               : html``}
             ${this.addBooleanField('filter_duplicates', this._getTranslation('filter_duplicates'))}

@@ -481,24 +481,17 @@ export function groupEventsByDay(
   if (config.show_empty_days || days.length === 0) {
     const translations = Localize.getTranslations(language);
 
-    // Pick the placeholder text for whichever empty state we are in.
+    // Pick the placeholder text for every empty day the card renders.
     //
-    // The choice is driven by whether the card has any real events to show, NOT
-    // by `show_empty_days`. The two options describe different situations, and a
-    // single card can legitimately hit both across the week:
-    // - some real events  -> these placeholders fill gaps between event days
-    //                        -> `empty_day_text` ("Leftovers")
-    // - no real events    -> the card as a whole has nothing to show
-    //                        -> `empty_calendar_text` ("No meal plan set up")
+    // One option covers every empty state, because they are all the same thing
+    // underneath: a day row carrying an `_isEmptyDay` placeholder. That holds
+    // whether the placeholders fill gaps between event days, span the whole
+    // range because nothing is scheduled, or collapse to the single reference
+    // date row when `show_empty_days` is off (see the range logic below).
     //
-    // The second case is reachable with `show_empty_days` either on or off; it
-    // only changes how the empty range renders (the full range of empty days
-    // versus a single row for the reference date), not what the card means.
-    //
-    // Both fall back to the translated default, so no new translation key is
-    // needed in any of the language files.
-    const hasRealEvents = days.some((day) => day.events.some((event) => !event._isEmptyDay));
-    const customEmptyText = hasRealEvents ? config.empty_day_text : config.empty_calendar_text;
+    // Falls back to the translated default, so no new translation key is needed
+    // in any of the language files.
+    const customEmptyText = config.empty_day_text;
     const hasCustomEmptyText = Boolean(customEmptyText);
     const emptyDayText = customEmptyText || translations.noEvents;
 
