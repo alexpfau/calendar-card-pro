@@ -91,7 +91,7 @@
     "hide_when_empty": "Ukryj kartę, gdy jest pusta",
     "hide_when_empty_note": "Ukrywa całą kartę, gdy nie ma nadchodzących wydarzeń do wyświetlenia. Podczas edycji pulpitu karta pozostaje widoczna.",
     "empty_day_text": "Tekst pustego dnia",
-    "empty_day_text_note": "Zastępuje „Brak nadchodzących wydarzeń” w dniach bez wydarzeń. Pozostaw puste, aby użyć tekstu domyślnego.",
+    "empty_day_text_note": "Zastępuje „Brak nadchodzących wydarzeń” w dniach bez wydarzeń, gdy karta ma wydarzenia w innych dniach. Pozostaw puste, aby użyć tekstu domyślnego.",
     "empty_calendar_text": "Tekst pustego kalendarza",
     "empty_calendar_text_note": "Zastępuje „Brak nadchodzących wydarzeń”, gdy karta nie ma nic do pokazania. Pozostaw puste, aby użyć tekstu domyślnego.",
     "filter_duplicates": "Filtruj zduplikowane wydarzenia",

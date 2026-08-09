@@ -811,8 +811,7 @@ export class CalendarCardProEditor extends LitElement {
               : html``}
             ${this.addBooleanField('hide_when_empty', this._getTranslation('hide_when_empty'))}
             <div class="helper-text">${this._getTranslation('hide_when_empty_note')}</div>
-            ${!this.getConfigValue('hide_when_empty', false) &&
-            !this.getConfigValue('show_empty_days', false)
+            ${!this.getConfigValue('hide_when_empty', false)
               ? html`
                   ${this.addTextField(
                     'empty_calendar_text',

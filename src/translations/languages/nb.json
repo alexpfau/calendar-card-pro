@@ -83,7 +83,7 @@
     "hide_when_empty": "Skjul kortet når det er tomt",
     "hide_when_empty_note": "Skjuler hele kortet når det ikke finnes kommende hendelser å vise. Kortet forblir synlig mens du redigerer dashbordet.",
     "empty_day_text": "Tekst for tomme dager",
-    "empty_day_text_note": "Erstatter «Ingen kommende hendelser» på dager uten hendelser. La stå tom for standardteksten.",
+    "empty_day_text_note": "Erstatter «Ingen kommende hendelser» på dager uten hendelser når kortet har hendelser andre dager. La stå tom for standardteksten.",
     "empty_calendar_text": "Tekst for tom kalender",
     "empty_calendar_text_note": "Erstatter «Ingen kommende hendelser» når kortet ikke har noe å vise i det hele tatt. La stå tom for standardteksten.",
     "filter_duplicates": "Filtrer duplikate hendelser",

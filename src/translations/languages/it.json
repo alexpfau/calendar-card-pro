@@ -83,7 +83,7 @@
     "hide_when_empty": "Nascondi la scheda quando è vuota",
     "hide_when_empty_note": "Nasconde l'intera scheda quando non ci sono eventi imminenti da mostrare. La scheda resta visibile durante la modifica della dashboard.",
     "empty_day_text": "Testo per i giorni vuoti",
-    "empty_day_text_note": "Sostituisce «Nessun evento in arrivo» nei giorni senza eventi. Lascia vuoto per usare il testo predefinito.",
+    "empty_day_text_note": "Sostituisce «Nessun evento in arrivo» nei giorni senza eventi, quando la scheda ha eventi in altri giorni. Lascia vuoto per usare il testo predefinito.",
     "empty_calendar_text": "Testo per il calendario vuoto",
     "empty_calendar_text_note": "Sostituisce «Nessun evento in arrivo» quando la scheda non ha nulla da mostrare. Lascia vuoto per usare il testo predefinito.",
     "filter_duplicates": "Filtra eventi duplicati",

@@ -483,17 +483,22 @@ export function groupEventsByDay(
 
     // Pick the placeholder text for whichever empty state we are in.
     //
-    // Filtering happens earlier (see the `!config.show_empty_days` block above),
-    // so by the time we get here the two cases are cleanly separated:
-    // - show_empty_days true  -> these are empty *days* within the range
-    // - show_empty_days false -> the only reason we are here is that there are
-    //   no events at all, i.e. the whole calendar is empty
+    // The choice is driven by whether the card has any real events to show, NOT
+    // by `show_empty_days`. The two options describe different situations, and a
+    // single card can legitimately hit both across the week:
+    // - some real events  -> these placeholders fill gaps between event days
+    //                        -> `empty_day_text` ("Leftovers")
+    // - no real events    -> the card as a whole has nothing to show
+    //                        -> `empty_calendar_text` ("No meal plan set up")
+    //
+    // The second case is reachable with `show_empty_days` either on or off; it
+    // only changes how the empty range renders (the full range of empty days
+    // versus a single row for the reference date), not what the card means.
     //
     // Both fall back to the translated default, so no new translation key is
     // needed in any of the language files.
-    const customEmptyText = config.show_empty_days
-      ? config.empty_day_text
-      : config.empty_calendar_text;
+    const hasRealEvents = days.some((day) => day.events.some((event) => !event._isEmptyDay));
+    const customEmptyText = hasRealEvents ? config.empty_day_text : config.empty_calendar_text;
     const hasCustomEmptyText = Boolean(customEmptyText);
     const emptyDayText = customEmptyText || translations.noEvents;
 
