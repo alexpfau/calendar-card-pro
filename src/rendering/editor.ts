@@ -18,6 +18,7 @@ import * as Types from '../config/types';
 import * as Config from '../config/config';
 import * as Helpers from '../utils/helpers';
 import * as Localize from '../translations/localize';
+import * as Templates from '../utils/templates';
 
 // Import Material Design icons
 import {
@@ -97,6 +98,23 @@ export class CalendarCardProEditor extends LitElement {
   @property({ attribute: false }) hass?: Types.Hass;
   @property({ attribute: false }) _config?: Types.Config;
 
+  /**
+   * Home Assistant's raw error text for an invalid `title` template.
+   *
+   * Shown verbatim under the Title field: Home Assistant's own message names
+   * the offending construct, which is the part a user needs in order to fix it,
+   * and it needs no translation key of its own.
+   */
+  @property({ attribute: false }) private _titleTemplateError?: string;
+
+  /**
+   * Validates the `title` template as it is typed.
+   *
+   * Separate from the preview card's own subscription so the editor can report
+   * errors without the card having to surface them in its heading.
+   */
+  private _titleValidation?: Templates.TemplateSubscription;
+
   //-----------------------------------------------------------------------------
   // LIFECYCLE METHODS
   //-----------------------------------------------------------------------------
@@ -107,6 +125,56 @@ export class CalendarCardProEditor extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     this._loadCustomElements();
+  }
+
+  /**
+   * Called when the editor is removed from the DOM.
+   *
+   * Home Assistant discards and recreates the editor element as the user moves
+   * between cards, so the validation subscription has to be closed here or it
+   * would outlive the element.
+   */
+  disconnectedCallback(): void {
+    this._titleValidation?.destroy();
+    this._titleValidation = undefined;
+    super.disconnectedCallback();
+  }
+
+  /**
+   * Keeps title template validation in step with the edited config.
+   */
+  updated(): void {
+    this._updateTitleValidation();
+  }
+
+  /**
+   * Subscribes to the current `title` value so template errors surface live.
+   *
+   * The subscription itself debounces and no-ops on an unchanged template, so
+   * this is safe to call from `updated()`, which runs on every keystroke.
+   */
+  private _updateTitleValidation(): void {
+    const title = this._config?.title;
+
+    if (!Templates.isTemplate(title)) {
+      this._titleValidation?.destroy();
+      this._titleValidation = undefined;
+      this._titleTemplateError = undefined;
+      return;
+    }
+
+    if (!this._titleValidation) {
+      this._titleValidation = new Templates.TemplateSubscription({
+        onResult: () => {
+          this._titleTemplateError = undefined;
+        },
+        onError: (error) => {
+          this._titleTemplateError = error;
+        },
+      });
+    }
+
+    this._titleValidation.update(this.hass, title);
   }
 
   /**
@@ -874,6 +942,9 @@ export class CalendarCardProEditor extends LitElement {
             <!-- Title Styling -->
             <h3>${this._getTranslation('title_styling')}</h3>
             ${this.addTextField('title', this._getTranslation('title'))}
+            ${this._titleTemplateError
+              ? html` <ha-alert alert-type="error">${this._titleTemplateError}</ha-alert> `
+              : nothing}
             ${this.addTextField('title_font_size', this._getTranslation('title_font_size'))}
             ${this.addTextField('title_color', this._getTranslation('title_color'))}
 

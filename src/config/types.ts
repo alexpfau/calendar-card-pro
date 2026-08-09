@@ -305,8 +305,8 @@ export interface Hass {
   };
   connection?: {
     subscribeEvents: (callback: (event: unknown) => void, eventType: string) => Promise<() => void>;
-    subscribeMessage: (
-      callback: (message: WeatherForecastMessage) => void,
+    subscribeMessage: <T = WeatherForecastMessage>(
+      callback: (message: T) => void,
       options: SubscribeMessageOptions,
     ) => Promise<() => void>;
   };
@@ -327,9 +327,37 @@ export interface WeatherForecastMessage {
  */
 export interface SubscribeMessageOptions {
   type: string;
-  entity_id: string;
+  /** Required by `weather/subscribe_forecast`, absent from `render_template`. */
+  entity_id?: string;
   forecast_type?: string;
   [key: string]: unknown;
+}
+
+/**
+ * Successful `render_template` result pushed by Home Assistant.
+ *
+ * `result` is not necessarily a string: Home Assistant renders templates with
+ * native type parsing enabled, so `{{ 1 + 1 }}` arrives as the number `2`.
+ *
+ * `listeners.time` is true for templates that depend on the current time (for
+ * example `now()`), which Home Assistant re-renders on its own timer.
+ */
+export interface RenderTemplateResult {
+  result: unknown;
+  listeners?: {
+    all: boolean;
+    domains: string[];
+    entities: string[];
+    time: boolean;
+  };
+}
+
+/**
+ * Template error pushed by Home Assistant when `report_errors` is enabled.
+ */
+export interface RenderTemplateError {
+  error: string;
+  level: 'ERROR' | 'WARNING';
 }
 
 /**

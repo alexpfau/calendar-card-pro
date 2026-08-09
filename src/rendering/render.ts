@@ -32,6 +32,8 @@ import * as Weather from '../utils/weather';
  * @param content Main card content (events or status)
  * @param handlers Event handler functions
  * @param maxHeightSet Flag to add max-height-set class
+ * @param isLoading Flag to mark the card as busy while events load
+ * @param titlePending True while a templated title awaits its first value
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -47,6 +49,7 @@ export function renderMainCardStructure(
   },
   maxHeightSet: boolean = false,
   isLoading: boolean = false,
+  titlePending: boolean = false,
 ): TemplateResult {
   return html`
     <ha-card
@@ -70,9 +73,11 @@ export function renderMainCardStructure(
           `
         : nothing}
 
-      <!-- Title is always rendered with the same structure, even if empty -->
+      <!-- Title is always rendered with the same structure, even if empty.
+           A templated title keeps the h1 from first paint so the element
+           identity does not change when its value arrives. -->
       <div class="header-container">
-        ${title
+        ${title || titlePending
           ? html`<h1 class="card-header">${title}</h1>`
           : html`<div class="card-header-placeholder"></div>`}
       </div>
