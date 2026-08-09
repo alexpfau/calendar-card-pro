@@ -175,17 +175,16 @@ export const cardStyles = css`
     margin: 0 0 16px 8px;
     padding: 0;
 
-    /* Typography */
+    /* Typography
+     * The literal fallbacks are load-bearing: Home Assistant removed the
+     * --paper-font-headline_-_* variables, and a var() that references an
+     * undefined property without a fallback is invalid at computed-value time,
+     * which silently downgraded the title to inherited body text. */
     color: var(--calendar-card-color-title, var(--primary-text-color));
-    font-size: var(--calendar-card-font-size-title, var(--paper-font-headline_-_font-size));
-    font-weight: var(--paper-font-headline_-_font-weight);
-    letter-spacing: var(--paper-font-headline_-_letter-spacing);
-    line-height: var(--paper-font-headline_-_line-height);
-
-    /* Additional Typography */
-    -webkit-font-smoothing: var(--paper-font-headline_-_-webkit-font-smoothing);
-    text-rendering: var(--paper-font-common-expensive-kerning_-_text-rendering);
-    opacity: var(--dark-primary-opacity);
+    font-size: var(--calendar-card-font-size-title, var(--ha-card-header-font-size, 24px));
+    font-weight: var(--ha-font-weight-normal, 400);
+    letter-spacing: -0.012em;
+    line-height: 1.33;
   }
 
   /* ===== WEEK NUMBER & SEPARATOR STYLES ===== */
