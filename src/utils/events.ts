@@ -261,6 +261,7 @@ export function groupEventsByDay(
         _entityLabel: getEntityLabel(event._entityId, config, event),
         _matchedConfig: event._matchedConfig,
         _isEmptyDay: event._isEmptyDay,
+        _isCustomEmptyText: event._isCustomEmptyText,
       });
     });
   }
@@ -480,6 +481,22 @@ export function groupEventsByDay(
   if (config.show_empty_days || days.length === 0) {
     const translations = Localize.getTranslations(language);
 
+    // Pick the placeholder text for whichever empty state we are in.
+    //
+    // Filtering happens earlier (see the `!config.show_empty_days` block above),
+    // so by the time we get here the two cases are cleanly separated:
+    // - show_empty_days true  -> these are empty *days* within the range
+    // - show_empty_days false -> the only reason we are here is that there are
+    //   no events at all, i.e. the whole calendar is empty
+    //
+    // Both fall back to the translated default, so no new translation key is
+    // needed in any of the language files.
+    const customEmptyText = config.show_empty_days
+      ? config.empty_day_text
+      : config.empty_calendar_text;
+    const hasCustomEmptyText = Boolean(customEmptyText);
+    const emptyDayText = customEmptyText || translations.noEvents;
+
     // Always start from the configured reference date
     const startDateForEmptyDays = new Date(referenceDate);
 
@@ -557,11 +574,12 @@ export function groupEventsByDay(
           timestamp: currentDate.getTime(),
           events: [
             {
-              summary: translations.noEvents,
+              summary: emptyDayText,
               start: { date: dateKey },
               end: { date: dateKey },
               _entityId: '_empty_day_',
               _isEmptyDay: true,
+              _isCustomEmptyText: hasCustomEmptyText,
               location: '',
             },
           ],
