@@ -1010,6 +1010,10 @@ export function renderEventTitle(
   weatherForecasts?: Types.WeatherForecasts,
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
+  // The checkmark reads as "nothing on" and only suits the default text.
+  // A user-supplied string ("Leftovers") already carries its own meaning,
+  // so the prefix is dropped whenever one is configured.
+  const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
   const entityColor = isEmptyDay
     ? 'var(--calendar-card-empty-day-color)'
     : event._matchedConfig?.color || config.event_color;
@@ -1027,7 +1031,7 @@ export function renderEventTitle(
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
           style="color: ${entityColor}"
         >
-          ${isEmptyDay ? `✓ ${event.summary}` : event.summary}
+          ${showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary}
         </span>
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}

@@ -261,6 +261,7 @@ export function groupEventsByDay(
         _entityLabel: getEntityLabel(event._entityId, config, event),
         _matchedConfig: event._matchedConfig,
         _isEmptyDay: event._isEmptyDay,
+        _isCustomEmptyText: event._isCustomEmptyText,
       });
     });
   }
@@ -480,6 +481,20 @@ export function groupEventsByDay(
   if (config.show_empty_days || days.length === 0) {
     const translations = Localize.getTranslations(language);
 
+    // Pick the placeholder text for every empty day the card renders.
+    //
+    // One option covers every empty state, because they are all the same thing
+    // underneath: a day row carrying an `_isEmptyDay` placeholder. That holds
+    // whether the placeholders fill gaps between event days, span the whole
+    // range because nothing is scheduled, or collapse to the single reference
+    // date row when `show_empty_days` is off (see the range logic below).
+    //
+    // Falls back to the translated default, so no new translation key is needed
+    // in any of the language files.
+    const customEmptyText = config.empty_day_text;
+    const hasCustomEmptyText = Boolean(customEmptyText);
+    const emptyDayText = customEmptyText || translations.noEvents;
+
     // Always start from the configured reference date
     const startDateForEmptyDays = new Date(referenceDate);
 
@@ -557,11 +572,12 @@ export function groupEventsByDay(
           timestamp: currentDate.getTime(),
           events: [
             {
-              summary: translations.noEvents,
+              summary: emptyDayText,
               start: { date: dateKey },
               end: { date: dateKey },
               _entityId: '_empty_day_',
               _isEmptyDay: true,
+              _isCustomEmptyText: hasCustomEmptyText,
               location: '',
             },
           ],

@@ -1,0 +1,10 @@
+# Normalise line endings on commit and check everything out with LF.
+#
+# src/translations/languages/lv.json was committed with CRLF and stayed the
+# only such file in the repo, so every edit to it produced a whole-file diff.
+# It has since been normalised; this keeps the situation from recurring when
+# a contributor edits a translation on Windows.
+* text=auto eol=lf
+
+# Affinity Photo source for the README header — binary, never normalise.
+*.afphoto binary

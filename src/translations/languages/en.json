@@ -82,6 +82,8 @@
     "show_empty_days": "Show empty days",
     "hide_when_empty": "Hide card when empty",
     "hide_when_empty_note": "Hides the entire card whenever there are no upcoming events to show. The card stays visible while editing the dashboard.",
+    "empty_day_text": "Empty day text",
+    "empty_day_text_note": "Replaces “No upcoming events” on empty days. Leave blank to keep the default.",
     "filter_duplicates": "Filter duplicate events",
     "filter_duplicates_note": "Removes events with the same title, time and location. The copy from the calendar listed first is kept, along with its label and color.",
     "language_time_formats": "Language & Time Formats",
@@ -232,7 +234,7 @@
     "show_uv_index": "Show UV index",
     "uv_index_threshold": "UV index threshold",
     "daily_forecast_fallback": "Use daily forecast as fallback",
-    
+
     "interactions": "Interactions",
     "tap_action": "Tap Action",
     "hold_action": "Hold Action",

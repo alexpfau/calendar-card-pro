@@ -21,6 +21,7 @@ export interface Config {
   compact_events_complete_days?: boolean;
   show_empty_days: boolean;
   hide_when_empty: boolean;
+  empty_day_text?: string;
   filter_duplicates: boolean;
   split_multiday_events: boolean;
   language?: string;
@@ -221,6 +222,14 @@ export interface CalendarEventData {
   _entityId?: string;
   _entityLabel?: string;
   _isEmptyDay?: boolean;
+  /**
+   * Set when an empty-day placeholder shows a user-supplied string
+   * (`empty_day_text`) rather than the translated default. Only used to
+   * suppress the checkmark prefix at render time.
+   *
+   * This never affects `visibleEventCount`, which filters on `_isEmptyDay`.
+   */
+  _isCustomEmptyText?: boolean;
   _matchedConfig?: EntityConfig;
   time?: string;
 }
