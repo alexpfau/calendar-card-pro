@@ -39,6 +39,7 @@ import * as Styles from './rendering/styles';
 import * as Feedback from './interaction/feedback';
 import * as Render from './rendering/render';
 import * as Weather from './utils/weather';
+import * as Templates from './utils/templates';
 import * as Editor from './rendering/editor';
 
 //-----------------------------------------------------------------------------
@@ -88,6 +89,16 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
+   * Latest value rendered by Home Assistant for a templated `title`.
+   *
+   * Only meaningful when `config.title` contains a template. Undefined until
+   * the first render arrives, and deliberately left at its last good value when
+   * a later render fails, so a transient template error does not blank the
+   * heading.
+   */
+  @property({ attribute: false }) renderedTitle?: string;
+
+  /**
    * Set by Home Assistant's `hui-card` wrapper while the dashboard is in edit
    * mode or the card is shown in the card picker. The card must never hide
    * itself in these states, otherwise it becomes impossible to select and
@@ -131,6 +142,13 @@ class CalendarCardPro extends LitElement {
   private _weatherUnsubscribers: Array<() => void> = [];
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
+  /**
+   * Subscription that keeps `renderedTitle` in step with a templated `title`.
+   *
+   * Created lazily so cards with a plain string title never open a websocket
+   * subscription at all.
+   */
+  private _titleSubscription?: Templates.TemplateSubscription;
   /**
    * True when the most recent fetch could not read at least one calendar.
    *
@@ -186,6 +204,30 @@ class CalendarCardPro extends LitElement {
       this.isExpanded,
       this.effectiveLanguage,
     );
+  }
+
+  /**
+   * Title to display, with templates resolved.
+   *
+   * A templated title renders as empty until Home Assistant returns its first
+   * value, so raw Jinja is never shown to the user.
+   */
+  get effectiveTitle(): string | undefined {
+    if (!Templates.isTemplate(this.config.title)) {
+      return this.config.title;
+    }
+
+    return this.renderedTitle ?? '';
+  }
+
+  /**
+   * True while a templated title is waiting for its first rendered value.
+   *
+   * Lets the header keep a stable element identity across the round-trip
+   * instead of swapping the placeholder for an `h1` once the value lands.
+   */
+  get isTitlePending(): boolean {
+    return Templates.isTemplate(this.config.title) && this.renderedTitle === undefined;
   }
 
   /**
@@ -266,6 +308,9 @@ class CalendarCardPro extends LitElement {
     // Set up weather subscriptions if configured
     this._scheduleWeatherSetup();
 
+    // Resolve the title if it contains a template
+    this._updateTitleSubscription();
+
     // Set up visibility listener
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
   }
@@ -279,6 +324,10 @@ class CalendarCardPro extends LitElement {
 
     // Clean up weather subscriptions
     this._cleanupWeatherSubscriptions();
+
+    // Clean up the title template subscription
+    this._titleSubscription?.destroy();
+    this._titleSubscription = undefined;
 
     // Clean up timers
     if (this._refreshTimerId) {
@@ -333,6 +382,11 @@ class CalendarCardPro extends LitElement {
       this._scheduleWeatherSetup();
     }
 
+    // Keep the title template subscription in step with hass and config
+    if (changedProps.has('hass') || changedProps.has('config')) {
+      this._updateTitleSubscription();
+    }
+
     // Hide or reveal the whole card when `hide_when_empty` is enabled
     this._applyVisibility();
   }
@@ -340,6 +394,49 @@ class CalendarCardPro extends LitElement {
   //-----------------------------------------------------------------------------
   // PRIVATE METHODS
   //-----------------------------------------------------------------------------
+
+  /**
+   * Keep the title template subscription aligned with the current config.
+   *
+   * `title` is deliberately absent from `hasConfigChanged`'s data-affecting
+   * keys, so changing it never triggers a re-fetch — this is the only thing
+   * that has to react to it. The subscription itself no-ops unless the template
+   * text or the connection actually changed, so this is safe to call on every
+   * `hass` update.
+   */
+  private _updateTitleSubscription(): void {
+    const isTemplated = Templates.isTemplate(this.config.title);
+
+    if (!isTemplated) {
+      // Drop a stale rendered value so switching back to a plain title, or
+      // clearing the field entirely, does not leave the old heading on screen
+      if (this._titleSubscription) {
+        this._titleSubscription.destroy();
+        this._titleSubscription = undefined;
+      }
+
+      this.renderedTitle = undefined;
+      return;
+    }
+
+    if (!this._titleSubscription) {
+      this._titleSubscription = new Templates.TemplateSubscription({
+        onResult: (result) => {
+          this.renderedTitle = result;
+        },
+        onError: () => {
+          // Keep the last good value rather than blanking the heading; the
+          // error itself is logged by the template utility and surfaced in the
+          // visual editor, which is where a user can act on it.
+          if (this.renderedTitle === undefined) {
+            this.renderedTitle = '';
+          }
+        },
+      });
+    }
+
+    this._titleSubscription.update(this.hass, this.config.title);
+  }
 
   /**
    * Hide the card entirely when it has no events and `hide_when_empty` is on.
@@ -841,11 +938,12 @@ class CalendarCardPro extends LitElement {
     // Render main card structure with content
     return Render.renderMainCardStructure(
       customStyles,
-      this.config.title,
+      this.effectiveTitle,
       content,
       handlers,
       false,
       this.isLoading,
+      this.isTitlePending,
     );
   }
 }
