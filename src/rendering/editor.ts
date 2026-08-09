@@ -73,6 +73,13 @@ const DEPRECATED_ENTITY_CONFIG_MAP: Record<string, string> = {
   max_events_to_show: 'compact_events_to_show',
 };
 
+/**
+ * Matches an absolute start_date the date picker can represent: a plain
+ * `YYYY-MM-DD`, or a full ISO timestamp whose leading date portion is captured.
+ * Everything else is treated as a relative expression and edited as free text.
+ */
+const FIXED_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/;
+
 //-----------------------------------------------------------------------------
 // COMPONENT DEFINITION & PROPERTIES
 //-----------------------------------------------------------------------------
@@ -500,7 +507,8 @@ export class CalendarCardProEditor extends LitElement {
     } else if (name === 'start_date_fixed' || name === 'start_date_offset') {
       // These are UI-only fields that map to the single 'start_date' parameter
       // For offset field, only apply on blur/enter (change), not on every keystroke,
-      // because intermediate values (e.g. empty or "-") change the detected mode and hide the field
+      // because an intermediate empty value switches the mode back to 'default'
+      // and hides the field mid-edit
       if (name === 'start_date_offset' && event.type !== 'change') return;
       this.setConfigValue('start_date', target.value);
       this.requestUpdate();
@@ -614,6 +622,14 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Determines the mode (default/fixed/offset) from a start_date value
+   *
+   * Anything that is not an explicit `YYYY-MM-DD` date is shown in the offset
+   * field, which is free text. That covers the whole relative grammar
+   * (`today+7`, `start_of_week`, `monday+1w`, …) as well as values the editor
+   * does not recognise at all: showing them as text preserves them, whereas
+   * routing them to the date picker renders it blank and silently discards the
+   * value on the next interaction.
+   *
    * @returns 'default' | 'fixed' | 'offset'
    */
   private _getStartDateMode(): 'default' | 'fixed' | 'offset' {
@@ -622,9 +638,8 @@ export class CalendarCardProEditor extends LitElement {
     const strValue = value !== undefined && value !== null ? String(value) : '';
 
     if (!strValue || strValue === '') return 'default';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(strValue)) return 'fixed';
-    if (/^[+-]?\d+$/.test(strValue)) return 'offset';
-    return 'fixed'; // fallback for legacy/unknown
+    if (FIXED_DATE_PATTERN.test(strValue)) return 'fixed';
+    return 'offset';
   }
 
   /**
@@ -637,9 +652,17 @@ export class CalendarCardProEditor extends LitElement {
     // Ensure we're working with a string
     const strValue = value !== undefined && value !== null ? String(value) : '';
 
-    if (mode === 'fixed' && /^\d{4}-\d{2}-\d{2}$/.test(strValue)) return strValue;
-    if (mode === 'offset' && /^[+-]?\d+$/.test(strValue)) return strValue;
-    return '';
+    const fixedMatch = strValue.match(FIXED_DATE_PATTERN);
+
+    if (mode === 'fixed') {
+      // The date picker only accepts YYYY-MM-DD, so hand it the date portion of
+      // an ISO value rather than the full timestamp.
+      return fixedMatch ? fixedMatch[1] : '';
+    }
+
+    // Offset mode is free text: echo anything that is not a fixed date back
+    // verbatim so relative expressions survive a round trip through the editor.
+    return fixedMatch ? '' : strValue;
   }
 
   /**

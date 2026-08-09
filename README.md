@@ -513,12 +513,69 @@ The `start_date` parameter can be configured in multiple ways:
   ```
 
 - **Relative date expressions**: Use dynamic offsets relative to the current date
+
   ```yaml
   start_date: "today+7"  # Always show events starting 7 days in the future
   start_date: "+3"       # Shorthand for today+3 (3 days from today)
   start_date: "today-2"  # Show events starting from 2 days ago
   start_date: "-1"       # Shorthand for today-1 (yesterday)
   ```
+
+- **Week anchors**: Start from the first day of the current week
+
+  ```yaml
+  start_date: "start_of_week"    # Monday or Sunday, per first_day_of_week
+  start_date: "start_of_week+7"  # The same day next week
+  start_date: "start_of_week-7"  # The same day last week
+  ```
+
+- **Weekday names**: Jump to the next occurrence of a given weekday
+
+  ```yaml
+  start_date: "saturday"  # The next Saturday (today counts, if today is Saturday)
+  start_date: "today+sat" # Same thing, written explicitly
+  start_date: "monday+1w" # The Monday after next Monday
+  ```
+
+##### Relative expression syntax
+
+Relative expressions are built from an **anchor** followed by any number of **operators**:
+
+```text
+<anchor>[<operator>...]
+
+anchor    today | start_of_week | <weekday>
+operator  +N | -N        move N days
+          +Nw | -Nw      move N weeks
+          +<weekday>     move forward to that weekday (stays put if already on it)
+          -<weekday>     move back to that weekday (stays put if already on it)
+weekday   monday | tuesday | ... | sunday   (or mon, tue, wed, thu, fri, sat, sun)
+```
+
+Expressions are case-insensitive, spaces are ignored (`start_of_week + 7` works), and the
+keywords are always English so a card does not change meaning when `language` changes.
+
+A bare number is **always days**, never weeks — `monday+1` is Tuesday, and `monday+1w` is the
+following Monday. A bare weekday is shorthand for `today+<weekday>`.
+
+| Goal | Expression |
+| --- | --- |
+| The next Monday to come, today included | `monday` |
+| The Monday of the current week, even if it has passed | `start_of_week+mon` |
+| This coming weekend | `today+sat` |
+| The weekend after this one | `today+sat+7` |
+| Two weeks from next Tuesday | `tuesday+2w` |
+
+> [!TIP]
+> To build a row of cards showing one weekday each, use `start_of_week+mon` through
+> `start_of_week+fri` with `days_to_show: 1`. These stay in calendar order all week, whereas
+> bare `monday`…`friday` roll over to next week individually as each day passes.
+
+> [!NOTE]
+> `start_of_week` resolves to a past date for most of the week. Because `show_past_events`
+> defaults to `false`, already-finished timed events on the earlier days are hidden, which can
+> make the start of the week look empty. Pair `start_of_week` with `show_past_events: true` to
+> see the full week. (All-day events are always shown.)
 
 When using `start_date` with `days_to_show`, the calendar will display exactly that number of days starting from the specified date:
 
@@ -1248,7 +1305,7 @@ These examples demonstrate how Calendar Card Pro can be customized to match any 
 | ------------------------------------------ | ----------------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Core Settings**                          |                   |                                                    |                                                                                                                                                                                                                                                             |
 | `entities`                                 | array             | Required                                           | List of calendar entities with optional styling (see Entity Configuration below)                                                                                                                                                                            |
-| `start_date`                               | string            | Today                                              | Custom start date for the calendar (YYYY-MM-DD format). Also supports relative date expressions like `today+7` to display events starting 7 days from today, or `today-3` to show events from 3 days ago. You can also use shorthand notation `+7` or `-3`. |
+| `start_date`                               | string            | Today                                              | Custom start date for the calendar. Accepts a fixed date (`YYYY-MM-DD`) or a relative expression built from an anchor (`today`, `start_of_week`, or a weekday name) plus optional `+N` / `-N` day offsets, `+Nw` / `-Nw` week offsets, and `+<weekday>` / `-<weekday>` jumps — e.g. `today+7`, `+3`, `start_of_week`, `saturday`, `today+sat+7`, `monday+1w`. See [Start Date Configuration](#-start-date-configuration). |
 | `days_to_show`                             | number            | `3`                                                | Number of days to display                                                                                                                                                                                                                                   |
 | `compact_days_to_show`                     | number            | -                                                  | Number of days to display in compact mode                                                                                                                                                                                                                   |
 | `compact_events_to_show`                   | number            | -                                                  | Number of events to show in compact mode                                                                                                                                                                                                                    |

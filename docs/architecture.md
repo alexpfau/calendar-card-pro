@@ -266,9 +266,19 @@ graph TD
 
 The card supports a `start_date` configuration option that allows viewing calendar data from any specified date rather than just today:
 
-1. **Date Parsing**: Handles both YYYY-MM-DD format and ISO format
-2. **API Integration**: Uses the start date to fetch the appropriate time window from the API
-3. **Cache Integration**: Includes the start date in cache keys to ensure proper data refresh when changed
+1. **Relative Grammar**: `src/utils/start-date.ts` parses relative expressions — an anchor
+   (`today`, `start_of_week`, or a weekday name) followed by day, week and weekday operators
+   (`today+7`, `start_of_week+mon`, `monday+1w`). The module is intentionally dependency-free
+   and takes `now` as a parameter, so it is pure and testable in isolation. It returns a
+   three-way result (`ok` / `error` / `nomatch`) so `getTimeWindow` can distinguish
+   "malformed relative expression" from "not a relative expression, try the date parsers next".
+2. **Date Parsing**: Falls back to ISO format and YYYY-MM-DD when the input is not a relative
+   expression
+3. **Week Awareness**: `start_of_week` and weekday operators receive the resolved
+   `first_day_of_week` (threaded from `fetchEventData` as a required parameter, so every call
+   site is forced to supply it)
+4. **API Integration**: Uses the start date to fetch the appropriate time window from the API
+5. **Cache Integration**: Includes the raw start date string in cache keys to ensure proper data refresh when changed
 
 ### Multi-Calendar Styling
 
