@@ -65,9 +65,28 @@ earlier `column-view-phase1-design.md` draft.
   That is the strongest available evidence for Phase 0's premise — lint, `tsc` and the build
   were all green on it, because the value enters as untyped YAML at the one boundary the type
   system does not cross.
+- **v7 — Phase 0 complete.** Stage 2 is **shipped** (`f6846af`): the list-view DOM equality
+  gate that Phase 1's entire safety argument rests on. v6 recorded that the "hard gate" had
+  no executable design; all five gaps are now closed and the answers are in Stage 2. The one
+  that changed the design most: the gate does **not** construct the card element. The pipeline
+  it renders — `groupEventsByDay` → `renderGroupedEvents` → Lit — is exactly what `render()`
+  does for the populated case, and those pure functions _are_ the surface Phase 1 touches, so
+  driving them directly is both simpler and more targeted than mocking `hass`, `callApi` and an
+  async fetch. The gate was **mutation-tested before being called a gate**, against the
+  specific failure mode of a snapshot that captures an empty card and passes regardless: three
+  realistic extract-a-renderer mistakes each fail 10 of 11 tests. v6's fake-timer strategy is
+  confirmed rather than merely proposed, with zero production changes as predicted. **F2's
+  "goldens as a review artifact" is now resolved, not just flagged** — the gate exists, so F2
+  is wrong rather than stale, and its clause is corrected in place. Phase 0 is complete:
+  all three stages shipped, 66 tests, and the production bundle grew by **exactly 3 bytes** —
+  `t&&`, the null guard from `446f44a`. Measured, not assumed: reverting that one file and
+  rebuilding gives 347940 bytes (`686eaa59…`) against 347943 (`30f7b8ec…`). Every other part
+  of Phase 0 — the tests, the i18n script, the CI steps, the `tsconfig` widening — is
+  bundle-neutral, which is the property that let a test suite be added to a project whose
+  stated reason for having none is bundle size.
 
 Changes from v3 are marked **[v4]**; changes from v4 are marked **[v5]**; changes from v5 are
-marked **[v6]**.
+marked **[v6]**; changes from v6 are marked **[v7]**.
 
 > **[v5] Which tree a citation refers to.** This plan was drafted while the author's worktree
 > sat on the frozen #339 branch (decision 9), so a large number of `file.ts:NNN` references
@@ -100,11 +119,11 @@ marked **[v6]**.
 
 ### A2. Previously open — now resolved **[v3]**
 
-| #       | Resolution                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 11 + 12 | **Merged into one design: the view itself falls back to list below a width threshold.** Not column-count clamping. See A3-C.                                                                                                                                                                                                                                                                                                                                   | You flagged that 11 and 12 described the same issue. They did.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| 13      | **[v4] Approved in principle, but re-scoped** — a DOM snapshot cannot gate the Phase 1 refactor, because the DOM is now _allowed_ to change. See A3-A and the new section C0. **[v5] Corrected:** this row was missed by the v4 pass and read as though the gate had become manual. It has not. The automated gate is **retained and tightened**, and it is the _list_ DOM that must be byte-identical across Phase 1 — see **Phase 0 Stage 2**, which owns it | **[v5]** The _visual_ check in Home Assistant covers the **column** view, which has no baseline to be identical to. It does **not** replace the automated list-DOM gate; the two cover different things and both are required before Phase 1 merges                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 14      | **Approved:** "fully flexible here, let's try out once we have a first implementation." Measure `min_day_column_width_px` in Phase 4.                                                                                                                                                                                                                                                                                                                          | **[v5] A provisional value is now fixed so Phase 4 is buildable: `min_day_column_width_px = 160`.** This is a **starting point, not a result** — it is to be measured and revised in Phase 4, and the plan is not "correct" until it has been. It is not a free choice, however: (a) **128 is disproven**, not neutral — the narrow-column analysis below showed titles wrapping badly at that width, so the inherited #339 default must not ship unchanged; (b) `atomic-calendar-revive` ships `min-width: 150px` on its Planner columns, which is the only real-world number available and brackets the answer from below; (c) 160 leaves the decision-4 date-header arithmetic at ≈ 34–39% of column width rather than 43–50%, which is the margin the header band needs for weather (D2). **[v4] Two facts still bank before measuring:** the number does **double duty** — usable column-width floor _and_ the multiplier in A3-C's view-switch threshold — so a wrong value produces two _aligned_ bad outcomes (cramped columns that also fail to trigger the list fallback) |
+| #       | Resolution                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 11 + 12 | **Merged into one design: the view itself falls back to list below a width threshold.** Not column-count clamping. See A3-C.                                                                                                                                                                                                                                                                                                                                                                                                           | You flagged that 11 and 12 described the same issue. They did.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 13      | **[v4] Approved in principle, but re-scoped** — a DOM snapshot cannot gate the Phase 1 refactor, because the DOM is now _allowed_ to change. See A3-A and the new section C0. **[v5] Corrected:** this row was missed by the v4 pass and read as though the gate had become manual. It has not. The automated gate is **retained and tightened**, and it is the _list_ DOM that must be byte-identical across Phase 1 — see **Phase 0 Stage 2**, which owns it. **[v7] Shipped (`f6846af`) and mutation-tested — the gate now exists** | **[v5]** The _visual_ check in Home Assistant covers the **column** view, which has no baseline to be identical to. It does **not** replace the automated list-DOM gate; the two cover different things and both are required before Phase 1 merges                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 14      | **Approved:** "fully flexible here, let's try out once we have a first implementation." Measure `min_day_column_width_px` in Phase 4.                                                                                                                                                                                                                                                                                                                                                                                                  | **[v5] A provisional value is now fixed so Phase 4 is buildable: `min_day_column_width_px = 160`.** This is a **starting point, not a result** — it is to be measured and revised in Phase 4, and the plan is not "correct" until it has been. It is not a free choice, however: (a) **128 is disproven**, not neutral — the narrow-column analysis below showed titles wrapping badly at that width, so the inherited #339 default must not ship unchanged; (b) `atomic-calendar-revive` ships `min-width: 150px` on its Planner columns, which is the only real-world number available and brackets the answer from below; (c) 160 leaves the decision-4 date-header arithmetic at ≈ 34–39% of column width rather than 43–50%, which is the margin the header band needs for weather (D2). **[v4] Two facts still bank before measuring:** the number does **double duty** — usable column-width floor _and_ the multiplier in A3-C's view-switch threshold — so a wrong value produces two _aligned_ bad outcomes (cramped columns that also fail to trigger the list fallback) |
 
 ---
 
@@ -804,26 +823,52 @@ that adding views never disturbs the list.
 > materially more invasive than a setup line. If you find a concrete reason fake timers cannot
 > work here, that is a finding to report, not an implementation detail to absorb silently.
 
-> **[v6] The gate is called "hard pass/fail" but has no executable design.** The clock strategy
-> above is settled; the mechanics are not, and each of these changes what "byte-identical"
-> means. Before Phase 1 can be gated, this stage must specify:
+> **[v7] SHIPPED — `f6846af`.** The five gaps below are closed; the answers are recorded
+> here because each one changed what "byte-identical" means in practice.
 >
-> - **What is rendered, and into what.** The card is a Lit element with a shadow root, so a
->   test must construct it, feed it `hass` + config, `await el.updateComplete`, and serialize
->   `shadowRoot.innerHTML` — none of which is stated. `happy-dom` (Stage 1) covers this.
-> - **Serialization normalisation.** Raw `innerHTML` carries Lit's comment markers (`<!--?lit$…
--->`), whose ids vary between runs. Either strip them or accept that the diff is noise.
-> - **Where the baselines live and how they are approved.** `__snapshots__` vs committed
->   fixtures, and the review rule for an _intended_ change — a gate with no sanctioned update
->   path gets bypassed the first time list DOM legitimately changes.
-> - **Which fixtures.** "The soak fixtures" names no file; the set must be enumerated and
->   committed, including at least one all-day, one multi-day, one empty-day and one past-event
->   case, or the gate will pass while missing the branches most likely to regress.
-> - **The command, and whether CI runs it.** An unrun gate is a comment.
+> - **What is rendered, and into what.** _Not_ the card element. The pipeline under test is
+>   `groupEventsByDay` → `renderGroupedEvents` → Lit, rendered into a detached `<div>` — which
+>   is exactly what `calendar-card-pro.ts` `render():884` does for the populated case.
+>   Constructing the element would require a fake `hass`, a mocked `callApi`
+>   (`events.ts:1167`) and an awaited async fetch, none of which the gate is about and all of
+>   which could fail for unrelated reasons. **The pure functions _are_ the surface Phase 1
+>   touches**, so this is both simpler and more targeted. Grouping and rendering are kept
+>   together deliberately: grouping decides day boundaries, ordering and survival; rendering
+>   turns that into the table. "The list DOM must not change" means both.
+> - **Serialization normalisation.** Verified by inspecting real output rather than assumed.
+>   Lit emits three marker forms here: `<!--?lit$095926250$-->` carries a **per-render random
+>   id** and must be stripped or every run differs; `<!---->` is empty and is stripped for
+>   readability; `<!--?-->` is deterministic and is **kept**, because branch position is real
+>   signal. Two `lit-part` patterns tried first turned out to be SSR-only and never fire —
+>   they were removed rather than left in looking like a guarantee.
+> - **Where the baselines live and how they are approved.** Committed under
+>   `tests/__snapshots__/`, so an intended change appears in the PR diff as a snapshot change
+>   a reviewer has to look at. Sanctioned update path: review that diff, then re-run the suite
+>   with vitest's `-u` flag. Stated in the file's own docblock, because a gate with no approved
+>   update path gets deleted the first time list DOM legitimately changes.
+> - **Which fixtures.** Enumerated in `tests/fixtures.ts`, each mapped in a table to the branch
+>   it holds open — past, currently-running, upcoming, location, all-day, multi-day, and a
+>   future-only day. Ten snapshots cover default, single event, empty calendar, empty days,
+>   past events, week numbers + separators, split multi-day, compact, location + end time, and
+>   a non-English language. The frozen instant is **Wednesday 2026-06-17T10:00Z** — mid-week
+>   and mid-month on purpose, so neither the week-boundary nor the month-boundary separator is
+>   permanently on and therefore permanently untested.
+> - **The command, and whether CI runs it.** `npm test`, already wired into `ci.yml` by
+>   Stage 1. No new step needed.
 >
-> Note this also **contradicts F2**, which still describes goldens as "a review artifact, not a
-> gate". One of the two statements has to give; Stage 2's framing is the newer one, so F2 is
-> what needs updating — flagged, not silently changed.
+> **Mutation-tested before being called a gate.** The specific failure mode to rule out was a
+> snapshot that captures an empty card and passes regardless of changes. Three realistic
+> extract-a-renderer mistakes: renaming a CSS class, hardcoding the date column's `rowspan`,
+> and dropping the weekend modifier from `date-column`. Each fails **10 of 11** tests. The
+> survivor every time is the clock-freeze guard, which correctly does not depend on render
+> output. Snapshots confirmed stable across repeat runs.
+>
+> **Two incidental confirmations.** The clock strategy above is now verified rather than
+> proposed — `events.ts` calls `new Date()` in eight places and fake timers cover all of them,
+> with zero production changes, exactly as predicted. And the serialized `date-column` cell
+> renders as `<td class="date-column " rowspan="4">`, which is the element **A3-A**'s
+> `align-self` analysis concerns; the gate now pins its current structure before that analysis
+> is acted on.
 
 **This requires an `AGENTS.md` amendment, not a silent violation.** The file says "no test
 framework… Keep it that way", with **bundle size** as the rationale — which does not apply,
@@ -1492,6 +1537,12 @@ change an allow/block pattern. Confirm the view updates.
    > visible. See Stage 2 for what the gate still needs before it is executable. Also note
    > `npm run check:i18n` (shipped) now sits between Type check and Build in CI, so the gate
    > list above is one item short.
+   >
+   > **[v7] Contradiction resolved — the gate shipped (`f6846af`), so F2's wording is now
+   > simply wrong rather than merely stale.** Read this clause as: DOM goldens are a **hard
+   > pass/fail gate**, mutation-tested, running in CI via `npm test`. The gate list in F2 is
+   > two items short, not one — `check:i18n` **and** `test` both sit between Type check and
+   > Build. The prose above is preserved only as the record of what was believed in v3.
 
 3. **Config migration is editor-only.** `DEPRECATED_CONFIG_MAP` (`editor.ts:67-72`) is consumed
    solely at
