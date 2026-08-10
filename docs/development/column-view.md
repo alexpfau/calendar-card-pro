@@ -376,6 +376,28 @@ for that reason, including two of Phase 1's four extraction targets: weather and
 `parseIndicatorPosition`. Enumerate default-off render options from source and pin each one;
 mutation testing proves assertions are load-bearing, not that every branch is reached.
 
+That prediction was then tested. An adversarial mutation audit of the 18-test gate ran 59
+mutations; **22 survived**. The gate reliably catches structural DOM changes — element names,
+class names, ordering, `rowspan`, both weather render sites — but passes three whole classes of
+refactoring bug:
+
+1. **Default-off branches are unreached**, as predicted: `show_description`, `filter_duplicates`,
+   `remove_location_country`, `compact_events_complete_days`, and the one-token
+   `today_indicator_position` fallback all survived a flipped default.
+2. **Default-true options are never exercised in their `false` branch.** Twelve of them,
+   including `show_month`, `show_time`, `show_location`, `show_end_time` and five weather
+   toggles. Emitting bogus DOM from the `false` branch passes.
+3. **Whole-logic deletion in code that no-ops under default config.** The colour-precedence
+   chain is the severe case — see the Phase 1 traps below.
+
+The audit also found the gate cannot distinguish `''` from `nothing`, and that its assertions
+are Vitest external snapshots, i.e. an approval oracle regenerable with `vitest -u` — which
+during a refactor means a genuine regression can be "fixed" by regenerating it. **Tests added to
+close these holes use explicit inline assertions, not snapshots**, and each is proven to fail
+under the mutation it exists to catch.
+
+Phase 1 does not begin until the holes intersecting its four extraction targets are closed.
+
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#phase-0--safety-net--ships-3x--risk-none-v3--new)
 
 ### Phase 1 — shared leaf renderers — ships 3.x — risk: low
@@ -392,21 +414,51 @@ Extract in this order:
 2. Date content and colour precedence (`renderDateColumn` `:490-611`, precedence `:497-516`).
    The date-content renderer takes weather as an already-rendered `TemplateResult` or
    `nothing`, rather than raw forecast data.
-3. `.event-content` subtree (`render.ts:942-1003`) — title, time, location.
+3. `.event-content` subtree (`render.ts:942-1003`) — time, location, description. **Not** the
+   title: `renderEventTitle` is already a standalone exported function (`render.ts:1012`),
+   called at `:943`. Nothing to extract there.
 4. Today-indicator geometry (`parseIndicatorPosition` `:358-382`).
+
+Target 3 is the branchiest of the four and the spec previously understated it. The time block
+(`:944-985`) is a triple-nested ternary with **six** distinct output shapes, not one:
+
+| #   | Condition                     | `.time-actual`          | Sibling           |
+| --- | ----------------------------- | ----------------------- | ----------------- |
+| 1   | `shouldShowTime` + countdown  | icon + `<span>`         | `.time-countdown` |
+| 2   | `shouldShowTime` + progress   | icon + `<span>`         | `.progress-bar`   |
+| 3   | `shouldShowTime` alone        | icon + `<span>`         | —                 |
+| 4   | `!shouldShowTime` + countdown | **empty**               | `.time-countdown` |
+| 5   | `!shouldShowTime` + progress  | **empty**               | `.progress-bar`   |
+| 6   | none of the above             | not emitted (`nothing`) | —                 |
+
+Shapes 4 and 5 differ from 1 and 2 _only_ by the emptiness of `.time-actual`, which makes
+"reuse the populated one" the single most likely extraction bug in Phase 1.
 
 The Stage 2 gate pins both weather render sites: the date-column block and
 `renderEventWeather` (`render.ts:1050+`), which reads the hourly forecast. Do not let the event
 weather path fall through the extraction just because the date-column path is named first.
 
 The contract is strict: list-view DOM must be byte-identical before and after. Extraction that
-changes list output is a bug. Watch two traps:
+changes list output is a bug. Watch four traps:
 
 - `renderEvent` interpolates locals computed before the extraction boundary; pass them rather
   than recomputing.
 - Accent, background, padding, and position classes live on the wrapper `<td class="event">`
   (`render.ts:938-941`, `styles.ts:458-483`, position classes at `render.ts:916-922`). Future
   column wrappers reproduce those; leaves do not absorb them.
+- **The colour-precedence chain is invisible to default-config tests.** `:497-516` resolves
+  base → weekend → today, today winning. But all six weekend/today colour keys default to
+  `undefined` (`config.ts:75-80`), so every `||` falls through to base and **both `if` blocks
+  are complete no-ops** under default config. Deleting the entire chain produces identical
+  output for every default fixture. Any test protecting target 2 must set the weekend and
+  today colour keys explicitly, and must include a **today that falls on a weekend** to pin
+  the precedence order.
+- **Three "render nothing" idioms coexist in the extracted region** and are not
+  interchangeable in the DOM: `nothing` (`:985`), `''` (`:993`, `:1001`), and ` html` ``
+(`:1061`, `:1071`, `:1087`). **Phase 1 preserves each exactly as-is.** Normalising them is
+  behaviourally safe but violates the byte-identical contract, and folding a cosmetic cleanup
+  into a structural extraction is how refactors go wrong. Normalise later as its own change,
+  if at all.
 
 Deferred out of Phase 1: removing the layout table, RTL, and the duplicate
 `.today-indicator-container` rule (`styles.ts:332-340` / `:364-370`).
