@@ -9,6 +9,7 @@
     "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' --fix --format stylish",
     "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
     "test": "vitest run",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",

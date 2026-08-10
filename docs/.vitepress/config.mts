@@ -42,6 +42,12 @@ export default defineConfig({
   // is worth having: the README's anchors could only ever be checked by hand.
   ignoreDeadLinks: false,
 
+  // Internal engineering docs live in the repo for contributors but must not
+  // deploy to the public site. column-view.md is a v4.0.0 design plan that
+  // states up front it is "not user documentation"; published, it was reachable
+  // and indexable, describing an unbuilt feature as though it existed.
+  srcExclude: ['development/**'],
+
   markdown: {
     anchor: { slugify },
 
@@ -103,19 +109,32 @@ export default defineConfig({
         ],
       },
       {
-        text: 'Features & Configuration',
+        text: 'Essentials',
         collapsed: false,
         items: [
           { text: 'Visual Configuration Editor', link: '/features/editor' },
           { text: 'Core Settings', link: '/features/core-settings' },
+          { text: 'Event Content & Display', link: '/features/event-content' },
+          { text: 'Layout & Appearance', link: '/features/layout-appearance' },
+        ],
+      },
+      {
+        text: 'Going Further',
+        collapsed: false,
+        items: [
+          { text: 'Dynamic Titles with Templates', link: '/features/title-templates' },
           { text: 'Split Multi-Day Events', link: '/features/multi-day-events' },
           { text: 'Dynamic Start Date', link: '/features/start-date-offset' },
-          { text: 'Dynamic Titles with Templates', link: '/features/title-templates' },
-          { text: 'Layout & Appearance', link: '/features/layout-appearance' },
-          { text: 'Event Content & Display', link: '/features/event-content' },
           { text: 'Weather Integration', link: '/features/weather' },
           { text: 'Actions & Interactions', link: '/features/actions' },
-          { text: 'Performance & Theme', link: '/features/performance' },
+        ],
+      },
+      {
+        text: 'Advanced',
+        collapsed: false,
+        items: [
+          { text: 'Theming & Card-Mod', link: '/features/theming' },
+          { text: 'Performance & Caching', link: '/features/performance' },
         ],
       },
       {

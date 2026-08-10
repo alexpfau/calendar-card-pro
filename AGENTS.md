@@ -149,20 +149,49 @@ quick-start example. Links from the README into the docs site must be **absolute
 (`https://calendar-card-pro.alexpfau.com/...`) — the README also renders on GitHub and in
 HACS, where relative docs paths do not resolve.
 
-**Do not touch the `## 4️⃣ What's New` section** in a feature PR. It is organised by
-release, so a feature branch cannot know which version it will land in, and concurrent
-branches conflict in it.
+The README's quick-start YAML block is the one **deliberate** duplicate in the project: it
+is the HACS landing page, so it has to show a working config without sending the reader
+elsewhere first. `check:docs` pins it byte-for-byte to the first example in
+`docs/guide/usage.md`. Do not resolve that failure by deleting either copy — edit both.
+Anything that *teaches* (multiple calendars, per-calendar colours, compact mode) belongs
+only in `docs/`, never in the README.
 
-**In the release PR** (`dev` → `main`), update `## 4️⃣ What's New` alongside
-`docs/RELEASE_NOTES.md`: rename the previous `### Latest Release: vX.Y` to plain `### vX.Y`,
-add a new one with 3–6 one-line bullets condensed from the release notes, and apply the
-retention rule — keep the current major version's minor releases, newest first, capped at
-8, topping up from the previous major only if that leaves fewer than 4.
+### The two "What's New" surfaces
 
-That list is a **highlights reel, not a changelog** — the full notes are linked directly
-above it, so anything left out is one click away. Select on relevance rather than on
-whether something is a feature or a fix: a Home Assistant compatibility break or a bug that
-made the card look empty belongs there; a narrow styling option, an editor validation
+There are **two** of them and they follow **different rules**. Updating only one is the
+most likely way for a release to drift:
+
+| | `README.md` `## 4️⃣ What's New` | `docs/guide/whats-new.md` |
+| --- | --- | --- |
+| Purpose | highlights reel for the HACS landing page | the card's full history |
+| Span | current major only, capped at 8 entries | **every** minor line, back to v1.0 |
+| Selection | ruthless — relevance only | fuller, but still curated |
+
+**Do not touch either in a feature PR.** They are organised by release, so a feature
+branch cannot know which version it will land in, and concurrent branches conflict in them.
+
+**In the release PR** (`dev` → `main`), update **both** alongside `docs/RELEASE_NOTES.md`.
+In each, rename the previous `Latest Release: vX.Y` heading to plain `vX.Y` and add a new
+one condensed from the release notes. Then:
+
+- **README** — apply the retention rule: keep the current major version's minor releases,
+  newest first, capped at 8, topping up from the previous major only if that leaves fewer
+  than 4.
+- **docs page** — never drop an entry; it is the archive. `check:docs` fails if a minor
+  line present in `RELEASE_NOTES.md` has no `## vX.Y` heading here, and vice versa.
+
+A **patch** release folds into the existing `vX.Y` entry on both surfaces rather than
+adding a new heading — each entry covers its whole minor line.
+
+When linking **into** the docs page, mind the anchor: the site's `slugify` strips dots, so
+`## v2.1` anchors as `#v21`, not `#v2-1`. These links are written as absolute URLs to the
+live site, so VitePress's dead-link check — which only resolves relative links — cannot
+see them; `check:docs` validates them instead.
+
+The README list is a **highlights reel, not a changelog** — the full notes are linked
+directly above it, so anything left out is one click away. Select on relevance rather than
+on whether something is a feature or a fix: a Home Assistant compatibility break or a bug
+that made the card look empty belongs there; a narrow styling option, an editor validation
 nicety, or a rare edge-case fix does not. Never write a catch-all "🐛 Key Bug Fixes" bullet.
 Three honest bullets beat six padded ones, and older entries may be trimmed further as they
 age. Deep-link each bullet to the relevant docs page where one exists.
@@ -172,7 +201,8 @@ age. Deep-link each bullet to the relevant docs page where one exists.
 1. Bump `version` in `package.json` — it is the single source of truth. Rollup
    substitutes it into the bundle header and into `constants.ts` via `@version
 vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
-2. Update `docs/RELEASE_NOTES.md` and the README's `## 4️⃣ What's New` section.
+2. Update `docs/RELEASE_NOTES.md`, the README's `## 4️⃣ What's New` section, **and**
+   `docs/guide/whats-new.md` — see _The two "What's New" surfaces_ for the differing rules.
 3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
    review that you cannot give yourself, so this needs `gh pr merge <n> --merge --admin`.
 4. **Fast-forward `dev` back onto `main`** — `git push origin origin/main:dev`. The merge
