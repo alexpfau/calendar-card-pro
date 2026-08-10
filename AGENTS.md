@@ -306,9 +306,24 @@ and serves `docs/.vitepress/dist` as static assets.
 - `wrangler.jsonc` defines the Worker: no `main` script, `assets.directory` pointing at the
   VitePress output, and the custom domain declared as a route so the hostname binding stays
   in version control.
-- The Node version is pinned by **both `.nvmrc` and `.node-version`** (kept in sync). The
-  build image resolves the version from these files; without a pin it silently falls back
-  to its own default, which may not satisfy the `engines` ranges of the dev dependencies.
+- The Node version is pinned by **both `.nvmrc` and `.node-version`** (kept in sync), and
+  `ci.yml` reads `.nvmrc` via `node-version-file` so CI and the deploy run the same runtime.
+  Keep it that way. When they drifted — CI on Node 24, the build image on Node 22 — npm 11
+  in CI accepted a `package-lock.json` that npm 10 on the build image rejected with
+  `EUSAGE … Missing: esbuild@… from lock file`. CI was green on every PR while the deploy
+  failed and the site quietly served stale content.
+- **A lockfile that installs locally is not a lockfile that installs on the build image.**
+  Merging branches that each touched `package-lock.json` can produce a file that is
+  internally inconsistent but still satisfies a newer npm. To check against the deploy's
+  npm rather than yours:
+
+  ```bash
+  mkdir /tmp/lockcheck && cp package.json package-lock.json /tmp/lockcheck/
+  cd /tmp/lockcheck && npx npm@10.9.2 ci --dry-run
+  ```
+
+  A non-zero exit here means the next merge to `main` will fail to deploy. Fix it with
+  `npx npm@10.9.2 install --package-lock-only` and commit the result.
 - A green `validate-hacs` check does **not** mean the site deployed. The Workers build is a
   separate check run named `Workers Builds: calendar-card-pro`. Confirm a deploy by
   fetching the live page, not by reading check names:
@@ -320,7 +335,8 @@ and serves `docs/.vitepress/dist` as static assets.
 
   If the build fails, its log lives only in the Cloudflare dashboard — the GitHub check run
   carries a `details_url` and no log text, and the check-run/check-suite re-request
-  endpoints both return 404 for a normal `gh` token.
+  endpoints both return 404 for a normal `gh` token. Ask for the log rather than guessing;
+  two build cycles were spent inferring a cause the first log line stated outright.
 
 ## Adding or changing a translation
 
