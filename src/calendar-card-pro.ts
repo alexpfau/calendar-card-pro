@@ -126,6 +126,40 @@ class CalendarCardPro extends LitElement {
 
   static getStubConfig = Config.getStubConfig;
 
+  /**
+   * Declares the card's default size to a Home Assistant sections dashboard.
+   *
+   * Implementing this at all is what removes the "This card does not fully support
+   * resizing yet" notice from the layout editor: Home Assistant shows that whenever a
+   * card's grid options come back empty, which is what an unimplemented method returns.
+   *
+   * `columns: 'full'` rather than a number, because a section's internal grid is
+   * `12 * column_span` tracks wide, not 12. A card asking for 12 therefore occupies one
+   * twelfth of the tracks per unit of span — a `column_span: 3` section leaves it at a
+   * third of the width with two thirds empty beside it. `'full'` compiles to
+   * `grid-column: 1 / -1` and fills whatever the section turns out to be. In an
+   * unspanned section the two are the same width, so this changes nothing for the
+   * common case and only takes effect where the old behaviour was visibly wrong.
+   *
+   * This is deliberately not view-dependent, even though column view is the case that
+   * needs the width. Grid options are an *input* to the card's width, and the effective
+   * view is computed from the width that results — asking the view here would be
+   * circular, and would report `list` on first render because no measurement exists yet.
+   * Full width is the right answer for a calendar in either view regardless.
+   *
+   * `rows: 'auto'` keeps the height driven by content. A numeric value pins a fixed
+   * height, which would leave dead space on a quiet calendar and truncate a busy one.
+   *
+   * No `min_columns` / `max_columns` are declared, so the user keeps the full drag
+   * range in the layout editor. These are defaults, not constraints: an explicit
+   * `grid_options` block in the card config still wins.
+   *
+   * @returns Default grid sizing for a sections-view dashboard
+   */
+  public getGridOptions(): { columns: 'full'; rows: 'auto' } {
+    return { columns: 'full', rows: 'auto' };
+  }
+
   // Private, non-reactive properties
   private _instanceId = Helpers.generateInstanceId();
   /**

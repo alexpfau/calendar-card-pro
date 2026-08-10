@@ -42,7 +42,8 @@ absent `column:` block a visual no-op.
 | Option                                | Type   | Default                | Description                                                                        |
 | ------------------------------------- | ------ | ---------------------- | ---------------------------------------------------------------------------------- |
 | `column → day_gap`                    | string | `4px`                  | Horizontal space between day columns, the column-view counterpart to `day_spacing` |
-| `column → day_header_separator_width` | string | `1px`                  | Thickness of the rule under each day header; `0px` renders no rule                 |
+| `column → day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                            |
+| `column → day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule   |
 | `column → day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                                 |
 
 **→ [Column View](/features/core-settings#column-view)** — worked examples.

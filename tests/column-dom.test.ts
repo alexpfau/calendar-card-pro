@@ -280,27 +280,27 @@ describe('column view DOM', () => {
   });
 
   describe('header separator', () => {
-    it('renders a rule under every header by default', () => {
-      // Spec B2 rules this visible by default, the one place the column defaults
-      // deliberately diverge from the list separators (which all start at `0px`).
-      // The rule is structural rather than decorative: it marks where a column's
-      // header ends and its events begin. Because the element exists only in column
-      // view, defaulting it on cannot change list output.
+    it('renders no rule by default', () => {
+      // B2 originally ruled this visible, on the argument that the element exists only
+      // in column view and is structural rather than decorative. Live review overturned
+      // that: beside the coloured accent bars on each event, a full-width rule reads as
+      // a table border. B2 was formally amended and the rule now ships off, in line
+      // with every list separator.
+      //
+      // The gap it used to sit in survives it -- see the day_header_gap test below.
+      // That is the whole point of the reversal: switching the rule off must not also
+      // collapse the space between a header and its events.
       const container = renderColumnContainer(EVENTS, buildConfig());
-      const separators = container.querySelectorAll('.column-header-separator');
-      const columns = container.querySelectorAll('.day-column');
 
-      expect(columns.length).toBeGreaterThan(0);
-      expect(separators.length).toBe(columns.length);
-      expect(separators[0].getAttribute('style')?.replace(/\s/g, '')).toContain(
-        'border-top-width:1px',
-      );
+      expect(container.querySelectorAll('.day-column').length).toBeGreaterThan(0);
+      expect(container.querySelector('.column-header-separator')).toBeNull();
     });
 
     it('omits the element entirely when the width is set to 0px', () => {
-      // A zero-width border would still emit an element and still consume the
-      // header's bottom margin, so switching the rule off must remove the node
-      // rather than make it invisible.
+      // Explicitly writing the default must behave identically to omitting it. A
+      // zero-width border would still emit an element carrying the separator's own
+      // bottom margin, so switching the rule off has to remove the node rather than
+      // make it invisible.
       const config = buildConfig();
       config.column = { day_header_separator_width: '0px' };
 
@@ -345,6 +345,45 @@ describe('column view DOM', () => {
         requireElement(container, '.column-header-separator').getAttribute('style') ?? '';
 
       expect(style).toContain('rgb(1, 2, 3)');
+    });
+  });
+
+  describe('header gap', () => {
+    it('publishes the gap as a custom property on the grid', () => {
+      // The header-to-events gap used to be an emergent 4px of header padding plus 4px
+      // of separator margin, which meant switching the rule off silently halved it.
+      // Owning it as one value is what lets the rule default to off (B2, amended)
+      // without the header collapsing onto its events.
+      //
+      // Asserted as a literal rather than against COLUMN_DEFAULTS, so this cannot pass
+      // by moving with the code.
+      const container = renderColumnContainer(EVENTS, buildConfig());
+      const style = requireElement(container, '.column-grid').getAttribute('style') ?? '';
+
+      expect(style.replace(/\s/g, '')).toContain('--calendar-card-column-header-gap:8px');
+    });
+
+    it('honours a configured gap', () => {
+      const config = buildConfig();
+      config.column = { day_header_gap: '20px' };
+
+      const container = renderColumnContainer(EVENTS, config);
+      const style = requireElement(container, '.column-grid').getAttribute('style') ?? '';
+
+      expect(style.replace(/\s/g, '')).toContain('--calendar-card-column-header-gap:20px');
+    });
+
+    it('coerces a bare number to px', () => {
+      // Home Assistant's YAML parser types an unquoted `16` as a number, which would
+      // emit an invalid declaration the browser drops -- collapsing the gap to the
+      // stylesheet fallback with no diagnostic. Same trap as the separator width.
+      const config = buildConfig();
+      config.column = { day_header_gap: 16 as unknown as string };
+
+      const container = renderColumnContainer(EVENTS, config);
+      const style = requireElement(container, '.column-grid').getAttribute('style') ?? '';
+
+      expect(style.replace(/\s/g, '')).toContain('--calendar-card-column-header-gap:16px');
     });
   });
 

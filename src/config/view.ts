@@ -72,12 +72,13 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = 
  * The distinction is load-bearing rather than editorial: every key in
  * `COLUMN_OVERRIDE_KEYS` must also be a `DEFAULT_CONFIG` key — an override of an
  * option the card does not have would resolve to `undefined` at every call site —
- * and these three deliberately are not. Merging the lists would either break that
- * invariant or force three phantom top-level options into `DEFAULT_CONFIG` that no
+ * and these deliberately are not. Merging the lists would either break that
+ * invariant or force phantom top-level options into `DEFAULT_CONFIG` that no
  * list-view code path could ever read.
  */
 export const COLUMN_ONLY_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = [
   'day_gap',
+  'day_header_gap',
   'day_header_separator_width',
   'day_header_separator_color',
 ];
@@ -176,26 +177,33 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  *   legibility risk, not a free saving, and it is the first thing to re-measure if
  *   columns read as one block. Widening it costs threshold headroom, so the two
  *   cannot be traded independently.
- * - `day_header_separator_width` is `1px` — visible by default, which is the one
- *   place these defaults deliberately break the "match the list" rule. Every list
- *   separator defaults to `0px` because it is decoration between days that are
- *   already separated by vertical space. This rule is structural: it marks where a
- *   column's header ends and its events begin, a boundary that has no equivalent in
- *   a stacked layout. It exists only inside column view, so defaulting it visible
- *   cannot change list output.
+ * - `day_header_gap` is `8px` — the vertical space between a day's header and its
+ *   first event. It exists as its own option because that space used to be an
+ *   emergent property of two unrelated rules, a 4px padding under the header plus a
+ *   4px margin under the separator, so switching the separator off silently halved
+ *   it. The gap is now the header's alone and does not move when the rule does; the
+ *   rule, when present, sits centred in it.
+ * - `day_header_separator_width` is `0px` — no rule by default, which lines up with
+ *   every list separator and with `show_*` defaults generally. This **reverses** the
+ *   original B2 ruling, which made it visible because the boundary it marks is
+ *   structural rather than decorative. That argument was sound in the abstract and
+ *   wrong in practice: seen against the coloured accent bars beside each event, a
+ *   full-width horizontal rule reads as a table border and dates the card. The
+ *   reversal was made on the maintainer's explicit ruling after live review, and B2
+ *   in the spec has been amended to match — this is not a re-derivation from local
+ *   consistency, which is the change B2 still forbids. Constant header spacing is
+ *   what `day_header_gap` above now guarantees, so turning the rule off no longer
+ *   collapses the header against the events.
  * - `day_header_separator_color` is `var(--divider-color)`, Home Assistant's semantic
  *   divider token, rather than the `var(--secondary-text-color)` the list separators
  *   use. That is a deliberate token-family choice, not an oversight: this is a
- *   structural divider, not text. Do not "fix" it to match the list separators.
- *
- * Both separator values are ruled by section B2 of the spec; the reasoning above is
- * a summary of it. An earlier implementation shipped `0px` /
- * `var(--secondary-text-color)` here by reasoning from local consistency with the
- * list defaults instead of reading B2, which is the exact change B2 forbids.
+ *   structural divider, not text. Do not "fix" it to match the list separators. This
+ *   half of B2 stands unchanged.
  */
 export const COLUMN_DEFAULTS = {
   day_gap: '4px',
-  day_header_separator_width: '1px',
+  day_header_gap: '8px',
+  day_header_separator_width: '0px',
   day_header_separator_color: 'var(--divider-color)',
 } as const;
 
@@ -208,7 +216,11 @@ export const COLUMN_DEFAULTS = {
  * declaration, and the rule silently disappears. Coercing here means the failure
  * cannot reach the renderer.
  */
-const COLUMN_LENGTH_KEYS: ReadonlySet<string> = new Set(['day_gap', 'day_header_separator_width']);
+const COLUMN_LENGTH_KEYS: ReadonlySet<string> = new Set([
+  'day_gap',
+  'day_header_gap',
+  'day_header_separator_width',
+]);
 
 /**
  * Normalizes a column-only option value to a usable CSS string.

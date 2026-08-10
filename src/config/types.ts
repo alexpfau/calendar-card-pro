@@ -202,17 +202,18 @@ export interface ColumnOverrides {
 
   // Column-only layout — Category C
   //
-  // These three have no top-level counterpart, so they are not overrides and do not
+  // These have no top-level counterpart, so they are not overrides and do not
   // participate in inheritance: there is nothing above them to inherit from. They
   // live here because `column:` is where column-only configuration belongs, not
   // because they behave like the keys above.
   //
   // `resolveViewOption` excludes them structurally rather than by convention — its
   // key parameter is constrained to `keyof ColumnOverrides & keyof Config`, and none
-  // of these three is a `Config` key, so passing one is a compile error rather than a
+  // of these is a `Config` key, so passing one is a compile error rather than a
   // silent `undefined`. Read them with `resolveColumnOption`, which owns their
   // defaults.
   day_gap?: string;
+  day_header_gap?: string;
   day_header_separator_width?: string;
   day_header_separator_color?: string;
 }

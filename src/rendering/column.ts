@@ -120,13 +120,17 @@ function renderDayColumn(
   // A zero width means "no rule", matching how every other separator width in the
   // card is switched off. Zero is checked in any unit rather than against the literal
   // `0px`, because a user can write `0`, `'0'` or `'0em'` and mean the same thing.
-  // Rendering a zero-width border would still emit an element that carries the
-  // separator's own 4px bottom margin, adding dead space under the header. (The
-  // header's 4px bottom padding is unconditional and applies either way — an earlier
-  // comment here attributed the margin to the header, which is wrong.)
-  // Unlike the list separators this one defaults to `1px` rather than `0px` (spec B2) —
-  // it is structural, not decorative — so this branch is the opt-out path rather than
-  // the default one.
+  //
+  // This is the default path, not the opt-out one: the rule ships off. The original
+  // spec B2 ruling made it visible on the argument that the header/events boundary is
+  // structural rather than decorative, which read well on paper and badly on screen --
+  // against the coloured accent bars beside each event, a full-width horizontal rule
+  // looks like a table border. B2 has been amended; see the COLUMN_DEFAULTS docstring.
+  //
+  // Omitting the element rather than emitting a zero-width one matters because the
+  // separator carries its own bottom margin. What it must *not* do is take the gap
+  // above the events with it, which is why that gap now lives on the header as
+  // `day_header_gap` and the separator sits centred inside it.
   const separatorWidth = ViewConfig.resolveColumnOption(config, 'day_header_separator_width');
   const separatorColor = ViewConfig.resolveColumnOption(config, 'day_header_separator_color');
 
@@ -193,8 +197,9 @@ function renderDayColumn(
  * Day, week and month separators are not rendered. The list view's separators are
  * horizontal rules between stacked days; in a column layout the equivalent boundary
  * is the gap between tracks, which `day_gap` already controls. The header rule is the
- * column view's own separator, and it is opt-out: it defaults to visible (spec B2)
- * and is suppressed by setting its width to `0px`.
+ * column view's own separator, and it is opt-in: it defaults to `0px` and is shown by
+ * giving it a width. B2 originally ruled the opposite; see the `COLUMN_DEFAULTS`
+ * docstring for why that was reversed.
  *
  * @param days - Days to render, already grouped and sorted
  * @param config - Card configuration
@@ -211,13 +216,24 @@ export function renderColumnGroupedEvents(
   hass?: Types.Hass | null,
 ): TemplateResult {
   const dayGap = ViewConfig.resolveColumnOption(config, 'day_gap');
+  const headerGap = ViewConfig.resolveColumnOption(config, 'day_header_gap');
 
+  // `day_header_gap` is published as a custom property on the grid rather than applied
+  // inline per column, because two separate rules consume it -- the header's bottom
+  // padding and, when a rule is shown, the separator's bottom margin -- and they must
+  // stay equal for the rule to sit centred in the gap. One declaration here beats the
+  // same pair of inline styles repeated on every day.
+  //
+  // It is not registered in `generateCustomPropertiesObject` because that runs for both
+  // views from top-level config, and this option exists only inside `column:`. Scoping
+  // it to the grid keeps a column-only value out of the list view's cascade.
   return html`
     <div
       class="column-grid"
       style=${styleMap({
         gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
         columnGap: dayGap,
+        '--calendar-card-column-header-gap': headerGap,
       })}
     >
       ${days.map((day) => renderDayColumn(day, config, language, weatherForecasts, hass))}

@@ -325,12 +325,16 @@ describe('column view config surface', () => {
     // written as `resolveColumnOption(...) === COLUMN_DEFAULTS.x` is no better: it
     // compares the code to itself, so both sides move together under any edit.
     //
-    // Spec B2 rules these three values. Changing one here without changing the spec
-    // is the mistake this test exists to catch, so update the spec first.
+    // Spec B2 rules these values. Changing one here without changing the spec is the
+    // mistake this test exists to catch, so update the spec first. The separator width
+    // has been through that loop once already: it shipped as '1px' per the original
+    // B2, was live-reviewed, and B2 was formally amended to '0px'. This test failing
+    // is the expected first step of any such change, not an obstacle to route around.
     const config = buildConfig();
 
     expect(resolveColumnOption(config, 'day_gap')).toBe('4px');
-    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('1px');
+    expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
     expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('var(--divider-color)');
   });
 
@@ -341,7 +345,7 @@ describe('column view config surface', () => {
     expect(resolveColumnOption(config, 'day_gap')).toBe('24px');
     // Untouched siblings still fall through to their defaults, asserted as a literal
     // rather than against COLUMN_DEFAULTS so this cannot pass by moving with the code.
-    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('1px');
+    expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
   });
 
   it('coerces a bare number to px for length-valued column options', () => {

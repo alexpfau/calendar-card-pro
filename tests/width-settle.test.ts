@@ -48,6 +48,7 @@ interface CardUnderTest extends HTMLElement {
   updateEvents(force?: boolean): Promise<void>;
   readonly effectiveView: 'list' | 'column';
   _scheduleWidthMeasurement(widthPx: number): void;
+  getGridOptions(): { columns: 'full'; rows: 'auto' };
 }
 
 /** Threshold for the default config: 152 x 3 + 16 padding + 2 x 4 gutter. */
@@ -221,4 +222,52 @@ describe('editor preview view resolution', () => {
       expect(card.effectiveView).toBe('list');
     });
   }
+});
+
+/**
+ * HA sections-grid sizing.
+ *
+ * Lives in this file rather than with the pure resolvers because `getGridOptions` is a
+ * method on the custom element, and this is the only suite that mounts one.
+ */
+describe('grid options', () => {
+  it('claims the full width of its section', () => {
+    // Measured against the HA frontend's own source. `hui-grid-section` sets
+    // `--grid-column-count: calc(12 * var(--column-span, 1))`, so a card returning
+    // `columns: 12` inside a section spanning 3 columns occupies 12 of 36 tracks --
+    // exactly one third, which is what the maintainer saw on a live dashboard. The
+    // string `full` is not the number 12: it selects a `.full-width` class that sets
+    // `grid-column: 1 / -1`, which spans whatever the section actually is.
+    const card = mountColumnCard();
+
+    expect(card.getGridOptions()).toEqual({ columns: 'full', rows: 'auto' });
+  });
+
+  it('answers identically for a list-view card', () => {
+    // Deliberate, and the thing most likely to be "fixed" into a bug later: grid
+    // options are the *input* HA uses to size the card, so the width they produce is
+    // what the view decision is then made from. Asking `effectiveView` here would be
+    // circular, and would answer `list` on first render regardless -- no measurement
+    // has landed yet -- so a view-dependent implementation would never return `full`
+    // to a card that needs it.
+    //
+    // Harmless in list view: inside an unspanned section, 12 of 12 tracks and
+    // `1 / -1` are the same width. They diverge only where the spanned case needs it.
+    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+    card.setConfig({ ...buildConfig(), view: 'list' });
+    document.body.appendChild(card);
+
+    expect(card.getGridOptions()).toEqual({ columns: 'full', rows: 'auto' });
+  });
+
+  it('is present at all, which is what removes HA resize warning', () => {
+    // `hui-card-layout-editor` renders its "does not fully support resizing yet"
+    // banner when the card's default grid options come back empty -- that is, when
+    // the card implements no `getGridOptions` at all. Implementing it is the entire
+    // fix; the banner is not keyed on the values.
+    const card = mountColumnCard();
+
+    expect(typeof card.getGridOptions).toBe('function');
+    expect(Object.keys(card.getGridOptions()).length).toBeGreaterThan(0);
+  });
 });

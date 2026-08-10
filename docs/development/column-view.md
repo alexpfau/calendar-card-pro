@@ -321,28 +321,46 @@ between columns. The header rule is inside a day, between its header and events.
 ### B2. Defaults
 
 ```
-day_header_separator_width: '1px'
+day_header_gap: '8px'
+day_header_separator_width: '0px'
 day_header_separator_color: 'var(--divider-color)'
 ```
 
-The width is visible by default because this element exists only inside column view and is
-structural: it marks where the header ends and the event list begins. That cannot affect list
-view and does not violate A3-A.
+**The width ruling was reversed after live review.** This section originally specified `1px`,
+on the argument that the element exists only inside column view and is structural — it marks
+where the header ends and the event list begins — so making it visible could not affect list
+view and did not violate A3-A. That reasoning is still correct as far as it goes, and it is
+why the implementation was right to reject a later attempt to re-derive `0px` from local
+consistency with the list separators. It was overturned on evidence, not on consistency: seen
+on a real dashboard alongside the coloured accent bars beside each event, a full-width
+horizontal rule reads as a table border and dates the card.
+
+The rule therefore ships **off** and is opt-in by giving it a width. Do not re-derive either
+value; both are ruled here.
+
+`day_header_gap` exists because the original spec left the header-to-events spacing implicit,
+and the implementation supplied it as 4px of header padding plus 4px of separator margin. That
+made the gap an emergent property of two unrelated rules, so switching the rule off halved it —
+which is precisely the collapse that made "no rule" look wrong in the first place. The gap is
+now the header's own, unaffected by the rule; when a rule is shown it sits centred inside the
+gap rather than adding to one side.
 
 `var(--divider-color)` is a conscious new token-family choice. It is Home Assistant's semantic
 divider token, theme-aware, and less text-like than `var(--secondary-text-color)`. Do not
 "fix" it back to the existing separator family as an inconsistency. A `_style` key can be
-added later without breaking config.
+added later without breaking config. **This half of B2 stands unchanged.**
 
 ### B3. Editor
 
 Follow the existing separator block pattern (`editor.ts:1155-1197` for `day_separator`; week
 at `:1199-1241`; month at `:1243+`): a toggle writing `1px`/`0px`, revealing width and colour
-when enabled. The header separator toggle starts **on**.
+when enabled. The header separator toggle starts **off**, matching the reversed B2 default and
+every other separator toggle in the editor.
 
 Add editor translation keys to every language file with an `editor` section:
 `day_header_separator`, `show_day_header_separator`, `day_header_separator_width`,
-`day_header_separator_color`. Add all four keys to all editor-translated files, or to none.
+`day_header_separator_color`, `day_header_gap`. Add all five keys to all editor-translated
+files, or to none.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#b-the-header-divider--concrete-spec)
 

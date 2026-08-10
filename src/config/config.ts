@@ -418,13 +418,15 @@ export function findCalendarEntity(hass: Record<string, { state: string }>): str
  * fall in those days. A fixed height would leave dead space on a quiet calendar
  * and silently truncate a busy one. `'auto'` avoids both.
  *
- * These values match what Home Assistant assigns a card that declares no grid
- * options of its own. They are stated explicitly rather than left out so the
- * intent is legible at the call site, and so a future change to that platform
- * default cannot quietly move the suggestion with it.
+ * These mirror the card's own `getGridOptions()`, so the suggestion asks for exactly
+ * what a hand-added card gets by default. `columns` is the string `'full'`, not the
+ * number 12: a section's grid is `12 * column_span` tracks wide, so 12 is one section
+ * column's worth of width no matter how wide the section actually is, while `'full'`
+ * fills it. They are stated explicitly rather than left out so the intent is legible
+ * at the call site.
  */
 const SUGGESTION_GRID_OPTIONS = {
-  columns: 12,
+  columns: 'full',
   rows: 'auto',
 };
 

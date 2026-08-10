@@ -766,40 +766,82 @@ export const cardStyles = css`
 
   /*
    * The day header. position: relative establishes the containing block for the
-   * today indicator, which is absolutely positioned — in the list view that job is
+   * today indicator, which is absolutely positioned -- in the list view that job is
    * done by the date cell, which does not exist here.
+   *
+   * The bottom padding is the whole gap between a day's header and its first event,
+   * and it is configurable as day_header_gap. It used to be a hardcoded 4px here plus
+   * another 4px of margin under the separator, which meant switching the separator off
+   * silently halved the gap: the spacing was an emergent property of two unrelated
+   * rules rather than something anyone had chosen. Owning it here makes it constant
+   * whether or not a rule is drawn.
    */
   .column-day-header {
     position: relative;
-    padding-bottom: 4px;
+    padding-bottom: var(--calendar-card-column-header-gap, 8px);
   }
 
   /*
-   * The axis flip. The list view stacks weekday over day over month; a column has the
-   * full card width available and only one line of vertical budget, so it lays the
-   * same elements out horizontally instead.
+   * The axis flip, in two rows. The list view stacks weekday over day over month down
+   * a narrow date column; a column header has the full track width but very little of
+   * it -- roughly 150px at the point the view engages.
    *
-   * align-items: baseline aligns the three differently-sized texts on their
-   * baselines rather than their boxes, which is what makes a 12px weekday sit level
-   * with a 26px day number.
+   * A single row spends about 98px of that on "Mon 10 AUG" alone, leaving the weather
+   * badge some 43px, which truncates it to nothing useful. Splitting the weekday onto
+   * its own row costs one line of height and returns roughly 115px to weather, because
+   * the badge now sits beside the short "10 AUG" pair rather than the whole string.
+   * It also reads better: a small weekday, a large number and a small month strung
+   * along one line is an odd rhythm horizontally, though it works stacked.
+   *
+   * Grid rather than flex, because the children arrive as flat siblings from
+   * renderDateContent -- the same markup the list view uses, deliberately unwrapped so
+   * this stays a pure CSS difference. Named areas place them without extra elements.
+   * The height is fixed at two rows by construction, so this does not reintroduce the
+   * unpredictable-height problem that the weather badge's nowrap exists to avoid.
+   *
+   * align-items: baseline keeps the day number and month level within row two, which
+   * is what makes a 12px month sit correctly beside a 26px day.
    */
   .column-date-content {
-    display: flex;
-    flex-direction: row;
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      'weekday weekday weather'
+      'day month weather';
     align-items: baseline;
-    gap: 6px;
+    column-gap: 6px;
+    row-gap: 2px;
     position: relative;
     z-index: 2; /* Above the today indicator, matching the list view. */
     min-width: 0;
   }
 
+  .column-date-content .weekday {
+    grid-area: weekday;
+  }
+
+  .column-date-content .day {
+    grid-area: day;
+  }
+
+  .column-date-content .month {
+    grid-area: month;
+  }
+
   /*
    * The weather badge is the only part of the header that may be long enough to
    * overflow. It truncates rather than wrapping, because wrapping would push the
-   * header onto a second line and change the height of every column in the row.
+   * header onto a third line and change the height of every column in the row.
+   *
+   * justify-self rather than the margin-inline-start: auto this used to carry -- that
+   * is the flex idiom for pushing an item to the far end, and it does nothing to a
+   * grid item that already owns its own column. align-self centres it against the two
+   * rows it spans instead of sitting on row one's baseline.
    */
   .column-date-content .weather {
-    margin-inline-start: auto;
+    grid-area: weather;
+    justify-self: end;
+    align-self: center;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -809,11 +851,16 @@ export const cardStyles = css`
   /*
    * The column view's separator. The list view separates days with horizontal rules
    * between stacked tables; here the equivalent boundary between days is the grid gap,
-   * so the only rule that makes sense is the one under the day header. Opt-out: the
-   * element is not rendered at all when the width resolves to 0px.
+   * so the only rule that makes sense is the one under the day header. Opt-in: the
+   * element is not rendered at all when the width resolves to 0px, which is the
+   * default.
+   *
+   * Its bottom margin matches the header's bottom padding, so a rule sits centred in
+   * the gap rather than adding to one side of it. Turning the rule on therefore widens
+   * the gap symmetrically instead of shifting the events down.
    */
   .column-header-separator {
-    margin-bottom: 4px;
+    margin-bottom: var(--calendar-card-column-header-gap, 8px);
   }
 
   .column-events {
