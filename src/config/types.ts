@@ -139,8 +139,6 @@ export interface EntityConfig {
   split_multiday_events?: boolean;
 }
 
-// Add these interfaces to src/config/types.ts
-
 /**
  * Weather position-specific styling configuration
  */

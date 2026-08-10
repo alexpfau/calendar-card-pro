@@ -48,6 +48,16 @@ jobs:
       - name: Test
         run: npm test
 
+      # The docs are a separate VitePress site with nothing tying them to the code, so
+      # every way they rot is silent: the site builds, the card works, and the page lies.
+      # Nine documented defaults were wrong at once (day_spacing said 5px against a real
+      # 10px, remove_location_country had the boolean inverted), whole nested interfaces
+      # were collapsed to `object` so several options were reachable only by reading the
+      # source, and a stray `entities:` line outside a ```yaml fence silently broke an
+      # example. vitepress build is happy with all of it.
+      - name: Check docs integrity
+        run: npm run check:docs
+
       - name: Build
         run: npm run build
 

@@ -33,6 +33,8 @@ Calendar Card Pro seamlessly integrates with all Home Assistant themes and fully
 
 ```yaml
 type: custom:calendar-card-pro
+entities:
+  - calendar.family
 title: Family Schedule
 card_mod:
   style: |
@@ -49,6 +51,8 @@ card_mod:
 
 ```yaml
 type: custom:calendar-card-pro
+entities:
+  - calendar.family
 card_mod:
   style: |
     /* Make today's events stand out */
@@ -77,6 +81,8 @@ This works analogously to "today" as seen above, but using the "tomorrow" class.
 
 ```yaml
 type: custom:calendar-card-pro
+entities:
+  - calendar.family
 card_mod:
   style: |
     /* Make tomorrow's events stand out */
@@ -91,6 +97,8 @@ card_mod:
 
 ```yaml
 type: custom:calendar-card-pro
+entities:
+  - calendar.family
 card_mod:
   style: |
     ha-card {
