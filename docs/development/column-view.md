@@ -412,6 +412,18 @@ the snapshot file was **never regenerated**. Exports: `renderDateWeather`,
 `renderDateContent`, `renderLabel`, `renderEventTitle`, `renderEventWeather`,
 `renderEventContent`, `renderTodayIndicator`, and the `EventContentParts` interface.
 
+**Verified live**, not only against the offline snapshot: the `ccp-current-testing` HA tab
+renders five A/B pairs (baseline, weather at both sites, colour precedence + today
+indicator, the `show_time: false` time-block shapes 4/5, and labels/location/description),
+each pairing the HACS production card against the dev build under the identical config. A
+browser probe reads both cards' `shadowRoot.innerHTML`, normalises away lit's per-instance
+comment markers, and diffs. **All five pairs came out byte-identical against real calendar
+data.** The probe carries a negative control asserting that the five different configs
+produce five different markups, so an over-eager normaliser cannot pass by flattening
+everything to a constant. Probe lives beside the deploy skill as `ab-dom-diff.mjs`; it is
+worth re-running at the end of Phases 2, 3 and 4, which make the same "nothing visible
+changes" claim.
+
 Extract in this order:
 
 1. Weather rendering (`render.ts:526-575`). There is no `renderWeather` function on `dev`;
