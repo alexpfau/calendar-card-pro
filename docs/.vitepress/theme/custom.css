@@ -1,0 +1,82 @@
+/**
+ * Theme overrides for Calendar Card Pro docs.
+ */
+
+/*
+ * Hero image sizing.
+ *
+ * VitePress sizes the hero image for a roughly square logo: it reserves a fixed
+ * square container (320px, 392px at >=640px) and absolutely positions the image
+ * inside it, capped at 192/256/320px. Our hero image is header.png, a 2000x800
+ * banner (2.5:1), so those caps rendered it at just 256x102 floating inside a
+ * 392x392 box - small, and surrounded by dead space.
+ *
+ * Instead we let the banner behave like an ordinary responsive image: take it
+ * out of absolute positioning, let the container height follow the image's own
+ * aspect ratio, and scale fluidly up to a 520px cap.
+ *
+ * Sizing is expressed relative to the container so the image can never overflow
+ * its column, at any viewport width:
+ *
+ *   - Below 960px VitePress bleeds the image column 24px past the text column
+ *     on each side, so we subtract 48px to line the image up with the text.
+ *   - At >=960px the column already sits inside the layout padding, so the
+ *     image may use its full width. That column is only ~280px wide just above
+ *     the breakpoint and grows to ~560px once the text column hits its 592px
+ *     cap, where the 520px cap takes over.
+ */
+.VPHero .image-container {
+  width: 100%;
+  height: auto;
+  max-width: min(520px, calc(100% - 48px));
+  margin-inline: auto;
+  /* Cancel VitePress's translate(-32px, -32px), applied at >=960px. */
+  transform: none;
+}
+
+.VPHero .image-src {
+  position: static;
+  transform: none;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: none;
+}
+
+@media (min-width: 960px) {
+  .VPHero .image-container {
+    max-width: min(520px, 100%);
+  }
+
+  /*
+   * The image column stretches to the full height of the text column. Align the
+   * banner with the top of the heading beside it rather than letting it float in
+   * the middle of that column.
+   */
+  .VPHero .image {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+}
+
+/*
+ * Below 960px the banner stacks above the heading, and VitePress pulls the image
+ * column outwards with `margin: -76px -24px -48px` (-108px at >=640px). Those
+ * vertical offsets exist to claw back the empty space inside the fixed square
+ * container - with the image absolutely centred in a 392px box there was roughly
+ * 100px of padding above and below it to absorb.
+ *
+ * Our container is now exactly as tall as the image, so there is no dead space
+ * left and those offsets bite into real content: the negative bottom margin
+ * pulled the heading up over the banner by 48px, and the negative top margin
+ * slid the banner under the fixed navbar.
+ *
+ * Reset the vertical margins and keep only the horizontal bleed, which the width
+ * calculation above depends on to line the banner up with the text column.
+ */
+@media (max-width: 959px) {
+  .VPHero .image {
+    margin: 0 -24px 32px;
+  }
+}
