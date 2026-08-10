@@ -883,14 +883,20 @@ exactly.
 
 ```yaml
 type: custom:calendar-card-pro
+entities:
+  - calendar.family
 view: auto
 days_to_show: 7
 show_location: true # list view: plenty of room
 day_spacing: 16px
 column:
-  show_location: false # column view: 164px is not enough
-  day_spacing: 4px
+  show_location: false # column view: ~166px per column is not enough
+  day_gap: 4px # a new key (Category C), not an override of day_spacing
 ```
+
+> Note the asymmetry in that block: `show_location` is an **override** of the top-level key,
+> whereas `day_gap` is a **new key** that has no top-level counterpart. Both live inside
+> `column:`, but only the first participates in inheritance. See the Category C table below.
 
 #### Why a shared key is not enough
 
@@ -1162,16 +1168,16 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 >   D6 removes the residue: with `compact_events_to_show` out of MVP and the override block
 >   available for it later, no key needs to carry two meanings.
 >
-> - **G13. Measurement spike — PARTLY RULED.** One sub-question was a **defect**, not an open
->   parameter: with `show_empty_days: false` the threshold formula still used `days_to_show`,
->   so a 7-day config with events on 2 days demanded a 7-column-wide container before showing
->   2 columns — defeating dense mode outright. **Ruled: the threshold uses the rendered column
->   count**, which is already known at render time because grouping precedes it. Same N as G11.
->   **Still a genuine spike, and still the first task of Phase 4:** the
->   `min_day_column_width_px` value (provisionally 160; note 128 is _disproven_, not merely
->   superseded), the hysteresis band, weather truncate-or-drop, the header vertical budget, and
->   whether `min_day_column_width_px` is public config at all. All five need a real HA
->   dashboard, and Phase 4 cannot be estimated before the spike runs.
+> - **G13. Measurement spike — RUN. See "G13 spike results" at the end of this section.**
+>   One sub-question was a **defect**, not an open parameter: with `show_empty_days: false` the
+>   threshold formula still used `days_to_show`, so a 7-day config with events on 2 days
+>   demanded a 7-column-wide container before showing 2 columns — defeating dense mode
+>   outright. **Ruled: the threshold uses the rendered column count**, which is already known
+>   at render time because grouping precedes it. Same N as G11. **The spike has now run:**
+>   `min_day_column_width_px: 160` survived measurement, 128 is confirmed disproven, and the
+>   card-edit modal measured 480px. Still open after it: the hysteresis band, weather
+>   truncate-or-drop (which _sets_ the minimum), the header vertical budget, whether
+>   `min_day_column_width_px` is public config, and the new default-width finding below.
 >
 > Two further findings are recorded in place rather than here because they affect work that
 > ships **before** v4.0.0: the Phase 2b cache scope (see the note in Phase 2b) and the Phase 1
@@ -1202,11 +1208,93 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 8. **[v4] To verify in HA, not on paper:** the actual card-edit modal width, which determines
    how severe A3-C.4 is (the mitigation is mandatory regardless). **[v5]** Now also determines
    whether the provisional `min_day_column_width_px: 160` (decision 14) survives measurement.
+   **[v6] MEASURED: 480px, i.e. two columns. A3-C.4 is severe. 160px survives.** See G13
+   results.
 9. **No runtime or visual HA testing has happened on any of this yet.**
 10. **[v5] Un-decided and un-decidable on paper: the real rendered width of an HA masonry or
     sections column.** Every threshold in A3-C and decision 14 is arithmetic over an assumed
     container width. The arithmetic is sound; the input is a guess. First measurement task in
-    Phase 4.
+    Phase 4. **[v6] MEASURED — see G13 results below. The input was wrong.**
+
+---
+
+### G13 spike results — measured 2026-08-10 on a live HA instance
+
+Chromium against `dashboard-admin`, **reloading at each viewport width**. Live resizing does
+not settle and produces non-monotonic garbage (a 900px viewport reported a wider content box
+than a 1024px one); every number below is steady-state after reload.
+
+**The mechanism.** HA's sections view lays out **fixed-width** columns, not fluid ones:
+
+```
+--ha-view-sections-column-max-width: 500px
+--ha-view-sections-column-min-width: 320px
+column-gap: 32px
+grid-template-columns: 500px 500px        /* at a 1920px viewport */
+```
+
+Both custom properties are themeable and `column_span` is exposed in the section editor, so
+**500px is a default, not a cap**.
+
+**Measured — card content box:**
+
+| Placement                   | viewport | content box |
+| --------------------------- | -------- | ----------- |
+| sections, `column_span: 1`  | ≥ 1440   | **500px**   |
+| sections, `column_span: 1`  | 1280     | 464px       |
+| sections, `column_span: 1`  | 768–1024 | 336px       |
+| sections, `column_span: 1`  | 430      | 414px       |
+| sections, `column_span: 2`  | ≥ 1440   | **1032px**  |
+| **card-edit modal preview** | 1920     | **480px**   |
+
+_Derived_ (arithmetic over the measured 500 + 32): span-3 ≈ 1564px, span-4 ≈ 2096px. Not
+measured — creating those sections would have required writing to the dashboard.
+
+Every view on the instance is `hui-sections-view`; **no masonry or panel sample was obtained**,
+so their behaviour remains unmeasured.
+
+**Measured — text widths at the card's real fonts** (Roboto; weekday and title 14px, day
+number 26px, time 12px):
+
+| String               | width |
+| -------------------- | ----- |
+| `Mon 13 Nov`         | 76px  |
+| `Wed 24 Sept`        | 79px  |
+| `Mittwoch 24. Sept.` | 117px |
+| `12° 22°/14°`        | 73px  |
+| `10:00 - 11:30`      | 69px  |
+| `Team Standup`       | 91px  |
+
+**`min_day_column_width_px: 160` survives measurement.** A single-line D2 header carrying date
+plus weather needs 76 + 73 + gap ≈ **157px**, and the longest common localised date form
+(`Mittwoch 24. Sept.`, 117px) still needs padding around it. 128px cannot fit date and weather
+on one line — **confirming it is disproven, not merely superseded**. If weather is _dropped_
+from the header rather than truncated, the floor falls to roughly 130px, so **the D2
+truncate-or-drop decision sets the minimum** and must be made before the constant is frozen.
+
+**Resulting column counts** at 160px + 8px gutter:
+
+| Card width                | columns |
+| ------------------------- | ------- |
+| 480px (editor preview)    | 2       |
+| 500px (default section)   | **3**   |
+| 1032px (`column_span: 2`) | 6       |
+| 1564px (span 3, derived)  | 9       |
+
+**A3-C.4 is confirmed real and severe.** The editor preview is 480px — two columns — which is
+below the threshold for any multi-day config. A user configuring a 7-day column view would
+watch the preview fall back to list while editing. The mandated mitigation (**the preview
+renders the _selected_ view, not the width-measured one**) is load-bearing, not defensive.
+
+#### The finding that needs a ruling
+
+A 7-day column view needs ~1184px of content box. That is **not reachable in a default HA
+section at any viewport width** — it requires `column_span: 3`, a panel view, or a raised
+theme variable. §D6's "7 columns in a 1200px card" describes a placement the user must
+deliberately construct, not the default one. Left unaddressed, the out-of-the-box experience
+of `view: column` with the default `days_to_show: 7` is a permanent silent fallback to list.
+
+**Open — maintainer ruling required before Phase 4 code starts.**
 
 ---
 
