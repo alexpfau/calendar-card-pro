@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -74,17 +76,64 @@ interface RenderOpts {
   isExpanded?: boolean;
   language?: string;
   weather?: Types.WeatherForecasts;
+  hass?: Types.Hass | null;
+}
+
+function renderListContainer(
+  events: Types.CalendarEventData[],
+  config: Types.Config,
+  { isExpanded = false, language = 'en', weather, hass }: RenderOpts = {},
+): HTMLElement {
+  const days = EventUtils.groupEventsByDay(events, config, isExpanded, language);
+  const container = document.createElement('div');
+  litRender(Render.renderGroupedEvents(days, config, language, weather, hass), container);
+  return container;
 }
 
 function renderList(
   events: Types.CalendarEventData[],
   config: Types.Config,
-  { isExpanded = false, language = 'en', weather }: RenderOpts = {},
+  opts: RenderOpts = {},
 ): string {
-  const days = EventUtils.groupEventsByDay(events, config, isExpanded, language);
-  const container = document.createElement('div');
-  litRender(Render.renderGroupedEvents(days, config, language, weather), container);
+  const container = renderListContainer(events, config, opts);
   return serialize(container);
+}
+
+function timedEvent(
+  date: string,
+  startHour: string,
+  endHour: string,
+  summary: string,
+  extra: Partial<Types.CalendarEventData> = {},
+): Types.CalendarEventData {
+  return {
+    start: { dateTime: `${date}T${startHour}:00.000Z` },
+    end: { dateTime: `${date}T${endHour}:00.000Z` },
+    summary,
+    _entityId: 'calendar.personal',
+    ...extra,
+  };
+}
+
+function requireElement<T extends Element = Element>(root: ParentNode, selector: string): T {
+  const element = root.querySelector(selector);
+  expect(element).not.toBeNull();
+  return element as T;
+}
+
+function eventCellByTitle(container: ParentNode, title: string): HTMLTableCellElement {
+  const titleElement = Array.from(container.querySelectorAll('.event-title')).find(
+    (element) => element.textContent?.trim() === title,
+  );
+  expect(titleElement).toBeDefined();
+  const cell = titleElement?.closest('td.event');
+  expect(cell).not.toBeNull();
+  return cell as HTMLTableCellElement;
+}
+
+function expectStyleColor(element: Element, expectedColor: string): void {
+  const style = element.getAttribute('style')?.replace(/\s/g, '') ?? '';
+  expect(style).toContain(`color:${expectedColor}`);
 }
 
 describe('list view DOM', () => {
@@ -286,5 +335,287 @@ describe('list view DOM', () => {
 
     expect(out).toContain('progress-bar');
     expect(out).toMatchSnapshot();
+  });
+
+  it('pins date color precedence for base, weekend, today, and empty overrides', () => {
+    const saturdayEvent = [timedEvent('2026-06-20', '12:00', '13:00', 'Weekend lunch')];
+    const weekdayEvent = [timedEvent('2026-06-18', '12:00', '13:00', 'Weekday lunch')];
+    const todayEvent = [timedEvent('2026-06-17', '14:00', '15:00', 'Today meeting')];
+
+    let container = renderListContainer(
+      saturdayEvent,
+      buildConfig({
+        days_to_show: 5,
+        weekday_color: 'var(--weekday-base)',
+        day_color: 'var(--day-base)',
+        month_color: 'var(--month-base)',
+        weekend_weekday_color: 'var(--weekday-weekend)',
+        weekend_day_color: 'var(--day-weekend)',
+        weekend_month_color: 'var(--month-weekend)',
+      }),
+    );
+    let dateColumn = requireElement(container, '.date-column');
+    expect(dateColumn.classList.contains('weekend')).toBe(true);
+    expectStyleColor(requireElement(dateColumn, '.weekday'), 'var(--weekday-weekend)');
+    expectStyleColor(requireElement(dateColumn, '.day'), 'var(--day-weekend)');
+    expectStyleColor(requireElement(dateColumn, '.month'), 'var(--month-weekend)');
+
+    container = renderListContainer(
+      weekdayEvent,
+      buildConfig({
+        days_to_show: 5,
+        weekday_color: 'var(--weekday-base)',
+        day_color: 'var(--day-base)',
+        month_color: 'var(--month-base)',
+        weekend_weekday_color: 'var(--weekday-weekend)',
+        weekend_day_color: 'var(--day-weekend)',
+        weekend_month_color: 'var(--month-weekend)',
+      }),
+    );
+    dateColumn = requireElement(container, '.date-column');
+    expect(dateColumn.classList.contains('weekend')).toBe(false);
+    expectStyleColor(requireElement(dateColumn, '.weekday'), 'var(--weekday-base)');
+    expectStyleColor(requireElement(dateColumn, '.day'), 'var(--day-base)');
+    expectStyleColor(requireElement(dateColumn, '.month'), 'var(--month-base)');
+
+    container = renderListContainer(
+      todayEvent,
+      buildConfig({
+        days_to_show: 5,
+        weekday_color: 'var(--weekday-base)',
+        day_color: 'var(--day-base)',
+        month_color: 'var(--month-base)',
+        today_weekday_color: 'var(--weekday-today)',
+        today_day_color: 'var(--day-today)',
+        today_month_color: 'var(--month-today)',
+      }),
+    );
+    dateColumn = requireElement(container, '.date-column');
+    expectStyleColor(requireElement(dateColumn, '.weekday'), 'var(--weekday-today)');
+    expectStyleColor(requireElement(dateColumn, '.day'), 'var(--day-today)');
+    expectStyleColor(requireElement(dateColumn, '.month'), 'var(--month-today)');
+
+    container = renderListContainer(
+      saturdayEvent,
+      buildConfig({
+        days_to_show: 5,
+        weekday_color: 'var(--weekday-base)',
+        day_color: 'var(--day-base)',
+        month_color: 'var(--month-base)',
+        weekend_weekday_color: '',
+        weekend_day_color: '',
+        weekend_month_color: '',
+      }),
+    );
+    dateColumn = requireElement(container, '.date-column');
+    expectStyleColor(requireElement(dateColumn, '.weekday'), 'var(--weekday-base)');
+    expectStyleColor(requireElement(dateColumn, '.day'), 'var(--day-base)');
+    expectStyleColor(requireElement(dateColumn, '.month'), 'var(--month-base)');
+
+    vi.setSystemTime(new Date('2026-06-20T10:00:00.000Z'));
+    container = renderListContainer(
+      saturdayEvent,
+      buildConfig({
+        weekday_color: 'var(--weekday-base)',
+        day_color: 'var(--day-base)',
+        month_color: 'var(--month-base)',
+        weekend_weekday_color: 'var(--weekday-weekend)',
+        weekend_day_color: 'var(--day-weekend)',
+        weekend_month_color: 'var(--month-weekend)',
+        today_weekday_color: 'var(--weekday-today)',
+        today_day_color: 'var(--day-today)',
+        today_month_color: 'var(--month-today)',
+      }),
+    );
+    dateColumn = requireElement(container, '.date-column');
+    expectStyleColor(requireElement(dateColumn, '.weekday'), 'var(--weekday-today)');
+    expectStyleColor(requireElement(dateColumn, '.day'), 'var(--day-today)');
+    expectStyleColor(requireElement(dateColumn, '.month'), 'var(--month-today)');
+  });
+
+  it('renders countdown without time with an empty time-actual shell', () => {
+    const container = renderListContainer(
+      [timedEvent('2026-06-17', '14:00', '15:00', 'No time countdown')],
+      buildConfig({ show_time: false, show_countdown: true }),
+    );
+    const cell = eventCellByTitle(container, 'No time countdown');
+    const timeActual = requireElement(cell, '.time-actual');
+    const countdown = requireElement(cell, '.time-countdown');
+
+    expect(timeActual.children).toHaveLength(0);
+    expect(timeActual.textContent?.trim()).toBe('');
+    expect(countdown.textContent?.trim()).toBe('in 4 hours');
+  });
+
+  it('renders progress without time with an empty time-actual shell', () => {
+    const container = renderListContainer(
+      [timedEvent('2026-06-17', '09:30', '11:00', 'Running hidden time')],
+      buildConfig({ show_time: false, show_progress_bar: true }),
+    );
+    const cell = eventCellByTitle(container, 'Running hidden time');
+    const timeActual = requireElement(cell, '.time-actual');
+
+    expect(timeActual.children).toHaveLength(0);
+    expect(timeActual.textContent?.trim()).toBe('');
+    expect(requireElement(cell, '.progress-bar')).toBeTruthy();
+    expect(cell.querySelector('.time-countdown')).toBeNull();
+  });
+
+  it('defaults one-token today indicator position to vertical center', () => {
+    const container = renderListContainer(
+      SINGLE_EVENT,
+      buildConfig({ today_indicator: 'dot', today_indicator_position: '85%' }),
+    );
+    const indicator = requireElement(container, '.today-indicator');
+    const style = indicator.getAttribute('style')?.replace(/\s/g, '') ?? '';
+
+    expect(style).toContain('left:85%');
+    expect(style).toContain('top:50%');
+  });
+
+  it('omits the month element when show_month is false', () => {
+    const container = renderListContainer(SINGLE_EVENT, buildConfig({ show_month: false }));
+
+    expect(container.querySelector('.date-column .month')).toBeNull();
+  });
+
+  it('renders descriptions only when show_description is enabled', () => {
+    const event = timedEvent('2026-06-17', '14:00', '15:00', 'Described appointment', {
+      description: 'Bring <b>ID</b>',
+    });
+
+    let container = renderListContainer([event], buildConfig());
+    expect(
+      eventCellByTitle(container, 'Described appointment').querySelector('.description'),
+    ).toBeNull();
+
+    container = renderListContainer([event], buildConfig({ show_description: true }));
+    const description = requireElement(
+      eventCellByTitle(container, 'Described appointment'),
+      '.description',
+    );
+
+    expect(requireElement(description, 'ha-icon').getAttribute('icon')).toBe(
+      'mdi:information-outline',
+    );
+    expect(requireElement(description, 'span').textContent?.trim()).toBe('Bring ID');
+  });
+
+  it('omits locations when show_location is false', () => {
+    const container = renderListContainer(
+      [
+        timedEvent('2026-06-17', '14:00', '15:00', 'Hidden location appointment', {
+          location: '12 High Street',
+        }),
+      ],
+      buildConfig({ show_location: false }),
+    );
+
+    expect(
+      eventCellByTitle(container, 'Hidden location appointment').querySelector('.location'),
+    ).toBeNull();
+  });
+
+  it('honors false flags in date-column weather', () => {
+    const container = renderListContainer(
+      SINGLE_EVENT,
+      buildConfig({
+        weather: {
+          entity: 'weather.home',
+          position: 'date',
+          date: { show_conditions: false, show_high_temp: false },
+        },
+      }),
+      { weather: WEATHER },
+    );
+    const weather = requireElement(container, '.date-column .weather');
+
+    expect(weather.querySelector('ha-icon')).toBeNull();
+    expect(weather.querySelector('.weather-temp-high')).toBeNull();
+    expect(weather.textContent?.trim()).toBe('');
+  });
+
+  it('honors false flags in event weather', () => {
+    const container = renderListContainer(
+      [timedEvent('2026-06-17', '14:00', '15:00', 'Weather without icon or temp')],
+      buildConfig({
+        weather: {
+          entity: 'weather.home',
+          position: 'event',
+          event: { show_conditions: false, show_temp: false },
+        },
+      }),
+      { weather: WEATHER },
+    );
+    const weather = requireElement(
+      eventCellByTitle(container, 'Weather without icon or temp'),
+      '.event-weather',
+    );
+
+    expect(weather.querySelector('ha-icon')).toBeNull();
+    expect(weather.textContent?.trim()).toBe('');
+  });
+
+  it('suppresses timed event weather when daily fallback is disabled', () => {
+    const container = renderListContainer(
+      [timedEvent('2026-06-18', '15:00', '16:00', 'No fallback weather')],
+      buildConfig({
+        weather: {
+          entity: 'weather.home',
+          position: 'event',
+          event: { daily_forecast_fallback: false },
+        },
+      }),
+      { weather: WEATHER },
+    );
+
+    expect(
+      eventCellByTitle(container, 'No fallback weather').querySelector('.event-weather'),
+    ).toBeNull();
+  });
+
+  it('suppresses event weather for past events that are still rendered', () => {
+    const container = renderListContainer(
+      [timedEvent('2026-06-17', '08:00', '09:00', 'Past weather suppressed')],
+      buildConfig({
+        show_past_events: true,
+        weather: { entity: 'weather.home', position: 'event' },
+      }),
+      { weather: WEATHER },
+    );
+
+    const cell = eventCellByTitle(container, 'Past weather suppressed');
+
+    expect(cell.querySelector('.event-weather')).toBeNull();
+    expect(requireElement(cell, '.summary-row').children).toHaveLength(1);
+  });
+
+  it('suppresses event weather when no forecast matches', () => {
+    const container = renderListContainer(
+      [timedEvent('2026-06-21', '12:00', '13:00', 'No forecast weather')],
+      buildConfig({ weather: { entity: 'weather.home', position: 'event' } }),
+      { weather: WEATHER },
+    );
+
+    const cell = eventCellByTitle(container, 'No forecast weather');
+
+    expect(cell.querySelector('.event-weather')).toBeNull();
+    expect(requireElement(cell, '.summary-row').children).toHaveLength(1);
+  });
+
+  it('preserves no-output idioms at extraction seams', () => {
+    const renderSource = readFileSync(`${process.cwd()}/src/rendering/render.ts`, 'utf8');
+    const eventWeatherSource = renderSource.slice(
+      renderSource.indexOf('function renderEventWeather'),
+    );
+
+    expect(renderSource).toMatch(
+      /\$\{eventLocation\s*\? html`[\s\S]*?`\s*: ''\}\s*\$\{eventDescription/,
+    );
+    expect(renderSource).toMatch(/\$\{eventDescription\s*\? html`[\s\S]*?`\s*: ''\}\s*<\/div>/);
+    expect(renderSource).toMatch(
+      /progressPercentage !== null && config\.show_progress_bar[\s\S]*?: nothing\}\s*\$\{eventLocation/,
+    );
+    expect(eventWeatherSource.match(/return html``;/g)).toHaveLength(3);
   });
 });
