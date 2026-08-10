@@ -8,6 +8,7 @@
     "build": "cross-env NODE_ENV=prod rollup -c",
     "lint": "eslint 'src/**/*.ts' --fix --format stylish",
     "format": "prettier --write 'src/**/*.ts'",
+    "check:i18n": "node scripts/check-i18n.mjs",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
