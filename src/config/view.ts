@@ -61,7 +61,31 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = 
   'description_icon_size',
 ];
 
-const OVERRIDE_KEY_SET: ReadonlySet<string> = new Set<string>(COLUMN_OVERRIDE_KEYS);
+/**
+ * Column-only options — the ones with no top-level counterpart.
+ *
+ * Kept separate from `COLUMN_OVERRIDE_KEYS` because the two lists mean different
+ * things, even though both are spelled inside `column:`. An override *replaces* a
+ * top-level value for one view and inherits it otherwise; these have nothing to
+ * inherit from, so they are configuration that simply does not exist in list view.
+ *
+ * The distinction is load-bearing rather than editorial: every key in
+ * `COLUMN_OVERRIDE_KEYS` must also be a `DEFAULT_CONFIG` key — an override of an
+ * option the card does not have would resolve to `undefined` at every call site —
+ * and these three deliberately are not. Merging the lists would either break that
+ * invariant or force three phantom top-level options into `DEFAULT_CONFIG` that no
+ * list-view code path could ever read.
+ */
+export const COLUMN_ONLY_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = [
+  'day_gap',
+  'day_header_separator_width',
+  'day_header_separator_color',
+];
+
+const OVERRIDE_KEY_SET: ReadonlySet<string> = new Set<string>([
+  ...COLUMN_OVERRIDE_KEYS,
+  ...COLUMN_ONLY_KEYS,
+]);
 
 /**
  * Options that influence which events are fetched from Home Assistant.
@@ -88,12 +112,71 @@ const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
  * Reported separately so a user who copies an example from the design document is
  * told the truth — the option is real and planned — rather than being told it is a
  * typo.
+ *
+ * Deliberately empty as of Phase 4b, which implemented the three keys that used to
+ * live here (`day_gap`, `day_header_separator_width`, `day_header_separator_color`).
+ * The set is kept rather than deleted because the situation it describes recurs on
+ * every phase boundary: the design document is published, so a key can be public
+ * knowledge before it is public behaviour, and "planned but not built" is a
+ * materially different message from "not a recognized option".
  */
-const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
-  'day_gap',
-  'day_header_separator_width',
-  'day_header_separator_color',
-]);
+const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([]);
+
+//-----------------------------------------------------------------------------
+// COLUMN-ONLY DEFAULTS
+//-----------------------------------------------------------------------------
+
+/**
+ * Defaults for the Category C keys — the column-only options with no top-level
+ * counterpart.
+ *
+ * These cannot live in `DEFAULT_CONFIG` the way every other default does.
+ * `DEFAULT_CONFIG.column` is `undefined`, because an empty `column: {}` block must be
+ * indistinguishable from no block at all; giving it a populated object would make the
+ * block always present and defeat the presence-based resolution in `hasOverride`. So
+ * the defaults for what goes *inside* the block live here instead.
+ *
+ * The chosen values make an absent `column:` block a visual no-op relative to the
+ * list view's own defaults:
+ *
+ * - `day_gap` matches `DEFAULT_CONFIG.day_spacing` (`10px`), so the gap between
+ *   columns equals the gap between days in a list.
+ * - `day_header_separator_width` is `0px`, matching every other separator width in
+ *   `DEFAULT_CONFIG`. The rule under the day header is opt-in, exactly as the day,
+ *   week and month separators are.
+ * - `day_header_separator_color` matches `DEFAULT_CONFIG.day_separator_color`, so
+ *   setting only the width produces the same colour a list-view day separator would.
+ */
+export const COLUMN_DEFAULTS = {
+  day_gap: '10px',
+  day_header_separator_width: '0px',
+  day_header_separator_color: 'var(--secondary-text-color)',
+} as const;
+
+/**
+ * Resolves a Category C column-only option.
+ *
+ * Separate from `resolveViewOption` because these keys have no top-level counterpart
+ * and therefore no inheritance step: the value is either present in the block or it
+ * is the shipped default. Calling `resolveViewOption` for one of them would not
+ * compile, which is the intended guard.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param key - Column-only option to resolve
+ * @returns The configured value, or its default
+ */
+export function resolveColumnOption<K extends keyof typeof COLUMN_DEFAULTS>(
+  config: Types.Config,
+  key: K,
+): string {
+  const overrides = config.column;
+
+  if (overrides && hasOverride(overrides, key)) {
+    return overrides[key] as string;
+  }
+
+  return COLUMN_DEFAULTS[key];
+}
 
 //-----------------------------------------------------------------------------
 // RESOLUTION

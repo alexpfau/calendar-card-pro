@@ -700,4 +700,100 @@ export const cardStyles = css`
       transform: rotate(360deg);
     }
   }
+
+  /* ===== COLUMN VIEW STYLES ===== */
+
+  /*
+   * Deliberately last in the stylesheet. Several of these rules refine shared classes
+   * (.event, .weekday, .day, .month) only inside a column, and equal-specificity rules
+   * are resolved by source order, so they must come after the list-view definitions
+   * they refine.
+   */
+
+  .column-grid {
+    display: grid;
+    /* grid-template-columns and column-gap are set inline: the track count is the
+       number of days being rendered, and the gap is the column.day_gap option. */
+    align-items: start;
+    width: 100%;
+  }
+
+  /*
+   * Each column is a flex column so that its events stack vertically and the header
+   * stays pinned to the top. The grid's own align-items: start keeps a short column
+   * from stretching to the height of the busiest day, which would leave its accent
+   * borders floating in empty space.
+   */
+  .day-column {
+    display: flex;
+    flex-direction: column;
+    min-width: 0; /* Allow the track to shrink below its content's intrinsic width. */
+  }
+
+  /*
+   * The day header. position: relative establishes the containing block for the
+   * today indicator, which is absolutely positioned — in the list view that job is
+   * done by the date cell, which does not exist here.
+   */
+  .column-day-header {
+    position: relative;
+    padding-bottom: 4px;
+  }
+
+  /*
+   * The axis flip. The list view stacks weekday over day over month; a column has the
+   * full card width available and only one line of vertical budget, so it lays the
+   * same elements out horizontally instead.
+   *
+   * align-items: baseline aligns the three differently-sized texts on their
+   * baselines rather than their boxes, which is what makes a 12px weekday sit level
+   * with a 26px day number.
+   */
+  .column-date-content {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 6px;
+    position: relative;
+    z-index: 2; /* Above the today indicator, matching the list view. */
+    min-width: 0;
+  }
+
+  /*
+   * The weather badge is the only part of the header that may be long enough to
+   * overflow. It truncates rather than wrapping, because wrapping would push the
+   * header onto a second line and change the height of every column in the row.
+   */
+  .column-date-content .weather {
+    margin-inline-start: auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /*
+   * The column view's separator. The list view separates days with horizontal rules
+   * between stacked tables; here the equivalent boundary between days is the grid gap,
+   * so the only rule that makes sense is the one under the day header. Opt-in: the
+   * element is not rendered at all when the width is 0px.
+   */
+  .column-header-separator {
+    margin-bottom: 4px;
+  }
+
+  .column-events {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /*
+   * The list view's event padding is tuned for a cell that sits beside a fixed-width
+   * date column. In a column the event spans the full track, so the trailing padding
+   * has to be reinstated — a table cell gets it from the table's own edge.
+   */
+  .column-events .event {
+    padding-right: 12px;
+  }
 `;

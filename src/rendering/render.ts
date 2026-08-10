@@ -307,8 +307,7 @@ function renderWeekRow(
  * @returns True if the date is a weekend day
  */
 function isWeekend(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+  return Leaves.isWeekendDate(date);
 }
 
 /**

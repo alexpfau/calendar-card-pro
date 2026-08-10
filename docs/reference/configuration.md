@@ -33,6 +33,20 @@ cards.
 | `column`                       | object  | Inherits the top-level values | Options that should take a different value in column view. Only presentation options may appear here — see [Column View](/features/core-settings#column-view)                                                                                                                                                                                                                                                                                       |
 | `min_day_column_width_px`      | number  | `160`                         | Narrowest a day column may become in column view before the card falls back to the list layout                                                                                                                                                                                                                                                                                                                                                      |
 
+### Column-Only Options
+
+These live inside the `column:` block and have no top-level counterpart, because they
+describe spacing that only exists once days sit side by side. Their defaults make an
+absent `column:` block a visual no-op.
+
+| Option                                | Type   | Default                       | Description                                                                        |
+| ------------------------------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------------- |
+| `column → day_gap`                    | string | `10px`                        | Horizontal space between day columns, the column-view counterpart to `day_spacing` |
+| `column → day_header_separator_width` | string | `0px`                         | Thickness of the rule under each day header; `0px` renders no rule                 |
+| `column → day_header_separator_color` | string | `var(--secondary-text-color)` | Color of that rule                                                                 |
+
+**→ [Column View](/features/core-settings#column-view)** — worked examples.
+
 ### Per-Entity Options
 
 Each item in `entities` may be a plain entity ID string, or an object that overrides

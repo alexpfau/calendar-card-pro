@@ -4,7 +4,10 @@ import { buildConfig } from './fixtures';
 import { DEFAULT_CONFIG, normalizeNumericOptions } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
+  COLUMN_DEFAULTS,
+  COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
+  resolveColumnOption,
   resolveViewOption,
   validateColumnOverrides,
 } from '../src/config/view';
@@ -189,14 +192,20 @@ describe('validateColumnOverrides', () => {
     expect(warnMock.mock.calls[0][0]).toContain('loaded from Home Assistant');
   });
 
-  it('reports a planned but unimplemented option as such, not as a typo', () => {
+  it('accepts the column-only options now that Phase 4b implements them', () => {
+    // These three were reported as "planned but not implemented yet" until Phase 4b
+    // built them. The message was correct then and would be a lie now, so this test
+    // inverts: the keys must validate silently.
     const config = buildConfig();
-    config.column = { day_gap: '8px' } as unknown as Types.ColumnOverrides;
+    config.column = {
+      day_gap: '8px',
+      day_header_separator_width: '1px',
+      day_header_separator_color: 'red',
+    } as unknown as Types.ColumnOverrides;
 
     validateColumnOverrides(config);
 
-    expect(warnMock).toHaveBeenCalledTimes(1);
-    expect(warnMock.mock.calls[0][0]).toContain('not implemented yet');
+    expect(warnMock).not.toHaveBeenCalled();
   });
 
   it('distinguishes a real top-level option from an unrecognized one', () => {
@@ -232,6 +241,37 @@ describe('column view config surface', () => {
     for (const key of COLUMN_OVERRIDE_KEYS) {
       expect(DEFAULT_CONFIG).toHaveProperty(key);
     }
+  });
+
+  it('keeps the column-only keys out of the override list', () => {
+    // The inverse invariant. `COLUMN_ONLY_KEYS` exist only inside `column:`, so a key
+    // appearing in both lists would mean either a phantom top-level option or an
+    // override with nothing to inherit from.
+    for (const key of COLUMN_ONLY_KEYS) {
+      expect(DEFAULT_CONFIG).not.toHaveProperty(key);
+      expect(COLUMN_OVERRIDE_KEYS).not.toContain(key);
+    }
+  });
+
+  it('supplies a default for every column-only key', () => {
+    // These cannot default through DEFAULT_CONFIG, because DEFAULT_CONFIG.column is
+    // undefined by design. COLUMN_DEFAULTS is the only thing standing between them
+    // and an undefined reaching the stylesheet.
+    for (const key of COLUMN_ONLY_KEYS) {
+      expect(COLUMN_DEFAULTS).toHaveProperty(key);
+      expect(resolveColumnOption(buildConfig(), key as keyof typeof COLUMN_DEFAULTS)).toBeTruthy();
+    }
+  });
+
+  it('prefers a configured column-only value over its default', () => {
+    const config = buildConfig();
+    config.column = { day_gap: '24px' };
+
+    expect(resolveColumnOption(config, 'day_gap')).toBe('24px');
+    // Untouched siblings still fall through to their defaults.
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe(
+      COLUMN_DEFAULTS.day_header_separator_width,
+    );
   });
 
   it('excludes every fetch-time option from the override keys', () => {

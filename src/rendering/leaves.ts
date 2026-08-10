@@ -107,6 +107,24 @@ export function renderDateWeather(
   `;
 }
 
+/**
+ * Check whether a date falls on a weekend (Saturday or Sunday).
+ *
+ * Lives with the leaves because three separate places need the same answer: the list
+ * view's date cell, the column view's day header, and `renderDateContent`'s colour
+ * precedence chain. It was previously computed independently in each, which is a
+ * cheap duplication to make but an expensive one to keep consistent — a card that
+ * ever disagreed with itself about which days are weekends would colour the header
+ * one way and the date another.
+ *
+ * @param date Date to check
+ * @returns True when the date is a Saturday or Sunday
+ */
+export function isWeekendDate(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+}
+
 //-----------------------------------------------------------------------------
 // DATE LEAVES
 //-----------------------------------------------------------------------------
@@ -133,7 +151,7 @@ export function renderDateContent(
   isToday: boolean,
   weatherContent: TemplateResult | typeof nothing = nothing,
 ): TemplateResult {
-  const isWeekendDay = date.getDay() === 0 || date.getDay() === 6;
+  const isWeekendDay = isWeekendDate(date);
 
   // Start with base colors
   let weekdayColor = config.weekday_color;

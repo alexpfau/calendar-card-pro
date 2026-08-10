@@ -245,6 +245,39 @@ Only presentation options may appear in `column:`. Anything that decides _which_
 
 An unusable entry inside the block is ignored rather than treated as an error, so one stray line cannot break the rest of the card.
 
+### Spacing Options That Only Exist in Column View
+
+A few things have no meaning in a list. Days stacked vertically are separated by
+`day_spacing` and by the horizontal rules `day_separator_width` controls; days sitting
+side by side need a horizontal gap instead, and a rule that runs under each header
+rather than between days. Those options live inside `column:` and have no top-level
+counterpart.
+
+| Option                       | Type   | Default                       | Description                                                        |
+| ---------------------------- | ------ | ----------------------------- | ------------------------------------------------------------------ |
+| `day_gap`                    | string | `10px`                        | Horizontal space between columns                                   |
+| `day_header_separator_width` | string | `0px`                         | Thickness of the rule under each day header; `0px` renders no rule |
+| `day_header_separator_color` | string | `var(--secondary-text-color)` | Color of that rule                                                 |
+
+```yaml
+view: column
+days_to_show: 5
+column:
+  day_gap: 16px
+  day_header_separator_width: 1px
+  day_header_separator_color: var(--divider-color)
+```
+
+The defaults are chosen so that a card with no `column:` block looks the same as one
+written before these options existed: the gap matches the default `day_spacing`, and the
+header rule is off, exactly as every other separator width in the card starts off.
+
+::: tip Turning the Rule Off Again
+Set `day_header_separator_width: 0px` rather than reaching for a transparent color. At
+`0px` the card omits the element entirely, so it takes up no vertical space; a
+transparent rule still occupies its own height and leaves an unexplained gap.
+:::
+
 ### Falling Back to the List Layout
 
 Columns stop being readable below a certain width. `min_day_column_width_px` sets that floor, `160` by default. When the card is too narrow to give every day that much room, it renders as a list instead.

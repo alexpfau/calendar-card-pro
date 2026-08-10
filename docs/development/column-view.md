@@ -760,6 +760,16 @@ present only in `en.json`; and `time_grid_interval_minutes` being a zoom control
 > The rule stands regardless of which kind you hit: **a line number in this document is
 > evidence of intent, never of location.** Re-derive from the code. D4's `[frozen]` citations
 > remain unverifiable by design — they describe a branch that must not be touched.
+>
+> **[Phase 4b] A third stale premise, and the one that generalises.** D1 described `.date-content`
+> as the list view's flex container to be flipped into a row. The class is **dead CSS** — defined
+> in `styles.ts`, emitted by nothing, absent from the Phase 0 snapshot. Building the column header
+> by flipping it would have produced a header styled by a rule the browser never applies.
+>
+> All three stale premises share one signature: **the spec described `dev` as it was when the
+> paragraph was written, not as it is.** Two were moved code; this one was code that never ran.
+> The stylesheet is not evidence that a class is used — `grep` `src/` for the emission site, and
+> check the snapshot.
 
 ### D1. Element mapping
 
@@ -817,9 +827,21 @@ container. It already owns the colour precedence chain base → weekend → toda
 (`leaves.ts:136-155`) and emits `.weekday` / `.day` / `.month` divs unchanged, so no DOM or
 colour logic is duplicated.
 
-The axis lives entirely in CSS. `.date-content` is `display: flex; flex-direction: column`
-(`styles.ts:324-329`); the column header needs the row equivalent. `.date-column`
-(`styles.ts:310-322`) is list-only — it is a fixed-width table cell — and is **not** reused.
+The axis lives entirely in CSS, but not by flipping an existing class. `.date-content`
+(`styles.ts:324-329`) looks like the natural thing to reuse and is **dead CSS** — nothing in
+`src/` emits that class, and it appears zero times in the Phase 0 DOM snapshot; the last commit
+to touch `class="date-content"` is `92f8c60`. `Leaves.renderDateContent` emits its three divs
+_bare_, with no wrapper, which is precisely what lets each view supply its own. So the column
+view brings its own `.column-date-content` wrapper rather than reviving the dead one — adding a
+wrapper to the list path would change the list DOM and break the Phase 0 gate. `.date-column`
+(`styles.ts:310-322`) is list-only — it is a fixed-width table cell — and is **not** reused
+either.
+
+::: warning Verified During Phase 4b
+This paragraph originally claimed `.date-content` was the list view's flex container and that
+the column header was its row equivalent. It is not; it is unreferenced. Corrected after
+grepping `src/`, the snapshot and the git history rather than reading the stylesheet alone.
+:::
 
 Today highlighting needs no new keys: `today_weekday_color`, `today_day_color`, and
 `today_month_color` already exist with top precedence. `Leaves.parseIndicatorPosition` (`leaves.ts:475`, consumed by `Leaves.renderTodayIndicator`
