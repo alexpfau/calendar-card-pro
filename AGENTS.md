@@ -31,6 +31,7 @@ enough that people will otherwise get it wrong.
 | `npm run format`     | — (prettier, `--write`)         |                         |         |
 | `npm test`           | — (vitest, single run)          |                         |         |
 | `npm run check:i18n` | — (translation wiring check)    |                         |         |
+| `npm run check:docs` | — (docs/config parity check)    |                         |         |
 
 Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
@@ -56,8 +57,18 @@ npx tsc --noEmit   # typecheck — not exposed as an npm script
 npm run lint
 npm test
 npm run check:i18n
+npm run check:docs
 npm run build
 ```
+
+Those six are every npm gate CI runs, so a green local run should mean a green PR. (CI adds one
+inline check after the build — that `dist/` carries no `sourceMappingURL` and no `.map` file,
+since neither is distributed and both 404 in the user's browser.) `check:docs` is the one that
+surprises people: it is described under _Documenting a change_ below, which makes it look like a
+docs-only concern, but it gates **every** PR and it validates the design docs in
+`docs/development/` as well as the user-facing site. A change touching no `src/` file at all can
+still fail it. Adding a config option without a reference-table row fails it too — which is the
+point.
 
 Two things to know before trusting it. `tests/list-dom.test.ts` snapshots serialized DOM, so
 an intentional markup change means **reading** the snapshot diff and committing it, not
@@ -153,7 +164,7 @@ The README's quick-start YAML block is the one **deliberate** duplicate in the p
 is the HACS landing page, so it has to show a working config without sending the reader
 elsewhere first. `check:docs` pins it byte-for-byte to the first example in
 `docs/guide/usage.md`. Do not resolve that failure by deleting either copy — edit both.
-Anything that *teaches* (multiple calendars, per-calendar colours, compact mode) belongs
+Anything that _teaches_ (multiple calendars, per-calendar colours, compact mode) belongs
 only in `docs/`, never in the README.
 
 ### The two "What's New" surfaces
@@ -161,11 +172,11 @@ only in `docs/`, never in the README.
 There are **two** of them and they follow **different rules**. Updating only one is the
 most likely way for a release to drift:
 
-| | `README.md` `## 4️⃣ What's New` | `docs/guide/whats-new.md` |
-| --- | --- | --- |
-| Purpose | highlights reel for the HACS landing page | the card's full history |
-| Span | current major only, capped at 8 entries | **every** minor line, back to v1.0 |
-| Selection | ruthless — relevance only | fuller, but still curated |
+|           | `README.md` `## 4️⃣ What's New`            | `docs/guide/whats-new.md`          |
+| --------- | ----------------------------------------- | ---------------------------------- |
+| Purpose   | highlights reel for the HACS landing page | the card's full history            |
+| Span      | current major only, capped at 8 entries   | **every** minor line, back to v1.0 |
+| Selection | ruthless — relevance only                 | fuller, but still curated          |
 
 **Do not touch either in a feature PR.** They are organised by release, so a feature
 branch cannot know which version it will land in, and concurrent branches conflict in them.
@@ -199,7 +210,7 @@ age. Deep-link each bullet to the relevant docs page where one exists.
 ## Docs style
 
 These conventions are **enforced by `npm run check:docs`**, so this section is a
-reference for *why*, not a checklist to police by hand. Run it before pushing docs
+reference for _why_, not a checklist to police by hand. Run it before pushing docs
 changes; CI runs it too.
 
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
@@ -324,6 +335,7 @@ and serves `docs/.vitepress/dist` as static assets.
 
   A non-zero exit here means the next merge to `main` will fail to deploy. Fix it with
   `npx npm@10.9.2 install --package-lock-only` and commit the result.
+
 - A green `validate-hacs` check does **not** mean the site deployed. The Workers build is a
   separate check run named `Workers Builds: calendar-card-pro`. Confirm a deploy by
   fetching the live page, not by reading check names:

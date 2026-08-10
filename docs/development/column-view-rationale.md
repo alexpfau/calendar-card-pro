@@ -2044,11 +2044,54 @@ change an allow/block pattern. Confirm the view updates.
 8. **[v4] To verify in HA, not on paper:** the actual card-edit modal width, which determines
    how severe A3-C.4 is (the mitigation is mandatory regardless). **[v5]** Now also determines
    whether the provisional `min_day_column_width_px: 160` (decision 14) survives measurement.
-9. **No runtime or visual HA testing has happened on any of this yet.**
+   **[v6] MEASURED — 480px.** A3-C.4 is real and severe: a user configuring a 7-day column view
+   watches the preview fall back to list _while editing_. The mitigation is load-bearing.
+9. **No runtime or visual HA testing has happened on any of this yet.** **[v6] Superseded** —
+   Phase 2b was A/B-verified against the live instance, and the G13 spike measured six
+   placements there.
 10. **[v5] Un-decided and un-decidable on paper: the real rendered width of an HA masonry or
     sections column.** Every threshold in A3-C and decision 14 is arithmetic over an assumed
     container width. The arithmetic is sound; the input is a guess. First measurement task in
-    Phase 4.
+    Phase 4. **[v6] MEASURED for sections; still open for masonry and panel** — every view on
+    the test instance is `hui-sections-view`, so no masonry sample existed to measure. The
+    sections result falsified the assumed input: a default section is **500px**, not the
+    ~1200px the sizing argument had assumed. See the methodology note below, and G14 in the
+    spec for the ruling that followed.
+
+### G13 spike methodology — and the discarded first attempt **[NEW v6]**
+
+Recorded because the first attempt produced a **plausible, internally consistent, and wrong**
+table, and the failure mode is not obvious.
+
+**What was wrong.** The first pass drove Playwright's `setViewportSize` across a range of
+widths and measured the card after each resize, without reloading. HA's sections layout does
+not settle synchronously after a viewport change — it recomputes column count and width
+asynchronously, and the measurement landed mid-transition. The resulting series was
+**non-monotonic**: some narrower viewports reported _wider_ cards than wider ones.
+
+**Why that was nearly missed.** A non-monotonic table is physically impossible for this layout,
+which is what exposed it. But it was not obviously garbage — the numbers were all in a
+believable range, and the table contained rows supporting **both** available conclusions. Read
+one way it showed the card capped at 500px regardless of viewport; read another it showed the
+card growing past 500px. Either reading was defensible from the same data, so the spike would
+have "confirmed" whichever hypothesis was held going in. **A measurement that can support
+either conclusion is not evidence.** The tell was the physical impossibility, not the numbers.
+
+**The method that works:**
+
+1. **Reload the page at each viewport width.** Do not resize a live page. The layout is only
+   trustworthy after a fresh load at the target width.
+2. **Query the inner `div.content` inside `hui-sections-view`**, not the view host. The host
+   spans the viewport; the content box is the width a card actually gets.
+3. **Read the CSS custom properties directly** rather than inferring the cap from observed
+   widths — `--ha-view-sections-column-max-width` and `--ha-view-sections-column-min-width`.
+   This is what established that 500px is a **themeable default, not a hard cap**, which the
+   observed widths alone could not have distinguished.
+
+Point 3 is the one that changed the ruling. Had the spike only sampled widths, 500px would have
+looked like an immovable ceiling, and the design would have been built around working within
+it. Reading the property revealed it as a default the user can raise — which is what makes
+`min_day_column_width_px` a coherent escape hatch rather than a token gesture.
 
 ---
 
