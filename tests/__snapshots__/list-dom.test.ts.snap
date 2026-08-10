@@ -1160,6 +1160,627 @@ exports[`list view DOM > renders the default configuration 1`] = `
 </table>"
 `;
 
+exports[`list view DOM > renders weather in both positions with the opt-in fields on 1`] = `
+"<table class=" day-table today ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="4">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span class="weather-temp-high">24°</span>
+<span class="weather-temp-low">/13°</span>
+</div>
+</td>
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            24°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            17°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            24°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            23°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table tomorrow future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span class="weather-temp-high">21°</span>
+<span class="weather-temp-low">/12°</span>
+</div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            21°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day, until Jun 19</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span class="weather-temp-high">17°</span>
+<span class="weather-temp-low">/11°</span>
+</div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            16°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>"
+`;
+
+exports[`list view DOM > renders weather on events 1`] = `
+"<table class=" day-table today ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="4">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            24°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            17°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            24°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            23°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table tomorrow future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            21°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day, until Jun 19</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            16°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>"
+`;
+
+exports[`list view DOM > renders weather on the date column 1`] = `
+"<table class=" day-table today ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="4">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span class="weather-temp-high">24°</span>
+</div>
+</td>
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table tomorrow future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span class="weather-temp-high">21°</span>
+</div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day, until Jun 19</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span class="weather-temp-high">17°</span>
+</div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>"
+`;
+
 exports[`list view DOM > renders week numbers and separators when enabled 1`] = `
 "<table class="week-row-table" style="margin-top:0px;margin-bottom:5px;">
 <tr>
@@ -1335,6 +1956,235 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
         </span>
 </div>
 <!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>"
+`;
+
+exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = `
+"<table class=" day-table today ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="4">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span class="weather-temp-high">24°</span>
+<span class="weather-uv-index">UV7</span>
+</div>
+</td>
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            24°
+          </span>
+<span class="weather-uv-index" style="font-size: 12px; color: var(--secondary-text-color);">
+            UV7
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            17°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            24°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            23°
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table tomorrow future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span class="weather-temp-high">21°</span>
+<span class="weather-uv-index">UV4</span>
+</div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            21°
+          </span>
+<span class="weather-uv-index" style="font-size: 12px; color: var(--secondary-text-color);">
+            UV4
+          </span>
+</div>
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day, until Jun 19</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span class="weather-temp-high">17°</span>
+<span class="weather-uv-index">UV2</span>
+</div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<div class="event-weather">
+<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
+<span style="font-size: 12px; color: var(--secondary-text-color);">
+            16°
+          </span>
+</div>
 </div>
 <div class="time-location">
 <div class="time">

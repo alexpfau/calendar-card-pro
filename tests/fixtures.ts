@@ -114,3 +114,68 @@ export const EVENTS: Types.CalendarEventData[] = [
 export const SINGLE_EVENT: Types.CalendarEventData[] = [
   timed('2026-06-17', '14:00', '15:00', 'Upcoming one-to-one'),
 ];
+
+/**
+ * Weather forecasts covering the fixture dates.
+ *
+ * Included because Phase 1's **first** extraction is weather (`render.ts:526-575`), and
+ * a gate that passes no forecasts leaves that step unprotected — `weatherForecasts` is
+ * optional, so every weather branch short-circuits to `nothing` and the snapshots would
+ * agree perfectly with a broken extraction.
+ *
+ * Two independent render sites, both pinned:
+ * - **daily** → the date column, via `findDailyForecast`, keyed `YYYY-MM-DD`.
+ * - **hourly** → individual events, via `findForecastForEvent`, keyed `YYYY-MM-DD_H`
+ *   with a **non-padded** hour, and looked up by the event's *local* start hour.
+ *
+ * `templow` and `uv_index` are populated because `show_low_temp` and `show_uv_index`
+ * are opt-in and mutually exclusive at the render site (`show_low_temp` is suppressed
+ * when a UV index shows). Absent data would make those branches untestable rather than
+ * merely off.
+ */
+export const WEATHER: Types.WeatherForecasts = {
+  daily: {
+    '2026-06-17': {
+      icon: 'mdi:weather-sunny',
+      condition: 'sunny',
+      temperature: 24,
+      templow: 13,
+      uv_index: 7,
+      datetime: '2026-06-17T12:00:00.000Z',
+    },
+    '2026-06-18': {
+      icon: 'mdi:weather-partly-cloudy',
+      condition: 'partlycloudy',
+      temperature: 21,
+      templow: 12,
+      uv_index: 4,
+      datetime: '2026-06-18T12:00:00.000Z',
+    },
+    '2026-06-19': {
+      icon: 'mdi:weather-rainy',
+      condition: 'rainy',
+      temperature: 17,
+      templow: 11,
+      uv_index: 2,
+      datetime: '2026-06-19T12:00:00.000Z',
+    },
+  },
+  hourly: {
+    '2026-06-17_8': hour('2026-06-17T08:00:00.000Z', 'mdi:weather-fog', 'fog', 14, 8),
+    '2026-06-17_9': hour('2026-06-17T09:00:00.000Z', 'mdi:weather-cloudy', 'cloudy', 17, 9),
+    '2026-06-17_14': hour('2026-06-17T14:00:00.000Z', 'mdi:weather-sunny', 'sunny', 24, 14),
+    '2026-06-17_16': hour('2026-06-17T16:00:00.000Z', 'mdi:weather-sunny', 'sunny', 23, 16),
+    '2026-06-19_10': hour('2026-06-19T10:00:00.000Z', 'mdi:weather-rainy', 'rainy', 16, 10),
+  },
+};
+
+/** An hourly forecast entry. Kept terse — only the fields the render site reads. */
+function hour(
+  datetime: string,
+  icon: string,
+  condition: string,
+  temperature: number,
+  h: number,
+): Types.WeatherData {
+  return { icon, condition, temperature, datetime, hour: h, precipitation_probability: 20 };
+}

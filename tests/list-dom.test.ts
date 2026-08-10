@@ -1,7 +1,7 @@
 import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { EVENTS, FROZEN_NOW, SINGLE_EVENT, buildConfig } from './fixtures';
+import { EVENTS, FROZEN_NOW, SINGLE_EVENT, WEATHER, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
@@ -70,14 +70,20 @@ function serialize(container: HTMLElement): string {
 }
 
 /** Runs the real pipeline and returns normalized markup. */
+interface RenderOpts {
+  isExpanded?: boolean;
+  language?: string;
+  weather?: Types.WeatherForecasts;
+}
+
 function renderList(
   events: Types.CalendarEventData[],
   config: Types.Config,
-  { isExpanded = false, language = 'en' } = {},
+  { isExpanded = false, language = 'en', weather }: RenderOpts = {},
 ): string {
   const days = EventUtils.groupEventsByDay(events, config, isExpanded, language);
   const container = document.createElement('div');
-  litRender(Render.renderGroupedEvents(days, config, language), container);
+  litRender(Render.renderGroupedEvents(days, config, language, weather), container);
   return serialize(container);
 }
 
@@ -159,5 +165,75 @@ describe('list view DOM', () => {
     expect(
       renderList(EVENTS, buildConfig({ language: 'de' }), { language: 'de' }),
     ).toMatchSnapshot();
+  });
+
+  // Weather is pinned in its own block because Phase 1 extracts it FIRST, and because it
+  // is the one part of the render that stays inert unless forecasts are supplied — the
+  // rest of this file would pass unchanged against a completely broken weather renderer.
+
+  it('renders weather on the date column', () => {
+    // `position: 'date'` drives `findDailyForecast` inside `renderDateColumn`
+    // (`render.ts:526-575`) — the exact block Phase 1 lifts out first.
+    expect(
+      renderList(EVENTS, buildConfig({ weather: { entity: 'weather.home', position: 'date' } }), {
+        weather: WEATHER,
+      }),
+    ).toMatchSnapshot();
+  });
+
+  it('renders weather on events', () => {
+    // A separate render site (`renderEventWeather`, `render.ts:1050+`) reading the
+    // hourly forecast. Pinned separately so an extraction that fixes one and breaks the
+    // other cannot pass.
+    expect(
+      renderList(EVENTS, buildConfig({ weather: { entity: 'weather.home', position: 'event' } }), {
+        weather: WEATHER,
+      }),
+    ).toMatchSnapshot();
+  });
+
+  it('renders weather in both positions with the opt-in fields on', () => {
+    // `show_low_temp` is opt-in and off by default, so without this snapshot the low
+    // temp branch would be extracted with no baseline at all. `position: 'both'` also
+    // pins that the two render sites coexist.
+    expect(
+      renderList(
+        EVENTS,
+        buildConfig({
+          weather: {
+            entity: 'weather.home',
+            position: 'both',
+            date: { show_low_temp: true, show_high_temp: true, show_conditions: true },
+            event: { show_conditions: true, show_high_temp: true },
+          },
+        }),
+        { weather: WEATHER },
+      ),
+    ).toMatchSnapshot();
+  });
+
+  it('suppresses the low temp when a UV index is shown', () => {
+    // `showLowTemp` is `show_low_temp === true && !showUvIndex && templow !== undefined`
+    // (`render.ts:545-546`) — an interaction between two independent flags, which is
+    // exactly the kind of condition an extraction silently drops. Both flags are on
+    // here, so the snapshot must contain `weather-uv-index` and must NOT contain
+    // `weather-temp-low`; the assertions below state that outright rather than trusting
+    // a reader to notice an absence in 1300 lines of snapshot.
+    const out = renderList(
+      EVENTS,
+      buildConfig({
+        weather: {
+          entity: 'weather.home',
+          position: 'both',
+          date: { show_low_temp: true, show_uv_index: true },
+          event: { show_uv_index: true },
+        },
+      }),
+      { weather: WEATHER },
+    );
+
+    expect(out).toContain('weather-uv-index');
+    expect(out).not.toContain('weather-temp-low');
+    expect(out).toMatchSnapshot();
   });
 });
