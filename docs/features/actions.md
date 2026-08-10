@@ -78,7 +78,7 @@ The commonly used ones:
 | `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others) | Any additional keys are passed through                    |
 | `none`                            | Disable the action                                | None                                                      |
 
-::: tip
+::: tip Both Action Names Work
 Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations.
 :::
 

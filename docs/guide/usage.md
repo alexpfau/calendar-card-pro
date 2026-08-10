@@ -38,7 +38,7 @@ show_month: false
 
 Replace `calendar.family` with one of your own `calendar.*` entities and you have a working card.
 
-::: info Reading examples elsewhere in these docs
+::: info Reading Examples in These Docs
 Configuration snippets on the feature pages usually show **only the options being discussed**, so the relevant setting is easy to spot. To use one, add it to a card that already has `type:` and `entities:` — like the one above.
 :::
 

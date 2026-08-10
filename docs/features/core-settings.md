@@ -41,7 +41,9 @@ These properties are per calendar. For the card-wide options they override, see 
 
 Calendar Card Pro provides powerful filtering capabilities to control exactly which events appear on your dashboard:
 
-> **Visual Editor:** Set up filters in the entity configuration panels. For each calendar entity, you can specify blocklist/allowlist patterns and configure duplicate filtering from the "Calendar Entities" section.
+::: tip Visual Editor
+**Visual Editor:** Set up filters in the entity configuration panels. For each calendar entity, you can specify blocklist/allowlist patterns and configure duplicate filtering from the "Calendar Entities" section.
+:::
 
 ### Filtering by Event Name
 
@@ -83,21 +85,22 @@ This is especially useful for:
 - Work calendars with team events
 - Any scenario where you might see the same event in multiple calendars
 
-> [!IMPORTANT]
-> Two aspects of this option are easy to miss:
->
-> - **The first-listed calendar wins, including its styling.** Only the copy from the
->   calendar listed first in `entities` is kept, and it keeps that calendar's `label`,
->   `color` and `accent_color`. A shared event can therefore appear under a different
->   calendar's styling than you expect — reorder `entities` so the calendar you want to
->   see takes precedence.
-> - **Matching ignores which calendar an event came from.** Any two events sharing a
->   title, start time, end time and location are treated as duplicates, even if they are
->   genuinely separate events, and even if both are in the _same_ calendar.
->
-> Events are never hidden merely for starting at the same time — all four fields must
-> match. If events are disappearing unexpectedly, set `filter_duplicates: false` to
-> confirm whether this option is the cause.
+::: warning Two Details Are Easy to Miss
+Two aspects of this option are easy to miss:
+
+- **The first-listed calendar wins, including its styling.** Only the copy from the
+  calendar listed first in `entities` is kept, and it keeps that calendar's `label`,
+  `color` and `accent_color`. A shared event can therefore appear under a different
+  calendar's styling than you expect — reorder `entities` so the calendar you want to
+  see takes precedence.
+- **Matching ignores which calendar an event came from.** Any two events sharing a
+  title, start time, end time and location are treated as duplicates, even if they are
+  genuinely separate events, and even if both are in the _same_ calendar.
+
+Events are never hidden merely for starting at the same time — all four fields must
+match. If events are disappearing unexpectedly, set `filter_duplicates: false` to
+confirm whether this option is the cause.
+:::
 
 ### Advanced Filtering Techniques
 

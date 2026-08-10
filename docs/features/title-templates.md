@@ -39,8 +39,9 @@ No separate option enables this. Any title containing `{{` or `{%` is rendered a
   title: '{{ state_attr("calendar.family", "message") or "Nothing scheduled" }}'
   ```
 
-> [!TIP]
-> Test a template in **Developer Tools → Template** first. What renders there is exactly what the card will show.
+::: tip Test Your Template First
+Test a template in **Developer Tools → Template** first. What renders there is exactly what the card will show.
+:::
 
 ## 🔁 How Updates Work
 
@@ -51,8 +52,9 @@ Home Assistant renders the template on its own and pushes a new value to the car
 
 The rest of the card is unaffected: a title change never triggers a calendar refresh, and the events shown are exactly the same as with a static title.
 
-> [!NOTE]
-> The heading is briefly empty on first paint while Home Assistant renders the template. The card never displays the raw template text.
+::: info The First Paint
+The heading is briefly empty on first paint while Home Assistant renders the template. The card never displays the raw template text.
+:::
 
 ## ⚠️ When a Template Fails
 
@@ -64,5 +66,6 @@ Errors are reported where you can act on them, and the card itself stays usable:
 
 Error reporting for templates that fail _after_ they were accepted requires Home Assistant 2023.9 or newer. On older versions templating still works, but a template that starts failing later will simply stop updating.
 
-> [!NOTE]
-> Because templates are detected by looking for `{{` and `{%`, a title that contains those characters literally will be treated as a template. This is the one trade-off of not requiring a separate option, and a literal `{{` in a card title is not something the card supports.
+::: info Literal Braces in a Title
+Because templates are detected by looking for `{{` and `{%`, a title that contains those characters literally will be treated as a template. This is the one trade-off of not requiring a separate option, and a literal `{{` in a card title is not something the card supports.
+:::

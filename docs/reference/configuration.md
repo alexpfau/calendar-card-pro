@@ -7,7 +7,7 @@ it defaults to. The [feature pages](/features/core-settings) are where each opti
 explained and demonstrated — where an option needs more than one line, this page links
 to the page that owns it.
 
-::: tip Looking for a starting point?
+::: tip Looking for a Starting Point?
 [Usage](/guide/usage) has two complete, copy-pasteable configurations. Snippets on this
 site show only the options under discussion, so they are fragments rather than whole
 cards.

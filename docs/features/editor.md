@@ -25,7 +25,7 @@ The editor is organized into logical panels that guide you through all configura
 - **Smart Validation** - Input validation prevents configuration errors
 - **Automatic Config Upgrader** - Detects deprecated settings from older versions
 
-::: info Editor language support
+::: info Editor Language Support
 The visual configuration editor is currently available in **11 languages**, while the calendar itself supports **35 languages**. If your language is not among the 11, the editor falls back to English — calendar settings applied through it still display correctly in all 35 supported languages. Community contributions for additional editor translations are welcome!
 :::
 
@@ -45,6 +45,6 @@ When you open the editor with a configuration that uses deprecated parameters, t
 
 Click **"Update config..."** to automatically migrate to the current parameter names.
 
-::: warning YAML configurations are not migrated automatically
+::: warning YAML Is Not Migrated Automatically
 The upgrader runs **only in the visual editor**. There is no runtime migration, so a deprecated option written directly in YAML is silently ignored and the card falls back to the default — it does not keep working under the old name. If you manage your card in YAML, use the current names from the [Configuration Variables reference](/reference/configuration).
 :::
