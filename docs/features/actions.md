@@ -1,5 +1,7 @@
 # Actions & Interactions
 
+Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, and bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL.
+
 ## 🔄 Expandable Calendar View
 
 One of Calendar Card Pro's most powerful features is the ability to toggle between compact and expanded views:

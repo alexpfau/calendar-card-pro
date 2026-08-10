@@ -1,5 +1,7 @@
 # Event Content & Display
 
+These options control what each event actually shows — its title, times, location, description, countdown and progress — and how the card behaves on days that have no events at all.
+
 ## 📅 Calendar Events Display
 
 Control how event information is presented on your calendar:

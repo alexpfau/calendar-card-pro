@@ -728,6 +728,26 @@ function checkHeadingStyle(docs) {
   }
 }
 
+/**
+ * Check 11: every page opens with prose, not a bare heading.
+ *
+ * A page that jumps from its h1 straight into an h2 gives the reader no idea
+ * what the page covers before it starts issuing options at them. Six pages did
+ * this. One or two sentences is enough.
+ */
+function checkPageIntros(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    const rel = relative(ROOT, file);
+    const lines = readFileSync(file, 'utf8').split('\n');
+    const h1 = lines.findIndex((l) => l.startsWith('# '));
+    if (h1 === -1) continue;
+    const next = lines.slice(h1 + 1).find((l) => l.trim());
+    if (next && next.startsWith('#'))
+      error(`${rel}: h1 is followed straight by a heading; add an intro sentence.`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 function report(counts) {
@@ -777,6 +797,7 @@ function main() {
   checkNoRawHtml(docs);
   checkAdmonitions(docs);
   checkHeadingStyle(docs);
+  checkPageIntros(docs);
 
   process.exit(
     report({

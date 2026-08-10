@@ -1,5 +1,7 @@
 # Layout & Appearance
 
+These options control how the card looks rather than what it shows: its dimensions and scrolling behavior, its colors and fonts, the spacing between elements, and the styling of the date column, week numbers and today indicator.
+
 ## 📐 Card Dimensions & Scrolling
 
 Calendar Card Pro offers flexible options for controlling the card's size and scroll behavior:

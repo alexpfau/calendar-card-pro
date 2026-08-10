@@ -1,5 +1,7 @@
 # Contributing & Roadmap
 
+Calendar Card Pro is community-driven. Whether you want to report a bug, propose a feature, translate the card into your language or work on the code itself, this page covers how to get involved and what is planned next.
+
 ## 🚀 How to Contribute
 
 Want to improve **Calendar Card Pro**? I welcome contributions of all kinds—whether it’s **fixing bugs, improving performance, or adding new features**!

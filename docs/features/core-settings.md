@@ -1,5 +1,7 @@
 # Core Settings
 
+Core settings control which calendars the card reads, which of their events it keeps, and how many of them it shows at once. Everything else in this documentation builds on the entity configuration described here.
+
 ## 🗂️ Entity Configuration
 
 Calendar Card Pro can display events from multiple calendar entities in Home Assistant. The `entities` array accepts either:

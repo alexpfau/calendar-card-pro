@@ -1,5 +1,7 @@
 # Installation
 
+Calendar Card Pro installs like any other custom Lovelace card. HACS is the recommended route because it handles updates for you; manual installation is available if you do not use HACS.
+
 ## 📦 HACS Installation (Recommended)
 
 The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant Community Store)](https://hacs.xyz/)**.
