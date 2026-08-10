@@ -157,7 +157,7 @@ show_past_events: true # Show today's events that have already ended
 
 When enabled, past events appear with reduced opacity (60%) to visually distinguish them from upcoming events.
 
-## Weekend Day Styling
+## 🌈 Weekend Day Styling
 
 Weekend days (Saturday and Sunday) can be styled differently from weekdays to make them stand out in your calendar. You can customize:
 
@@ -179,7 +179,7 @@ weekend_month_color: '#E67C73'
 
 This styling helps users quickly distinguish weekend days from weekdays, making the calendar more visually informative and easier to scan.
 
-## Progress Bar Display
+## 📊 Progress Bar Display
 
 Calendar Card Pro can display a progress bar for events that are currently running, showing how much of the event has completed.
 

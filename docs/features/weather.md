@@ -1,4 +1,4 @@
-# 🌦️ Weather Integration
+# Weather Integration
 
 Calendar Card Pro can display weather forecasts alongside your calendar events, providing a complete view of both your schedule and the expected weather conditions.
 
@@ -34,7 +34,7 @@ weather:
 
 This flexible configuration allows you to create a personalized experience that shows exactly the weather information you need, where you need it.
 
-## Weather Configuration Options
+## ⚙️ Weather Configuration Options
 
 | Option                            | Type    | Default                     | Description                                                                                 |
 | --------------------------------- | ------- | --------------------------- | ------------------------------------------------------------------------------------------- |
@@ -59,7 +59,7 @@ This flexible configuration allows you to create a personalized experience that 
 
 These sit under the card's `weather` option — see [Weather in the configuration reference](/reference/configuration#weather).
 
-## Weather Display Positions
+## 📍 Weather Display Positions
 
 You can choose where weather information appears in your calendar:
 
@@ -76,7 +76,7 @@ forecast so weather keeps appearing across the whole calendar. Set
 value. All-day events always use the daily forecast.
 :::
 
-## Position-Specific Configuration
+## 🧭 Position-Specific Configuration
 
 Each display position can be customized independently with different content and styling:
 
@@ -102,7 +102,7 @@ Each display position can be customized independently with different content and
 - `font_size`: Temperature text size
 - `color`: Text and icon color
 
-## Benefits & Use Cases
+## ✨ Benefits & Use Cases
 
 Weather integration is particularly useful for:
 

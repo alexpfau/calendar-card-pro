@@ -6,7 +6,7 @@ Calendar Card Pro seamlessly integrates with all Home Assistant themes and fully
 - **Standard Card Structure**: Follows HA conventions for consistent styling
 - **CSS Customization**: Accessible structure for easy card-mod targeting
 
-## Card-Mod Examples
+## 🎨 Card-Mod Examples
 
 **Custom title styling:**
 
