@@ -13,10 +13,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Read the Node version from .nvmrc so CI runs the same runtime as the
+      # Cloudflare Workers build that publishes the docs site. They diverged once —
+      # CI on Node 24 (npm 11) and the deploy on Node 22 (npm 10) — and npm 11
+      # silently tolerated a package-lock.json that npm 10 rejects outright. CI went
+      # green, the deploy died in `npm ci`, and the docs site served stale content
+      # with nothing in the PR to suggest anything was wrong. Pinning both to one
+      # file is what makes a green CI run mean the site will actually publish.
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
