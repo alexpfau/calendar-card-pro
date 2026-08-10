@@ -379,19 +379,27 @@ export function findCalendarEntity(hass: Record<string, { state: string }>): str
 /**
  * Grid layout hint attached to the card picker suggestion.
  *
- * A sections view falls back to the card's own default footprint when a suggested
- * config omits `grid_options`, which misrepresents a list-shaped card like this
- * one. Half width suits that shape and the user can resize afterwards like any
- * other card.
+ * Full width, because this card is a text-heavy list: every row carries a date,
+ * a title, a time and optionally a location. A section has a capped maximum
+ * width, so half of one lands around 230-250px on any screen, and below roughly
+ * 250px those fields wrap aggressively - a long location can spill over several
+ * lines. That makes the card harder to read *and* taller than the full-width
+ * equivalent showing the same events, so half width costs horizontal space
+ * without buying anything back.
  *
  * The row count is deliberately left to the content. A numeric `rows` pins the
  * card to a fixed height rather than a minimum, and this card's height is not
  * knowable at suggestion time: `days_to_show` says nothing about how many events
  * fall in those days. A fixed height would leave dead space on a quiet calendar
  * and silently truncate a busy one. `'auto'` avoids both.
+ *
+ * These values match what Home Assistant assigns a card that declares no grid
+ * options of its own. They are stated explicitly rather than left out so the
+ * intent is legible at the call site, and so a future change to that platform
+ * default cannot quietly move the suggestion with it.
  */
 const SUGGESTION_GRID_OPTIONS = {
-  columns: 6,
+  columns: 12,
   rows: 'auto',
 };
 
