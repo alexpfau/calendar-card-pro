@@ -38,3 +38,8 @@ tmp/
 
 # Ignore documentation build artifacts
 docs/_build/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+
+# Ignore Cloudflare Workers local state
+.wrangler/
