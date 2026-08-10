@@ -381,12 +381,18 @@ export function findCalendarEntity(hass: Record<string, { state: string }>): str
  *
  * A sections view falls back to the card's own default footprint when a suggested
  * config omits `grid_options`, which misrepresents a list-shaped card like this
- * one. Half width with room for a few days is a better starting point, and the
- * user can resize the card afterwards like any other.
+ * one. Half width suits that shape and the user can resize afterwards like any
+ * other card.
+ *
+ * The row count is deliberately left to the content. A numeric `rows` pins the
+ * card to a fixed height rather than a minimum, and this card's height is not
+ * knowable at suggestion time: `days_to_show` says nothing about how many events
+ * fall in those days. A fixed height would leave dead space on a quiet calendar
+ * and silently truncate a busy one. `'auto'` avoids both.
  */
 const SUGGESTION_GRID_OPTIONS = {
   columns: 6,
-  rows: 4,
+  rows: 'auto',
 };
 
 /**
