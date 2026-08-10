@@ -234,7 +234,11 @@ export function normalizeEntities(
           label_icon_color: undefined,
         };
       }
-      if (typeof item === 'object' && item.entity) {
+      // `typeof null === 'object'`, so a bare `-` list item in YAML — which parses
+      // as null — would reach `item.entity` and throw, taking down setConfig and
+      // with it the whole card. The `.filter(Boolean)` below already intends to
+      // drop malformed entries; this guard lets them reach it.
+      if (item && typeof item === 'object' && item.entity) {
         return {
           entity: item.entity,
           label: item.label,
