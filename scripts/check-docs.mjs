@@ -674,6 +674,9 @@ function checkAdmonitions(docs) {
   for (const file of docs) {
     if (isExcluded(file, STYLE_EXCLUDES)) continue;
     let fenced = false;
+    // Set when a titled container opens, so the first line of its body can be
+    // compared against the title.
+    let openTitle = null;
     readFileSync(file, 'utf8')
       .split('\n')
       .forEach((line, i) => {
@@ -682,6 +685,14 @@ function checkAdmonitions(docs) {
           return;
         }
         if (fenced) return;
+        if (openTitle && line.trim()) {
+          const bold = line.match(/^\*\*(.+?)\*\*:?\s*/);
+          if (bold && bold[1].replace(/:$/, '').trim().toLowerCase() === openTitle.toLowerCase())
+            error(
+              `${relative(ROOT, file)}:${i + 1} repeats the container title "${openTitle}" as a bold lead-in, so it renders twice. The title already labels the box.`,
+            );
+          openTitle = null;
+        }
         if (/^>\s*\[!/.test(line))
           error(
             `${relative(ROOT, file)}:${i + 1} uses a GitHub alert. Use ::: tip Title — containers can be titled.`,
@@ -690,6 +701,8 @@ function checkAdmonitions(docs) {
           error(
             `${relative(ROOT, file)}:${i + 1} opens an untitled container. Give it a descriptive title.`,
           );
+        const opened = line.match(/^:::\s*(?:tip|warning|info|danger|details)\s+(.+?)\s*$/);
+        if (opened) openTitle = opened[1];
         if (/^>\s*\*\*[^*]+:\*\*/.test(line))
           warn(
             `${relative(ROOT, file)}:${i + 1} looks like a callout in a bare blockquote, which gets no callout styling.`,

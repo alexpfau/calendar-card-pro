@@ -3,7 +3,7 @@
 Calendar Card Pro can display weather forecasts alongside your calendar events, providing a complete view of both your schedule and the expected weather conditions.
 
 ::: tip Visual Editor
-**Visual Editor:** Access all weather settings in the "Weather Integration" section of the editor, where you can select your weather entity and configure display options for both date and event positions.
+Access all weather settings in the "Weather Integration" section of the editor, where you can select your weather entity and configure display options for both date and event positions.
 :::
 
 ```yaml

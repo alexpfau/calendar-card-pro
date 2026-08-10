@@ -44,7 +44,7 @@ These options are per calendar. For the card-wide options they override, see [Co
 Calendar Card Pro provides powerful filtering capabilities to control exactly which events appear on your dashboard:
 
 ::: tip Visual Editor
-**Visual Editor:** Set up filters in the entity configuration panels. For each calendar entity, you can specify blocklist/allowlist patterns and configure duplicate filtering from the "Calendar Entities" section.
+Set up filters in the entity configuration panels. For each calendar entity, you can specify blocklist/allowlist patterns and configure duplicate filtering from the "Calendar Entities" section.
 :::
 
 ### Filtering by Event Name
