@@ -749,6 +749,131 @@ function checkPageIntros(docs) {
 }
 
 // ---------------------------------------------------------------------------
+// Checks 12-14 — spelling, option tables, bidirectional cross-links
+// ---------------------------------------------------------------------------
+
+/**
+ * Check 12: US spelling.
+ *
+ * The config options are US-spelled (`color`, `vertical_line_color`), so British
+ * spelling in the prose around them reads as inconsistent. A hand sweep already
+ * missed `Optimised` once, because a case-sensitive grep for `optimised` does not
+ * match a capitalised word at the start of a sentence. Hence: case-insensitive.
+ */
+const BRITISH = [
+  ['colour', 'color'],
+  ['customis', 'customiz'],
+  ['behaviour', 'behavior'],
+  ['optimis', 'optimiz'],
+  ['standardis', 'standardiz'],
+  ['organis', 'organiz'],
+  ['centre', 'center'],
+  ['analyse', 'analyze'],
+  ['cancelled', 'canceled'],
+  ['travelling', 'traveling'],
+];
+
+function checkSpelling(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    const rel = relative(ROOT, file);
+    let fenced = false;
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        if (line.startsWith('```')) {
+          fenced = !fenced;
+          return;
+        }
+        if (fenced) return;
+        for (const [bad, good] of BRITISH) {
+          if (new RegExp(bad, 'i').test(line))
+            error(`${rel}:${i + 1} British spelling "${bad}…"; use "${good}…".`);
+        }
+      });
+  }
+}
+
+/**
+ * Check 13: option tables are `Option | Type | Default | Description`.
+ *
+ * `check:docs` reconciles documented defaults against the code for the reference
+ * page only, so a feature page can omit the Default column entirely and nothing
+ * notices — which is exactly what `core-settings.md` did for all ten of its
+ * per-entity options.
+ *
+ * Only tables whose first header cell names an option are inspected, so
+ * comparison and release tables are left alone.
+ */
+const OPTION_SYNONYMS = ['variable', 'property', 'parameter', 'setting', 'field', 'key'];
+
+function checkOptionTables(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    const rel = relative(ROOT, file);
+    let fenced = false;
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        if (line.startsWith('```')) {
+          fenced = !fenced;
+          return;
+        }
+        if (fenced || !line.trim().startsWith('|')) return;
+
+        const cells = line
+          .split('|')
+          .slice(1, -1)
+          .map((c) => c.trim().replace(/\*/g, '').toLowerCase());
+        if (!cells.length) return;
+
+        if (OPTION_SYNONYMS.includes(cells[0]))
+          error(`${rel}:${i + 1} table header "${cells[0]}"; use "Option".`);
+
+        if (cells[0] === 'option' && !cells.includes('default'))
+          error(`${rel}:${i + 1} option table has no Default column.`);
+      });
+  }
+}
+
+/**
+ * Check 14: features and the reference link to each other, both ways.
+ *
+ * `show_countdown_allday` shipped documented in one place and unreachable from
+ * the other. One-directional linking is how that happens, so require the return
+ * leg: every feature page points at the reference, and every reference section
+ * points back at a feature page.
+ */
+function checkCrossLinks(docs) {
+  for (const file of docs) {
+    const rel = relative(ROOT, file);
+    if (!rel.startsWith('docs/features/')) continue;
+    if (!readFileSync(file, 'utf8').includes('/reference/configuration'))
+      error(`${rel}: no link back to /reference/configuration.`);
+  }
+
+  const lines = readFileSync(REFERENCE_DOC, 'utf8').split('\n');
+  const rel = relative(ROOT, REFERENCE_DOC);
+  let fenced = false;
+  let seen = 0;
+  lines.forEach((line, i) => {
+    if (line.startsWith('```')) fenced = !fenced;
+    if (fenced || !/^## /.test(line)) return;
+
+    // The footer belongs to the *previous* section, so the first h2 has none.
+    seen += 1;
+    if (seen === 1) return;
+
+    // Walk back to the previous section's last non-blank line.
+    let j = i - 1;
+    while (j >= 0 && !lines[j].trim()) j -= 1;
+    if (j < 0 || /^#/.test(lines[j])) return; // an empty section
+    if (!/\(\/features\//.test(lines[j]))
+      error(`${rel}:${i} section above "${line.slice(3)}" has no → feature-page footer.`);
+  });
+}
+
+// ---------------------------------------------------------------------------
 
 function report(counts) {
   console.log(
@@ -798,6 +923,9 @@ function main() {
   checkAdmonitions(docs);
   checkHeadingStyle(docs);
   checkPageIntros(docs);
+  checkSpelling(docs);
+  checkOptionTables(docs);
+  checkCrossLinks(docs);
 
   process.exit(
     report({

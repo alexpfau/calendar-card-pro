@@ -196,6 +196,56 @@ nicety, or a rare edge-case fix does not. Never write a catch-all "🐛 Key Bug 
 Three honest bullets beat six padded ones, and older entries may be trimmed further as they
 age. Deep-link each bullet to the relevant docs page where one exists.
 
+## Docs style
+
+These conventions are **enforced by `npm run check:docs`**, so this section is a
+reference for *why*, not a checklist to police by hand. Run it before pushing docs
+changes; CI runs it too.
+
+**Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
+emoji there ends up in the browser tab, bookmarks, share previews and search results.
+Two pages shipped `<title>⚙️ Visual Configuration Editor | Calendar Card Pro` before
+this rule existed. h2 emoji never leave the page body and are a large part of why these
+docs scan well, so they are required, not merely allowed. Reuse the feature page's emoji
+for the matching section in `reference/configuration.md`, so the reference reads as a
+visual key back to the features. Emoji never affect anchors — the site's `slugify`
+strips them — so an emoji change can never break a link.
+
+`guide/whats-new.md` is exempt: its h2s are version identifiers (`## v3.4`), not topics,
+and an emoji per release would be arbitrary noise.
+
+**Also in headings:** use `&`, not "and"; no trailing colons. Title Case too, though that
+one is on you — it is too ambiguous to check without false positives.
+
+**Every page opens with prose.** An h1 followed straight by an h2 puts a configuration
+table in front of the reader before they know what the page is for. One or two sentences.
+
+**Callouts are titled VitePress containers** (`::: tip Title`), never GitHub alerts
+(`> [!TIP]`) and never a bare bold blockquote. GitHub alert syntax renders as a plain
+blockquote on the docs site — it only works in files GitHub itself renders, i.e.
+`README.md` and `CONTRIBUTING.md`. Title Case the titles; that part is not checked,
+because `Pair This With show_past_events` would trip any rule strict enough to be useful.
+
+**Option tables** are `Option | Type | Default | Description`. Include the Default column
+even when every value is `-`; a missing column reads as an oversight. `core-settings.md`
+documented no defaults at all for its ten per-entity options, and because the harness
+reconciles defaults against the code for `reference/configuration.md` only, nothing
+caught it — check 13 now catches the shape even where it cannot check the values.
+
+**Cross-link both ways.** Every section of `reference/configuration.md` ends with a
+`**→ [Feature page](/features/…)**` footer, and every feature page closes by naming the
+reference section its options live in. One-directional linking is how
+`show_countdown_allday` once ended up documented in one place and undiscoverable from
+the other.
+
+**Links are markdown, root-absolute** (`/features/weather#…`) — no raw `<a href>`, no
+inline `style=`. VitePress's own dead-link check resolves markdown links only, so a raw
+anchor tag is unvalidated; `check:docs` resolves both, including the fragment, against
+the real headings.
+
+**US spelling** (`color`, `customize`, `behavior`) — the config options themselves are
+US-spelled, so British spelling in the prose around them reads as inconsistent.
+
 ## Release process
 
 1. Bump `version` in `package.json` — it is the single source of truth. Rollup
