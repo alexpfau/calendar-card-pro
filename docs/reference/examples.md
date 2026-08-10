@@ -108,7 +108,7 @@ entities:
     color: '#ffdaea'
   - entity: calendar.work
     color: '#b3ffd9'
-start_date: '2025-07-01'
+start_date: today
 days_to_show: 10
 compact_events_to_show: 10
 language: en
@@ -122,7 +122,7 @@ title_color: '#baf1ff'
 background_color: '#eeeeee50'
 accent_color: '#baf1ff'
 vertical_line_width: 0px
-row_spacing: 10px
+day_spacing: 10px
 additional_card_spacing: 0px
 
 # Week Numbers and Horizontal Separators
