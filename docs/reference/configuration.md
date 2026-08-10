@@ -39,11 +39,11 @@ These live inside the `column:` block and have no top-level counterpart, because
 describe spacing that only exists once days sit side by side. Their defaults make an
 absent `column:` block a visual no-op.
 
-| Option                                | Type   | Default                       | Description                                                                        |
-| ------------------------------------- | ------ | ----------------------------- | ---------------------------------------------------------------------------------- |
-| `column → day_gap`                    | string | `10px`                        | Horizontal space between day columns, the column-view counterpart to `day_spacing` |
-| `column → day_header_separator_width` | string | `0px`                         | Thickness of the rule under each day header; `0px` renders no rule                 |
-| `column → day_header_separator_color` | string | `var(--secondary-text-color)` | Color of that rule                                                                 |
+| Option                                | Type   | Default                | Description                                                                        |
+| ------------------------------------- | ------ | ---------------------- | ---------------------------------------------------------------------------------- |
+| `column → day_gap`                    | string | `10px`                 | Horizontal space between day columns, the column-view counterpart to `day_spacing` |
+| `column → day_header_separator_width` | string | `1px`                  | Thickness of the rule under each day header; `0px` renders no rule                 |
+| `column → day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                                 |
 
 **→ [Column View](/features/core-settings#column-view)** — worked examples.
 

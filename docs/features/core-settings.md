@@ -253,26 +253,35 @@ side by side need a horizontal gap instead, and a rule that runs under each head
 rather than between days. Those options live inside `column:` and have no top-level
 counterpart.
 
-| Option                       | Type   | Default                       | Description                                                        |
-| ---------------------------- | ------ | ----------------------------- | ------------------------------------------------------------------ |
-| `day_gap`                    | string | `10px`                        | Horizontal space between columns                                   |
-| `day_header_separator_width` | string | `0px`                         | Thickness of the rule under each day header; `0px` renders no rule |
-| `day_header_separator_color` | string | `var(--secondary-text-color)` | Color of that rule                                                 |
+| Option                       | Type   | Default                | Description                                                        |
+| ---------------------------- | ------ | ---------------------- | ------------------------------------------------------------------ |
+| `day_gap`                    | string | `10px`                 | Horizontal space between columns                                   |
+| `day_header_separator_width` | string | `1px`                  | Thickness of the rule under each day header; `0px` renders no rule |
+| `day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                 |
 
 ```yaml
 view: column
 days_to_show: 5
 column:
   day_gap: 16px
-  day_header_separator_width: 1px
-  day_header_separator_color: var(--divider-color)
+  day_header_separator_width: 2px
+  day_header_separator_color: var(--primary-color)
 ```
 
-The defaults are chosen so that a card with no `column:` block looks the same as one
-written before these options existed: the gap matches the default `day_spacing`, and the
-header rule is off, exactly as every other separator width in the card starts off.
+The gap defaults to the same `10px` as `day_spacing`, so columns sit as far apart as list
+rows do. The header rule is the one option here that starts switched **on**, which is
+deliberate and worth explaining, because every other separator in the card starts at `0px`.
+Those are decoration between days that vertical space already separates. This one is
+structural: it marks where a column's header ends and its events begin, and without it a
+tall column reads as one undifferentiated block. It also exists only in column view, so
+switching it on by default cannot change how an existing list-view card looks.
 
-::: tip Turning the Rule Off Again
+Its color is `var(--divider-color)`, Home Assistant's semantic divider token, rather than
+the `var(--secondary-text-color)` the list separators use — this is a divider, not text, so
+it follows your theme's divider color and stays a little quieter than the day labels above
+it.
+
+::: tip Turning the Rule Off
 Set `day_header_separator_width: 0px` rather than reaching for a transparent color. At
 `0px` the card omits the element entirely, so it takes up no vertical space; a
 transparent rule still occupies its own height and leaves an unexplained gap.

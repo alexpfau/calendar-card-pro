@@ -773,21 +773,26 @@ present only in `en.json`; and `time_grid_interval_minutes` being a zoom control
 
 ### D1. Element mapping
 
-| Element                   | List today                  | Column                                       | Keys                                 |
-| ------------------------- | --------------------------- | -------------------------------------------- | ------------------------------------ |
-| Per-event accent          | vertical, left of event     | **unchanged**                                | `vertical_line_width`                |
-| Day separator             | horizontal between days     | **vertical between columns, re-implemented** | `day_separator_*`                    |
-| Week separator            | horizontal at boundary      | **vertical, re-implemented**                 | `week_separator_*`                   |
-| Month separator           | horizontal at boundary      | **vertical, re-implemented**                 | `month_separator_*`                  |
-| Header rule               | does not exist              | **horizontal, under header**                 | `day_header_separator_*`             |
-| Week number badge         | own full-width row          | **deferred**                                 | `show_week_numbers`, `week_number_*` |
-| Day spacing               | vertical gap                | **column gutter**                            | `day_spacing`                        |
-| Event spacing             | vertical gap                | **unchanged**                                | `event_spacing`                      |
-| Today indicator           | absolute in date cell       | **absolute in header band**                  | `today_indicator*`                   |
-| Weekday / day / month     | vertical stack, left        | **horizontal, in header**                    | `weekday_*`, `day_*`, `month_*`      |
-| Weather                   | in date column              | **header, single-line-or-hide**              | existing weather keys                |
-| Event content             | `.event-content`            | **byte-identical**                           | all                                  |
-| `date_vertical_alignment` | positions date in tall cell | **ignored**                                  | —                                    |
+> **§D6 governs the key names.** This table predates the `column:` override block; where the
+> two disagree, §D6's Category A/B/C taxonomy is the ruling. Four rows were corrected in the
+> Phase 4b pass after a subsession read this table alone and designed a vertical
+> `day_separator_*` border that §D6 had already resolved into `day_header_separator_*`.
+
+| Element                   | List today                  | Column                                | Keys                                         |
+| ------------------------- | --------------------------- | ------------------------------------- | -------------------------------------------- |
+| Per-event accent          | vertical, left of event     | **unchanged**                         | `vertical_line_width`                        |
+| Day separator             | horizontal between days     | **replaced by the header rule** (§D6) | `day_separator_*` → `day_header_separator_*` |
+| Week separator            | horizontal at boundary      | **deferred with week numbers** (§D6)  | `week_separator_*`                           |
+| Month separator           | horizontal at boundary      | **deferred with week numbers** (§D6)  | `month_separator_*`                          |
+| Header rule               | does not exist              | **horizontal, under header**          | `day_header_separator_*`                     |
+| Week number badge         | own full-width row          | **deferred**                          | `show_week_numbers`, `week_number_*`         |
+| Day spacing               | vertical gap                | **column gutter, new key** (§D6)      | `day_spacing` → `column.day_gap`             |
+| Event spacing             | vertical gap                | **unchanged**                         | `event_spacing`                              |
+| Today indicator           | absolute in date cell       | **absolute in header band**           | `today_indicator*`                           |
+| Weekday / day / month     | vertical stack, left        | **horizontal, in header**             | `weekday_*`, `day_*`, `month_*`              |
+| Weather                   | in date column              | **header, single-line-or-hide**       | existing weather keys                        |
+| Event content             | `.event-content`            | **byte-identical**                    | all                                          |
+| `date_vertical_alignment` | positions date in tall cell | **ignored**                           | —                                            |
 
 Separators are not axis-swappable. Existing list paths are a day separator emitted by
 `renderHorizontalSeparator` (`render.ts:178-201`, called from `renderDay` at `:388-389`;

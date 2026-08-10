@@ -141,16 +141,27 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([]);
  *
  * - `day_gap` matches `DEFAULT_CONFIG.day_spacing` (`10px`), so the gap between
  *   columns equals the gap between days in a list.
- * - `day_header_separator_width` is `0px`, matching every other separator width in
- *   `DEFAULT_CONFIG`. The rule under the day header is opt-in, exactly as the day,
- *   week and month separators are.
- * - `day_header_separator_color` matches `DEFAULT_CONFIG.day_separator_color`, so
- *   setting only the width produces the same colour a list-view day separator would.
+ * - `day_header_separator_width` is `1px` — visible by default, which is the one
+ *   place these defaults deliberately break the "match the list" rule. Every list
+ *   separator defaults to `0px` because it is decoration between days that are
+ *   already separated by vertical space. This rule is structural: it marks where a
+ *   column's header ends and its events begin, a boundary that has no equivalent in
+ *   a stacked layout. It exists only inside column view, so defaulting it visible
+ *   cannot change list output.
+ * - `day_header_separator_color` is `var(--divider-color)`, Home Assistant's semantic
+ *   divider token, rather than the `var(--secondary-text-color)` the list separators
+ *   use. That is a deliberate token-family choice, not an oversight: this is a
+ *   structural divider, not text. Do not "fix" it to match the list separators.
+ *
+ * Both separator values are ruled by section B2 of the spec; the reasoning above is
+ * a summary of it. An earlier implementation shipped `0px` /
+ * `var(--secondary-text-color)` here by reasoning from local consistency with the
+ * list defaults instead of reading B2, which is the exact change B2 forbids.
  */
 export const COLUMN_DEFAULTS = {
   day_gap: '10px',
-  day_header_separator_width: '0px',
-  day_header_separator_color: 'var(--secondary-text-color)',
+  day_header_separator_width: '1px',
+  day_header_separator_color: 'var(--divider-color)',
 } as const;
 
 /**

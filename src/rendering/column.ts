@@ -146,7 +146,9 @@ function renderDayColumn(
 
   // A width of `0px` means "no rule", matching how every other separator width in the
   // card is switched off. Rendering a zero-width border would still emit an element
-  // and still consume the header's bottom margin.
+  // and still consume the header's bottom margin. Unlike the list separators this one
+  // defaults to `1px` rather than `0px` (spec B2) — it is structural, not decorative —
+  // so this branch is the opt-out path rather than the default one.
   const separatorWidth = ViewConfig.resolveColumnOption(config, 'day_header_separator_width');
   const separatorColor = ViewConfig.resolveColumnOption(config, 'day_header_separator_color');
 

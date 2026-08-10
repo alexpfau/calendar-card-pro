@@ -182,11 +182,31 @@ describe('column view DOM', () => {
   });
 
   describe('header separator', () => {
-    it('renders no rule by default', () => {
-      // The default width is `0px`, matching every other separator in the card. A
-      // zero-width border would still emit an element and still consume the header's
-      // bottom margin, so the element must be absent rather than invisible.
+    it('renders a rule under every header by default', () => {
+      // Spec B2 rules this visible by default, the one place the column defaults
+      // deliberately diverge from the list separators (which all start at `0px`).
+      // The rule is structural rather than decorative: it marks where a column's
+      // header ends and its events begin. Because the element exists only in column
+      // view, defaulting it on cannot change list output.
       const container = renderColumnContainer(EVENTS, buildConfig());
+      const separators = container.querySelectorAll('.column-header-separator');
+      const columns = container.querySelectorAll('.day-column');
+
+      expect(columns.length).toBeGreaterThan(0);
+      expect(separators.length).toBe(columns.length);
+      expect(separators[0].getAttribute('style')?.replace(/\s/g, '')).toContain(
+        'border-top-width:1px',
+      );
+    });
+
+    it('omits the element entirely when the width is set to 0px', () => {
+      // A zero-width border would still emit an element and still consume the
+      // header's bottom margin, so switching the rule off must remove the node
+      // rather than make it invisible.
+      const config = buildConfig();
+      config.column = { day_header_separator_width: '0px' };
+
+      const container = renderColumnContainer(EVENTS, config);
       expect(container.querySelector('.column-header-separator')).toBeNull();
     });
 
