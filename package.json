@@ -30,7 +30,7 @@
   "bugs": {
     "url": "https://github.com/alexpfau/calendar-card-pro-dev/issues"
   },
-  "homepage": "https://github.com/alexpfau/calendar-card-pro-dev#readme",
+  "homepage": "https://calendar-card-pro.alexpfau.com",
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@rollup/plugin-commonjs": "^29.0.2",

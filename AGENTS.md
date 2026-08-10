@@ -14,7 +14,7 @@ state library. Keep it that way; bundle size is a design constraint.
 
 ## Build commands
 
-There are only four npm scripts. Do not invent others.
+There are only four npm scripts for the card itself. Do not invent others.
 
 | Command          | Output                          | Element name            | Logging |
 | ---------------- | ------------------------------- | ----------------------- | ------- |
@@ -22,6 +22,10 @@ There are only four npm scripts. Do not invent others.
 | `npm run build`  | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
 | `npm run lint`   | — (eslint, `--fix`)             |                         |         |
 | `npm run format` | — (prettier, `--write`)         |                         |         |
+
+Three further scripts build the documentation site (see _Documenting a change_):
+`docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
+command Cloudflare runs), and `docs:preview` (serve the built output).
 
 **The two builds are not interchangeable.** `rollup.config.mjs` switches on `NODE_ENV`
 and rewrites both the output filename _and_ the custom element name, so a dev build
@@ -60,30 +64,42 @@ Because `main` is the default branch, `Fixes #123` in a PR merged to `dev` will 
 auto-close the issue — closing keywords only fire on the default branch. Issues close
 when the release PR merges, or close them manually.
 
-## Documenting a change in the README
+## Documenting a change
 
-`README.md` is the HACS landing page and the only documentation most users read. Keeping
-it current is part of the change, not a follow-up.
+User-facing documentation lives on the **documentation site**,
+<https://calendar-card-pro.alexpfau.com> — VitePress, built from the Markdown in `docs/`,
+deployed by Cloudflare on every push to `main`. `README.md` is now only a landing page:
+badges, overview, installation, a quick-start example, What's New, and contributing.
+Everything else moved to `docs/`.
 
-**In a feature or fix PR** (targeting `dev`), update the _body_ of the README:
+**In a feature or fix PR** (targeting `dev`), document the change in `docs/`, not the README:
 
-- the **config table** row for any new or changed option — name, type, default, description
-- a **prose section**, or a sentence in the nearest existing one, with a real YAML snippet.
-  A table row alone is not documentation: `show_countdown_allday` shipped in v3.4 as a
-  table row only, and was undiscoverable.
-- for a new language: the supported-languages list **and all three hardcoded counts**.
-  Derive them rather than incrementing by hand — they are prose, so nothing fails when they
-  drift, and they were wrong for three consecutive releases:
+- the **config table** row in `docs/reference/configuration.md` for any new or changed
+  option — name, type, default, description
+- a **prose section** on the relevant `docs/features/*.md` page, or a sentence in the
+  nearest existing one, with a real YAML snippet. A table row alone is not documentation:
+  `show_countdown_allday` shipped in v3.4 as a table row only, and was undiscoverable.
+- for a new language: the supported-languages list in `docs/contributing.md` **and all
+  three hardcoded counts**. Derive them rather than incrementing by hand — they are prose,
+  so nothing fails when they drift, and they were wrong for three consecutive releases:
   ```bash
   ls src/translations/languages/*.json | wc -l                 # total languages
   grep -l '"editor"' src/translations/languages/*.json | wc -l # editor languages
   ```
 
-**Do not touch the `## 2️⃣ What's New` section** in a feature PR. It is organised by
+Run `npm run docs:build` before pushing. `ignoreDeadLinks` is deliberately **off**, so an
+internal link to a heading you renamed fails the build instead of shipping broken.
+
+**Leave `README.md` alone in a feature PR** unless the change affects installation or the
+quick-start example. Links from the README into the docs site must be **absolute URLs**
+(`https://calendar-card-pro.alexpfau.com/...`) — the README also renders on GitHub and in
+HACS, where relative docs paths do not resolve.
+
+**Do not touch the `## 4️⃣ What's New` section** in a feature PR. It is organised by
 release, so a feature branch cannot know which version it will land in, and concurrent
 branches conflict in it.
 
-**In the release PR** (`dev` → `main`), update `## 2️⃣ What's New` alongside
+**In the release PR** (`dev` → `main`), update `## 4️⃣ What's New` alongside
 `docs/RELEASE_NOTES.md`: rename the previous `### Latest Release: vX.Y` to plain `### vX.Y`,
 add a new one with 3–6 one-line bullets condensed from the release notes, and apply the
 retention rule — keep the current major version's minor releases, newest first, capped at
@@ -95,14 +111,14 @@ whether something is a feature or a fix: a Home Assistant compatibility break or
 made the card look empty belongs there; a narrow styling option, an editor validation
 nicety, or a rare edge-case fix does not. Never write a catch-all "🐛 Key Bug Fixes" bullet.
 Three honest bullets beat six padded ones, and older entries may be trimmed further as they
-age.
+age. Deep-link each bullet to the relevant docs page where one exists.
 
 ## Release process
 
 1. Bump `version` in `package.json` — it is the single source of truth. Rollup
    substitutes it into the bundle header and into `constants.ts` via `@version
 vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
-2. Update `docs/RELEASE_NOTES.md` and the README's `## 2️⃣ What's New` section.
+2. Update `docs/RELEASE_NOTES.md` and the README's `## 4️⃣ What's New` section.
 3. Open a PR from `dev` into `main` and merge it.
 4. Tag `main` with `vX.Y.Z` and push the tag.
 5. `.github/workflows/release.yml` builds and creates a **draft** GitHub release with
@@ -142,8 +158,8 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 3. `src/translations/dayjs.ts` — **two separate edits**, both required:
    - `import 'dayjs/locale/<code>';`
    - add the base code to the `supportedLocales` array inside `mapLocale()`
-4. `README.md` — the supported-languages list **and the three hardcoded counts** (see
-   _Documenting a change in the README_). The counts are prose, so nothing fails when they
+4. `docs/contributing.md` — the supported-languages list **and the three hardcoded counts**
+   (see _Documenting a change_). The counts are prose, so nothing fails when they
    are wrong; they drifted for three releases before anyone noticed.
 
 Omitting the `supportedLocales` entry (3b) is a **silent failure**: the language works
