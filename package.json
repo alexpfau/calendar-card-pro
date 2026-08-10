@@ -7,7 +7,10 @@
     "dev": "rollup -c --watch",
     "build": "cross-env NODE_ENV=prod rollup -c",
     "lint": "eslint 'src/**/*.ts' --fix --format stylish",
-    "format": "prettier --write 'src/**/*.ts'"
+    "format": "prettier --write 'src/**/*.ts'",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "repository": {
     "type": "git",
@@ -49,7 +52,8 @@
     "prettier": "^3.8.1",
     "rollup": "^4.60.0",
     "rollup-plugin-esbuild": "^6.2.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitepress": "^1.6.4"
   },
   "dependencies": {
     "@material/web": "^2.4.1",
