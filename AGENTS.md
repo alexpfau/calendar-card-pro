@@ -16,15 +16,15 @@ state library. Keep it that way; bundle size is a design constraint.
 
 There are only four npm scripts. Do not invent others.
 
-| Command | Output | Element name | Logging |
-| --- | --- | --- | --- |
-| `npm run dev` | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
-| `npm run build` | `dist/calendar-card-pro.js` | `calendar-card-pro` | silent |
-| `npm run lint` | — (eslint, `--fix`) | | |
-| `npm run format` | — (prettier, `--write`) | | |
+| Command          | Output                          | Element name            | Logging |
+| ---------------- | ------------------------------- | ----------------------- | ------- |
+| `npm run dev`    | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
+| `npm run build`  | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
+| `npm run lint`   | — (eslint, `--fix`)             |                         |         |
+| `npm run format` | — (prettier, `--write`)         |                         |         |
 
 **The two builds are not interchangeable.** `rollup.config.mjs` switches on `NODE_ENV`
-and rewrites both the output filename *and* the custom element name, so a dev build
+and rewrites both the output filename _and_ the custom element name, so a dev build
 registers as `calendar-card-pro-dev` / `calendar-card-pro-dev-editor`. This is
 deliberate: it lets a dev build run side by side with the HACS-installed release in the
 same Home Assistant instance. Never hand someone a `npm run build` artifact for local
@@ -64,7 +64,7 @@ when the release PR merges, or close them manually.
 
 1. Bump `version` in `package.json` — it is the single source of truth. Rollup
    substitutes it into the bundle header and into `constants.ts` via `@version
-   vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
+vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 2. Update `docs/RELEASE_NOTES.md`.
 3. Open a PR from `dev` into `main` and merge it.
 4. Tag `main` with `vX.Y.Z` and push the tag.
@@ -94,7 +94,7 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    section is absent.
 
    But `hasEditorTranslations()` returns true when the section has **one or more** keys, so
-   a *partially* translated `editor` section defeats that fallback: the keys you did
+   a _partially_ translated `editor` section defeats that fallback: the keys you did
    translate render fine, and every key you missed renders as the **raw key name**
    (`show_end_time`) in the UI, not as English. So either omit `editor` completely, or
    copy every key from `en.json`. Never leave it half-done.
@@ -119,8 +119,8 @@ special-cased.
 Verify a language change by actually resolving it, not by reading the diff:
 
 ```ts
-getEffectiveLanguage('lv', undefined)      // -> 'lv'
-getRelativeTimeString(futureDate, 'lv')    // -> 'pēc 2 dienām', not 'in 2 days'
+getEffectiveLanguage('lv', undefined); // -> 'lv'
+getRelativeTimeString(futureDate, 'lv'); // -> 'pēc 2 dienām', not 'in 2 days'
 ```
 
 ## Editor (`src/rendering/editor.ts`)

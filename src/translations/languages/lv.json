@@ -1,6 +1,14 @@
 {
   "daysOfWeek": ["Sv", "Pr", "Ot", "Tr", "Ce", "Pk", "Se"],
-  "fullDaysOfWeek": ["Svētdiena", "Pirmdiena", "Otrdiena", "Trešdiena", "Ceturtdiena", "Piektdiena", "Sestdiena"],
+  "fullDaysOfWeek": [
+    "Svētdiena",
+    "Pirmdiena",
+    "Otrdiena",
+    "Trešdiena",
+    "Ceturtdiena",
+    "Piektdiena",
+    "Sestdiena"
+  ],
   "months": ["Jan", "Feb", "Mar", "Apr", "Mai", "Jūn", "Jūl", "Aug", "Sep", "Okt", "Nov", "Dec"],
   "allDay": "visu dienu",
   "multiDay": "līdz",
