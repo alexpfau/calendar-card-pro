@@ -599,13 +599,20 @@ Two defects followed, with different mechanisms:
 
 1. **Value staleness.** `_matchedConfig` and `_entityLabel` were frozen into the cached event,
    so an edited per-entity label, colour or toggle was ignored on a hit.
-2. **Reference staleness.** The cache round-trips through `JSON.stringify`/`JSON.parse`, so a
-   cache-hit `_matchedConfig` is a freshly-parsed object that can never be `===` an element of
-   the live `config.entities`. `applyPerEntityCompaction` (`events.ts:398`) identifies an
-   entity's config block by exactly that reference check, so on every cache hit the lookup
-   returned `-1` and the compaction bucket key silently degraded from `entityId__configIdx` to
-   bare `entityId` — a fresh fetch and a cache hit computed different buckets from identical
-   config.
+2. **Reference staleness.** `applyPerEntityCompaction` (`events.ts:398`) identifies an entity's
+   config block by `config.entities.findIndex((e) => e === matchedConfig)` — a reference check.
+   Two independent mechanisms broke that reference, so the lookup returned `-1` and the
+   compaction bucket key silently degraded from `entityId__configIdx` to bare `entityId`,
+   merging two config blocks into one shared budget:
+   - the cache round-trips through `JSON.stringify`/`JSON.parse`, so a cache-hit
+     `_matchedConfig` is a freshly-parsed object; and
+   - `normalizeEntities` runs on **every** `setConfig` (`calendar-card-pro.ts:726`) and
+     `config.ts:227` maps to fresh object literals.
+
+   The second mechanism is the load-bearing one, and is stronger than an earlier draft of this
+   section recorded: the identity breaks on every `setConfig`, not only on a cache hit, so the
+   defect was **permanent rather than warm-cache-only**. Live A/B measurement confirmed it —
+   see below.
 
 Defect 2 settled the maintainer decision: **cache raw API events and reprocess on every read.**
 Widening the key was not a viable alternative — no cache key repairs a broken object reference.
@@ -645,6 +652,21 @@ rendered with the last block's config.
 
 Six tests in `tests/event-cache.test.ts` pin this, all confirmed load-bearing by mutation
 testing. The list-view DOM snapshot is unchanged.
+
+**Live A/B verification** (dev `?v=252` against the HACS release, `ccp-current-testing`), read
+out of the rendered shadow DOM rather than eyeballed:
+
+| Test              | Config                                              | prod (before)             | dev (after)              |
+| ----------------- | --------------------------------------------------- | ------------------------- | ------------------------ |
+| aliasing          | same entity twice, labels `AAA`/`BBB`               | `BBB`, `BBB`, `BBB`       | `AAA`, `BBB`, `AAA`      |
+| compaction bucket | same entity twice, both `compact_events_to_show: 1` | **1 row** (budget shared) | **2 rows** (own budgets) |
+| regression        | plain 3-calendar card, no per-entity config         | identical                 | identical                |
+
+The compaction row is the useful one: prod renders 1 row on a **cold** load as well as a warm
+one, which is the direct observation that defect 2 was never cache-specific. It also only
+reproduces when _both_ blocks set the same small budget — with budgets `1` and `3` the larger
+budget absorbs the second event and the merge is invisible, which is why an earlier draft of
+this test showed nothing.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#phase-2b--cache-key-fix--ships-3x-now-independently--risk-low-v4--split-out)
 
