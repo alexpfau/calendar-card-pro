@@ -48,7 +48,7 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 - 🌦️ **Weather Integration** – Display weather forecasts alongside your calendar events.
 - ⚡ **Optimized Performance** – Smart caching, progressive rendering, and minimal API calls.
 - 💡 **Deep Home Assistant Integration** – Theme-aware with native ripple effects.
-- 🌍 **Multi-Language Support** – [Available in 33 languages](#-adding-translations), community contributions welcome!
+- 🌍 **Multi-Language Support** – [Available in 35 languages](#-adding-translations), community contributions welcome!
 
 ### 🔗 Dependencies
 
@@ -62,12 +62,38 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 
 **➡️ View the [Full Release Notes](./docs/RELEASE_NOTES.md) for a complete list of features.**
 
-### Latest Release: v3.2
+### Latest Release: v3.5
+
+- 🫥 **Hide When Empty**: [Remove the card entirely](#-calendar-events-display) when there are no upcoming events, so surrounding cards close the gap
+- 📝 **Custom Empty Day Text**: Replace "No upcoming events" with [your own wording](#custom-empty-day-text) via `empty_day_text`
+- 📅 **Flexible Start Dates**: [Anchor the view to the week or a weekday](#-start-date-configuration) with `start_of_week`, `saturday`, and composable offsets like `start_of_week+7`
+- 🏷️ **Templated Titles**: Render the card title from a [Home Assistant template](#dynamic-titles-with-templates), updating live from sensors or the current date
+- 🐛 **Card Title Sizing**: Titles rendered as plain body text after Home Assistant dropped the Polymer font variables; they are back at their intended size and weight
+- 🐛 **Failed Calendars No Longer Look Empty**: An unreachable calendar now shows an error instead of claiming there are no events — which could silently hide the card
+
+### v3.4
+
+- ⏳ **All-Day Countdown Control**: Hide countdowns on all-day events while keeping them on timed ones with [`show_countdown_allday`](#-countdown-display)
+- 🌤️ **Weather Across the Full Range**: Timed events beyond Home Assistant's hourly forecast horizon now [fall back to the daily forecast](#weather-configuration-options) instead of showing nothing
+- 🧭 **Compact Mode Guidance**: The visual editor now warns about compact configurations that silently do nothing
+- 🐛 **All-Day Countdowns Off By One**: Now measured in whole calendar days instead of from the current instant
+- 🐛 **Cleared Number Fields**: Emptying a numeric field in the editor no longer blanks the card
+- ⚡ **Faster Rendering**: Color resolution is cached, removing hundreds of forced layouts per refresh on large calendars
+
+### v3.3
+
+- 🌍 **Two New Languages**: British English and Latvian (35 total)
+- 🌐 **Three New Editor Translations**: Italian, British English, and Latvian (11 total)
+- 🐛 **HA 2026.5+ Visual Editor**: Restored the text input fields, which vanished entirely after Home Assistant removed `ha-textfield`
+- 🐛 **`event_color` Fix**: No longer ignored when no per-entity color is configured
+- 🐛 **Catalan & Romanian Relative Times**: Fixed silently falling back to English
+
+### v3.2
 
 - 📝 **Event Description Display**: Show event descriptions with [configurable line clamping](#-event-description-display), HTML stripping, and full styling control
 - 🌤️ **UV Index in Weather**: Display [UV index in weather forecasts](#weather-configuration-options) with configurable visibility threshold
 - 🎨 **Event Icon Alignment**: Control [vertical alignment of event icons](#-event-description-display) (time, location, description) with `event_icon_vertical_alignment`
-- 🏷️ **Label Icon Color**: Customize [label icon colors](#-entity-configuration) per entity with `label_icon_color`
+- 🏷️ **Label Icon Color**: Customize [label icon colors](#️-entity-configuration) per entity with `label_icon_color`
 - 🕐 **Two-Digit Hours**: Pad hours with leading zero via `time_two_digit_hours`
 - ↔️ **RTL Support**: Full right-to-left support for event borders and accent lines
 - 🔄 **Improved Loading UX**: Events stay visible during refresh; subtle spinner replaces full-screen loading
@@ -87,45 +113,11 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 ### v3.0
 
 - ⚙️ **Visual Configuration Editor**: New visual editor for easy, guided configuration, with smart validation and auto-upgrade of deprecated settings
-- 🌦️ **Weather Integration**: Display [weather forecasts](#weather-integration) alongside your events
+- 🌦️ **Weather Integration**: Display [weather forecasts](#️-weather-integration) alongside your events
 - 🕒 **Improved Time Format Detection**: Automatically detects and respects all Home Assistant time format settings (12h, 24h, language-based, and system-based)
 - ⚠️ **Breaking Changes**: Parameter renames: `vertical_line_color` → `accent_color`, `max_events_to_show` → `compact_events_to_show`, `horizontal_line_width` → `day_separator_width`, `horizontal_line_color` → `day_separator_color`
 
-### v2.4
-
-- 🌟 **Today Indicator**: Highlight today with [customizable dot, pulse, glow effect, emoji, or custom icon](#-today-indicator)
-- 🎨 **Today's Date Styling**: Customize the [appearance of today's date](#-date-column-customization) in the calendar with dedicated color options (`today_weekday_color`, `today_day_color`, `today_month_color`)
-- 🚦 **Event Progress Bars**: Visualize how far an event has progressed with optional [progress bars](#progress-bar-display)
-- ✂️ **Split Multi-Day Events**: Display [multi-day events on every day they cover](#split-multi-day-events)
-- 🧠 **Enhanced Compact Mode Controls**: More precise control over [what's displayed in compact vs expanded views](#-compact-view-management--event-limits)
-
-### v2.3
-
-- ⏳ **Countdown Display** - [Show how much time remains](#-countdown-display) until an event starts with the new `show_countdown` option
-- 🌅 **Weekend Day Styling** - [Style weekend days](#weekend-day-styling) differently with dedicated color options
-- 📆 **Relative Date Offsets** - Define a [floating start date](#dynamic-start-date-with-relative-offsets) relative to the current day instead of fixed dates
-
-### v2.2
-
-- ⚙️ **Advanced event filtering** - Include or exclude specific events with [`blocklist` and `allowlist` patterns](#filtering-by-event-name) per entity
-- 🔄 **Filter duplicate events** - [Remove redundant events](#filtering-duplicate-events) that appear in multiple calendars
-- 🌍 **Smart country filtering** - Precise control over [country name display in locations](#-time--location-information)
-- 🏷️ **Enhanced calendar labels** - In addition to emojis and text labels, you can now also use [Material Design icons and custom images](#-entity-configuration)
-- 🎨 **Customizable empty day styling** - Control how [empty days appear](#-calendar-events-display) with `empty_day_color`
-
-### v2.1
-
-- 📅 **Week numbers & visual separators** - Better visual organization with [week number pills and customizable separators](#-week-numbers--visual-separators)
-- 📊 **Per-calendar event limits** - Control how many events appear from [each calendar separately](#-managing-event-numbers)
-- 📏 **Fixed height control** - Set [exact card height](#-card-dimensions--scrolling) with improved scrolling behavior
-
-### v2.0
-
-- 🌈 **Custom styling per calendar** - Add [accent colors for vertical lines](#-visual-styling--colors) and opaque backgrounds to create visual hierarchy
-- 🏷️ **Calendar labels** - Add [emoji or text identifiers](#-entity-configuration) for each calendar source
-- 🔧 **Advanced display controls** - [Per-calendar time and location display settings](#-time--location-information)
-- 📆 **Custom start date** - View calendars from [any date](#core-settings), not just today
-- 📱 **Maximum height with scrolling** - Set a [maximum card size](#-card-dimensions--scrolling) with scrollable content
+_Older releases are covered in the [Full Release Notes](./docs/RELEASE_NOTES.md)._
 
 <div style="background-color: rgba(3, 169, 244, 0.1); padding: 12px; margin: 20px 0;">
   <h4 style="margin: 0; display: inline;">
@@ -200,7 +192,7 @@ Once **Calendar Card Pro** is installed, follow these steps to add and configure
    - Select **"Configure"** to open the visual editor
    - Follow the intuitive interface to customize your calendar
 
-> **Note:** The visual configuration editor is currently available in 8 languages, while the calendar itself supports 33 languages. Community contributions for additional editor translations are welcome!
+> **Note:** The visual configuration editor is currently available in 11 languages, while the calendar itself supports 35 languages. Community contributions for additional editor translations are welcome!
 
 ### ⚙️ Customizing the Card
 
@@ -253,7 +245,7 @@ The editor is organized into logical panels that guide you through all configura
 - **Smart Validation** - Input validation prevents configuration errors
 - **Automatic Config Upgrader** - Detects deprecated settings from older versions
 
-> **Note:** The visual configuration editor is currently available in 8 languages. Calendar settings applied through the editor will still display properly in all 33 supported languages.
+> **Note:** The visual configuration editor is currently available in 11 languages. Calendar settings applied through the editor will still display properly in all 35 supported languages.
 
 <details>
 <summary>Configuration Upgrader Details</summary>
@@ -1014,6 +1006,13 @@ show_countdown: true
 ```
 
 When enabled, a subtle countdown string appears next to each upcoming event, showing the remaining time in a natural language format like "in 3 days" or "in 2 hours". This helps users quickly identify how soon events will begin.
+
+All-day events are included by default, counted in whole calendar days. If you only want countdowns on events with an actual start time, turn them off separately:
+
+```yaml
+show_countdown: true
+show_countdown_allday: false # Timed events only
+```
 
 #### 🕒 Past Events Display
 
