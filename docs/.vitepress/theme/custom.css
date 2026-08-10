@@ -1,0 +1,61 @@
+/**
+ * Theme overrides for Calendar Card Pro docs.
+ */
+
+/*
+ * Hero image sizing.
+ *
+ * VitePress sizes the hero image for a roughly square logo: it reserves a fixed
+ * square container (320px, 392px at >=640px) and absolutely positions the image
+ * inside it, capped at 192/256/320px. Our hero image is header.png, a 2000x800
+ * banner (2.5:1), so those caps rendered it at just 256x102 floating inside a
+ * 392x392 box - small, and surrounded by dead space.
+ *
+ * Instead we let the banner behave like an ordinary responsive image: take it
+ * out of absolute positioning, let the container height follow the image's own
+ * aspect ratio, and scale fluidly up to a 520px cap.
+ *
+ * Sizing is expressed relative to the container so the image can never overflow
+ * its column, at any viewport width:
+ *
+ *   - Below 960px VitePress bleeds the image column 24px past the text column
+ *     on each side, so we subtract 48px to line the image up with the text.
+ *   - At >=960px the column already sits inside the layout padding, so the
+ *     image may use its full width. That column is only ~280px wide just above
+ *     the breakpoint and grows to ~560px once the text column hits its 592px
+ *     cap, where the 520px cap takes over.
+ */
+.VPHero .image-container {
+  width: 100%;
+  height: auto;
+  max-width: min(520px, calc(100% - 48px));
+  margin-inline: auto;
+  /* Cancel VitePress's translate(-32px, -32px), applied at >=960px. */
+  transform: none;
+}
+
+.VPHero .image-src {
+  position: static;
+  transform: none;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: none;
+}
+
+@media (min-width: 960px) {
+  .VPHero .image-container {
+    max-width: min(520px, 100%);
+  }
+
+  /*
+   * The image column stretches to the full height of the text column. Since the
+   * banner is now only as tall as its aspect ratio requires, centre it in that
+   * column rather than letting it sit against the top edge.
+   */
+  .VPHero .image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
