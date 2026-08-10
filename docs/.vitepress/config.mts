@@ -61,8 +61,13 @@ export default defineConfig({
   },
 
   head: [
+    // Favicon order matters. Browsers pick the best-matching <link rel="icon">
+    // and, on a tie, the last one — so SVG-capable browsers take the SVG below.
+    // The ICO must use a plain rel="icon": rel="alternate icon" is not in the
+    // WHATWG spec and Safari (which gained SVG favicon support only in 26.0)
+    // does not reliably fall back to it, leaving older Safari with no icon.
+    ['link', { rel: 'icon', href: '/favicon.ico', sizes: '32x32' }],
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
-    ['link', { rel: 'alternate icon', type: 'image/x-icon', href: '/favicon.ico', sizes: '48x48' }],
     ['link', { rel: 'apple-touch-icon', href: '/apple-touch-icon.png', sizes: '180x180' }],
     ['meta', { name: 'theme-color', content: '#03a9f4' }],
     ['meta', { property: 'og:type', content: 'website' }],
