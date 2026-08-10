@@ -575,6 +575,16 @@ export const cardStyles = css`
     vertical-align: middle;
   }
 
+  /*
+   * The time row holds the time itself plus, optionally, a countdown or a progress bar.
+   * It wraps, so that a row too narrow for both moves the trailing element onto a second
+   * line rather than overflowing its container. Flex resolves wrapping before shrinking,
+   * so the time text keeps the full width of the first line and only ever wraps as a last
+   * resort, when it does not fit on a line of its own.
+   *
+   * The list view has a wide event cell and effectively never reaches either point; the
+   * column view, whose narrowest track is 152px, reaches the first one routinely.
+   */
   .time {
     font-size: var(--calendar-card-font-size-time);
     color: var(--calendar-card-color-time);
@@ -582,12 +592,20 @@ export const cardStyles = css`
     justify-content: space-between;
     align-items: center;
     width: 100%;
+    flex-wrap: wrap;
+    row-gap: 2px;
   }
 
+  /*
+   * Deliberately shrinkable. This carried flex-shrink: 0 from the commit that added the
+   * countdown, to stop a long countdown from squashing the time. Wrapping now serves that
+   * intent strictly better -- the countdown leaves the line entirely instead of competing
+   * for it -- and removing the lock lets the time wrap instead of overflowing in the one
+   * case wrapping cannot help, where the time alone is wider than the column.
+   */
   .time-actual {
     display: flex;
     align-items: center;
-    flex-shrink: 0;
   }
 
   .time-countdown {
@@ -791,8 +809,8 @@ export const cardStyles = css`
   /*
    * The column view's separator. The list view separates days with horizontal rules
    * between stacked tables; here the equivalent boundary between days is the grid gap,
-   * so the only rule that makes sense is the one under the day header. Opt-in: the
-   * element is not rendered at all when the width is 0px.
+   * so the only rule that makes sense is the one under the day header. Opt-out: the
+   * element is not rendered at all when the width resolves to 0px.
    */
   .column-header-separator {
     margin-bottom: 4px;
