@@ -64,10 +64,10 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 
 ### Latest Release: v3.5
 
-- 🫥 **Hide When Empty**: [Remove the card entirely](#-calendar-events-display) when there are no upcoming events, so surrounding cards close the gap
-- 📝 **Custom Empty Day Text**: Replace "No upcoming events" with [your own wording](#custom-empty-day-text) via `empty_day_text`
+- 🫥 **Empty State Control**: [Remove the card entirely](#-calendar-events-display) when there are no upcoming events, or replace "No upcoming events" with [your own wording](#custom-empty-day-text)
 - 📅 **Flexible Start Dates**: [Anchor the view to the week or a weekday](#-start-date-configuration) with `start_of_week`, `saturday`, and composable offsets like `start_of_week+7`
 - 🏷️ **Templated Titles**: Render the card title from a [Home Assistant template](#dynamic-titles-with-templates), updating live from sensors or the current date
+- 🔎 **Suggested in the Card Picker**: Home Assistant 2026.6+ offers the card under **Community** when you [add a card by entity](#-adding-the-card-to-your-dashboard) and pick a calendar
 - 🐛 **Card Title Sizing**: Titles rendered as plain body text after Home Assistant dropped the Polymer font variables; they are back at their intended size and weight
 - 🐛 **Failed Calendars No Longer Look Empty**: An unreachable calendar now shows an error instead of claiming there are no events — which could silently hide the card
 
@@ -180,6 +180,8 @@ Once **Calendar Card Pro** is installed, follow these steps to add and configure
    - Click the three dots (⋮) in the top-right corner of the card
    - Select **"Configure"** to open the visual editor
    - Follow the intuitive interface to customize your calendar
+
+> **Shortcut (Home Assistant 2026.6+):** In the card picker, switch to the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events — so you can skip straight to step 4. Nothing needs to be enabled for this.
 
 > **Note:** The visual configuration editor is currently available in 11 languages, while the calendar itself supports 35 languages. Community contributions for additional editor translations are welcome!
 

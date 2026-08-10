@@ -1,6 +1,6 @@
 # Calendar Card Pro v3.5.0
 
-**Cards that hide themselves when there is nothing to show, start dates that follow the week, titles rendered from Home Assistant templates — and a fix that restores the card title to its intended size.** This release is mostly about fitting the card to the dashboard around it: disappearing when it is empty, saying something useful when a day has no events, anchoring to next Monday instead of a date you keep updating, and driving the title from Home Assistant itself.
+**Cards that hide themselves when there is nothing to show, start dates that follow the week, titles rendered from Home Assistant templates — and a fix that restores the card title to its intended size.** This release is mostly about fitting the card to the dashboard around it: disappearing when it is empty, saying something useful when a day has no events, anchoring to next Monday instead of a date you keep updating, and driving the title from Home Assistant itself. The card is also easier to find in the first place, now that Home Assistant offers it directly when you add a calendar entity.
 
 ## 🎉 New Features
 
@@ -24,6 +24,10 @@ Parsing is case-insensitive and ignores whitespace, and existing values such as 
 ### 🏷️ Templated Titles
 
 - **Home Assistant Templates in `title`** - A title containing `{{ ... }}` or `{% ... %}` is rendered by Home Assistant and updates live, so a card can show `{{ now().strftime('%-d %B %Y') }}` or pull a value straight from a sensor. There is no new option to switch on — a title without template syntax is passed through untouched. Template errors are reported under the Title field in the visual editor, and a template that starts failing keeps the last good title on screen rather than blanking the card (#303)
+
+### 🔎 Easier to Find
+
+- **Suggested in the Card Picker** - Home Assistant 2026.6 and newer show Calendar Card Pro under **Community** when you add a card by entity and pick a `calendar.*` entity, pre-filled with that calendar and previewed with its real events. Until now the card only appeared in the full card list, so finding it meant already knowing it existed. There is nothing to configure, and older Home Assistant versions are unaffected (#373)
 
 ## 🐛 Bug Fixes
 
@@ -56,6 +60,7 @@ Parsing is case-insensitive and ignores whitespace, and existing values such as 
 - [#303](https://github.com/alexpfau/calendar-card-pro/issues/303) - Support template in title by @EvertJob
 - [#365](https://github.com/alexpfau/calendar-card-pro/issues/365) - Visual editor blanks the date picker for relative and ISO `start_date` values by @alexpfau
 - [#369](https://github.com/alexpfau/calendar-card-pro/issues/369) - Card title renders as body text by @alexpfau
+- [#373](https://github.com/alexpfau/calendar-card-pro/issues/373) - Suggest Calendar Card Pro in the card picker for calendar entities by @alexpfau
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.4.0...v3.5.0
 
