@@ -1,5 +1,187 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`list view DOM > renders a custom today indicator position 1`] = `
+"<table class=" day-table today ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="4">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="today-indicator-container">
+<ha-icon icon="mdi:star" class="today-indicator mdi" style="position:absolute;transform:translate(-50%, -50%);left:85%;top:15%;">
+</ha-icon>
+</div>
+</td>
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table tomorrow future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day, until Jun 19</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>"
+`;
+
 exports[`list view DOM > renders a single event 1`] = `
 "<table class=" day-table today ">
 <tr>
@@ -144,6 +326,191 @@ exports[`list view DOM > renders compact mode 1`] = `
 <ha-icon icon="mdi:clock-outline"></ha-icon>
 <span>2:00 PM - 3:00 PM</span>
 </div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>"
+`;
+
+exports[`list view DOM > renders countdown and progress bar 1`] = `
+"<table class=" day-table today ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="4">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+<div class="progress-bar">
+<div class="progress-bar-filled" style="width: 33%"></div>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+<div class="time-countdown">in 4 hours</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+<div class="time-countdown">in 6 hours</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table tomorrow future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day, until Jun 19</span>
+</div>
+<div class="time-countdown">in a day</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+<div class="time-countdown">in 2 days</div>
 </div>
 </div>
 </div>
@@ -995,6 +1362,188 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
+</td>
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table tomorrow future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day, until Jun 19</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>
+<table class=" day-table future-day ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="1">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</td>
+<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+</table>"
+`;
+
+exports[`list view DOM > renders the today indicator 1`] = `
+"<table class=" day-table today ">
+<tr>
+<td style="position: relative;" class="date-column " rowspan="4">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="today-indicator-container">
+<ha-icon icon="mdi:circle" class="today-indicator dot" style="position:absolute;transform:translate(-50%, -50%);left:15%;top:50%;">
+</ha-icon>
+</div>
 </td>
 <td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">

@@ -236,4 +236,55 @@ describe('list view DOM', () => {
     expect(out).not.toContain('weather-temp-low');
     expect(out).toMatchSnapshot();
   });
+
+  // The remaining branches below are all **off by default**, which is exactly why they need
+  // naming: a snapshot suite built from default config renders none of them, and would go on
+  // passing while the code behind them was extracted incorrectly or lost entirely. The weather
+  // gap was the first instance of this; these are the rest of it.
+
+  it('renders the today indicator', () => {
+    // `today_indicator` defaults to `false`, so `renderTodayIndicator` returns `nothing` in
+    // every other test — and `parseIndicatorPosition` (`render.ts:358-382`) is only reachable
+    // through it. That function is one of Phase 1's four **named** extraction targets, so
+    // without this case the gate would have been silent on a quarter of the work it exists to
+    // protect. Asserted directly as well as snapshotted, so "renders nothing" cannot pass.
+    const out = renderList(EVENTS, buildConfig({ today_indicator: 'dot' }));
+
+    expect(out).toContain('today-indicator-container');
+    expect(out).toMatchSnapshot();
+  });
+
+  it('renders a custom today indicator position', () => {
+    // `parseIndicatorPosition` turns a CSS-like `"x y"` string into inline styles (documented
+    // in README.md:841-843; default `'15% 50%'`). Pinning a non-default position is what
+    // distinguishes "the function ran" from "the function ran and its output reached the DOM".
+    const out = renderList(
+      EVENTS,
+      buildConfig({ today_indicator: 'mdi:star', today_indicator_position: '85% 15%' }),
+    );
+
+    expect(out).toContain('today-indicator-container');
+    expect(out).toContain('left:85%');
+    expect(out).toContain('top:15%');
+    expect(out).toMatchSnapshot();
+  });
+
+  it('renders countdown and progress bar', () => {
+    // Both default to `false`. The progress bar additionally requires a *running* event, which
+    // is why the fixture set contains one straddling `FROZEN_NOW` — without it this config
+    // would render no bar and the snapshot would look like coverage while providing none.
+    // Both branches live in the `.event-content` subtree, Phase 1's third extraction target.
+    //
+    // Note for whoever extracts this: `show_progress_bar` is checked **twice** — once at
+    // `render.ts:902` when computing `progressPercentage`, and again at `:954`/`:973` when
+    // rendering. Either guard alone is dead code, because the first already forces
+    // `progressPercentage` to `null`. Mutation-testing confirmed this: removing either one
+    // in isolation changes no output at all, while removing both fails 13 of these 18 tests.
+    // The redundancy is harmless, but it means a Phase 1 extraction that keeps only one of
+    // the two guards is still correct — don't treat dropping one as a regression.
+    const out = renderList(EVENTS, buildConfig({ show_countdown: true, show_progress_bar: true }));
+
+    expect(out).toContain('progress-bar');
+    expect(out).toMatchSnapshot();
+  });
 });
