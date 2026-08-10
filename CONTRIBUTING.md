@@ -95,7 +95,7 @@ Calendar Card Pro supports multiple languages through JSON translation files. He
    > locale you actually need (as with `zh-cn` / `zh-tw`).
 
 5. **Translate all strings** to your language (translate values, never keys)
-6. **Add your language** to the supported-languages list in `README.md`
+6. **Add your language** to the supported-languages list in `docs/contributing.md`
 7. **Submit a Pull Request** with your changes
 
 Example language file structure:

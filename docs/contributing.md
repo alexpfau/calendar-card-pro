@@ -94,7 +94,7 @@ To add a new language:
    - _Note:_ regional variants normally need no dayjs entry, since `mapLocale()` reduces
      them to their base code (e.g. `en-gb` → `en`). Only add one if dayjs ships a distinct
      locale you actually need (as with `zh-cn` / `zh-tw`).
-5. **Add your language to the supported list above** in this README, in alphabetical order.
+5. **Add your language to the supported list above** on this page, in alphabetical order.
 6. **Verify** with `npm run lint` and `npm run build`
 7. **Submit a Pull Request** with your changes
 
