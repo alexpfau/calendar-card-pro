@@ -833,12 +833,20 @@ function checkOptionNoun(docs) {
           fenced = !fenced;
           return;
         }
-        if (fenced || line.trimStart().startsWith('|')) return;
-        const m = line.match(OPTION_NOUN);
-        if (m)
-          error(
-            `${rel}:${i + 1} calls a config key a "${m[2]}"; use "option" (or "options") so one term is used throughout.`,
-          );
+        if (fenced) return;
+        // Table rows are checked cell by cell: a row like `| \`show_time\` | setting |`
+        // puts the name and the noun in different columns, which is not a sentence
+        // and must not be flagged. Descriptions inside a single cell still are.
+        const cells = line.trimStart().startsWith('|') ? line.split('|') : [line];
+        for (const cell of cells) {
+          const m = cell.match(OPTION_NOUN);
+          if (m) {
+            error(
+              `${rel}:${i + 1} calls a config key a "${m[2]}"; use "option" (or "options") so one term is used throughout.`,
+            );
+            return;
+          }
+        }
       });
   }
 }
