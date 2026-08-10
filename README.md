@@ -17,11 +17,12 @@ If you find **Calendar Card Pro** useful, consider supporting its development:
 
 ## 📖 Documentation
 
-**The full documentation lives at [calendar-card-pro.alexpfau.com](https://calendar-card-pro.alexpfau.com).**
+[![Read the Documentation](https://img.shields.io/badge/%F0%9F%93%96_Read_the_Documentation-calendar--card--pro.alexpfau.com-6a2654?style=for-the-badge&labelColor=3a2a6e)](https://calendar-card-pro.alexpfau.com)
 
-This README covers installation and a quick start. Everything else — every configuration
-option, all features and worked examples — is documented on the site, which is searchable
-and always matches the latest release.
+This README covers installation and a quick start. **Everything else** — every configuration
+option, all features and worked examples — lives on the
+**[documentation site](https://calendar-card-pro.alexpfau.com)**, which is searchable and
+always matches the latest release.
 
 | | |
 | --- | --- |
