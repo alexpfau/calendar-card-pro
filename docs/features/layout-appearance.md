@@ -151,7 +151,7 @@ When special styling parameters are not specified, they will inherit from the ba
 Calendar Card Pro provides a sophisticated way to highlight the current day with a customizable indicator:
 
 ::: tip Visual Editor
-**Visual Editor:** Configure today indicators in the "Date Display" section, where you can choose from dots, pulses, glows, custom icons, emojis or images, and adjust their position.
+Configure today indicators in the "Date Display" section, where you can choose from dots, pulses, glows, custom icons, emojis or images, and adjust their position.
 :::
 
 ```yaml
