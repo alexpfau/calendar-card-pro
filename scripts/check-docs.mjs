@@ -372,6 +372,48 @@ function checkCopyableExamples(docs) {
 }
 
 // ---------------------------------------------------------------------------
+// Check 5 — the README's quick-start example still matches the docs
+// ---------------------------------------------------------------------------
+
+/**
+ * The README is the HACS landing page, so it has to show what a config looks like
+ * without sending the reader elsewhere first. That one block is therefore the single
+ * place in the project where duplication is deliberate rather than accidental.
+ *
+ * Duplication that nothing checks is just drift with a delay on it, so rather than
+ * removing the block or tolerating the copy, this pins it: the README's first card
+ * example must stay byte-identical to the first one in the usage guide. Edit either
+ * and this fails, naming both files.
+ */
+function checkReadmeExample() {
+  const readme = join(ROOT, 'README.md');
+  const usage = join(DOCS_DIR, 'guide/usage.md');
+
+  const firstCard = (file) => {
+    const blocks = readFileSync(file, 'utf8').match(/^```ya?ml\n[\s\S]*?^```/gm) || [];
+    return blocks.find((b) => /^\s*type:\s*custom:calendar-card-pro\s*$/m.test(b));
+  };
+
+  const a = firstCard(readme);
+  const b = firstCard(usage);
+
+  // Neither side may quietly lose its example: that would make the check vacuous.
+  if (!a) {
+    error('README.md: no complete card example found — the landing page must show one working config');
+    return;
+  }
+  if (!b) {
+    error('docs/guide/usage.md: no complete card example found — the README example is pinned to it');
+    return;
+  }
+  if (a.trim() !== b.trim()) {
+    error(
+      "README.md and docs/guide/usage.md show different first examples. They are meant to be the same config — update both, or they will teach two different things.",
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 function report(counts) {
   console.log(
@@ -413,6 +455,7 @@ function main() {
   checkCoverage(fields, docs);
   checkFences(docs);
   const complete = checkCopyableExamples(docs);
+  checkReadmeExample();
 
   process.exit(
     report({ defaults: defaults.size, rows: rows.size, fields: fields.size, docs: docs.length, complete }),
