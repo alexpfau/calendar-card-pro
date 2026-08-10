@@ -18,21 +18,24 @@ entities:
 
 ### Available Properties for Entity Configuration Objects:
 
-| Property               | Type    | Description                                                                                                                    |
-| ---------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| entity                 | string  | **Required.** The calendar entity ID                                                                                           |
-| label                  | string  | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`) |
-| color                  | string  | Custom color for event titles from this calendar                                                                               |
-| accent_color           | string  | Custom color for the vertical line and event background (when event_background_opacity is >0)                                  |
-| label_icon_color       | string  | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                    |
-| show_time              | boolean | Whether to show event times for this calendar (overrides global show_time setting)                                             |
-| show_location          | boolean | Whether to show event locations for this calendar (overrides global show_location setting)                                     |
-| show_description       | boolean | Whether to show event descriptions for this calendar (overrides global show_description setting)                               |
-| compact_events_to_show | number  | Maximum number of events to show from this calendar (works with global compact_events_to_show)                                 |
-| blocklist              | string  | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                      |
-| allowlist              | string  | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                    |
+| Property                 | Type    | Description                                                                                                                    |
+| ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `entity`                 | string  | **Required.** The calendar entity ID                                                                                           |
+| `label`                  | string  | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`) |
+| `color`                  | string  | Custom color for event titles from this calendar                                                                               |
+| `accent_color`           | string  | Custom color for the vertical line and event background (when `event_background_opacity` is >0)                                |
+| `label_icon_color`       | string  | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                    |
+| `show_time`              | boolean | Whether to show event times for this calendar (overrides global `show_time` setting)                                           |
+| `show_location`          | boolean | Whether to show event locations for this calendar (overrides global `show_location` setting)                                   |
+| `show_description`       | boolean | Whether to show event descriptions for this calendar (overrides global `show_description` setting)                             |
+| `compact_events_to_show` | number  | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                               |
+| `blocklist`              | string  | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                      |
+| `allowlist`              | string  | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                    |
+| `split_multiday_events`  | boolean | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                |
 
 This structure gives you granular control over how information from different calendars is displayed.
+
+These properties are per calendar. For the card-wide options they override, see [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
 ## 🔍 Event Filtering
 

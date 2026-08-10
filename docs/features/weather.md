@@ -55,6 +55,8 @@ This flexible configuration allows you to create a personalized experience that 
 | `event → font_size`               | string  | `12px`                      | Size of weather text in event column                                                        |
 | `event → color`                   | string  | `var(--primary-text-color)` | Color of weather text and icons in event column                                             |
 
+These sit under the card's `weather` option — see [Weather in the configuration reference](/reference/configuration#weather).
+
 ## Weather Display Positions
 
 You can choose where weather information appears in your calendar:

@@ -85,3 +85,5 @@ Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names 
 Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
 
 All actions integrate seamlessly with Home Assistant's native ripple effect and haptic feedback for a polished user experience.
+
+Actions are set via the card's `tap_action` and `hold_action` options — see [Actions in the configuration reference](/reference/configuration#actions).
