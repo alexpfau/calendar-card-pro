@@ -49,13 +49,34 @@
   }
 
   /*
-   * The image column stretches to the full height of the text column. Since the
-   * banner is now only as tall as its aspect ratio requires, centre it in that
-   * column rather than letting it sit against the top edge.
+   * The image column stretches to the full height of the text column. Align the
+   * banner with the top of the heading beside it rather than letting it float in
+   * the middle of that column.
    */
   .VPHero .image {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+  }
+}
+
+/*
+ * Below 960px the banner stacks above the heading, and VitePress pulls the image
+ * column outwards with `margin: -76px -24px -48px` (-108px at >=640px). Those
+ * vertical offsets exist to claw back the empty space inside the fixed square
+ * container - with the image absolutely centred in a 392px box there was roughly
+ * 100px of padding above and below it to absorb.
+ *
+ * Our container is now exactly as tall as the image, so there is no dead space
+ * left and those offsets bite into real content: the negative bottom margin
+ * pulled the heading up over the banner by 48px, and the negative top margin
+ * slid the banner under the fixed navbar.
+ *
+ * Reset the vertical margins and keep only the horizontal bleed, which the width
+ * calculation above depends on to line the banner up with the text column.
+ */
+@media (max-width: 959px) {
+  .VPHero .image {
+    margin: 0 -24px 32px;
   }
 }
