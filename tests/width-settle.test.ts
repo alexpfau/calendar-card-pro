@@ -42,6 +42,8 @@ vi.mock('../src/utils/logger', () => ({
  */
 interface CardUnderTest extends HTMLElement {
   setConfig(config: unknown): void;
+  hass?: unknown;
+  updateEvents(force?: boolean): Promise<void>;
   readonly effectiveView: 'list' | 'column';
   _scheduleWidthMeasurement(widthPx: number): void;
 }
@@ -139,5 +141,46 @@ describe('width measurement settling', () => {
 
     // The seeded view survives untouched: the pending decision was discarded, not run.
     expect(card.effectiveView).toBe('column');
+  });
+
+  it('crosses the threshold without fetching', async () => {
+    // Spec E makes "no fetch on a view transition" an acceptance criterion, and
+    // `_handleWidthMeasured`'s docstring cites it -- but nothing pinned it. A
+    // transition looks like a state change that needs data, so a later refactor
+    // adding `updateEvents()` here would read as a correction rather than a
+    // regression. The cost is not theoretical: the observer fires continuously
+    // while a window is dragged, so one fetch per transition is a burst of calls
+    // against the HA calendar API for a layout change over events already held.
+    const card = mountColumnCard();
+
+    const callApi = vi.fn(async () => []);
+    card.hass = {
+      states: {},
+      callApi,
+      callService: () => undefined,
+      locale: { language: 'en', time_format: '24' },
+    };
+    document.body.appendChild(card);
+
+    // Let anything the mount itself scheduled run and settle, so the counters below
+    // start from zero rather than absorbing startup work. Bounded deliberately: the
+    // card holds a recurring refresh interval, so `runAllTimersAsync` never returns.
+    await vi.advanceTimersByTimeAsync(TIMING.WIDTH_SETTLE_DELAY * 2);
+    const updateEvents = vi.spyOn(card, 'updateEvents');
+    callApi.mockClear();
+
+    // Enter column view on a confirmed measurement, then narrow past the exit
+    // threshold. Both directions are exercised because they take different branches.
+    card._scheduleWidthMeasurement(800);
+    await vi.advanceTimersByTimeAsync(TIMING.WIDTH_SETTLE_DELAY);
+    expect(card.effectiveView).toBe('column');
+
+    card._scheduleWidthMeasurement(300);
+    await vi.advanceTimersByTimeAsync(TIMING.WIDTH_SETTLE_DELAY);
+
+    // The transition has to have actually happened, or this asserts nothing.
+    expect(card.effectiveView).toBe('list');
+    expect(updateEvents).not.toHaveBeenCalled();
+    expect(callApi).not.toHaveBeenCalled();
   });
 });
