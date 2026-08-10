@@ -533,3 +533,46 @@ export function resolveEffectiveView(
 
   return measuredWidthPx >= effectiveThreshold ? 'column' : 'list';
 }
+
+/**
+ * Resolves the view for a freshly measured width, given the previous measurement.
+ *
+ * This exists to keep one specific mistake out of the host, where it shipped once and
+ * survived 152 tests because nothing exercises the element itself.
+ *
+ * `resolveEffectiveView` renders the *requested* view before any measurement exists,
+ * so the card does not flash the wrong layout on load. That optimistic answer is a
+ * bet, not an observation — and it must not seed the Schmitt trigger. If it does, the
+ * first real measurement is judged against the leave threshold
+ * (`thresholdPx - VIEW_SWITCH_HYSTERESIS_PX`) instead of the enter threshold, with two
+ * consequences:
+ *
+ * 1. A card loading at a width inside the band enters column view without ever
+ *    qualifying for it — measured live at a 464px card against a 492px threshold.
+ * 2. The same width resolves differently depending on how it was reached, so the
+ *    hysteresis stops being a tie-breaker and becomes load-order dependence.
+ *
+ * A `null` `previousMeasuredWidthPx` means "no measurement has confirmed the current
+ * view yet", which is exactly when the band must not apply.
+ *
+ * @param requestedView - The configured view
+ * @param previousMeasuredWidthPx - Width at the previous measurement, `null` if none
+ * @param measuredWidthPx - The width just measured
+ * @param thresholdPx - Result of `computeColumnThresholdPx`
+ * @param previousEffectiveView - The view currently rendered
+ * @returns The view to render
+ */
+export function resolveViewOnMeasurement(
+  requestedView: Types.EffectiveView,
+  previousMeasuredWidthPx: number | null,
+  measuredWidthPx: number,
+  thresholdPx: number,
+  previousEffectiveView: Types.EffectiveView,
+): Types.EffectiveView {
+  return resolveEffectiveView(
+    requestedView,
+    measuredWidthPx,
+    thresholdPx,
+    previousMeasuredWidthPx === null ? null : previousEffectiveView,
+  );
+}

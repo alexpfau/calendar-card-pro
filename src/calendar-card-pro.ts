@@ -469,14 +469,15 @@ class CalendarCardPro extends LitElement {
    * @param widthPx - Measured content width in CSS pixels
    */
   private _handleWidthMeasured(widthPx: number): void {
-    this._measuredWidthPx = widthPx;
-
-    const nextView = ViewConfig.resolveEffectiveView(
+    const nextView = ViewConfig.resolveViewOnMeasurement(
       this.requestedView,
+      this._measuredWidthPx,
       widthPx,
       ViewConfig.computeColumnThresholdPx(this.config),
       this._effectiveView,
     );
+
+    this._measuredWidthPx = widthPx;
 
     if (nextView === this._effectiveView) {
       return;

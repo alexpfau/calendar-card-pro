@@ -11,6 +11,7 @@ import {
   isZeroLength,
   resolveColumnOption,
   resolveEffectiveView,
+  resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
 } from '../src/config/view';
@@ -470,5 +471,39 @@ describe('resolveEffectiveView', () => {
     // will do, or the two rules would fight and the card would oscillate anyway.
     expect(resolveEffectiveView('column', THRESHOLD - 1, THRESHOLD, 'list')).toBe('list');
     expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, 'list')).toBe('column');
+  });
+});
+
+describe('resolveViewOnMeasurement', () => {
+  const THRESHOLD = 492;
+
+  it('applies the enter threshold to the first measurement', () => {
+    // Regression: measured live in Home Assistant. A 464px card against a 492px
+    // threshold rendered columns, because the optimistic pre-measurement `column`
+    // seeded the hysteresis and the first measurement was judged against 460.
+    expect(resolveViewOnMeasurement('column', null, 464, THRESHOLD, 'column')).toBe('list');
+    // The whole band is affected, not just the width that exposed it.
+    expect(resolveViewOnMeasurement('column', null, THRESHOLD - 1, THRESHOLD, 'column')).toBe(
+      'list',
+    );
+    expect(resolveViewOnMeasurement('column', null, THRESHOLD, THRESHOLD, 'column')).toBe('column');
+  });
+
+  it('applies the hysteresis band once a measurement has confirmed the view', () => {
+    // Same width, same rendered view, different history: now the band is earned.
+    expect(resolveViewOnMeasurement('column', 800, 464, THRESHOLD, 'column')).toBe('column');
+    expect(resolveViewOnMeasurement('column', 800, THRESHOLD - 33, THRESHOLD, 'column')).toBe(
+      'list',
+    );
+  });
+
+  it('never lets the band help a card that is rendering a list', () => {
+    expect(resolveViewOnMeasurement('column', 200, THRESHOLD - 1, THRESHOLD, 'list')).toBe('list');
+    expect(resolveViewOnMeasurement('column', 200, THRESHOLD, THRESHOLD, 'list')).toBe('column');
+  });
+
+  it('leaves a list request alone regardless of measurement history', () => {
+    expect(resolveViewOnMeasurement('list', null, 2000, THRESHOLD, 'list')).toBe('list');
+    expect(resolveViewOnMeasurement('list', 2000, 2000, THRESHOLD, 'list')).toBe('list');
   });
 });
