@@ -748,8 +748,18 @@ present only in `en.json`; and `time_grid_interval_minutes` being a zoom control
 > in D1 and D2 were re-verified against the Phase 4a branch and corrected; several renderers
 > named here now live in `leaves.ts`, not `render.ts` (`renderDateContent` `leaves.ts:129`,
 > `renderDateWeather` `:54`, `parseIndicatorPosition` `:475`, `renderTodayIndicator` `:508`).
-> **Re-verify any citation in D3, D4 or D5 before acting on it** — those have not been
-> re-checked, and a line number in this document is evidence of intent, never of location.
+>
+> **[v9] D3, D4 and D5 have since been re-verified too, with a different outcome worth
+> recording.** D3 turned out to carry no code citations at all — it is pure design reasoning,
+> so nothing in it can rot. D4's and D5's `dev` citations were all _substantively correct_ but
+> uniformly **one line early**; they have been corrected in place. That is a materially
+> different failure from D1/D2, where the cited function had been reduced from 121 lines to 4
+> and the instruction built on it was therefore wrong. An off-by-one wastes a minute; a stale
+> premise sends a phase down the wrong path.
+>
+> The rule stands regardless of which kind you hit: **a line number in this document is
+> evidence of intent, never of location.** Re-derive from the code. D4's `[frozen]` citations
+> remain unverifiable by design — they describe a branch that must not be touched.
 
 ### D1. Element mapping
 
@@ -867,8 +877,8 @@ Frozen-branch gates and their three-view outcomes:
 - `:778` `[frozen]`: `days_to_show` is benign for column by luck; make it explicit.
 - `:826` `[frozen]`: Compact Mode shows for column and that is correct. Make it explicit and
   hide `compact_events_complete_days` for column.
-- `editor.ts:896` on `dev`: `show_empty_days` becomes the A3-B-3 3-option select in both
-  views, not a switch. Correct `editor.ts:899-900` at the same time.
+- `editor.ts:897` on `dev`: `show_empty_days` becomes the A3-B-3 3-option select in both
+  views, not a switch. Correct the `:900-902` visibility conditional at the same time.
 - `:908` `[frozen]`: correctly grid-only, unchanged.
 
 Convert binary view exclusions to explicit per-view logic when those gates are written.
@@ -891,8 +901,12 @@ The adapter must express three per-view behaviour kinds without leaving inert ed
 | 3. **Ignored**, meaningless in this view                      | `compact_events_complete_days`, `date_vertical_alignment` | Hidden                            |
 
 Kind 1 requires an explicit auto/unset value selectable in the editor. For booleans that means
-`boolean | null` and a 3-option select. Reuse the `show_week_numbers` path (`config.ts:48`,
-`editor.ts:1109-1113`, `:588-591`, `:660`). If a key cannot take a sentinel, it is not kind 1.
+`boolean | null` and a 3-option select. Reuse the `show_week_numbers` path — **[v9] verified on
+`dev`**: default `null` at `config.ts:49`, the 3-option select at `editor.ts:1110-1114`, and the
+`'null'`-string-to-real-`null` conversion in **both** handlers, `editor.ts:589-593` and
+`:661-662`. That the conversion exists in two places is the load-bearing detail: a select emits
+the string `'null'`, so a kind-1 boolean needs the same treatment in both paths or the sentinel
+round-trips as a truthy string. If a key cannot take a sentinel, it is not kind 1.
 
 > **[v8] A fourth kind was removed.** Earlier revisions carried a kind 4,
 > _"Reinterpreted — same control with rotated meaning"_, whose only example was
@@ -903,7 +917,7 @@ Kind 1 requires an explicit auto/unset value selectable in the editor. For boole
 > new key (category C). See the rationale for the full argument.
 
 Week numbers are deferred in the column MVP. `show_week_numbers` is tri-state
-(`editor.ts:1109-1113`) and its non-null path renders the full-width `week-row-table`. In a
+(`editor.ts:1110-1114`) and its non-null path renders the full-width `week-row-table`. In a
 partial-week column layout, placement is genuinely incoherent: a 7-day window can span two ISO
 weeks and need zero, one, or two badges on non-adjacent columns. Ignore and document for MVP;
 revisit with real usage. Default `null` means only opted-in users are affected.
