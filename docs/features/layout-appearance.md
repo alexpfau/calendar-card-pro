@@ -1,5 +1,7 @@
 # Layout & Appearance
 
+These options control how the card looks rather than what it shows: its dimensions and scrolling behavior, its colors and fonts, the spacing between elements, and the styling of the date column, week numbers and today indicator.
+
 ## 📐 Card Dimensions & Scrolling
 
 Calendar Card Pro offers flexible options for controlling the card's size and scroll behavior:
@@ -43,7 +45,7 @@ event_background_opacity: 15 # 0-100 scale for background color intensity
 vertical_line_width: '3px' # Width of the colored event indicator line
 ```
 
-The `event_background_opacity` setting (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds.
+The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds.
 
 When styling your calendar, you can use:
 
@@ -62,9 +64,14 @@ event_spacing: '6px' # Internal padding within each event
 
 # Date column alignment
 date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
+
+# Event icon alignment
+event_icon_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
 ```
 
-The `date_vertical_alignment` option controls how dates align with their events, which is especially noticeable when a day has many events. The default `middle` setting centers the date between its events, while `top` aligns it with the first event and `bottom` with the last event.
+The `date_vertical_alignment` option controls how dates align with their events, which is especially noticeable when a day has many events. The default `middle` option centers the date between its events, while `top` aligns it with the first event and `bottom` with the last event.
+
+`event_icon_vertical_alignment` does the same job one level down, for the small icons on an event's time, location and description rows. It only becomes visible when one of those wraps onto a second line: the default `middle` centers the icon against the whole block, while `top` lines it up with the first line of text.
 
 ## 📅 Week Numbers & Visual Separators
 
@@ -134,8 +141,8 @@ today_month_color: '#03a9f4' # Today's month name
 
 The date column appears on the left side of each day's events and helps users quickly identify when events occur. By default, all dates use the base styling, but you can apply special styling to:
 
-- **Weekend days** (Saturday and Sunday) using the `weekend_*` parameters
-- **Today's date** using the `today_*` parameters
+- **Weekend days** (Saturday and Sunday) using the `weekend_*` options
+- **Today's date** using the `today_*` options
 
 When special styling parameters are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
 
@@ -143,7 +150,9 @@ When special styling parameters are not specified, they will inherit from the ba
 
 Calendar Card Pro provides a sophisticated way to highlight the current day with a customizable indicator:
 
-> **Visual Editor:** Configure today indicators in the "Date Display" section, where you can choose from dots, pulses, glows, custom icons, emojis or images, and adjust their position.
+::: tip Visual Editor
+Configure today indicators in the "Date Display" section, where you can choose from dots, pulses, glows, custom icons, emojis or images, and adjust their position.
+:::
 
 ```yaml
 # Enable and choose indicator type
@@ -158,6 +167,10 @@ today_indicator: /local/custom-indicator.png # Image path
 today_indicator_position: "15% 50%" # Centered left in the date column (default)
 today_indicator_position: "15% 15%" # Top left
 today_indicator_position: "85% 15%" # Top right
+
+# Restyle the indicator
+today_indicator_color: "#03a9f4" # Color — applies to the dot and to MDI icons (default)
+today_indicator_size: 6px # Size — applies to icons, emojis and images alike (default)
 ```
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_today_indicator.png" alt="Today Indicator" width="600"><br>
@@ -173,4 +186,8 @@ Available indicator types:
 - Emoji characters: Any emoji like `🎯` or `⭐`
 - Image path: Any image URL or local path
 
-The `today_indicator_position` parameter accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
+The `today_indicator_position` option accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
+
+`today_indicator_size` scales every indicator type — it sets the icon size, the emoji font size and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors.
+
+The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column).

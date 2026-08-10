@@ -29,7 +29,7 @@ always matches the latest release.
 | 🚀 [Installation](https://calendar-card-pro.alexpfau.com/guide/installation) | Set the card up via HACS or manually |
 | 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) | Add the card and configure it visually |
 | ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor) | Weather, templates, layout, actions, and more |
-| 📚 [Configuration Variables](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option |
+| 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option |
 | 💡 [Examples](https://calendar-card-pro.alexpfau.com/reference/examples) | Ready-made configurations to copy |
 | 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) | Full history of every release |
 
@@ -130,27 +130,9 @@ show_month: false
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_1_basic_native.png" alt="Basic Configuration" width="600">
 
-And a multi-calendar setup with per-calendar colours and compact mode, tapping to expand:
+Swap `calendar.family` for one of your own `calendar.*` entities and you have a working card.
 
-```yaml
-type: custom:calendar-card-pro
-title: Upcoming events
-entities:
-  - entity: calendar.family
-    color: '#ff6c92' # Red for family events
-  - entity: calendar.work
-    color: '#86ebda' # Blue for work events
-  - entity: calendar.personal
-    color: '#c2ffb3' # Green for personal events
-days_to_show: 7
-compact_events_to_show: 3 # Always only show 3 events
-tap_action:
-  action: expand # Tap to expand/collapse
-```
-
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_2_advanced_compact.png" alt="Advanced Configuration" width="600">
-
-**➡️ Every available option is documented in the [Configuration Variables reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and more ready-made setups are in [Examples](https://calendar-card-pro.alexpfau.com/reference/examples).**
+**➡️ From here, [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) walks you through multiple calendars, per-calendar colours and compact mode. Every available option is listed in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and more ready-made setups are in [Examples](https://calendar-card-pro.alexpfau.com/reference/examples).**
 
 <p align="right"><a href="#top">⬆️ back to top</a></p>
 

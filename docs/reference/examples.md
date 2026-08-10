@@ -9,7 +9,7 @@ A simple setup displaying events from a **single calendar**. Automatically **ada
 **With Home Assistant default theme** (light mode):  
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_1_basic_native.png" alt="Basic Configuration" width="600">
 
-**Using my favorite [iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)** (ios-dark-mode-blue-red-alternative):  
+**Using the [iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)** (ios-dark-mode-blue-red-alternative):  
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_1_basic_ios.png" alt="Basic Configuration" width="600">
 
 ```yaml
@@ -23,7 +23,7 @@ show_month: false
 
 ## 🗂️ Multiple Calendars with Compact Mode
 
-This setup includes **multiple calendars**, each with a **custom color**. The **compact mode** ensures that only a limited number of events are shown at once. Screenshots again showing **my favorite [iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)** (ios-dark-mode-blue-red-alternative).
+This setup includes **multiple calendars**, each with a **custom color**. The **compact mode** ensures that only a limited number of events are shown at once. Screenshots again showing the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)** (ios-dark-mode-blue-red-alternative).
 
 **Compact view**:  
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_2_advanced_compact.png" alt="Advanced Configuration" width="600">
@@ -69,7 +69,7 @@ vertical_line_width: 5px
 event_spacing: 6px
 ```
 
-## 📆 Multiple Calendars with Week Numbers and Separators
+## 📆 Multiple Calendars with Week Numbers & Separators
 
 This configuration showcases the **week number display** and **visual separators** features. It creates a clear hierarchy with different separator widths for weeks and months.
 
@@ -95,7 +95,9 @@ month_separator_color: var(--secondary-text-color)
 
 ## 🎨 Full Configuration
 
-A fully **customized** configuration demonstrating **all available options**, including **styling, layout, and interactions**. Though you could **go all out**—and I didn’t—and create a **completely different look** if you wanted. Screenshot using the beautiful **[Bubble Theme](https://github.com/Clooos/Bubble)**.
+A heavily **customized** configuration covering **styling, layout, and interactions**. Though you could **go all out**—and I didn’t—and create a **completely different look** if you wanted. Screenshot using the beautiful **[Bubble Theme](https://github.com/Clooos/Bubble)**.
+
+It touches most of the card, but not literally every option — the [configuration reference](/reference/configuration) is the complete list.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_5_complete.png" alt="Complete Configuration" width="600"><br>
 
@@ -108,7 +110,7 @@ entities:
     color: '#ffdaea'
   - entity: calendar.work
     color: '#b3ffd9'
-start_date: '2025-07-01'
+start_date: today
 days_to_show: 10
 compact_events_to_show: 10
 language: en
@@ -122,7 +124,7 @@ title_color: '#baf1ff'
 background_color: '#eeeeee50'
 accent_color: '#baf1ff'
 vertical_line_width: 0px
-row_spacing: 10px
+day_spacing: 10px
 additional_card_spacing: 0px
 
 # Week Numbers and Horizontal Separators

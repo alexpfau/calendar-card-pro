@@ -1,5 +1,7 @@
 # Event Content & Display
 
+These options control what each event actually shows — its title, times, location, description, countdown and progress — and how the card behaves on days that have no events at all.
+
 ## 📅 Calendar Events Display
 
 Control how event information is presented on your calendar:
@@ -20,11 +22,11 @@ hide_when_empty: true
 
 When `show_empty_days` is set to `true`, days without events will display a "No events" message. This helps maintain visual consistency across your calendar, especially when showing longer date ranges.
 
-### Custom empty-day text
+### Custom Empty-Day Text
 
 The default message is deliberately neutral, but an empty day often means something specific to you. A meal-plan calendar reads far better with "Leftovers" than with "No upcoming events", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
 
-The **`empty_day_text`** parameter replaces that message on every day the card renders as empty, and falls back to the translated default when unset. It applies wherever an empty day appears: a gap in the middle of a planned week, an entire range with nothing scheduled, or the single row the card shows for today when `show_empty_days` is off and there is nothing at all to display.
+The **`empty_day_text`** option replaces that message on every day the card renders as empty, and falls back to the translated default when unset. It applies wherever an empty day appears: a gap in the middle of a planned week, an entire range with nothing scheduled, or the single row the card shows for today when `show_empty_days` is off and there is nothing at all to display.
 
 ```yaml
 days_to_show: 7
@@ -34,19 +36,21 @@ empty_day_text: 'Leftovers'
 
 By default, empty days are prefixed with a ✓ so they read as "nothing on". That prefix is dropped as soon as you set your own text, since a string such as "Leftovers" already carries its own meaning.
 
-> [!NOTE]
-> `empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its colour by `empty_day_color`.
+::: info Wording Only, Never Layout
+`empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its color by `empty_day_color`.
+:::
 
-The `empty_day_color` parameter lets you customize the color of this message to match your theme or stand out as needed.
+The `empty_day_color` option lets you customize the color of this message to match your theme or stand out as needed.
 
 If you would rather the card disappear completely instead of showing "No upcoming events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
 
 Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
 
-> [!NOTE]
-> Compact mode limits never trigger hiding — a card limited to zero events with `compact_events_to_show: 0` stays visible so it can still be expanded. Configuration errors, such as a missing calendar entity, also remain visible so problems are not hidden silently.
->
-> The same applies when a calendar cannot be reached. A failed request leaves the event list empty, but that is not the same thing as an empty calendar, so the card never vanishes because of a temporary outage. If events are already on screen they stay there until a refresh succeeds, and if there is nothing to fall back on the card reports the problem instead of claiming there are no upcoming events.
+::: info What Never Triggers Hiding
+Compact mode limits never trigger hiding — a card limited to zero events with `compact_events_to_show: 0` stays visible so it can still be expanded. Configuration errors, such as a missing calendar entity, also remain visible so problems are not hidden silently.
+
+The same applies when a calendar cannot be reached. A failed request leaves the event list empty, but that is not the same thing as an empty calendar, so the card never vanishes because of a temporary outage. If events are already on screen they stay there until a refresh succeeds, and if there is nothing to fall back on the card reports the problem instead of claiming there are no upcoming events.
+:::
 
 ## ⏱️ Time & Location Information
 
@@ -71,7 +75,7 @@ location_color: 'var(--secondary-text-color)'
 location_icon_size: '14px'
 ```
 
-The `remove_location_country` parameter offers three modes:
+The `remove_location_country` option offers three modes:
 
 ```yaml
 # Option 1: Don't remove any country information
@@ -155,7 +159,7 @@ show_past_events: true # Show today's events that have already ended
 
 When enabled, past events appear with reduced opacity (60%) to visually distinguish them from upcoming events.
 
-## Weekend Day Styling
+## 🌈 Weekend Day Styling
 
 Weekend days (Saturday and Sunday) can be styled differently from weekdays to make them stand out in your calendar. You can customize:
 
@@ -177,7 +181,7 @@ weekend_month_color: '#E67C73'
 
 This styling helps users quickly distinguish weekend days from weekdays, making the calendar more visually informative and easier to scan.
 
-## Progress Bar Display
+## 📊 Progress Bar Display
 
 Calendar Card Pro can display a progress bar for events that are currently running, showing how much of the event has completed.
 
@@ -199,3 +203,5 @@ progress_bar_width: '80px'
 ```
 
 The progress bar is especially useful for tracking ongoing meetings, webinars, or appointments, giving you a quick visual reference of how much time remains.
+
+Every option on this page lives under the card's event column settings — see [Event Column in the configuration reference](/reference/configuration#event-column).

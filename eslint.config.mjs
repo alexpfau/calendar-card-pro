@@ -9,7 +9,10 @@ const compat = new FlatCompat();
 
 export default [
   {
-    files: ['src/**/*.ts'],
+    // Tests are linted with the same rules as src. They are devDependency-only and
+    // never enter the bundle (rollup follows the import graph from src/calendar-card-pro.ts),
+    // but they import from src, so they benefit from the same type-aware checks.
+    files: ['src/**/*.ts', 'tests/**/*.ts'],
     languageOptions: {
       parser: tsParser,
       parserOptions: {

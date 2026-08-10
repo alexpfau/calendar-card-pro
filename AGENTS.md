@@ -9,19 +9,28 @@ agent-facing summary plus the things that are easy to get wrong.
 Calendar Card Pro is a custom Lovelace card for Home Assistant, written in TypeScript
 with Lit 3 and bundled with Rollup into a single ES module. It is distributed via HACS.
 
-There is **no runtime and no framework beyond Lit** — no React, no test framework, no
-state library. Keep it that way; bundle size is a design constraint.
+There is **no runtime framework beyond Lit** — no React, no state library. Keep it that
+way; bundle size is a design constraint.
+
+That constraint is about **shipped bytes**, so it governs `dependencies`, not
+`devDependencies`. Build, docs and test tooling that never reaches `dist/` is not covered
+by it. Adding one still needs a reason, but "bundle size" is not the argument against it —
+measure the bundle instead. The Vitest suite below was added this way and moved the
+production bundle by 3 bytes, all of which were a bug fix.
 
 ## Build commands
 
-There are only four npm scripts for the card itself. Do not invent others.
+These are the npm scripts. Do not invent others — add one only when a command is run often
+enough that people will otherwise get it wrong.
 
-| Command          | Output                          | Element name            | Logging |
-| ---------------- | ------------------------------- | ----------------------- | ------- |
-| `npm run dev`    | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
-| `npm run build`  | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
-| `npm run lint`   | — (eslint, `--fix`)             |                         |         |
-| `npm run format` | — (prettier, `--write`)         |                         |         |
+| Command              | Output                          | Element name            | Logging |
+| -------------------- | ------------------------------- | ----------------------- | ------- |
+| `npm run dev`        | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
+| `npm run build`      | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
+| `npm run lint`       | — (eslint, `--fix`)             |                         |         |
+| `npm run format`     | — (prettier, `--write`)         |                         |         |
+| `npm test`           | — (vitest, single run)          |                         |         |
+| `npm run check:i18n` | — (translation wiring check)    |                         |         |
 
 Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
@@ -37,13 +46,25 @@ testing — they need the `-dev` one.
 `npm run dev` runs `rollup -c --watch` and does not exit. For a one-shot dev build in
 automation, use `npx rollup -c` (same config, no watcher).
 
-There is **no test suite**. Validate changes with:
+There **is** a test suite — Vitest with happy-dom, in `tests/`. It does not aim at coverage;
+it pins the things that have actually broken (the translation wiring, config normalization)
+and the rendered list-view DOM, so a refactor that changes output fails loudly. Validate
+changes with:
 
 ```bash
 npx tsc --noEmit   # typecheck — not exposed as an npm script
 npm run lint
+npm test
+npm run check:i18n
 npm run build
 ```
+
+Two things to know before trusting it. `tests/list-dom.test.ts` snapshots serialized DOM, so
+an intentional markup change means **reading** the snapshot diff and committing it, not
+deleting the file. And the suite is built from **default config**, which means an option
+defaulting to `false` renders nothing and is invisible to it unless a test sets it — four
+branches were missed that way, including two the suite existed to protect. When you add a
+config option, add a test that turns it on.
 
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
 
@@ -128,30 +149,134 @@ quick-start example. Links from the README into the docs site must be **absolute
 (`https://calendar-card-pro.alexpfau.com/...`) — the README also renders on GitHub and in
 HACS, where relative docs paths do not resolve.
 
-**Do not touch the `## 4️⃣ What's New` section** in a feature PR. It is organised by
-release, so a feature branch cannot know which version it will land in, and concurrent
-branches conflict in it.
+The README's quick-start YAML block is the one **deliberate** duplicate in the project: it
+is the HACS landing page, so it has to show a working config without sending the reader
+elsewhere first. `check:docs` pins it byte-for-byte to the first example in
+`docs/guide/usage.md`. Do not resolve that failure by deleting either copy — edit both.
+Anything that *teaches* (multiple calendars, per-calendar colours, compact mode) belongs
+only in `docs/`, never in the README.
 
-**In the release PR** (`dev` → `main`), update `## 4️⃣ What's New` alongside
-`docs/RELEASE_NOTES.md`: rename the previous `### Latest Release: vX.Y` to plain `### vX.Y`,
-add a new one with 3–6 one-line bullets condensed from the release notes, and apply the
-retention rule — keep the current major version's minor releases, newest first, capped at
-8, topping up from the previous major only if that leaves fewer than 4.
+### The two "What's New" surfaces
 
-That list is a **highlights reel, not a changelog** — the full notes are linked directly
-above it, so anything left out is one click away. Select on relevance rather than on
-whether something is a feature or a fix: a Home Assistant compatibility break or a bug that
-made the card look empty belongs there; a narrow styling option, an editor validation
+There are **two** of them and they follow **different rules**. Updating only one is the
+most likely way for a release to drift:
+
+| | `README.md` `## 4️⃣ What's New` | `docs/guide/whats-new.md` |
+| --- | --- | --- |
+| Purpose | highlights reel for the HACS landing page | the card's full history |
+| Span | current major only, capped at 8 entries | **every** minor line, back to v1.0 |
+| Selection | ruthless — relevance only | fuller, but still curated |
+
+**Do not touch either in a feature PR.** They are organised by release, so a feature
+branch cannot know which version it will land in, and concurrent branches conflict in them.
+
+**In the release PR** (`dev` → `main`), update **both** alongside `docs/RELEASE_NOTES.md`.
+In each, rename the previous `Latest Release: vX.Y` heading to plain `vX.Y` and add a new
+one condensed from the release notes. Then:
+
+- **README** — apply the retention rule: keep the current major version's minor releases,
+  newest first, capped at 8, topping up from the previous major only if that leaves fewer
+  than 4.
+- **docs page** — never drop an entry; it is the archive. `check:docs` fails if a minor
+  line present in `RELEASE_NOTES.md` has no `## vX.Y` heading here, and vice versa.
+
+A **patch** release folds into the existing `vX.Y` entry on both surfaces rather than
+adding a new heading — each entry covers its whole minor line.
+
+When linking **into** the docs page, mind the anchor: the site's `slugify` strips dots, so
+`## v2.1` anchors as `#v21`, not `#v2-1`. These links are written as absolute URLs to the
+live site, so VitePress's dead-link check — which only resolves relative links — cannot
+see them; `check:docs` validates them instead.
+
+The README list is a **highlights reel, not a changelog** — the full notes are linked
+directly above it, so anything left out is one click away. Select on relevance rather than
+on whether something is a feature or a fix: a Home Assistant compatibility break or a bug
+that made the card look empty belongs there; a narrow styling option, an editor validation
 nicety, or a rare edge-case fix does not. Never write a catch-all "🐛 Key Bug Fixes" bullet.
 Three honest bullets beat six padded ones, and older entries may be trimmed further as they
 age. Deep-link each bullet to the relevant docs page where one exists.
+
+## Docs style
+
+These conventions are **enforced by `npm run check:docs`**, so this section is a
+reference for *why*, not a checklist to police by hand. Run it before pushing docs
+changes; CI runs it too.
+
+**Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
+emoji there ends up in the browser tab, bookmarks, share previews and search results.
+Two pages shipped `<title>⚙️ Visual Configuration Editor | Calendar Card Pro` before
+this rule existed. h2 emoji never leave the page body and are a large part of why these
+docs scan well, so they are required, not merely allowed. Reuse the feature page's emoji
+for the matching section in `reference/configuration.md`, so the reference reads as a
+visual key back to the features. Emoji never affect anchors — the site's `slugify`
+strips them — so an emoji change can never break a link.
+
+`guide/whats-new.md` is exempt: its h2s are version identifiers (`## v3.4`), not topics,
+and an emoji per release would be arbitrary noise.
+
+**Also in headings:** use `&`, not "and"; no trailing colons. Title Case too, though that
+one is on you — it is too ambiguous to check without false positives.
+
+**Every page opens with prose.** An h1 followed straight by an h2 puts a configuration
+table in front of the reader before they know what the page is for. One or two sentences.
+
+**Callouts are titled VitePress containers** (`::: tip Title`), never GitHub alerts
+(`> [!TIP]`) and never a bare bold blockquote. GitHub alert syntax renders as a plain
+blockquote on the docs site — it only works in files GitHub itself renders, i.e.
+`README.md` and `CONTRIBUTING.md`. Title Case the titles; that part is not checked,
+because `Pair This With show_past_events` would trip any rule strict enough to be useful.
+
+**A container title is not repeated inside the box.** `::: tip Visual Editor` followed by
+a body starting `**Visual Editor:** …` renders the label twice. This is the residue left
+behind when a bare bold blockquote is converted to a titled container and the old inline
+label is not removed — it shipped on three pages that way. The title already labels the
+box, so drop the lead-in and let the sentence start the body. A bold lead-in that says
+something _different_ is fine and is left alone.
+
+**Option tables** are `Option | Type | Default | Description`. Include the Default column
+even when every value is `-`; a missing column reads as an oversight. `core-settings.md`
+documented no defaults at all for its ten per-entity options, and because the harness
+reconciles defaults against the code for `reference/configuration.md` only, nothing
+caught it — check 13 now catches the shape even where it cannot check the values.
+
+**Cross-link both ways.** Every section of `reference/configuration.md` ends with a
+`**→ [Feature page](/features/…)**` footer, and every feature page closes by naming the
+reference section its options live in. One-directional linking is how
+`show_countdown_allday` once ended up documented in one place and undiscoverable from
+the other.
+
+**Links are markdown, root-absolute** (`/features/weather#…`) — no raw `<a href>`, no
+inline `style=`. VitePress's own dead-link check resolves markdown links only, so a raw
+anchor tag is unvalidated; `check:docs` resolves both, including the fragment, against
+the real headings.
+
+**US spelling** (`color`, `customize`, `behavior`) — the config options themselves are
+US-spelled, so British spelling in the prose around them reads as inconsistent.
+
+**One word for a config key: _option_.** Not parameter, setting, variable, property or
+field. The same key was a "parameter" on one page and an "option" on the next, which
+makes the docs look like they describe two different things. Check 15 enforces this only
+where a backticked name is followed by the wrong noun (`` `start_date` parameter ``),
+because that is the one construction where the meaning is unambiguous. These stay as they
+are and are not flagged:
+
+- **CSS/theme variables** — `var(--primary-color)` genuinely is a variable.
+- **Action parameters** — those belong to Home Assistant's action API, not to this card.
+- **"Core Settings" / "Display Settings"** — these mirror the editor's own section labels
+  in `src/translations/languages/en.json`. Renaming them in the docs would make the text
+  disagree with the UI the reader is looking at.
+- **Event properties** — an event's all-day status and timing are properties of the
+  event, not options of the card.
+- **`whats-new.md` and `RELEASE_NOTES.md`** — a record of what was announced at the time;
+  not rewritten.
 
 ## Release process
 
 1. Bump `version` in `package.json` — it is the single source of truth. Rollup
    substitutes it into the bundle header and into `constants.ts` via `@version
 vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
-2. Update `docs/RELEASE_NOTES.md` and the README's `## 4️⃣ What's New` section.
+2. Update `docs/RELEASE_NOTES.md`, the README's `## 4️⃣ What's New` section, **and**
+   `docs/guide/whats-new.md` — see _The two "What's New" surfaces_ for the differing rules.
 3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
    review that you cannot give yourself, so this needs `gh pr merge <n> --merge --admin`.
 4. **Fast-forward `dev` back onto `main`** — `git push origin origin/main:dev`. The merge
@@ -203,6 +328,10 @@ Omitting the `supportedLocales` entry (3b) is a **silent failure**: the language
 everywhere except relative times, which quietly fall back to English. Catalan and
 Romanian shipped broken this way for months. If you add a locale import, add the array
 entry in the same edit.
+
+`npm run check:i18n` now catches all four wiring mistakes mechanically, including that one,
+and runs in CI. Run it before you claim a language is done — but note it verifies **wiring**,
+not translation quality, and it cannot tell you whether `pēc 2 dienām` is correct Latvian.
 
 Regional variants usually need no `dayjs.ts` change at all, because `mapLocale()`
 reduces them to their base code (`en-gb` → `en`). Only `zh-cn` / `zh-tw` are

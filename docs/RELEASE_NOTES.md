@@ -1,3 +1,7 @@
+---
+title: Release Notes
+---
+
 # Calendar Card Pro v3.5.0
 
 **Cards that hide themselves when there is nothing to show, start dates that follow the week, titles rendered from Home Assistant templates — and a fix that restores the card title to its intended size.** This release is mostly about fitting the card to the dashboard around it: disappearing when it is empty, saying something useful when a day has no events, anchoring to next Monday instead of a date you keep updating, and driving the title from Home Assistant itself. The card is also easier to find in the first place, now that Home Assistant offers it directly when you add a calendar entity.
@@ -728,7 +732,7 @@ Testing has been conducted across:
 
 **More accessible and more reliable.** This release brings important bug fixes and language enhancements to provide a more robust and internationally accessible calendar experience.
 
-→→→ Please see the [🆕 What's New](https://github.com/alexpfau/calendar-card-pro#2%EF%B8%8F⃣-whats-new) section in the README for an overview of v2.4 features with links to their detailed documentation. ←←←
+→→→ Please see the [🆕 What's New](https://calendar-card-pro.alexpfau.com/guide/whats-new) page in the documentation for an overview of v2.4 features with links to their detailed documentation. ←←←
 
 ## 🎉 New Features
 
@@ -820,7 +824,7 @@ Thank you to everyone who contributed bug reports that made this release possibl
 
 **Visually intelligent and precisely configured.** This release brings visual highlights for the current day, progress tracking for running events, and enhanced compact mode controls - making Calendar Card Pro more visually informative and customizable than ever.
 
-→→→ Please see the [🆕 What's New](https://github.com/alexpfau/calendar-card-pro#2%EF%B8%8F⃣-whats-new) section in the README for an overview of v2.4 features with links to their detailed documentation. ←←←
+→→→ Please see the [🆕 What's New](https://calendar-card-pro.alexpfau.com/guide/whats-new) page in the documentation for an overview of v2.4 features with links to their detailed documentation. ←←←
 
 ## 🎉 New Features
 
@@ -970,7 +974,7 @@ Thank you to everyone who contributed bug reports and translation improvements t
 
 **Time-aware and visually enhanced.** This release brings dynamic countdown displays, weekend styling, and flexible date ranges that adapt to your needs, making Calendar Card Pro more informative and visually distinct than ever before.
 
-→→→ Please see the [🆕 What's New](https://github.com/alexpfau/calendar-card-pro#2%EF%B8%8F⃣-whats-new) section in the README for an overview of v2.3 features with links to their detailed documentation. ←←←
+→→→ Please see the [🆕 What's New](https://calendar-card-pro.alexpfau.com/guide/whats-new) page in the documentation for an overview of v2.3 features with links to their detailed documentation. ←←←
 
 ## 🎉 New Features
 
@@ -1328,7 +1332,7 @@ _This release maintains full compatibility with all existing configurations._
 
 This release introduces powerful new visual organization features and enhanced calendar controls, making Calendar Card Pro even more flexible for all your calendar management needs.
 
-→→→ Please see the [🆕 What's New in v2.1](https://github.com/alexpfau/calendar-card-pro#-whats-new-in-v21) section in the README for detailed examples of all new features. ←←←
+→→→ Please see the [🆕 What's New in v2.1](https://calendar-card-pro.alexpfau.com/guide/whats-new#v21) page in the documentation for detailed examples of all new features. ←←←
 
 ## 🎉 New Features
 
@@ -1399,7 +1403,7 @@ This maintenance release addresses several issues reported by users after the v2
 
 This major release completely reimagines Calendar Card Pro with a new architecture, enhanced performance, and numerous new features for customization. Calendar Card Pro v2 brings significant improvements to theme compatibility, visual styling options, and smart data management.
 
-→→→ Please see the [🆕 What's New in v2](https://github.com/alexpfau/calendar-card-pro#-whats-new-in-v2) section in the README for detailed examples of all new features. ←←←
+→→→ Please see the [🆕 What's New in v2](https://calendar-card-pro.alexpfau.com/guide/whats-new#v20) page in the documentation for detailed examples of all new features. ←←←
 
 ## 🚀 Major Refactoring
 

@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "rollup -c --watch",
     "build": "cross-env NODE_ENV=prod rollup -c",
-    "lint": "eslint 'src/**/*.ts' --fix --format stylish",
-    "format": "prettier --write 'src/**/*.ts'",
+    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' --fix --format stylish",
+    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
+    "test": "vitest run",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview docs"
@@ -49,11 +52,13 @@
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-prettier": "^5.5.5",
+    "happy-dom": "^20.11.1",
     "prettier": "^3.8.1",
     "rollup": "^4.60.0",
     "rollup-plugin-esbuild": "^6.2.1",
     "typescript": "^5.9.3",
-    "vitepress": "^1.6.4"
+    "vitepress": "^1.6.4",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@material/web": "^2.4.1",

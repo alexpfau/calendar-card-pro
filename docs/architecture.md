@@ -1,10 +1,14 @@
+---
+title: Architecture
+---
+
 # Calendar Card Pro Architecture
 
 This document provides a high-level overview of the Calendar Card Pro architecture, explaining how different modules work together to create a performant and maintainable calendar card for Home Assistant.
 
 ## Directory Structure
 
-```
+```text
 src/
 ├── calendar-card-pro.ts          # Main entry point and component class
 ├── config/                       # Configuration-related code
