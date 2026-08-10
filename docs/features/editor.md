@@ -46,5 +46,5 @@ When you open the editor with a configuration that uses deprecated parameters, t
 Click **"Update config..."** to automatically migrate to the current parameter names.
 
 ::: warning YAML Is Not Migrated Automatically
-The upgrader runs **only in the visual editor**. There is no runtime migration, so a deprecated option written directly in YAML is silently ignored and the card falls back to the default — it does not keep working under the old name. If you manage your card in YAML, use the current names from the [Configuration Variables reference](/reference/configuration).
+The upgrader runs **only in the visual editor**. There is no runtime migration, so a deprecated option written directly in YAML is silently ignored and the card falls back to the default — it does not keep working under the old name. If you manage your card in YAML, use the current names from the [Configuration Options reference](/reference/configuration).
 :::
