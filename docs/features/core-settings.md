@@ -20,20 +20,20 @@ entities:
 
 ### Available Options for Entity Configuration Objects
 
-| Option | Type | Default | Description |
-| ------ | ---- | ------- | ----------- |
-| `entity` | string | — | **Required.** The calendar entity ID |
-| `label` | string | `-` | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`) |
-| `color` | string | `event_color` | Custom color for event titles from this calendar |
-| `accent_color` | string | `accent_color` | Custom color for the vertical line and event background (when `event_background_opacity` is >0) |
-| `label_icon_color` | string | `-` | Custom color for label icons (only applies to `mdi:` and other icon labels) |
-| `show_time` | boolean | `show_time` | Whether to show event times for this calendar (overrides global `show_time` option) |
-| `show_location` | boolean | `show_location` | Whether to show event locations for this calendar (overrides global `show_location` option) |
-| `show_description` | boolean | `show_description` | Whether to show event descriptions for this calendar (overrides global `show_description` option) |
-| `compact_events_to_show` | number | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`) |
-| `blocklist`              | string  | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                      |
-| `allowlist`              | string  | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                    |
-| `split_multiday_events`  | boolean | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                |
+| Option                   | Type    | Default                                                                                                         | Description                                                                                                                    |
+| ------------------------ | ------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `entity`                 | string  | —                                                                                                               | **Required.** The calendar entity ID                                                                                           |
+| `label`                  | string  | `-`                                                                                                             | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`) |
+| `color`                  | string  | `event_color`                                                                                                   | Custom color for event titles from this calendar                                                                               |
+| `accent_color`           | string  | `accent_color`                                                                                                  | Custom color for the vertical line and event background (when `event_background_opacity` is >0)                                |
+| `label_icon_color`       | string  | `-`                                                                                                             | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                    |
+| `show_time`              | boolean | `show_time`                                                                                                     | Whether to show event times for this calendar (overrides global `show_time` option)                                            |
+| `show_location`          | boolean | `show_location`                                                                                                 | Whether to show event locations for this calendar (overrides global `show_location` option)                                    |
+| `show_description`       | boolean | `show_description`                                                                                              | Whether to show event descriptions for this calendar (overrides global `show_description` option)                              |
+| `compact_events_to_show` | number  | `compact_events_to_show`                                                                                        | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                               |
+| `blocklist`              | string  | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                       |
+| `allowlist`              | string  | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                     |
+| `split_multiday_events`  | boolean | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`) |
 
 This structure gives you granular control over how information from different calendars is displayed.
 
@@ -203,3 +203,52 @@ These flexible view controls allow you to:
 - **Prevent overwhelming views**: Limit verbose calendars (like school schedules)
 - **Provide complete context**: Ensure users can see all events for any shown day
 - **Support easy expansion**: Allow users to see the full calendar with a single tap
+
+## 🧭 Column View
+
+`view` chooses how the card arranges the days it shows. The default, `list`, stacks each day above the next down the card. `column` places the days side by side, one column each, so a week reads across rather than down.
+
+::: warning Under Development
+Column view is being built for v4.0.0. `view: column` is accepted by the configuration but does not change the layout yet, so the card still renders as a list.
+:::
+
+```yaml
+view: column
+days_to_show: 5
+```
+
+### Overriding Options in Column View
+
+A column is far narrower than a full-width row, so a value tuned for the list layout is often wrong in a column. The `column:` block holds the values that apply only when the card renders as columns. Anything the block does not mention keeps its top-level value.
+
+```yaml
+show_location: true
+event_font_size: 14px
+column:
+  show_location: false
+  event_font_size: 11px
+```
+
+That card shows the location in list view and hides it in column view. The block works in both directions, so an option switched off at the top level can be switched back on for columns:
+
+```yaml
+show_description: false
+column:
+  show_description: true
+```
+
+What decides the outcome is whether the block mentions an option at all, not what value it holds. `show_location: false` inside the block is a real instruction to hide the location, not an empty value that falls back to the top level.
+
+### Options That Cannot Be Overridden
+
+Only presentation options may appear in `column:`. Anything that decides _which_ events the card loads from Home Assistant — `entities`, `start_date`, `days_to_show`, `first_day_of_week`, `show_past_events`, `filter_duplicates`, `weather`, `refresh_interval` and `refresh_on_navigate` — has to hold the same value in both views. The card switches between the two layouts as the dashboard resizes, and a per-view value here would mean reloading events every time it crossed that boundary.
+
+An unusable entry inside the block is ignored rather than treated as an error, so one stray line cannot break the rest of the card.
+
+### Falling Back to the List Layout
+
+Columns stop being readable below a certain width. `min_day_column_width_px` sets that floor, `160` by default. When the card is too narrow to give every day that much room, it renders as a list instead.
+
+The number of columns follows `days_to_show`. A narrower card shows the same days in the list layout rather than quietly showing fewer of them.
+
+**→ [Core Settings in the configuration reference](/reference/configuration#core-settings)** — full option table.

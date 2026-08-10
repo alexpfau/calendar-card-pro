@@ -30,6 +30,7 @@ import { customElement, property } from 'lit/decorators.js';
 import * as Config from './config/config';
 import * as Constants from './config/constants';
 import * as Types from './config/types';
+import * as ViewConfig from './config/view';
 import * as Localize from './translations/localize';
 import * as EventUtils from './utils/events';
 import * as Actions from './interaction/actions';
@@ -725,6 +726,7 @@ class CalendarCardPro extends LitElement {
     this.config = mergedConfig;
     this.config.entities = Config.normalizeEntities(this.config.entities);
     Config.normalizeNumericOptions(this.config);
+    ViewConfig.validateColumnOverrides(this.config);
 
     // Generate deterministic ID for caching
     this._instanceId = Helpers.generateDeterministicId(
