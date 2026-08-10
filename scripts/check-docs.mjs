@@ -414,11 +414,110 @@ function checkReadmeExample() {
 }
 
 // ---------------------------------------------------------------------------
+// Check 6 — the What's New archive covers every release line
+// ---------------------------------------------------------------------------
+
+/**
+ * `docs/guide/whats-new.md` is the card's full history, unlike the README's What's New
+ * which is a capped highlights reel. Because it is written by hand at release time and
+ * nothing renders it from the release notes, the failure mode is silent: a release ships,
+ * `RELEASE_NOTES.md` gains an entry, and the archive quietly stops being an archive.
+ *
+ * So pin the two together. Every minor line that has release notes must have a heading
+ * here — patches fold into their `vX.Y` entry rather than adding one, which is why this
+ * compares minor lines rather than exact versions.
+ */
+function checkWhatsNewCoverage() {
+  const notes = join(DOCS_DIR, 'RELEASE_NOTES.md');
+  const page = join(DOCS_DIR, 'guide/whats-new.md');
+
+  const released = new Set(
+    [...readFileSync(notes, 'utf8').matchAll(/^# Calendar Card Pro v(\d+)\.(\d+)\.\d+/gm)].map(
+      (m) => `${m[1]}.${m[2]}`,
+    ),
+  );
+  const documented = new Set(
+    [...readFileSync(page, 'utf8').matchAll(/^## (?:Latest Release: )?v(\d+)\.(\d+)\s*$/gm)].map(
+      (m) => `${m[1]}.${m[2]}`,
+    ),
+  );
+
+  // Either side coming back empty would make every comparison below trivially pass.
+  assertFound(released, 'release headings', notes);
+  assertFound(documented, "What's New entries", page);
+
+  const byVersion = (a, b) => {
+    const [aMaj, aMin] = a.split('.').map(Number);
+    const [bMaj, bMin] = b.split('.').map(Number);
+    return bMaj - aMaj || bMin - aMin;
+  };
+
+  const missing = [...released].filter((v) => !documented.has(v)).sort(byVersion);
+  if (missing.length) {
+    error(
+      `docs/guide/whats-new.md is missing ${missing.length} release line(s): ` +
+        `${missing.map((v) => `v${v}`).join(', ')}. It is the full archive — add an entry rather than trimming it.`,
+    );
+  }
+
+  const unreleased = [...documented].filter((v) => !released.has(v)).sort(byVersion);
+  if (unreleased.length) {
+    error(
+      `docs/guide/whats-new.md documents ${unreleased.map((v) => `v${v}`).join(', ')}, ` +
+        'which has no release notes. Check for a typo in the heading.',
+    );
+  }
+
+  checkWhatsNewAnchors(documented);
+
+  return documented.size;
+}
+
+/**
+ * Links into this page are written as absolute URLs to the live site, so VitePress's
+ * dead-link check — which only resolves relative links — never sees them. That blind
+ * spot is not theoretical: the release notes shipped `#v2-1` when the anchor is `#v21`.
+ *
+ * The site's slugify strips dots, so a `## vX.Y` heading anchors as `vXY`. Deriving the
+ * expected anchors from the headings just parsed keeps this in step with the page rather
+ * than hardcoding a list.
+ */
+function checkWhatsNewAnchors(documented) {
+  const valid = new Set();
+  for (const v of documented) {
+    const slug = `v${v.replace('.', '')}`;
+    valid.add(slug);
+    valid.add(`latest-release-${slug}`); // the newest entry carries a prefix
+  }
+
+  const links = [];
+  for (const file of listDocs()) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/guide\/whats-new#([\w-]+)/g)) {
+      links.push({ anchor: m[1], file });
+    }
+  }
+
+  // No links at all would mean the pattern stopped matching, not that all is well.
+  assertFound(links, "links into the What's New page", DOCS_DIR);
+
+  for (const { anchor, file } of links) {
+    if (!valid.has(anchor)) {
+      error(
+        `${relative(ROOT, file)} links to guide/whats-new#${anchor}, which is not a heading on that page. ` +
+          `Note the site's slugify strips dots, so v2.1 anchors as #v21.`,
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 function report(counts) {
   console.log(
     `${counts.defaults} defaults in code, ${counts.rows} rows in the reference, ` +
-      `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} complete examples.\n`,
+      `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} complete examples, ` +
+      `${counts.releases} release lines documented.\n`,
   );
 
   if (errors.length) {
@@ -456,9 +555,17 @@ function main() {
   checkFences(docs);
   const complete = checkCopyableExamples(docs);
   checkReadmeExample();
+  const releases = checkWhatsNewCoverage();
 
   process.exit(
-    report({ defaults: defaults.size, rows: rows.size, fields: fields.size, docs: docs.length, complete }),
+    report({
+      defaults: defaults.size,
+      rows: rows.size,
+      fields: fields.size,
+      docs: docs.length,
+      complete,
+      releases,
+    }),
   );
 }
 
