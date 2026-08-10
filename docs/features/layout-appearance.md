@@ -1,5 +1,7 @@
 # Layout & Appearance
 
+These options control how the card looks rather than what it shows: its dimensions and scrolling behavior, its colors and fonts, the spacing between elements, and the styling of the date column, week numbers and today indicator.
+
 ## 📐 Card Dimensions & Scrolling
 
 Calendar Card Pro offers flexible options for controlling the card's size and scroll behavior:
@@ -69,7 +71,7 @@ event_icon_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
 
 The `date_vertical_alignment` option controls how dates align with their events, which is especially noticeable when a day has many events. The default `middle` setting centers the date between its events, while `top` aligns it with the first event and `bottom` with the last event.
 
-`event_icon_vertical_alignment` does the same job one level down, for the small icons on an event's time, location and description rows. It only becomes visible when one of those wraps onto a second line: the default `middle` centres the icon against the whole block, while `top` lines it up with the first line of text.
+`event_icon_vertical_alignment` does the same job one level down, for the small icons on an event's time, location and description rows. It only becomes visible when one of those wraps onto a second line: the default `middle` centers the icon against the whole block, while `top` lines it up with the first line of text.
 
 ## 📅 Week Numbers & Visual Separators
 
@@ -148,7 +150,9 @@ When special styling parameters are not specified, they will inherit from the ba
 
 Calendar Card Pro provides a sophisticated way to highlight the current day with a customizable indicator:
 
-> **Visual Editor:** Configure today indicators in the "Date Display" section, where you can choose from dots, pulses, glows, custom icons, emojis or images, and adjust their position.
+::: tip Visual Editor
+**Visual Editor:** Configure today indicators in the "Date Display" section, where you can choose from dots, pulses, glows, custom icons, emojis or images, and adjust their position.
+:::
 
 ```yaml
 # Enable and choose indicator type
@@ -165,7 +169,7 @@ today_indicator_position: "15% 15%" # Top left
 today_indicator_position: "85% 15%" # Top right
 
 # Restyle the indicator
-today_indicator_color: "#03a9f4" # Colour — applies to the dot and to MDI icons (default)
+today_indicator_color: "#03a9f4" # Color — applies to the dot and to MDI icons (default)
 today_indicator_size: 6px # Size — applies to icons, emojis and images alike (default)
 ```
 
@@ -184,4 +188,6 @@ Available indicator types:
 
 The `today_indicator_position` parameter accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
 
-`today_indicator_size` scales every indicator type — it sets the icon size, the emoji font size and the image width. `today_indicator_color` colours the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the colour of the glow itself; emojis and images keep their own colours.
+`today_indicator_size` scales every indicator type — it sets the icon size, the emoji font size and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors.
+
+The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column).

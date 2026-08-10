@@ -1,8 +1,10 @@
-# 🌦️ Weather Integration
+# Weather Integration
 
 Calendar Card Pro can display weather forecasts alongside your calendar events, providing a complete view of both your schedule and the expected weather conditions.
 
-> **Visual Editor:** Access all weather settings in the "Weather Integration" section of the editor, where you can select your weather entity and configure display options for both date and event positions.
+::: tip Visual Editor
+**Visual Editor:** Access all weather settings in the "Weather Integration" section of the editor, where you can select your weather entity and configure display options for both date and event positions.
+:::
 
 ```yaml
 type: custom:calendar-card-pro
@@ -32,7 +34,7 @@ weather:
 
 This flexible configuration allows you to create a personalized experience that shows exactly the weather information you need, where you need it.
 
-## Weather Configuration Options
+## ⚙️ Weather Configuration Options
 
 | Option                            | Type    | Default                     | Description                                                                                 |
 | --------------------------------- | ------- | --------------------------- | ------------------------------------------------------------------------------------------- |
@@ -57,7 +59,7 @@ This flexible configuration allows you to create a personalized experience that 
 
 These sit under the card's `weather` option — see [Weather in the configuration reference](/reference/configuration#weather).
 
-## Weather Display Positions
+## 📍 Weather Display Positions
 
 You can choose where weather information appears in your calendar:
 
@@ -65,15 +67,16 @@ You can choose where weather information appears in your calendar:
 - `event`: Shows hourly forecasts next to event titles
 - `both`: Displays weather in both positions simultaneously
 
-> [!NOTE]
-> Home Assistant weather entities typically provide hourly forecasts for about two days
-> ahead, while daily forecasts reach much further (six days or more, depending on the
-> provider). Beyond the hourly horizon, timed events fall back to that day's daily
-> forecast so weather keeps appearing across the whole calendar. Set
-> `event → daily_forecast_fallback: false` if you would rather show nothing than a daily
-> value. All-day events always use the daily forecast.
+::: info How Far Forecasts Reach
+Home Assistant weather entities typically provide hourly forecasts for about two days
+ahead, while daily forecasts reach much further (six days or more, depending on the
+provider). Beyond the hourly horizon, timed events fall back to that day's daily
+forecast so weather keeps appearing across the whole calendar. Set
+`event → daily_forecast_fallback: false` if you would rather show nothing than a daily
+value. All-day events always use the daily forecast.
+:::
 
-## Position-Specific Configuration
+## 🧭 Position-Specific Configuration
 
 Each display position can be customized independently with different content and styling:
 
@@ -99,7 +102,7 @@ Each display position can be customized independently with different content and
 - `font_size`: Temperature text size
 - `color`: Text and icon color
 
-## Benefits and Use Cases
+## ✨ Benefits & Use Cases
 
 Weather integration is particularly useful for:
 

@@ -17,4 +17,6 @@ The card's advanced rendering engine:
 
 Smart caching minimizes API calls to your calendar integrations. By default, data refreshes every 30 minutes and when navigating between views, but you can adjust this behavior with `refresh_interval` and `refresh_on_navigate`.
 
+These are the `refresh_interval` and `refresh_on_navigate` options — see [Cache & Refresh in the configuration reference](/reference/configuration#cache-refresh).
+
 For styling the card with card-mod and CSS variables, see [Theming & Card-Mod](/features/theming).

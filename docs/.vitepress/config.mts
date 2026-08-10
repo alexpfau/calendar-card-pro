@@ -33,7 +33,7 @@ function slugify(str: string): string {
 export default defineConfig({
   title: 'Calendar Card Pro',
   description:
-    'A sleek, fast and highly customisable calendar card for Home Assistant. Display upcoming events beautifully.',
+    'A sleek, fast and highly customizable calendar card for Home Assistant. Display upcoming events beautifully.',
   lang: 'en-US',
   cleanUrls: true,
   lastUpdated: true,

@@ -1,5 +1,7 @@
 # Actions & Interactions
 
+Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, and bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL.
+
 ## 🔄 Expandable Calendar View
 
 One of Calendar Card Pro's most powerful features is the ability to toggle between compact and expanded views:
@@ -60,7 +62,7 @@ hold_action:
   url_path: https://calendar.google.com
 ```
 
-### Available Actions:
+### Available Actions
 
 Calendar Card Pro handles one action itself — `expand` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
 
@@ -78,7 +80,7 @@ The commonly used ones:
 | `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others) | Any additional keys are passed through                    |
 | `none`                            | Disable the action                                | None                                                      |
 
-::: tip
+::: tip Both Action Names Work
 Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations.
 :::
 

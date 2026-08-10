@@ -1,5 +1,7 @@
 # Core Settings
 
+Core settings control which calendars the card reads, which of their events it keeps, and how many of them it shows at once. Everything else in this documentation builds on the entity configuration described here.
+
 ## 🗂️ Entity Configuration
 
 Calendar Card Pro can display events from multiple calendar entities in Home Assistant. The `entities` array accepts either:
@@ -16,19 +18,19 @@ entities:
     accent_color: '#ff6347'
 ```
 
-### Available Properties for Entity Configuration Objects:
+### Available Properties for Entity Configuration Objects
 
-| Property                 | Type    | Description                                                                                                                    |
-| ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `entity`                 | string  | **Required.** The calendar entity ID                                                                                           |
-| `label`                  | string  | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`) |
-| `color`                  | string  | Custom color for event titles from this calendar                                                                               |
-| `accent_color`           | string  | Custom color for the vertical line and event background (when `event_background_opacity` is >0)                                |
-| `label_icon_color`       | string  | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                    |
-| `show_time`              | boolean | Whether to show event times for this calendar (overrides global `show_time` setting)                                           |
-| `show_location`          | boolean | Whether to show event locations for this calendar (overrides global `show_location` setting)                                   |
-| `show_description`       | boolean | Whether to show event descriptions for this calendar (overrides global `show_description` setting)                             |
-| `compact_events_to_show` | number  | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                               |
+| Option | Type | Default | Description |
+| ------ | ---- | ------- | ----------- |
+| `entity` | string | — | **Required.** The calendar entity ID |
+| `label` | string | `-` | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`) |
+| `color` | string | `event_color` | Custom color for event titles from this calendar |
+| `accent_color` | string | `accent_color` | Custom color for the vertical line and event background (when `event_background_opacity` is >0) |
+| `label_icon_color` | string | `-` | Custom color for label icons (only applies to `mdi:` and other icon labels) |
+| `show_time` | boolean | `show_time` | Whether to show event times for this calendar (overrides global `show_time` setting) |
+| `show_location` | boolean | `show_location` | Whether to show event locations for this calendar (overrides global `show_location` setting) |
+| `show_description` | boolean | `show_description` | Whether to show event descriptions for this calendar (overrides global `show_description` setting) |
+| `compact_events_to_show` | number | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`) |
 | `blocklist`              | string  | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                      |
 | `allowlist`              | string  | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                    |
 | `split_multiday_events`  | boolean | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                |
@@ -41,7 +43,9 @@ These properties are per calendar. For the card-wide options they override, see 
 
 Calendar Card Pro provides powerful filtering capabilities to control exactly which events appear on your dashboard:
 
-> **Visual Editor:** Set up filters in the entity configuration panels. For each calendar entity, you can specify blocklist/allowlist patterns and configure duplicate filtering from the "Calendar Entities" section.
+::: tip Visual Editor
+**Visual Editor:** Set up filters in the entity configuration panels. For each calendar entity, you can specify blocklist/allowlist patterns and configure duplicate filtering from the "Calendar Entities" section.
+:::
 
 ### Filtering by Event Name
 
@@ -83,21 +87,22 @@ This is especially useful for:
 - Work calendars with team events
 - Any scenario where you might see the same event in multiple calendars
 
-> [!IMPORTANT]
-> Two aspects of this option are easy to miss:
->
-> - **The first-listed calendar wins, including its styling.** Only the copy from the
->   calendar listed first in `entities` is kept, and it keeps that calendar's `label`,
->   `color` and `accent_color`. A shared event can therefore appear under a different
->   calendar's styling than you expect — reorder `entities` so the calendar you want to
->   see takes precedence.
-> - **Matching ignores which calendar an event came from.** Any two events sharing a
->   title, start time, end time and location are treated as duplicates, even if they are
->   genuinely separate events, and even if both are in the _same_ calendar.
->
-> Events are never hidden merely for starting at the same time — all four fields must
-> match. If events are disappearing unexpectedly, set `filter_duplicates: false` to
-> confirm whether this option is the cause.
+::: warning Two Details Are Easy to Miss
+Two aspects of this option are easy to miss:
+
+- **The first-listed calendar wins, including its styling.** Only the copy from the
+  calendar listed first in `entities` is kept, and it keeps that calendar's `label`,
+  `color` and `accent_color`. A shared event can therefore appear under a different
+  calendar's styling than you expect — reorder `entities` so the calendar you want to
+  see takes precedence.
+- **Matching ignores which calendar an event came from.** Any two events sharing a
+  title, start time, end time and location are treated as duplicates, even if they are
+  genuinely separate events, and even if both are in the _same_ calendar.
+
+Events are never hidden merely for starting at the same time — all four fields must
+match. If events are disappearing unexpectedly, set `filter_duplicates: false` to
+confirm whether this option is the cause.
+:::
 
 ### Advanced Filtering Techniques
 

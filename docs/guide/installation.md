@@ -1,12 +1,14 @@
 # Installation
 
+Calendar Card Pro installs like any other custom Lovelace card. HACS is the recommended route because it handles updates for you; manual installation is available if you do not use HACS.
+
 ## 📦 HACS Installation (Recommended)
 
 The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant Community Store)](https://hacs.xyz/)**.
 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alexpfau&repository=calendar-card-pro&category=plugin)
 
-### Steps:
+### Steps
 
 1. Ensure **[HACS](https://hacs.xyz/docs/setup/download)** is installed in Home Assistant.
 2. Go to **HACS → Frontend → Custom Repositories**.
@@ -19,7 +21,7 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
 <details>
 <summary>📖 Click to expand manual installation instructions</summary>
 
-### Steps:
+### Steps
 
 1. **Download** the latest release:  
    👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest)

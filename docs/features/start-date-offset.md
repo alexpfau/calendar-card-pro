@@ -1,3 +1,7 @@
+---
+title: Dynamic Start Date
+---
+
 # Dynamic Start Date with Relative Offsets
 
 Calendar Card Pro offers flexible options for controlling which dates are displayed, allowing you to create both fixed and dynamic date ranges:
@@ -37,7 +41,7 @@ The `start_date` parameter can be configured in multiple ways:
   start_date: "monday+1w" # One week after that Monday
   ```
 
-### Relative expression syntax
+### Relative Expression Syntax
 
 Relative expressions are built from an **anchor** followed by any number of **operators**:
 
@@ -66,11 +70,12 @@ following Monday. A bare weekday is shorthand for `today+<weekday>`.
 | The weekend after this one                            | `today+sat+7`       |
 | Two weeks from next Tuesday                           | `tuesday+2w`        |
 
-> [!NOTE]
-> `start_of_week` resolves to a past date for most of the week. Because `show_past_events`
-> defaults to `false`, already-finished timed events on the earlier days are hidden, which can
-> make the start of the week look empty. Pair `start_of_week` with `show_past_events: true` to
-> see the full week. (All-day events are always shown.)
+::: warning Pair This With show_past_events
+`start_of_week` resolves to a past date for most of the week. Because `show_past_events`
+defaults to `false`, already-finished timed events on the earlier days are hidden, which can
+make the start of the week look empty. Pair `start_of_week` with `show_past_events: true` to
+see the full week. (All-day events are always shown.)
+:::
 
 When using `start_date` with `days_to_show`, the calendar will display exactly that number of days starting from the specified date:
 
@@ -86,7 +91,7 @@ days_to_show: 7 # Shows a 7-day window starting one week from today
 
 If an expression is malformed — `start_of_week+xyz`, say — the card logs a warning and falls back to today rather than rendering an empty view.
 
-### Common setups
+### Common Setups
 
 The three setups the grammar was built for, taken from the requests behind it:
 
@@ -128,3 +133,5 @@ Anchoring each card to `start_of_week` is what keeps the row in calendar order: 
 
 - **Fixed date range**: Using a specific date for `start_date` creates a static calendar view that always shows the same range
 - **Dynamic date range**: Using relative offsets creates a "floating" window that automatically adjusts as time passes
+
+`start_date` is a core option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).

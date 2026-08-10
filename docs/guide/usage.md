@@ -1,6 +1,6 @@
 # Usage
 
-Once **Calendar Card Pro** is [installed](/guide/installation), this page takes you from an empty dashboard to a working, customised card.
+Once **Calendar Card Pro** is [installed](/guide/installation), this page takes you from an empty dashboard to a working, customized card.
 
 ## 📌 Adding the Card to Your Dashboard
 
@@ -38,13 +38,13 @@ show_month: false
 
 Replace `calendar.family` with one of your own `calendar.*` entities and you have a working card.
 
-::: info Reading examples elsewhere in these docs
+::: info Reading Examples in These Docs
 Configuration snippets on the feature pages usually show **only the options being discussed**, so the relevant setting is easy to spot. To use one, add it to a card that already has `type:` and `entities:` — like the one above.
 :::
 
 ## 📅 A Multi-Calendar Example
 
-Once the basics work, this shows several calendars at once with per-calendar colours and compact mode, tapping to expand:
+Once the basics work, this shows several calendars at once with per-calendar colors and compact mode, tapping to expand:
 
 ```yaml
 type: custom:calendar-card-pro
@@ -75,12 +75,12 @@ Calendar Card Pro offers two ways to customize your card:
 
 2. **YAML Configuration (Advanced)**
    - Use YAML for advanced customization or automation
-   - See [📚 Configuration Variables](/reference/configuration) for every available option
+   - See [Configuration Variables](/reference/configuration) for every available option
 
 ## 🚀 Next Steps
 
 - **Explore the Features** - [Core Settings](/features/core-settings), [Layout & Appearance](/features/layout-appearance) and [Event Content](/features/event-content) cover the options most people reach for first
 - **Discover Advanced Capabilities** - Add [weather forecasts](/features/weather), filter events with [blocklists and allowlists](/features/core-settings), or set up [tap and hold actions](/features/actions)
-- **See Examples** - Browse [💡 Examples](/reference/examples) for complete, ready-made setups
-- **Reference Configuration** - Use [📚 Configuration Variables](/reference/configuration) as the complete option reference
+- **See Examples** - Browse [Examples](/reference/examples) for complete, ready-made setups
+- **Reference Configuration** - Use [Configuration Variables](/reference/configuration) as the complete option reference
 - **Get Involved!** - See [Contributing & Roadmap](/contributing) to contribute or view upcoming features

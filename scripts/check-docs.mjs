@@ -511,13 +511,375 @@ function checkWhatsNewAnchors(documented) {
   }
 }
 
+
+// ---------------------------------------------------------------------------
+// Shared helpers for the style checks
+// ---------------------------------------------------------------------------
+
+/**
+ * Pages exempt from the prose style rules.
+ *
+ * Same boundary as COVERAGE_EXCLUDES, plus whats-new.md. That page's headings are
+ * version identifiers (`## v3.4`), not topics, so the emoji rule below has nothing
+ * meaningful to ask of them — an emoji per release would be arbitrary decoration.
+ */
+const STYLE_EXCLUDES = [...COVERAGE_EXCLUDES, 'guide/whats-new.md'];
+
+const isExcluded = (file, excludes) => {
+  const rel = relative(DOCS_DIR, file);
+  return excludes.some((x) => rel.startsWith(x) || rel === x);
+};
+
+/** Mirror of docs/.vitepress/config.mts stripDecorations + slugify. */
+function slugifyHeading(str) {
+  return str
+    .replace(/[0-9]\uFE0F?\u20E3/gu, '')
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    .replace(/[\uFE0E\uFE0F]/gu, '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036F]/g, '')
+    .replace(/[\u2000-\u206F\u2E00-\u2E7F\\'!"#$%&()*+,./:;<=>?@[\]^`{|}~]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/^(\d)/, '_$1')
+    .toLowerCase();
+}
+
+const STARTS_WITH_EMOJI = /^\s*(?:\p{Extended_Pictographic}|[0-9]\uFE0F?\u20E3)/u;
+
+/**
+ * Headings outside fenced blocks. Every style check needs this, and every one of them
+ * would otherwise trip over the YAML comments in the examples — `# Cache and refresh
+ * settings` is a comment, not an h1.
+ */
+function readHeadings(file) {
+  const out = [];
+  let fenced = false;
+  readFileSync(file, 'utf8')
+    .split('\n')
+    .forEach((line, i) => {
+      if (line.startsWith('```')) {
+        fenced = !fenced;
+        return;
+      }
+      if (fenced) return;
+      const m = /^(#{1,6}) (.*)$/.exec(line);
+      if (m) out.push({ level: m[1].length, text: m[2].trim(), line: i + 1 });
+    });
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Check 7 — every internal link resolves to a real page and anchor
+// ---------------------------------------------------------------------------
+
+/**
+ * VitePress's `ignoreDeadLinks: false` only validates *markdown* links. A raw HTML
+ * `<a href>` is invisible to it, which is exactly how a link to the pre-carve-out
+ * anchor `#5️⃣-features--configuration` shipped and survived every build.
+ *
+ * So resolve both forms here, against the real page set and the real heading slugs.
+ */
+function checkInternalLinks(docs) {
+  const published = docs.filter((f) => !isExcluded(f, ['development/']));
+
+  // route -> set of anchors, e.g. "/features/weather" -> { "weather-integration", ... }
+  const anchors = new Map();
+  for (const file of published) {
+    const route = '/' + relative(DOCS_DIR, file).replace(/\.md$/, '').replace(/\/index$/, '');
+    const seen = new Map();
+    const slugs = new Set();
+    for (const h of readHeadings(file)) {
+      const base = slugifyHeading(h.text);
+      const n = seen.get(base) ?? 0;
+      seen.set(base, n + 1);
+      slugs.add(n === 0 ? base : `${base}-${n}`);
+    }
+    anchors.set(route, slugs);
+  }
+  assertFound(anchors, 'published routes', DOCS_DIR);
+
+  const LINK = /\[[^\]]*\]\((\/[^)\s]*)\)|<a\s[^>]*href="(\/[^"]*)"/g;
+  let checked = 0;
+
+  for (const file of published) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(LINK)) {
+      const target = m[1] ?? m[2];
+      const [rawPath, anchor] = target.split('#');
+      const path = rawPath.replace(/\/$/, '') || '/';
+      checked++;
+
+      if (!anchors.has(path)) {
+        error(`${relative(ROOT, file)} links to ${target}, but no page publishes at ${path}.`);
+        continue;
+      }
+      if (anchor && !anchors.get(path).has(anchor)) {
+        error(
+          `${relative(ROOT, file)} links to ${target}, but #${anchor} is not a heading on that page. ` +
+            "Note the site's slugify strips emoji and dots.",
+        );
+      }
+    }
+  }
+
+  // A regex that silently stops matching would turn this check into a no-op.
+  if (!checked) {
+    console.error(`Found no internal links under ${DOCS_DIR}. The link pattern is stale.`);
+    process.exit(2);
+  }
+  return checked;
+}
+
+// ---------------------------------------------------------------------------
+// Check 8 — no raw HTML links or inline styles in the docs
+// ---------------------------------------------------------------------------
+
+/**
+ * Prevents the class rather than policing instances: raw `<a href>` is the one link
+ * form check 7 has to work harder to see, and inline `style=` is unthemed, so it
+ * ignores the user's light/dark preference.
+ */
+function checkNoRawHtml(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, EXAMPLE_EXCLUDES)) continue;
+    let fenced = false;
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        if (line.startsWith('```')) {
+          fenced = !fenced;
+          return;
+        }
+        if (fenced) return;
+        if (/<a\s[^>]*href=/.test(line))
+          error(`${relative(ROOT, file)}:${i + 1} uses a raw <a href>. Use a markdown link.`);
+        if (/\sstyle="/.test(line))
+          error(`${relative(ROOT, file)}:${i + 1} uses an inline style, which ignores the theme.`);
+      });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 9 — callouts use titled VitePress containers
+// ---------------------------------------------------------------------------
+
+/**
+ * Three syntaxes were in use. GitHub alerts (`> [!NOTE]`) render on github.com but
+ * cannot carry a descriptive title, and a bare bold blockquote gets no callout
+ * styling at all — so the most-repeated callout on the site was invisible as one.
+ */
+function checkAdmonitions(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    let fenced = false;
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        if (line.startsWith('```')) {
+          fenced = !fenced;
+          return;
+        }
+        if (fenced) return;
+        if (/^>\s*\[!/.test(line))
+          error(
+            `${relative(ROOT, file)}:${i + 1} uses a GitHub alert. Use ::: tip Title — containers can be titled.`,
+          );
+        if (/^:::\s*(tip|warning|info|danger|details)\s*$/.test(line))
+          error(
+            `${relative(ROOT, file)}:${i + 1} opens an untitled container. Give it a descriptive title.`,
+          );
+        if (/^>\s*\*\*[^*]+:\*\*/.test(line))
+          warn(
+            `${relative(ROOT, file)}:${i + 1} looks like a callout in a bare blockquote, which gets no callout styling.`,
+          );
+      });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Check 10 — heading style
+// ---------------------------------------------------------------------------
+
+/**
+ * Emoji sit on h2 and nowhere else.
+ *
+ * Not arbitrary: an h1 becomes the `<title>`, so an emoji there ends up in the browser
+ * tab, the bookmark and the Google result — `⚙️ Visual Configuration Editor | Calendar
+ * Card Pro` was a real title on this site. h2 emoji do not leak anywhere.
+ *
+ * Emoji conventions are pure discipline and rot fastest, which is why this is a check
+ * and not a sentence in a style guide.
+ */
+function checkHeadingStyle(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    const rel = relative(ROOT, file);
+    for (const h of readHeadings(file)) {
+      const emoji = STARTS_WITH_EMOJI.test(h.text);
+      if (h.level === 1 && emoji)
+        error(`${rel}:${h.line} h1 starts with an emoji; it would leak into the page <title>.`);
+      if (h.level === 2 && !emoji) error(`${rel}:${h.line} h2 should start with an emoji.`);
+      if (h.level >= 3 && emoji) error(`${rel}:${h.line} h${h.level} should not start with an emoji.`);
+      if (/\band\b/i.test(h.text)) error(`${rel}:${h.line} heading uses "and"; use "&".`);
+      if (h.text.endsWith(':')) error(`${rel}:${h.line} heading ends with a colon.`);
+    }
+  }
+}
+
+/**
+ * Check 11: every page opens with prose, not a bare heading.
+ *
+ * A page that jumps from its h1 straight into an h2 gives the reader no idea
+ * what the page covers before it starts issuing options at them. Six pages did
+ * this. One or two sentences is enough.
+ */
+function checkPageIntros(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    const rel = relative(ROOT, file);
+    const lines = readFileSync(file, 'utf8').split('\n');
+    const h1 = lines.findIndex((l) => l.startsWith('# '));
+    if (h1 === -1) continue;
+    const next = lines.slice(h1 + 1).find((l) => l.trim());
+    if (next && next.startsWith('#'))
+      error(`${rel}: h1 is followed straight by a heading; add an intro sentence.`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Checks 12-14 — spelling, option tables, bidirectional cross-links
+// ---------------------------------------------------------------------------
+
+/**
+ * Check 12: US spelling.
+ *
+ * The config options are US-spelled (`color`, `vertical_line_color`), so British
+ * spelling in the prose around them reads as inconsistent. A hand sweep already
+ * missed `Optimised` once, because a case-sensitive grep for `optimised` does not
+ * match a capitalised word at the start of a sentence. Hence: case-insensitive.
+ */
+const BRITISH = [
+  ['colour', 'color'],
+  ['customis', 'customiz'],
+  ['behaviour', 'behavior'],
+  ['optimis', 'optimiz'],
+  ['standardis', 'standardiz'],
+  ['organis', 'organiz'],
+  ['centre', 'center'],
+  ['analyse', 'analyze'],
+  ['cancelled', 'canceled'],
+  ['travelling', 'traveling'],
+];
+
+function checkSpelling(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    const rel = relative(ROOT, file);
+    let fenced = false;
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        if (line.startsWith('```')) {
+          fenced = !fenced;
+          return;
+        }
+        if (fenced) return;
+        for (const [bad, good] of BRITISH) {
+          if (new RegExp(bad, 'i').test(line))
+            error(`${rel}:${i + 1} British spelling "${bad}…"; use "${good}…".`);
+        }
+      });
+  }
+}
+
+/**
+ * Check 13: option tables are `Option | Type | Default | Description`.
+ *
+ * `check:docs` reconciles documented defaults against the code for the reference
+ * page only, so a feature page can omit the Default column entirely and nothing
+ * notices — which is exactly what `core-settings.md` did for all ten of its
+ * per-entity options.
+ *
+ * Only tables whose first header cell names an option are inspected, so
+ * comparison and release tables are left alone.
+ */
+const OPTION_SYNONYMS = ['variable', 'property', 'parameter', 'setting', 'field', 'key'];
+
+function checkOptionTables(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    const rel = relative(ROOT, file);
+    let fenced = false;
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        if (line.startsWith('```')) {
+          fenced = !fenced;
+          return;
+        }
+        if (fenced || !line.trim().startsWith('|')) return;
+
+        const cells = line
+          .split('|')
+          .slice(1, -1)
+          .map((c) => c.trim().replace(/\*/g, '').toLowerCase());
+        if (!cells.length) return;
+
+        if (OPTION_SYNONYMS.includes(cells[0]))
+          error(`${rel}:${i + 1} table header "${cells[0]}"; use "Option".`);
+
+        if (cells[0] === 'option' && !cells.includes('default'))
+          error(`${rel}:${i + 1} option table has no Default column.`);
+      });
+  }
+}
+
+/**
+ * Check 14: features and the reference link to each other, both ways.
+ *
+ * `show_countdown_allday` shipped documented in one place and unreachable from
+ * the other. One-directional linking is how that happens, so require the return
+ * leg: every feature page points at the reference, and every reference section
+ * points back at a feature page.
+ */
+function checkCrossLinks(docs) {
+  for (const file of docs) {
+    const rel = relative(ROOT, file);
+    if (!rel.startsWith('docs/features/')) continue;
+    if (!readFileSync(file, 'utf8').includes('/reference/configuration'))
+      error(`${rel}: no link back to /reference/configuration.`);
+  }
+
+  const lines = readFileSync(REFERENCE_DOC, 'utf8').split('\n');
+  const rel = relative(ROOT, REFERENCE_DOC);
+  let fenced = false;
+  let seen = 0;
+  lines.forEach((line, i) => {
+    if (line.startsWith('```')) fenced = !fenced;
+    if (fenced || !/^## /.test(line)) return;
+
+    // The footer belongs to the *previous* section, so the first h2 has none.
+    seen += 1;
+    if (seen === 1) return;
+
+    // Walk back to the previous section's last non-blank line.
+    let j = i - 1;
+    while (j >= 0 && !lines[j].trim()) j -= 1;
+    if (j < 0 || /^#/.test(lines[j])) return; // an empty section
+    if (!/\(\/features\//.test(lines[j]))
+      error(`${rel}:${i} section above "${line.slice(3)}" has no → feature-page footer.`);
+  });
+}
+
 // ---------------------------------------------------------------------------
 
 function report(counts) {
   console.log(
     `${counts.defaults} defaults in code, ${counts.rows} rows in the reference, ` +
       `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} complete examples, ` +
-      `${counts.releases} release lines documented.\n`,
+      `${counts.releases} release lines documented, ${counts.links} internal links resolved.\n`,
   );
 
   if (errors.length) {
@@ -556,6 +918,14 @@ function main() {
   const complete = checkCopyableExamples(docs);
   checkReadmeExample();
   const releases = checkWhatsNewCoverage();
+  const links = checkInternalLinks(docs);
+  checkNoRawHtml(docs);
+  checkAdmonitions(docs);
+  checkHeadingStyle(docs);
+  checkPageIntros(docs);
+  checkSpelling(docs);
+  checkOptionTables(docs);
+  checkCrossLinks(docs);
 
   process.exit(
     report({
@@ -565,6 +935,7 @@ function main() {
       docs: docs.length,
       complete,
       releases,
+      links,
     }),
   );
 }
