@@ -226,6 +226,13 @@ blockquote on the docs site — it only works in files GitHub itself renders, i.
 `README.md` and `CONTRIBUTING.md`. Title Case the titles; that part is not checked,
 because `Pair This With show_past_events` would trip any rule strict enough to be useful.
 
+**A container title is not repeated inside the box.** `::: tip Visual Editor` followed by
+a body starting `**Visual Editor:** …` renders the label twice. This is the residue left
+behind when a bare bold blockquote is converted to a titled container and the old inline
+label is not removed — it shipped on three pages that way. The title already labels the
+box, so drop the lead-in and let the sentence start the body. A bold lead-in that says
+something _different_ is fine and is left alone.
+
 **Option tables** are `Option | Type | Default | Description`. Include the Default column
 even when every value is `-`; a missing column reads as an oversight. `core-settings.md`
 documented no defaults at all for its ten per-entity options, and because the harness
