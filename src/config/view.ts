@@ -351,6 +351,11 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
  * @param config - Merged configuration to inspect
  */
 export function validateColumnOverrides(config: Types.Config): void {
+  // Before the early return below, not after the loop: a user who writes `day_gap` at
+  // the top level is by definition one who did not write a `column:` block, so running
+  // this last would skip the check for exactly the population it exists for.
+  warnAboutTopLevelColumnOnlyKeys(config);
+
   const overrides = config.column;
 
   if (!overrides || typeof overrides !== 'object') {
@@ -388,8 +393,6 @@ export function validateColumnOverrides(config: Types.Config): void {
 
     Logger.warn(`Ignoring "column.${key}": not a recognized option.`);
   }
-
-  warnAboutTopLevelColumnOnlyKeys(config);
 }
 
 /**

@@ -226,6 +226,56 @@ describe('validateColumnOverrides', () => {
     expect(warnMock.mock.calls[1][0]).toContain('not a recognized option');
   });
 
+  // A deferred key is in DEFAULT_CONFIG but not in the override set, so without its
+  // own branch it falls through to "set it at the top level instead" -- advice that
+  // does not work, because column view renders no week rows or separators at all.
+  // Wrong advice is worse than none, so the distinct message is the point here.
+  it.each([
+    'show_week_numbers',
+    'week_number_color',
+    'week_separator_width',
+    'month_separator_color',
+    'day_separator_width',
+  ])('tells the user %s is planned rather than misdirecting them to the top level', (key) => {
+    const config = buildConfig();
+    config.column = { [key]: 1 } as unknown as Types.ColumnOverrides;
+
+    validateColumnOverrides(config);
+
+    expect(warnMock).toHaveBeenCalledTimes(1);
+    expect(warnMock.mock.calls[0][0]).toContain('not implemented yet');
+    expect(warnMock.mock.calls[0][0]).not.toContain('top level');
+  });
+
+  // The mirror-image mistake, and the more likely one: the reference documentation
+  // lists these three in the same visual table as genuine top-level options, so
+  // nothing about their presentation signals that they are nested. Left unreported
+  // they are silently inert, which spec E rules out.
+  it.each(['day_gap', 'day_header_separator_width', 'day_header_separator_color'])(
+    'warns when %s is written at the top level instead of inside the block',
+    (key) => {
+      const config = buildConfig();
+      (config as unknown as Record<string, unknown>)[key] = '32px';
+
+      validateColumnOverrides(config);
+
+      expect(warnMock).toHaveBeenCalledTimes(1);
+      expect(warnMock.mock.calls[0][0]).toContain(`top-level "${key}"`);
+      expect(warnMock.mock.calls[0][0]).toContain(`column: { ${key}`);
+    },
+  );
+
+  it('does not mistake a correctly nested column-only option for a top-level one', () => {
+    // Guards the pairing between the two checks above: a validator that looked at the
+    // merged config rather than at own top-level keys would fire on a correct config.
+    const config = buildConfig();
+    config.column = { day_gap: '8px' } as unknown as Types.ColumnOverrides;
+
+    validateColumnOverrides(config);
+
+    expect(warnMock).not.toHaveBeenCalled();
+  });
+
   it('never throws, so one bad option cannot blank the card', () => {
     const config = buildConfig();
     config.column = { nonsense: {} } as unknown as Types.ColumnOverrides;
