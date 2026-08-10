@@ -43,6 +43,8 @@ vi.mock('../src/utils/logger', () => ({
 interface CardUnderTest extends HTMLElement {
   setConfig(config: unknown): void;
   hass?: unknown;
+  preview?: boolean;
+  editMode?: boolean;
   updateEvents(force?: boolean): Promise<void>;
   readonly effectiveView: 'list' | 'column';
   _scheduleWidthMeasurement(widthPx: number): void;
@@ -183,4 +185,40 @@ describe('width measurement settling', () => {
     expect(updateEvents).not.toHaveBeenCalled();
     expect(callApi).not.toHaveBeenCalled();
   });
+});
+
+describe('editor preview view resolution', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '';
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // Spec A3-C.4: the card-edit modal is ~480px, which sits at or under the
+  // threshold for a default 3-day card. Resolving by measurement there would show
+  // a list preview to every user configuring a column card -- the one context
+  // where the measured answer is actively unhelpful. The mitigation is a single
+  // early return in the `effectiveView` getter, so a refactor collapsing that
+  // getter to `return this._effectiveView` would silently reintroduce it.
+  for (const flag of ['preview', 'editMode'] as const) {
+    it(`renders the selected view under \`${flag}\`, not the measured one`, () => {
+      const card = mountColumnCard();
+      card[flag] = true;
+
+      // A width narrow enough to force list anywhere else, driven through the real
+      // settle path so this cannot pass merely because no measurement ever landed.
+      card._scheduleWidthMeasurement(300);
+      vi.advanceTimersByTime(TIMING.WIDTH_SETTLE_DELAY);
+
+      expect(card.effectiveView).toBe('column');
+
+      // Control: the identical measurement does flip the view outside the editor,
+      // which is what makes the assertion above about the flag rather than the width.
+      card[flag] = false;
+      expect(card.effectiveView).toBe('list');
+    });
+  }
 });
