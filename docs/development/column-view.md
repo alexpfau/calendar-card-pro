@@ -78,7 +78,8 @@ earlier `column-view-phase1-design.md` draft.
   confirmed rather than merely proposed, with zero production changes as predicted. **F2's
   "goldens as a review artifact" is now resolved, not just flagged** — the gate exists, so F2
   is wrong rather than stale, and its clause is corrected in place. Phase 0 is complete:
-  all three stages shipped, 66 tests, and the production bundle grew by **exactly 3 bytes** —
+  all three stages shipped, 66 tests **at that point**, and the production bundle grew by
+  **exactly 3 bytes** —
   `t&&`, the null guard from `446f44a`. Measured, not assumed: reverting that one file and
   rebuilding gives 347940 bytes (`686eaa59…`) against 347943 (`30f7b8ec…`). Every other part
   of Phase 0 — the tests, the i18n script, the CI steps, the `tsconfig` widening — is
@@ -89,7 +90,11 @@ earlier `column-view-phase1-design.md` draft.
   while every assertion still passed. The general lesson is recorded in Stage 2: mutation
   testing proves the tests you have are load bearing, but says nothing about a branch no
   fixture reaches, so render-surface coverage has to be argued separately from assertion
-  sensitivity.
+  sensitivity. Auditing for the same shape then found three more (`007f54f`, final count
+  **73**), including `parseIndicatorPosition` — a second of Phase 1's four named extraction
+  targets left entirely uncovered. All four holes were the same structural fault:
+  **default-off options are invisible to a suite built from default config**, no matter how
+  sensitive its assertions are. That rule, and the gate's explicit boundary, are in Stage 2.
 
 Changes from v3 are marked **[v4]**; changes from v4 are marked **[v5]**; changes from v5 are
 marked **[v6]**; changes from v6 are marked **[v7]**.
@@ -901,6 +906,39 @@ that adding views never disturbs the list.
 > further mutations confirm the new cases bite — including the suppression removal, which
 > survived everything before this commit.
 
+> **[v7] The rest of the same gap, found by audit rather than by luck (`007f54f`).** Finding
+> the weather hole raised the question of whether it was the only one, which is answerable
+> mechanically: enumerate every behavioural config key `render.ts` reads, and check each
+> against the fixtures. Three more branches were reachable by no test, all for the same
+> structural reason — **they default to `false`**, so a suite built from default config never
+> renders them and never will, however many assertions it accumulates.
+>
+> The significant one is `today_indicator`. `renderTodayIndicator` returns early when it is
+> falsy, and **`parseIndicatorPosition` is reachable only through it** — so the fourth of
+> Phase 1's four named extraction targets had no coverage whatsoever. Two of the four were
+> dark. `show_countdown` and `show_progress_bar` gate branches inside `.event-content`, the
+> third target. All three are now pinned, asserting the observable effect
+> (`today-indicator-container`, `left:85%;top:15%`, `progress-bar`) as well as snapshotting.
+>
+> **The generalisable rule: default-off options are invisible to a default-config suite.**
+> Enumerate them from the source and check each one, rather than trusting that a suite which
+> catches mutations is therefore complete. Both holes here were of that shape, and neither
+> was visible from inside the test file.
+>
+> One mutation pair came back with **zero** kills and was investigated rather than recorded as
+> a survivor: `show_progress_bar` is checked twice, at `render.ts:902` and again at
+> `:954`/`:973`, and either check alone is dead because the first already forces
+> `progressPercentage` to `null`. Removing both does change output and fails 13 of 18. They
+> are equivalent mutants, not gaps — noted in the test because an extraction that keeps only
+> one of the two guards is still correct and must not be read as a regression.
+>
+> **The gate's boundary, stated so it is not assumed wider than it is:** it covers
+> `renderGroupedEvents` and everything below it. It does **not** cover `renderMainCardStructure`
+> or `renderCardContent` (the loading and error states), because it deliberately never builds
+> the custom element. All four Phase 1 extraction targets are inside the covered subtree, so
+> the boundary is correct for Phase 1 — but a later phase that touches the card shell needs
+> its own gate, and should not read this one as protection it does not provide.
+
 **This requires an `AGENTS.md` amendment, not a silent violation.** The file says "no test
 framework… Keep it that way", with **bundle size** as the rationale — which does not apply,
 since a runner is a devDependency and never enters the shipped file. Amend the rationale
@@ -969,14 +1007,17 @@ Leaves to extract, all already verified DOM-agnostic — **citations re-based to
 > `parseIndicatorPosition`. The last two are genuinely independent of the first two and can be
 > done in either order.
 
-> **[v7] The gate covers this ordering — but only since `ca452c4`.** Because weather is first
-> out, it is the extraction most in need of a baseline, and the Stage 2 gate as originally
-> shipped had none: it passed no forecasts, so every weather branch rendered `nothing`.
-> Whoever starts Phase 1 should know the coverage is now genuine, and that it pins **two**
+> **[v7] The gate covers this ordering — but only since `ca452c4` and `007f54f`.** Because
+> weather is first out, it is the extraction most in need of a baseline, and the Stage 2 gate
+> as originally shipped had none: it passed no forecasts, so every weather branch rendered
+> `nothing`. `parseIndicatorPosition`, fourth in the list, was equally uncovered — reachable
+> only when `today_indicator` is set, which no test did. **Two of the four targets below were
+> dark in the gate built to protect them.** Both are now pinned; see Stage 2 for the audit and
+> the general rule. Whoever starts Phase 1 should also know the gate pins **two** weather
 > render sites — the date-column block named above **and** `renderEventWeather`
-> (`render.ts:1050+`), which is a separate function reading the _hourly_ forecast. The nesting
-> decision above concerns the date one; do not let the event one fall through the extraction
-> unnoticed just because the bullet list does not mention it.
+> (`render.ts:1050+`), a separate function reading the _hourly_ forecast. The nesting decision
+> above concerns the date one; do not let the event one fall through the extraction unnoticed
+> just because this bullet list does not mention it.
 
 **The contract is stronger than v3's, and automatable: list-view DOM must be byte-identical
 before and after.** Extraction that changes list output is a bug by definition. This restores
