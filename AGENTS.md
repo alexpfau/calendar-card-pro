@@ -9,19 +9,28 @@ agent-facing summary plus the things that are easy to get wrong.
 Calendar Card Pro is a custom Lovelace card for Home Assistant, written in TypeScript
 with Lit 3 and bundled with Rollup into a single ES module. It is distributed via HACS.
 
-There is **no runtime and no framework beyond Lit** — no React, no test framework, no
-state library. Keep it that way; bundle size is a design constraint.
+There is **no runtime framework beyond Lit** — no React, no state library. Keep it that
+way; bundle size is a design constraint.
+
+That constraint is about **shipped bytes**, so it governs `dependencies`, not
+`devDependencies`. Build, docs and test tooling that never reaches `dist/` is not covered
+by it. Adding one still needs a reason, but "bundle size" is not the argument against it —
+measure the bundle instead. The Vitest suite below was added this way and moved the
+production bundle by 3 bytes, all of which were a bug fix.
 
 ## Build commands
 
-There are only four npm scripts for the card itself. Do not invent others.
+These are the npm scripts. Do not invent others — add one only when a command is run often
+enough that people will otherwise get it wrong.
 
-| Command          | Output                          | Element name            | Logging |
-| ---------------- | ------------------------------- | ----------------------- | ------- |
-| `npm run dev`    | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
-| `npm run build`  | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
-| `npm run lint`   | — (eslint, `--fix`)             |                         |         |
-| `npm run format` | — (prettier, `--write`)         |                         |         |
+| Command              | Output                          | Element name            | Logging |
+| -------------------- | ------------------------------- | ----------------------- | ------- |
+| `npm run dev`        | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
+| `npm run build`      | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
+| `npm run lint`       | — (eslint, `--fix`)             |                         |         |
+| `npm run format`     | — (prettier, `--write`)         |                         |         |
+| `npm test`           | — (vitest, single run)          |                         |         |
+| `npm run check:i18n` | — (translation wiring check)    |                         |         |
 
 Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
@@ -37,13 +46,25 @@ testing — they need the `-dev` one.
 `npm run dev` runs `rollup -c --watch` and does not exit. For a one-shot dev build in
 automation, use `npx rollup -c` (same config, no watcher).
 
-There is **no test suite**. Validate changes with:
+There **is** a test suite — Vitest with happy-dom, in `tests/`. It does not aim at coverage;
+it pins the things that have actually broken (the translation wiring, config normalization)
+and the rendered list-view DOM, so a refactor that changes output fails loudly. Validate
+changes with:
 
 ```bash
 npx tsc --noEmit   # typecheck — not exposed as an npm script
 npm run lint
+npm test
+npm run check:i18n
 npm run build
 ```
+
+Two things to know before trusting it. `tests/list-dom.test.ts` snapshots serialized DOM, so
+an intentional markup change means **reading** the snapshot diff and committing it, not
+deleting the file. And the suite is built from **default config**, which means an option
+defaulting to `false` renders nothing and is invisible to it unless a test sets it — four
+branches were missed that way, including two the suite existed to protect. When you add a
+config option, add a test that turns it on.
 
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
 
@@ -203,6 +224,10 @@ Omitting the `supportedLocales` entry (3b) is a **silent failure**: the language
 everywhere except relative times, which quietly fall back to English. Catalan and
 Romanian shipped broken this way for months. If you add a locale import, add the array
 entry in the same edit.
+
+`npm run check:i18n` now catches all four wiring mistakes mechanically, including that one,
+and runs in CI. Run it before you claim a language is done — but note it verifies **wiring**,
+not translation quality, and it cannot tell you whether `pēc 2 dienām` is correct Latvian.
 
 Regional variants usually need no `dayjs.ts` change at all, because `mapLocale()`
 reduces them to their base code (`en-gb` → `en`). Only `zh-cn` / `zh-tw` are
