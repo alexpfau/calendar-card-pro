@@ -1062,18 +1062,42 @@ for v4.0.0** and none may be dropped silently. This section exists so that the d
 survives — a deferral recorded only in the section that deferred it is a deferral that gets
 forgotten.
 
-| Deferred                               | Deferred in | Why deferred                               | Release requirement                                |
-| -------------------------------------- | ----------- | ------------------------------------------ | -------------------------------------------------- |
-| **Editor controls for `column:`**      | D6          | Spec still moving; would be built twice    | Full editor support, strings in all 11 languages   |
-| **`column.entities[]` overrides**      | D6          | Addressing scheme unresolved (index vs id) | Ruled and implemented, or documented as N/A        |
-| **`compact_events_to_show` overrides** | G12         | Per-column budget is a different algorithm | Ruled in or documented as N/A (E1 forbids silence) |
-| **Week / month separator overrides**   | D6          | Axis-rotated; needs its own visual design  | Ruled in or documented as N/A                      |
-| **`today_indicator_position`**         | D6          | Depends on the G13 header-budget spike     | Ruled once G13 measures                            |
-| **Editor too-narrow warning**          | G14         | Editor support as a whole is post-MVP      | Must ship — it is what makes G14's ruling honest   |
+| Deferred                                | Deferred in | Why deferred                               | Release requirement                                |
+| --------------------------------------- | ----------- | ------------------------------------------ | -------------------------------------------------- |
+| **Editor controls for `column:`**       | D6          | Spec still moving; would be built twice    | Full editor support, strings in all 11 languages   |
+| **`column.entities[]` overrides**       | D6          | Addressing scheme unresolved (index vs id) | Ruled and implemented, or documented as N/A        |
+| **`compact_events_to_show` overrides**  | G12         | Per-column budget is a different algorithm | Ruled in or documented as N/A (E1 forbids silence) |
+| **Week / month separator overrides**    | D6          | Axis-rotated; needs its own visual design  | Ruled in or documented as N/A                      |
+| **`today_indicator_position`**          | D6          | Depends on the G13 header-budget spike     | Ruled once G13 measures                            |
+| **Editor too-narrow warning**           | G14         | Editor support as a whole is post-MVP      | Must ship — it is what makes G14's ruling honest   |
+| **Feedback for a bad key in `column:`** | 4a / D-1    | `Logger.warn` is silent in prod builds     | Editor prevents it at source; docs list valid keys |
 
 The E1 acceptance criterion is what enforces this: _no silent config no-ops_. Anything still
 deferred at release must appear in the documented not-applicable list, so a user who sets it
 learns that it does nothing. Silence is the failure mode, not the deferral itself.
+
+**[v9] The last row is the one place E1 is currently carried by documentation alone**, so it is
+recorded rather than assumed. Phase 4a's `validateColumnOverrides` reports a forbidden or
+unrecognised key inside `column:` through `Logger.warn` — and `Logger.warn` produces **no output
+whatsoever in the HACS production build**. The chain: `rollup.config.mjs:38-42` replaces
+`CURRENT_LOG_LEVEL: 1` with `0` when `isProd`; `LogLevel.WARN` is `1` (`utils/logger.ts:10-17`);
+the guard at `utils/logger.ts:244` is `if (currentLogLevel < level) return`, so `0 < 1`
+suppresses every warning. A YAML user who writes `column: { entities: [...] }` today gets the key
+silently ignored with no feedback anywhere.
+
+**Ruled: leave it silent for MVP; close it with the editor, not the logger.** Three reasons.
+The `column:` block is not hand-authored in the intended flow — editor support is already a D7
+release blocker, and a control that cannot emit an invalid key is a stronger guarantee than a
+console message the user has to know to look for. Home Assistant itself ignores unknown keys in
+card config without complaint, so a console error here would be louder than the platform norm
+for the same mistake. And escalation is purely additive: raising this to `Logger.error`, or
+surfacing a card-level banner, can be done later without changing a single call site, because
+`validateColumnOverrides` already detects every case and classifies it into four buckets. The
+detection is done; only the delivery is deferred.
+
+Until the editor ships, the documented valid-key list is the contract. That makes the
+`docs/reference/configuration.md` rows for `column:` load-bearing rather than descriptive — a
+key missing from that table is, for a YAML user, a key that fails silently.
 
 **Non-blocking follow-up (not a release blocker).** Phase 2b left `show_past_events` in
 `getBaseCacheKey`. It is redundant there — it never reaches `getTimeWindow`, so it cannot
