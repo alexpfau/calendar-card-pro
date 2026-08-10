@@ -899,9 +899,15 @@ class CalendarCardPro extends LitElement {
     ViewConfig.validateColumnOverrides(this.config);
 
     // Seed the effective view from the request. Until the first measurement lands
-    // there is nothing to fall back on, and rendering the requested view avoids a
-    // one-frame flash of the wrong layout. If the card really is too narrow, the
-    // first ResizeObserver callback corrects it before paint.
+    // there is nothing to fall back on, so the requested view is the best guess.
+    //
+    // The correction is NOT immediate: measurements are debounced by
+    // TIMING.WIDTH_SETTLE_DELAY, so a column card that is really too narrow stays
+    // seeded as 'column' for that window before switching to list. In practice the
+    // window is covered by the initial fetch — the card has no events to lay out
+    // yet — and a live probe at 464px observed no intermediate column render. On a
+    // warm cache that masking is not guaranteed, which is the accepted cost of
+    // debouncing; see _scheduleWidthMeasurement for why the debounce is required.
     this._effectiveView = ViewConfig.resolveEffectiveView(
       this.config.view,
       this._measuredWidthPx,

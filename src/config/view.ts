@@ -523,8 +523,9 @@ export function resolveEffectiveView(
   }
 
   // Before the first measurement, honour the request. Rendering list first and
-  // switching would flash the wrong layout on every load; a column view that is
-  // momentarily too narrow self-corrects on the first resize callback.
+  // switching would flash the wrong layout on every load. A column view that is
+  // momentarily too narrow self-corrects on the first *settled* measurement — the
+  // host debounces measurements, so this is not corrected within one frame.
   if (measuredWidthPx === null || measuredWidthPx <= 0) {
     return 'column';
   }
