@@ -263,8 +263,9 @@ Limits and related keys:
   is a temporal cap — e.g. next one birthday — not a height cap; rebasing it per column would
   multiply the cap by `days_to_show`.
 - **[v8]** When per-column compaction does ship, it is configured as `column.compact_events_to_show`
-  under D6's override block, **not** as the same flat key carrying two meanings. `view: auto`
-  means one card instance renders both views, so a single value cannot serve both.
+  under D6's override block, **not** as the same flat key carrying two meanings. `view: column`
+  falls back to list on viewports too narrow for its columns, so one card instance renders both
+  views and a single value cannot serve both.
 - `max_events_per_column` is deferred, not dismissed. Rotated compact covers the collapsed,
   expandable height job; it does not cover permanent kiosk-style truncation.
 - If any cap ships, a per-column `+N more` indicator is mandatory. Lift the grid pill style,
@@ -885,7 +886,7 @@ exactly.
 type: custom:calendar-card-pro
 entities:
   - calendar.family
-view: auto
+view: column
 days_to_show: 7
 show_location: true # list view: plenty of room
 day_spacing: 16px
@@ -901,8 +902,8 @@ column:
 #### Why a shared key is not enough
 
 The plan previously asked, per key, _"what does this mean in column view?"_. That is the wrong
-test. `view: auto` switches on a width breakpoint, so **one card instance renders column on a
-desktop and list on a phone**. The real test is stronger:
+test. `view: column` falls back to list below a width breakpoint, so **one card instance renders
+column on a desktop and list on a phone**. The real test is stronger:
 
 > Is there a single value the user would want in **both views at once**?
 
@@ -1064,7 +1065,7 @@ the Phase 2b diff. Drop it from both, together, whenever that file is next touch
    mechanism for it later, so no key needs two meanings.
 2. **Every new user-visible string exists in all language files at ship time.** A partial
    `editor` section defeats the whole-language English fallback and renders raw key names.
-3. **No fetch on a view transition.** Crossing the `view: auto` breakpoint must not issue a
+3. **No fetch on a view transition.** Crossing the `view: column` fallback breakpoint must not issue a
    Home Assistant API call (G10). This is the invariant that bounds D6's override block to
    render-time and grouping-time keys, and it is testable: cross the breakpoint with a warm
    cache and assert zero `callApi` invocations.
@@ -1306,8 +1307,11 @@ renders the _selected_ view, not the width-measured one**) is load-bearing, not 
 A 7-day column view needs ~1184px of content box. That is **not reachable in a default HA
 section at any viewport width** — it requires `column_span: 3`, a panel view, or a raised
 theme variable. §D6's "7 columns in a 1200px card" describes a placement the user must
-deliberately construct, not the default one. Left unaddressed, the out-of-the-box experience
-of `view: column` with the default `days_to_show: 7` is a permanent silent fallback to list.
+deliberately construct, not the default one. Left unaddressed, the out-of-the-box experience of
+`view: column` sits right on the edge: at the real default of `days_to_show: 3`, three 160px
+columns plus two gutters need ~496px against the ~500px of a default section — it fits, barely.
+Raise `days_to_show` at all, which is the obvious thing to do in a column view, and it becomes a
+permanent silent fallback to list.
 
 **Ruled: the rendered column count is determined by grouping, never by available width. The
 card never silently drops columns because they do not fit.**
@@ -1363,7 +1367,7 @@ regardless of where the card ends up.
 - **The editor warning is a v4.0.0 release blocker, not an MVP blocker** — consistent with the
   standing ruling that editor support for `column:` may follow YAML-only internal testing. It is
   registered in §D7.
-- The default-config experience — `view: column` with `days_to_show: 7` in a default section
+- The out-of-the-box experience — `view: column` with a raised `days_to_show` in a default section
   rendering as list — is now a **documented, warned-about consequence** rather than an unhandled
   one. It must be stated plainly in the user docs, not only in the editor.
 
