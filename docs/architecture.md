@@ -8,7 +8,7 @@ This document provides a high-level overview of the Calendar Card Pro architectu
 
 ## Directory Structure
 
-```
+```text
 src/
 ├── calendar-card-pro.ts          # Main entry point and component class
 ├── config/                       # Configuration-related code

@@ -75,12 +75,12 @@ Calendar Card Pro offers two ways to customize your card:
 
 2. **YAML Configuration (Advanced)**
    - Use YAML for advanced customization or automation
-   - See [📚 Configuration Variables](/reference/configuration) for every available option
+   - See [Configuration Variables](/reference/configuration) for every available option
 
 ## 🚀 Next Steps
 
 - **Explore the Features** - [Core Settings](/features/core-settings), [Layout & Appearance](/features/layout-appearance) and [Event Content](/features/event-content) cover the options most people reach for first
 - **Discover Advanced Capabilities** - Add [weather forecasts](/features/weather), filter events with [blocklists and allowlists](/features/core-settings), or set up [tap and hold actions](/features/actions)
-- **See Examples** - Browse [💡 Examples](/reference/examples) for complete, ready-made setups
-- **Reference Configuration** - Use [📚 Configuration Variables](/reference/configuration) as the complete option reference
+- **See Examples** - Browse [Examples](/reference/examples) for complete, ready-made setups
+- **Reference Configuration** - Use [Configuration Variables](/reference/configuration) as the complete option reference
 - **Get Involved!** - See [Contributing & Roadmap](/contributing) to contribute or view upcoming features
