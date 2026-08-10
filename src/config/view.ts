@@ -160,19 +160,22 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  * The chosen values make an absent `column:` block a visual no-op relative to the
  * list view's own defaults:
  *
- * - `day_gap` is `10px`. Note this is **not ruled by the spec** — B2 rules only the
- *   two separator keys. An earlier docstring justified it as "matches
- *   `DEFAULT_CONFIG.day_spacing` (10px), so the gap between columns equals the gap
- *   between days in a list", which is the same vertical-to-horizontal category
- *   error that produced the B2 defect: `day_spacing` separates stacked days along
- *   the axis where space is free, whereas this gap spends the horizontal budget the
- *   spec's own sizing table (D6) calls the scarce resource — roughly 161px per
- *   event in a default 500px section. The real justification is narrower: the
- *   column MVP renders **no vertical rule between columns** (D6 defers that with
- *   week numbers), so this gap is the *only* thing separating two adjacent columns
- *   of text. It cannot shrink to the 4px the spec uses in a worked example at the
- *   cost of columns reading as one block. 10px is a legibility floor, not a
- *   symmetry with the list. It remains open to measurement.
+ * - `day_gap` is `4px`, the value the spec's own worked example uses. B2 rules only
+ *   the two separator keys, so this one was decided rather than cited. It shipped
+ *   briefly as `10px`, justified as matching `DEFAULT_CONFIG.day_spacing` — the same
+ *   vertical-to-horizontal category error that produced the B2 defect. `day_spacing`
+ *   separates stacked days along the axis where space is free; this gap spends the
+ *   horizontal budget D6's sizing table calls the scarce resource, roughly 161px per
+ *   event in a 500px section. At the default `days_to_show: 3` the difference is
+ *   12px of the width threshold (492px at 10px, 480px at 4px), which is most of the
+ *   margin the card has against Home Assistant's 500px section.
+ *
+ *   The cost is real and is accepted knowingly: the MVP renders **no vertical rule
+ *   between columns** (D6 defers that alongside week numbers), so this gap is the
+ *   only thing separating two adjacent columns of text. 4px is therefore a
+ *   legibility risk, not a free saving, and it is the first thing to re-measure if
+ *   columns read as one block. Widening it costs threshold headroom, so the two
+ *   cannot be traded independently.
  * - `day_header_separator_width` is `1px` — visible by default, which is the one
  *   place these defaults deliberately break the "match the list" rule. Every list
  *   separator defaults to `0px` because it is decoration between days that are
@@ -191,7 +194,7 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  * list defaults instead of reading B2, which is the exact change B2 forbids.
  */
 export const COLUMN_DEFAULTS = {
-  day_gap: '10px',
+  day_gap: '4px',
   day_header_separator_width: '1px',
   day_header_separator_color: 'var(--divider-color)',
 } as const;
@@ -480,7 +483,7 @@ function parsePx(value: string, fallback: number): number {
  */
 export function computeColumnThresholdPx(config: Types.Config): number {
   const days = Math.max(1, Math.floor(config.days_to_show));
-  const gutter = parsePx(resolveColumnOption(config, 'day_gap'), 10);
+  const gutter = parsePx(resolveColumnOption(config, 'day_gap'), 4);
 
   return config.min_day_column_width_px * days + COLUMN_CARD_PADDING_PX + (days - 1) * gutter;
 }

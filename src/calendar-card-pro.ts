@@ -189,6 +189,15 @@ class CalendarCardPro extends LitElement {
 
   private _resizeObserver: ResizeObserver | null = null;
 
+  /**
+   * Pending trailing timer for the last width measurement.
+   *
+   * Non-null means measurements are still arriving and none has been acted on yet.
+   * Cleared on teardown so a settled width can never trigger an update after the card
+   * has left the DOM.
+   */
+  private _widthSettleTimerId: number | null = null;
+
   //-----------------------------------------------------------------------------
   // COMPUTED GETTERS
   //-----------------------------------------------------------------------------
@@ -436,6 +445,9 @@ class CalendarCardPro extends LitElement {
    *
    * `ResizeObserver` is available in every browser Home Assistant supports, but
    * the guard keeps the card renderable under a test DOM that lacks it.
+   *
+   * Measurements are debounced on the trailing edge — see `TIMING.WIDTH_SETTLE_DELAY`
+   * for why acting on the first one is wrong.
    */
   private _startWidthObserver(): void {
     if (this._resizeObserver || typeof ResizeObserver === 'undefined') {
@@ -446,16 +458,40 @@ class CalendarCardPro extends LitElement {
       const width = entries[0]?.contentRect?.width;
 
       if (typeof width === 'number' && width > 0) {
-        this._handleWidthMeasured(width);
+        this._scheduleWidthMeasurement(width);
       }
     });
 
     this._resizeObserver.observe(this);
   }
 
+  /**
+   * Defers acting on a measured width until the measurements stop arriving.
+   *
+   * Each new measurement replaces the pending one, so only the width the layout
+   * settles on is ever passed to `_handleWidthMeasured`.
+   *
+   * @param widthPx - Measured content width in CSS pixels
+   */
+  private _scheduleWidthMeasurement(widthPx: number): void {
+    if (this._widthSettleTimerId !== null) {
+      clearTimeout(this._widthSettleTimerId);
+    }
+
+    this._widthSettleTimerId = window.setTimeout(() => {
+      this._widthSettleTimerId = null;
+      this._handleWidthMeasured(widthPx);
+    }, Constants.TIMING.WIDTH_SETTLE_DELAY);
+  }
+
   private _stopWidthObserver(): void {
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
+
+    if (this._widthSettleTimerId !== null) {
+      clearTimeout(this._widthSettleTimerId);
+      this._widthSettleTimerId = null;
+    }
   }
 
   /**

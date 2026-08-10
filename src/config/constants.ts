@@ -77,6 +77,22 @@ export const TIMING = {
 
   /** Threshold in milliseconds for refreshing data when returning to a tab */
   VISIBILITY_REFRESH_THRESHOLD: 300000, // 5 minutes
+
+  /**
+   * Trailing delay, in milliseconds, between the last width measurement and acting on it.
+   *
+   * Home Assistant's sections grid lays a card out at its unconstrained width for at
+   * least one frame before applying the section's own constraint: a card that settles
+   * at 464px is measured at 500px first. Acting on that first measurement lets a card
+   * enter column view above the threshold and then keep it via the hysteresis band all
+   * the way down to its settled width, rendering columns narrower than
+   * `min_day_column_width_px` — the exact outcome the threshold exists to prevent.
+   *
+   * Waiting for the measurements to stop means the band is only ever earned by a width
+   * the layout has actually committed to. 100ms is long enough to outlast the transient
+   * and short enough to be imperceptible against Home Assistant's own load.
+   */
+  WIDTH_SETTLE_DELAY: 100,
 };
 
 /**
