@@ -1145,6 +1145,67 @@ dependency is already satisfied.
 > (b) is the smaller diff today. **Unresolved — do not start Phase 2b until this is ruled on**,
 > because the two produce different cache keys and different tests.
 
+> **[v9] RULED: (a). Shipped as `a463a94`.** The decision turned out not to be a judgement
+> call — implementation found a defect that **(b) provably cannot fix**, and two of the [v6]
+> consumer counts were wrong.
+>
+> **(b) was not viable.** The cache round-trips through `JSON.stringify`/`JSON.parse`
+> (`cacheEvents` / `getValidCacheEntry`), so a cache-hit `_matchedConfig` is always a
+> freshly-parsed plain object. `applyPerEntityCompaction` identifies an entity's config block
+> with `config.entities.findIndex((e) => … e === matchedConfig)` — a **reference-identity**
+> compare. On every cache hit that returned `-1`, degrading the compaction bucket key from
+> `entityId__configIdx` to bare `entityId`. So a fresh fetch and a cache hit computed
+> **different buckets from identical config**. No cache key repairs a broken object reference,
+> and the JSON round-trip is not the only mechanism: `calendar-card-pro.ts:726` re-runs
+> `normalizeEntities` on every `setConfig`, and `config.ts:227` `.map()`s to fresh object
+> literals, so the reference breaks even on a cold cache after any config edit. Only
+> re-deriving from the live config closes it — which is (a).
+>
+> **The consumer list was wrong twice over.** [v6] says "five"; `grep` finds **eight**, and the
+> three it missed are the load-bearing ones: the per-day copy-through (`events.ts:302`), the
+> compaction reference compare (`:398` — the defect above), and two sites in `leaves.ts`
+> (`:248`, `:253`) that [v6] could not have seen because Phase 1 had not yet created that file.
+> The corrected table is in the spec. **Standing lesson: an inventory in this document is a
+> claim to re-verify, not a fact to build on.**
+>
+> **Why the key narrowed rather than widened.** Under (a) the key describes only what
+> determines the API response. `filter_duplicates` and the allow/blocklist patterns are
+> processing, applied on read, so they left the key. This is safe in both directions: a
+> narrower key produces _more_ hits, never a config that stops taking effect, and
+> `VERSION.CURRENT` is already in the key so every release flushes everything. No migration.
+>
+> **`show_past_events` stayed, deliberately.** It is equally redundant — it never reaches
+> `getTimeWindow` and is applied at render time in `groupEventsByDay` — but it is also baked
+> into `generateDeterministicId`, which feeds `_instanceId` and therefore the key regardless.
+> Removing it from one place alone is a no-op that widens the diff. Tracked as a non-blocking
+> follow-up in §D7.
+>
+> **Copying, not call-ordering.** `processEvents` decorated its input in place. With (a) that
+> input may be the cached payload, so it now `.map()`s to copies. Merely moving `cacheEvents`
+> _before_ processing would also have been safe today, but that is temporal coupling — an
+> invisible ordering dependency a later edit breaks silently. The copy makes the invariant
+> local and self-evident. Mutation testing confirms the distinction is pinned, not decorative.
+>
+> **A load-bearing ordering trap inside the copy.** `getEntityLabel` short-circuits on
+> `event._matchedConfig`, so `_matchedConfig` must be written to the copy _before_ the label is
+> derived **from the copy**. The obvious object-literal rewrite —
+> `{ ...event, _matchedConfig: X, _entityLabel: getEntityLabel(id, config, event) }` — is
+> wrong, because `event` inside the literal still carries the _previous_ config. A mutation
+> that derives from `event` is killed by the duplicate-entity test.
+>
+> **An aliasing bug fixed incidentally.** `events.filter(…)` returned the _same object
+> references_ to two config blocks naming the same entity, so the second block's decoration
+> overwrote the first and both entries rendered with the last block's label and colour. Copying
+> is the fix; the pre-existing comment "even if same entity, process independently" was
+> aspirational until now. Event _count_ is unchanged, and the list-DOM snapshot did not move.
+> Disclosed to the maintainer because it ships in 3.x.
+>
+> **Verification.** Six tests in `tests/event-cache.test.ts`, each written red-first, plus a
+> five-mutation run against `src/utils/events.ts` — cache-hit-skips-reprocessing (the original
+> bug), decorate-in-place, derive-label-from-original, cache-disabled (control), and
+> cache-processed-not-raw. **All five killed.** Green tests alone would not have distinguished
+> the copy from in-place mutation.
+
 ### ~~Phase 3~~ — `ViewAdapter` · **[v5 — FOLDED INTO PHASE 4]**
 
 > **[v5] This is no longer a phase. It is the design record for the adapter that gets built

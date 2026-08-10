@@ -585,27 +585,66 @@ gates time, countdown and progress).
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#phase-2--presentation-models--ships-3x--risk-low-v4--cache-fix-split-out)
 
-### Phase 2b — cache-key fix — ships 3.x independently — risk: low
+### Phase 2b — cache correctness — SHIPPED — ships 3.x independently — risk: low
 
-This is a live list-view bug and should not wait for the column epic. `processEvents` splits
-multi-day events pre-cache (`events.ts:707`, definition at `:772`) and bakes `_entityLabel`
-(`:671`; also assigned at `:268-270`), then caches the already-split array. `getBaseCacheKey`
-(`:1389-1441`) omits `split_multiday_events` and entity-label config, so a warm-cache config
-toggle returns stale data.
+**Status: complete.** Commit `a463a94` on `feature/column-view`.
 
-The scope is broader than split + label. The cached event carries `_matchedConfig`
-(`events.ts:670`), and five consumers prefer it over live config: `getEntitySetting` (`:1066`),
-`getEntityLabel` (`:1034`), `getEntityColor` (`:954`),
-`getEntityAccentColorWithOpacity` (`:991`), and the split override (`:748-751`).
+This was a live list-view bug and did not wait for the column epic. `fetchEventData` cached
+the _output_ of `processEvents`, while `getBaseCacheKey` covered only fetch inputs — entity
+ids, window, `show_past_events`, `filter_duplicates`. Every other config key `processEvents`
+reads was therefore invisible to the cache, so editing one had no visible effect until the
+entry expired.
 
-Maintainer decision required before Phase 2b starts:
+Two defects followed, with different mechanisms:
 
-- Cache raw API events and re-run config-dependent processing on every read; or
-- keep caching processed events and key the complete, order-sensitive, normalised per-entity
-  config.
+1. **Value staleness.** `_matchedConfig` and `_entityLabel` were frozen into the cached event,
+   so an edited per-entity label, colour or toggle was ignored on a hit.
+2. **Reference staleness.** The cache round-trips through `JSON.stringify`/`JSON.parse`, so a
+   cache-hit `_matchedConfig` is a freshly-parsed object that can never be `===` an element of
+   the live `config.entities`. `applyPerEntityCompaction` (`events.ts:398`) identifies an
+   entity's config block by exactly that reference check, so on every cache hit the lookup
+   returned `-1` and the compaction bucket key silently degraded from `entityId__configIdx` to
+   bare `entityId` — a fresh fetch and a cache hit computed different buckets from identical
+   config.
 
-The first removes `_matchedConfig` staleness by construction; the second is the smaller diff.
-They produce different cache keys and tests.
+Defect 2 settled the maintainer decision: **cache raw API events and reprocess on every read.**
+Widening the key was not a viable alternative — no cache key repairs a broken object reference.
+
+The scope was wider than the earlier draft of this section recorded. It named five
+`_matchedConfig` consumers; there are **eight**, and the three it missed are the two that
+matter most:
+
+| Site                    | Role                                                                        |
+| ----------------------- | --------------------------------------------------------------------------- |
+| `events.ts:302`         | copies `_matchedConfig` through into the per-day event ⟵ _missed_           |
+| `events.ts:398`         | compaction bucket key — **reference-identity compare** ⟵ _missed, defect 2_ |
+| `events.ts:797-800`     | per-entity `split_multiday_events` override                                 |
+| `events.ts:1003`        | `getEntityColor`                                                            |
+| `events.ts:1040`        | `getEntityAccentColorWithOpacity`                                           |
+| `events.ts:1083`        | `getEntityLabel`                                                            |
+| `events.ts:1115`        | `getEntitySetting`                                                          |
+| `leaves.ts:248`, `:253` | event colour and label-icon colour ⟵ _missed_                               |
+
+All read only _derived_ config state, which is exactly why reprocessing on read is sufficient.
+
+Both paths now route through one `processRawEvents` helper, so a hit and a refetch provably
+agree. The key drops `filter_duplicates` and the allow/blocklist patterns, which are
+processing concerns applied on read. `showPastEvents` stays for now: it is redundant (it never
+reaches `getTimeWindow`, and is applied at render time in `groupEventsByDay`) but is also baked
+into `generateDeterministicId`, so removing it here alone would widen the diff without changing
+behaviour. Tracked in §D7.
+
+**Not user-breaking, so it ships in 3.x safely:** the key already carries the version string,
+so every release invalidates all caches; and a _narrower_ key causes more hits, never a config
+that stops taking effect.
+
+`processEvents` now copies each event rather than decorating it in place, since its input may
+be the cached payload. That incidentally fixed an aliasing bug — two config blocks naming the
+same entity selected the same objects, so the second overwrote the first and both copies
+rendered with the last block's config.
+
+Six tests in `tests/event-cache.test.ts` pin this, all confirmed load-bearing by mutation
+testing. The list-view DOM snapshot is unchanged.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#phase-2b--cache-key-fix--ships-3x-now-independently--risk-low-v4--split-out)
 
@@ -962,6 +1001,13 @@ forgotten.
 The E1 acceptance criterion is what enforces this: _no silent config no-ops_. Anything still
 deferred at release must appear in the documented not-applicable list, so a user who sets it
 learns that it does nothing. Silence is the failure mode, not the deferral itself.
+
+**Non-blocking follow-up (not a release blocker).** Phase 2b left `show_past_events` in
+`getBaseCacheKey`. It is redundant there — it never reaches `getTimeWindow`, so it cannot
+affect the API response, and it is applied at render time in `groupEventsByDay` — but it is
+also baked into `generateDeterministicId` (`helpers.ts`), which feeds `_instanceId` and hence
+the key anyway. Removing it from one place alone changes no behaviour, so it was left out of
+the Phase 2b diff. Drop it from both, together, whenever that file is next touched.
 
 ---
 
