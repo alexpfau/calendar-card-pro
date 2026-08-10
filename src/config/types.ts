@@ -14,6 +14,7 @@
 export interface Config {
   // Core settings
   entities: Array<string | EntityConfig>;
+  view: EffectiveView;
   start_date?: string;
   days_to_show: number;
   compact_days_to_show?: number;
@@ -119,6 +120,85 @@ export interface Config {
   // Cache and refresh settings
   refresh_interval: number;
   refresh_on_navigate: boolean;
+
+  // Column view
+  min_day_column_width_px: number;
+  column?: ColumnOverrides;
+}
+
+/**
+ * Views the card can render.
+ *
+ * Two values only. There is no `auto`: the narrow-viewport fallback belongs to
+ * `column` itself, so it is a behaviour of that view rather than a third mode.
+ */
+export type EffectiveView = 'list' | 'column';
+
+/**
+ * Per-view configuration overrides applied when the card renders in column view.
+ *
+ * Shape follows the `WeatherConfig` precedent — one option family, two rendering
+ * contexts, configured separately. The resolution semantics deliberately do **not**:
+ * an override is applied when the key is *present*, so `show_location: false`
+ * against a top-level `true` suppresses the location, and `show_location: true`
+ * against a top-level `false` restores it. Reading with `!== false` or `=== true`
+ * would conflate "not set" with "set to false" and break exactly the case this
+ * block exists to express.
+ *
+ * Membership is narrow by design. Only render-time and grouping-time options
+ * appear here: an option that influences the Home Assistant fetch window would
+ * trigger an API call every time the viewport crossed the column/list breakpoint.
+ * That is why `days_to_show`, `start_date`, `first_day_of_week`, `entities`,
+ * `show_past_events`, `filter_duplicates`, `weather.position`, `refresh_interval`
+ * and `refresh_on_navigate` are absent and can never be added.
+ *
+ * @see resolveViewOption in `src/config/view.ts`
+ */
+export interface ColumnOverrides {
+  // Day grouping and empty days
+  show_empty_days?: boolean;
+  empty_day_text?: string;
+
+  // Layout and spacing
+  vertical_line_width?: string;
+  event_spacing?: string;
+  additional_card_spacing?: string;
+  height?: string;
+  max_height?: string;
+
+  // Today indicator
+  today_indicator?: string | boolean;
+  today_indicator_size?: string;
+
+  // Date column
+  weekday_font_size?: string;
+  day_font_size?: string;
+  show_month?: boolean;
+  month_font_size?: string;
+
+  // Event column
+  event_background_opacity?: number;
+  event_font_size?: string;
+  show_countdown?: boolean;
+  show_countdown_allday?: boolean;
+  show_progress_bar?: boolean;
+  progress_bar_height?: string;
+  progress_bar_width?: string;
+  event_icon_vertical_alignment?: string;
+  show_time?: boolean;
+  show_single_allday_time?: boolean;
+  time_two_digit_hours?: boolean;
+  show_end_time?: boolean;
+  time_font_size?: string;
+  time_icon_size?: string;
+  show_location?: boolean;
+  remove_location_country?: boolean | string;
+  location_font_size?: string;
+  location_icon_size?: string;
+  show_description?: boolean;
+  description_max_lines?: number;
+  description_font_size?: string;
+  description_icon_size?: string;
 }
 
 /**

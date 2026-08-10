@@ -16,6 +16,7 @@ import * as Logger from '../utils/logger';
 export const DEFAULT_CONFIG: Types.Config = {
   // Core settings
   entities: [],
+  view: 'list',
   start_date: undefined,
   days_to_show: 3,
   compact_days_to_show: undefined,
@@ -144,6 +145,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   // Cache and refresh settings
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
   refresh_on_navigate: true,
+
+  // Column view
+  min_day_column_width_px: 160,
+  column: undefined,
 };
 
 //-----------------------------------------------------------------------------
@@ -189,6 +194,8 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
     toValidNumber(config.refresh_interval, 1) ?? DEFAULT_CONFIG.refresh_interval;
   config.event_background_opacity =
     toValidNumber(config.event_background_opacity, 0) ?? DEFAULT_CONFIG.event_background_opacity;
+  config.min_day_column_width_px =
+    toValidNumber(config.min_day_column_width_px, 1) ?? DEFAULT_CONFIG.min_day_column_width_px;
 
   // Optional limits: `undefined` means "no limit", so invalid values clear them rather
   // than collapsing to zero and hiding content.
