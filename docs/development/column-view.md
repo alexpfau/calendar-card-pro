@@ -533,12 +533,55 @@ all three values, `today_indicator: true` on a multi-event today, RTL, week numb
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#phase-1--shared-leaf-renderers--ships-3x--risk-low-v4--re-scoped)
 
-### Phase 2 — presentation models — ships 3.x — risk: low
+### Phase 2 — presentation models — ships 3.x — risk: low — ✅ **complete**
 
 `EventPresentation` and `DayHeaderModel` are only built if a named consumer needs them. If the
 Phase 1 shared leaves and the Phase 4 column renderer can consume raw `EventsByDay` types
 happily, do not build presentation models speculatively; fold them into Phase 4 if the adapter
 creates the need.
+
+**Ruling: one of the two is justified, the other is not.**
+
+`EventPresentation` — **built**, in a new module `src/rendering/presentation.ts`. The named
+consumer is the Phase 4 column renderer. §D1 requires the column view's `.event-content` to be
+**byte-identical** to the list's, and that content is driven entirely by `EventContentParts`,
+which roughly 120 lines of dense branching inside `renderEvent` produce — the all-day vs. timed
+past-event split with its iCal exclusive-end adjustment, the entity `show_time` override, the
+multi-day all-day detection that matches translated strings, the three-clause `shouldShowTime`
+and the four-clause countdown gate. The only two ways to get a byte-identical
+`EventContentParts` in a second view are to duplicate that branching (which would drift) or to
+share the builder. That is a real consumer, so the YAGNI clause is satisfied rather than
+violated.
+
+`buildEventPresentation` takes neither the day, the event index, nor the weather forecasts.
+Needing none of them is what demonstrates the result is genuinely axis-agnostic.
+
+`DayHeaderModel` — **not built.** Phase 1 already removed the need: `renderDateContent` takes
+only primitives that any container has to hand and performs its own weekend→today colour
+precedence internally, which left `renderDateColumn` a four-line composition. There is no
+derived data such a model would carry. §D2's column header differs from the list header in
+**markup axis only**, which is a renderer concern, not a model concern. Fold it into Phase 4 if
+that phase ever creates the need.
+
+**Outcome:** `renderEvent` fell from 172 lines to 55, of which the markup block is untouched and
+still at its original indentation. `render.ts` fell 680 → 562. Left behind as list-specific or
+too trivial to be a drift risk: `dayDate` / `isWeekendDay` (they feed the date **cell**, not the
+event) and the first/middle/last positional classes (one-line derivations from `index`).
+
+**Verification.** The extracted block was diffed line-by-line against the original and is
+byte-identical, so the move is proven rather than believed. The gate passes 86/86 with the
+snapshot **never regenerated**, which is the actual DOM-neutrality proof. Two independent
+corroborations: removing the now-unused `FormatUtils` and `EventUtils` imports from `render.ts`
+confirms the extraction was complete, and all five idiom-guard assertions still hold —
+including #5 on the `${index === 0 …}` seam, which is the **Phase 4** cut point and was
+deliberately untouched here. Unlike Phase 1 this phase moves no markup, so the whitespace trap
+does not apply.
+
+Two deviations from strict move-discipline, both deliberate and both comment- or dead-code
+only: a dead `tomorrow` local was dropped (assigned, mutated, never read — invisible to `tsc`
+because `noUnusedLocals` is off, and to eslint because the `setDate` call counts as a use), and
+one comment that was already factually wrong was corrected (`isEmptyDay` adds no CSS class; it
+gates time, countdown and progress).
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#phase-2--presentation-models--ships-3x--risk-low-v4--cache-fix-split-out)
 
