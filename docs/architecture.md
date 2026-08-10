@@ -22,7 +22,7 @@ src/
 ├── translations/                 # Localization support
 │   ├── dayjs.ts                  # Day.js locale configuration
 │   ├── localize.ts               # Translation functions
-│   └── languages/                # Translation files (33 supported languages)
+│   └── languages/                # Translation files (35 supported languages)
 │       ├── en.json               # English translations
 │       ├── de.json               # German translations
 │       └── ...                   # Other language files

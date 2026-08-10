@@ -64,6 +64,39 @@ Because `main` is the default branch, `Fixes #123` in a PR merged to `dev` will 
 auto-close the issue — closing keywords only fire on the default branch. Issues close
 when the release PR merges, or close them manually.
 
+### `dev` must never fall behind `main`
+
+**Invariant: `dev` may be ahead of `main`, never behind it.** `dev` is the branch every
+feature branches from, so the moment it drifts behind, each new feature branch silently
+starts from stale history.
+
+The `dev` → `main` release PR is merged with a **merge commit** (`gh pr merge --merge
+--admin` — see _Release process_), and that merge commit is created **on `main` only**.
+`dev` never receives it, so every release leaves `dev` exactly one commit behind even
+though the file trees are byte-identical. This is why GitHub can show a branch as "merged
+into main" and "N commits behind main" at the same time — the gap is the merge commits
+themselves, not missing content.
+
+So **immediately after merging the release PR, fast-forward `dev` back onto `main`**:
+
+```bash
+git fetch origin
+git merge-base --is-ancestor origin/dev origin/main   # must pass — proves it is lossless
+git push origin origin/main:dev                       # fast-forward, no force, no rewrite
+git rev-list --count origin/dev..origin/main          # expect 0
+```
+
+Skipping this is what produced a four-commit gap across releases v3.5. Never "fix" the
+gap with a force-push; if `--is-ancestor` fails, `dev` has real unique commits and needs
+a normal `main` → `dev` PR instead.
+
+To check the true state of a branch, compare **tree** SHAs rather than trusting the
+GitHub branches page, which caches aggressively and keeps showing deleted branches:
+
+```bash
+git rev-parse origin/dev^{tree} origin/main^{tree}    # identical = no content missing
+```
+
 ## Documenting a change
 
 User-facing documentation lives on the **documentation site**,
@@ -119,9 +152,13 @@ age. Deep-link each bullet to the relevant docs page where one exists.
    substitutes it into the bundle header and into `constants.ts` via `@version
 vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 2. Update `docs/RELEASE_NOTES.md` and the README's `## 4️⃣ What's New` section.
-3. Open a PR from `dev` into `main` and merge it.
-4. Tag `main` with `vX.Y.Z` and push the tag.
-5. `.github/workflows/release.yml` builds and creates a **draft** GitHub release with
+3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
+   review that you cannot give yourself, so this needs `gh pr merge <n> --merge --admin`.
+4. **Fast-forward `dev` back onto `main`** — `git push origin origin/main:dev`. The merge
+   commit from step 3 exists only on `main`; without this, `dev` starts the next cycle a
+   commit behind. See _`dev` must never fall behind `main`_.
+5. Tag `main` with `vX.Y.Z` and push the tag.
+6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release with
    `dist/calendar-card-pro.js` attached. Publish it manually.
 
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
