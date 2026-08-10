@@ -431,5 +431,34 @@ describe('column view DOM', () => {
       expect(markup).not.toContain('[object Object]');
       expect(markup).toContain('column-grid');
     });
+
+    it("renders the today indicator inside today's column header and nowhere else", () => {
+      // .column-day-header carries position: relative solely to be this element's
+      // containing block, so without an assertion here that rule is justified by an
+      // emission nothing checks -- and the indicator could be dropped silently.
+      const container = renderColumnContainer(
+        EVENTS,
+        buildConfig({ today_indicator: 'dot' }),
+      ) as HTMLElement;
+
+      const indicators = container.querySelectorAll('.today-indicator');
+      expect(indicators.length).toBe(1);
+
+      const host = indicators[0].closest('.column-day-header');
+      expect(host).not.toBeNull();
+      expect(host?.closest('.day-column')?.classList.contains('today')).toBe(true);
+    });
+
+    it('renders no today indicator when the option is off', () => {
+      // Control for the test above: without it, an implementation that emitted the
+      // indicator unconditionally in every column would still fail only on count,
+      // leaving "respects the config" untested.
+      const container = renderColumnContainer(
+        EVENTS,
+        buildConfig({ today_indicator: false }),
+      ) as HTMLElement;
+
+      expect(container.querySelectorAll('.today-indicator').length).toBe(0);
+    });
   });
 });
