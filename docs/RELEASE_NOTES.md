@@ -529,7 +529,7 @@ weather:
     show_temp: true
 ```
 
-For full parameter documentation including styling options, see our [GitHub README](https://github.com/alexpfau/calendar-card-pro/blob/main/README.md#weather-integration).
+For full parameter documentation including styling options, see the [Weather Integration docs](https://calendar-card-pro.alexpfau.com/features/weather).
 
 </details>
 
@@ -1147,7 +1147,7 @@ Thank you to everyone who contributed bug reports, feature requests, translation
 
 **Calendar filtering and customization, redefined.** This release focuses on giving you precise control over which events appear on your dashboard and how they're displayed, with powerful filtering capabilities and enhanced visual options.
 
-→→→ Please see the [🆕 What's New](#2️⃣-whats-new) section in the README for an overview of v2.2 features with links to their detailed documentation. ←←←
+→→→ Please see the [🆕 What's New](https://calendar-card-pro.alexpfau.com/guide/whats-new) page in the documentation for an overview of v2.2 features with links to their detailed documentation. ←←←
 
 ## 🎉 New Features
 
@@ -1777,8 +1777,8 @@ Available through HACS (recommended) or manual installation:
 
 For complete documentation including configuration options, examples, and customization:
 
-- See the [README](https://github.com/alexpfau/calendar-card-pro/blob/main/README.md) for detailed usage instructions
-- Check out the [Examples](https://github.com/alexpfau/calendar-card-pro/blob/main/README.md#5️⃣-examples) section for configuration samples
+- See the [documentation](https://calendar-card-pro.alexpfau.com/) for detailed usage instructions
+- Check out the [Examples](https://calendar-card-pro.alexpfau.com/reference/examples) section for configuration samples
 
 ## 🙏 Acknowledgements
 

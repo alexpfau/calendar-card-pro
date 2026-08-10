@@ -10,7 +10,7 @@
  * @version vPLACEHOLDER
  *
  * Project Home: https://github.com/alexpfau/calendar-card-pro
- * Documentation: https://github.com/alexpfau/calendar-card-pro/blob/main/README.md
+ * Documentation: https://calendar-card-pro.alexpfau.com
  *
  * Design inspired by Home Assistant community member @GHA_Steph's button-card calendar design
  * https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790
