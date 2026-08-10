@@ -14,9 +14,8 @@ import { repeat } from 'lit/directives/repeat.js';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
-import * as FormatUtils from '../utils/format';
-import * as EventUtils from '../utils/events';
 import * as Leaves from './leaves';
+import * as Presentation from './presentation';
 
 //-----------------------------------------------------------------------------
 // MAIN CARD STRUCTURE RENDERING
@@ -516,120 +515,13 @@ export function renderEvent(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  // Add CSS class for empty days
-  const isEmptyDay = Boolean(event._isEmptyDay);
+  // Everything about this event that does not depend on the layout axis. The column
+  // view must derive the identical values, so it is computed once, in one place.
+  const presentation = Presentation.buildEventPresentation(event, config, language, hass);
 
   // Check if this is a weekend day
   const dayDate = new Date(day.timestamp);
   const isWeekendDay = isWeekend(dayDate);
-
-  // Check if this is a past event (already ended)
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  let isPastEvent = false;
-
-  if (!isEmptyDay) {
-    const isAllDayEvent = !event.start.dateTime;
-
-    if (isAllDayEvent) {
-      // All-day events should NOT be marked as past when they:
-      // 1. Occur today (single-day) OR
-      // 2. End today (multi-day) OR
-      // 3. Span across today (multi-day)
-
-      // Get end date
-      let endDate = event.end.date ? FormatUtils.parseAllDayDate(event.end.date) : null;
-
-      // Adjust for iCal all-day end date convention (exclusive end date)
-      if (endDate) {
-        const adjustedEndDate = new Date(endDate);
-        adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
-        endDate = adjustedEndDate;
-      }
-
-      // All-day events are only "past" if today is completely after their end date
-      // If today is the end date or earlier, the event should NOT be greyed out
-      isPastEvent = endDate !== null && today > endDate;
-    } else {
-      // Regular event with time - use end time to determine if it's past
-      const endDateTime = event.end.dateTime ? new Date(event.end.dateTime) : null;
-      isPastEvent = endDateTime !== null && now > endDateTime;
-    }
-  }
-
-  // Get line color (solid) and background color (with opacity)
-  const entityAccentColor = EventUtils.getEntityAccentColorWithOpacity(
-    event._entityId,
-    config,
-    undefined,
-    event,
-  );
-
-  // Explicitly check if event_background_opacity is defined and greater than 0
-  const backgroundOpacity =
-    config.event_background_opacity > 0 ? config.event_background_opacity : 0;
-  const entityAccentBackgroundColor =
-    backgroundOpacity > 0
-      ? EventUtils.getEntityAccentColorWithOpacity(
-          event._entityId,
-          config,
-          backgroundOpacity,
-          event,
-        )
-      : ''; // Empty string for no background
-
-  // Get entity-specific settings with fallback to global settings
-  const showTime =
-    EventUtils.getEntitySetting(event._entityId, 'show_time', config, event) ?? config.show_time;
-  // Check if this is an all-day event
-  const isAllDayEvent = !event.start.dateTime;
-
-  // Check if this is a multi-day all-day event
-  const isMultiDayAllDayEvent =
-    isAllDayEvent &&
-    event.time &&
-    (event.time.includes(Localize.getTranslations(language).multiDay) ||
-      event.time.includes(Localize.getTranslations(language).endsTomorrow) ||
-      event.time.includes(Localize.getTranslations(language).endsToday));
-
-  // Determine if we should show time for this specific event
-  // Hide if:
-  // 1. showTime is false (global setting or entity override) OR
-  // 2. It's a SINGLE-DAY all-day event AND show_single_allday_time is false OR
-  // 3. It's an empty day placeholder
-  const shouldShowTime =
-    showTime &&
-    !(isAllDayEvent && !isMultiDayAllDayEvent && !config.show_single_allday_time) &&
-    !isEmptyDay;
-
-  // Calculate countdown if enabled
-  // Hide if:
-  // 1. show_countdown is false OR
-  // 2. It's an all-day event AND show_countdown_allday is false OR
-  // 3. It's an empty day placeholder or a past event
-  let countdownStr: string | null = null;
-  if (
-    config.show_countdown &&
-    !(isAllDayEvent && !config.show_countdown_allday) &&
-    !isEmptyDay &&
-    !isPastEvent
-  ) {
-    countdownStr = FormatUtils.getCountdownString(event, language);
-  }
-
-  // Check if event is currently running and calculate progress percentage for progress bar
-  const isRunning = EventUtils.isEventCurrentlyRunning(event);
-  const progressPercentage =
-    isRunning && config.show_progress_bar ? EventUtils.calculateEventProgress(event) : null;
-
-  // Format event time and location
-  const eventTime = FormatUtils.formatEventTime(event, config, language, hass);
-  // location and description are already filtered and formatted by groupEventsByDay()
-  const eventLocation = event.location || '';
-  const eventDescription = event.description || '';
 
   // Determine event position for styling
   const isFirst = index === 0;
@@ -642,17 +534,7 @@ export function renderEvent(
     'event-first': isFirst,
     'event-middle': isMiddle,
     'event-last': isLast,
-    'past-event': isPastEvent,
-  };
-
-  // Everything the event body needs that it must not recompute for itself.
-  const contentParts: Leaves.EventContentParts = {
-    eventTime,
-    eventLocation,
-    eventDescription,
-    shouldShowTime,
-    countdownStr,
-    progressPercentage,
+    'past-event': presentation.isPastEvent,
   };
 
   return html`
@@ -671,9 +553,9 @@ export function renderEvent(
         : ''}
       <td
         class=${classMap(eventClasses)}
-        style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${entityAccentColor}; background-color: ${entityAccentBackgroundColor};"
+        style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};"
       >
-        ${Leaves.renderEventContent(event, config, contentParts, weatherForecasts)}
+        ${Leaves.renderEventContent(event, config, presentation.contentParts, weatherForecasts)}
       </td>
     </tr>
   `;
