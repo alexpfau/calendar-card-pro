@@ -16,21 +16,21 @@ alternatives are archived in [column-view-rationale.md](./column-view-rationale.
 
 ### A1. Approved and settled decisions
 
-| #       | Decision                                                                        | Note                                                                                                                                                |
-| ------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1       | View name is **`column`**                                                       | `view: 'list' \| 'column'`.                                                                                                                         |
-| 2       | **`navigation_days` is deleted**, folded into `days_to_show`                    | Removed, not renamed.                                                                                                                               |
-| 3       | Column-view MVP excludes overlap lanes, time axis, now-line                     | Those belong to time-grid.                                                                                                                          |
-| 4       | **Date at the top** of each column                                              | The original 128px comparator is superseded by decision 14's provisional 160px minimum; the date header remains sound and has more room.            |
-| 5       | **Header rule is fully configurable** — width, colour                           | Start visible by default.                                                                                                                           |
-| 6       | Between-day chrome rotates 90°; within-day chrome stays untouched               | The organising thesis.                                                                                                                              |
-| 7       | `date_vertical_alignment` is **ignored** in column view                         | Naming harmonisation with a future `date_horizontal_alignment` is out of scope.                                                                     |
-| 8       | Phase 1 is **shared leaf extraction**; list keeps its `<table>`                 | The drift lives in leaves, not containers. See A3-A and Phase 1.                                                                                    |
-| 9       | #339 branch is **frozen**, not rebased                                          | lenaxia's four commits are preserved as ancestors for attribution.                                                                                  |
-| 10      | Feature milestone is **v4.0.0**                                                 | This is a choice, not a semver requirement.                                                                                                         |
-| 11 + 12 | Below a width threshold, the **view falls back to list**                        | Do not clamp the number of columns. See A3-C.                                                                                                       |
-| 13      | The list DOM equality gate is retained, tightened, shipped, and mutation-tested | Phase 0 PR #390 delivered `tests/list-dom.test.ts`; Phase 1 must keep it green.                                                                     |
-| 14      | `min_day_column_width_px` starts at **160** and must be measured in Phase 4     | 128 is disproven as a shipping default; 160 is a starting point, not a final result. It drives both usable column width and the fallback threshold. |
+| #       | Decision                                                                               | Note                                                                                                                                                                                                                   |
+| ------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1       | View name is **`column`**                                                              | `view: 'list' \| 'column'`.                                                                                                                                                                                            |
+| 2       | **`navigation_days` is deleted**, folded into `days_to_show`                           | Removed, not renamed.                                                                                                                                                                                                  |
+| 3       | Column-view MVP excludes overlap lanes, time axis, now-line                            | Those belong to time-grid.                                                                                                                                                                                             |
+| 4       | **Date at the top** of each column                                                     | The original 128px comparator is superseded by decision 14's provisional 160px minimum; the date header remains sound and has more room.                                                                               |
+| 5       | **Header rule is fully configurable** — width, colour                                  | Start visible by default.                                                                                                                                                                                              |
+| 6       | Between-day chrome rotates 90°; within-day chrome stays untouched                      | The organising thesis.                                                                                                                                                                                                 |
+| 7       | `date_vertical_alignment` is **ignored** in column view                                | Naming harmonisation with a future `date_horizontal_alignment` is out of scope.                                                                                                                                        |
+| 8       | Phase 1 is **shared leaf extraction**; list keeps its `<table>`                        | The drift lives in leaves, not containers. See A3-A and Phase 1.                                                                                                                                                       |
+| 9       | #339 branch is **frozen**, not rebased                                                 | lenaxia's four commits are preserved as ancestors for attribution.                                                                                                                                                     |
+| 10      | Feature milestone is **v4.0.0**                                                        | This is a choice, not a semver requirement.                                                                                                                                                                            |
+| 11 + 12 | Below a width threshold, the **view falls back to list**                               | Do not clamp the number of columns. See A3-C.                                                                                                                                                                          |
+| 13      | The list DOM equality gate is retained, tightened, shipped, and mutation-tested        | Phase 0 PR #390 delivered `tests/list-dom.test.ts`; Phase 1 must keep it green.                                                                                                                                        |
+| 14      | `min_day_column_width_px` starts at **160**, is **measured**, and is **public config** | Measured in the G13 spike: 160 survives, 128 is disproven. G14 makes it a user-facing key — it is the escape hatch that keeps decision 11+12 ("do not clamp the number of columns") viable in a 500px default section. |
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#a-decisions-ledger)
 
@@ -911,16 +911,25 @@ one view breaks the other.
 
 #### The sizing intuition is backwards
 
-Column view is triggered by a **wide card** but produces **narrow content boxes**:
+Column view is triggered by a **wide card** but produces **narrow content boxes**. Using the
+**measured** placement widths from the G13 spike rather than a hypothetical card width, and the
+largest column count that clears the 160px floor at each:
 
-| Context                              | Horizontal budget per event |
-| ------------------------------------ | --------------------------- |
-| 7 columns in a 1200px card, 8px gaps | **~164px**                  |
-| Same at 1600px                       | ~228px                      |
-| List view on a ~390px phone          | **~300px**                  |
+| Context                              | Columns | Horizontal budget per event |
+| ------------------------------------ | ------- | --------------------------- |
+| Default HA section, 500px (measured) | 3       | **~161px**                  |
+| `column_span: 2`, 1032px (measured)  | 6       | ~165px                      |
+| `column_span: 3`, ~1564px (derived)  | 7       | ~217px                      |
+| List view on a ~390px phone          | 1       | **~300px**                  |
 
-Per-item width in column view is **smaller than mobile list view**. Any text-density setting
-tuned on a phone is too generous in a column.
+Per-item width in column view is **smaller than mobile list view at every reachable placement** —
+the original estimate of ~164px for a hypothetical 1200px card turns out to describe the typical
+case almost exactly, for the wrong reason. Any text-density setting tuned on a phone is too
+generous in a column.
+
+Note that the first row is the _default_ placement and it caps at three columns, which is why
+G14 rules that the card falls back to list rather than clamping, and why
+`min_day_column_width_px` is public.
 
 #### Eligibility — the boundary follows from G10
 
@@ -1025,6 +1034,7 @@ forgotten.
 | **`compact_events_to_show` overrides** | G12         | Per-column budget is a different algorithm | Ruled in or documented as N/A (E1 forbids silence) |
 | **Week / month separator overrides**   | D6          | Axis-rotated; needs its own visual design  | Ruled in or documented as N/A                      |
 | **`today_indicator_position`**         | D6          | Depends on the G13 header-budget spike     | Ruled once G13 measures                            |
+| **Editor too-narrow warning**          | G14         | Editor support as a whole is post-MVP      | Must ship — it is what makes G14's ruling honest   |
 
 The E1 acceptance criterion is what enforces this: _no silent config no-ops_. Anything still
 deferred at release must appear in the documented not-applicable list, so a user who sets it
@@ -1102,7 +1112,11 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 7. **`hide_when_empty` in column view.** Specify its interaction with column rendering.
    `visibleEventCount` windows by `days_to_show`, so the count and rendered column set must not
    disagree. With `hide_when_empty: true` and `show_empty_days: null`, resolved empty-day
-   semantics must be used consistently.
+   semantics must be used consistently. **[v6] Largely resolved by G14:** because the column
+   count is never reduced by width, the only source of divergence left is an explicit
+   `show_empty_days: false`, which is the _same_ suppression the list view already applies — so
+   the existing window is correct and no reconciliation is needed. What remains is narrow: prove
+   the resolved (not raw) `show_empty_days` value feeds both the count and the grouping.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#f-constraints-that-bind-implementation)
 
@@ -1175,9 +1189,10 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 >   outright. **Ruled: the threshold uses the rendered column count**, which is already known
 >   at render time because grouping precedes it. Same N as G11. **The spike has now run:**
 >   `min_day_column_width_px: 160` survived measurement, 128 is confirmed disproven, and the
->   card-edit modal measured 480px. Still open after it: the hysteresis band, weather
->   truncate-or-drop (which _sets_ the minimum), the header vertical budget, whether
->   `min_day_column_width_px` is public config, and the new default-width finding below.
+>   card-edit modal measured 480px. **`min_day_column_width_px` is now ruled public config**
+>   (G14). Still open after the spike: the hysteresis band, weather truncate-or-drop (which
+>   _sets_ the minimum), and the header vertical budget. The default-width finding it surfaced
+>   is ruled in **G14** below.
 >
 > Two further findings are recorded in place rather than here because they affect work that
 > ships **before** v4.0.0: the Phase 2b cache scope (see the note in Phase 2b) and the Phase 1
@@ -1286,7 +1301,7 @@ below the threshold for any multi-day config. A user configuring a 7-day column 
 watch the preview fall back to list while editing. The mandated mitigation (**the preview
 renders the _selected_ view, not the width-measured one**) is load-bearing, not defensive.
 
-#### The finding that needs a ruling
+#### G14. The default-width finding — RULED
 
 A 7-day column view needs ~1184px of content box. That is **not reachable in a default HA
 section at any viewport width** — it requires `column_span: 3`, a panel view, or a raised
@@ -1294,7 +1309,63 @@ theme variable. §D6's "7 columns in a 1200px card" describes a placement the us
 deliberately construct, not the default one. Left unaddressed, the out-of-the-box experience
 of `view: column` with the default `days_to_show: 7` is a permanent silent fallback to list.
 
-**Open — maintainer ruling required before Phase 4 code starts.**
+**Ruled: the rendered column count is determined by grouping, never by available width. The
+card never silently drops columns because they do not fit.**
+
+Precisely: N is `days_to_show`, minus any days suppressed by an explicit `show_empty_days:
+false` (the content-driven reduction already ruled in G13). Width never enters the calculation.
+This is the same N as G11's `repeat(N, minmax(0, 1fr))` and the same N as G13's threshold input,
+so all three remain consistent.
+
+The rejected alternative was to render `⌊width / min_day_column_width_px⌋` columns, capped at
+days available — a 500px card would then show a tidy 3-day column view out of the box. It was
+rejected because it makes the card **quietly disagree with its own configuration**: a user who
+asks for 7 days and sees 3 has no signal explaining the difference, and the same config renders
+a different number of days on desktop and tablet. Silent divergence between config and render is
+worse than an honest fallback.
+
+Three mechanisms carry the decision instead:
+
+1. **`min_day_column_width_px` becomes public config** (upgrading decision 14, and closing the
+   G13 sub-question of whether it should be). It is the user's escape hatch: the threshold is
+   theirs to lower. A user who genuinely wants 7 columns in a 500px card can set it to `70` and
+   get them. The card's opinion about legibility becomes a default, not a rule.
+2. **The width fallback to list view stays exactly as designed.** When the configured column
+   count does not fit, the card falls back to list _wholesale_ — it never renders a degraded
+   column view. This is the already-ruled behaviour; the finding does not change it.
+3. **The editor warns at configuration time.** When
+   `days_to_show × min_day_column_width_px + gutters` exceeds a reference width, the editor
+   surfaces a warning naming the arithmetic and the remedies: raise `column_span`, use a panel
+   view, reduce `days_to_show`, or lower `min_day_column_width_px`. The decision stays with the
+   user; the card's job is to make the consequence visible _before_ they hit it.
+
+The warning is **computed statically, never measured**. The editor cannot know the card's
+deployed width — its own preview is 480px (A3-C.4) while the real placement may be 500px or
+1032px — so any measurement it took would be of the wrong element. It compares the configured
+arithmetic against the documented 500px default-section reference instead, which is truthful
+regardless of where the card ends up.
+
+**Consequences to carry into implementation:**
+
+- **`days_to_show` stays a single global value and stays in Category E.** A per-view default
+  (column defaults to 3, list to 7) was considered and is **architecturally forbidden**: it
+  would change the fetch window at the width breakpoint, violating E3's requirement that
+  crossing the breakpoint with a warm cache performs zero `callApi` invocations. The same rule
+  that puts `days_to_show` in Category E rules out a per-view default for it.
+- **The F7 `hide_when_empty` interaction dissolves.** Under the rejected alternative, rendered
+  columns would have been fewer than `days_to_show` by construction, so `visibleEventCount`
+  (windowed by `days_to_show`) and the rendering would have diverged and needed reconciling.
+  With the column count pinned to `days_to_show`, the existing window is already correct. **No
+  change required** — recorded here so the reconciliation is not re-derived later.
+- **New key cost.** `min_day_column_width_px` becoming public means: a `DEFAULT_CONFIG` entry, a
+  documentation row (`check:docs` enforces defaults ↔ reference-table parity), an editor
+  control, and editor strings in all 11 editor-translated languages.
+- **The editor warning is a v4.0.0 release blocker, not an MVP blocker** — consistent with the
+  standing ruling that editor support for `column:` may follow YAML-only internal testing. It is
+  registered in §D7.
+- The default-config experience — `view: column` with `days_to_show: 7` in a default section
+  rendering as list — is now a **documented, warned-about consequence** rather than an unhandled
+  one. It must be stated plainly in the user docs, not only in the editor.
 
 ---
 
