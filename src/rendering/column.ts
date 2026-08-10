@@ -32,33 +32,6 @@ import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 
 //-----------------------------------------------------------------------------
-// DAY CLASSIFICATION
-//-----------------------------------------------------------------------------
-
-/**
- * Classify a day timestamp relative to the current date.
- *
- * Computed once per column and passed down, rather than recomputed per event as the
- * list view does, because a column renders its header once and its events many times.
- *
- * @param timestamp - Start-of-day timestamp for the column
- * @returns Whether the day is today, and whether it is tomorrow
- */
-function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: boolean } {
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dayDateString = new Date(timestamp).toDateString();
-
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-
-  return {
-    isToday: dayDateString === todayStart.toDateString(),
-    isTomorrow: dayDateString === tomorrowStart.toDateString(),
-  };
-}
-
-//-----------------------------------------------------------------------------
 // EVENT RENDERING
 //-----------------------------------------------------------------------------
 
@@ -139,30 +112,34 @@ function renderDayColumn(
   hass?: Types.Hass | null,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
-  const { isToday, isTomorrow } = classifyDay(day.timestamp);
+  const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   const isWeekendDay = Leaves.isWeekendDate(dayDate);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
 
-  // A width of `0px` means "no rule", matching how every other separator width in the
-  // card is switched off. Rendering a zero-width border would still emit an element
-  // and still consume the header's bottom margin. Unlike the list separators this one
-  // defaults to `1px` rather than `0px` (spec B2) — it is structural, not decorative —
-  // so this branch is the opt-out path rather than the default one.
+  // A zero width means "no rule", matching how every other separator width in the
+  // card is switched off. Zero is checked in any unit rather than against the literal
+  // `0px`, because a user can write `0`, `'0'` or `'0em'` and mean the same thing.
+  // Rendering a zero-width border would still emit an element that carries the
+  // separator's own 4px bottom margin, adding dead space under the header. (The
+  // header's 4px bottom padding is unconditional and applies either way — an earlier
+  // comment here attributed the margin to the header, which is wrong.)
+  // Unlike the list separators this one defaults to `1px` rather than `0px` (spec B2) —
+  // it is structural, not decorative — so this branch is the opt-out path rather than
+  // the default one.
   const separatorWidth = ViewConfig.resolveColumnOption(config, 'day_header_separator_width');
   const separatorColor = ViewConfig.resolveColumnOption(config, 'day_header_separator_color');
 
-  const headerSeparator =
-    separatorWidth === '0px'
-      ? nothing
-      : html`<div
-          class="column-header-separator"
-          style=${styleMap({
-            borderTopWidth: separatorWidth,
-            borderTopColor: separatorColor,
-            borderTopStyle: 'solid',
-          })}
-        ></div>`;
+  const headerSeparator = ViewConfig.isZeroLength(separatorWidth)
+    ? nothing
+    : html`<div
+        class="column-header-separator"
+        style=${styleMap({
+          borderTopWidth: separatorWidth,
+          borderTopColor: separatorColor,
+          borderTopStyle: 'solid',
+        })}
+      ></div>`;
 
   return html`
     <div
@@ -216,7 +193,8 @@ function renderDayColumn(
  * Day, week and month separators are not rendered. The list view's separators are
  * horizontal rules between stacked days; in a column layout the equivalent boundary
  * is the gap between tracks, which `day_gap` already controls. The header rule is the
- * column view's own separator, and it is opt-in.
+ * column view's own separator, and it is opt-out: it defaults to visible (spec B2)
+ * and is suppressed by setting its width to `0px`.
  *
  * @param days - Days to render, already grouped and sorted
  * @param config - Card configuration

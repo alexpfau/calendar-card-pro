@@ -17,6 +17,14 @@ import * as Localize from '../translations/localize';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 
+/**
+ * Re-exported so the card can dispatch between views through a single import
+ * namespace. Keeping both renderers reachable as `Render.*` means the two call
+ * sites in `render()` read symmetrically, which is the property that stops one
+ * of them being updated and the other missed.
+ */
+export { renderColumnGroupedEvents } from './column';
+
 //-----------------------------------------------------------------------------
 // MAIN CARD STRUCTURE RENDERING
 //-----------------------------------------------------------------------------
@@ -32,6 +40,7 @@ import * as Presentation from './presentation';
  * @param maxHeightSet Flag to add max-height-set class
  * @param isLoading Flag to mark the card as busy while events load
  * @param titlePending True while a templated title awaits its first value
+ * @param effectiveView The view actually being rendered, after any width fallback
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -48,10 +57,13 @@ export function renderMainCardStructure(
   maxHeightSet: boolean = false,
   isLoading: boolean = false,
   titlePending: boolean = false,
+  effectiveView: Types.EffectiveView = 'list',
 ): TemplateResult {
   return html`
     <ha-card
-      class="calendar-card-pro ${maxHeightSet ? 'max-height-set' : ''}"
+      class="calendar-card-pro ${maxHeightSet ? 'max-height-set' : ''} ${effectiveView === 'column'
+        ? 'column-view'
+        : ''}"
       style=${styleMap(customStyles)}
       tabindex="0"
       aria-busy=${isLoading ? 'true' : 'false'}
@@ -351,19 +363,8 @@ export function renderDay(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  // Check if this day is today
-  const now = new Date();
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dayDate = new Date(day.timestamp);
-  const dayDateString = dayDate.toDateString();
-  const todayStartString = todayStart.toDateString();
-  const isToday = dayDateString === todayStartString;
-
-  // Check if this day is tomorrow
-  const tomorrowStart = new Date(todayStart);
-  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
-  const tomorrowStartString = tomorrowStart.toDateString();
-  const isTomorrow = dayDateString === tomorrowStartString;
+  // Shared with the column view, which needs the identical answer for its day headers.
+  const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
 
   // Separator precedence hierarchy (highest to lowest):
   // 1. Month boundaries (with month separator enabled)

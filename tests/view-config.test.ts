@@ -7,7 +7,10 @@ import {
   COLUMN_DEFAULTS,
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
+  computeColumnThresholdPx,
+  isZeroLength,
   resolveColumnOption,
+  resolveEffectiveView,
   resolveViewOption,
   validateColumnOverrides,
 } from '../src/config/view';
@@ -259,8 +262,25 @@ describe('column view config surface', () => {
     // and an undefined reaching the stylesheet.
     for (const key of COLUMN_ONLY_KEYS) {
       expect(COLUMN_DEFAULTS).toHaveProperty(key);
-      expect(resolveColumnOption(buildConfig(), key as keyof typeof COLUMN_DEFAULTS)).toBeTruthy();
     }
+  });
+
+  it('pins each column-only default to its literal value', () => {
+    // Deliberately literal, and deliberately not a loop over COLUMN_DEFAULTS.
+    //
+    // The shape test above passed while the two separator defaults were both wrong
+    // — `toBeTruthy()` is satisfied by any non-empty string, so it accepted a
+    // suppressed separator ('0px') just as happily as a visible one. An assertion
+    // written as `resolveColumnOption(...) === COLUMN_DEFAULTS.x` is no better: it
+    // compares the code to itself, so both sides move together under any edit.
+    //
+    // Spec B2 rules these three values. Changing one here without changing the spec
+    // is the mistake this test exists to catch, so update the spec first.
+    const config = buildConfig();
+
+    expect(resolveColumnOption(config, 'day_gap')).toBe('10px');
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('1px');
+    expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('var(--divider-color)');
   });
 
   it('prefers a configured column-only value over its default', () => {
@@ -268,10 +288,42 @@ describe('column view config surface', () => {
     config.column = { day_gap: '24px' };
 
     expect(resolveColumnOption(config, 'day_gap')).toBe('24px');
-    // Untouched siblings still fall through to their defaults.
-    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe(
-      COLUMN_DEFAULTS.day_header_separator_width,
-    );
+    // Untouched siblings still fall through to their defaults, asserted as a literal
+    // rather than against COLUMN_DEFAULTS so this cannot pass by moving with the code.
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('1px');
+  });
+
+  it('coerces a bare number to px for length-valued column options', () => {
+    // Home Assistant's YAML parser types an unquoted `1` as a number, and styleMap
+    // would emit `border-top-width: 1` — invalid CSS, dropped by the browser, so the
+    // separator disappears entirely. The nastier of the two cases: the user asked for
+    // a visible separator and got nothing.
+    const config = buildConfig();
+    config.column = {
+      day_gap: 4,
+      day_header_separator_width: 1,
+    } as unknown as Types.Config['column'];
+
+    expect(resolveColumnOption(config, 'day_gap')).toBe('4px');
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('1px');
+  });
+
+  it('treats a bare zero as a suppressed length', () => {
+    const config = buildConfig();
+    config.column = { day_header_separator_width: 0 } as unknown as Types.Config['column'];
+
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
+    expect(isZeroLength(resolveColumnOption(config, 'day_header_separator_width'))).toBe(true);
+  });
+
+  it('recognizes every spelling of a zero length', () => {
+    for (const value of ['0', '0px', '0em', '0%', ' 0px ']) {
+      expect(isZeroLength(value)).toBe(true);
+    }
+
+    for (const value of ['1px', '0.5px', 'var(--x)', '', '10px']) {
+      expect(isZeroLength(value)).toBe(false);
+    }
   });
 
   it('excludes every fetch-time option from the override keys', () => {
@@ -292,9 +344,9 @@ describe('column view config surface', () => {
 });
 
 describe('min_day_column_width_px normalization', () => {
-  it('defaults to 160', () => {
-    expect(DEFAULT_CONFIG.min_day_column_width_px).toBe(160);
-    expect(buildConfig().min_day_column_width_px).toBe(160);
+  it('defaults to 152', () => {
+    expect(DEFAULT_CONFIG.min_day_column_width_px).toBe(152);
+    expect(buildConfig().min_day_column_width_px).toBe(152);
   });
 
   it('accepts a numeric string, which is what the editor persists', () => {
@@ -316,6 +368,107 @@ describe('min_day_column_width_px normalization', () => {
   ])('falls back to the default for %s', (_label, value) => {
     const config = { ...DEFAULT_CONFIG, min_day_column_width_px: value } as unknown as Types.Config;
     normalizeNumericOptions(config);
-    expect(config.min_day_column_width_px).toBe(160);
+    expect(config.min_day_column_width_px).toBe(152);
+  });
+});
+
+/**
+ * Width-based fallback.
+ *
+ * Spec A3-C: above the threshold you get the columns you asked for, below it you get
+ * a list. The card never silently drops columns to make a narrow width work, because
+ * a user who asked for three days and got two has been lied to about what they are
+ * looking at.
+ */
+describe('computeColumnThresholdPx', () => {
+  it('fits the default config inside a standard Home Assistant section', () => {
+    // 152 x 3 + 16 padding + 2 x 10 gutter = 492, against a measured 500px section.
+    //
+    // This assertion is the reason min_day_column_width_px is 152 rather than the
+    // 160 originally proposed: at 160 the threshold is 524px, so the column view
+    // would never have activated in the default HA layout at all. Do not "restore"
+    // 160 for consistency with the design doc — measurement supersedes it.
+    const threshold = computeColumnThresholdPx(buildConfig());
+
+    expect(threshold).toBe(492);
+    expect(threshold).toBeLessThanOrEqual(500);
+  });
+
+  it('scales with days_to_show', () => {
+    const config = buildConfig();
+    config.days_to_show = 5;
+
+    // 152 x 5 + 16 + 4 x 10 = 816
+    expect(computeColumnThresholdPx(config)).toBe(816);
+  });
+
+  it('accounts for a configured gutter', () => {
+    const config = buildConfig();
+    config.column = { day_gap: '4px' };
+
+    // 152 x 3 + 16 + 2 x 4 = 480
+    expect(computeColumnThresholdPx(config)).toBe(480);
+  });
+
+  it('falls back rather than producing NaN for a non-px gutter', () => {
+    // `day_gap` is a CSS length, so `2em` and `calc(...)` are legal values the card
+    // cannot resolve without layout. A NaN threshold compares false against every
+    // width, which would silently pin the card to one view forever.
+    const config = buildConfig();
+    config.column = { day_gap: '2em' };
+
+    const threshold = computeColumnThresholdPx(config);
+    expect(Number.isFinite(threshold)).toBe(true);
+    expect(threshold).toBe(492);
+  });
+});
+
+describe('resolveEffectiveView', () => {
+  const THRESHOLD = 492;
+
+  it('leaves a list request alone at every width', () => {
+    for (const width of [200, 492, 2000, null]) {
+      expect(resolveEffectiveView('list', width, THRESHOLD, null)).toBe('list');
+    }
+  });
+
+  it('renders columns at or above the threshold', () => {
+    expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, null)).toBe('column');
+    expect(resolveEffectiveView('column', 1200, THRESHOLD, null)).toBe('column');
+  });
+
+  it('falls back to a list below the threshold', () => {
+    expect(resolveEffectiveView('column', THRESHOLD - 1, THRESHOLD, null)).toBe('list');
+    expect(resolveEffectiveView('column', 320, THRESHOLD, null)).toBe('list');
+  });
+
+  it('renders the requested view before the first measurement', () => {
+    // A null width means "not measured yet", not "zero wide". Treating it as narrow
+    // would flash a list layout for one frame on every column card that loads.
+    expect(resolveEffectiveView('column', null, THRESHOLD, null)).toBe('column');
+  });
+
+  it('holds the column view through the hysteresis band', () => {
+    // Already in column view, drifting just under the threshold: stay put. Without
+    // this, a card sitting within a pixel of the boundary flips layout on every
+    // scrollbar appearance or font swap.
+    expect(resolveEffectiveView('column', THRESHOLD - 1, THRESHOLD, 'column')).toBe('column');
+    // The band's far edge is inclusive, matching the inclusive `>=` at the entry
+    // threshold above. Both comparisons read the same way, so neither boundary is a
+    // special case to remember.
+    expect(resolveEffectiveView('column', THRESHOLD - 32, THRESHOLD, 'column')).toBe('column');
+  });
+
+  it('leaves the column view once past the hysteresis band', () => {
+    expect(resolveEffectiveView('column', THRESHOLD - 33, THRESHOLD, 'column')).toBe('list');
+    expect(resolveEffectiveView('column', 200, THRESHOLD, 'column')).toBe('list');
+  });
+
+  it('requires the full threshold to re-enter the column view', () => {
+    // Asymmetric by design: the band is only lenient in the direction that keeps the
+    // current layout. Coming back from a list, nothing short of the real threshold
+    // will do, or the two rules would fight and the card would oscillate anyway.
+    expect(resolveEffectiveView('column', THRESHOLD - 1, THRESHOLD, 'list')).toBe('list');
+    expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, 'list')).toBe('column');
   });
 });

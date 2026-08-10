@@ -10,6 +10,7 @@ import * as Localize from '../translations/localize';
 import * as FormatUtils from './format';
 import * as Logger from './logger';
 import * as Constants from '../config/constants';
+import * as ViewConfig from '../config/view';
 import * as Helpers from './helpers';
 import { parseStartDateExpression } from './start-date';
 
@@ -153,6 +154,10 @@ function processRawEvents(
  * @param config - Card configuration
  * @param isExpanded - Whether the card is in expanded mode
  * @param language - Language code for translations
+ * @param effectiveView - The view actually being rendered, which decides whether a
+ *   `column:` override applies. Passed explicitly rather than read from `config.view`,
+ *   because the two differ whenever the width fallback is active (spec G10) — a card
+ *   configured for columns but rendering as a list must group the list way.
  * @returns Array of day objects containing grouped events
  */
 export function groupEventsByDay(
@@ -160,7 +165,13 @@ export function groupEventsByDay(
   config: Types.Config,
   isExpanded: boolean,
   language: string,
+  effectiveView: Types.EffectiveView = 'list',
 ): Types.EventsByDay[] {
+  // Resolved once, up front. `show_empty_days` is read at three points below and the
+  // answer must be the same at all of them; resolving per site would let a future
+  // edit update one and miss the others.
+  const showEmptyDays = ViewConfig.resolveViewOption(config, 'show_empty_days', effectiveView);
+
   // Use reference date from configuration instead of hardcoded "today"
   const referenceDate = getStartDateReference(
     config,
@@ -424,7 +435,7 @@ export function groupEventsByDay(
       day.events = filteredEvents;
     }
     // Filter out days with no visible events unless show_empty_days is true
-    if (!config.show_empty_days) {
+    if (!showEmptyDays) {
       days = days.filter(
         (day) => day.events.length > 0 && !(day.events.length === 1 && day.events[0]._isEmptyDay),
       );
@@ -518,7 +529,7 @@ export function groupEventsByDay(
   // Empty days generation - this section needs to handle BOTH cases:
   // 1. When show_empty_days is true AND we have some events
   // 2. When API returns no events (days array is empty)
-  if (config.show_empty_days || days.length === 0) {
+  if (showEmptyDays || days.length === 0) {
     const translations = Localize.getTranslations(language);
 
     // Pick the placeholder text for every empty day the card renders.
@@ -550,7 +561,7 @@ export function groupEventsByDay(
       // In compact mode with NO events at all:
       // - If show_empty_days is true: Show empty days for full range
       // - If show_empty_days is false: Show only reference date
-      if (config.show_empty_days) {
+      if (showEmptyDays) {
         endDateForEmptyDays = new Date(referenceDate);
         endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
       } else {

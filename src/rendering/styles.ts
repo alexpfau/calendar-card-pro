@@ -701,6 +701,22 @@ export const cardStyles = css`
     }
   }
 
+  /*
+   * Column view narrows the card's own horizontal padding to a symmetric 8px.
+   *
+   * The list view's asymmetric 8px-left / 16px-right exists to sit beside its
+   * fixed-width date column; a column has no date column, so the asymmetry has
+   * nothing to align to. Trimming it is not cosmetic: at default settings the
+   * card needs 152px x 3 days + padding + 2 gutters to fit, and a standard
+   * single-span Home Assistant section is 500px. The 24px the list view reserves
+   * is most of the margin between activating and never activating at all.
+   *
+   * Scoped to the column class so list output is untouched.
+   */
+  .calendar-card-pro.column-view {
+    padding-inline: 8px;
+  }
+
   /* ===== COLUMN VIEW STYLES ===== */
 
   /*
@@ -790,10 +806,17 @@ export const cardStyles = css`
 
   /*
    * The list view's event padding is tuned for a cell that sits beside a fixed-width
-   * date column. In a column the event spans the full track, so the trailing padding
-   * has to be reinstated — a table cell gets it from the table's own edge.
+   * date column, and its trailing padding is genuinely zero: the base .event rule sets
+   * a right padding of 0, and the day table uses border-spacing: 0. In a list that is
+   * invisible, because the table's own right edge is the card padding. In a column the
+   * event spans the full track, so text would otherwise run to the column boundary and
+   * sit flush against the neighbouring column's text. This adds the trailing gutter
+   * that the layout no longer provides for free.
+   *
+   * Logical property, matching border-inline-start on the event accent and
+   * margin-inline-start on the header weather badge, so RTL mirrors correctly.
    */
   .column-events .event {
-    padding-right: 12px;
+    padding-inline-end: 12px;
   }
 `;

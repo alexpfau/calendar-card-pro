@@ -53,7 +53,10 @@ function renderColumnContainer(
   config: Types.Config,
   { language = 'en', weather, hass }: RenderOpts = {},
 ): HTMLElement {
-  const days = EventUtils.groupEventsByDay(events, config, false, language);
+  // 'column' is deliberate: `groupEventsByDay` resolves per-view overrides, so
+  // grouping the list way here would render column DOM from list-grouped days and
+  // quietly hide any `column:` override that changes which days exist at all.
+  const days = EventUtils.groupEventsByDay(events, config, false, language, 'column');
   const container = document.createElement('div');
   litRender(Column.renderColumnGroupedEvents(days, config, language, weather, hass), container);
   return container;
@@ -64,7 +67,7 @@ function renderListContainer(
   config: Types.Config,
   { language = 'en', weather, hass }: RenderOpts = {},
 ): HTMLElement {
-  const days = EventUtils.groupEventsByDay(events, config, false, language);
+  const days = EventUtils.groupEventsByDay(events, config, false, language, 'list');
   const container = document.createElement('div');
   litRender(Render.renderGroupedEvents(days, config, language, weather, hass), container);
   return container;
@@ -178,6 +181,101 @@ describe('column view DOM', () => {
       const badge = container.querySelector('.weather');
       expect(badge).not.toBeNull();
       expect(header?.contains(badge)).toBe(true);
+    });
+  });
+
+  describe('per-view overrides', () => {
+    it('honours a column override of show_empty_days', () => {
+      // The override plumbing's only end-to-end proof. `show_empty_days` is resolved
+      // inside `groupEventsByDay`, so an override that never reaches it validates
+      // clean and does nothing — the silent no-op spec E-1 forbids. Asserting on the
+      // list side too is what makes this a test of the *override* rather than of the
+      // option: same config, two views, different output.
+      const config = buildConfig();
+      config.show_empty_days = false;
+      config.column = { show_empty_days: true };
+
+      const columnDays = EventUtils.groupEventsByDay(SINGLE_EVENT, config, false, 'en', 'column');
+      const listDays = EventUtils.groupEventsByDay(SINGLE_EVENT, config, false, 'en', 'list');
+
+      expect(columnDays.length).toBeGreaterThan(listDays.length);
+      expect(listDays.length).toBe(1);
+    });
+
+    it('lets a column override of false beat an inherited true', () => {
+      // The direction that a `!== false` or `=== true` idiom gets wrong. Spec E-4.
+      const config = buildConfig();
+      config.show_empty_days = true;
+      config.column = { show_empty_days: false };
+
+      const columnDays = EventUtils.groupEventsByDay(SINGLE_EVENT, config, false, 'en', 'column');
+      const listDays = EventUtils.groupEventsByDay(SINGLE_EVENT, config, false, 'en', 'list');
+
+      expect(columnDays.length).toBeLessThan(listDays.length);
+      expect(columnDays.length).toBe(1);
+    });
+
+    it('inherits the top-level value when the column block is silent', () => {
+      const config = buildConfig();
+      config.show_empty_days = true;
+      config.column = { day_gap: '4px' };
+
+      const columnDays = EventUtils.groupEventsByDay(SINGLE_EVENT, config, false, 'en', 'column');
+      const listDays = EventUtils.groupEventsByDay(SINGLE_EVENT, config, false, 'en', 'list');
+
+      expect(columnDays.length).toBe(listDays.length);
+    });
+  });
+
+  describe('threading through to the leaves', () => {
+    it('formats times through the Home Assistant locale when asked', () => {
+      // `hass` was declared by this file's render harness and threaded into the
+      // renderer, but never actually supplied by a test — so deleting it from the
+      // `buildEventPresentation` call passed the whole suite. It only bites when
+      // `time_24h: 'system'`, which is the one path that reads `hass.locale`.
+      const config = buildConfig();
+      config.time_24h = 'system';
+
+      const hass = {
+        states: {},
+        callApi: async () => undefined,
+        callService: () => undefined,
+        locale: { language: 'en', time_format: '12' },
+      } as unknown as Types.Hass;
+
+      const twelve = renderColumnContainer(SINGLE_EVENT, config, { hass });
+      const twentyFour = renderColumnContainer(SINGLE_EVENT, config, {
+        hass: { ...hass, locale: { language: 'en', time_format: '24' } } as unknown as Types.Hass,
+      });
+
+      const twelveText = requireElement(twelve, '.time').textContent ?? '';
+      const twentyFourText = requireElement(twentyFour, '.time').textContent ?? '';
+
+      expect(twelveText).toMatch(/[ap]m/i);
+      expect(twentyFourText).not.toMatch(/[ap]m/i);
+      expect(twelveText).not.toBe(twentyFourText);
+    });
+
+    it('renders a per-event weather badge', () => {
+      // The column view's other weather position. Only `position: 'date'` was covered,
+      // which leaves the event-level badge — a different call site, in a different
+      // renderer — entirely unprotected.
+      const config = buildConfig();
+      config.weather = {
+        entity: 'weather.home',
+        position: 'event',
+        event: { show_conditions: true, show_temp: true },
+      };
+
+      const container = renderColumnContainer(EVENTS, config, { weather: WEATHER });
+      const badge = container.querySelector('.column-events .event-weather');
+
+      expect(badge).not.toBeNull();
+      // Positioned inside an event row, not in the header, which is the whole
+      // distinction between the two weather positions. The two use different class
+      // names (`.event-weather` vs `.weather`), so this also pins that column view
+      // reaches the event-level render site and not the date-level one.
+      expect(container.querySelector('.column-date-content .weather')).toBeNull();
     });
   });
 

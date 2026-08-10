@@ -113,14 +113,35 @@ const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
  * told the truth — the option is real and planned — rather than being told it is a
  * typo.
  *
- * Deliberately empty as of Phase 4b, which implemented the three keys that used to
- * live here (`day_gap`, `day_header_separator_width`, `day_header_separator_color`).
- * The set is kept rather than deleted because the situation it describes recurs on
- * every phase boundary: the design document is published, so a key can be public
- * knowledge before it is public behaviour, and "planned but not built" is a
+ * These are the keys the spec defers out of the column MVP (D1/D5). They matter
+ * because of where they would otherwise fall: each one *is* a valid member of
+ * `DEFAULT_CONFIG`, so without this set the validator reaches the "cannot be
+ * overridden per view — set it at the top level instead" branch and gives advice
+ * that does not work. Column view renders no week rows and no day, week or month
+ * separators at all, so setting these at the top level changes nothing there.
+ *
+ * The set was briefly empty after Phase 4b implemented the three keys that used to
+ * live here. It is kept rather than deleted because the situation it describes
+ * recurs on every phase boundary: the design document is published, so a key can be
+ * public knowledge before it is public behaviour, and "planned but not built" is a
  * materially different message from "not a recognized option".
  */
-const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([]);
+const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
+  // Week numbering — column view renders no week rows (spec D1 table, :785-788).
+  'show_week_numbers',
+  'show_current_week_number',
+  'week_number_font_size',
+  'week_number_color',
+  'week_number_background_color',
+  // Separators — the boundary between days in a column layout is the grid gap,
+  // which `day_gap` controls, so none of these have a surface to render on.
+  'week_separator_width',
+  'week_separator_color',
+  'month_separator_width',
+  'month_separator_color',
+  'day_separator_width',
+  'day_separator_color',
+]);
 
 //-----------------------------------------------------------------------------
 // COLUMN-ONLY DEFAULTS
@@ -139,8 +160,19 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([]);
  * The chosen values make an absent `column:` block a visual no-op relative to the
  * list view's own defaults:
  *
- * - `day_gap` matches `DEFAULT_CONFIG.day_spacing` (`10px`), so the gap between
- *   columns equals the gap between days in a list.
+ * - `day_gap` is `10px`. Note this is **not ruled by the spec** — B2 rules only the
+ *   two separator keys. An earlier docstring justified it as "matches
+ *   `DEFAULT_CONFIG.day_spacing` (10px), so the gap between columns equals the gap
+ *   between days in a list", which is the same vertical-to-horizontal category
+ *   error that produced the B2 defect: `day_spacing` separates stacked days along
+ *   the axis where space is free, whereas this gap spends the horizontal budget the
+ *   spec's own sizing table (D6) calls the scarce resource — roughly 161px per
+ *   event in a default 500px section. The real justification is narrower: the
+ *   column MVP renders **no vertical rule between columns** (D6 defers that with
+ *   week numbers), so this gap is the *only* thing separating two adjacent columns
+ *   of text. It cannot shrink to the 4px the spec uses in a worked example at the
+ *   cost of columns reading as one block. 10px is a legibility floor, not a
+ *   symmetry with the list. It remains open to measurement.
  * - `day_header_separator_width` is `1px` — visible by default, which is the one
  *   place these defaults deliberately break the "match the list" rule. Every list
  *   separator defaults to `0px` because it is decoration between days that are
@@ -165,6 +197,32 @@ export const COLUMN_DEFAULTS = {
 } as const;
 
 /**
+ * Column-only options whose value is a CSS length.
+ *
+ * These accept a bare number from YAML, because that is what users write. Home
+ * Assistant's YAML parser types `day_gap: 4` as a number, and a number is not a
+ * valid CSS length: it reaches `styleMap` as `"4"`, the browser rejects the
+ * declaration, and the rule silently disappears. Coercing here means the failure
+ * cannot reach the renderer.
+ */
+const COLUMN_LENGTH_KEYS: ReadonlySet<string> = new Set(['day_gap', 'day_header_separator_width']);
+
+/**
+ * Normalizes a column-only option value to a usable CSS string.
+ *
+ * @param key - Option being resolved
+ * @param value - Raw configured value, which YAML may have typed as a number
+ * @returns A CSS-valid string
+ */
+function normalizeColumnValue(key: string, value: unknown): string {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return COLUMN_LENGTH_KEYS.has(key) ? `${value}px` : String(value);
+  }
+
+  return String(value);
+}
+
+/**
  * Resolves a Category C column-only option.
  *
  * Separate from `resolveViewOption` because these keys have no top-level counterpart
@@ -183,10 +241,25 @@ export function resolveColumnOption<K extends keyof typeof COLUMN_DEFAULTS>(
   const overrides = config.column;
 
   if (overrides && hasOverride(overrides, key)) {
-    return overrides[key] as string;
+    return normalizeColumnValue(key, overrides[key]);
   }
 
   return COLUMN_DEFAULTS[key];
+}
+
+/**
+ * Reports whether a resolved CSS length means "none".
+ *
+ * A renderer that compares against the literal `'0px'` misses `0`, `'0'` and
+ * `'0em'`, each of which a user can reasonably write and every one of which means
+ * the same thing. Getting this wrong does not merely render a thin line — it emits
+ * an element that still occupies its own margin, leaving a gap with nothing in it.
+ *
+ * @param value - A resolved CSS length
+ * @returns `true` when the length is zero in any unit
+ */
+export function isZeroLength(value: string): boolean {
+  return /^0(?:[a-z%]*)$/i.test(value.trim());
 }
 
 //-----------------------------------------------------------------------------
@@ -312,4 +385,151 @@ export function validateColumnOverrides(config: Types.Config): void {
 
     Logger.warn(`Ignoring "column.${key}": not a recognized option.`);
   }
+
+  warnAboutTopLevelColumnOnlyKeys(config);
+}
+
+/**
+ * Reports column-only options mistakenly written at the top level.
+ *
+ * `day_gap`, `day_header_separator_width` and `day_header_separator_color` only
+ * exist inside `column:`. Written at the top level they are silently inert, which
+ * is the *more* likely mistake of the two: the reference documentation lists them
+ * in the same visual table as genuine top-level options, so nothing about their
+ * presentation signals that they are nested.
+ *
+ * Without this, `column.foo` gets a tailored diagnostic while a misplaced
+ * `day_gap: 32px` gets nothing at all.
+ *
+ * @param config - Merged configuration to inspect
+ */
+function warnAboutTopLevelColumnOnlyKeys(config: Types.Config): void {
+  for (const key of COLUMN_ONLY_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(config, key)) {
+      Logger.warn(
+        `Ignoring top-level "${key}": it is a column-view-only option and has no effect ` +
+          `outside the "column:" block. Move it to "column: { ${key}: ... }".`,
+      );
+    }
+  }
+}
+
+//-----------------------------------------------------------------------------
+// WIDTH FALLBACK
+//-----------------------------------------------------------------------------
+
+/**
+ * Horizontal padding the card reserves for itself in column view, in pixels.
+ *
+ * Column view narrows `ha-card`'s horizontal padding to a symmetric 8px. The list
+ * view's asymmetric 8px-left / 16px-right exists to sit beside its fixed-width date
+ * column, which column view does not have, so the asymmetry has no meaning here.
+ *
+ * This is not cosmetic — it is load-bearing arithmetic. See
+ * `DEFAULT_CONFIG.min_day_column_width_px`.
+ */
+export const COLUMN_CARD_PADDING_PX = 16;
+
+/**
+ * Width band, in pixels, by which the column-to-list threshold is lowered once
+ * column view is already showing.
+ *
+ * A single threshold oscillates: switching to column view changes the card's height,
+ * which in a masonry dashboard can change the available width, which can switch the
+ * view straight back (A3-C, risk 1). Two thresholds — enter at `T`, leave at
+ * `T - band` — make the switch a Schmitt trigger, so a card sitting exactly on the
+ * boundary settles instead of flapping.
+ *
+ * 32px is a judgement call, not a measurement: it is wide enough to absorb a
+ * scrollbar appearing (typically 15-17px) plus sub-pixel layout rounding, and narrow
+ * enough that it cannot strand a card in column view at a width where the columns
+ * are visibly too tight. The spec leaves the band open (A3-C); revisit it with live
+ * HA measurements at masonry widths.
+ */
+export const VIEW_SWITCH_HYSTERESIS_PX = 32;
+
+/**
+ * Parses a CSS pixel length into a number.
+ *
+ * Returns `fallback` for anything that is not a plain pixel value, because the
+ * threshold arithmetic cannot be performed on `em`, `%` or `calc()`. A user who
+ * writes one of those gets the default spacing in the calculation rather than a
+ * `NaN` threshold that would disable the view entirely.
+ *
+ * @param value - CSS length, e.g. `"10px"`
+ * @param fallback - Value to use when `value` is not a plain pixel length
+ * @returns The parsed pixel count
+ */
+function parsePx(value: string, fallback: number): number {
+  const match = /^(-?\d+(?:\.\d+)?)px$/.exec(value.trim());
+  return match ? Number.parseFloat(match[1]) : fallback;
+}
+
+/**
+ * Computes the card width, in pixels, at or above which column view can render.
+ *
+ * ```
+ * min_day_column_width_px x days_to_show + card padding + (days_to_show - 1) x gutter
+ * ```
+ *
+ * This is A3-C's formula verbatim. Every term is required: dropping the padding term
+ * is what made an earlier iteration compute 500px for a layout that needs 524px.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns Minimum card width in pixels for the configured number of columns
+ */
+export function computeColumnThresholdPx(config: Types.Config): number {
+  const days = Math.max(1, Math.floor(config.days_to_show));
+  const gutter = parsePx(resolveColumnOption(config, 'day_gap'), 10);
+
+  return config.min_day_column_width_px * days + COLUMN_CARD_PADDING_PX + (days - 1) * gutter;
+}
+
+/**
+ * Resolves which view the card actually renders.
+ *
+ * The distinction this function exists to make (G10):
+ *
+ * - **`requestedView`** is what the user configured.
+ * - **`effectiveView`** is what is rendered after the width fallback.
+ *
+ * Everything downstream — option resolution, grouping, compaction, rendering — takes
+ * `effectiveView`. Nothing reads `config.view` directly, because below the threshold
+ * that value still says `column` while the card renders a list, and every per-view
+ * resolution would then resolve for the wrong view.
+ *
+ * The fallback is **wholesale**: below the threshold the card renders list view with
+ * every configured day. It never renders column view with fewer columns than asked
+ * for (A3-C, and decisions 11+12).
+ *
+ * @param requestedView - The configured view
+ * @param measuredWidthPx - Measured card width, or `null` before first measurement
+ * @param thresholdPx - Result of `computeColumnThresholdPx`
+ * @param previousEffectiveView - Last resolved view, for hysteresis; `null` initially
+ * @returns The view to render
+ */
+export function resolveEffectiveView(
+  requestedView: Types.EffectiveView,
+  measuredWidthPx: number | null,
+  thresholdPx: number,
+  previousEffectiveView: Types.EffectiveView | null = null,
+): Types.EffectiveView {
+  // List view has no width requirement, so there is nothing to fall back to.
+  if (requestedView !== 'column') {
+    return requestedView;
+  }
+
+  // Before the first measurement, honour the request. Rendering list first and
+  // switching would flash the wrong layout on every load; a column view that is
+  // momentarily too narrow self-corrects on the first resize callback.
+  if (measuredWidthPx === null || measuredWidthPx <= 0) {
+    return 'column';
+  }
+
+  // Schmitt trigger: leaving column view requires dropping a further
+  // VIEW_SWITCH_HYSTERESIS_PX below the threshold that entering it required.
+  const effectiveThreshold =
+    previousEffectiveView === 'column' ? thresholdPx - VIEW_SWITCH_HYSTERESIS_PX : thresholdPx;
+
+  return measuredWidthPx >= effectiveThreshold ? 'column' : 'list';
 }

@@ -125,6 +125,36 @@ export function isWeekendDate(date: Date): boolean {
   return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
 }
 
+/**
+ * Classify a day's start-of-day timestamp as today and/or tomorrow.
+ *
+ * Both views need this and both computed it independently — `renderDay` inline, the
+ * column renderer in its own local helper — which is exactly the duplication
+ * `isWeekendDate` above was extracted to end, one field over. Kept here so a change to
+ * what "today" means (a timezone fix, say) reaches both views in a single edit rather
+ * than being applied to whichever one the author happened to be reading.
+ *
+ * Deliberately compares `toDateString()` rather than timestamps: the day boundary is a
+ * *calendar* boundary in the browser's local zone, and comparing numbers would make it
+ * a UTC one.
+ *
+ * @param timestamp Start-of-day timestamp for the day
+ * @returns Whether the day is today, and whether it is tomorrow
+ */
+export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: boolean } {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayDateString = new Date(timestamp).toDateString();
+
+  const tomorrowStart = new Date(todayStart);
+  tomorrowStart.setDate(tomorrowStart.getDate() + 1);
+
+  return {
+    isToday: dayDateString === todayStart.toDateString(),
+    isTomorrow: dayDateString === tomorrowStart.toDateString(),
+  };
+}
+
 //-----------------------------------------------------------------------------
 // DATE LEAVES
 //-----------------------------------------------------------------------------

@@ -147,7 +147,21 @@ export const DEFAULT_CONFIG: Types.Config = {
   refresh_on_navigate: true,
 
   // Column view
-  min_day_column_width_px: 160,
+  //
+  // 152, not the 160 the G13 spike reported. G13 measured the floor a column can
+  // survive at, but computed the fit as `160 x 3 + 20 = 500` against a measured
+  // 500px HA section — arithmetic with no room for the card's own horizontal
+  // padding, which is real and measured at 24px (styles.ts, 16px right + 8px
+  // left). Including it, the default config needs 524px to clear a 500px section,
+  // so column view would never activate at defaults on the most common desktop
+  // layout. Column view trims its own padding to a symmetric 8px (16px total),
+  // and the floor drops to 152, giving `152 x 3 + 16 + 2 x 10 = 492px` — 8px of
+  // headroom for sub-pixel rounding. 152 is 5% under the surviving 160 and far
+  // above the 128 that G13 disproved.
+  //
+  // Do not "restore" this to 160 on the strength of the G13 number alone: that
+  // reintroduces a 24px deficit and silently disables the feature at defaults.
+  min_day_column_width_px: 152,
   column: undefined,
 };
 

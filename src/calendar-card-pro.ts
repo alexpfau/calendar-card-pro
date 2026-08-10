@@ -174,6 +174,21 @@ class CalendarCardPro extends LitElement {
   private _holdTimer: number | null = null;
   private _holdIndicator: HTMLElement | null = null;
 
+  /**
+   * Card width in CSS pixels, as most recently measured.
+   *
+   * `null` until the first `ResizeObserver` callback. That distinction matters:
+   * a width of `null` means "not measured yet", which `resolveEffectiveView`
+   * treats as "render what was asked for", so a column card does not flash a list
+   * layout for one frame on load.
+   */
+  private _measuredWidthPx: number | null = null;
+
+  /** The view actually rendered, after any width fallback. */
+  private _effectiveView: Types.EffectiveView = 'list';
+
+  private _resizeObserver: ResizeObserver | null = null;
+
   //-----------------------------------------------------------------------------
   // COMPUTED GETTERS
   //-----------------------------------------------------------------------------
@@ -197,6 +212,10 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Get events grouped by day
+   *
+   * Recomputed on every access, which is what makes a view switch free: crossing the
+   * width threshold regroups from already-fetched events with no cache invalidation
+   * and, critically, no refetch (spec E-3).
    */
   get groupedEvents(): Types.EventsByDay[] {
     return EventUtils.groupEventsByDay(
@@ -204,7 +223,36 @@ class CalendarCardPro extends LitElement {
       this.config,
       this.isExpanded,
       this.effectiveLanguage,
+      this.effectiveView,
     );
+  }
+
+  /**
+   * The view the user asked for, before any width-based fallback.
+   *
+   * Distinct from `effectiveView` throughout, per spec G10: this one is what the
+   * config says, that one is what renders. Nothing downstream may read
+   * `config.view` directly — every resolver takes the effective view explicitly,
+   * so a resolver that takes no view argument is a bug catchable by inspection.
+   */
+  get requestedView(): Types.EffectiveView {
+    return this.config.view;
+  }
+
+  /**
+   * The view that will actually render.
+   *
+   * In the card editor's preview this deliberately returns the *requested* view.
+   * The edit modal is about 480px wide, narrower than any realistic column
+   * threshold, so a measured fallback there would show every user configuring a
+   * column card a list preview — the one place the answer is actively unhelpful.
+   */
+  get effectiveView(): Types.EffectiveView {
+    if (this.preview || this.editMode) {
+      return this.requestedView;
+    }
+
+    return this._effectiveView;
   }
 
   /**
@@ -266,6 +314,16 @@ class CalendarCardPro extends LitElement {
       return cache.count;
     }
 
+    // Deliberately not passed an `effectiveView`, so this always groups the list way.
+    //
+    // The only per-view option `groupEventsByDay` resolves is `show_empty_days`, and
+    // that can only add or remove days whose events are all `_isEmptyDay` — which the
+    // reduce below filters out regardless. So the count of *real* events is the same
+    // in either view, and keying the cache on the view would be dead weight.
+    //
+    // If a second per-view option ever reaches `groupEventsByDay`, re-check this: the
+    // fix is to thread `this.effectiveView` here *and* add it to the cache key, since
+    // the cache below keys only on events/config/language.
     const count = this.events.length
       ? EventUtils.groupEventsByDay(this.events, this.config, true, language).reduce(
           (total, day) => total + day.events.filter((event) => !event._isEmptyDay).length,
@@ -314,10 +372,17 @@ class CalendarCardPro extends LitElement {
 
     // Set up visibility listener
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
+
+    // Start measuring the card's own width, so a column view can fall back to a
+    // list when it is too narrow to be legible
+    this._startWidthObserver();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+
+    // Stop measuring width
+    this._stopWidthObserver();
 
     // Invalidate any in-flight or pending weather subscription setup
     this._weatherSetupVersion++;
@@ -355,6 +420,74 @@ class CalendarCardPro extends LitElement {
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
     Logger.debug('Component disconnected');
+  }
+
+  //-----------------------------------------------------------------------------
+  // WIDTH MEASUREMENT
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Begins observing the card's own width.
+   *
+   * The card measures itself rather than the viewport, because Home Assistant's
+   * masonry and sections layouts both place cards in columns whose width bears no
+   * fixed relationship to the window. A media query would give the wrong answer
+   * for a card in a two-column section on a wide screen.
+   *
+   * `ResizeObserver` is available in every browser Home Assistant supports, but
+   * the guard keeps the card renderable under a test DOM that lacks it.
+   */
+  private _startWidthObserver(): void {
+    if (this._resizeObserver || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    this._resizeObserver = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect?.width;
+
+      if (typeof width === 'number' && width > 0) {
+        this._handleWidthMeasured(width);
+      }
+    });
+
+    this._resizeObserver.observe(this);
+  }
+
+  private _stopWidthObserver(): void {
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = null;
+  }
+
+  /**
+   * Records a new width and re-renders if it changes which view applies.
+   *
+   * Deliberately does **not** refetch. Crossing the threshold changes only how
+   * already-fetched events are laid out; the fetch window is derived from
+   * `days_to_show`, which is a fetch-time option and cannot be overridden per
+   * view. Spec E makes "no fetch on a view transition" an acceptance criterion.
+   *
+   * @param widthPx - Measured content width in CSS pixels
+   */
+  private _handleWidthMeasured(widthPx: number): void {
+    this._measuredWidthPx = widthPx;
+
+    const nextView = ViewConfig.resolveEffectiveView(
+      this.requestedView,
+      widthPx,
+      ViewConfig.computeColumnThresholdPx(this.config),
+      this._effectiveView,
+    );
+
+    if (nextView === this._effectiveView) {
+      return;
+    }
+
+    Logger.debug(
+      `View changed from ${this._effectiveView} to ${nextView} at ${Math.round(widthPx)}px`,
+    );
+
+    this._effectiveView = nextView;
+    this.requestUpdate();
   }
 
   updated(changedProps: PropertyValues) {
@@ -728,6 +861,17 @@ class CalendarCardPro extends LitElement {
     Config.normalizeNumericOptions(this.config);
     ViewConfig.validateColumnOverrides(this.config);
 
+    // Seed the effective view from the request. Until the first measurement lands
+    // there is nothing to fall back on, and rendering the requested view avoids a
+    // one-frame flash of the wrong layout. If the card really is too narrow, the
+    // first ResizeObserver callback corrects it before paint.
+    this._effectiveView = ViewConfig.resolveEffectiveView(
+      this.config.view,
+      this._measuredWidthPx,
+      ViewConfig.computeColumnThresholdPx(this.config),
+      null,
+    );
+
     // Generate deterministic ID for caching
     this._instanceId = Helpers.generateDeterministicId(
       this.config.entities,
@@ -898,6 +1042,25 @@ class CalendarCardPro extends LitElement {
     // Determine card content based on state
     let content: TemplateResult;
 
+    // Both event-bearing branches below dispatch through this, so the two renderers
+    // can never drift apart by one call site being updated and the other missed.
+    const renderDays = (days: Types.EventsByDay[]): TemplateResult =>
+      this.effectiveView === 'column'
+        ? Render.renderColumnGroupedEvents(
+            days,
+            this.config,
+            this.effectiveLanguage,
+            this.weatherForecasts,
+            this.safeHass,
+          )
+        : Render.renderGroupedEvents(
+            days,
+            this.config,
+            this.effectiveLanguage,
+            this.weatherForecasts,
+            this.safeHass,
+          );
+
     if (this.isInitialLoad) {
       // Initial load — no data yet, show minimal loading screen
       content = Render.renderCardContent('loading', this.effectiveLanguage);
@@ -918,23 +1081,11 @@ class CalendarCardPro extends LitElement {
         this.config,
         this.isExpanded,
         this.effectiveLanguage,
+        this.effectiveView,
       );
-      content = Render.renderGroupedEvents(
-        groupedEmptyDays,
-        this.config,
-        this.effectiveLanguage,
-        this.weatherForecasts,
-        this.safeHass,
-      );
+      content = renderDays(groupedEmptyDays);
     } else {
-      // Normal state with events - use renderGroupedEvents to handle week numbers and separators
-      content = Render.renderGroupedEvents(
-        this.groupedEvents,
-        this.config,
-        this.effectiveLanguage,
-        this.weatherForecasts,
-        this.safeHass,
-      );
+      content = renderDays(this.groupedEvents);
     }
 
     // Render main card structure with content
@@ -946,6 +1097,7 @@ class CalendarCardPro extends LitElement {
       false,
       this.isLoading,
       this.isTitlePending,
+      this.effectiveView,
     );
   }
 }
