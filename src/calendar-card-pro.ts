@@ -974,4 +974,7 @@ window.customCards.push({
   preview: true,
   description: 'A calendar card that supports multiple calendars with individual styling.',
   documentationURL: 'https://github.com/alexpfau/calendar-card-pro',
+  // Offer this card in the picker's community suggestions for calendar entities.
+  // Ignored by Home Assistant versions older than 2026.6.
+  getEntitySuggestion: Config.getEntitySuggestion,
 });

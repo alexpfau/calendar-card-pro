@@ -377,17 +377,116 @@ export function findCalendarEntity(hass: Record<string, { state: string }>): str
 }
 
 /**
+ * Grid layout hint attached to the card picker suggestion.
+ *
+ * Full width, because this card is a text-heavy list: every row carries a date,
+ * a title, a time and optionally a location. A section has a capped maximum
+ * width, so half of one lands around 230-250px on any screen, and below roughly
+ * 250px those fields wrap aggressively - a long location can spill over several
+ * lines. That makes the card harder to read *and* taller than the full-width
+ * equivalent showing the same events, so half width costs horizontal space
+ * without buying anything back.
+ *
+ * The row count is deliberately left to the content. A numeric `rows` pins the
+ * card to a fixed height rather than a minimum, and this card's height is not
+ * knowable at suggestion time: `days_to_show` says nothing about how many events
+ * fall in those days. A fixed height would leave dead space on a quiet calendar
+ * and silently truncate a busy one. `'auto'` avoids both.
+ *
+ * These values match what Home Assistant assigns a card that declares no grid
+ * options of its own. They are stated explicitly rather than left out so the
+ * intent is legible at the call site, and so a future change to that platform
+ * default cannot quietly move the suggestion with it.
+ */
+const SUGGESTION_GRID_OPTIONS = {
+  columns: 12,
+  rows: 'auto',
+};
+
+/**
+ * Build the opinionated starting configuration for a set of calendar entities.
+ *
+ * Shared by the card picker preview (`getStubConfig`) and the entity suggestion so
+ * the two recipes cannot drift apart. Entities are emitted in the simplest valid
+ * form — a plain array of entity IDs — rather than the object form used for
+ * per-calendar styling.
+ *
+ * The `-dev` suffix on the element name is intentional and must stay a plain
+ * string literal: the build rewrites that exact literal to the production element
+ * name, so a computed or pre-stripped name would break one of the two bundles.
+ *
+ * @param entities - Calendar entity IDs to pre-fill
+ * @returns A ready-to-use card configuration
+ */
+function buildDefaultCardConfig(entities: ReadonlyArray<string>): Record<string, unknown> {
+  return {
+    type: 'custom:calendar-card-pro-dev',
+    entities: [...entities],
+    days_to_show: 3,
+    show_location: true,
+  };
+}
+
+/**
  * Generate a stub configuration for the card editor
  */
 export function getStubConfig(hass: Record<string, { state: string }>): Record<string, unknown> {
   const calendarEntity = findCalendarEntity(hass);
   return {
-    type: 'custom:calendar-card-pro-dev',
-    entities: calendarEntity ? [calendarEntity] : [],
-    days_to_show: 3,
-    show_location: true,
+    ...buildDefaultCardConfig(calendarEntity ? [calendarEntity] : []),
     _description: !calendarEntity
       ? 'A calendar card that displays events from multiple calendars with individual styling. Add a calendar integration to Home Assistant to use this card.'
       : undefined,
   };
+}
+
+/**
+ * Offer this card for an entity picked in the Home Assistant card picker.
+ *
+ * Home Assistant (2026.6+) calls this synchronously for every entity a user
+ * selects, and discards the entire community suggestion list — including entries
+ * contributed by other custom cards — if any implementation throws. The body is
+ * therefore deliberately trivial and total: every input is treated as untrusted,
+ * nothing is assumed about the shape of `hass`, and anything unexpected returns
+ * `null` (never an empty array).
+ *
+ * The domain check is the whole filter. A calendar entity carries no capability
+ * signal worth testing: there is no meaningful device class, no relevant
+ * `supported_features`, and its state only reports whether an event is currently
+ * running, which says nothing about whether this card suits it.
+ *
+ * Exactly one suggestion is returned, unlabelled. The picker mounts every returned
+ * suggestion as a live card without virtualization, and every live instance of
+ * this card fetches calendar events on setup, so each extra variant would cost a
+ * real calendar API request every time anyone picks a calendar entity.
+ *
+ * @param hass - Home Assistant instance, treated as possibly absent or malformed
+ * @param entityId - Entity ID selected in the card picker
+ * @returns A single-entry suggestion list, or `null` when nothing should be offered
+ */
+export function getEntitySuggestion(
+  hass: Types.Hass | null | undefined,
+  entityId: string,
+): Types.EntitySuggestion[] | null {
+  if (typeof entityId !== 'string' || entityId.split('.')[0] !== 'calendar') {
+    return null;
+  }
+
+  if (!hass || typeof hass !== 'object') {
+    return null;
+  }
+
+  const states = hass.states;
+  if (!states || typeof states !== 'object' || !states[entityId]) {
+    return null;
+  }
+
+  return [
+    {
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+  ];
 }
