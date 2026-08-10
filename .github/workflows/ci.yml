@@ -39,6 +39,15 @@ jobs:
       - name: Check i18n integrity
         run: npm run check:i18n
 
+      # The card renders a red error box rather than degrading when setConfig throws,
+      # and the surrounding logic normalizes untyped YAML — so a value that merely
+      # coerces oddly (an editor-cleared field persisting as '', a bare `-` parsing as
+      # null) reaches a comparison and silently suppresses events, days, or the whole
+      # card. Neither tsc nor the build can see past the type boundary at setConfig.
+      # Runs before the build: a failing assertion is faster to read than a bundle.
+      - name: Test
+        run: npm test
+
       - name: Build
         run: npm run build
 
