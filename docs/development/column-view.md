@@ -743,6 +743,13 @@ present only in `en.json`; and `time_grid_interval_minutes` being a zoom control
 
 > **Verified against `origin/dev` @ `29b8226`.** All `src/` citations in D1, D2, D3 and D5 are
 > `dev` citations. D4 uses frozen-branch citations where marked.
+>
+> **[v9] Caveat — that verification predates Phases 1, 2 and 2b, which moved code.** Citations
+> in D1 and D2 were re-verified against the Phase 4a branch and corrected; several renderers
+> named here now live in `leaves.ts`, not `render.ts` (`renderDateContent` `leaves.ts:129`,
+> `renderDateWeather` `:54`, `parseIndicatorPosition` `:475`, `renderTodayIndicator` `:508`).
+> **Re-verify any citation in D3, D4 or D5 before acting on it** — those have not been
+> re-checked, and a line number in this document is evidence of intent, never of location.
 
 ### D1. Element mapping
 
@@ -762,11 +769,12 @@ present only in `en.json`; and `time_grid_interval_minutes` being a zoom control
 | Event content             | `.event-content`            | **byte-identical**                           | all                                  |
 | `date_vertical_alignment` | positions date in tall cell | **ignored**                                  | —                                    |
 
-Separators are not axis-swappable. Existing list paths are a day separator `<div>` with
-`borderTop*` (`render.ts:676`, `styles.ts:262-265`), a week separator border-top renderer when
-`show_week_numbers === null` (`render.ts:222-245`), or a full
-`<table class="week-row-table">` when `show_week_numbers !== null` (`render.ts:246-312`, table
-at `:289`; `styles.ts:195-261`). Column re-implements these as vertical rules.
+Separators are not axis-swappable. Existing list paths are a day separator emitted by
+`renderHorizontalSeparator` (`render.ts:178-201`, called from `renderDay` at `:388-389`;
+`styles.ts:262-265`), a week separator through the same helper when `show_week_numbers === null`
+(`renderWeekSeparator`, `render.ts:220-243`), or a full `<table class="week-row-table">` when
+`show_week_numbers !== null` (`renderWeekRow`, `render.ts:244-308`, table at `:287`;
+`styles.ts:195-261`). Column re-implements these as vertical rules.
 
 Spacing multipliers are dropped in column MVP. `createSeparatorStyle` (`render.ts:131-179`)
 derives margins from `day_spacing × multiplier`; `SEPARATOR_SPACING` is week `1×`, month
@@ -778,20 +786,46 @@ no-op and only affects users who opted into those separators.
 
 ### D2. Header
 
-Build a horizontal variant of `renderDateColumn` (`render.ts:490-611`). Preserve DOM classes,
-custom properties, and colour precedence: base → weekend → today (`render.ts:497-516`).
+> **[v9] Citation corrected — and the work is smaller than this section originally claimed.**
+> D2 was written against pre-Phase-1 `dev`, where `renderDateColumn` was a 121-line function at
+> `render.ts:490-611` that rendered the date parts and weather inline. **Phase 1 already
+> extracted it.** On the current branch `renderDateColumn` is a four-line composition
+> (`render.ts:323-334`) over two leaves that are **already axis-agnostic**:
+> `Leaves.renderDateContent` (`leaves.ts:129-199`) and `Leaves.renderDateWeather`
+> (`leaves.ts:54`). `renderDateContent`'s own docstring states the intent verbatim: weather is
+> passed in "so a container can position the badge independently — the column view puts it in
+> the day header, the list view stacks it under the month."
+>
+> **So Phase 4b must not build a horizontal variant of anything.** It calls
+> `Leaves.renderDateContent` from a horizontal container and supplies different CSS. The
+> weekday / day / month `<div>`s, the colour precedence chain, and the translation lookups are
+> shared verbatim — which is what makes D1's "preserve DOM classes" free rather than a
+> discipline to enforce by review.
+
+Render the header by calling `Leaves.renderDateContent` (`leaves.ts:129-199`) from a horizontal
+container. It already owns the colour precedence chain base → weekend → today
+(`leaves.ts:136-155`) and emits `.weekday` / `.day` / `.month` divs unchanged, so no DOM or
+colour logic is duplicated.
+
+The axis lives entirely in CSS. `.date-content` is `display: flex; flex-direction: column`
+(`styles.ts:324-329`); the column header needs the row equivalent. `.date-column`
+(`styles.ts:310-322`) is list-only — it is a fixed-width table cell — and is **not** reused.
 
 Today highlighting needs no new keys: `today_weekday_color`, `today_day_color`, and
-`today_month_color` already exist with top precedence. `parseIndicatorPosition`
-(`render.ts:358-382`) emits absolute positioning plus percentages and
+`today_month_color` already exist with top precedence. `Leaves.parseIndicatorPosition` (`leaves.ts:475`, consumed by `Leaves.renderTodayIndicator`
+`leaves.ts:508`) emits absolute positioning plus percentages and
 `translate(-50%,-50%)` inside a relative container, so it transfers mechanically to the header
 band. Document that positions such as `15% 50%` resolve visually differently in a short wide
 band.
 
-Weather is single-line-or-hide. At the provisional 160px minimum, "Mon 13 Nov" at the existing
-font sizes consumes most of the column; weather (`render.ts:526-575`) adds icon + temperature.
-If it wraps, every column pays a second header line. Choose truncate-or-drop in Phase 4 and
-document the fixed header vertical budget.
+**[v9, ruled by the maintainer] Weather truncates; it is never dropped.** At the 160px minimum,
+G13 measured date + weather on one line at roughly 157px — it fits, with nothing to spare. When
+it does not fit, the temperature text elides rather than the badge disappearing, and the header
+stays one line high. Dropping it instead would have let the floor fall to ~130px, but a user who
+configured weather would sometimes not see it with no explanation — the same silent
+config/render divergence G14 rejected for columns. `min_day_column_width_px` therefore stays at
+**160**. Weather is rendered by `Leaves.renderDateWeather` (`leaves.ts:54`), which the header
+container positions itself; document the fixed header vertical budget as one line.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#d2-header)
 
