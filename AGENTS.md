@@ -149,6 +149,13 @@ quick-start example. Links from the README into the docs site must be **absolute
 (`https://calendar-card-pro.alexpfau.com/...`) — the README also renders on GitHub and in
 HACS, where relative docs paths do not resolve.
 
+The README's quick-start YAML block is the one **deliberate** duplicate in the project: it
+is the HACS landing page, so it has to show a working config without sending the reader
+elsewhere first. `check:docs` pins it byte-for-byte to the first example in
+`docs/guide/usage.md`. Do not resolve that failure by deleting either copy — edit both.
+Anything that *teaches* (multiple calendars, per-calendar colours, compact mode) belongs
+only in `docs/`, never in the README.
+
 **Do not touch the `## 4️⃣ What's New` section** in a feature PR. It is organised by
 release, so a feature branch cannot know which version it will land in, and concurrent
 branches conflict in it.
