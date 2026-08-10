@@ -11,6 +11,7 @@ import * as FormatUtils from './format';
 import * as Logger from './logger';
 import * as Constants from '../config/constants';
 import * as Helpers from './helpers';
+import { parseStartDateExpression } from './start-date';
 
 //-----------------------------------------------------------------------------
 // HIGH-LEVEL API FUNCTIONS
@@ -31,7 +32,7 @@ export async function fetchEventData(
   config: Types.Config,
   instanceId: string,
   force = false,
-): Promise<Types.CalendarEventData[]> {
+): Promise<Types.EventFetchResult> {
   // Generate cache key based on configuration
   const cacheKey = getBaseCacheKey(
     instanceId,
@@ -48,7 +49,7 @@ export async function fetchEventData(
     const cachedEvents = getCachedEvents(cacheKey, config, isManualPageReload);
     if (cachedEvents) {
       Logger.info(`Using ${cachedEvents.length} events from cache`);
-      return [...cachedEvents];
+      return { events: [...cachedEvents], failedEntities: [] };
     }
   }
 
@@ -58,14 +59,17 @@ export async function fetchEventData(
     typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
   );
 
-  const timeWindow = getTimeWindow(config.days_to_show, config.start_date);
-  const fetchedEvents = await fetchEvents(hass, entities, timeWindow);
+  const language = Localize.getEffectiveLanguage(config.language, hass.locale);
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language);
+
+  const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
+  const { events: fetchedEvents, failedEntities } = await fetchEvents(hass, entities, timeWindow);
 
   // Process events according to configuration rules
   let processedEvents = processEvents(fetchedEvents, config);
 
   // Additional check to enforce days_to_show as a hard limit from reference date
-  const referenceDate = getStartDateReference(config);
+  const referenceDate = getStartDateReference(config, firstDayOfWeek);
   const limitDate = new Date(referenceDate);
   limitDate.setDate(limitDate.getDate() + config.days_to_show);
 
@@ -90,6 +94,14 @@ export async function fetchEventData(
   // Cache and return the processed results
   if (processedEvents.length > 0) {
     cacheEvents(cacheKey, processedEvents);
+  } else if (failedEntities.length > 0) {
+    // Every event we might have had could be sitting behind a failed request.
+    // Caching this empty result would make a transient outage look like a
+    // genuinely empty calendar for the whole TTL, so leave the cache alone and
+    // let the next refresh retry the API.
+    Logger.warn(
+      `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
+    );
   } else {
     const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
     Logger.info(
@@ -98,7 +110,7 @@ export async function fetchEventData(
     cacheEvents(cacheKey, processedEvents, emptyTtlMs);
   }
 
-  return processedEvents;
+  return { events: processedEvents, failedEntities };
 }
 
 /**
@@ -117,7 +129,10 @@ export function groupEventsByDay(
   language: string,
 ): Types.EventsByDay[] {
   // Use reference date from configuration instead of hardcoded "today"
-  const referenceDate = getStartDateReference(config);
+  const referenceDate = getStartDateReference(
+    config,
+    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language),
+  );
   const referenceStart = new Date(referenceDate);
   const referenceEnd = new Date(referenceStart);
   referenceEnd.setHours(23, 59, 59, 999);
@@ -253,6 +268,7 @@ export function groupEventsByDay(
         _entityLabel: getEntityLabel(event._entityId, config, event),
         _matchedConfig: event._matchedConfig,
         _isEmptyDay: event._isEmptyDay,
+        _isCustomEmptyText: event._isCustomEmptyText,
       });
     });
   }
@@ -472,6 +488,20 @@ export function groupEventsByDay(
   if (config.show_empty_days || days.length === 0) {
     const translations = Localize.getTranslations(language);
 
+    // Pick the placeholder text for every empty day the card renders.
+    //
+    // One option covers every empty state, because they are all the same thing
+    // underneath: a day row carrying an `_isEmptyDay` placeholder. That holds
+    // whether the placeholders fill gaps between event days, span the whole
+    // range because nothing is scheduled, or collapse to the single reference
+    // date row when `show_empty_days` is off (see the range logic below).
+    //
+    // Falls back to the translated default, so no new translation key is needed
+    // in any of the language files.
+    const customEmptyText = config.empty_day_text;
+    const hasCustomEmptyText = Boolean(customEmptyText);
+    const emptyDayText = customEmptyText || translations.noEvents;
+
     // Always start from the configured reference date
     const startDateForEmptyDays = new Date(referenceDate);
 
@@ -549,11 +579,12 @@ export function groupEventsByDay(
           timestamp: currentDate.getTime(),
           events: [
             {
-              summary: translations.noEvents,
+              summary: emptyDayText,
               start: { date: dateKey },
               end: { date: dateKey },
               _entityId: '_empty_day_',
               _isEmptyDay: true,
+              _isCustomEmptyText: hasCustomEmptyText,
               location: '',
             },
           ],
@@ -1104,14 +1135,21 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
 
 /**
  * Fetch calendar events from Home Assistant API
+ *
+ * A failure on one entity is logged and skipped rather than aborting the whole
+ * fetch, so a single broken calendar cannot blank out the others. The entity
+ * IDs that failed are returned alongside the events so callers can distinguish
+ * "this calendar is empty" from "this calendar could not be read".
+ *
  * @private Internal utility used by fetchEventData
  */
 export async function fetchEvents(
   hass: Types.Hass,
   entities: Array<Types.EntityConfig>,
   timeWindow: { start: Date; end: Date },
-): Promise<ReadonlyArray<Types.CalendarEventData>> {
+): Promise<Types.EventFetchResult> {
   const allEvents: Types.CalendarEventData[] = [];
+  const failedEntities: string[] = [];
 
   // Create a Set to track which entity IDs we've already fetched
   const fetchedEntityIds = new Set<string>();
@@ -1130,6 +1168,7 @@ export async function fetchEvents(
 
       if (!events || !Array.isArray(events)) {
         Logger.warn(`Invalid response for ${entityConfig.entity}`);
+        failedEntities.push(entityConfig.entity);
         continue;
       }
 
@@ -1146,6 +1185,7 @@ export async function fetchEvents(
       fetchedEntityIds.add(entityConfig.entity);
     } catch (error) {
       Logger.error(`Failed to fetch events for ${entityConfig.entity}:`, error);
+      failedEntities.push(entityConfig.entity);
 
       try {
         Logger.info(
@@ -1158,79 +1198,65 @@ export async function fetchEvents(
     }
   }
 
-  return allEvents;
-}
-
-/**
- * Parse a relative date string like "today+7" or "today-3"
- * Returns a Date object for the specified offset from today
- *
- * @param relativeDate - String in format "today+n" or "today-n" where n is number of days
- * @returns Date object or null if invalid format
- */
-function parseRelativeDate(relativeDate: string): Date | null {
-  // Check for simplified format: +7 or -3 (without "today" prefix)
-  const simplifiedMatch = relativeDate.match(/^([+-])(\d+)$/);
-  if (simplifiedMatch) {
-    const sign = simplifiedMatch[1] === '+' ? 1 : -1;
-    const days = parseInt(simplifiedMatch[2], 10);
-
-    if (!isNaN(days)) {
-      const date = new Date();
-      date.setHours(0, 0, 0, 0); // Normalize to start of day
-      date.setDate(date.getDate() + sign * days);
-      return date;
-    }
-    return null;
-  }
-
-  // Check for standard format: today+7 or today-3
-  const match = relativeDate.match(/^today([+-])(\d+)$/i);
-  if (!match) return null;
-
-  const sign = match[1] === '+' ? 1 : -1;
-  const days = parseInt(match[2], 10);
-
-  if (isNaN(days)) return null;
-
-  const date = new Date();
-  date.setHours(0, 0, 0, 0); // Normalize to start of day
-  date.setDate(date.getDate() + sign * days);
-  return date;
+  return { events: allEvents, failedEntities };
 }
 
 /**
  * Calculate time window for event fetching
  *
  * @param daysToShow - Number of days to show in the calendar
- * @param startDate - Optional start date in YYYY-MM-DD format, ISO format, or relative format "today+n"
+ * @param startDate - Optional start date: a relative expression (`today+7`,
+ *   `start_of_week`, `monday+1w`, …), an ISO string, or `YYYY-MM-DD`
+ * @param firstDayOfWeek - Resolved first day of week (0 = Sunday, 1 = Monday),
+ *   required by week-relative expressions such as `start_of_week`
  * @returns Object containing start and end dates for the calendar window
  */
-export function getTimeWindow(daysToShow: number, startDate?: string): { start: Date; end: Date } {
+export function getTimeWindow(
+  daysToShow: number,
+  startDate: string | undefined,
+  firstDayOfWeek: number,
+): { start: Date; end: Date } {
   let start: Date;
 
+  const today = (): Date => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  };
+
+  // YAML turns an unquoted `start_date: +7` into the number 7, so coerce before
+  // doing any string work rather than throwing into the catch below.
+  const rawStartDate = startDate === undefined || startDate === null ? '' : String(startDate);
+
   // Parse custom start date if provided
-  if (startDate && startDate.trim() !== '') {
+  if (rawStartDate.trim() !== '') {
     try {
-      // First try to parse as relative date (today+n or today-n)
-      const relativeDate = parseRelativeDate(startDate.trim());
-      if (relativeDate) {
-        start = relativeDate;
+      const trimmed = rawStartDate.trim();
+
+      // First try the relative expression grammar (today+n, start_of_week, monday, …)
+      const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, new Date());
+
+      if (parsed.kind === 'ok') {
+        start = parsed.date;
+        Logger.info(`Resolved start_date "${trimmed}" to ${FormatUtils.getLocalDateKey(start)}`);
+      } else if (parsed.kind === 'error') {
+        // Recognised as our grammar but malformed — report precisely instead of
+        // letting it fall through and be mislabelled as a bad YYYY-MM-DD date.
+        Logger.warn(`Invalid start_date "${trimmed}": ${parsed.message}. Falling back to today.`);
+        start = today();
       }
       // Check if it's an ISO date string (which HA converts to when saving)
-      else if (startDate.includes('T')) {
+      else if (trimmed.includes('T')) {
         // Handle ISO format (e.g. "2025-03-14T00:00:00.000Z")
-        start = new Date(startDate);
+        start = new Date(trimmed);
 
         // Check if valid date
         if (isNaN(start.getTime())) {
-          Logger.warn(`Invalid ISO date: ${startDate}, falling back to today`);
-          start = new Date();
-          start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+          Logger.warn(`Invalid ISO date: ${trimmed}, falling back to today`);
+          start = today();
         }
       } else {
         // Handle YYYY-MM-DD format
-        const [year, month, day] = startDate.split('-').map(Number);
+        const [year, month, day] = trimmed.split('-').map(Number);
 
         // Validate date components (month is 1-indexed in input, but 0-indexed in Date constructor)
         if (year && month && day && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
@@ -1238,25 +1264,21 @@ export function getTimeWindow(daysToShow: number, startDate?: string): { start: 
 
           // Double-check if date is valid (e.g., not Feb 30)
           if (isNaN(start.getTime())) {
-            Logger.warn(`Invalid date: ${startDate}, falling back to today`);
-            start = new Date();
-            start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+            Logger.warn(`Invalid date: ${trimmed}, falling back to today`);
+            start = today();
           }
         } else {
-          Logger.warn(`Malformed date: ${startDate}, falling back to today`);
-          start = new Date();
-          start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+          Logger.warn(`Malformed date: ${trimmed}, falling back to today`);
+          start = today();
         }
       }
     } catch (error) {
-      Logger.warn(`Error parsing date: ${startDate}, falling back to today`, error);
-      start = new Date();
-      start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+      Logger.warn(`Error parsing date: ${rawStartDate}, falling back to today`, error);
+      start = today();
     }
   } else {
     // Default to today if no valid start date provided
-    start = new Date();
-    start = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    start = today();
   }
 
   // Make sure time is set to 00:00:00
@@ -1485,13 +1507,14 @@ export function getCacheDuration(config?: Types.Config): number {
  * Used for both empty days generation and time window calculations
  *
  * @param config - Card configuration with optional start_date
+ * @param firstDayOfWeek - Resolved first day of week (0 = Sunday, 1 = Monday)
  * @returns Date object representing the starting reference date
  */
-function getStartDateReference(config: Types.Config): Date {
+function getStartDateReference(config: Types.Config, firstDayOfWeek: number): Date {
   // If start_date is configured, use it
-  if (config.start_date && config.start_date.trim() !== '') {
+  if (config.start_date && String(config.start_date).trim() !== '') {
     // Reuse existing getTimeWindow function which already has date parsing logic
-    const timeWindow = getTimeWindow(config.days_to_show, config.start_date);
+    const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
     return timeWindow.start;
   }
 

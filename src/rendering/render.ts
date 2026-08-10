@@ -32,6 +32,8 @@ import * as Weather from '../utils/weather';
  * @param content Main card content (events or status)
  * @param handlers Event handler functions
  * @param maxHeightSet Flag to add max-height-set class
+ * @param isLoading Flag to mark the card as busy while events load
+ * @param titlePending True while a templated title awaits its first value
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -47,6 +49,7 @@ export function renderMainCardStructure(
   },
   maxHeightSet: boolean = false,
   isLoading: boolean = false,
+  titlePending: boolean = false,
 ): TemplateResult {
   return html`
     <ha-card
@@ -70,9 +73,11 @@ export function renderMainCardStructure(
           `
         : nothing}
 
-      <!-- Title is always rendered with the same structure, even if empty -->
+      <!-- Title is always rendered with the same structure, even if empty.
+           A templated title keeps the h1 from first paint so the element
+           identity does not change when its value arrives. -->
       <div class="header-container">
-        ${title
+        ${title || titlePending
           ? html`<h1 class="card-header">${title}</h1>`
           : html`<div class="card-header-placeholder"></div>`}
       </div>
@@ -1010,6 +1015,10 @@ export function renderEventTitle(
   weatherForecasts?: Types.WeatherForecasts,
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
+  // The checkmark reads as "nothing on" and only suits the default text.
+  // A user-supplied string ("Leftovers") already carries its own meaning,
+  // so the prefix is dropped whenever one is configured.
+  const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
   const entityColor = isEmptyDay
     ? 'var(--calendar-card-empty-day-color)'
     : event._matchedConfig?.color || config.event_color;
@@ -1027,7 +1036,7 @@ export function renderEventTitle(
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
           style="color: ${entityColor}"
         >
-          ${isEmptyDay ? `✓ ${event.summary}` : event.summary}
+          ${showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary}
         </span>
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}

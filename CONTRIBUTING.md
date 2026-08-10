@@ -93,6 +93,7 @@ Calendar Card Pro supports multiple languages through JSON translation files. He
    > Regional variants normally need no dayjs entry at all, since `mapLocale()` reduces
    > them to their base code (`en-gb` → `en`). Only add one if dayjs ships a distinct
    > locale you actually need (as with `zh-cn` / `zh-tw`).
+
 5. **Translate all strings** to your language (translate values, never keys)
 6. **Add your language** to the supported-languages list in `README.md`
 7. **Submit a Pull Request** with your changes

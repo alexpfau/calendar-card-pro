@@ -20,6 +20,8 @@ export interface Config {
   compact_events_to_show?: number;
   compact_events_complete_days?: boolean;
   show_empty_days: boolean;
+  hide_when_empty: boolean;
+  empty_day_text?: string;
   filter_duplicates: boolean;
   split_multiday_events: boolean;
   language?: string;
@@ -220,8 +222,30 @@ export interface CalendarEventData {
   _entityId?: string;
   _entityLabel?: string;
   _isEmptyDay?: boolean;
+  /**
+   * Set when an empty-day placeholder shows a user-supplied string
+   * (`empty_day_text`) rather than the translated default. Only used to
+   * suppress the checkmark prefix at render time.
+   *
+   * This never affects `visibleEventCount`, which filters on `_isEmptyDay`.
+   */
+  _isCustomEmptyText?: boolean;
   _matchedConfig?: EntityConfig;
   time?: string;
+}
+
+/**
+ * Result of a calendar fetch, including which entities failed.
+ *
+ * Per-entity fetch errors are tolerated so that one broken calendar cannot
+ * blank out the others, which means an empty `events` array on its own is
+ * ambiguous — it is either a genuinely empty calendar or a failed request.
+ * `failedEntities` is what lets callers tell those two apart.
+ */
+export interface EventFetchResult {
+  events: CalendarEventData[];
+  /** Entity IDs whose calendar could not be retrieved during this fetch. */
+  failedEntities: string[];
 }
 
 /**
@@ -281,8 +305,8 @@ export interface Hass {
   };
   connection?: {
     subscribeEvents: (callback: (event: unknown) => void, eventType: string) => Promise<() => void>;
-    subscribeMessage: (
-      callback: (message: WeatherForecastMessage) => void,
+    subscribeMessage: <T = WeatherForecastMessage>(
+      callback: (message: T) => void,
       options: SubscribeMessageOptions,
     ) => Promise<() => void>;
   };
@@ -303,9 +327,37 @@ export interface WeatherForecastMessage {
  */
 export interface SubscribeMessageOptions {
   type: string;
-  entity_id: string;
+  /** Required by `weather/subscribe_forecast`, absent from `render_template`. */
+  entity_id?: string;
   forecast_type?: string;
   [key: string]: unknown;
+}
+
+/**
+ * Successful `render_template` result pushed by Home Assistant.
+ *
+ * `result` is not necessarily a string: Home Assistant renders templates with
+ * native type parsing enabled, so `{{ 1 + 1 }}` arrives as the number `2`.
+ *
+ * `listeners.time` is true for templates that depend on the current time (for
+ * example `now()`), which Home Assistant re-renders on its own timer.
+ */
+export interface RenderTemplateResult {
+  result: unknown;
+  listeners?: {
+    all: boolean;
+    domains: string[];
+    entities: string[];
+    time: boolean;
+  };
+}
+
+/**
+ * Template error pushed by Home Assistant when `report_errors` is enabled.
+ */
+export interface RenderTemplateError {
+  error: string;
+  level: 'ERROR' | 'WARNING';
 }
 
 /**
@@ -324,6 +376,18 @@ export interface HassEntity {
 }
 
 /**
+ * A single card recipe offered by the Home Assistant card picker after the user
+ * selects an entity.
+ *
+ * The first entry of a suggestion list is the canonical recipe and carries no
+ * `label`; any further entry is a labelled variant.
+ */
+export interface EntitySuggestion {
+  label?: string;
+  config: Record<string, unknown>;
+}
+
+/**
  * Custom card registration interface for Home Assistant
  */
 export interface CustomCard {
@@ -332,6 +396,16 @@ export interface CustomCard {
   preview: boolean;
   description: string;
   documentationURL?: string;
+  /**
+   * Optional hook (Home Assistant 2026.6+) that offers this card for a picked
+   * entity. Must be synchronous and must never throw: Home Assistant discards
+   * the whole community suggestion list — including entries contributed by other
+   * custom cards — when a single implementation raises. Returns `null`, never an
+   * empty array, when there is nothing to offer.
+   *
+   * Older Home Assistant versions ignore this key.
+   */
+  getEntitySuggestion?: (hass: Hass, entityId: string) => EntitySuggestion[] | null;
 }
 
 /**

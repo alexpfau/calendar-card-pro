@@ -18,6 +18,7 @@ import * as Types from '../config/types';
 import * as Config from '../config/config';
 import * as Helpers from '../utils/helpers';
 import * as Localize from '../translations/localize';
+import * as Templates from '../utils/templates';
 
 // Import Material Design icons
 import {
@@ -73,6 +74,13 @@ const DEPRECATED_ENTITY_CONFIG_MAP: Record<string, string> = {
   max_events_to_show: 'compact_events_to_show',
 };
 
+/**
+ * Matches an absolute start_date the date picker can represent: a plain
+ * `YYYY-MM-DD`, or a full ISO timestamp whose leading date portion is captured.
+ * Everything else is treated as a relative expression and edited as free text.
+ */
+const FIXED_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})(?:[T\s].*)?$/;
+
 //-----------------------------------------------------------------------------
 // COMPONENT DEFINITION & PROPERTIES
 //-----------------------------------------------------------------------------
@@ -90,6 +98,23 @@ export class CalendarCardProEditor extends LitElement {
   @property({ attribute: false }) hass?: Types.Hass;
   @property({ attribute: false }) _config?: Types.Config;
 
+  /**
+   * Home Assistant's raw error text for an invalid `title` template.
+   *
+   * Shown verbatim under the Title field: Home Assistant's own message names
+   * the offending construct, which is the part a user needs in order to fix it,
+   * and it needs no translation key of its own.
+   */
+  @property({ attribute: false }) private _titleTemplateError?: string;
+
+  /**
+   * Validates the `title` template as it is typed.
+   *
+   * Separate from the preview card's own subscription so the editor can report
+   * errors without the card having to surface them in its heading.
+   */
+  private _titleValidation?: Templates.TemplateSubscription;
+
   //-----------------------------------------------------------------------------
   // LIFECYCLE METHODS
   //-----------------------------------------------------------------------------
@@ -100,6 +125,56 @@ export class CalendarCardProEditor extends LitElement {
   connectedCallback(): void {
     super.connectedCallback();
     this._loadCustomElements();
+  }
+
+  /**
+   * Called when the editor is removed from the DOM.
+   *
+   * Home Assistant discards and recreates the editor element as the user moves
+   * between cards, so the validation subscription has to be closed here or it
+   * would outlive the element.
+   */
+  disconnectedCallback(): void {
+    this._titleValidation?.destroy();
+    this._titleValidation = undefined;
+    super.disconnectedCallback();
+  }
+
+  /**
+   * Keeps title template validation in step with the edited config.
+   */
+  updated(): void {
+    this._updateTitleValidation();
+  }
+
+  /**
+   * Subscribes to the current `title` value so template errors surface live.
+   *
+   * The subscription itself debounces and no-ops on an unchanged template, so
+   * this is safe to call from `updated()`, which runs on every keystroke.
+   */
+  private _updateTitleValidation(): void {
+    const title = this._config?.title;
+
+    if (!Templates.isTemplate(title)) {
+      this._titleValidation?.destroy();
+      this._titleValidation = undefined;
+      this._titleTemplateError = undefined;
+      return;
+    }
+
+    if (!this._titleValidation) {
+      this._titleValidation = new Templates.TemplateSubscription({
+        onResult: () => {
+          this._titleTemplateError = undefined;
+        },
+        onError: (error) => {
+          this._titleTemplateError = error;
+        },
+      });
+    }
+
+    this._titleValidation.update(this.hass, title);
   }
 
   /**
@@ -500,7 +575,8 @@ export class CalendarCardProEditor extends LitElement {
     } else if (name === 'start_date_fixed' || name === 'start_date_offset') {
       // These are UI-only fields that map to the single 'start_date' parameter
       // For offset field, only apply on blur/enter (change), not on every keystroke,
-      // because intermediate values (e.g. empty or "-") change the detected mode and hide the field
+      // because an intermediate empty value switches the mode back to 'default'
+      // and hides the field mid-edit
       if (name === 'start_date_offset' && event.type !== 'change') return;
       this.setConfigValue('start_date', target.value);
       this.requestUpdate();
@@ -614,6 +690,14 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Determines the mode (default/fixed/offset) from a start_date value
+   *
+   * Anything that is not an explicit `YYYY-MM-DD` date is shown in the offset
+   * field, which is free text. That covers the whole relative grammar
+   * (`today+7`, `start_of_week`, `monday+1w`, …) as well as values the editor
+   * does not recognise at all: showing them as text preserves them, whereas
+   * routing them to the date picker renders it blank and silently discards the
+   * value on the next interaction.
+   *
    * @returns 'default' | 'fixed' | 'offset'
    */
   private _getStartDateMode(): 'default' | 'fixed' | 'offset' {
@@ -622,9 +706,8 @@ export class CalendarCardProEditor extends LitElement {
     const strValue = value !== undefined && value !== null ? String(value) : '';
 
     if (!strValue || strValue === '') return 'default';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(strValue)) return 'fixed';
-    if (/^[+-]?\d+$/.test(strValue)) return 'offset';
-    return 'fixed'; // fallback for legacy/unknown
+    if (FIXED_DATE_PATTERN.test(strValue)) return 'fixed';
+    return 'offset';
   }
 
   /**
@@ -637,9 +720,17 @@ export class CalendarCardProEditor extends LitElement {
     // Ensure we're working with a string
     const strValue = value !== undefined && value !== null ? String(value) : '';
 
-    if (mode === 'fixed' && /^\d{4}-\d{2}-\d{2}$/.test(strValue)) return strValue;
-    if (mode === 'offset' && /^[+-]?\d+$/.test(strValue)) return strValue;
-    return '';
+    const fixedMatch = strValue.match(FIXED_DATE_PATTERN);
+
+    if (mode === 'fixed') {
+      // The date picker only accepts YYYY-MM-DD, so hand it the date portion of
+      // an ISO value rather than the full timestamp.
+      return fixedMatch ? fixedMatch[1] : '';
+    }
+
+    // Offset mode is free text: echo anything that is not a fixed date back
+    // verbatim so relative expressions survive a round trip through the editor.
+    return fixedMatch ? '' : strValue;
   }
 
   /**
@@ -803,6 +894,15 @@ export class CalendarCardProEditor extends LitElement {
             <h3>${this._getTranslation('event_visibility')}</h3>
             ${this.addBooleanField('show_past_events', this._getTranslation('show_past_events'))}
             ${this.addBooleanField('show_empty_days', this._getTranslation('show_empty_days'))}
+            ${this.addBooleanField('hide_when_empty', this._getTranslation('hide_when_empty'))}
+            <div class="helper-text">${this._getTranslation('hide_when_empty_note')}</div>
+            ${this.getConfigValue('show_empty_days', false) ||
+            !this.getConfigValue('hide_when_empty', false)
+              ? html`
+                  ${this.addTextField('empty_day_text', this._getTranslation('empty_day_text'))}
+                  <div class="helper-text">${this._getTranslation('empty_day_text_note')}</div>
+                `
+              : html``}
             ${this.addBooleanField('filter_duplicates', this._getTranslation('filter_duplicates'))}
             <div class="helper-text">${this._getTranslation('filter_duplicates_note')}</div>
 
@@ -842,6 +942,9 @@ export class CalendarCardProEditor extends LitElement {
             <!-- Title Styling -->
             <h3>${this._getTranslation('title_styling')}</h3>
             ${this.addTextField('title', this._getTranslation('title'))}
+            ${this._titleTemplateError
+              ? html` <ha-alert alert-type="error">${this._titleTemplateError}</ha-alert> `
+              : nothing}
             ${this.addTextField('title_font_size', this._getTranslation('title_font_size'))}
             ${this.addTextField('title_color', this._getTranslation('title_color'))}
 

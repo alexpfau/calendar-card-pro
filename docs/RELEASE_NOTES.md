@@ -1,3 +1,71 @@
+# Calendar Card Pro v3.5.0
+
+**Cards that hide themselves when there is nothing to show, start dates that follow the week, titles rendered from Home Assistant templates — and a fix that restores the card title to its intended size.** This release is mostly about fitting the card to the dashboard around it: disappearing when it is empty, saying something useful when a day has no events, anchoring to next Monday instead of a date you keep updating, and driving the title from Home Assistant itself. The card is also easier to find in the first place, now that Home Assistant offers it directly when you add a calendar entity.
+
+## 🎉 New Features
+
+### 🫥 Empty State Control
+
+- **`hide_when_empty` Option** - Removes the entire card from the dashboard when there are no upcoming events, so the cards around it close the gap instead of leaving a "No upcoming events" placeholder behind. A conditional card cannot do this, because this card is not backed by an entity of its own. Defaults to `false`, so existing cards are unchanged (#286)
+- **`empty_day_text` Option** - Replaces the text shown on a day that has no events, so a meal-plan calendar can read "Leftovers" instead of "No upcoming events". The `✓` prefix is dropped for custom text and kept for the default, and clearing the field restores both (#279, #197)
+
+The card deliberately never hides while you are editing the dashboard, never hides an error state, and never hides because a compact limit collapsed it — emptiness is measured against the fully expanded event set.
+
+### 📅 Flexible Start Dates
+
+`start_date` now accepts an anchor plus offsets, so a card can follow the calendar rather than a date you have to keep editing:
+
+- **Week Anchor** - `start_of_week` resolves to Monday or Sunday according to the card's `first_day_of_week` setting
+- **Weekday Anchors** - `saturday`, or the short form `sat`, resolves to the next Saturday, counting today if today is already Saturday
+- **Composable Offsets** - `+N` / `-N` days, `+Nw` / `-Nw` weeks and `+<weekday>` / `-<weekday>` jumps combine on any anchor: `start_of_week+7`, `today+sat+7`, `monday+1w`
+
+Parsing is case-insensitive and ignores whitespace, and existing values such as a fixed `2025-07-01`, `today+7` and `+3` behave exactly as before. The README has worked examples of every anchor and offset combination — see [Start Date Configuration](https://github.com/alexpfau/calendar-card-pro#-start-date-configuration) (#296, #276, #193)
+
+### 🏷️ Templated Titles
+
+- **Home Assistant Templates in `title`** - A title containing `{{ ... }}` or `{% ... %}` is rendered by Home Assistant and updates live, so a card can show `{{ now().strftime('%-d %B %Y') }}` or pull a value straight from a sensor. There is no new option to switch on — a title without template syntax is passed through untouched. Template errors are reported under the Title field in the visual editor, and a template that starts failing keeps the last good title on screen rather than blanking the card (#303)
+
+### 🔎 Easier to Find
+
+- **Suggested in the Card Picker** - Home Assistant 2026.6 and newer show Calendar Card Pro under **Community** when you add a card by entity and pick a `calendar.*` entity, pre-filled with that calendar and previewed with its real events. Until now the card only appeared in the full card list, so finding it meant already knowing it existed. There is nothing to configure, and older Home Assistant versions are unaffected (#373)
+
+## 🐛 Bug Fixes
+
+### Appearance
+
+- **Card Title Rendered as Body Text** - The card header was styled entirely through Polymer `--paper-font-headline_-_*` variables that Home Assistant no longer defines. With no fallback values every declaration became invalid, so the title inherited body text and a titled card had no visual hierarchy at all — the card title looked identical to an event title beneath it. Titles now render at their intended size, weight and opacity. **Titled cards become roughly 10px taller and their titles noticeably larger**, which is how they were always meant to look; set `title_font_size` explicitly if you preferred the smaller text (#369)
+
+### Reliability
+
+- **A Calendar That Failed to Load Looked Like an Empty Calendar** - A calendar the card could not read returned zero events, which was indistinguishable from a calendar with nothing in it. The card stated there were no upcoming events, and with `hide_when_empty` enabled it removed itself from the dashboard entirely — an unreachable integration could quietly erase a card, leaving nothing on screen to explain why. Failed fetches are now tracked separately, so the card stays visible and shows its error state instead of asserting that the calendar is empty
+- **A Failed Refresh Blanked Events Already on Screen** - Each fetch replaced the event list wholesale, so a single failed poll emptied a populated card until the next successful one. Events already on screen now survive a failed refresh, scoped to the current configuration so that pointing a card at a mistyped entity still clears the previous calendar's events rather than showing them indefinitely
+- **Empty Results Cached During an Outage** - An empty result was cached even when an entity had failed, so a transient outage could persist emptiness and keep serving it after the calendar had recovered. Empty results are no longer cached when any entity failed
+
+### Configuration
+
+- **Card With No Entities Stuck on "Loading calendar events..."** - A card with an empty `entities` list never finished its initial load, so it showed the loading message indefinitely and its error state was unreachable. It now reports the misconfiguration instead
+
+### Visual Editor
+
+- **Blank Date Picker for Relative Start Dates** - The editor treated anything that was not a bare number as a fixed date, so documented values such as `today+7` — and the ISO dates Home Assistant itself writes — opened an empty date picker that was one click away from overwriting the configured value. Relative expressions now route to the relative field and keep their value, and ISO dates hand their date portion to the picker (#365)
+
+## Related Issues
+
+- [#193](https://github.com/alexpfau/calendar-card-pro/issues/193) - Weekday Support for Calendar Cards by @goegsig
+- [#197](https://github.com/alexpfau/calendar-card-pro/issues/197) - Empty day custom text by @schnipzel35
+- [#276](https://github.com/alexpfau/calendar-card-pro/issues/276) - Relative Offset with Weekdays by @jkadw
+- [#279](https://github.com/alexpfau/calendar-card-pro/issues/279) - Custom text on empty event days by @DJKatastrof
+- [#286](https://github.com/alexpfau/calendar-card-pro/issues/286) - Hide when "No Upcoming Events" by @catdogmaus
+- [#296](https://github.com/alexpfau/calendar-card-pro/issues/296) - Add "start_of_week" keyword for start_date to allow for clean weekly offsets by @matthiasnielsen1
+- [#303](https://github.com/alexpfau/calendar-card-pro/issues/303) - Support template in title by @EvertJob
+- [#365](https://github.com/alexpfau/calendar-card-pro/issues/365) - Visual editor blanks the date picker for relative and ISO `start_date` values by @alexpfau
+- [#369](https://github.com/alexpfau/calendar-card-pro/issues/369) - Card title renders as body text by @alexpfau
+- [#373](https://github.com/alexpfau/calendar-card-pro/issues/373) - Suggest Calendar Card Pro in the card picker for calendar entities by @alexpfau
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.4.0...v3.5.0
+
+---
+
 # Calendar Card Pro v3.4.0
 
 **Weather across the full day range, correct all-day countdowns, and a card that no longer empties itself when a number field is cleared.** This release closes a set of gaps where the card silently rendered less than it should, and adds editor guidance so the configurations that quietly do nothing become visible while you are creating them.

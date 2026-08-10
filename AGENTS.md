@@ -16,15 +16,15 @@ state library. Keep it that way; bundle size is a design constraint.
 
 There are only four npm scripts. Do not invent others.
 
-| Command | Output | Element name | Logging |
-| --- | --- | --- | --- |
-| `npm run dev` | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
-| `npm run build` | `dist/calendar-card-pro.js` | `calendar-card-pro` | silent |
-| `npm run lint` | — (eslint, `--fix`) | | |
-| `npm run format` | — (prettier, `--write`) | | |
+| Command          | Output                          | Element name            | Logging |
+| ---------------- | ------------------------------- | ----------------------- | ------- |
+| `npm run dev`    | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
+| `npm run build`  | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
+| `npm run lint`   | — (eslint, `--fix`)             |                         |         |
+| `npm run format` | — (prettier, `--write`)         |                         |         |
 
 **The two builds are not interchangeable.** `rollup.config.mjs` switches on `NODE_ENV`
-and rewrites both the output filename *and* the custom element name, so a dev build
+and rewrites both the output filename _and_ the custom element name, so a dev build
 registers as `calendar-card-pro-dev` / `calendar-card-pro-dev-editor`. This is
 deliberate: it lets a dev build run side by side with the HACS-installed release in the
 same Home Assistant instance. Never hand someone a `npm run build` artifact for local
@@ -60,12 +60,49 @@ Because `main` is the default branch, `Fixes #123` in a PR merged to `dev` will 
 auto-close the issue — closing keywords only fire on the default branch. Issues close
 when the release PR merges, or close them manually.
 
+## Documenting a change in the README
+
+`README.md` is the HACS landing page and the only documentation most users read. Keeping
+it current is part of the change, not a follow-up.
+
+**In a feature or fix PR** (targeting `dev`), update the _body_ of the README:
+
+- the **config table** row for any new or changed option — name, type, default, description
+- a **prose section**, or a sentence in the nearest existing one, with a real YAML snippet.
+  A table row alone is not documentation: `show_countdown_allday` shipped in v3.4 as a
+  table row only, and was undiscoverable.
+- for a new language: the supported-languages list **and all three hardcoded counts**.
+  Derive them rather than incrementing by hand — they are prose, so nothing fails when they
+  drift, and they were wrong for three consecutive releases:
+  ```bash
+  ls src/translations/languages/*.json | wc -l                 # total languages
+  grep -l '"editor"' src/translations/languages/*.json | wc -l # editor languages
+  ```
+
+**Do not touch the `## 2️⃣ What's New` section** in a feature PR. It is organised by
+release, so a feature branch cannot know which version it will land in, and concurrent
+branches conflict in it.
+
+**In the release PR** (`dev` → `main`), update `## 2️⃣ What's New` alongside
+`docs/RELEASE_NOTES.md`: rename the previous `### Latest Release: vX.Y` to plain `### vX.Y`,
+add a new one with 3–6 one-line bullets condensed from the release notes, and apply the
+retention rule — keep the current major version's minor releases, newest first, capped at
+8, topping up from the previous major only if that leaves fewer than 4.
+
+That list is a **highlights reel, not a changelog** — the full notes are linked directly
+above it, so anything left out is one click away. Select on relevance rather than on
+whether something is a feature or a fix: a Home Assistant compatibility break or a bug that
+made the card look empty belongs there; a narrow styling option, an editor validation
+nicety, or a rare edge-case fix does not. Never write a catch-all "🐛 Key Bug Fixes" bullet.
+Three honest bullets beat six padded ones, and older entries may be trimmed further as they
+age.
+
 ## Release process
 
 1. Bump `version` in `package.json` — it is the single source of truth. Rollup
    substitutes it into the bundle header and into `constants.ts` via `@version
-   vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
-2. Update `docs/RELEASE_NOTES.md`.
+vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
+2. Update `docs/RELEASE_NOTES.md` and the README's `## 2️⃣ What's New` section.
 3. Open a PR from `dev` into `main` and merge it.
 4. Tag `main` with `vX.Y.Z` and push the tag.
 5. `.github/workflows/release.yml` builds and creates a **draft** GitHub release with
@@ -94,7 +131,7 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    section is absent.
 
    But `hasEditorTranslations()` returns true when the section has **one or more** keys, so
-   a *partially* translated `editor` section defeats that fallback: the keys you did
+   a _partially_ translated `editor` section defeats that fallback: the keys you did
    translate render fine, and every key you missed renders as the **raw key name**
    (`show_end_time`) in the UI, not as English. So either omit `editor` completely, or
    copy every key from `en.json`. Never leave it half-done.
@@ -105,7 +142,9 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 3. `src/translations/dayjs.ts` — **two separate edits**, both required:
    - `import 'dayjs/locale/<code>';`
    - add the base code to the `supportedLocales` array inside `mapLocale()`
-4. `README.md` — the supported-languages list.
+4. `README.md` — the supported-languages list **and the three hardcoded counts** (see
+   _Documenting a change in the README_). The counts are prose, so nothing fails when they
+   are wrong; they drifted for three releases before anyone noticed.
 
 Omitting the `supportedLocales` entry (3b) is a **silent failure**: the language works
 everywhere except relative times, which quietly fall back to English. Catalan and
@@ -119,8 +158,8 @@ special-cased.
 Verify a language change by actually resolving it, not by reading the diff:
 
 ```ts
-getEffectiveLanguage('lv', undefined)      // -> 'lv'
-getRelativeTimeString(futureDate, 'lv')    // -> 'pēc 2 dienām', not 'in 2 days'
+getEffectiveLanguage('lv', undefined); // -> 'lv'
+getRelativeTimeString(futureDate, 'lv'); // -> 'pēc 2 dienām', not 'in 2 days'
 ```
 
 ## Editor (`src/rendering/editor.ts`)

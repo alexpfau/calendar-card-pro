@@ -39,6 +39,7 @@ import * as Styles from './rendering/styles';
 import * as Feedback from './interaction/feedback';
 import * as Render from './rendering/render';
 import * as Weather from './utils/weather';
+import * as Templates from './utils/templates';
 import * as Editor from './rendering/editor';
 
 //-----------------------------------------------------------------------------
@@ -88,6 +89,33 @@ class CalendarCardPro extends LitElement {
   };
 
   /**
+   * Latest value rendered by Home Assistant for a templated `title`.
+   *
+   * Only meaningful when `config.title` contains a template. Undefined until
+   * the first render arrives, and deliberately left at its last good value when
+   * a later render fails, so a transient template error does not blank the
+   * heading.
+   */
+  @property({ attribute: false }) renderedTitle?: string;
+
+  /**
+   * Set by Home Assistant's `hui-card` wrapper while the dashboard is in edit
+   * mode or the card is shown in the card picker. The card must never hide
+   * itself in these states, otherwise it becomes impossible to select and
+   * configure. `editMode` is the legacy alias used by older HA versions.
+   */
+  @property({ type: Boolean }) preview = false;
+  @property({ type: Boolean }) editMode = false;
+
+  /**
+   * Tells `hui-card` to keep this element in the DOM while it is hidden.
+   * Without this Home Assistant detaches the element, which runs
+   * `disconnectedCallback()` and tears down the refresh timer — the card would
+   * then never re-fetch events and stay hidden forever once it went empty.
+   */
+  public connectedWhileHidden = true;
+
+  /**
    * Static method that returns a new instance of the editor
    * This is how Home Assistant discovers and loads the editor
    */
@@ -99,6 +127,14 @@ class CalendarCardPro extends LitElement {
 
   // Private, non-reactive properties
   private _instanceId = Helpers.generateInstanceId();
+  /**
+   * The `_instanceId` the events currently held in `events` were fetched for.
+   *
+   * Lets a failed refresh tell "these events are a few minutes old" apart from
+   * "these events answer a question the card is no longer asking", so previous
+   * events are only ever preserved for an unchanged configuration.
+   */
+  private _eventsInstanceId = '';
   private _language = '';
   private _refreshTimerId?: number;
   private _lastUpdateTime = 0;
@@ -106,6 +142,30 @@ class CalendarCardPro extends LitElement {
   private _weatherUnsubscribers: Array<() => void> = [];
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
+  /**
+   * Subscription that keeps `renderedTitle` in step with a templated `title`.
+   *
+   * Created lazily so cards with a plain string title never open a websocket
+   * subscription at all.
+   */
+  private _titleSubscription?: Templates.TemplateSubscription;
+  /**
+   * True when the most recent fetch could not read at least one calendar.
+   *
+   * Kept separate from `events` because a failed request and an empty calendar
+   * both leave the event list empty, yet they mean opposite things. This flag is
+   * what lets the card tell them apart, and it drives three behaviours:
+   * keeping the card visible under `hide_when_empty` (`_applyVisibility`),
+   * keeping already-rendered events instead of blanking them (`updateEvents`),
+   * and showing the error state rather than "no upcoming events" (`render`).
+   */
+  private _hasFetchError = false;
+  private _visibleCountCache?: {
+    events: Types.CalendarEventData[];
+    config: Types.Config;
+    language: string;
+    count: number;
+  };
 
   // Interaction state
   private _activePointerId: number | null = null;
@@ -146,6 +206,77 @@ class CalendarCardPro extends LitElement {
     );
   }
 
+  /**
+   * Title to display, with templates resolved.
+   *
+   * A templated title renders as empty until Home Assistant returns its first
+   * value, so raw Jinja is never shown to the user.
+   */
+  get effectiveTitle(): string | undefined {
+    if (!Templates.isTemplate(this.config.title)) {
+      return this.config.title;
+    }
+
+    return this.renderedTitle ?? '';
+  }
+
+  /**
+   * True while a templated title is waiting for its first rendered value.
+   *
+   * Lets the header keep a stable element identity across the round-trip
+   * instead of swapping the placeholder for an `h1` once the value lands.
+   */
+  get isTitlePending(): boolean {
+    return Templates.isTemplate(this.config.title) && this.renderedTitle === undefined;
+  }
+
+  /**
+   * Number of real events the card would show across its full configured range.
+   *
+   * Deliberately evaluated as if the card were expanded so that compact mode
+   * limits can never make the card look empty — `compact_events_to_show: 0` is
+   * a valid configuration meaning "show nothing until tapped", and a card
+   * hidden in that state could never be expanded again.
+   *
+   * Placeholder entries generated for empty days are excluded, so this counts
+   * only events that survive filtering (past events, blocklist/allowlist,
+   * duplicates) and therefore matches what the user actually sees.
+   *
+   * That exclusion is the mechanism behind a deliberate precedence rule:
+   * hiding wins over anything that merely *decorates* an empty day. Neither
+   * `show_empty_days` nor any future custom empty-day text (#279) makes a card
+   * count as non-empty — a placeholder is not content. Anything added to the
+   * empty-day placeholder must stay filtered out here.
+   *
+   * Memoized against the inputs it depends on, because `updated()` runs on
+   * every `hass` change and grouping the whole event list each time would be
+   * needless work.
+   */
+  get visibleEventCount(): number {
+    const language = this.effectiveLanguage;
+    const cache = this._visibleCountCache;
+
+    if (
+      cache &&
+      cache.events === this.events &&
+      cache.config === this.config &&
+      cache.language === language
+    ) {
+      return cache.count;
+    }
+
+    const count = this.events.length
+      ? EventUtils.groupEventsByDay(this.events, this.config, true, language).reduce(
+          (total, day) => total + day.events.filter((event) => !event._isEmptyDay).length,
+          0,
+        )
+      : 0;
+
+    this._visibleCountCache = { events: this.events, config: this.config, language, count };
+
+    return count;
+  }
+
   //-----------------------------------------------------------------------------
   // STATIC PROPERTIES
   //-----------------------------------------------------------------------------
@@ -177,6 +308,9 @@ class CalendarCardPro extends LitElement {
     // Set up weather subscriptions if configured
     this._scheduleWeatherSetup();
 
+    // Resolve the title if it contains a template
+    this._updateTitleSubscription();
+
     // Set up visibility listener
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
   }
@@ -190,6 +324,10 @@ class CalendarCardPro extends LitElement {
 
     // Clean up weather subscriptions
     this._cleanupWeatherSubscriptions();
+
+    // Clean up the title template subscription
+    this._titleSubscription?.destroy();
+    this._titleSubscription = undefined;
 
     // Clean up timers
     if (this._refreshTimerId) {
@@ -243,11 +381,110 @@ class CalendarCardPro extends LitElement {
     if (hassJustAvailable || weatherConfigChanged) {
       this._scheduleWeatherSetup();
     }
+
+    // Keep the title template subscription in step with hass and config
+    if (changedProps.has('hass') || changedProps.has('config')) {
+      this._updateTitleSubscription();
+    }
+
+    // Hide or reveal the whole card when `hide_when_empty` is enabled
+    this._applyVisibility();
   }
 
   //-----------------------------------------------------------------------------
   // PRIVATE METHODS
   //-----------------------------------------------------------------------------
+
+  /**
+   * Keep the title template subscription aligned with the current config.
+   *
+   * `title` is deliberately absent from `hasConfigChanged`'s data-affecting
+   * keys, so changing it never triggers a re-fetch — this is the only thing
+   * that has to react to it. The subscription itself no-ops unless the template
+   * text or the connection actually changed, so this is safe to call on every
+   * `hass` update.
+   */
+  private _updateTitleSubscription(): void {
+    const isTemplated = Templates.isTemplate(this.config.title);
+
+    if (!isTemplated) {
+      // Drop a stale rendered value so switching back to a plain title, or
+      // clearing the field entirely, does not leave the old heading on screen
+      if (this._titleSubscription) {
+        this._titleSubscription.destroy();
+        this._titleSubscription = undefined;
+      }
+
+      this.renderedTitle = undefined;
+      return;
+    }
+
+    if (!this._titleSubscription) {
+      this._titleSubscription = new Templates.TemplateSubscription({
+        onResult: (result) => {
+          this.renderedTitle = result;
+        },
+        onError: () => {
+          // Keep the last good value rather than blanking the heading; the
+          // error itself is logged by the template utility and surfaced in the
+          // visual editor, which is where a user can act on it.
+          if (this.renderedTitle === undefined) {
+            this.renderedTitle = '';
+          }
+        },
+      });
+    }
+
+    this._titleSubscription.update(this.hass, this.config.title);
+  }
+
+  /**
+   * Hide the card entirely when it has no events and `hide_when_empty` is on.
+   *
+   * Home Assistant's `hui-card` wrapper watches its child for a
+   * `card-visibility-changed` event and mirrors `element.hidden` onto itself,
+   * which is what lets the surrounding grid or masonry column collapse rather
+   * than leaving an empty slot. The inline `display` is set as well so the card
+   * still disappears on older HA versions that predate that wrapper, and
+   * because the card's own `:host { display: block }` rule would otherwise
+   * override the browser default styling for the `hidden` attribute.
+   */
+  private _applyVisibility(): void {
+    // Missing hass or entities renders the error card — never hide that, or the
+    // user is left with no indication of why the card vanished. During the
+    // initial load neither is treated as an error yet (see `render()`).
+    const isErrorState =
+      !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
+
+    // A calendar that could not be read looks identical to an empty one: both
+    // leave `events` empty. Hiding on that would make a transient API error
+    // silently delete the card from the dashboard, so a failed fetch keeps the
+    // card on screen and only a genuine empty result hides it.
+    const shouldHide =
+      this.config.hide_when_empty === true &&
+      !this.preview &&
+      !this.editMode &&
+      !isErrorState &&
+      !this._hasFetchError &&
+      this.visibleEventCount === 0;
+
+    if (this.hidden === shouldHide) {
+      return;
+    }
+
+    Logger.debug(`hide_when_empty: ${shouldHide ? 'hiding' : 'revealing'} card`);
+
+    this.hidden = shouldHide;
+    this.style.display = shouldHide ? 'none' : '';
+
+    this.dispatchEvent(
+      new CustomEvent('card-visibility-changed', {
+        detail: { value: !shouldHide },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
 
   /**
    * Generate style properties from configuration
@@ -526,6 +763,11 @@ class CalendarCardPro extends LitElement {
         this._initialLoadRetryId = window.setTimeout(() => {
           this.updateEvents(true);
         }, 1500);
+      } else {
+        // Home Assistant is available but no entities are configured, so no data
+        // will ever arrive. Leave the initial load state so `render()` falls
+        // through to the error card instead of showing "loading" indefinitely.
+        this.isInitialLoad = false;
       }
       return;
     }
@@ -536,24 +778,57 @@ class CalendarCardPro extends LitElement {
       await this.updateComplete;
 
       // Get event data (from cache or API) using modularized function
-      const eventData = await EventUtils.fetchEventData(
+      const { events: eventData, failedEntities } = await EventUtils.fetchEventData(
         this.safeHass,
         this.config,
         this._instanceId,
         force,
       );
 
+      this._hasFetchError = failedEntities.length > 0;
+      if (this._hasFetchError) {
+        Logger.warn(`Could not load calendar(s): ${failedEntities.join(', ')}`);
+      }
+
       this.isLoading = false;
       this.isInitialLoad = false;
       await this.updateComplete;
 
-      // Finally set events data
-      this.events = [...eventData];
-      this._lastUpdateTime = Date.now();
+      // Keep whatever is already on screen when a refresh could not read any
+      // calendar and came back empty. Replacing good data with a blank card is a
+      // worse outcome than showing events that are a few minutes stale, and the
+      // next successful refresh overwrites them anyway. An empty result is only
+      // taken at face value when every calendar actually answered.
+      //
+      // Preserving is only valid while the events still answer the current
+      // question: `_instanceId` covers the entities, date range and past-event
+      // settings, so a config change makes the previous events stop counting as
+      // stale and start counting as wrong. Without that check, pointing a card at
+      // a broken entity would leave the old entity's events on screen forever.
+      const eventsMatchCurrentQuery = this._eventsInstanceId === this._instanceId;
+      const keepPreviousEvents =
+        this._hasFetchError &&
+        eventData.length === 0 &&
+        this.events.length > 0 &&
+        eventsMatchCurrentQuery;
 
-      Logger.info('Event update completed successfully');
+      if (keepPreviousEvents) {
+        Logger.warn('Refresh failed and returned nothing — keeping previously loaded events');
+      } else {
+        this.events = [...eventData];
+        this._eventsInstanceId = this._instanceId;
+      }
+
+      // Only a clean fetch counts as a completed update. Leaving the timestamp
+      // alone after a failure lets the visibility handler retry straight away
+      // instead of waiting out the refresh threshold.
+      if (!this._hasFetchError) {
+        this._lastUpdateTime = Date.now();
+        Logger.info('Event update completed successfully');
+      }
     } catch (error) {
       Logger.error('Failed to update events:', error);
+      this._hasFetchError = true;
       this.isLoading = false;
       this.isInitialLoad = false;
     }
@@ -627,6 +902,12 @@ class CalendarCardPro extends LitElement {
     } else if (!this.safeHass || !this.config.entities.length) {
       // Error state - missing entities
       content = Render.renderCardContent('error', this.effectiveLanguage);
+    } else if (this.events.length === 0 && this._hasFetchError) {
+      // Calendars could not be read and there is nothing to fall back on.
+      // "No upcoming events" would be a claim about the calendar's contents,
+      // which is precisely what the card failed to find out — so say that the
+      // calendar could not be read instead.
+      content = Render.renderCardContent('error', this.effectiveLanguage);
     } else if (this.events.length === 0) {
       // Even with no events, use the regular groupEventsByDay function
       // which now handles empty API results correctly
@@ -657,11 +938,12 @@ class CalendarCardPro extends LitElement {
     // Render main card structure with content
     return Render.renderMainCardStructure(
       customStyles,
-      this.config.title,
+      this.effectiveTitle,
       content,
       handlers,
       false,
       this.isLoading,
+      this.isTitlePending,
     );
   }
 }
@@ -692,4 +974,7 @@ window.customCards.push({
   preview: true,
   description: 'A calendar card that supports multiple calendars with individual styling.',
   documentationURL: 'https://github.com/alexpfau/calendar-card-pro',
+  // Offer this card in the picker's community suggestions for calendar entities.
+  // Ignored by Home Assistant versions older than 2026.6.
+  getEntitySuggestion: Config.getEntitySuggestion,
 });
