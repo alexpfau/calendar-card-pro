@@ -603,6 +603,18 @@ describe('list view DOM', () => {
     expect(requireElement(cell, '.summary-row').children).toHaveLength(1);
   });
 
+  // Source-text guard, not a DOM assertion — deliberately.
+  //
+  // render.ts uses three interchangeable "render nothing" idioms: `''`, `nothing`,
+  // and an empty html`` template. The rendered DOM cannot tell `''` from `nothing`,
+  // so no behavioural test can pin them; only reading the source can.
+  //
+  // This test IS EXPECTED TO FAIL during the Phase 1 extraction, because the code it
+  // matches will move out of render.ts into leaf renderers. That failure is the point:
+  // it forces a conscious re-read of each idiom at the moment it is most likely to be
+  // silently normalised. When it fails, repoint the regexes at the new file and confirm
+  // each idiom survived unchanged. Do not delete it, and do not "fix" it by relaxing a
+  // regex to match whatever the new code happens to say.
   it('preserves no-output idioms at extraction seams', () => {
     const renderSource = readFileSync(`${process.cwd()}/src/rendering/render.ts`, 'utf8');
     const eventWeatherSource = renderSource.slice(
