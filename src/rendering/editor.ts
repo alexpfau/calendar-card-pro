@@ -69,6 +69,7 @@ const DEPRECATED_CONFIG_MAP: Record<string, string> = {
   vertical_line_color: 'accent_color',
   horizontal_line_width: 'day_separator_width',
   horizontal_line_color: 'day_separator_color',
+  row_spacing: 'day_spacing',
 };
 const DEPRECATED_ENTITY_CONFIG_MAP: Record<string, string> = {
   max_events_to_show: 'compact_events_to_show',

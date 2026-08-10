@@ -62,13 +62,26 @@ hold_action:
 
 ### Available Actions:
 
-| Action Type    | Description                                   | Additional Parameters                                     |
-| -------------- | --------------------------------------------- | --------------------------------------------------------- |
-| `expand`       | Toggle between compact and full calendar view | None                                                      |
-| `more-info`    | Open the Home Assistant entity dialog         | None                                                      |
-| `navigate`     | Go to another Lovelace view                   | `navigation_path: /lovelace/view`                         |
-| `url`          | Open external URL or internal page            | `url_path: https://example.com`                           |
-| `call-service` | Call any Home Assistant service               | `service: domain.service`, `service_data: { key: value }` |
-| `none`         | Disable the action                            | None                                                      |
+Calendar Card Pro handles one action itself — `expand` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
+
+The commonly used ones:
+
+| Action Type                       | Description                                       | Additional Parameters                                     |
+| --------------------------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| `expand`                          | Toggle between compact and full calendar view     | None                                                      |
+| `more-info`                       | Open the Home Assistant entity dialog             | None                                                      |
+| `navigate`                        | Go to another Lovelace view                       | `navigation_path: /lovelace/view`                         |
+| `url`                             | Open external URL or internal page                | `url_path: https://example.com`, `open_tab: _blank`       |
+| `perform-action` / `call-service` | Call any Home Assistant action (service)          | `service: domain.service`, `service_data: { key: value }` |
+| `toggle`                          | Toggle the target entity                          | None                                                      |
+| `assist`                          | Open the Assist dialog                            | None                                                      |
+| `fire-dom-event`                  | Fire a DOM event (used by browser_mod and others) | Any additional keys are passed through                    |
+| `none`                            | Disable the action                                | None                                                      |
+
+::: tip
+Home Assistant renamed `call-service` to `perform-action` in 2024.8. Both names still work; `perform-action` is preferred for new configurations.
+:::
+
+Because these are forwarded, the parameters are Home Assistant's own — see the [Home Assistant actions documentation](https://www.home-assistant.io/dashboards/actions/) for the full list.
 
 All actions integrate seamlessly with Home Assistant's native ripple effect and haptic feedback for a polished user experience.

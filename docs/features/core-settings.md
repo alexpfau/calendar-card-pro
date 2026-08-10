@@ -145,12 +145,11 @@ compact_events_complete_days: true # Never cut off a day's events mid-day
 
 In addition, you can control how many events are displayed in compact mode from each calendar independently:
 
-entities:
-
 ```yaml
-- entity: calendar.family # Show all events from family calendar (no limit)
-- entity: calendar.work
-  compact_events_to_show: 2 # Only show 2 most important work events
+entities:
+  - entity: calendar.family # Show all events from family calendar (no limit)
+  - entity: calendar.work
+    compact_events_to_show: 2 # Only show 2 most important work events
 ```
 
 This feature provides several important behaviors:
