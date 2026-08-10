@@ -294,6 +294,34 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 - `hacs-validate.yml` — HACS validation on `main` and nightly.
 - `release.yml` — tag-triggered draft release.
 
+## Docs site deployment
+
+<https://calendar-card-pro.alexpfau.com> is a Cloudflare **Workers Build**, configured in
+the Cloudflare dashboard rather than in a workflow file. It runs `vitepress build docs`
+and serves `docs/.vitepress/dist` as static assets.
+
+- **It builds only on push to `main`.** Pushing to `dev` produces no Workers check run at
+  all, so nothing on `dev` is ever live. **Merging the `dev` → `main` PR _is_ the deploy** —
+  there is no separate publish step and no tag involved.
+- `wrangler.jsonc` defines the Worker: no `main` script, `assets.directory` pointing at the
+  VitePress output, and the custom domain declared as a route so the hostname binding stays
+  in version control.
+- The Node version is pinned by **both `.nvmrc` and `.node-version`** (kept in sync). The
+  build image resolves the version from these files; without a pin it silently falls back
+  to its own default, which may not satisfy the `engines` ranges of the dev dependencies.
+- A green `validate-hacs` check does **not** mean the site deployed. The Workers build is a
+  separate check run named `Workers Builds: calendar-card-pro`. Confirm a deploy by
+  fetching the live page, not by reading check names:
+
+  ```bash
+  curl -s https://calendar-card-pro.alexpfau.com/reference/configuration \
+    | grep -o '<title>[^<]*</title>'
+  ```
+
+  If the build fails, its log lives only in the Cloudflare dashboard — the GitHub check run
+  carries a `details_url` and no log text, and the check-run/check-suite re-request
+  endpoints both return 404 for a normal `gh` token.
+
 ## Adding or changing a translation
 
 This is the most error-prone area of the codebase; the same mistake has shipped
