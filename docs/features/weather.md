@@ -99,7 +99,7 @@ Each display position can be customized independently with different content and
 - `font_size`: Temperature text size
 - `color`: Text and icon color
 
-## Benefits and Use Cases
+## Benefits & Use Cases
 
 Weather integration is particularly useful for:
 

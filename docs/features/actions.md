@@ -60,7 +60,7 @@ hold_action:
   url_path: https://calendar.google.com
 ```
 
-### Available Actions:
+### Available Actions
 
 Calendar Card Pro handles one action itself — `expand` — and forwards **everything else to Home Assistant's own action handler**. That means any action Home Assistant supports works here, including ones added after this page was written.
 

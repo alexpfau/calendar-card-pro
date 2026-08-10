@@ -20,7 +20,7 @@ hide_when_empty: true
 
 When `show_empty_days` is set to `true`, days without events will display a "No events" message. This helps maintain visual consistency across your calendar, especially when showing longer date ranges.
 
-### Custom empty-day text
+### Custom Empty-Day Text
 
 The default message is deliberately neutral, but an empty day often means something specific to you. A meal-plan calendar reads far better with "Leftovers" than with "No upcoming events", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
 

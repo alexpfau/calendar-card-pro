@@ -69,7 +69,7 @@ vertical_line_width: 5px
 event_spacing: 6px
 ```
 
-## 📆 Multiple Calendars with Week Numbers and Separators
+## 📆 Multiple Calendars with Week Numbers & Separators
 
 This configuration showcases the **week number display** and **visual separators** features. It creates a clear hierarchy with different separator widths for weeks and months.
 

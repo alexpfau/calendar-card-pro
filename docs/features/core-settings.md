@@ -16,7 +16,7 @@ entities:
     accent_color: '#ff6347'
 ```
 
-### Available Properties for Entity Configuration Objects:
+### Available Properties for Entity Configuration Objects
 
 | Property                 | Type    | Description                                                                                                                    |
 | ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------ |

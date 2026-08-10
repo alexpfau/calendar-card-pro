@@ -41,7 +41,7 @@ The `start_date` parameter can be configured in multiple ways:
   start_date: "monday+1w" # One week after that Monday
   ```
 
-### Relative expression syntax
+### Relative Expression Syntax
 
 Relative expressions are built from an **anchor** followed by any number of **operators**:
 
@@ -90,7 +90,7 @@ days_to_show: 7 # Shows a 7-day window starting one week from today
 
 If an expression is malformed — `start_of_week+xyz`, say — the card logs a warning and falls back to today rather than rendering an empty view.
 
-### Common setups
+### Common Setups
 
 The three setups the grammar was built for, taken from the requests behind it:
 

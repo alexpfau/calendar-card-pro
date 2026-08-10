@@ -8,7 +8,7 @@ title: "{{ now().strftime('%-d %B %Y') }}" # 14 March 2025
 
 No separate option enables this. Any title containing `{{` or `{%` is rendered as a template; everything else is used exactly as written.
 
-## 🧩 What you can do with it
+## 🧩 What You Can Do With It
 
 - **Show the current date or time**
 
@@ -42,7 +42,7 @@ No separate option enables this. Any title containing `{{` or `{%` is rendered a
 > [!TIP]
 > Test a template in **Developer Tools → Template** first. What renders there is exactly what the card will show.
 
-## 🔁 How updates work
+## 🔁 How Updates Work
 
 Home Assistant renders the template on its own and pushes a new value to the card whenever something the template depends on changes — there is no polling interval to configure and no need to reload the dashboard.
 
@@ -54,7 +54,7 @@ The rest of the card is unaffected: a title change never triggers a calendar ref
 > [!NOTE]
 > The heading is briefly empty on first paint while Home Assistant renders the template. The card never displays the raw template text.
 
-## ⚠️ When a template fails
+## ⚠️ When a Template Fails
 
 Errors are reported where you can act on them, and the card itself stays usable:
 
