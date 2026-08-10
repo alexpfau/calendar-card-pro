@@ -83,7 +83,13 @@ earlier `column-view-phase1-design.md` draft.
   rebuilding gives 347940 bytes (`686eaa59…`) against 347943 (`30f7b8ec…`). Every other part
   of Phase 0 — the tests, the i18n script, the CI steps, the `tsconfig` widening — is
   bundle-neutral, which is the property that let a test suite be added to a project whose
-  stated reason for having none is bundle size.
+  stated reason for having none is bundle size. **A gap in the gate was then found and closed
+  (`ca452c4`), which is why the count above is 70 rather than 66.** The gate passed no weather
+  forecasts, leaving Phase 1's _first_ extraction — the weather block — entirely uncovered
+  while every assertion still passed. The general lesson is recorded in Stage 2: mutation
+  testing proves the tests you have are load bearing, but says nothing about a branch no
+  fixture reaches, so render-surface coverage has to be argued separately from assertion
+  sensitivity.
 
 Changes from v3 are marked **[v4]**; changes from v4 are marked **[v5]**; changes from v5 are
 marked **[v6]**; changes from v6 are marked **[v7]**.
@@ -870,6 +876,31 @@ that adding views never disturbs the list.
 > `align-self` analysis concerns; the gate now pins its current structure before that analysis
 > is acted on.
 
+> **[v7] A gap in the shipped gate, found and closed (`ca452c4`).** The gate as first shipped
+> passed **no `weatherForecasts` at all**. The parameter is optional, so every weather branch
+> short-circuited to `nothing` — and Phase 1's scope section below names weather as the
+> **first** extraction. The gate did not cover the first step of the refactor it exists to
+> protect, and would have agreed perfectly with a broken weather renderer. This is the same
+> "passes while empty" failure the mutation testing above was designed to rule out, surviving
+> in one corner because the mutation set only probed code the fixtures already reached.
+>
+> Worth recording as a method note: **mutation testing proves the tests you have are load
+> bearing; it cannot tell you about a branch no fixture reaches.** Coverage of the render
+> _surface_ has to be argued separately from sensitivity of the assertions.
+>
+> Closed by pinning a `WEATHER` fixture to the frozen dates — daily keyed `YYYY-MM-DD`, hourly
+> `YYYY-MM-DD_H` with a **non-padded** hour, matching what `findDailyForecast` and
+> `findForecastForEvent` actually look up. An unpinned fixture silently renders nothing and
+> produces a passing, empty snapshot, which is the trap this whole section is about. Four
+> cases: date position, event position (a **separate** render site reading the hourly
+> forecast, so an extraction could fix one and break the other), both-with-low-temp, and UV
+> suppressing the low temp. That last is an interaction between two independent flags
+> (`show_low_temp === true && !showUvIndex && templow !== undefined`) that no other case
+> reaches; it asserts on the output directly as well as snapshotting, so the _absence_ of
+> `weather-temp-low` is stated rather than left for a reader to spot in 1300 lines. Four
+> further mutations confirm the new cases bite — including the suppression removal, which
+> survived everything before this commit.
+
 **This requires an `AGENTS.md` amendment, not a silent violation.** The file says "no test
 framework… Keep it that way", with **bundle size** as the rationale — which does not apply,
 since a runner is a devDependency and never enters the shipped file. Amend the rationale
@@ -937,6 +968,15 @@ Leaves to extract, all already verified DOM-agnostic — **citations re-based to
 > Order within Phase 1 therefore: weather → date content → `.event-content` →
 > `parseIndicatorPosition`. The last two are genuinely independent of the first two and can be
 > done in either order.
+
+> **[v7] The gate covers this ordering — but only since `ca452c4`.** Because weather is first
+> out, it is the extraction most in need of a baseline, and the Stage 2 gate as originally
+> shipped had none: it passed no forecasts, so every weather branch rendered `nothing`.
+> Whoever starts Phase 1 should know the coverage is now genuine, and that it pins **two**
+> render sites — the date-column block named above **and** `renderEventWeather`
+> (`render.ts:1050+`), which is a separate function reading the _hourly_ forecast. The nesting
+> decision above concerns the date one; do not let the event one fall through the extraction
+> unnoticed just because the bullet list does not mention it.
 
 **The contract is stronger than v3's, and automatable: list-view DOM must be byte-identical
 before and after.** Extraction that changes list output is a bug by definition. This restores
