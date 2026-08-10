@@ -743,12 +743,16 @@ lose **144px** to gutters before any content is laid out.
 `event?: WeatherPositionConfig` — one option shape, two rendering contexts, configured
 separately (`types.ts:147-168`).
 
-> **Do not copy its type, only its shape.** `WeatherPositionConfig` is a single interface
-> covering two _disjoint_ field sets: the date renderer reads `show_high_temp` / `show_low_temp`
-> and ignores `show_temp` and `daily_forecast_fallback`; the event renderer is the mirror image
-> (`render.ts:538-546` vs `:1083-1091`). TypeScript accepts all four dead combinations. The
-> editor is correct and never offers a dead field, so only hand-written YAML is affected —
-> but `ColumnOverrides` must be its own narrowed type, not a re-use of `Config`.
+> **Copy its shape, not its merge.** The disjoint field sets under `date` and `event` are
+> deliberate — the two positions render different things, and `config.ts:118-136` gives them
+> disjoint _defaults_ to match. What does not carry over is the resolution idiom. `setConfig`
+> merges shallowly (`calendar-card-pro.ts:719`), and the weather renderers compensate with
+> `config.weather?.date || {}` plus `!== false` / `=== true` reads, so an absent key falls back
+> to its default. **That idiom cannot be used here**, because it conflates "not set" with "set
+> to `false`" — and `column.show_location: false` against a top-level `true` is precisely the
+> case the block exists to express. Resolution is therefore **presence-based** (`'key' in
+block`), inheriting from the merged top-level value, never from `DEFAULT_CONFIG`.
+> `ColumnOverrides` is its own narrowed type, not a re-use of `Config`.
 
 #### Constraints this satisfies
 
@@ -757,17 +761,48 @@ separately (`types.ts:147-168`).
 - **G10** — no fetch-time key present, so a breakpoint crossing never refetches.
 - **E1** — every excluded key is documented as excluded, not silently inert.
 
-#### Open — needs a ruling before implementation
+#### Scope — ruled
 
-- **Per-entity precedence.** `entities` is category E, so the array cannot be overridden. But
-  per-entity _render_ flags (`entities[].show_location`) are category B. Does
-  `column.entities[]` patch by array index, by entity id, or not exist in MVP?
-- **Editor exposure.** YAML-first for a curated subset, with editor controls later? The editor
-  is ~2,000 lines and the most fragile file in the repo, and each control needs a string in all
-  11 editor-translated languages — a _partial_ `editor` section renders raw key names.
+> **[v8] Both open questions ruled by the maintainer.** Neither is a permanent exclusion: both
+> are **MVP-scope deferrals**, and both are listed in [D7](#d7-deferred-past-mvp--required-before-the-first-production-release)
+> as release blockers for v4.0.0.
+
+- **Per-entity precedence — deferred past MVP.** `entities` is category E, so the array cannot
+  be overridden. Per-entity _render_ flags (`entities[].show_location`) are category B and so
+  are eligible in principle, but addressing them needs a scheme — patch by array index, or by
+  entity id — and neither is obviously right. Array index is brittle against reordering; entity
+  id breaks when the same calendar appears twice with different display settings, which is a
+  supported pattern. **MVP has no `column.entities`.** The card-level override applies to every
+  entity, exactly as the top-level key does today.
+- **Editor exposure — deferred past MVP, YAML-only first.** The block is YAML-only for
+  development and internal testing. This is not a shipping position: the editor is ~2,000 lines
+  and the most fragile file in the repo, and every control needs a string in all 11
+  editor-translated languages — a _partial_ `editor` section renders raw key names rather than
+  falling back to English. Building those controls against a spec that is still moving would
+  mean building them twice, so they follow the block rather than accompany it.
 
 > Full audit, per-key classification and rejected alternatives:
 > [column-view-rationale.md](./column-view-rationale.md#d6-per-view-config-overrides-new-v8)
+
+### D7. Deferred past MVP — required before the first production release
+
+**[v8]** MVP here means "the column view renders correctly and is testable", not "shippable".
+Several deliberate deferrals make the MVP tractable; every one of them is a **release blocker
+for v4.0.0** and none may be dropped silently. This section exists so that the distinction
+survives — a deferral recorded only in the section that deferred it is a deferral that gets
+forgotten.
+
+| Deferred                               | Deferred in | Why deferred                               | Release requirement                                |
+| -------------------------------------- | ----------- | ------------------------------------------ | -------------------------------------------------- |
+| **Editor controls for `column:`**      | D6          | Spec still moving; would be built twice    | Full editor support, strings in all 11 languages   |
+| **`column.entities[]` overrides**      | D6          | Addressing scheme unresolved (index vs id) | Ruled and implemented, or documented as N/A        |
+| **`compact_events_to_show` overrides** | G12         | Per-column budget is a different algorithm | Ruled in or documented as N/A (E1 forbids silence) |
+| **Week / month separator overrides**   | D6          | Axis-rotated; needs its own visual design  | Ruled in or documented as N/A                      |
+| **`today_indicator_position`**         | D6          | Depends on the G13 header-budget spike     | Ruled once G13 measures                            |
+
+The E1 acceptance criterion is what enforces this: _no silent config no-ops_. Anything still
+deferred at release must appear in the documented not-applicable list, so a user who sets it
+learns that it does nothing. Silence is the failure mode, not the deferral itself.
 
 ---
 
@@ -790,6 +825,12 @@ separately (`types.ts:147-168`).
    Home Assistant API call (G10). This is the invariant that bounds D6's override block to
    render-time and grouping-time keys, and it is testable: cross the breakpoint with a warm
    cache and assert zero `callApi` invocations.
+4. **An override of `false` beats an inherited `true`.** **[v8]** The `column:` block resolves
+   by _presence_, not truthiness, so `column: {show_location: false}` against a top-level
+   `show_location: true` must render locations in list view and omit them in column view. The
+   codebase's existing `!== false` idiom (`render.ts:540`) cannot express this, so the test
+   guards against reaching for it out of habit. The mirror case — `false` at top level,
+   `true` in the block — must hold too.
 
 HA soak list — list view must be pixel-identical after phases 1–2b and rechecked after Phase 4:
 default config; compact mode (all three keys); `max_height` scrolling; multi-day spans under

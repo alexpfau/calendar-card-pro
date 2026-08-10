@@ -127,8 +127,8 @@ earlier `column-view-phase1-design.md` draft.
   deliberately denied the shortlist already formed in discussion, and **converged 6/6** on the
   highest-concern keys while adding four findings that had been missed — including that
   `first_day_of_week` and `weather.position` are **fetch-time**, so G10 forbids overriding
-  them, and a live `WeatherPositionConfig` defect on `dev` in which four field combinations are
-  silently ignored because one interface spans two disjoint field sets.
+  them, and the shallow-merge semantics of `setConfig` — which turn out to constrain how the
+  override block must resolve inheritance.
 
 Changes from v3 are marked **[v4]**; changes from v4 are marked **[v5]**; changes from v5 are
 marked **[v6]**; changes from v6 are marked **[v7]**; changes from v7 are marked **[v8]**.
@@ -1657,37 +1657,63 @@ Four findings were **new** and are the reason the audit was worth running:
 3. **The separator family rotates** (`day_separator_*`, `week_separator_*`, `month_separator_*`):
    a horizontal rule between day rows becomes a vertical rule between columns. Missed entirely
    in the original pass.
-4. **`WeatherPositionConfig` has four dead field combinations** — a live defect on `dev`,
-   unrelated to column view. See below.
+4. **`setConfig` merges shallowly**, which constrains how the override block resolves. See below.
 
-### The `WeatherPositionConfig` finding — verified, and its consequence
+### Config merge semantics — the constraint on how `column:` resolves
 
-The audit claimed certain weather fields are ignored. Verified directly against source rather
-than accepted:
+The audit reported that some `WeatherPositionConfig` fields are ignored per position. Verified
+directly against source:
 
 | Field                             | `weather.date`             | `weather.event`         |
 | --------------------------------- | -------------------------- | ----------------------- |
-| `show_high_temp`, `show_low_temp` | read (`render.ts:540,546`) | **silently ignored**    |
-| `show_temp`                       | **silently ignored**       | read (`render.ts:1091`) |
-| `daily_forecast_fallback`         | **silently ignored**       | read (`render.ts:1083`) |
+| `show_high_temp`, `show_low_temp` | read (`render.ts:540,546`) | not read                |
+| `show_temp`                       | not read                   | read (`render.ts:1091`) |
+| `daily_forecast_fallback`         | not read                   | read (`render.ts:1083`) |
 
-`WeatherPositionConfig` (`types.ts:147-158`) is a single interface spanning two disjoint field
-sets, so TypeScript accepts all four dead combinations.
+> **[v8] This is by design, not a defect — an earlier draft of this section called it one and
+> was wrong.** The two positions render different things: a date badge shows a day's high/low,
+> an event row shows that event's temperature. They _should_ have different keys. The defaults
+> confirm the intent — `config.ts:118-136` gives `date` and `event` **disjoint** default sets,
+> not one shared set. The editor offers only the applicable toggles per position
+> (`editor.ts:1539-1617`), so the UI cannot produce a dead combination. Hand-written YAML can,
+> and the key is then silently ignored — no error, no crash, nothing renders wrongly. That is
+> acceptable and **no change is proposed**. The only residue is that a single
+> `WeatherPositionConfig` interface spans both sets, so TypeScript does not reject the dead
+> combinations; that is cosmetic and not worth a rename against shipped keys (F3).
 
-**Severity is low**: the editor was checked and is correct — it offers `show_high_temp` /
-`show_low_temp` under date and `show_temp` / `daily_forecast_fallback` under event, never a dead
-field (`editor.ts:1539-1617`). The README does not document them. Only hand-written YAML is
-affected, and it fails silently rather than wrongly.
+**What the check did turn up, which matters far more.** `setConfig` merges with a single
+shallow spread (`calendar-card-pro.ts:719`):
 
-**Consequence for this design**: the precedent to copy is the _shape_ (one option type, two
-contexts, separately configurable), **not** the type itself. `ColumnOverrides` must be a
-narrowed type listing only category-B keys. A lazy `Partial<Config>` would reproduce this exact
-class of defect at ~90× the surface, and would additionally re-admit every category-E key that
-G10 forbids.
+```ts
+let mergedConfig = { ...Config.DEFAULT_CONFIG, ...config };
+```
 
-A standalone fix — splitting into `WeatherDateConfig` and `WeatherEventConfig` — is type-only,
-has no runtime effect and cannot break YAML (YAML is not typechecked). Offered to the maintainer
-as independent tidy-up, deliberately not bundled here.
+So a user-supplied nested block **replaces** the default block wholesale — supply
+`weather.date.show_low_temp` and every sibling default under `weather` is gone, including the
+entire `weather.event` block. The card survives this because both call sites guard with
+`config.weather?.date || {}` (`render.ts:538`, `:1076`) and every read uses the `!== false` /
+`=== true` idiom, so an absent key resolves to its documented default. That is deliberate and
+well-built; nothing to fix.
+
+**But that idiom cannot be reused for the override block, and this is the design constraint:**
+
+| Expression                             | `undefined` | `false` | Suitable for                |
+| -------------------------------------- | ----------- | ------- | --------------------------- |
+| `block.key !== false`                  | `true`      | `false` | defaults with a `true` base |
+| `block.key === true`                   | `false`     | `false` | defaults with `false` base  |
+| **`'key' in block`** / `!== undefined` | `false`     | `true`  | **the `column:` block**     |
+
+Both truthiness idioms conflate "not set here" with "set to `false`". For `column:` those must
+differ: `column.show_location: false` has to mean _off in column view_ while the top-level key
+stays `true` for list view — that inversion is the whole point of the block. So resolution is
+**presence-based**, and inheritance falls back to the already-merged top-level value, never to
+`DEFAULT_CONFIG`. An acceptance test must cover exactly this: an explicit `false` in the
+override block against a `true` top-level.
+
+**Consequence for the type.** The precedent to copy from `WeatherConfig` is its _shape_ — one
+option type, two rendering contexts, separately configurable — not a permissive spread.
+`ColumnOverrides` is a narrowed type listing only category-B keys. `Partial<Config>` would
+re-admit every category-E key that G10 forbids, across ~90 keys.
 
 ### Why this abolishes D5's kind 4
 
