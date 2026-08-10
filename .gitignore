@@ -40,3 +40,6 @@ tmp/
 docs/_build/
 docs/.vitepress/dist/
 docs/.vitepress/cache/
+
+# Ignore Cloudflare Workers local state
+.wrangler/

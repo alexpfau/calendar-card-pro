@@ -1,0 +1,10 @@
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "calendar-card-pro",
+  "compatibility_date": "2026-08-01",
+  "assets": {
+    "directory": "./docs/.vitepress/dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
