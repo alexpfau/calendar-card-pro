@@ -42,8 +42,26 @@ earlier `column-view-phase1-design.md` draft.
   and **every citation in the document has been re-based against `origin/dev`**, with each
   section now stating which tree it was verified against. See F6 — the reason all four were
   needed is one root cause, and the document had already noticed it once without generalising.
+- **v6 — implementation pass.** The first revision written **while building** rather than
+  while reviewing, so its corrections come from code that now exists. Phase 0 Stage 0 is
+  **shipped** (`scripts/check-i18n.mjs`, `npm run check:i18n`, CI step) — and building it
+  proved the plan's own spec for it wrong: the stated rule would have **rejected `en-gb`** and
+  failed CI on day one, and the "~50 lines" estimate was ~6× low. Six further corrections were
+  verified against source and applied: `compact_events_complete_days` was documented
+  **backwards** (it *includes* whole days and can exceed the cap, rather than dropping them);
+  four citation ranges had drifted again (`render.ts:83→86`, `renderDateColumn :622→:611`,
+  `parseIndicatorPosition :390→:382`, `AGENTS.md:82-127→:119-163`); the `cross-env` advice was
+  moot (it is already a devDependency used by `build`); and "conflict-heavy **rebase**" is
+  replaced by "manual port", because that word must not sit beside a frozen branch whose
+  commits must survive as ancestors to preserve attribution. Two scope findings are recorded
+  where the work happens rather than resolved: **Phase 2b is under-scoped** (five
+  `_matchedConfig` consumers, not one) and **Stage 2's "hard gate" has no executable design**.
+  Four Phase 4 blockers are recorded in **G10–G13** — `effectiveView` vs `requestedView`,
+  flex-vs-grid, compact-mode MVP scope, and the measurement spike — deliberately **left open**,
+  because they are architectural decisions for the maintainer, not implementation details.
 
-Changes from v3 are marked **[v4]**; changes from v4 are marked **[v5]**.
+Changes from v3 are marked **[v4]**; changes from v4 are marked **[v5]**; changes from v5 are
+marked **[v6]**.
 
 > **[v5] Which tree a citation refers to.** This plan was drafted while the author's worktree
 > sat on the frozen #339 branch (decision 9), so a large number of `file.ts:NNN` references
@@ -101,7 +119,7 @@ the phasing was reconsidered from scratch rather than patched.
 
 The seam is already much further along than v2 assumed.
 
-- `.content-container` (`render.ts:83`) holds day-blocks and separators as **siblings**. The
+- `.content-container` (`render.ts:86` **[v6 — was `:83`]**) holds day-blocks and separators as **siblings**. The
   card-level axis flip is a *container* change, not a restructure.
 - Each day is **already one self-contained node** — `<table class="day-table">`
   (`render.ts:678-692`). The day boundary is already in the right place for a shared
@@ -117,7 +135,7 @@ variant.
 for one concept (`styles.ts:487-488` list `0.6`; `:986-987` grid `0.55` **[frozen]**;
 `:1061-1062` grid all-day `0.55` **[frozen]**). The grid re-implemented the *leaf* renderers.
 It did not have to: every leaf the shared block needs is already DOM-agnostic —
-`.event-content` (`render.ts:942-1003`), `renderDateColumn` (`:490-622`), colour precedence
+`.event-content` (`render.ts:942-1003`), `renderDateColumn` (`:490-611`), colour precedence
 (`:497-516`). A flex grid container could have consumed those leaves unchanged. The rowspan
 blocked reuse of the **container**, and container reuse is not what prevents drift. **Sharing
 the leaves is.**
@@ -462,11 +480,20 @@ Caveats, all manageable:
   v3 justified this with "there is no partial-day problem once each column has its own
   budget", which is **backwards**: a per-column cap *does* truncate days. The correct reason
   is that `complete_days` is a **cross-day inclusion filter under a shared budget**
-  (`events.ts:413-441` — it drops whole days that would not fit so the last day is never
-  cut off mid-way). A per-column budget has no shared pool and makes no day-inclusion
+  (`events.ts:413-441`). A per-column budget has no shared pool and makes no day-inclusion
   decision — every column renders. There is nothing for it to decide. Ignore + annotate.
   *The reason matters:* on the v3 phrasing a future reader could "restore" the key on a
   false premise.
+
+  > **[v6] What that filter actually does, corrected against source.** Both v3 and v4
+  > described it as "drops whole days that would not fit so the last day is never cut off".
+  > It does the opposite: the first pass marks a day *started* if **even one** of its events
+  > fits the remaining budget, and the second pass then keeps the **entire** day unfiltered
+  > (`filteredDays = days.filter(day => daysStarted.has(dayKey))`, `events.ts:435-440`). So it
+  > **includes every complete day reached before the budget was exhausted, and can exceed the
+  > configured maximum.** The conclusion above is unaffected — it is still a cross-day
+  > inclusion filter with no per-column meaning — but anyone reasoning about the event cap
+  > from the old description would have the sign wrong.
 - `compact_days_to_show` maps to **fewer columns** when collapsed. Coherent.
 - **Per-entity `compact_events_to_show` must NOT be re-based per column.** [v4 — REVERSED]
   v3 said it "must be re-based per column". That is wrong, and it is the one place the
@@ -644,16 +671,46 @@ but it is now a cheap gate on a low-risk step rather than a net under a risky on
 ### Phase 0 — safety net · ships 3.x · risk: none **[v3 — NEW]**
 
 **Stage 0 — i18n integrity. Zero dependencies. Do this regardless of everything else.**
-A ~50-line script comparing every language file to `en.json`, plus a check that every
-`TRANSLATIONS` key has a matching dayjs import and `supportedLocales` entry. This exact class
+✅ **SHIPPED** as `scripts/check-i18n.mjs` + `npm run check:i18n` + a CI step. This exact class
 of bug has now bitten **twice during this work** and once in the comparable card (ACR PR
-#1812, a whole missing `planner` section in `es.json`). `AGENTS.md:82-123` documents it as
-the single most error-prone area of the codebase. It is the cheapest high-value thing on this
-entire plan.
+#1812, a whole missing `planner` section in `es.json`). `AGENTS.md:119-163`
+**[v6 — was `:82-123`, which points at the README section]** documents it as the single most
+error-prone area of the codebase. It was the cheapest high-value thing on this entire plan.
+
+> **[v6] Two corrections this stage forced, recorded because the plan was wrong, not just thin.**
+>
+> 1. **The rule as written was incorrect.** "Every `TRANSLATIONS` key has a matching dayjs
+>    import and `supportedLocales` entry" **rejects `en-gb`**, which legitimately has neither
+>    because `mapLocale()` reduces it to `en` (`dayjs.ts:66-118`). Implemented as specified it
+>    would have failed on `dev` on day one. The shipped script replicates `mapLocale()` and
+>    reads the `zh-cn`/`zh-tw` special cases *out of* `dayjs.ts`, so it tracks that function
+>    rather than becoming a second stale source of truth.
+> 2. **"~50 lines" was ~6× low** — the real trap list needs ~330 with docs. Every source
+>    extraction is guarded so that a pattern matching nothing exits 2 with "the script needs
+>    updating": a regex that silently matched nothing would report a clean run over an empty
+>    set, which is the one outcome worse than a false alarm.
+>
+> Verified against 11 deliberately broken fixtures, including the Catalan/Romanian silent
+> `supportedLocales` fallback and the regex-rot guard. Reports one pre-existing warning:
+> `image_label_note` and `start_date` are defined in `en.json` but never referenced.
 
 **Stage 1 — pure-logic tests. [v5 — three deliverables, not four.]** `vitest` as a
 devDependency, **3** files: translation parity, the `getBaseCacheKey` bug (Phase 2b), config
 validation/change-detection.
+
+> **[v6] Runner decided: `vitest` + `happy-dom`.** Stage 2 needs a DOM to render Lit into and
+> Stage 1 does not, but choosing the environment once avoids re-litigating it mid-phase.
+> `happy-dom` is roughly a fifth of `jsdom`'s install footprint, renders Lit correctly, and is
+> swappable for `jsdom` by changing one `environment` string if a real gap appears. Both are
+> devDependencies, so the bundle-size rationale that bars runtime dependencies does not apply.
+
+> **[v6] Stage 1's cache test cannot ship in Phase 0 — the plan is circular here.** It lists
+> "the `getBaseCacheKey` bug" as a Phase 0 deliverable, but a test asserting the *fixed*
+> behaviour fails until Phase 2b lands, and one asserting today's behaviour would have to be
+> rewritten by the same PR that fixes it. Sequencing: **Phase 0 Stage 1 ships only tests that
+> pass on `dev` today** (translation parity, config validation/change-detection); the cache
+> regression test ships **with** the Phase 2b fix, as the evidence that the fix works. This
+> also keeps Phase 2b independently revertable, which is the point of splitting it out.
 
 > **[v5] The `grid.ts` maths test target is dropped.** v4 listed it as a fourth file. It cannot
 > be written: `grid.ts` **does not exist on `dev`** — it lives only on the frozen
@@ -695,11 +752,38 @@ that adding views never disturbs the list.
 > materially more invasive than a setup line. If you find a concrete reason fake timers cannot
 > work here, that is a finding to report, not an implementation detail to absorb silently.
 
+> **[v6] The gate is called "hard pass/fail" but has no executable design.** The clock strategy
+> above is settled; the mechanics are not, and each of these changes what "byte-identical"
+> means. Before Phase 1 can be gated, this stage must specify:
+>
+> - **What is rendered, and into what.** The card is a Lit element with a shadow root, so a
+>   test must construct it, feed it `hass` + config, `await el.updateComplete`, and serialize
+>   `shadowRoot.innerHTML` — none of which is stated. `happy-dom` (Stage 1) covers this.
+> - **Serialization normalisation.** Raw `innerHTML` carries Lit's comment markers (`<!--?lit$…
+>   -->`), whose ids vary between runs. Either strip them or accept that the diff is noise.
+> - **Where the baselines live and how they are approved.** `__snapshots__` vs committed
+>   fixtures, and the review rule for an *intended* change — a gate with no sanctioned update
+>   path gets bypassed the first time list DOM legitimately changes.
+> - **Which fixtures.** "The soak fixtures" names no file; the set must be enumerated and
+>   committed, including at least one all-day, one multi-day, one empty-day and one past-event
+>   case, or the gate will pass while missing the branches most likely to regress.
+> - **The command, and whether CI runs it.** An unrun gate is a comment.
+>
+> Note this also **contradicts F2**, which still describes goldens as "a review artifact, not a
+> gate". One of the two statements has to give; Stage 2's framing is the newer one, so F2 is
+> what needs updating — flagged, not silently changed.
+
 **This requires an `AGENTS.md` amendment, not a silent violation.** The file says "no test
 framework… Keep it that way", with **bundle size** as the rationale — which does not apply,
 since a runner is a devDependency and never enters the shipped file. Amend the rationale
-explicitly so the next contributor isn't caught between the doc and the repo. Skip
-`cross-env`; `TZ=… vitest run` works on macOS and Linux CI.
+explicitly so the next contributor isn't caught between the doc and the repo.
+
+> **[v6] The `cross-env` advice was moot and is withdrawn.** Earlier revisions said "skip
+> `cross-env`; `TZ=… vitest run` works on macOS and Linux CI." `cross-env` is **already a
+> devDependency and already used by `build`** (`package.json`), so there is nothing to skip
+> and no cost to avoid — using it for the test script is simply *consistent with the existing
+> build script*. Also note `vitest run` is not on `PATH` outside an npm script, so the command
+> as written would not run standalone.
 
 **Do not merge lenaxia's 2,022-line suite wholesale.** Its approach is right, its size isn't.
 Prune to the parts covering code we keep.
@@ -715,9 +799,9 @@ Leaves to extract, all already verified DOM-agnostic — **citations re-based to
 @ `29b8226` [v5]**:
 - `.event-content` subtree (`render.ts:942-1003` **[was `:939-1000`]**) — title, time,
   location.
-- Date content and colour precedence (`renderDateColumn` `:490-622` **[was `:487-608`]**,
+- Date content and colour precedence (`renderDateColumn` `:490-611` **[was `:487-608`]**,
   precedence `:497-516` **[was `:497-513`]**).
-- Today-indicator geometry (`parseIndicatorPosition` `:358-390` **[was `:355-379`]**).
+- Today-indicator geometry (`parseIndicatorPosition` `:358-382` **[was `:355-379`]**).
 - Weather rendering (`:526-575` **[was `:528-572`]**) — **see the nesting fork below; this is
   not a sibling of `renderDateColumn`.**
 
@@ -725,7 +809,7 @@ Leaves to extract, all already verified DOM-agnostic — **citations re-based to
 >
 > The four bullets above read as four peers. They are not. There is **no `renderWeather`
 > function on `dev`** — weather is rendered **inline inside `renderDateColumn`**, at
-> `render.ts:526-575`, which is wholly contained in `renderDateColumn`'s span of `:490-622`. So
+> `render.ts:526-575`, which is wholly contained in `renderDateColumn`'s span of `:490-611`. So
 > the list names *a container and its own child* as sibling extraction targets. Taken
 > literally, you would extract the same code twice and have to decide, mid-extraction, which
 > one owns it.
@@ -816,6 +900,25 @@ only bites a user toggling config without a version bump inside TTL.
 `split: false` (`grid.ts:573-586`), so cross-view cache collision is *guaranteed* unless
 effective split semantics and view identity enter the key. Shipping it early simply means that
 dependency is already satisfied.
+
+> **[v6] The scope above is too narrow — adding `split` + label to the key does not close the
+> bug class.** Verified on `dev`: the cached event carries a whole `_matchedConfig` object
+> (`events.ts:670`), and **five** separate consumers prefer it over live config —
+> `getEntitySetting` (`:1066`), `getEntityLabel` (`:1034`), `getEntityColor` (`:954`),
+> `getEntityAccentColorWithOpacity` (`:991`) and the split override (`:748-751`). So a warm
+> cache can also serve stale `show_time`, `show_location`, `show_description`, accent and
+> background colours, per-entity compact limits and per-entity split overrides — none of which
+> are in the key either.
+>
+> Two ways to close it, and the choice is a **maintainer decision, not an implementation
+> detail**: (a) cache the **raw API events** and re-run config-dependent processing on every
+> read, which makes the whole class structurally impossible; or (b) keep caching processed
+> events and key the complete, order-sensitive, normalised per-entity config — which must then
+> be re-verified against all five consumers above, not just labels.
+>
+> (a) is the smaller long-term surface and removes `_matchedConfig` staleness by construction;
+> (b) is the smaller diff today. **Unresolved — do not start Phase 2b until this is ruled on**,
+> because the two produce different cache keys and different tests.
 
 ### ~~Phase 3~~ — `ViewAdapter` · **[v5 — FOLDED INTO PHASE 4]**
 
@@ -923,11 +1026,18 @@ across `calendar-card-pro.ts`, `config.ts`, `editor.ts` and `render.ts`. By the 
 runs, `dev` will have moved by everything in Phases 0–2b **plus** Phase 4's own changes to
 several of those same files — and the frozen branch has already diverged materially (its
 `styles.ts` has a grid section `dev` has never had; its `editor.ts` has a view select at
-`:774-777` that does not exist on `dev`). So the port is a **conflict-heavy rebase across
+`:774-777` that does not exist on `dev`). So the port is a **conflict-heavy manual port across
 7+ files that both sides have edited**, not a cherry-pick. Budget it as **comparable to a
 small phase in its own right — days, not an afternoon** — and treat any estimate below that as
 a sign the divergence has not been looked at. The number is uncomfortable and it is the real
 one; discovering it during the port is strictly worse than budgeting for it now.
+
+> **[v6] Deliberate wording change: "rebase" → "manual port".** Earlier revisions called this
+> a "conflict-heavy rebase". Given that `alexpfau-review-339-time-grid` is **frozen** and its
+> commits must survive as ancestors of Phase 5 to preserve lenaxia's attribution, "rebase" is
+> the one word that must not appear next to it — it names the exact operation that would
+> destroy the requirement. The work is a manual port **into a scratch branch**; the frozen ref
+> is read and never moved.
 
 **[v5] Failure path — what happens if the gate fails after Phases 1–2b have shipped to 3.x.**
 This is the case v4 left unanswered, and it is the one that matters, because by then the
@@ -1032,7 +1142,7 @@ a no-op for a default config** and this rewrite only affects users who opted in.
 
 ### D2. Header
 
-A horizontal variant of `renderDateColumn` (`render.ts:490-622` **[v5 — was `:487-608`]**).
+A horizontal variant of `renderDateColumn` (`render.ts:490-611` **[v5 — was `:487-608`]**).
 Same DOM classes, same
 custom properties, so theming carries over. **Colour precedence preserved exactly**: base →
 weekend → today (`render.ts:497-516` **[v5 — was `:497-513`]**) — CONFIRMED pure data,
@@ -1043,7 +1153,7 @@ DOM-independent.
 indicator; we get it on day one.)
 
 Today indicator relocation is MECHANICALLY SOUND: `parseIndicatorPosition`
-(`render.ts:358-390` **[v5 — was `:355-379`]**) emits `position:absolute` + percentages +
+(`render.ts:358-382` **[v6 — was `:358-390`]**) emits `position:absolute` + percentages +
 `translate(-50%,-50%)` inside
 a `position:relative` container; that transfers cleanly. Caveat: `'15% 50%'` resolves to a
 different visual spot in a short wide band. Documented, not fixed.
@@ -1162,7 +1272,7 @@ Gates as they exist on the frozen branch, and what each becomes with three views
   a shippable defect rather than a cosmetic one.**
 - `:908` **[frozen]** — correctly grid-only, unchanged.
 
-> **[v5] Translation warning, carried over from `AGENTS.md:82-127`.** The `editor` section is
+> **[v5] Translation warning, carried over from `AGENTS.md:119-163`.** The `editor` section is
 > **all-or-nothing**. `hasEditorTranslations()` returns true if the section has *one or more*
 > keys, so adding these three keys to only some of the 11 editor languages does not fall back
 > to English — every key you missed renders as the **raw key name** (`show_empty_days_auto`) in
@@ -1249,7 +1359,7 @@ affects only opted-in users.
 ## E. Cross-cutting acceptance criteria
 
 > **Verified against `origin/dev` @ `29b8226`.** This section carries no `src/` line citations;
-> the `AGENTS.md` reference in criterion 2 re-verifies at `AGENTS.md:82-127`.
+> the `AGENTS.md` reference in criterion 2 re-verifies at `AGENTS.md:119-163`.
 
 Both come from ACR's PlannerView hitting **the same two traps** we found in #339, in an
 independent codebase, on the same feature type. That makes it a pattern, so it gets named.
@@ -1305,6 +1415,13 @@ change an allow/block pattern. Confirm the view updates.
    review artifact. AGENTS.md's "no test framework" is stated alongside "bundle size is a
    design constraint"; a devDependency does not enter the bundle, so the rationale does not
    apply — **amend the doc rather than silently violating it.**
+
+   > **[v6] "DOM goldens as a review artifact" is stale — Phase 0 Stage 2 now specifies them
+   > as a hard pass/fail gate.** The two statements contradict; Stage 2's is the newer and
+   > stricter one and wins. Left here rather than silently rewritten so the change of status is
+   > visible. See Stage 2 for what the gate still needs before it is executable. Also note
+   > `npm run check:i18n` (shipped) now sits between Type check and Build in CI, so the gate
+   > list above is one item short.
 3. **Config migration is editor-only.** `DEPRECATED_CONFIG_MAP` (`editor.ts:67-72`) is consumed
    solely at
    `editor.ts:381` and `:453` **[v5 — was `:308,380`]**. A YAML-only user's deprecated key is
@@ -1353,6 +1470,41 @@ change an allow/block pattern. Confirm the view updates.
 
 > **Verified against `origin/dev` @ `29b8226`.** No `src/` citations in this section. **[v5]**
 > Items 6 and 8 remain genuinely open and cannot be closed on paper; item 9 remains true.
+
+> **[v6] Blockers raised by an independent review pass, recorded not decided.** Each needs a
+> maintainer ruling; none can be resolved by reading the source. Items G10–G13 are **hard
+> prerequisites for Phase 4 implementation** — an engineer cannot start Phase 4 without them.
+> They are listed here rather than inline so they cannot be mistaken for settled design.
+>
+> - **G10. `requestedView` vs `effectiveView` is undefined.** The width fallback is specified
+>   as render dispatch, but it changes **data** semantics upstream: `show_empty_days: null`
+>   resolves per-view, global compaction switches from a shared budget to per-column, and
+>   column forces `split_multiday_events: true`. The proposed helper takes `this._config`,
+>   which below the breakpoint still says `column` while the card is rendering `list` — so it
+>   resolves for the wrong view. Splitting also happens *before* caching, so an effective-view
+>   transition may require reprocessing rather than a re-render. Needs: both terms named
+>   explicitly, every resolver and adapter hook taking `effectiveView`, and a stated rule for
+>   what a transition invalidates (regroup / reprocess / refetch).
+> - **G11. Phase 4's outer layout is specified two incompatible ways.** `.content-container`
+>   is a row-direction **flex** container and width is described with `flex: 1`, but D1 needs
+>   CSS-grid `column-gap` and spacer tracks and D3 gets equal heights from grid
+>   `align-items: stretch`. Flex and grid differ materially in max-width behaviour, spacer
+>   tracks, variable column counts and equal-height mechanics. One must be chosen, with the
+>   concrete track/flex rule written out.
+> - **G12. Compact-mode MVP scope contradicts itself three times.** A3-D maps
+>   `compact_days_to_show` to fewer columns and makes the cap per-column; D3 says column
+>   "implements" per-column compaction and then calls it Post-MVP; E1 lists both keys as not
+>   applicable. Rule it in or out and update A3-D, D3, D5, E1 and G2 **together**.
+> - **G13. Phase 4 needs a measurement spike before implementation.** Minimum column width,
+>   hysteresis band, weather truncate-or-drop, header vertical budget, whether
+>   `min_day_column_width_px` is public config, and — most consequentially — **which column
+>   count drives the threshold**. With `show_empty_days: false` the formula still uses
+>   `days_to_show`, so a 7-day config with events on 2 days demands a 7-column-wide container
+>   before it will show 2 columns, which defeats dense mode outright.
+>
+> Two further findings are recorded in place rather than here because they affect work that
+> ships **before** v4.0.0: the Phase 2b cache scope (see the note in Phase 2b) and the Phase 1
+> DOM-gate test design (see Phase 0 Stage 1).
 
 1. ~~Decisions 11, 12, 13, 14~~ **SETTLED in v3** — see A2 and A3.
 2. ~~Does `compact_events_to_show` render "+N more"?~~ **SETTLED: it does not.** The key *is*
