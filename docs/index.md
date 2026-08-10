@@ -65,12 +65,3 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 **Calendar Card Pro** requires at least **one calendar entity** in Home Assistant. It is compatible with any integration that generates `calendar.*` entities, with **CalDAV** and **Google Calendar** being the primary tested integrations.
 
 ⚠️ **Important:** Ensure you have at least **one calendar integration set up** in Home Assistant before using this card.
-
- <!--Badges-->
-
-[hacs-img]: https://img.shields.io/badge/HACS-Custom-orange.svg
-[hacs-url]: https://github.com/alexpfau/calendar-card-pro/actions/workflows/hacs-validate.yml
-[github-release-img]: https://img.shields.io/github/release/alexpfau/calendar-card-pro.svg
-[github-downloads-img]: https://img.shields.io/github/downloads/alexpfau/calendar-card-pro/total.svg
-[github-latest-downloads-img]: https://img.shields.io/github/downloads/alexpfau/calendar-card-pro/latest/total.svg
-[github-release-url]: https://github.com/alexpfau/calendar-card-pro/releases

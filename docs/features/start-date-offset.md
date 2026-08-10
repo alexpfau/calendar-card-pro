@@ -1,3 +1,7 @@
+---
+title: Dynamic Start Date
+---
+
 # Dynamic Start Date with Relative Offsets
 
 Calendar Card Pro offers flexible options for controlling which dates are displayed, allowing you to create both fixed and dynamic date ranges:

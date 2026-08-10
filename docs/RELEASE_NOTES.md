@@ -1,3 +1,7 @@
+---
+title: Release Notes
+---
+
 # Calendar Card Pro v3.5.0
 
 **Cards that hide themselves when there is nothing to show, start dates that follow the week, titles rendered from Home Assistant templates — and a fix that restores the card title to its intended size.** This release is mostly about fitting the card to the dashboard around it: disappearing when it is empty, saying something useful when a day has no events, anchoring to next Monday instead of a date you keep updating, and driving the title from Home Assistant itself. The card is also easier to find in the first place, now that Home Assistant offers it directly when you add a calendar entity.
