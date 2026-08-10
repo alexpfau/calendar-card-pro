@@ -201,3 +201,5 @@ progress_bar_width: '80px'
 ```
 
 The progress bar is especially useful for tracking ongoing meetings, webinars, or appointments, giving you a quick visual reference of how much time remains.
+
+Every option on this page lives under the card's event column settings — see [Event Column in the configuration reference](/reference/configuration#event-column).

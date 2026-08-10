@@ -8,7 +8,7 @@ Calendar Card Pro seamlessly integrates with all Home Assistant themes and fully
 
 ## 🎨 Card-Mod Examples
 
-**Custom title styling:**
+### Custom title styling
 
 ```yaml
 type: custom:calendar-card-pro
@@ -26,7 +26,7 @@ card_mod:
     }
 ```
 
-**Highlight today's events:**
+### Highlight today's events
 
 ```yaml
 type: custom:calendar-card-pro
@@ -54,7 +54,7 @@ card_mod:
     }
 ```
 
-**Highlight tomorrow's events:**
+### Highlight tomorrow's events
 
 This works analogously to "today" as seen above, but using the "tomorrow" class. For example:
 
@@ -72,7 +72,7 @@ card_mod:
     }
 ```
 
-**Frameless calendar integration:**
+### Frameless calendar integration
 
 ```yaml
 type: custom:calendar-card-pro
@@ -88,9 +88,12 @@ card_mod:
     }
 ```
 
-**Move time into the same row as the event title:**
+### Move time into the same row as the event title
 
 ```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
 card_mod:
   style: |
     div.event-content {
@@ -127,3 +130,5 @@ card_mod:
 ```
 
 These examples demonstrate how Calendar Card Pro can be customized to match any dashboard design using card-mod's powerful CSS customization capabilities.
+
+Before reaching for card-mod, check whether a built-in option already does what you need: the card exposes its own color, font and spacing options under [Layout & Spacing](/reference/configuration#layout-spacing) in the configuration reference.

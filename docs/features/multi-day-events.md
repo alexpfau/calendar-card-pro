@@ -29,3 +29,5 @@ This feature is especially useful for:
 - Getting a clearer picture of on-call schedules, multi-day conferences, or travel
 
 The setting can be applied globally to all calendars or controlled separately for each calendar entity.
+
+This is the `split_multiday_events` option — see [Event Column in the configuration reference](/reference/configuration#event-column).

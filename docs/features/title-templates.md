@@ -69,3 +69,5 @@ Error reporting for templates that fail _after_ they were accepted requires Home
 ::: info Literal Braces in a Title
 Because templates are detected by looking for `{{` and `{%`, a title that contains those characters literally will be treated as a template. This is the one trade-off of not requiring a separate option, and a literal `{{` in a card title is not something the card supports.
 :::
+
+The template goes in the card's `title` option — see [Header in the configuration reference](/reference/configuration#header).
