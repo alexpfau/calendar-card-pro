@@ -26,7 +26,7 @@ When `show_empty_days` is set to `true`, days without events will display a "No 
 
 The default message is deliberately neutral, but an empty day often means something specific to you. A meal-plan calendar reads far better with "Leftovers" than with "No upcoming events", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
 
-The **`empty_day_text`** parameter replaces that message on every day the card renders as empty, and falls back to the translated default when unset. It applies wherever an empty day appears: a gap in the middle of a planned week, an entire range with nothing scheduled, or the single row the card shows for today when `show_empty_days` is off and there is nothing at all to display.
+The **`empty_day_text`** option replaces that message on every day the card renders as empty, and falls back to the translated default when unset. It applies wherever an empty day appears: a gap in the middle of a planned week, an entire range with nothing scheduled, or the single row the card shows for today when `show_empty_days` is off and there is nothing at all to display.
 
 ```yaml
 days_to_show: 7
@@ -40,7 +40,7 @@ By default, empty days are prefixed with a ✓ so they read as "nothing on". Tha
 `empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its color by `empty_day_color`.
 :::
 
-The `empty_day_color` parameter lets you customize the color of this message to match your theme or stand out as needed.
+The `empty_day_color` option lets you customize the color of this message to match your theme or stand out as needed.
 
 If you would rather the card disappear completely instead of showing "No upcoming events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
 
@@ -75,7 +75,7 @@ location_color: 'var(--secondary-text-color)'
 location_icon_size: '14px'
 ```
 
-The `remove_location_country` parameter offers three modes:
+The `remove_location_country` option offers three modes:
 
 ```yaml
 # Option 1: Don't remove any country information

@@ -246,6 +246,23 @@ the real headings.
 **US spelling** (`color`, `customize`, `behavior`) — the config options themselves are
 US-spelled, so British spelling in the prose around them reads as inconsistent.
 
+**One word for a config key: _option_.** Not parameter, setting, variable, property or
+field. The same key was a "parameter" on one page and an "option" on the next, which
+makes the docs look like they describe two different things. Check 15 enforces this only
+where a backticked name is followed by the wrong noun (`` `start_date` parameter ``),
+because that is the one construction where the meaning is unambiguous. These stay as they
+are and are not flagged:
+
+- **CSS/theme variables** — `var(--primary-color)` genuinely is a variable.
+- **Action parameters** — those belong to Home Assistant's action API, not to this card.
+- **"Core Settings" / "Display Settings"** — these mirror the editor's own section labels
+  in `src/translations/languages/en.json`. Renaming them in the docs would make the text
+  disagree with the UI the reader is looking at.
+- **Event properties** — an event's all-day status and timing are properties of the
+  event, not options of the card.
+- **`whats-new.md` and `RELEASE_NOTES.md`** — a record of what was announced at the time;
+  not rewritten.
+
 ## Release process
 
 1. Bump `version` in `package.json` — it is the single source of truth. Rollup

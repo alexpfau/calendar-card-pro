@@ -29,7 +29,7 @@ always matches the latest release.
 | 🚀 [Installation](https://calendar-card-pro.alexpfau.com/guide/installation) | Set the card up via HACS or manually |
 | 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) | Add the card and configure it visually |
 | ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor) | Weather, templates, layout, actions, and more |
-| 📚 [Configuration Variables](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option |
+| 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option |
 | 💡 [Examples](https://calendar-card-pro.alexpfau.com/reference/examples) | Ready-made configurations to copy |
 | 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) | Full history of every release |
 

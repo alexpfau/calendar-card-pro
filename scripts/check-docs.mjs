@@ -795,6 +795,55 @@ function checkSpelling(docs) {
 }
 
 /**
+ * Check 15: a backticked option name is followed by the word "option".
+ *
+ * The docs settled on "option" as the single term for a card configuration key
+ * (106 uses), but prose had drifted into "parameter" (17) and "setting" (39) for
+ * the same concept, so the same key was a "parameter" on one page and an
+ * "option" on the next.
+ *
+ * The rule is deliberately narrow: it only fires on a backticked identifier
+ * immediately followed by the wrong noun. That is the one construction where the
+ * noun unambiguously refers to a card option, which keeps the legitimate uses of
+ * these words intact:
+ *
+ *   - "Home Assistant theme variables (`var(--primary-color)`)" — CSS variables
+ *     really are variables, and the backtick follows rather than precedes.
+ *   - "the parameters are Home Assistant's own" — action parameters, no backtick.
+ *   - "Core Settings" / "Display Settings" — these mirror the editor's own
+ *     section labels in `src/translations/languages/en.json`, so renaming them
+ *     would make the docs disagree with the UI the reader is looking at.
+ *   - "preserves their original properties" — properties of a calendar event,
+ *     not of the config.
+ *
+ * `whats-new.md` and the release notes are exempt: they record what was
+ * announced at the time and are not rewritten.
+ */
+const OPTION_NOUN = /(`[a-z0-9_*]+`\*{0,2}\s+)(parameters|parameter|settings|setting|variables|variable|properties|property)\b/;
+
+function checkOptionNoun(docs) {
+  for (const file of docs) {
+    if (isExcluded(file, STYLE_EXCLUDES)) continue;
+    const rel = relative(ROOT, file);
+    let fenced = false;
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        if (line.startsWith('```')) {
+          fenced = !fenced;
+          return;
+        }
+        if (fenced || line.trimStart().startsWith('|')) return;
+        const m = line.match(OPTION_NOUN);
+        if (m)
+          error(
+            `${rel}:${i + 1} calls a config key a "${m[2]}"; use "option" (or "options") so one term is used throughout.`,
+          );
+      });
+  }
+}
+
+/**
  * Check 13: option tables are `Option | Type | Default | Description`.
  *
  * `check:docs` reconciles documented defaults against the code for the reference
@@ -925,6 +974,7 @@ function main() {
   checkPageIntros(docs);
   checkSpelling(docs);
   checkOptionTables(docs);
+  checkOptionNoun(docs);
   checkCrossLinks(docs);
 
   process.exit(

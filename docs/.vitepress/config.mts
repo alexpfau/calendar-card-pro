@@ -141,7 +141,7 @@ export default defineConfig({
         text: 'Reference',
         collapsed: false,
         items: [
-          { text: 'Configuration Variables', link: '/reference/configuration' },
+          { text: 'Configuration Options', link: '/reference/configuration' },
           { text: 'Examples', link: '/reference/examples' },
         ],
       },

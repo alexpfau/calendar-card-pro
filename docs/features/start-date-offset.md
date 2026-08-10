@@ -8,7 +8,7 @@ Calendar Card Pro offers flexible options for controlling which dates are displa
 
 ## 📅 Start Date Configuration
 
-The `start_date` parameter can be configured in multiple ways:
+The `start_date` option can be configured in multiple ways:
 
 - **Fixed dates**: Use a specific date in YYYY-MM-DD format
 

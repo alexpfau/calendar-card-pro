@@ -1,4 +1,4 @@
-# Configuration Variables
+# Configuration Options
 
 Every option Calendar Card Pro accepts, grouped by the part of the card it affects.
 
@@ -39,7 +39,7 @@ the card-wide settings for that one calendar:
 `show_location` · `show_description` · `compact_events_to_show` · `blocklist` ·
 `allowlist` · `split_multiday_events`
 
-**→ [Entity configuration options](/features/core-settings#available-properties-for-entity-configuration-objects)** — full table, with filtering examples.
+**→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
 
 ## 🏷️ Header
 

@@ -18,7 +18,7 @@ entities:
     accent_color: '#ff6347'
 ```
 
-### Available Properties for Entity Configuration Objects
+### Available Options for Entity Configuration Objects
 
 | Option | Type | Default | Description |
 | ------ | ---- | ------- | ----------- |
@@ -37,7 +37,7 @@ entities:
 
 This structure gives you granular control over how information from different calendars is displayed.
 
-These properties are per calendar. For the card-wide options they override, see [Core Settings in the configuration reference](/reference/configuration#core-settings).
+These options are per calendar. For the card-wide options they override, see [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
 ## 🔍 Event Filtering
 
@@ -169,7 +169,7 @@ This feature provides several important behaviors:
 
 ### Controlling Days in Compact Mode
 
-The `compact_days_to_show` parameter lets you display fewer days in compact mode:
+The `compact_days_to_show` option lets you display fewer days in compact mode:
 
 ```yaml
 days_to_show: 7 # Show 7 days when expanded
@@ -180,7 +180,7 @@ This is useful for dashboards where you want an initial view showing just the mo
 
 ### Preserving Complete Days
 
-When using event limits, the `compact_events_complete_days` parameter ensures that partial days are never shown:
+When using event limits, the `compact_events_complete_days` option ensures that partial days are never shown:
 
 ```yaml
 compact_events_to_show: 5

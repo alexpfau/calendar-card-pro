@@ -45,7 +45,7 @@ event_background_opacity: 15 # 0-100 scale for background color intensity
 vertical_line_width: '3px' # Width of the colored event indicator line
 ```
 
-The `event_background_opacity` setting (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds.
+The `event_background_opacity` option (ranging from 0-100) works together with each calendar's `accent_color` to create semi-transparent backgrounds for events. At 0 (default), events have no background color. Higher values create more intense backgrounds.
 
 When styling your calendar, you can use:
 
@@ -69,7 +69,7 @@ date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
 event_icon_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
 ```
 
-The `date_vertical_alignment` option controls how dates align with their events, which is especially noticeable when a day has many events. The default `middle` setting centers the date between its events, while `top` aligns it with the first event and `bottom` with the last event.
+The `date_vertical_alignment` option controls how dates align with their events, which is especially noticeable when a day has many events. The default `middle` option centers the date between its events, while `top` aligns it with the first event and `bottom` with the last event.
 
 `event_icon_vertical_alignment` does the same job one level down, for the small icons on an event's time, location and description rows. It only becomes visible when one of those wraps onto a second line: the default `middle` centers the icon against the whole block, while `top` lines it up with the first line of text.
 
@@ -141,8 +141,8 @@ today_month_color: '#03a9f4' # Today's month name
 
 The date column appears on the left side of each day's events and helps users quickly identify when events occur. By default, all dates use the base styling, but you can apply special styling to:
 
-- **Weekend days** (Saturday and Sunday) using the `weekend_*` parameters
-- **Today's date** using the `today_*` parameters
+- **Weekend days** (Saturday and Sunday) using the `weekend_*` options
+- **Today's date** using the `today_*` options
 
 When special styling parameters are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
 
@@ -186,7 +186,7 @@ Available indicator types:
 - Emoji characters: Any emoji like `🎯` or `⭐`
 - Image path: Any image URL or local path
 
-The `today_indicator_position` parameter accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
+The `today_indicator_position` option accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
 
 `today_indicator_size` scales every indicator type — it sets the icon size, the emoji font size and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors.
 
