@@ -108,9 +108,30 @@ earlier `column-view-phase1-design.md` draft.
   targets left entirely uncovered. All four holes were the same structural fault:
   **default-off options are invisible to a suite built from default config**, no matter how
   sensitive its assertions are. That rule, and the gate's explicit boundary, are in Stage 2.
+- **v8 — design pass.** Two changes, both structural rather than corrective. First, this
+  document **split in two**: `column-view.md` is now a ~770-line current-state spec, and this
+  file is the archived rationale. The v5–v7 passes had grown the single file to 1,756 lines, at
+  which point it was simultaneously the thing you read to implement and the thing you read to
+  understand _why_ — and the implementation half was buried. The split is lossless: verified by
+  a punctuation-insensitive word-set diff showing **zero words removed**, with A3-A's
+  `date_vertical_alignment` → `align-self` analysis confirmed byte-identical (both extracts
+  sha256 `a01c6a905b0439a4`). Ten commit-SHA citations were replaced with PR references in the
+  same pass — the SHAs resolved locally but were reachable only from session-internal
+  checkpoint refs, so they were dead for every other reader; `git cat-file -t` succeeding does
+  not make a SHA citable. Second, **D6 adds the `column:` per-view override block**, raised by
+  the maintainer and reframing the config question from _"what does this key mean in column
+  view?"_ to _"is there one value a user would want in both views at once?"_ — a stronger test,
+  forced by `view: auto` making one card instance render both. That **removes D5's kind 4**,
+  which was the double-meaning trap with help text attached, and dissolves G12's internal
+  contradiction as a side effect. The supporting per-key audit was run by a subagent
+  deliberately denied the shortlist already formed in discussion, and **converged 6/6** on the
+  highest-concern keys while adding four findings that had been missed — including that
+  `first_day_of_week` and `weather.position` are **fetch-time**, so G10 forbids overriding
+  them, and a live `WeatherPositionConfig` defect on `dev` in which four field combinations are
+  silently ignored because one interface spans two disjoint field sets.
 
 Changes from v3 are marked **[v4]**; changes from v4 are marked **[v5]**; changes from v5 are
-marked **[v6]**; changes from v6 are marked **[v7]**.
+marked **[v6]**; changes from v6 are marked **[v7]**; changes from v7 are marked **[v8]**.
 
 > **[v5] Which tree a citation refers to.** This plan was drafted while the author's worktree
 > sat on the frozen #339 branch (decision 9), so a large number of `file.ts:NNN` references
@@ -1562,6 +1583,196 @@ legitimately need 0, 1 or 2 badges on non-adjacent columns. Options were (a) pla
 week-start column only, or (b) defer. **Recommend (b) for MVP**, ignored-and-documented per
 the `date_vertical_alignment` precedent, revisit with real usage. Default is `null`, so this
 affects only opted-in users.
+
+---
+
+## D6. Per-view config overrides **[NEW v8]**
+
+### How this arrived
+
+The maintainer raised it unprompted, and reframed the problem correctly:
+
+> "We are trying to interpret every key that we have already for list view and what meaning
+> that would have for column view. I think that's the right approach, however, we should not
+> overstress this. […] since we auto-switch between those two views depending on window
+> widths, maybe it's smart to have separate variables in a few places to allow users to
+> configure things separately, instead of giving existing variables a double-meaning in those
+> two views, and then users can only configure one view so that it works for them, and on
+> auto-switch (i.e., desktop vs. smartphone), the other view is broken because we are reusing
+> a variable."
+
+They noted they had no concrete example in mind. **`day_spacing` is that example**, and it is
+not marginal: at `24px` it costs 144px of a seven-column grid. Two more were found by audit
+(`show_location`, `compact_events_to_show`); see the shortlist below.
+
+The plan's own framing had been weaker throughout §D — it asked _"what does this key mean in
+column view?"_, which admits the answer "something reasonable" and stops there. The stronger
+test is whether **one value can serve both views simultaneously**, which is forced by
+`view: auto`: the same card instance renders column on a desktop and list on a phone.
+
+### The width inversion — why intuition misleads here
+
+Every reviewer's first instinct is that column view has _more_ room, because it is triggered by
+a wide card. The opposite is true of the space that matters:
+
+| Context                              | Per-event horizontal budget |
+| ------------------------------------ | --------------------------- |
+| 7 columns in a 1200px card, 8px gaps | **~164px**                  |
+| Same at 1600px                       | ~228px                      |
+| List view on a ~390px phone          | **~300px**                  |
+
+A wide card divided seven ways yields per-item widths **below mobile**. So the failure mode is
+not "column view is roomy, defaults are fine" — it is that a config tuned on a phone is
+actively too generous once it becomes columns.
+
+### Alternatives rejected
+
+| Option                                     | Why rejected                                                                                        |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| Reuse every key with rotated meaning       | The double-meaning trap. Also the status quo the maintainer objected to.                            |
+| Flat prefixed keys, `column_show_location` | ~90 keys × 2 = an unusable editor and an unreadable config table.                                   |
+| Only new keys, no inheritance              | Forces users to restate their entire config twice to change one thing.                              |
+| Separate card instances per view           | Defeats `view: auto` entirely; the user would maintain two cards and a conditional wrapper.         |
+| **Nested `column:` with inheritance**      | **Chosen.** Additive, one new key at the top level, absent block = today's behaviour byte for byte. |
+
+### Neutrality of the audit
+
+The per-key classification below was produced by an **independent subagent** that was
+deliberately **not** given the shortlist already formed during the design discussion, so its
+findings would be a genuine cross-check rather than an echo. This was the maintainer's explicit
+requirement ("to ensure remaining neutral and finding all cases").
+
+**Result: 6 of 6 agreement** on the highest-concern keys — `show_location`, `show_description` +
+`description_max_lines`, `show_end_time`, `day_spacing`, `compact_events_to_show`, and the
+`weather.date.*` group. Convergence from two independent passes is why the classification is
+treated as settled rather than provisional.
+
+Four findings were **new** and are the reason the audit was worth running:
+
+1. **`first_day_of_week` is fetch-time**, not presentation. It feeds week-relative `start_date`
+   resolution, so it can move the fetch window. It had not been considered.
+2. **`weather.position` is fetch-time** — it selects which forecast subscriptions start. The
+   natural feature request "weather in the column header only" therefore cannot be an override
+   of it, and needs a render-only key.
+3. **The separator family rotates** (`day_separator_*`, `week_separator_*`, `month_separator_*`):
+   a horizontal rule between day rows becomes a vertical rule between columns. Missed entirely
+   in the original pass.
+4. **`WeatherPositionConfig` has four dead field combinations** — a live defect on `dev`,
+   unrelated to column view. See below.
+
+### The `WeatherPositionConfig` finding — verified, and its consequence
+
+The audit claimed certain weather fields are ignored. Verified directly against source rather
+than accepted:
+
+| Field                             | `weather.date`             | `weather.event`         |
+| --------------------------------- | -------------------------- | ----------------------- |
+| `show_high_temp`, `show_low_temp` | read (`render.ts:540,546`) | **silently ignored**    |
+| `show_temp`                       | **silently ignored**       | read (`render.ts:1091`) |
+| `daily_forecast_fallback`         | **silently ignored**       | read (`render.ts:1083`) |
+
+`WeatherPositionConfig` (`types.ts:147-158`) is a single interface spanning two disjoint field
+sets, so TypeScript accepts all four dead combinations.
+
+**Severity is low**: the editor was checked and is correct — it offers `show_high_temp` /
+`show_low_temp` under date and `show_temp` / `daily_forecast_fallback` under event, never a dead
+field (`editor.ts:1539-1617`). The README does not document them. Only hand-written YAML is
+affected, and it fails silently rather than wrongly.
+
+**Consequence for this design**: the precedent to copy is the _shape_ (one option type, two
+contexts, separately configurable), **not** the type itself. `ColumnOverrides` must be a
+narrowed type listing only category-B keys. A lazy `Partial<Config>` would reproduce this exact
+class of defect at ~90× the surface, and would additionally re-admit every category-E key that
+G10 forbids.
+
+A standalone fix — splitting into `WeatherDateConfig` and `WeatherEventConfig` — is type-only,
+has no runtime effect and cannot break YAML (YAML is not typechecked). Offered to the maintainer
+as independent tidy-up, deliberately not bundled here.
+
+### Why this abolishes D5's kind 4
+
+D5 previously carried a fourth behaviour kind, _"Reinterpreted — same control with rotated
+meaning"_, whose sole example was `compact_events_to_show`, with the editor treatment "normal
+control + per-view help text".
+
+That is the double-meaning trap wearing a label. Help text does not resolve it: the user still
+cannot set the key to two different values, and the auto-switch still breaks whichever view they
+did not tune. **The override block is the general mechanism that kind 4 was a broken special
+case of.** Anything previously kind 4 is now either category B (override-eligible, stated not
+inferred) or category C (distinct new key). Kinds 1–3 are unaffected.
+
+This also dissolves G12's internal contradiction as a side effect: with `compact_events_to_show`
+out of MVP (ruled) and the override block available for it later, there is no longer a key that
+must simultaneously mean two things.
+
+### Full per-key classification
+
+Categories: **A** shared · **B** override-eligible · **C** axis-rotated (new key) ·
+**D** structurally forced or meaningless · **E** fetch-time, never overridable.
+
+**A — shared.** Semantic rather than layout, so a single value serves both views:
+`language`, `title`, `title_font_size`, `title_color`, `background_color`, `accent_color`,
+`hide_when_empty`, `time_24h`, the entire colour family (`weekday_color`, `day_color`,
+`month_color`, the three `weekend_*`, the three `today_*`, `today_indicator_color`,
+`event_color`, `empty_day_color`, `time_color`, `location_color`, `description_color`,
+`progress_bar_color`), `weather.{date,event}.color`, `weather.{date,event}.uv_index_threshold`,
+`weather.event.daily_forecast_fallback`, `entities[].color`, `entities[].accent_color`,
+`entities[].label_icon_color`, and both action blocks (`tap_action`, `hold_action`, with all
+their sub-keys — interaction behaviour must not change because the layout did).
+
+**B — override-eligible.** Density, sizing and visibility keys where the 164px-vs-300px
+inversion bites: `show_empty_days`, `empty_day_text`, `vertical_line_width`, `event_spacing`,
+`additional_card_spacing`, `height`, `max_height`, `today_indicator`, `today_indicator_size`,
+`weekday_font_size`, `day_font_size`, `show_month`, `month_font_size`,
+`event_background_opacity`, `event_font_size`, `show_countdown`, `show_countdown_allday`,
+`show_progress_bar`, `progress_bar_height`, `progress_bar_width`,
+`event_icon_vertical_alignment`, `show_time`, `show_single_allday_time`,
+`time_two_digit_hours`, `show_end_time`, `time_font_size`, `time_icon_size`, `show_location`,
+`remove_location_country`, `location_font_size`, `location_icon_size`, `show_description`,
+`description_max_lines`, `description_font_size`, `description_icon_size`, the
+`weather.date.*` and `weather.event.*` presentation sub-keys (`show_conditions`,
+`show_high_temp`, `show_low_temp`, `show_temp`, `show_uv_index`, `icon_size`, `font_size`),
+and the per-entity render flags (`entities[].label`, `.show_time`, `.show_location`,
+`.show_description`, `.compact_events_to_show`) subject to the precedence question below.
+
+**C — axis-rotated.** Covered by the table in the spec.
+
+**D — structurally forced or meaningless.** `compact_events_complete_days` (no coherent
+cross-day pool once the budget is per-column), `split_multiday_events` and
+`entities[].split_multiday_events` (a column _is_ a day — forced true), `date_vertical_alignment`
+(positions a rowspan date cell that column view does not have — see A3-A), the week-number
+family (`show_week_numbers`, `show_current_week_number`, `week_number_font_size`,
+`week_number_color`, `week_number_background_color`), deferred per D5.
+
+**E — fetch-time.** Listed exhaustively in the spec.
+
+### Highest-concern shortlist, with realistic values
+
+1. **`show_location: true`** — `Humboldt-Universität zu Berlin, Unter den Linden 6, 10117
+Berlin, Deutschland` is unremarkable in a list row and wraps to several lines in a 164px
+   column, so the busiest day dictates the height of every column.
+2. **`show_description: true` + `description_max_lines: 3`** — can triple event height in a
+   column.
+3. **`show_end_time: true` + `show_countdown: true`** — `09:00 - 10:30` plus `in 2 hours`
+   competes with the title on one line.
+4. **`day_spacing: 18px`** — pleasant list rhythm; removes 108px from a seven-column grid
+   before content.
+5. **`compact_events_to_show: 3`** — three events total when collapsed, or up to 21 if
+   reinterpreted per column. This is exactly the ambiguity kind 4 institutionalised.
+6. **`show_month: true` with date weather** — a header reading
+   `Wednesday 12 August 🌧 23°/17° UV6` wraps every column and raises total grid height.
+
+### Cost, and what is deliberately deferred
+
+The editor is ~2,000 lines and the most fragile file in the repo (§F, and the HA 2026.5+
+`ha-input` breakage). Every new control needs a string in all 11 editor-translated languages,
+and a _partial_ `editor` section renders raw key names in the UI rather than falling back to
+English (`AGENTS.md`, translations section). So the editor cost is real and non-linear.
+
+The proposal is therefore **YAML-first for a curated subset of category B**, with editor
+controls following. Documented as such, which is what E1 requires — an excluded key must be
+documented as excluded rather than silently inert. **Awaiting explicit maintainer confirmation**
+that editor controls may lag the YAML support by a release.
 
 ---
 
