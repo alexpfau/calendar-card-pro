@@ -263,8 +263,9 @@ Limits and related keys:
   is a temporal cap — e.g. next one birthday — not a height cap; rebasing it per column would
   multiply the cap by `days_to_show`.
 - **[v8]** When per-column compaction does ship, it is configured as `column.compact_events_to_show`
-  under D6's override block, **not** as the same flat key carrying two meanings. `view: auto`
-  means one card instance renders both views, so a single value cannot serve both.
+  under D6's override block, **not** as the same flat key carrying two meanings. `view: column`
+  falls back to list below a width breakpoint, so one card instance renders both views and a
+  single value cannot serve both.
 - `max_events_per_column` is deferred, not dismissed. Rotated compact covers the collapsed,
   expandable height job; it does not cover permanent kiosk-style truncation.
 - If any cap ships, a per-column `+N more` indicator is mandatory. Lift the grid pill style,
@@ -885,7 +886,7 @@ exactly.
 type: custom:calendar-card-pro
 entities:
   - calendar.family
-view: auto
+view: column
 days_to_show: 7
 show_location: true # list view: plenty of room
 day_spacing: 16px
@@ -901,8 +902,8 @@ column:
 #### Why a shared key is not enough
 
 The plan previously asked, per key, _"what does this mean in column view?"_. That is the wrong
-test. `view: auto` switches on a width breakpoint, so **one card instance renders column on a
-desktop and list on a phone**. The real test is stronger:
+test. `view: column` falls back to list below a width breakpoint, so **one card instance renders
+column on a desktop and list on a phone**. The real test is stronger:
 
 > Is there a single value the user would want in **both views at once**?
 
@@ -1064,7 +1065,8 @@ the Phase 2b diff. Drop it from both, together, whenever that file is next touch
    mechanism for it later, so no key needs two meanings.
 2. **Every new user-visible string exists in all language files at ship time.** A partial
    `editor` section defeats the whole-language English fallback and renders raw key names.
-3. **No fetch on a view transition.** Crossing the `view: auto` breakpoint must not issue a
+3. **No fetch on a view transition.** Crossing the `view: column` width-fallback breakpoint must
+   not issue a
    Home Assistant API call (G10). This is the invariant that bounds D6's override block to
    render-time and grouping-time keys, and it is testable: cross the breakpoint with a warm
    cache and assert zero `callApi` invocations.
@@ -1306,8 +1308,29 @@ renders the _selected_ view, not the width-measured one**) is load-bearing, not 
 A 7-day column view needs ~1184px of content box. That is **not reachable in a default HA
 section at any viewport width** — it requires `column_span: 3`, a panel view, or a raised
 theme variable. §D6's "7 columns in a 1200px card" describes a placement the user must
-deliberately construct, not the default one. Left unaddressed, the out-of-the-box experience
-of `view: column` with the default `days_to_show: 7` is a permanent silent fallback to list.
+deliberately construct, not the default one.
+
+**[v6 correction]** An earlier draft of this section argued from "the default `days_to_show:
+7`" and concluded the out-of-the-box experience was a _permanent silent fallback to list_.
+Both halves were wrong. `DEFAULT_CONFIG.days_to_show` is **3** (`config.ts:20`), and with the
+real gutter — `day_spacing: '10px'` (`config.ts:40`) — the default config computes to:
+
+```
+3 × 160px + 2 × 10px = 500px
+```
+
+against the G13-measured default section content box of **500px**. So at a ≥1440px viewport
+the default configuration does not fall back at all; it fits exactly, with zero margin. At
+1280px, where the section measures 464px, it _does_ fall back. The honest characterisation is
+**knife-edge and viewport-dependent**, not permanently failing.
+
+Treat "fits exactly" as _at the boundary_ rather than as confirmed-fitting: the 500px figure
+is the measured content box of `div.content`, and the card's own padding is drawn from inside
+it, which is within the error bar of this arithmetic. The point stands either way — the
+default lands on the threshold rather than far below it.
+
+The ruling below is unaffected. It never depended on the column count; only this motivating
+example did.
 
 **Ruled: the rendered column count is determined by grouping, never by available width. The
 card never silently drops columns because they do not fit.**
@@ -1363,9 +1386,10 @@ regardless of where the card ends up.
 - **The editor warning is a v4.0.0 release blocker, not an MVP blocker** — consistent with the
   standing ruling that editor support for `column:` may follow YAML-only internal testing. It is
   registered in §D7.
-- The default-config experience — `view: column` with `days_to_show: 7` in a default section
-  rendering as list — is now a **documented, warned-about consequence** rather than an unhandled
-  one. It must be stated plainly in the user docs, not only in the editor.
+- The default-config experience — `view: column` with the real default `days_to_show: 3`,
+  which lands exactly on the 500px section threshold and so falls back to list on narrower
+  viewports — is now a **documented, warned-about consequence** rather than an unhandled one.
+  It must be stated plainly in the user docs, not only in the editor.
 
 ---
 
