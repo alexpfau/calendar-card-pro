@@ -75,40 +75,29 @@ Built with **performance in mind**, the card leverages **intelligent refresh mec
 
 - ⏳ **All-Day Countdown Control**: Hide countdowns on all-day events while keeping them on timed ones with [`show_countdown_allday`](#-countdown-display)
 - 🌤️ **Weather Across the Full Range**: Timed events beyond Home Assistant's hourly forecast horizon now [fall back to the daily forecast](#weather-configuration-options) instead of showing nothing
-- 🧭 **Compact Mode Guidance**: The visual editor now warns about compact configurations that silently do nothing
 - 🐛 **All-Day Countdowns Off By One**: Now measured in whole calendar days instead of from the current instant
-- 🐛 **Cleared Number Fields**: Emptying a numeric field in the editor no longer blanks the card
 - ⚡ **Faster Rendering**: Color resolution is cached, removing hundreds of forced layouts per refresh on large calendars
 
 ### v3.3
 
-- 🌍 **Two New Languages**: British English and Latvian (35 total)
-- 🌐 **Three New Editor Translations**: Italian, British English, and Latvian (11 total)
+- 🌍 **Two New Languages**: British English and Latvian (35 total), with editor translations for Italian, British English, and Latvian (11 total)
 - 🐛 **HA 2026.5+ Visual Editor**: Restored the text input fields, which vanished entirely after Home Assistant removed `ha-textfield`
 - 🐛 **`event_color` Fix**: No longer ignored when no per-entity color is configured
-- 🐛 **Catalan & Romanian Relative Times**: Fixed silently falling back to English
 
 ### v3.2
 
 - 📝 **Event Description Display**: Show event descriptions with [configurable line clamping](#-event-description-display), HTML stripping, and full styling control
 - 🌤️ **UV Index in Weather**: Display [UV index in weather forecasts](#weather-configuration-options) with configurable visibility threshold
-- 🎨 **Event Icon Alignment**: Control [vertical alignment of event icons](#-event-description-display) (time, location, description) with `event_icon_vertical_alignment`
-- 🏷️ **Label Icon Color**: Customize [label icon colors](#️-entity-configuration) per entity with `label_icon_color`
-- 🕐 **Two-Digit Hours**: Pad hours with leading zero via `time_two_digit_hours`
 - ↔️ **RTL Support**: Full right-to-left support for event borders and accent lines
 - 🔄 **Improved Loading UX**: Events stay visible during refresh; subtle spinner replaces full-screen loading
-- 🌍 **Three New Languages**: Estonian, Lithuanian, and Turkish (33 total)
-- 🌐 **Three New Editor Translations**: Polish, Estonian, and Lithuanian (8 total)
+- 🌍 **Three New Languages**: Estonian, Lithuanian, and Turkish (33 at the time), with editor translations for Polish, Estonian, and Lithuanian
 - 🐛 **HA 2026.3+ Compatibility**: Migrated editor dropdowns to the new WebAwesome API
-- 🐛 **Key Bug Fixes**: Weather WebSocket leak, location display corruption with custom regex, browser_mod action compatibility
 
 ### v3.1
 
-- 🌐 **Expanded Editor Languages**: Norwegian Bokmål, German, and Swedish editor translations (5 total at that time)
-- 🆕 **Bulgarian Language**: New interface translation (30 languages at that time)
+- 🌍 **Four New Translations**: Bulgarian interface, plus Norwegian Bokmål, German, and Swedish editor translations
 - 🎨 **Tomorrow CSS Class**: New `tomorrow` HTML class for card-mod styling of tomorrow's events
-- 🐛 **Zero Temperature Fix**: Fixed 0° not displaying in weather low temperature
-- 🐛 **Grid Container Fix**: Resolved card overflow when `grid_options.rows` is set
+- 🐛 **Grid Layout Fix**: Resolved card overflow when `grid_options.rows` is set
 
 ### v3.0
 

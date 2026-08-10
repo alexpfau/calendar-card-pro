@@ -85,9 +85,17 @@ branches conflict in it.
 
 **In the release PR** (`dev` → `main`), update `## 2️⃣ What's New` alongside
 `docs/RELEASE_NOTES.md`: rename the previous `### Latest Release: vX.Y` to plain `### vX.Y`,
-add a new one with 4–6 one-line bullets condensed from the release notes, and apply the
+add a new one with 3–6 one-line bullets condensed from the release notes, and apply the
 retention rule — keep the current major version's minor releases, newest first, capped at
 8, topping up from the previous major only if that leaves fewer than 4.
+
+That list is a **highlights reel, not a changelog** — the full notes are linked directly
+above it, so anything left out is one click away. Select on relevance rather than on
+whether something is a feature or a fix: a Home Assistant compatibility break or a bug that
+made the card look empty belongs there; a narrow styling option, an editor validation
+nicety, or a rare edge-case fix does not. Never write a catch-all "🐛 Key Bug Fixes" bullet.
+Three honest bullets beat six padded ones, and older entries may be trimmed further as they
+age.
 
 ## Release process
 
