@@ -115,6 +115,27 @@ function timedEvent(
   };
 }
 
+/**
+ * iCal all-day events carry `date` rather than `dateTime`, and their `end` is
+ * **exclusive** — so a single-day event on the 17th ends on the 18th. Getting that
+ * wrong silently turns a single-day fixture into a multi-day one, which is exactly
+ * the distinction the `show_single_allday_time` tests below depend on.
+ */
+function allDayEvent(
+  startDate: string,
+  endDateExclusive: string,
+  summary: string,
+  extra: Partial<Types.CalendarEventData> = {},
+): Types.CalendarEventData {
+  return {
+    start: { date: startDate },
+    end: { date: endDateExclusive },
+    summary,
+    _entityId: 'calendar.personal',
+    ...extra,
+  };
+}
+
 function requireElement<T extends Element = Element>(root: ParentNode, selector: string): T {
   const element = root.querySelector(selector);
   expect(element).not.toBeNull();
@@ -461,6 +482,73 @@ describe('list view DOM', () => {
     expect(cell.querySelector('.time-countdown')).toBeNull();
   });
 
+  /**
+   * `shouldShowTime` is a three-clause condition, and the two tests above only drive
+   * the first clause via the **global** `show_time`. These three cover the causes the
+   * DOM shapes alone cannot distinguish: the per-entity override, and clause two with
+   * its multi-day exception. Without them the gate proves the six shapes exist but not
+   * that the right input selects each one.
+   */
+  it('honours a per-entity show_time override without affecting other entities', () => {
+    const container = renderListContainer(
+      [
+        timedEvent('2026-06-17', '14:00', '15:00', 'Overridden entity'),
+        timedEvent('2026-06-17', '16:00', '17:00', 'Inheriting entity', {
+          _entityId: 'calendar.work',
+        }),
+      ],
+      buildConfig({
+        show_countdown: true,
+        entities: [{ entity: 'calendar.personal', show_time: false }, 'calendar.work'],
+      }),
+    );
+
+    const overridden = requireElement(
+      eventCellByTitle(container, 'Overridden entity'),
+      '.time-actual',
+    );
+    const inheriting = requireElement(
+      eventCellByTitle(container, 'Inheriting entity'),
+      '.time-actual',
+    );
+
+    // Same global show_time for both; only the per-entity override may differ them.
+    expect(overridden.textContent?.trim()).toBe('');
+    expect(inheriting.textContent?.trim()).not.toBe('');
+  });
+
+  it('hides the time on a single-day all-day event when show_single_allday_time is false', () => {
+    // Tomorrow, not today: an all-day event starting today is already past at the
+    // frozen 10:00, which suppresses the countdown and removes the time block
+    // entirely — shape 6, where there is nothing left to assert emptiness on.
+    const container = renderListContainer(
+      [allDayEvent('2026-06-18', '2026-06-19', 'Single all-day')],
+      buildConfig({ show_single_allday_time: false, show_countdown: true, days_to_show: 5 }),
+    );
+    const timeActual = requireElement(
+      eventCellByTitle(container, 'Single all-day'),
+      '.time-actual',
+    );
+
+    expect(timeActual.textContent?.trim()).toBe('');
+  });
+
+  it('still shows the time on a multi-day all-day event when show_single_allday_time is false', () => {
+    const container = renderListContainer(
+      [allDayEvent('2026-06-18', '2026-06-21', 'Multi all-day')],
+      buildConfig({ show_single_allday_time: false, show_countdown: true, days_to_show: 5 }),
+    );
+    const timeActual = requireElement(eventCellByTitle(container, 'Multi all-day'), '.time-actual');
+    const text = timeActual.textContent?.trim() ?? '';
+
+    // Identical config to the test above — only the event's span differs.
+    expect(text).not.toBe('');
+    // Detection is a substring match against *translated* text, so assert the marker
+    // actually appeared. Otherwise this passes for any non-empty time and the
+    // exception it is meant to pin goes untested.
+    expect(/until|ends today|ends tomorrow/.test(text)).toBe(true);
+  });
+
   it('defaults one-token today indicator position to vertical center', () => {
     const container = renderListContainer(
       SINGLE_EVENT,
@@ -605,29 +693,37 @@ describe('list view DOM', () => {
 
   // Source-text guard, not a DOM assertion — deliberately.
   //
-  // render.ts uses three interchangeable "render nothing" idioms: `''`, `nothing`,
+  // The renderers use three interchangeable "render nothing" idioms: `''`, `nothing`,
   // and an empty html`` template. The rendered DOM cannot tell `''` from `nothing`,
   // so no behavioural test can pin them; only reading the source can.
   //
-  // This test IS EXPECTED TO FAIL during the Phase 1 extraction, because the code it
-  // matches will move out of render.ts into leaf renderers. That failure is the point:
-  // it forces a conscious re-read of each idiom at the moment it is most likely to be
-  // silently normalised. When it fails, repoint the regexes at the new file and confirm
-  // each idiom survived unchanged. Do not delete it, and do not "fix" it by relaxing a
-  // regex to match whatever the new code happens to say.
+  // Phase 1 moved the event leaves out of render.ts into leaves.ts. This guard failed
+  // at that moment by design, and each idiom below was re-read and confirmed unchanged
+  // before the regexes were repointed. It is expected to fail again at each later
+  // extraction seam, for the same reason. When it does: repoint, having first confirmed
+  // every idiom survived byte-for-byte. Do not delete it, and do not "fix" it by relaxing
+  // a regex to match whatever the new code happens to say.
+  //
+  // Phase 2 will cut the `${index === 0 ? html`…` : ''}` seam in render.ts, when the
+  // column container grows its own date rendering. That idiom is asserted here too so
+  // the same forcing function applies to it.
   it('preserves no-output idioms at extraction seams', () => {
     const renderSource = readFileSync(`${process.cwd()}/src/rendering/render.ts`, 'utf8');
-    const eventWeatherSource = renderSource.slice(
-      renderSource.indexOf('function renderEventWeather'),
+    const leavesSource = readFileSync(`${process.cwd()}/src/rendering/leaves.ts`, 'utf8');
+    const eventWeatherSource = leavesSource.slice(
+      leavesSource.indexOf('function renderEventWeather'),
     );
 
-    expect(renderSource).toMatch(
+    expect(leavesSource).toMatch(
       /\$\{eventLocation\s*\? html`[\s\S]*?`\s*: ''\}\s*\$\{eventDescription/,
     );
-    expect(renderSource).toMatch(/\$\{eventDescription\s*\? html`[\s\S]*?`\s*: ''\}\s*<\/div>/);
-    expect(renderSource).toMatch(
+    expect(leavesSource).toMatch(/\$\{eventDescription\s*\? html`[\s\S]*?`\s*: ''\}\s*<\/div>/);
+    expect(leavesSource).toMatch(
       /progressPercentage !== null && config\.show_progress_bar[\s\S]*?: nothing\}\s*\$\{eventLocation/,
     );
     expect(eventWeatherSource.match(/return html``;/g)).toHaveLength(3);
+
+    // The list row's date cell renders `''`, not `nothing`, on every row but the first.
+    expect(renderSource).toMatch(/\$\{index === 0\s*\? html`[\s\S]*?`\s*: ''\}/);
   });
 });
