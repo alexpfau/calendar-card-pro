@@ -31,8 +31,29 @@ earlier `column-view-phase1-design.md` draft.
   select) rather than a bare per-view default, because a flat key plus a two-state switch
   makes "auto" unreachable (A3-B-3); that fix is generalised into D5 kind 1 so it cannot
   recur on the next key.
+- **v5 — correctness pass.** A third review was run **cold**: the reviewer was given the repo,
+  this file path and four questions, and nothing else — no summary, no list of contested or
+  reversed decisions, no statement of what the author expected. Its claims were then verified
+  against source before being acted on. v5 folds in the surviving findings plus an
+  executability read-back (can this plan be *followed*, as distinct from is it *right*).
+  Four substantive changes: **phase 3 is folded into phase 4** (C); the Phase 0 Stage 2
+  determinism gate now **names a clock strategy** (fake timers); **A3-B-3's consumer
+  enumeration was incomplete and is corrected**, which turns out to hide a shippable defect;
+  and **every citation in the document has been re-based against `origin/dev`**, with each
+  section now stating which tree it was verified against. See F6 — the reason all four were
+  needed is one root cause, and the document had already noticed it once without generalising.
 
-Changes from v3 are marked **[v4]**.
+Changes from v3 are marked **[v4]**; changes from v4 are marked **[v5]**.
+
+> **[v5] Which tree a citation refers to.** This plan was drafted while the author's worktree
+> sat on the frozen #339 branch (decision 9), so a large number of `file.ts:NNN` references
+> were taken from **that** tree. `dev` and the frozen branch have diverged, non-uniformly, and
+> in places structurally: **`time-grid` does not exist on `dev` at all** — no `view` config key,
+> no `grid.ts`, no `render-grid.ts`, no controllers, and zero `!== 'time-grid'` editor gates.
+> Every section below now carries a **Verified against** line. Unless a line says otherwise,
+> line numbers are `origin/dev` at `29b8226` and can be checked directly. Citations that exist
+> only on the frozen branch are labelled inline as **[frozen]** and must not be looked for on
+> `dev`.
 
 ---
 
@@ -45,7 +66,7 @@ Changes from v3 are marked **[v4]**.
 | 1 | View name is **`column`** | `view: 'list' \| 'column'` |
 | 2 | **`navigation_days` is deleted**, folded into `days_to_show` | Not renamed — removed |
 | 3 | Column-view MVP excludes overlap lanes, time axis, now-line | Those are time-grid's |
-| 4 | **Date at the top** of each column | Confirmed sound: list's date column is `day_font_size × 1.75` = 45.5px (`styles.ts:46`) + padding ≈ 43–50% of a 128px column |
+| 4 | **Date at the top** of each column | Confirmed sound: list's date column is `day_font_size × 1.75` = 45.5px (`styles.ts:46`) + padding ≈ 43–50% of a 128px column. **[v5]** The arithmetic is unchanged and still correct; the 128px comparator is superseded by decision 14's provisional 160px, which makes the ratio ≈ 34–39% — the conclusion holds more comfortably, not less |
 | 5 | **Header rule is fully configurable** — width, colour | Reverses my "start closed" proposal |
 | 6 | Between-day chrome rotates 90°; within-day chrome untouched | The organising thesis |
 | 7 | `date_vertical_alignment` **ignored** in column view | Naming harmonisation with a future `date_horizontal_alignment` explicitly out of scope now |
@@ -58,14 +79,17 @@ Changes from v3 are marked **[v4]**.
 | # | Resolution | Note |
 |---|---|---|
 | 11 + 12 | **Merged into one design: the view itself falls back to list below a width threshold.** Not column-count clamping. See A3-C. | You flagged that 11 and 12 described the same issue. They did. |
-| 13 | **Approved in principle, but re-scoped** — a DOM snapshot cannot gate the Phase 1 refactor, because the DOM is now *allowed* to change. See A3-A and the new section C0. | The gate for "no visible change" is now visual, in Home Assistant. |
-| 14 | **Approved:** "fully flexible here, let's try out once we have a first implementation." Measure `min_day_column_width_px` in Phase 4. | No value fixed now. **[v4] Bank two facts before measuring:** (a) **128 is demonstrably too low** — my own narrow-column analysis showed titles wrapping badly at that width, so it is a *disproven* inherited default from #339, not a neutral starting point; do not ship it unchanged. (b) The number does **double duty** — usable column-width floor *and* the multiplier in A3-C's view-switch threshold — so a wrong value produces two *aligned* bad outcomes (cramped columns that also fail to trigger the list fallback). |
+| 13 | **[v4] Approved in principle, but re-scoped** — a DOM snapshot cannot gate the Phase 1 refactor, because the DOM is now *allowed* to change. See A3-A and the new section C0. **[v5] Corrected:** this row was missed by the v4 pass and read as though the gate had become manual. It has not. The automated gate is **retained and tightened**, and it is the *list* DOM that must be byte-identical across Phase 1 — see **Phase 0 Stage 2**, which owns it | **[v5]** The *visual* check in Home Assistant covers the **column** view, which has no baseline to be identical to. It does **not** replace the automated list-DOM gate; the two cover different things and both are required before Phase 1 merges |
+| 14 | **Approved:** "fully flexible here, let's try out once we have a first implementation." Measure `min_day_column_width_px` in Phase 4. | **[v5] A provisional value is now fixed so Phase 4 is buildable: `min_day_column_width_px = 160`.** This is a **starting point, not a result** — it is to be measured and revised in Phase 4, and the plan is not "correct" until it has been. It is not a free choice, however: (a) **128 is disproven**, not neutral — the narrow-column analysis below showed titles wrapping badly at that width, so the inherited #339 default must not ship unchanged; (b) `atomic-calendar-revive` ships `min-width: 150px` on its Planner columns, which is the only real-world number available and brackets the answer from below; (c) 160 leaves the decision-4 date-header arithmetic at ≈ 34–39% of column width rather than 43–50%, which is the margin the header band needs for weather (D2). **[v4] Two facts still bank before measuring:** the number does **double duty** — usable column-width floor *and* the multiplier in A3-C's view-switch threshold — so a wrong value produces two *aligned* bad outcomes (cramped columns that also fail to trigger the list fallback) |
 
 ---
 
 ## A3. Maintainer corrections **[v3]**
 
 ### A3-A. "No impact on list view" = no *visible* change, not no code change
+
+**Verified against:** `origin/dev` @ `29b8226`, except the three grid opacity values, which are
+**[frozen]** — `styles.ts` on `dev` is 703 lines and has no grid section at all.
 
 > *"what we do in code is our thing, and we are free to do what's needed. our final
 > architecture should be optimized to cover both views."*
@@ -84,18 +108,19 @@ The seam is already much further along than v2 assumed.
   component.
 
 So the only genuinely axis-bound part is the day's **internals**: `rowspan`
-(`render.ts:927`) welds the date cell to the left edge and cannot produce a date-on-top
+(`render.ts:930`) welds the date cell to the left edge and cannot produce a date-on-top
 variant.
 
 **Where #339's duplication actually came from.** [v4 — corrected] v3 said the rowspan table
 *forced* the duplication. That is wrong, and the distinction changes the phasing. The drift
 #339 exhibits is entirely in **leaves**, not containers — three different past-event opacities
-for one concept (`styles.ts:491-492` list `0.6`; `:986-987` grid `0.55`; `:1061-1062` grid
-all-day `0.55`). The grid re-implemented the *leaf* renderers. It did not have to: every leaf
-the shared block needs is already DOM-agnostic — `.event-content` (`render.ts:939-1000`),
-`renderDateColumn` (`:487-608`), colour precedence (`:497-513`). A flex grid container could
-have consumed those leaves unchanged. The rowspan blocked reuse of the **container**, and
-container reuse is not what prevents drift. **Sharing the leaves is.**
+for one concept (`styles.ts:487-488` list `0.6`; `:986-987` grid `0.55` **[frozen]**;
+`:1061-1062` grid all-day `0.55` **[frozen]**). The grid re-implemented the *leaf* renderers.
+It did not have to: every leaf the shared block needs is already DOM-agnostic —
+`.event-content` (`render.ts:942-1003`), `renderDateColumn` (`:490-622`), colour precedence
+(`:497-516`). A flex grid container could have consumed those leaves unchanged. The rowspan
+blocked reuse of the **container**, and container reuse is not what prevents drift. **Sharing
+the leaves is.**
 
 **Therefore: list keeps its table.** [v4 — REVERSES v3's headline change]
 
@@ -106,9 +131,11 @@ v3 proposed converting list's day block from `<table>` to flex so a single flip-
   *Serve both views* → give column its **own** flex container consuming those leaves.
 - List needs date-on-**left**. Only column needs date-on-**top**. So only column needs the
   non-table container; list never has to change.
-- Parallel containers over shared leaves is **exactly the `ViewAdapter.render` shape** Phase 3
-  wants. By Phase 5 there are three renderers anyway (table list / flex column / grid). Forcing
-  two of them to share one flip-able DOM is *less* consistent with the adapter, not more.
+- Parallel containers over shared leaves is **exactly the `ViewAdapter.render` shape** the
+  adapter work wants. **[v5]** That work was phase 3 and is now **folded into phase 4** — see
+  section C. By Phase 5 there are three renderers anyway (table list / flex column / grid).
+  Forcing two of them to share one flip-able DOM is *less* consistent with the adapter, not
+  more.
 - The risk asymmetry is the decisive part. Rewriting list's container puts **100% of existing
   users** at pixel-regression risk to serve a view they do not use, gated only by human
   screenshot comparison. Leaf extraction leaves the list container untouched, which satisfies
@@ -121,20 +148,25 @@ v3 proposed converting list's day block from `<table>` to flex so a single flip-
 `date_vertical_alignment`'s `vertical-align` maps to `align-self`, "equivalent". **It does
 not,** and the failure is invisible to a template diff:
 
-- `.date-column` is `position: relative` (`styles.ts:321`); `.today-indicator-container` is
-  `position: absolute; height: 100%` (`:336-341`). Under `rowspan` (`render.ts:925-932`) that
-  `100%` resolves against the **full stacked height of the day**, so with the default
-  `today_indicator_position: '15% 50%'` the indicator centres over the whole day block.
+- `.date-column` is `position: relative` (`styles.ts:317`, reinforced by an inline
+  `style="position: relative;"` on the `<td>` itself at `render.ts:931`);
+  `.today-indicator-container` is `position: absolute; height: 100%` (`styles.ts:332-340`).
+  Under `rowspan` (`render.ts:926-937`) that `100%` resolves against the **full stacked height
+  of the day**, so with the default `today_indicator_position: '15% 50%'` the indicator centres
+  over the whole day block.
 - In flex, `align-self: center` overrides `align-items: stretch` and **shrinks the item to
   content height** — collapsing `height: 100%` to roughly one line of date text. The indicator
   would snap from the full day to the ~50px date band.
 - The correct mapping is two-part: keep the date column `align-self: stretch` and move its
   *content* with `justify-content` on an inner flex column. v3's one-line mapping was wrong.
 
-Blast radius is bounded (`today_indicator` defaults `false`, `config.ts:59`), so this would
+Blast radius is bounded (`today_indicator` defaults `false`, `config.ts:61`), so this would
 have hit only opted-in users on multi-event days — which is precisely the kind of defect that
 survives a screenshot pass. It is retained here as the worked example of why the list
-container is not worth touching.
+container is not worth touching. **[v5] This analysis is load-bearing and must survive any
+future restructuring of this document intact:** it is the only worked proof in the plan that a
+human screenshot pass does not catch this class of bug, and the `false` default is exactly why
+it would go unnoticed.
 
 **Target structure — one flip, not two:**
 
@@ -148,17 +180,23 @@ both                 consume the SAME leaf renderers
 Carry-overs that still apply, to the **column** container only:
 - `.date-column` fixed width → `flex: 0 0 <width>`.
 - Events pane → `flex: 1` **plus `min-width: 0`**. Without it long titles won't let the pane
-  shrink; `table-layout: fixed` (`styles.ts:291-296`) handles this implicitly today. Still the
-  classic flex trap, now confined to new code.
-- The week-number separator (`<table class="week-row-table">`, `render.ts:243-297`) stays as-is
-  for list; column defers week numbers entirely (D5).
+  shrink; `table-layout: fixed` (`styles.ts:287-296`, property at `:290`) handles this
+  implicitly today. Still the classic flex trap, now confined to new code.
+- The week-number separator (`<table class="week-row-table">`, `render.ts:246-312`; the
+  `<table>` itself is emitted at `:289`) stays as-is for list; column defers week numbers
+  entirely (D5).
 
 ### A3-B. `show_empty_days` — my "force it on" was wrong
 
-Verified against latest `dev`. `days_to_show` bounds a **calendar-day window**
+**Verified against:** `origin/dev` @ `29b8226`. **[v5]** This section's citations were already
+`dev`-based and survive re-verification almost unchanged — see F6 for why that is significant
+rather than incidental.
+
+`days_to_show` bounds a **calendar-day window**
 (`events.ts:1287-1293`; hard post-filter `:71-92`). `show_empty_days: false` (the default)
 then **filters empty days out of the rendered set** (`:393-398`) — rendering already expects
-gaps (`render.ts:722-724`). With `true`, missing days are generated (`:505-545`, `:561-598`).
+gaps (`render.ts:725-727`). With `true`, missing days are generated (`:505-545`, `:561-598`,
+the placeholder itself carrying `_isEmptyDay: true` at `:586`).
 
 So in column view the key selects between two different products:
 
@@ -177,7 +215,7 @@ Consequence not to miss: with `false`, the column *count* varies as events chang
 
 Also confirmed and to be preserved: `hide_when_empty` deliberately counts events **as if
 expanded** (`calendar-card-pro.ts:236-239`) so `compact_events_to_show: 0` cannot hide a card
-that could then never be tapped open; and *a placeholder is not content* (`:241-249`). Empty
+that could then never be tapped open; and *a placeholder is not content* (`:243-251`). Empty
 **columns** must not count as content either.
 
 ### A3-B-2. …and the column *default* — the argument **[v4]**
@@ -237,12 +275,68 @@ for view-switchers; it is guaranteed for everyone.
 | `true` | Always show | show | show |
 | `false` | Never show | hide | hide |
 
-**Back-compat is free — verified against `origin/dev`.** Every consumer is a *truthiness*
-check (`events.ts:394` `if (!config.show_empty_days)`, `:488`, `:520`), so `null` is falsy and
-behaves **identically to `false`** in every existing path. Changing
-`DEFAULT_CONFIG.show_empty_days` from `false` → `null` is a **no-op for list view with zero
-call-site changes**. Only the type widens: `show_empty_days: boolean` → `boolean | null`
-(`types.ts:22`).
+**Back-compat, corrected. [v5] — the v4 enumeration was incomplete, and the gap hides a
+shippable defect.**
+
+This paragraph carried the document's only *"verified against `origin/dev`"* stamp, and it is
+the one that was wrong. It listed three consumers and concluded the change was free. There is a
+**fourth**, and it is not the same kind of consumer as the other three.
+
+**The three rendering consumers behave as claimed.** `events.ts:394`
+(`if (!config.show_empty_days)`), `:488`, `:520` are genuine *truthiness* checks, so `null` is
+falsy and behaves **identically to `false`** in every existing render path. That much survives.
+
+**The fourth consumer is `editor.ts:899-900`, and it is a compound gate, not a truthiness
+check:**
+
+```ts
+this.getConfigValue('show_empty_days', false) || !this.getConfigValue('hide_when_empty', false)
+```
+
+Two things follow that the v4 text missed:
+
+1. **It supplies its own hardcoded `false`.** `getConfigValue` resolves
+   `this._config[path] ?? defaultValue` (`editor.ts:230`), so this call site reaches its own
+   literal `false` whenever the key is unset — making it a **second source of truth for the
+   default**, independent of `DEFAULT_CONFIG`. Flipping `DEFAULT_CONFIG.show_empty_days` to
+   `null` does **not** flip this. The two sources then disagree.
+2. **Therefore the claim "zero call-site changes" is deleted.** It was false. `editor.ts` is
+   touched by this change regardless — and separately, `addBooleanField('show_empty_days')` at
+   `editor.ts:896` is itself the switch that becomes the tri-state select, so the file is in
+   scope twice over.
+
+**The defect this ships if left alone.** Take `hide_when_empty: true` with `show_empty_days`
+unset (`null`, the new default) in **column** view:
+
+- Rendering resolves `null` → auto → **column shows empty days**, and consumes
+  `empty_day_text` at `events.ts:501`.
+- The editor gate evaluates `false || !true` → **`false`**, and hides the `empty_day_text`
+  field.
+
+So the card renders a string the user cannot see a control for. This is not a cosmetic
+mismatch; it is the editor actively concealing the only field governing visible output.
+
+**The fix, specified.** The gate must ask the *resolved* question, not the raw one. Introduce
+the same resolution the renderer uses — auto resolves per view — and gate on that:
+
+```ts
+// editor.ts, replacing the raw getConfigValue call in the empty-day-text gate
+const emptyDaysResolved = resolveShowEmptyDays(this._config); // null → per-view default
+… emptyDaysResolved || !this.getConfigValue('hide_when_empty', false) …
+```
+
+`resolveShowEmptyDays` is the same helper D5 kind 1 already requires for the renderer; the
+editor must import it rather than re-deriving the default. **Acceptance:** with
+`hide_when_empty: true` and `show_empty_days` unset, the `empty_day_text` field is visible in
+column view and hidden in list view, matching what each actually renders.
+
+**The type still widens:** `show_empty_days: boolean` → `boolean | null` (`types.ts:22`).
+
+**Why this one mattered out of proportion to its size.** It is the single claim in the plan
+stamped as source-verified, and it is the one with the incomplete enumeration. Three consumers
+were found by searching `events.ts`; the fourth lives in `editor.ts` and answers a different
+question. A grep scoped to where the author expected the answer to be will confirm a hypothesis
+without testing it. See F6.
 
 **The editor pattern already exists.** `show_week_numbers` is exactly this shape — default
 `null` (`config.ts:48`), rendered via `addSelectField` with a `'null'` **string** option
@@ -259,13 +353,22 @@ too.
 
 **Labels:** `Automatic`, `Always show`, `Never show` — with per-view help text (D5 kind 4)
 under `Automatic` spelling out what it resolves to in the current view. Three new translation
-keys across all 10 editor languages.
+keys across all **11** editor languages **[v5 — was 10]**. Of the 35 language files, 11 carry
+an `editor` section (`AGENTS.md:127`); the other 24 omit it entirely and fall back to English,
+which is supported. **Carry the warning across:** `hasEditorTranslations()` returns true when
+the section has *one or more* keys, so a **partially** translated `editor` section defeats the
+fallback — every key you fail to add renders as the **raw key name** in the UI, not as English.
+Add all three keys to all 11, or none.
 
 **Consequence for the gap affordance:** with `Automatic` giving contiguous columns by default,
 a skipped-day marker is no longer owed in Phase 4. It becomes optional polish for people who
 deliberately choose `Never show`.
 
 ### A3-C. Narrow screens — view fallback, not column clamping
+
+**Verified against:** `origin/dev` @ `29b8226`. **[v5]** No `src/` citations in this section —
+it is design reasoning. The modal-width figures remain unverified against a running HA, as
+stated below.
 
 > *"users can set a screen width above which column [view] would be active, and underneath
 > list view would be shown."*
@@ -303,6 +406,13 @@ configuring **column** — they set column-only keys and never see them take eff
 breaks the primary tool for building the feature, and clamping never had it (a clamped column
 is still a column).
 
+> **[v5] These threshold figures move with decision 14.** The ≈900px / ≈420px numbers were
+> computed from the disproven 128px floor. At the provisional **160px** the same formula gives
+> ≈**1120px + padding + gutters** for 7 days and ≈**480px+** for 3. Recompute them when the
+> measured value lands in Phase 4. **The direction of the inequality does not change** — raising
+> the floor pushes the threshold *further above* the modal width, so failure mode 4 gets
+> strictly worse, not better, and the mitigation below becomes more necessary rather than less.
+
 *Mitigation, non-negotiable and cheap:* **the editor preview must render the selected view
 regardless of measured width.** Decouple preview rendering from the responsive switch. Verify
 the actual modal width in HA early in Phase 4 — the exact numbers above come from review and
@@ -322,6 +432,10 @@ days. The fallback is the better narrow-screen answer; it just needs the preview
 key liveness documented.
 
 ### A3-D. Compact mode in column view — the rotation is correct
+
+**Verified against:** `origin/dev` @ `29b8226`. **[v5]** The `events.ts` budget citations
+(`:409-475`, `:413-441`, `:350-391`) re-verify **exact**. Two citations in this section were
+stale and are corrected inline below.
 
 > *"couldnt there also be a compact mode in column view, in which `compact_events_to_show`
 > limits the number of events per day…?"*
@@ -357,9 +471,9 @@ Caveats, all manageable:
 - **Per-entity `compact_events_to_show` must NOT be re-based per column.** [v4 — REVERSED]
   v3 said it "must be re-based per column". That is wrong, and it is the one place the
   rotation changes user semantics rather than preserving them.
-  - *Mechanism, verified:* `entityConfigEventCounts` is created at `events.ts:340`,
-    **before** the `for (const day of days)` loop at `:342`, and accumulates across the
-    whole window.
+  - *Mechanism, verified:* `entityConfigEventCounts` is created at `events.ts:354`
+    **[v5 — was `:340`]**, **before** the `for (const day of days)` loop at `:356`
+    **[v5 — was `:342`]**, and accumulates across the whole window.
   - *Why it must not rotate:* the per-entity cap is a **temporal** cap — "show the **next 1**
     bin collection / next 1 birthday" — not a height cap. Re-basing it per column turns
     "next 1 birthday" into "1 birthday **per column**", i.e. up to `days_to_show` birthdays.
@@ -370,7 +484,9 @@ Caveats, all manageable:
   - *Disposition:* leave per-entity as a global temporal cap in **both** views. It is pure
     data (`events.ts:350-391`), view-independent, and already correct. This is **less** code
     than re-basing.
-- Expand is already tap/hold (`calendar-card-pro.ts:539,542,583,729`), so "on click we
+- Expand is already tap/hold (`calendar-card-pro.ts:660` hold, `:663` and `:704` tap, both
+  calling `toggleExpanded()` at `:862-866`) **[v5 — was `:539,542,583,729`, which on `dev` are
+  the weather-subscription and cache-key paths, not the interaction handlers]**, so "on click we
   toggle" needs no new interaction.
 
 **The residual cost — a view-switch surprise that must be surfaced, not hidden.** [v4]
@@ -389,13 +505,17 @@ it is never needed.
 
 ### A3-E. Separator defaults — two different mechanisms
 
+**Verified against:** `origin/dev` @ `29b8226`. **[v5]** The `SEPARATOR_SPACING` finding below
+— including the comment/value mismatch — re-verifies **exact** and is unchanged.
+
 > *"i like the proposal to default all separator widths to 0px … this is what you meant,
 > right?"*
 
 Partly — and the distinction matters.
 
-- **Widths already default `0px` today** (`config.ts:51-56`). Rotating the rules is a visual
-  no-op out of the box. No decision needed.
+- **Widths already default `0px` today** (`config.ts:53` day, `:55` week, `:57` month
+  **[v5 — was `:51-56`]**). Rotating the rules is a visual no-op out of the box. No decision
+  needed.
 - **What you described — extra horizontal space at a month break — is the *spacing
   multiplier*** (`SEPARATOR_SPACING`: week `1×`, month `1.5×`, `constants.ts:87-92`). In list
   it is margin above/below the rule. A uniform CSS `column-gap` **cannot** vary one gutter.
@@ -417,6 +537,8 @@ existing widths.
 
 ## B. The header divider — concrete spec
 
+**Verified against:** `origin/dev` @ `29b8226`.
+
 ### B1. Naming: `day_header_separator_width` / `day_header_separator_color`
 
 House pattern is `{scope}_separator_{width,color}` — width and colour only, no style key
@@ -425,7 +547,8 @@ confirmed SOUND: semantic, view-neutral, consistent with the `DEPRECATED_CONFIG_
 precedent.
 
 **Why not anything containing "horizontal":** this codebase already made and corrected that
-mistake. `DEPRECATED_CONFIG_MAP` (`editor.ts:71-72`) records `horizontal_line_width` →
+mistake. `DEPRECATED_CONFIG_MAP` (`editor.ts:67-72` **[v5 — was `:71-72`]**; consumed at
+`:381` and `:453`) records `horizontal_line_width` →
 `day_separator_width` — an *appearance* name replaced by a *semantic* one. Appearance names
 are exactly what break when a layout rotates, which is the subject of this plan.
 
@@ -464,21 +587,51 @@ non-breaking.
 
 ### B3. Editor
 
-Follows the established separator block pattern (`editor.ts:1205-1248`): a toggle writing
+Follows the established separator block pattern (`editor.ts:1155-1197`, the `day_separator`
+block **[v5 — was `:1205-1248`, which on `dev` straddles the week/month blocks]**; `week` at
+`:1199-1241` and `month` at `:1243+` repeat it): a toggle writing
 `1px`/`0px`, revealing width and colour when enabled. Only difference: the toggle starts
 **on**.
 
-New editor translation keys, in all files carrying an `editor` section (10 of 35):
+New editor translation keys, in all files carrying an `editor` section (**11** of 35
+**[v5 — was 10]**, per `AGENTS.md:127`):
 `day_header_separator`, `show_day_header_separator`, `day_header_separator_width`,
-`day_header_separator_color`.
+`day_header_separator_color`. **All four keys into all 11 files, or none** — a partially
+translated `editor` section defeats `hasEditorTranslations()` and renders the missing keys as
+**raw key names**, not as English.
 
 ---
 
-## C. Phases **[v4 — Phase 1 re-scoped, cache fix split out]**
+## C. Phases **[v5 — Phase 3 folded into Phase 4]**
 
-Phases 0–3 are **refactors that ship in ordinary 3.x releases**. This is the load-bearing
+**Verified against:** `origin/dev` @ `29b8226`.
+
+Phases 0–2b are **refactors that ship in ordinary 3.x releases**. This is the load-bearing
 property of the plan: they merge into `dev` continuously, so **`dev` drift stops being a
 problem**. Only phases 4–5 need a long-lived branch.
+
+> **[v5] Phase 3 no longer exists as a separate phase. Its work moves into Phase 4.**
+>
+> Phase 3 was "build the `ViewAdapter` abstraction", scheduled to ship in 3.x *before* the
+> second view existed. That was wrong for two reasons:
+>
+> 1. **You cannot see the seam with one implementation.** An adapter designed against list
+>    alone encodes list's shape as though it were the general shape. The abstraction gets
+>    built correctly while building the second view, not before it — so it is now part of
+>    Phase 4, developed against two concrete implementations at once.
+> 2. **It made a speculative 3.x deliverable, and it created the exact coupling the phasing
+>    existed to prevent.** A `ViewAdapter` shipped in 3.x has to guess at the discriminator
+>    set, and the only other consumer that would validate those guesses is the time grid —
+>    Phase 5. So Phase 3 had a *de facto* dependency on a phase three steps later. Folding it
+>    into Phase 4 removes both the speculation and the inverted dependency.
+>
+> **The conformance gate does not move.** It stays where it is — immediately before Phase 5 —
+> because its job is to check that the *shipped* 3.x refactors are faithful, and that job is
+> unchanged by where the adapter gets built.
+>
+> Phase numbering is left alone: there is no Phase 3, and Phase 4 keeps its number. Renumbering
+> would invalidate every "Phase 4"/"Phase 5" reference in the issues and in the frozen branch's
+> commit messages for no gain.
 
 **What changed from v2 and why.** v2's Phase 1 extracted leaf renderers and touched no markup,
 because I believed the list DOM was frozen. v3, on learning it wasn't, replaced that with a
@@ -498,9 +651,15 @@ of bug has now bitten **twice during this work** and once in the comparable card
 the single most error-prone area of the codebase. It is the cheapest high-value thing on this
 entire plan.
 
-**Stage 1 — pure-logic tests.** `vitest` as a devDependency, ~4 files: translation parity,
-`grid.ts` maths, the `getBaseCacheKey` bug (Phase 2b), config validation/change-detection.
-`grid.ts` is already documented pure/no-DOM (`grid.ts:1-6`).
+**Stage 1 — pure-logic tests. [v5 — three deliverables, not four.]** `vitest` as a
+devDependency, **3** files: translation parity, the `getBaseCacheKey` bug (Phase 2b), config
+validation/change-detection.
+
+> **[v5] The `grid.ts` maths test target is dropped.** v4 listed it as a fourth file. It cannot
+> be written: `grid.ts` **does not exist on `dev`** — it lives only on the frozen
+> `alexpfau-review-339-time-grid` branch, and decision 9 explicitly forbids pulling it forward.
+> A Phase 0 test target that requires a file Phase 0 is not allowed to create is not a
+> deliverable. It returns with Phase 5, when the module it tests returns.
 
 **Stage 2 — list-view DOM equality fixture.** [v4 — now a real gate] Serialize the list
 render across the soak fixtures. Under v3's rewrite this could only ever be a review artifact,
@@ -508,6 +667,33 @@ because the DOM was *meant* to change. Under v4 the list DOM must not change at 
 becomes a genuine pass/fail gate for Phase 1 — cheaper and stricter than the screenshot
 comparison v3 was forced to rely on. It keeps its value through phases 2–5 as the guarantee
 that adding views never disturbs the list.
+
+> **[v5] The gate is non-deterministic unless it names a clock strategy, so here is the
+> strategy: freeze time with fake timers.**
+>
+> The list render is time-dependent — `render.ts` reads the current date to decide today,
+> weekend and past-event state, so the same fixture serialized on two different days produces
+> two different DOMs and the gate fails for reasons that have nothing to do with the change
+> under test. v4 asserted byte-identical output without saying how time is held still.
+>
+> **Strategy: `vi.useFakeTimers()` + `vi.setSystemTime(<fixed ISO instant>)` in the test
+> setup.** This freezes `Date.now()` and the `new Date()` constructor **globally**, which
+> includes every call dayjs makes internally, because dayjs has no independent clock. It
+> requires **zero production changes** — no `now` parameter threaded through `render.ts`, no
+> signature churn on the very functions Phase 1 is extracting. One line of test setup, and the
+> fixture becomes reproducible.
+>
+> Pin the frozen instant to a date that exercises the interesting branches — mid-week, not
+> month-start, with fixture events straddling it so past/future/today all appear — and pin `TZ`
+> alongside it (`TZ=… vitest run`, already specified above) since the two together determine
+> which local day an instant falls in.
+>
+> **Documented fallback, not the plan of record:** if fake timers prove insufficient — most
+> plausibly if some path captures a timestamp outside the faked window — the codebase already
+> has the seam for injection. `start-date.ts:156-168` takes an explicit reference date rather
+> than reading the clock, and is the precedent to follow. **Do not reach for this first**; it is
+> materially more invasive than a setup line. If you find a concrete reason fake timers cannot
+> work here, that is a finding to report, not an implementation detail to absorb silently.
 
 **This requires an `AGENTS.md` amendment, not a silent violation.** The file says "no test
 framework… Keep it that way", with **bundle size** as the rationale — which does not apply,
@@ -525,11 +711,39 @@ A3-A.** List keeps its `<table>` and `rowspan`. Phase 1 extracts the axis-agnost
 renderers into shared functions that the list's existing table consumes **unchanged**, and
 that column (Phase 4) and time-grid (Phase 5) consume from their own containers.
 
-Leaves to extract, all already verified DOM-agnostic:
-- `.event-content` subtree (`render.ts:939-1000`) — title, time, location.
-- Date content and colour precedence (`renderDateColumn` `:487-608`, precedence `:497-513`).
-- Today-indicator geometry (`parseIndicatorPosition` `:355-379`).
-- Weather rendering (`:528-572`).
+Leaves to extract, all already verified DOM-agnostic — **citations re-based to `dev`
+@ `29b8226` [v5]**:
+- `.event-content` subtree (`render.ts:942-1003` **[was `:939-1000`]**) — title, time,
+  location.
+- Date content and colour precedence (`renderDateColumn` `:490-622` **[was `:487-608`]**,
+  precedence `:497-516` **[was `:497-513`]**).
+- Today-indicator geometry (`parseIndicatorPosition` `:358-390` **[was `:355-379`]**).
+- Weather rendering (`:526-575` **[was `:528-572`]**) — **see the nesting fork below; this is
+  not a sibling of `renderDateColumn`.**
+
+> **[v5] Resolved: the weather / `renderDateColumn` nesting fork.**
+>
+> The four bullets above read as four peers. They are not. There is **no `renderWeather`
+> function on `dev`** — weather is rendered **inline inside `renderDateColumn`**, at
+> `render.ts:526-575`, which is wholly contained in `renderDateColumn`'s span of `:490-622`. So
+> the list names *a container and its own child* as sibling extraction targets. Taken
+> literally, you would extract the same code twice and have to decide, mid-extraction, which
+> one owns it.
+>
+> **Decision: extract weather FIRST, as its own leaf, and have `renderDateColumn`'s extraction
+> call it.** Nesting, not duplication. Weather is the more reusable of the two — column and
+> time-grid both want a weather glyph without wanting list's date-column structure — and it is
+> the smaller, more self-contained block, so it is the safer thing to move first.
+>
+> **Call-signature consequence, in one sentence:** the extracted date-content renderer takes the
+> weather data as an already-rendered `TemplateResult` (or `nothing`) passed in by its caller,
+> rather than taking the raw forecast and rendering it internally — which keeps the date leaf
+> ignorant of weather config and lets column and time-grid supply their own weather placement
+> without re-implementing the date content.
+>
+> Order within Phase 1 therefore: weather → date content → `.event-content` →
+> `parseIndicatorPosition`. The last two are genuinely independent of the first two and can be
+> done in either order.
 
 **The contract is stronger than v3's, and automatable: list-view DOM must be byte-identical
 before and after.** Extraction that changes list output is a bug by definition. This restores
@@ -539,12 +753,17 @@ Watch the two traps found earlier, which make text-diffing the extraction *neces
 sufficient*:
 - `renderEvent` interpolates ~7 locals computed *before* the extraction boundary; they must be
   passed, not recomputed.
-- Accent, background and padding live on the wrapper `<td class="event">` (`render.ts:937`,
-  `styles.ts:463-488`) with a position class (`:913-919`). A future column wrapper must
+- Accent, background and padding live on the wrapper `<td class="event">` (`render.ts:938-941`,
+  the `classMap` at `:939` and the inline `border-inline-start` / `background-color` at `:940`
+  **[v5 — was `:937`]**; `styles.ts:458-483` **[was `:463-488`]**) with a position class
+  computed at `render.ts:916-922` **[v5 — v4 wrote `styles.ts:913-919`, but `styles.ts` is 703
+  lines; the position classes are built in `render.ts`]**. A future column wrapper must
   reproduce those; the *leaf* must not absorb them.
 
 Deferred out of Phase 1, and no longer on the critical path: removing the layout table (a11y),
-RTL, and the duplicate `.today-indicator-container` rule (`styles.ts:336-344` / `:368-373`).
+RTL, and the duplicate `.today-indicator-container` rule (`styles.ts:332-340` / `:364-370`
+**[v5 — was `:336-344` / `:368-373`]**; still a genuine duplicate on `dev` — the second
+declaration drops `top`/`left`/`width`/`height` and adds `color`).
 The duplicate rule can be deleted independently — it needs no restructure.
 
 **Acceptance.** [v4 — inverted] With the list container untouched, a serialized-DOM equality
@@ -563,8 +782,9 @@ independent of markup.
 
 **[v4] Caveat to check before building these.** If Phase 1's shared leaves and Phase 4's column
 both consume the raw `EventsByDay` types happily, these models are abstraction ahead of need.
-Name the consumer that forces them, or fold them into Phase 3 where `ViewAdapter` gives them
-one. Do not build them speculatively.
+Name the consumer that forces them, or **[v5 — was "fold them into Phase 3"]** fold them into
+**Phase 4**, where the adapter — now built there — gives them one. Do not build them
+speculatively.
 
 ### Phase 2b — cache-key fix · ships 3.x **now**, independently · risk: low **[v4 — SPLIT OUT]**
 
@@ -572,12 +792,19 @@ one. Do not build them speculatively.
 column view, no models and no adapter, so coupling it to this plan only delays a user-facing
 fix and enlarges the blast radius of an unrelated release.
 
-CONFIRMED real: `processEvents` splits multi-day events pre-cache (`events.ts:649`) and bakes
-`_entityLabel` (`:642`), then caches the already-split array; `getBaseCacheKey`
-(`:1369-1415`) includes instanceId, entityIds, daysToShow, showPastEvents, startDate,
+CONFIRMED real: `processEvents` splits multi-day events pre-cache (call at `events.ts:707`,
+definition at `:772` **[v5 — was `:649`]**) and bakes
+`_entityLabel` (`:671` **[v5 — was `:642`]**; also assigned at `:268-270`), then caches the
+already-split array; `getBaseCacheKey`
+(`:1389-1441` **[v5 — was `:1369-1415`]**) includes instanceId, entityIds, daysToShow,
+showPastEvents, startDate,
 filterDuplicates, per-entity patterns and `VERSION.CURRENT` — but **not**
 `split_multiday_events` or entity-label config. A warm-cache toggle of `split_multiday_events`
 returns stale, wrongly-split data.
+
+> **[v5] Re-verified on `dev` @ `29b8226`: the bug is real and the analysis is unchanged.**
+> Only the line numbers moved. The absence of `split_multiday_events` and of any entity-label
+> field from `getBaseCacheKey` is confirmed by reading the whole function.
 
 It is a behaviour-**changing** bugfix, not a behaviour-preserving refactor: fixing it changes
 what the user sees. Fine for 3.x — but label it honestly so it gets tested as a fix.
@@ -590,25 +817,40 @@ only bites a user toggling config without a version bump inside TTL.
 effective split semantics and view identity enter the key. Shipping it early simply means that
 dependency is already satisfied.
 
-### Phase 3 — `ViewAdapter`, internal only · ships 3.x · risk: low
+### ~~Phase 3~~ — `ViewAdapter` · **[v5 — FOLDED INTO PHASE 4]**
+
+> **[v5] This is no longer a phase. It is the design record for the adapter that gets built
+> *inside* Phase 4.** See section C for the rationale. Everything below stands as analysis —
+> the interface sizing, the discriminator classification, the corrected claim — it simply is
+> not a separate 3.x deliverable any more, and nothing ships from it before Phase 4.
+>
+> **Provenance warning, and it is load-bearing for this section specifically:** the site counts
+> and every `grid.ts` / `render-grid.ts` / `*-controller.ts` citation in the table below are
+> **[frozen]** — they describe `alexpfau-review-339-time-grid`, not `dev`. On `dev` there are
+> **zero** `view === 'time-grid'` discriminators, because there is exactly one view. The "19
+> sites" are 19 sites *on the frozen branch*. Read this section as *"here is what the adapter
+> will have to absorb when time-grid returns in Phase 5"*, not as a description of code you can
+> open today.
 
 **[CHANGED — v1's interface was mis-sized.]** v1 claimed four methods (`capabilities` /
 `buildFetchPlan` / `render` / `getCardSize`) would retire 19 discriminator checks. Verified
-against all 19 sites: **the four named methods cleanly absorb about 3.** Classification:
+against all 19 sites **[frozen]**: **the four named methods cleanly absorb about 3.**
+Classification:
 
 | Concern | Sites | Covered by v1's interface? |
 |---|---|---|
-| Render dispatch | `calendar-card-pro.ts:882` | ✅ `render` |
-| Fetch plan override | `calendar-card-pro.ts:676`, `grid.ts:573-586` | ✅ `buildFetchPlan` |
-| Card size | `grid.ts:646` | ✅ `getCardSize` |
-| **Config validation / normalisation** | `config.ts:286` | ❌ no method |
-| **Change-detection for refetch** | `config.ts:410,415,416` | ❌ no method |
-| **Controller lifecycle** | `responsive-columns-controller.ts:6,44,63,80,86`; `now-line-controller.ts:86` | ❌ not a render/fetch call |
-| **Post-update imperative hook** | `calendar-card-pro.ts:290-294,298-317` | ❌ no method |
-| Interaction model | `calendar-card-pro.ts:753,758` | ~ only via `capabilities` |
-| Card-shell flags | `render.ts:50,54,66` | ~ only via `capabilities` |
+| Render dispatch | `calendar-card-pro.ts:882` **[frozen]** | ✅ `render` |
+| Fetch plan override | `calendar-card-pro.ts:676`, `grid.ts:573-586` **[frozen]** | ✅ `buildFetchPlan` |
+| Card size | `grid.ts:646` **[frozen]** | ✅ `getCardSize` |
+| **Config validation / normalisation** | `config.ts:286` **[frozen]** | ❌ no method |
+| **Change-detection for refetch** | `config.ts:410,415,416` **[frozen]** | ❌ no method |
+| **Controller lifecycle** | `responsive-columns-controller.ts:6,44,63,80,86`; `now-line-controller.ts:86` **[frozen — neither file exists on `dev`]** | ❌ not a render/fetch call |
+| **Post-update imperative hook** | `calendar-card-pro.ts:290-294,298-317` **[frozen]** | ❌ no method |
+| Interaction model | `calendar-card-pro.ts:753,758` **[frozen]** | ~ only via `capabilities` |
+| Card-shell flags | `render.ts:50,54,66` **[frozen]** | ~ only via `capabilities` |
 
-`config.ts:410-419` diffs *previous vs current* config to decide whether to refetch —
+`config.ts:410-419` **[frozen]** diffs *previous vs current* config to decide whether to
+refetch —
 `buildFetchPlan` builds a plan, it does not answer "did a data-affecting key change?"
 Different operations. And the controllers are Lit `ReactiveController`s with
 `hostConnected`/`hostUpdated`/`hostDisconnected` + observer lifecycles; a stateless
@@ -622,14 +864,26 @@ must drive controller construction, shell classes, ripple suppression and handle
 
 **Revised claim:** replace scattered `view === 'time-grid'` string literals with one
 declarative capability descriptor. Not "four methods retire 19 checks". Note `config.ts:416`
-partly evaporates once decision 2 deletes `navigation_days`.
+**[frozen]** partly evaporates once decision 2 deletes `navigation_days`.
 
-### Conformance gate (scratch branch, not shipped)
+> **[v5] What building this inside Phase 4 changes in practice.** The eight-facet interface
+> above was derived by looking at where *time-grid* diverges from list. Built during Phase 4 it
+> is instead derived from where **column** diverges from list, and only the facets column
+> actually needs are implemented. The remaining facets stay in this document as the known
+> shape of the problem, and the conformance gate — which is where time-grid gets ported onto
+> whatever Phase 4 built — is what proves the sizing was right. That ordering is the whole
+> point of the fold: the gate tests the abstraction against a second consumer, which is a test
+> the old Phase 3 could not run at the time it shipped.
+
+### Conformance gate (scratch branch, not shipped) **[v5 — priced, sequenced and given a
+failure path]**
 
 **Reviewed as a genuine strength — keep it exactly where it is.** Port #339's time-grid onto
 the abstraction before Phase 4 hardens it. It cannot go earlier (nothing to conform to) and
 must not go later (designing around list+column then discovering time-grid doesn't fit would
-force a breaking re-abstraction *after* `view` is public).
+force a breaking re-abstraction *after* `view` is public). **[v5] Folding Phase 3 into Phase 4
+does not move it:** it still sits immediately before Phase 5, and it still tests the adapter
+built in Phase 4 against a second consumer.
 
 Probes it must answer:
 - Per-view config overrides in **all four directions** of the D5 taxonomy — column forces
@@ -641,13 +895,70 @@ Probes it must answer:
 - Fetch planning must be per-view — time-grid's window is far wider than list's.
 - **[v3]** Compact-budget shape must be per-view: global sum (list) vs per-column max
   (column). If the adapter cannot express that, it is under-sized. **[v4]** Note the two
-  compaction stages are *sequential and composed* — per-entity (`events.ts:340-378`) then
-  global (`:388-468`) — so the adapter hooks in **two** places, not one. Price it as such.
+  compaction stages are *sequential and composed* — per-entity (`events.ts:350-391`) then
+  global (`:409-475`) **[v5 — was `:340-378` / `:388-468`; corrected to A3-D's ranges, which
+  re-verify exact on `dev`]** — so the adapter hooks in **two** places, not one. Price it as
+  such.
 
-### Phase 4 — column view · v4 branch · risk: medium
+**[v5] Sequencing.** It runs on a **scratch branch off the Phase 4 branch**, after Phase 4's
+adapter and column renderer are functionally complete but *before* `view` is released. Inputs:
+the Phase 4 branch, plus `alexpfau-review-339-time-grid` as a read-only source. Output: a
+findings note plus, if it passes, a merged set of adapter corrections back into Phase 4. The
+scratch branch is then abandoned — **it is not the branch Phase 5 is built on**; Phase 5
+rebuilds on lenaxia's commits as ancestors (see Phase 5), and this gate must not become a
+shortcut that loses that attribution.
+
+**[v5] Definition of done.** All four override directions above expressible through the
+adapter, with the editor rendering each correctly; time-grid's fetch window derivable via
+`buildFetchPlan` without a `view ===` literal outside the adapter; both controllers
+constructible via `controllers()` with their observer lifetimes intact; and **no new
+`view === 'time-grid'` string outside the adapter module**. The port does not need to *run*
+correctly end to end — it needs to *compile and wire* without reaching around the abstraction.
+That is the cheapest thing that actually answers the question, and drawing the line here is
+what keeps the gate from becoming Phase 5 done early.
+
+**[v5] Honest price. This is a branch port, not a review step, and v4 priced it as the
+latter.** The frozen branch carries `grid.ts`, `render-grid.ts`, two controllers and edits
+across `calendar-card-pro.ts`, `config.ts`, `editor.ts` and `render.ts`. By the time the gate
+runs, `dev` will have moved by everything in Phases 0–2b **plus** Phase 4's own changes to
+several of those same files — and the frozen branch has already diverged materially (its
+`styles.ts` has a grid section `dev` has never had; its `editor.ts` has a view select at
+`:774-777` that does not exist on `dev`). So the port is a **conflict-heavy rebase across
+7+ files that both sides have edited**, not a cherry-pick. Budget it as **comparable to a
+small phase in its own right — days, not an afternoon** — and treat any estimate below that as
+a sign the divergence has not been looked at. The number is uncomfortable and it is the real
+one; discovering it during the port is strictly worse than budgeting for it now.
+
+**[v5] Failure path — what happens if the gate fails after Phases 1–2b have shipped to 3.x.**
+This is the case v4 left unanswered, and it is the one that matters, because by then the
+refactors are in users' hands.
+
+- **Phases 0–2b are safe regardless.** They are behaviour-preserving refactors plus one
+  bugfix; none of them exposes `view` or the adapter as public API. A gate failure does not
+  retract them and does not require a revert. This is the payoff for making them independently
+  shippable, and it is why the 3.x/v4 split exists.
+- **The adapter is *not* public API** — it is internal, and Phase 4's `view` key is the only
+  public surface. So a failure is caught while `view` is still unreleased, which is precisely
+  the window the gate was placed to protect.
+- **Therefore the failure path is: fix the abstraction inside Phase 4 and re-run the gate.**
+  Phase 4 does not ship until it passes. That is a schedule cost on v4.0.0, not a
+  compatibility problem, and no already-shipped 3.x release is affected.
+- **The one genuinely bad outcome** is discovering that a *Phase 1 or 2* extraction shape is
+  wrong for time-grid — that would be shipped code that needs changing. Mitigation: the
+  Phase 1 leaves are deliberately axis-agnostic and consumed unchanged by list, so re-shaping
+  them is another behaviour-preserving refactor in 3.x rather than a break. Accept it as a
+  known, bounded risk; do not pretend it is zero.
+- **Escalation, if the gate fails on something structural:** stop and re-scope rather than
+  widening the adapter until time-grid fits. An adapter that grows a facet per failed probe is
+  how you end up with the discriminator soup this whole exercise exists to remove.
+
+### Phase 4 — column view **+ the `ViewAdapter` abstraction** · v4 branch · risk: medium
+**[v5 — absorbed Phase 3]**
 
 `view: 'list' | 'column'` becomes public API. Section D. **[NEW] Includes an editor gate
-audit — see D4.**
+audit — see D4.** **[v5]** Also includes building the `ViewAdapter` itself, designed against
+list and column together rather than against list alone — see the folded Phase 3 section above
+for the interface analysis, and section C for why it moved here.
 
 ### Phase 5 — time-grid · v4 branch · risk: medium
 
@@ -662,6 +973,11 @@ i18n keys present only in `en.json`; `time_grid_interval_minutes` being a zoom c
 ---
 
 ## D. Column view specification (phase 4)
+
+> **Verified against `origin/dev` @ `29b8226`.** All `src/` citations in D1, D2, D3 and D5 have
+> been re-based against `dev` and are marked **[v5]** where they moved. **D4 is the exception
+> and is flagged inline** — its subject matter (existing editor view gates) does not exist on
+> `dev` at all. See F6.
 
 ### D1. Element mapping **[CHANGED — separators are a re-implementation, not a rotation]**
 
@@ -684,46 +1000,58 @@ i18n keys present only in `en.json`; `time_grid_interval_minutes` being a zoom c
 **v1 said "separators simply become vertical rules, keys unchanged." That was misleading.**
 There are three different renderers, none axis-swappable:
 - Day separator: `<div class="separator">` with inline `borderTop*`, `width:100%`
-  (`render.ts` ~`:673`; `styles.ts:266-269`).
+  (`render.ts:676` **[v5 — was ~`:673`]**; `styles.ts:262-265` **[v5 — was `:266-269`]**).
 - Week separator when `show_week_numbers === null`: a separate border-top renderer
-  (`render.ts:219-231`).
+  (`render.ts:222-245` **[v5 — was `:219-231`]**).
 - Week separator when `show_week_numbers !== null`: **an entire `<table class="week-row-table">`**
   whose rule is structurally welded to the week-number pill in one table row
-  (`render.ts:243-297`; `styles.ts:196-262`).
+  (`render.ts:246-312`, the `<table>` itself at `:289` **[v5 — was `:243-297`]**;
+  `styles.ts:195-261` **[v5 — was `:196-262`]**).
 
 **The spacing multipliers cannot survive rotation.** `createSeparatorStyle`
-(`render.ts:128-165`) derives `marginTop`/`marginBottom` from `day_spacing × multiplier`,
+(`render.ts:131-179` **[v5 — was `:128-165`]**) derives `marginTop`/`marginBottom` from
+`day_spacing × multiplier`,
 where `SEPARATOR_SPACING` is WEEK 1×, MONTH **1.5×** (`constants.ts:87-92` — note the source
 *comment* on `:90` wrongly says "2x"; pre-existing bug, fix in passing). CSS grid
 `column-gap` is a **single uniform value for all tracks** — you cannot widen only the gutter
 between columns 3 and 4. So the month/week spacing differential is silently dropped, which
 would violate acceptance criterion E1.
 
+> **[v5] Re-verified exact on `dev`.** `constants.ts:87` opens `SEPARATOR_SPACING: {`, `:89` is
+> `WEEK: 1`, `:90` is the comment reading "2x", `:91` is `MONTH: 1.5`, `:92` closes. The claim
+> and the incidental comment bug both stand unchanged.
+
 **Decision needed:** either (a) drop the multipliers in column view and document it, or (b)
 use explicit spacer tracks in the grid template to reproduce them. Recommend (a) for MVP —
 the rule itself still renders at the boundary, only the extra breathing room is lost.
 
 **Mitigant that makes this phaseable:** all three separator widths default `0px`
-(`config.ts:51-56`) and `show_week_numbers` defaults `null` (`config.ts:46`), so **rotation is
+(`config.ts:53` day / `:55` week / `:57` month **[v5 — was `:51-56`]**) and
+`show_week_numbers` defaults `null` (`config.ts:48` **[v5 — was `:46`]**), so **rotation is
 a no-op for a default config** and this rewrite only affects users who opted in.
 
 ### D2. Header
 
-A horizontal variant of `renderDateColumn` (`render.ts:487-608`). Same DOM classes, same
+A horizontal variant of `renderDateColumn` (`render.ts:490-622` **[v5 — was `:487-608`]**).
+Same DOM classes, same
 custom properties, so theming carries over. **Colour precedence preserved exactly**: base →
-weekend → today (`render.ts:497-513`) — CONFIRMED pure data, DOM-independent.
+weekend → today (`render.ts:497-516` **[v5 — was `:497-513`]**) — CONFIRMED pure data,
+DOM-independent.
 
 **Today highlighting needs zero new keys** — `today_weekday_color`, `today_day_color`,
 `today_month_color` already exist with top precedence. (ACR's Planner ships with *no* today
 indicator; we get it on day one.)
 
 Today indicator relocation is MECHANICALLY SOUND: `parseIndicatorPosition`
-(`render.ts:355-379`) emits `position:absolute` + percentages + `translate(-50%,-50%)` inside
+(`render.ts:358-390` **[v5 — was `:355-379`]**) emits `position:absolute` + percentages +
+`translate(-50%,-50%)` inside
 a `position:relative` container; that transfers cleanly. Caveat: `'15% 50%'` resolves to a
 different visual spot in a short wide band. Documented, not fixed.
 
 **[NEW] Weather must be single-line-or-hide.** "Mon 13 Nov" at 26/14/12px already consumes
-most of a 128px column; weather (`render.ts:528-572`) adds icon + temperature (~40–50px). If
+most of a **160px** column **[v5 — was 128px; see decision 14, which now sets a provisional
+160px minimum]**; weather (`render.ts:526-575` **[v5 — was `:528-572`]**) adds icon +
+temperature (~40–50px). If
 it wraps, *every* column gains a second header line — a fixed density cost paid on every day.
 Decide truncate-or-drop rather than wrap, and document the header band's fixed per-column
 vertical budget. Interacts with decision 14.
@@ -748,9 +1076,17 @@ clippable. It is an argument for decision 14, not against the layout.
 
 **`compact_events_to_show` reused as a per-column cap — REVERSED in v3.** The *mechanism*
 finding stands and is CONFIRMED: it is a **global budget across all days**, not per-day.
-`totalEventsShown` accumulates over the whole window (`events.ts:396`), `break`s when
-exhausted (`:439`), and silently `slice(0, remainingEvents)` (`:456`). Naively rotating that
+`totalEventsShown` accumulates over the whole window (`events.ts:410` **[v5 — was `:396`]**),
+`break`s when
+exhausted (`:450` **[v5 — was `:439`]**), and silently `slice(0, remainingEvents)`
+(`:470`, with `remainingEvents` computed at `:463` **[v5 — was `:456`]**). Naively rotating
+that
 gives 5 events *total* across 7 columns.
+
+> **[v5] Range corrected to match A3-D.** v4 cited the global compaction block as `:388-468`
+> here and `:409-475` in A3-D — the same code, two different ranges. A3-D's is the correct one
+> and re-verifies exact on `dev`; the three leaf citations above are now inside it. The
+> mechanism claim itself is unchanged and re-confirmed by reading the loop.
 
 **But the conclusion I drew from it was wrong** (see A3-D). List height ≈ **Σ**, column
 height ≈ **max**; capping the sum and capping the max both mean *"how tall is the card when
@@ -765,7 +1101,9 @@ overflow pill in the codebase is grid-view's (`render-grid.ts:346-354`, backed b
 **Resolution [v4 — revised]:**
 1. **Column view implements compact as a per-column budget**, reusing the *global*
    `compact_events_to_show` with its meaning rotated (D5 kind 4). Tap/hold to expand already
-   exists (`calendar-card-pro.ts:539,542,583,729`). Post-MVP, but planned for — not excluded.
+   exists (`calendar-card-pro.ts:660` hold, `:663` and `:704` tap, `toggleExpanded()`
+   `:862-866` **[v5 — was `:539,542,583,729`, which on `dev` are the weather-subscription and
+   cache-key paths]**). Post-MVP, but planned for — not excluded.
 2. **`compact_events_complete_days` is inapplicable** per-column — it makes a *cross-day
    inclusion* decision under a *shared* budget, and a per-column budget has neither. Ignored +
    annotated. **Per-entity `compact_events_to_show`** (`events.ts:350-391`) **stays global in
@@ -778,28 +1116,61 @@ overflow pill in the codebase is grid-view's (`render-grid.ts:346-354`, backed b
    grid pill, compute `hidden = eᵢ − cap` locally. Do **not** reuse the list compact path's
    silent slice. MVP can make it informational and still satisfy #263: the user *sees* there
    is more and is not misled.
-5. **`max_height` confirmed safe** — `styles.ts:151-154` sets `max-height` with
-   `overflow-y: auto`, so it **scrolls rather than clips**. Inherit unchanged.
+5. **`max_height` confirmed safe** — `styles.ts:145` sets `max-height` and `:148` sets
+   `overflow-y: auto` (both inside `.content-container`, `:144-148`
+   **[v5 — was `:151-154`]**), so it **scrolls rather than clips**. Inherit unchanged.
 
-### D4. Editor gate audit **[NEW]**
+### D4. Editor gate audit **[NEW]** **[v5 — ENTIRELY FROZEN-BRANCH; retitled and re-tensed]**
 
-Every current editor gate assumes exactly two views (`!== 'time-grid'`). A third view
-silently mis-includes column:
+> **[v5] Read this section as future work, not as a description of code you can open.** Every
+> citation below is **[frozen]** — it describes `alexpfau-review-339-time-grid`. On
+> `origin/dev` there are **zero** `view === 'time-grid'` gates in `editor.ts`, no `view` select,
+> and no `view` key in `config.ts` or `types.ts` at all, because `dev` has exactly one view.
+> `grep -rn "time-grid\|timeGrid\|time_grid" src/` returns nothing on `dev`.
+>
+> The v4 text opened *"Every current editor gate assumes exactly two views"* in the present
+> tense. That is false on `dev` and was the single most misleading sentence in the document
+> for anyone trying to execute from it — you would open `editor.ts`, find nothing matching, and
+> not know whether you were looking in the wrong place or reading a stale plan. The finding
+> itself is sound; only its tense and its provenance were wrong.
+>
+> **What survives, restated correctly:** when time-grid returns in Phase 5, these gates will be
+> *created*, and if they are written as binary `!== 'time-grid'` checks they will silently
+> mis-include column. The audit below is therefore a **Phase 5 obligation** and a **Phase 4
+> design constraint** (do not introduce a binary gate that Phase 5 has to unpick), not a
+> Phase 4 code-reading task. The two items that *are* actionable on `dev` today are called out
+> as such.
 
-- `editor.ts:774-777` — the `view` select hardcodes two options; needs a `view_column`
-  translation key.
-- `:778` (`days_to_show`) — benign for column by luck. Make it explicit.
-- `:826` (Compact Mode) — **[v3]** shows for column by default, and per A3-D that is now
+Gates as they exist on the frozen branch, and what each becomes with three views:
+
+- `editor.ts:774-777` **[frozen — no view select exists on `dev`]** — the `view` select
+  hardcodes two options; needs a `view_column` translation key.
+- `:778` (`days_to_show`) **[frozen]** — benign for column by luck. Make it explicit.
+- `:826` (Compact Mode) **[frozen; the Compact Mode block is at `:868-884` on `dev`]** —
+  **[v3]** shows for column by default, and per A3-D that is now
   *correct*. Make it explicit rather than accidental, and hide
   `compact_events_complete_days` within it for column.
-- `:870` (`show_empty_days`) — **[v4] becomes a 3-option select in *both* views**, not a
+- `:870` (`show_empty_days`) **[v5 — on `dev` this is `addBooleanField('show_empty_days')` at
+  `:896`, with its visibility gate at `:899-900`; ACTIONABLE ON `dev` TODAY]** —
+  **[v4] becomes a 3-option select in *both* views**, not a
   switch. A3-B-3: `null` (Automatic) / `true` (Always show) / `false` (Never show), with
   `null` as the new default. Add it to the existing `'null'`-string special case at
   `editor.ts:588-591` and `:660` alongside `show_week_numbers`. Per-view help text under
-  Automatic. Three new translation keys × 10 languages.
-- `:908` — correctly grid-only, unchanged.
+  Automatic. Three new translation keys × **11** editor languages
+  **[v5 — was 10; 35 language files exist, 11 contain an `editor` section, per `AGENTS.md:127`]**.
+  **The `editor.ts:899-900` gate must be corrected at the same time — see A3-B-3, where it is
+  a shippable defect rather than a cosmetic one.**
+- `:908` **[frozen]** — correctly grid-only, unchanged.
 
-Convert each binary `!== 'time-grid'` to explicit per-view logic. Round-trip the visual
+> **[v5] Translation warning, carried over from `AGENTS.md:82-127`.** The `editor` section is
+> **all-or-nothing**. `hasEditorTranslations()` returns true if the section has *one or more*
+> keys, so adding these three keys to only some of the 11 editor languages does not fall back
+> to English — every key you missed renders as the **raw key name** (`show_empty_days_auto`) in
+> the UI. Either add all three keys to all 11 files, or add them to none and let the whole
+> section fall back. Never leave it half-done.
+
+Convert each binary `!== 'time-grid'` to explicit per-view logic **when those gates are
+written**. Round-trip the visual
 editor for a column config to confirm no forced-override key silently drops user input.
 
 **[v4] The editor's live preview must render the *selected* view, not the width-measured
@@ -839,6 +1210,11 @@ a 3-option select. The codebase already does exactly this for `show_week_numbers
 (`config.ts:48`, `editor.ts:1109-1113`, `:588-591`, `:660`) — reuse that path, do not invent a
 second one. If a key cannot take a sentinel, it is not kind 1; pick another kind.
 
+> **[v5] Re-verified exact on `dev`.** `config.ts:48` is `show_week_numbers: null`; the
+> `'null'`-string round-trip special case at `editor.ts:588-591` and `:660` is unchanged; the
+> `addSelectField` call is at `:1109-1113`. This pattern is the precedent A3-B-3's fix reuses,
+> and it survives this pass untouched.
+
 **Kind 4 is new in v4** and exists because of `compact_events_to_show`. It is editable, has
 the same default, and is shown in the editor — but its *meaning* rotates between views
 (A3-D). None of kinds 1–3 fit: it is not defaulted differently, not forced, not ignored. The
@@ -857,7 +1233,10 @@ explicit in the editor copy.
 sentinel — see **A3-B-3**.
 
 **Week numbers are deferred in column MVP.** `show_week_numbers` is tri-state
-(`editor.ts:1159-1163`) and its non-null path renders the full-width `week-row-table`. In a
+(`editor.ts:1109-1113` **[v5 — v4 wrote `:1159-1163`, which on `dev` is `day_separator_width`;
+the document cited `:1109-1113` correctly two paragraphs above, so this was an internal
+inconsistency, not a drift]**) and its non-null path renders the full-width `week-row-table`.
+In a
 column layout the placement is genuinely incoherent for partial weeks: a 7-day window starting
 mid-week spans **two** ISO weeks, its first column is not a week-start, and a window can
 legitimately need 0, 1 or 2 badges on non-adjacent columns. Options were (a) place on the true
@@ -868,6 +1247,9 @@ affects only opted-in users.
 ---
 
 ## E. Cross-cutting acceptance criteria
+
+> **Verified against `origin/dev` @ `29b8226`.** This section carries no `src/` line citations;
+> the `AGENTS.md` reference in criterion 2 re-verifies at `AGENTS.md:82-127`.
 
 Both come from ACR's PlannerView hitting **the same two traps** we found in #339, in an
 independent codebase, on the same feature type. That makes it a pattern, so it gets named.
@@ -882,13 +1264,22 @@ independent codebase, on the same feature type. That makes it a pattern, so it g
    keys to `en.json` only.) Note the all-or-nothing trap in `AGENTS.md`: a *partial* `editor`
    section defeats the whole-language English fallback and renders raw key names.
 
-**HA soak list — list view must be pixel-identical after phases 1–3:** default config; compact
+**HA soak list — list view must be pixel-identical after phases 1–2b**
+**[v5 — was "phases 1–3"; Phase 3 no longer exists, and Phase 4 is where visible change is
+*permitted* for opted-in users but still forbidden for everyone else]****:** default config;
+compact
 mode (all three keys); `max_height` scrolling; multi-day spans under both
 `split_multiday_events` settings; all-day events; day weather and per-event weather; entity
 labels; per-entity `show_time`/`show_end_time`/text colour; `show_empty_days: true`; a week and
 a month boundary in the same window; `today_indicator` with a non-default position;
 non-default `vertical_line_width`; **RTL** (the accent is `border-inline-start`, a logical
 property — confirm it still flips after extraction); countdown and progress-bar states.
+
+> **[v5] The pixel-identity obligation does not end at Phase 2b.** Phase 4 introduces `view`,
+> but a user who does not set it must still get byte-identical list output. Re-run this soak
+> list at the end of Phase 4 as well — that is the phase most likely to break it, because it is
+> the phase that touches the shared leaves for a second consumer. See A3-A for the worked
+> example of a change that passes a screenshot review and still breaks list rendering.
 
 **[NEW] Phase 2 adds warm-cache cases**, which the v1 list omitted entirely — it tested both
 split settings but never *toggled* one against a populated cache, the exact scenario that
@@ -898,6 +1289,11 @@ change an allow/block pattern. Confirm the view updates.
 ---
 
 ## F. Constraints that bind implementation
+
+> **Verified against `origin/dev` @ `29b8226`.** F1's sentinel re-verifies exact at
+> `rollup.config.mjs:10`; F3's consumers were re-based (see inline). **F6 is rewritten** — it
+> was the one item in this document that was *about* branch provenance, and it was itself
+> written in a branch-dependent way.
 
 1. **Build sentinel.** `rollup.config.mjs:10` tests `NODE_ENV === 'prod'` — *not*
    `'production'`. `NODE_ENV=production npx rollup -c` silently produces a **dev** build while
@@ -909,23 +1305,54 @@ change an allow/block pattern. Confirm the view updates.
    review artifact. AGENTS.md's "no test framework" is stated alongside "bundle size is a
    design constraint"; a devDependency does not enter the bundle, so the rationale does not
    apply — **amend the doc rather than silently violating it.**
-3. **Config migration is editor-only.** `DEPRECATED_CONFIG_MAP` is consumed solely at
-   `editor.ts:308,380`. A YAML-only user's deprecated key is *silently ignored*, never
+3. **Config migration is editor-only.** `DEPRECATED_CONFIG_MAP` (`editor.ts:67-72`) is consumed
+   solely at
+   `editor.ts:381` and `:453` **[v5 — was `:308,380`]**. A YAML-only user's deprecated key is
+   *silently ignored*, never
    migrated. Renaming any **shipped** key is a real break for YAML users regardless. (Does not
    affect the 11→8 renames — those never shipped.)
 4. **Attribution.** lenaxia's four commits stay as ancestors. Never squash him out.
 5. **Communication.** A public epic issue tracks this work and links the column-view requests
    (#14, #263, #253). #339 gets an informational note that column view lands first and that its
    time-grid work is retained for phase 5 — not a verdict on that proposal.
-6. **[NEW] `hide_when_empty` exists on `origin/dev`, not on our frozen branch.** It landed in
-   the two commits `dev` is ahead by. It is therefore *not* visible in this worktree's `src/`,
-   and any plan item touching it must be written against `dev`. Phase 4 must specify its
-   interaction with column view: `visibleEventCount` windows by `days_to_show`, so the count
-   and the rendered column set must not disagree.
+6. **[REWRITTEN in v5] `hide_when_empty` was the first symptom of a document-wide problem, and
+   v4 treated it as a one-off.**
+
+   *The finding, corrected:* `hide_when_empty` exists on `origin/dev`. It landed in commits
+   that the frozen `alexpfau-review-339-time-grid` branch does not have. **Any plan item
+   touching it must be written against `dev`** — that directive was correct in v4 and is
+   retained unchanged.
+
+   *What v4 got wrong:* the deictic "not visible in **this worktree's** `src/`". There is no
+   single "this worktree" — the plan is read from whichever tree the reader has checked out,
+   and it is now maintained from a `dev`-based one where `hide_when_empty` is plainly present.
+   A statement whose truth depends on the reader's checkout is not a usable constraint.
+
+   *Why this item is worth keeping rather than deleting — it is the plan's own fingerprint of
+   its largest defect.* The author noticed that the two trees had diverged **for one key**,
+   wrote a careful note about that one key, and did not generalise the observation. But the
+   divergence was never key-specific: it affects **every** `src/` citation in the document, and
+   the sections drafted from the frozen tree (A3-D, D3, D4, and every `grid.ts` /
+   `*-controller.ts` reference) drifted or went stale while the sections the author happened to
+   verify against `dev` stayed exact. The drift is **non-uniform** — `styles.ts` −4 lines,
+   `render.ts` +3, `events.ts` +14, `editor.ts` +26 — so no global offset would have rescued
+   it. F6 is the moment the problem was visible and was recorded as a footnote instead of a
+   process rule. **The v5 rule it should have become: every section states the branch its
+   citations were verified against, and `dev` is the default.** See the revision-history note
+   at the top of this document.
+
+   *Phase 4 obligation, unchanged:* specify `hide_when_empty`'s interaction with column view.
+   `visibleEventCount` windows by `days_to_show`, so the count and the rendered column set must
+   not disagree. **[v5]** Note this now interacts with the A3-B-3 defect: with
+   `hide_when_empty: true` and `show_empty_days: null`, the two features disagree about what
+   "empty" means unless the resolved value is used consistently.
 
 ---
 
 ## G. Open questions
+
+> **Verified against `origin/dev` @ `29b8226`.** No `src/` citations in this section. **[v5]**
+> Items 6 and 8 remain genuinely open and cannot be closed on paper; item 9 remains true.
 
 1. ~~Decisions 11, 12, 13, 14~~ **SETTLED in v3** — see A2 and A3.
 2. ~~Does `compact_events_to_show` render "+N more"?~~ **SETTLED: it does not.** The key *is*
@@ -945,13 +1372,29 @@ change an allow/block pattern. Confirm the view updates.
 7. **[v4] RULED:** `show_empty_days` defaults to showing empty days in column view — but via an
    **auto sentinel**, not a bare per-view default. `null` (Automatic) / `true` / `false`,
    rendered as a select. See **A3-B-3**. Back-compat verified free; no gap affordance owed.
+   **[v5] The "back-compat verified free" half of this is now known to be wrong** — there is a
+   fourth consumer and a shippable defect. The *ruling* stands; the cost estimate does not. See
+   A3-B-3.
 8. **[v4] To verify in HA, not on paper:** the actual card-edit modal width, which determines
-   how severe A3-C.4 is (the mitigation is mandatory regardless).
+   how severe A3-C.4 is (the mitigation is mandatory regardless). **[v5]** Now also determines
+   whether the provisional `min_day_column_width_px: 160` (decision 14) survives measurement.
 9. **No runtime or visual HA testing has happened on any of this yet.**
+10. **[v5] Un-decided and un-decidable on paper: the real rendered width of an HA masonry or
+    sections column.** Every threshold in A3-C and decision 14 is arithmetic over an assumed
+    container width. The arithmetic is sound; the input is a guess. First measurement task in
+    Phase 4.
 
 ---
 
 ## H. Explicitly out of scope
+
+> **Verified against `origin/dev` @ `29b8226`.** No `src/` citations in this section.
+> **[v5] The document-length/split recommendation is deliberately not actioned in v5** — a
+> restructure bundled with a correctness pass would make neither reviewable. Proposed
+> separately. If it happens, **A3-A's worked `date_vertical_alignment` → `align-self` failure
+> analysis must survive it intact**: it is the proof that a screenshot pass misses this class
+> of bug, and `today_indicator` defaults to `false` (`config.ts:61`), which is precisely why
+> such a break would go unnoticed.
 
 Overlap lanes, time axis, now-line (time-grid's, phase 5); paging and date-range navigation
 (#185); per-person lanes (#203); `date_horizontal_alignment` and its naming harmonisation;
