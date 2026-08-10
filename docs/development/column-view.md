@@ -400,11 +400,17 @@ Phase 1 does not begin until the holes intersecting its four extraction targets 
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#phase-0--safety-net--ships-3x--risk-none-v3--new)
 
-### Phase 1 — shared leaf renderers — ships 3.x — risk: low
+### Phase 1 — shared leaf renderers — ships 3.x — risk: low — ✅ **complete**
 
 List keeps its `<table>` and `rowspan`. Phase 1 extracts axis-agnostic leaf renderers into
 shared functions that the list's existing table consumes unchanged, and that column and
 time-grid consume from their own containers.
+
+**Outcome:** all four targets extracted into a new module, `src/rendering/leaves.ts`.
+`render.ts` fell from 1120 to 680 lines; the gate stayed green at 86/86 after every step and
+the snapshot file was **never regenerated**. Exports: `renderDateWeather`,
+`renderDateContent`, `renderLabel`, `renderEventTitle`, `renderEventWeather`,
+`renderEventContent`, `renderTodayIndicator`, and the `EventContentParts` interface.
 
 Extract in this order:
 
@@ -442,7 +448,9 @@ The contract is strict: list-view DOM must be byte-identical before and after. E
 changes list output is a bug. Watch four traps:
 
 - `renderEvent` interpolates locals computed before the extraction boundary; pass them rather
-  than recomputing.
+  than recomputing. Six of them: `eventTime`, `eventLocation`, `eventDescription`,
+  `shouldShowTime`, `countdownStr`, `progressPercentage`. They are now a named
+  `EventContentParts` object so the column container has one documented thing to satisfy.
 - Accent, background, padding, and position classes live on the wrapper `<td class="event">`
   (`render.ts:938-941`, `styles.ts:458-483`, position classes at `render.ts:916-922`). Future
   column wrappers reproduce those; leaves do not absorb them.
@@ -454,11 +462,55 @@ changes list output is a bug. Watch four traps:
   today colour keys explicitly, and must include a **today that falls on a weekend** to pin
   the precedence order.
 - **Three "render nothing" idioms coexist in the extracted region** and are not
-  interchangeable in the DOM: `nothing` (`:985`), `''` (`:993`, `:1001`), and ` html` ``
-(`:1061`, `:1071`, `:1087`). **Phase 1 preserves each exactly as-is.** Normalising them is
-  behaviourally safe but violates the byte-identical contract, and folding a cosmetic cleanup
-  into a structural extraction is how refactors go wrong. Normalise later as its own change,
-  if at all.
+  interchangeable in the DOM: `nothing`, the empty string `''`, and an empty `html` tagged
+  template. **Phase 1 preserves each exactly as-is.** Normalising them is behaviourally safe
+  but violates the byte-identical contract, and folding a cosmetic cleanup into a structural
+  extraction is how refactors go wrong. Normalise later as its own change, if at all. The
+  `preserves no-output idioms at extraction seams` test in `tests/list-dom.test.ts` is the
+  forcing function: it fails at each extraction seam by design, and is repointed only after
+  each idiom has been confirmed byte-for-byte.
+
+#### 🚨 The whitespace trap — governs every later extraction
+
+Discovered during Phase 1 and **not** obvious from reading the gate. The gate's serializer
+normalises whitespace **between tags only** (`/>\s+</g` → `>\n<`). Whitespace **adjacent to a
+text node survives verbatim into the snapshot** — the literal source indentation of, say, an
+event title becomes part of the oracle.
+
+The rule that follows: **preserve the original absolute indentation verbatim inside every
+moved template, even when it looks wrong at the new nesting depth.** `renderEventContent`'s
+body is indented to column 8 in a top-level function because that is where it sat inside
+`renderEvent`. `leaves.ts` carries a header comment saying so, so nobody "tidies" it.
+
+Verified, not assumed: **prettier does not reformat the inside of `html` tagged templates**,
+so `npm run format` cannot silently break this.
+
+If a snapshot diff appears during a later extraction, it is a whitespace error. Fix the
+indentation. **Do not run `vitest -u`** — that launders the change past review, and the
+whole point of the gate is that it is the one artefact the refactorer does not get to edit.
+Making the serializer whitespace-insensitive is defensible (interior whitespace has no
+user-visible effect) but must be a separate, separately reviewed commit — never bundled with
+an extraction.
+
+#### Deviations from the plan as written
+
+Both are internal, reversible, and touch no config key or public surface.
+
+1. **Leaves live in a new `src/rendering/leaves.ts`, not in `render.ts`.** The plan says
+   column and time-grid consume the leaves "from their own containers"; leaving the leaves in
+   the list module would make those containers import from the list. Reversible with `git mv`.
+2. **Targets 3 and 4 each moved as a cluster, not as the single named function.** Target 4
+   names only `parseIndicatorPosition`, but its sole caller is `renderTodayIndicator` and both
+   it and `renderIndicatorByType` are axis-agnostic — moving only the geometry would have
+   `render.ts` importing a private helper back for one call. Likewise target 3 forced
+   `renderLabel`, `renderEventTitle` and `renderEventWeather` to move: `.event-content` calls
+   the title, which calls the other two, so leaving them behind creates a backwards
+   `leaves.ts → render.ts` import.
+
+   Target 3 as written says of the title "Nothing to extract there." That was wrong — it is
+   not extra work, but it is not a no-op either. `renderEventTitle` was exported from
+   `render.ts` with **no external consumers**, so moving it changed no call site outside the
+   two rendering modules.
 
 Deferred out of Phase 1: removing the layout table, RTL, and the duplicate
 `.today-indicator-container` rule (`styles.ts:332-340` / `:364-370`).
