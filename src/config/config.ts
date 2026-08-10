@@ -377,17 +377,102 @@ export function findCalendarEntity(hass: Record<string, { state: string }>): str
 }
 
 /**
+ * Grid layout hint attached to the card picker suggestion.
+ *
+ * A sections view falls back to the card's own default footprint when a suggested
+ * config omits `grid_options`, which misrepresents a list-shaped card like this
+ * one. Half width with room for a few days is a better starting point, and the
+ * user can resize the card afterwards like any other.
+ */
+const SUGGESTION_GRID_OPTIONS = {
+  columns: 6,
+  rows: 4,
+};
+
+/**
+ * Build the opinionated starting configuration for a set of calendar entities.
+ *
+ * Shared by the card picker preview (`getStubConfig`) and the entity suggestion so
+ * the two recipes cannot drift apart. Entities are emitted in the simplest valid
+ * form — a plain array of entity IDs — rather than the object form used for
+ * per-calendar styling.
+ *
+ * The `-dev` suffix on the element name is intentional and must stay a plain
+ * string literal: the build rewrites that exact literal to the production element
+ * name, so a computed or pre-stripped name would break one of the two bundles.
+ *
+ * @param entities - Calendar entity IDs to pre-fill
+ * @returns A ready-to-use card configuration
+ */
+function buildDefaultCardConfig(entities: ReadonlyArray<string>): Record<string, unknown> {
+  return {
+    type: 'custom:calendar-card-pro-dev',
+    entities: [...entities],
+    days_to_show: 3,
+    show_location: true,
+  };
+}
+
+/**
  * Generate a stub configuration for the card editor
  */
 export function getStubConfig(hass: Record<string, { state: string }>): Record<string, unknown> {
   const calendarEntity = findCalendarEntity(hass);
   return {
-    type: 'custom:calendar-card-pro-dev',
-    entities: calendarEntity ? [calendarEntity] : [],
-    days_to_show: 3,
-    show_location: true,
+    ...buildDefaultCardConfig(calendarEntity ? [calendarEntity] : []),
     _description: !calendarEntity
       ? 'A calendar card that displays events from multiple calendars with individual styling. Add a calendar integration to Home Assistant to use this card.'
       : undefined,
   };
+}
+
+/**
+ * Offer this card for an entity picked in the Home Assistant card picker.
+ *
+ * Home Assistant (2026.6+) calls this synchronously for every entity a user
+ * selects, and discards the entire community suggestion list — including entries
+ * contributed by other custom cards — if any implementation throws. The body is
+ * therefore deliberately trivial and total: every input is treated as untrusted,
+ * nothing is assumed about the shape of `hass`, and anything unexpected returns
+ * `null` (never an empty array).
+ *
+ * The domain check is the whole filter. A calendar entity carries no capability
+ * signal worth testing: there is no meaningful device class, no relevant
+ * `supported_features`, and its state only reports whether an event is currently
+ * running, which says nothing about whether this card suits it.
+ *
+ * Exactly one suggestion is returned, unlabelled. The picker mounts every returned
+ * suggestion as a live card without virtualization, and every live instance of
+ * this card fetches calendar events on setup, so each extra variant would cost a
+ * real calendar API request every time anyone picks a calendar entity.
+ *
+ * @param hass - Home Assistant instance, treated as possibly absent or malformed
+ * @param entityId - Entity ID selected in the card picker
+ * @returns A single-entry suggestion list, or `null` when nothing should be offered
+ */
+export function getEntitySuggestion(
+  hass: Types.Hass | null | undefined,
+  entityId: string,
+): Types.EntitySuggestion[] | null {
+  if (typeof entityId !== 'string' || entityId.split('.')[0] !== 'calendar') {
+    return null;
+  }
+
+  if (!hass || typeof hass !== 'object') {
+    return null;
+  }
+
+  const states = hass.states;
+  if (!states || typeof states !== 'object' || !states[entityId]) {
+    return null;
+  }
+
+  return [
+    {
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+  ];
 }

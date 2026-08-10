@@ -376,6 +376,18 @@ export interface HassEntity {
 }
 
 /**
+ * A single card recipe offered by the Home Assistant card picker after the user
+ * selects an entity.
+ *
+ * The first entry of a suggestion list is the canonical recipe and carries no
+ * `label`; any further entry is a labelled variant.
+ */
+export interface EntitySuggestion {
+  label?: string;
+  config: Record<string, unknown>;
+}
+
+/**
  * Custom card registration interface for Home Assistant
  */
 export interface CustomCard {
@@ -384,6 +396,16 @@ export interface CustomCard {
   preview: boolean;
   description: string;
   documentationURL?: string;
+  /**
+   * Optional hook (Home Assistant 2026.6+) that offers this card for a picked
+   * entity. Must be synchronous and must never throw: Home Assistant discards
+   * the whole community suggestion list — including entries contributed by other
+   * custom cards — when a single implementation raises. Returns `null`, never an
+   * empty array, when there is nothing to offer.
+   *
+   * Older Home Assistant versions ignore this key.
+   */
+  getEntitySuggestion?: (hass: Hass, entityId: string) => EntitySuggestion[] | null;
 }
 
 /**
