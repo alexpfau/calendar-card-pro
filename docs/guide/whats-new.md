@@ -36,7 +36,7 @@ public release in January 2025 to today.
 - 📝 **Event Description Display**: Show event descriptions with [configurable line clamping](/features/event-content#event-description-display), HTML stripping, and full styling control
 - 🌤️ **UV Index in Weather**: Display [UV index in weather forecasts](/features/weather#weather-configuration-options) with configurable visibility threshold
 - 🎨 **Event Icon Alignment**: Control the [vertical alignment of event icons](/features/layout-appearance#spacing-alignment) for time, location and description rows
-- 🏷️ **Label Icon Color**: Customise [label icon colours](/features/core-settings#entity-configuration) per entity with `label_icon_color`
+- 🏷️ **Label Icon Color**: Customize [label icon colors](/features/core-settings#entity-configuration) per entity with `label_icon_color`
 - ↔️ **RTL Support**: Full right-to-left support for event borders and accent lines
 - 🔄 **Improved Loading UX**: Events stay visible during refresh; a subtle spinner replaces the full-screen loading state
 - 🌍 **Three New Languages**: Estonian, Lithuanian, and Turkish (33 at the time), with editor translations for Polish, Estonian, and Lithuanian
@@ -59,8 +59,8 @@ public release in January 2025 to today.
 
 ## v2.4
 
-- 🌟 **Today Indicator**: Highlight today with a [customisable dot, pulse, glow effect, emoji, or custom icon](/features/layout-appearance#today-indicator)
-- 🎨 **Today's Date Styling**: Customise the [appearance of today's date](/features/layout-appearance#date-column-customization) with dedicated colour options (`today_weekday_color`, `today_day_color`, `today_month_color`)
+- 🌟 **Today Indicator**: Highlight today with a [customizable dot, pulse, glow effect, emoji, or custom icon](/features/layout-appearance#today-indicator)
+- 🎨 **Today's Date Styling**: Customize the [appearance of today's date](/features/layout-appearance#date-column-customization) with dedicated color options (`today_weekday_color`, `today_day_color`, `today_month_color`)
 - 🚦 **Event Progress Bars**: Visualise how far a running event has progressed with optional [progress bars](/features/event-content#progress-bar-display)
 - ✂️ **Split Multi-Day Events**: Display [multi-day events on every day they cover](/features/multi-day-events#split-multi-day-events)
 - 🧠 **Enhanced Compact Mode Controls**: More precise control over [what appears in compact vs expanded views](/features/core-settings#compact-view-management-event-limits)
@@ -68,7 +68,7 @@ public release in January 2025 to today.
 ## v2.3
 
 - ⏳ **Countdown Display**: [Show how much time remains](/features/event-content#countdown-display) until an event starts with `show_countdown`
-- 🌅 **Weekend Day Styling**: [Style weekend days](/features/event-content#weekend-day-styling) differently with dedicated colour options
+- 🌅 **Weekend Day Styling**: [Style weekend days](/features/event-content#weekend-day-styling) differently with dedicated color options
 - 📆 **Relative Date Offsets**: Define a [floating start date](/features/start-date-offset#dynamic-start-date-with-relative-offsets) relative to the current day instead of a fixed date
 - 🔤 **Automatic Hyphenation**: Long compound words wrap more elegantly, especially in German
 - 🐛 **Blank Cards After Updates**: Version-aware cache keys stop incompatible cached data from blanking the card after a HACS update
@@ -79,18 +79,18 @@ public release in January 2025 to today.
 - 🔄 **Filter Duplicate Events**: [Remove redundant events](/features/core-settings#filtering-duplicate-events) that appear in multiple calendars
 - 🌍 **Smart Country Filtering**: Precise control over [country name display in locations](/features/event-content#time-location-information)
 - 🏷️ **Enhanced Calendar Labels**: Beyond emojis and text, labels can now use [Material Design icons and custom images](/features/core-settings#entity-configuration)
-- 🎨 **Customisable Empty Day Styling**: Control how [empty days appear](/features/event-content#calendar-events-display) with `empty_day_color`
+- 🎨 **Customizable Empty Day Styling**: Control how [empty days appear](/features/event-content#calendar-events-display) with `empty_day_color`
 
 ## v2.1
 
-- 📅 **Week Numbers & Visual Separators**: Better visual organisation with [week number pills and customisable separators](/features/layout-appearance#week-numbers-visual-separators)
+- 📅 **Week Numbers & Visual Separators**: Better visual organization with [week number pills and customizable separators](/features/layout-appearance#week-numbers-visual-separators)
 - 📊 **Per-Calendar Event Limits**: Control how many events appear from [each calendar separately](/features/core-settings#entity-level-vs-global-event-limits)
-- 📏 **Fixed Height Control**: Set an [exact card height](/features/layout-appearance#card-dimensions-scrolling) with improved scrolling behaviour
+- 📏 **Fixed Height Control**: Set an [exact card height](/features/layout-appearance#card-dimensions-scrolling) with improved scrolling behavior
 
 ## v2.0
 
 - 🏗️ **Complete Rewrite**: A new rendering engine built on the standard `ha-card` structure, so [card-mod and custom themes](/features/theming#theming-card-mod) work exactly as they do on Home Assistant's built-in cards
-- 🌈 **Custom Styling Per Calendar**: Add [accent colours and opaque backgrounds](/features/layout-appearance#visual-styling-colors) to create visual hierarchy
+- 🌈 **Custom Styling Per Calendar**: Add [accent colors and opaque backgrounds](/features/layout-appearance#visual-styling-colors) to create visual hierarchy
 - 🏷️ **Calendar Labels**: Add [emoji or text identifiers](/features/core-settings#entity-configuration) for each calendar source
 - 🔧 **Advanced Display Controls**: [Per-calendar time and location settings](/features/event-content#time-location-information)
 - 📆 **Custom Start Date**: View calendars from [any date](/features/start-date-offset#start-date-configuration), not just today
@@ -112,7 +112,7 @@ public release in January 2025 to today.
 ## v1.0
 
 - 🎉 **First Public Release**: A performance-focused calendar card for Home Assistant, designed along Material Design principles
-- 📆 **Multi-Calendar Support**: Display several calendars in a single card, each with its own colour
+- 📆 **Multi-Calendar Support**: Display several calendars in a single card, each with its own color
 - 🔄 **Compact & Expandable Views**: Toggle between a space-efficient summary and the full list
 - ⚡ **Built for Performance**: Smart caching, progressive rendering, and minimal API calls from the very first release
 - 🐛 **All-Day Events West of UTC**: All-day events displayed on the wrong day for users in western timezones

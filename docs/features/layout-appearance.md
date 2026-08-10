@@ -165,7 +165,7 @@ today_indicator_position: "15% 15%" # Top left
 today_indicator_position: "85% 15%" # Top right
 
 # Restyle the indicator
-today_indicator_color: "#03a9f4" # Colour — applies to the dot and to MDI icons (default)
+today_indicator_color: "#03a9f4" # Color — applies to the dot and to MDI icons (default)
 today_indicator_size: 6px # Size — applies to icons, emojis and images alike (default)
 ```
 
@@ -184,4 +184,4 @@ Available indicator types:
 
 The `today_indicator_position` parameter accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
 
-`today_indicator_size` scales every indicator type — it sets the icon size, the emoji font size and the image width. `today_indicator_color` colours the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the colour of the glow itself; emojis and images keep their own colours.
+`today_indicator_size` scales every indicator type — it sets the icon size, the emoji font size and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors.

@@ -35,7 +35,7 @@ empty_day_text: 'Leftovers'
 By default, empty days are prefixed with a ✓ so they read as "nothing on". That prefix is dropped as soon as you set your own text, since a string such as "Leftovers" already carries its own meaning.
 
 > [!NOTE]
-> `empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its colour by `empty_day_color`.
+> `empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its color by `empty_day_color`.
 
 The `empty_day_color` parameter lets you customize the color of this message to match your theme or stand out as needed.
 

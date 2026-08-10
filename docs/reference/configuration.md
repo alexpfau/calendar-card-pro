@@ -181,7 +181,7 @@ shows the forecast for its own start time:
 ### Action Parameters
 
 `tap_action` and `hold_action` take an object whose `action` key selects the
-behaviour. The remaining keys depend on which action you chose:
+behavior. The remaining keys depend on which action you chose:
 
 `action` · `navigation_path` · `service` · `service_data` · `url_path` · `open_tab`
 

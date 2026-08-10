@@ -4,7 +4,7 @@ layout: home
 hero:
   name: Calendar Card Pro
   text: A calendar card for Home Assistant
-  tagline: Sleek, fast and highly customisable — display upcoming events beautifully.
+  tagline: Sleek, fast and highly customizable — display upcoming events beautifully.
   image:
     src: https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header.png
     alt: Calendar Card Pro
@@ -21,22 +21,22 @@ hero:
 
 features:
   - icon: 🎨
-    title: Sleek & minimalist
+    title: Sleek & Minimalist
     details: Clean, modern layout that fits naturally into any Home Assistant dashboard.
   - icon: ✅
-    title: Multi-calendar support
+    title: Multi-Calendar Support
     details: Display any number of calendars, each with its own styling and filters.
   - icon: ⚙️
-    title: Visual editor
+    title: Visual Editor
     details: Configure every option from the UI — no YAML required.
   - icon: 🌦️
-    title: Weather integration
+    title: Weather Integration
     details: Show forecasts alongside your events, in the date column or next to each event.
   - icon: ⚡
-    title: Optimised performance
+    title: Optimized Performance
     details: Smart caching, progressive rendering and minimal API calls.
   - icon: 🌍
-    title: 35 languages
+    title: 35 Languages
     details: Fully translated interface, with community contributions welcome.
 ---
 

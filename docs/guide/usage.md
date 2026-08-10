@@ -1,6 +1,6 @@
 # Usage
 
-Once **Calendar Card Pro** is [installed](/guide/installation), this page takes you from an empty dashboard to a working, customised card.
+Once **Calendar Card Pro** is [installed](/guide/installation), this page takes you from an empty dashboard to a working, customized card.
 
 ## 📌 Adding the Card to Your Dashboard
 
@@ -44,7 +44,7 @@ Configuration snippets on the feature pages usually show **only the options bein
 
 ## 📅 A Multi-Calendar Example
 
-Once the basics work, this shows several calendars at once with per-calendar colours and compact mode, tapping to expand:
+Once the basics work, this shows several calendars at once with per-calendar colors and compact mode, tapping to expand:
 
 ```yaml
 type: custom:calendar-card-pro
