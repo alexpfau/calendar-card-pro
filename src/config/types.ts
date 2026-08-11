@@ -182,6 +182,7 @@ export interface ColumnOverrides {
   // Today indicator
   today_indicator?: string | boolean;
   today_indicator_size?: string;
+  today_indicator_color?: string;
 
   // Date column
   weekday_font_size?: string;

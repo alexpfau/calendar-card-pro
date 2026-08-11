@@ -1410,10 +1410,11 @@ indicator does not reserve space for a dot that is not there.
 `today_indicator`, `today_indicator_size` and `today_indicator_color` all apply normally
 in both views. Only `_position` is inert.
 
-**Open:** `today_indicator_color` is not in `COLUMN_OVERRIDE_KEYS` while `today_indicator`
-and `_size` are. That looks like an oversight rather than a decision and should be ruled
-before v4. `_position` is now correctly absent from that list — an override for an inert
-key would be a no-op wearing the costume of a feature.
+**[v13] Ruled:** `today_indicator_color` is now in `COLUMN_OVERRIDE_KEYS` alongside
+`today_indicator` and `_size`. Its absence was an oversight, not a decision — a card could
+override whether the dot appears and how large it is, but not its colour, which is an
+arbitrary hole in an otherwise complete cluster. `_position` remains correctly absent from
+that list: an override for an inert key would be a no-op wearing the costume of a feature.
 
 ---
 

@@ -43,6 +43,7 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & k
     'max_height',
     'today_indicator',
     'today_indicator_size',
+    'today_indicator_color',
     'weekday_font_size',
     'day_font_size',
     'show_month',

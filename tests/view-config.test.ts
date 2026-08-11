@@ -707,6 +707,28 @@ describe('column view config surface', () => {
       expect(COLUMN_OVERRIDE_KEYS).not.toContain(key);
     }
   });
+
+  /**
+   * Cluster completeness for the today indicator.
+   *
+   * `today_indicator_color` shipped absent from the override list while `today_indicator`
+   * and `_size` were both present, so a card could override whether the dot appears and
+   * how large it is but not what colour it is. Nothing failed -- an override list is a
+   * flat array, and a missing entry is indistinguishable from a deliberate exclusion
+   * until someone tries to use it. Asserting the cluster as a unit means the next key
+   * added to it cannot be half-wired the same way.
+   *
+   * `_position` is the deliberate exclusion, and it is asserted rather than merely
+   * omitted: column view renders the dot inline on the weekday row, so the key is inert
+   * there, and an override for an inert key is a no-op wearing the costume of a feature.
+   */
+  it('carries the whole today-indicator cluster except the inert position key', () => {
+    for (const key of ['today_indicator', 'today_indicator_size', 'today_indicator_color']) {
+      expect(COLUMN_OVERRIDE_KEYS).toContain(key);
+    }
+
+    expect(COLUMN_OVERRIDE_KEYS).not.toContain('today_indicator_position');
+  });
 });
 
 describe('column.min_column_width_px normalization', () => {
