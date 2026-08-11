@@ -268,6 +268,96 @@ describe('column view DOM', () => {
     });
   });
 
+  describe('compact mode is not applied in column view', () => {
+    const count = (days: Types.EventsByDay[]) => days.reduce((n, day) => n + day.events.length, 0);
+
+    // The global `compact_events_to_show` budget is card-wide and spent walking days
+    // chronologically. In a list that trims the tail; in a grid it deletes whole columns,
+    // and a card rendering two of seven configured days looks *complete* — no gap, nothing
+    // to notice. The spec ruled both keys inapplicable to column view (G12, A3-D) but the
+    // code applied them anyway, so these assert the ruling is now real.
+    //
+    // Each case asserts the *list* side too. Without that they would pass just as happily
+    // against a build that had broken compact mode outright, which is the failure mode a
+    // one-sided test invites.
+
+    it('spends the global event budget in list view but not in column view', () => {
+      const config = buildConfig({ compact_events_to_show: 2 });
+      const uncapped = buildConfig();
+
+      const listDays = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+      const columnDays = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'column');
+      const baseline = EventUtils.groupEventsByDay(EVENTS, uncapped, false, 'en', 'column');
+
+      // The fixture's first day alone carries more than the budget, so the list drops
+      // every later day — the exact behaviour that deletes columns in a grid.
+      expect(listDays.length).toBeLessThan(columnDays.length);
+      expect(columnDays.length).toBe(3);
+
+      // Compared against an uncapped run rather than the fixture length, because unrelated
+      // filtering (`show_past_events` is off by default) also removes events. The property
+      // is that the cap changes nothing at all here, not that every fixture event survives.
+      expect(count(columnDays)).toBe(count(baseline));
+    });
+
+    it('ignores compact_events_complete_days in column view', () => {
+      // The soft-limit branch is a second code path to the same defect, reached only when
+      // this key is set — gating one and not the other would leave the grid corruptible.
+      const config = buildConfig({
+        compact_events_to_show: 2,
+        compact_events_complete_days: true,
+      });
+
+      const listDays = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+      const columnDays = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'column');
+
+      expect(listDays.length).toBeLessThan(columnDays.length);
+      expect(columnDays.length).toBe(3);
+    });
+
+    it('still caps per entity in column view', () => {
+      // Deliberately *not* gated: A3-D rules the per-entity cap stays global in both views,
+      // because rebasing it per column would multiply it by `days_to_show`.
+      //
+      // ⚠️ It is not, however, harmless here. The bucket key is `entityId__configIdx` — one
+      // budget per entity for the whole *card*, not per day — so on a single-entity card it
+      // starves later days exactly like the global cap, and `show_empty_days: false` then
+      // filters the emptied days away. `show_empty_days: true` below is what isolates this
+      // test to "the cap still applies"; it is not a claim that the cap is column-safe.
+      const config = buildConfig({
+        show_empty_days: true,
+        entities: [{ entity: 'calendar.personal', compact_events_to_show: 1 }],
+      });
+
+      // `_matchedConfig` is attached during the fetch, not during grouping, so fixture
+      // events carry none and the cap's type guard (issue #327) would wave every event
+      // through — the test would pass against a build with the cap gated out entirely.
+      // It also *carries* the cap, so the baseline needs its own uncapped attachment
+      // rather than reusing these events with a different config.
+      const attach = (target: Types.Config) => {
+        const matched = target.entities[0] as Types.EntityConfig;
+        return EVENTS.map((event) => ({
+          ...event,
+          _entityId: matched.entity,
+          _matchedConfig: matched,
+        }));
+      };
+
+      const uncapped = buildConfig({ show_empty_days: true });
+      const columnDays = EventUtils.groupEventsByDay(attach(config), config, false, 'en', 'column');
+      const baseline = EventUtils.groupEventsByDay(
+        attach(uncapped),
+        uncapped,
+        false,
+        'en',
+        'column',
+      );
+
+      expect(columnDays.length).toBe(3);
+      expect(count(columnDays)).toBeLessThan(count(baseline));
+    });
+  });
+
   describe('threading through to the leaves', () => {
     it('formats times through the Home Assistant locale when asked', () => {
       // `hass` was declared by this file's render harness and threaded into the

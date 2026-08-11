@@ -443,7 +443,20 @@ export function groupEventsByDay(
   }
 
   // Apply events limit if configured and not expanded (compact mode event limiting)
-  if (!isExpanded) {
+  //
+  // Skipped entirely in column view. This budget is card-wide and is spent walking days
+  // chronologically, breaking once it runs out — a tail-trim in a vertical list, but in a
+  // grid it deletes whole columns from the right. `compact_events_to_show: 3` with
+  // `days_to_show: 7` exhausts the budget inside the first day or two and renders two
+  // columns instead of seven, with nothing on screen to say five are missing.
+  //
+  // The spec already ruled both keys inapplicable here — `compact_events_to_show` is out of
+  // MVP for column view (G12) and `compact_events_complete_days` is "inapplicable per-column"
+  // because a per-column budget has no shared pool to complete days out of (A3-D). Neither
+  // ruling was ever enforced in code, so both kept running and corrupting the grid; this gate
+  // is what makes them real. A per-column budget is a genuinely different algorithm and is
+  // deferred (A3-D), so there is nothing to substitute here — column view simply does not cap.
+  if (!isExpanded && effectiveView !== 'column') {
     // Get the effective max events setting
     const maxEvents = config.compact_events_to_show;
 
