@@ -148,20 +148,24 @@ export const DEFAULT_CONFIG: Types.Config = {
 
   // Column view
   //
-  // 152, not the 160 the G13 spike reported. G13 measured the floor a column can
+  // 140, not the 160 the G13 spike reported. G13 measured the floor a column can
   // survive at, but computed the fit as `160 x 3 + 20 = 500` against a measured
-  // 500px HA section — arithmetic with no room for the card's own horizontal
-  // padding, which is real and measured at 24px (styles.ts, 16px right + 8px
-  // left). Including it, the default config needs 524px to clear a 500px section,
-  // so column view would never activate at defaults on the most common desktop
-  // layout. Column view trims its own padding to a symmetric 8px (16px total),
-  // and the floor drops to 152, giving `152 x 3 + 16 + 2 x 10 = 492px` — 8px of
-  // headroom for sub-pixel rounding. 152 is 5% under the surviving 160 and far
-  // above the 128 that G13 disproved.
+  // 500px HA section -- arithmetic with no room for the card's own horizontal
+  // padding, which is real. Fitting three columns into that section is the
+  // constraint that sets this number, because a single section is the most common
+  // desktop placement and column view must activate there at defaults.
+  //
+  // The full sum is `min x days + COLUMN_CARD_PADDING_PX + (days - 1) x day_gap`,
+  // and the *entering* threshold adds half the hysteresis band on top
+  // (VIEW_SWITCH_HYSTERESIS_PX / 2). At the current 32px padding, 12px gap and
+  // 16px half-band: `140 x 3 + 32 + 2 x 12 = 476`, entering at 492 -- 8px under a
+  // 500px section. 144 would compute 488 and enter at 504, which does not fit; the
+  // margin here is thinner than it looks, so recompute all three terms rather than
+  // adjusting one.
   //
   // Do not "restore" this to 160 on the strength of the G13 number alone: that
-  // reintroduces a 24px deficit and silently disables the feature at defaults.
-  min_day_column_width_px: 152,
+  // reintroduces a large deficit and silently disables the feature at defaults.
+  min_day_column_width_px: 140,
   column: undefined,
 };
 

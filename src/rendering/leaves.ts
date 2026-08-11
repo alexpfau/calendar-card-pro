@@ -539,6 +539,7 @@ export function renderEventContent(
                   </div>
                 `
               : nothing}
+        ${weatherRow}
         ${eventLocation
           ? html`
               <div class="location">
@@ -555,7 +556,6 @@ export function renderEventContent(
               </div>
             `
           : ''}
-        ${weatherRow}
       </div>
     </div>
   `;

@@ -473,6 +473,12 @@ export const COLUMN_CARD_PADDING_PX = 32;
  * enough that it cannot strand a card in column view at a width where the columns
  * are visibly too tight. The spec leaves the band open (A3-C); revisit it with live
  * HA measurements at masonry widths.
+ *
+ * The band is applied *symmetrically* -- half above the threshold to enter, half below
+ * it to leave. An asymmetric band (enter at `T`, leave at `T - band`) has the same
+ * anti-flap behaviour but biases the whole hysteresis window upward, so a card had to
+ * grow a full band past the computed threshold before column view returned. That was
+ * reported from live use as the view being much harder to get back into than out of.
  */
 export const VIEW_SWITCH_HYSTERESIS_PX = 32;
 
@@ -565,10 +571,15 @@ export function resolveEffectiveView(
     return 'column';
   }
 
-  // Schmitt trigger: leaving column view requires dropping a further
-  // VIEW_SWITCH_HYSTERESIS_PX below the threshold that entering it required.
+  // Schmitt trigger, centred on the threshold: entering column view requires half the
+  // band above it, leaving requires half the band below it. The band is the same width
+  // as an asymmetric one, but centring it means the layout the arithmetic actually
+  // predicts appears at the width it predicts, rather than only once the card is a full
+  // band wider -- which is what made re-entering column view feel much stickier than
+  // leaving it. See VIEW_SWITCH_HYSTERESIS_PX.
+  const halfBand = VIEW_SWITCH_HYSTERESIS_PX / 2;
   const effectiveThreshold =
-    previousEffectiveView === 'column' ? thresholdPx - VIEW_SWITCH_HYSTERESIS_PX : thresholdPx;
+    previousEffectiveView === 'column' ? thresholdPx - halfBand : thresholdPx + halfBand;
 
   return measuredWidthPx >= effectiveThreshold ? 'column' : 'list';
 }

@@ -645,15 +645,27 @@ export const cardStyles = css`
    *
    * These are the .time/.location/.description values, repeated rather than folded into
    * that rule, because those three are shared with the list view and this row exists
-   * only here. Matching them is what lines the condition icon up under the location and
-   * description icons -- both are a bare ha-icon at 14px with the global 4px gutter.
+   * only here.
+   *
+   * The two resets below are what actually line the condition icon up under the clock
+   * and map-marker icons, and neither is optional. .event-weather carries
+   * margin-left: 8px and .event-weather ha-icon carries margin-right: 2px, both
+   * for the list view's title-row badge, where the badge floats to the right of the
+   * title and has no gutter to join. Inherited here they pushed the icon 8px right of
+   * the gutter and its text a further 2px -- measured live at v=260, against an earlier
+   * version of this comment that asserted the opposite without checking.
    */
   .time-location .event-weather {
     display: flex;
     align-items: var(--calendar-card-event-icon-vertical-alignment);
     line-height: 1.2;
     margin-top: 2px;
+    margin-inline-start: 0;
     margin-inline-end: 12px;
+  }
+
+  .time-location .event-weather ha-icon {
+    margin-inline-end: 4px;
   }
 
   .description span {

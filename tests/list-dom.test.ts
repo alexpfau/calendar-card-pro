@@ -717,15 +717,18 @@ describe('list view DOM', () => {
     expect(leavesSource).toMatch(
       /\$\{eventLocation\s*\? html`[\s\S]*?`\s*: ''\}\s*\$\{eventDescription/,
     );
-    // Repointed once, at the weather-placement seam: the own-row badge binding was
-    // inserted between the description and the closing `</div>`. The `: ''` idiom itself
-    // is unchanged -- re-read and confirmed byte-for-byte -- so the regex now anchors on
-    // the binding that follows it instead of on the tag.
+    // Repointed twice at the weather-placement seam, and this second move restored the
+    // original anchor. The own-row badge binding was first inserted between the
+    // description and the closing tag; it has now moved up to sit directly after the
+    // time block, so the description is once again the last child part. The `: ''` idiom
+    // itself has never changed -- re-read and confirmed byte-for-byte both times -- which
+    // is exactly what this guard exists to force. Anchoring on the *neighbouring* token
+    // rather than on `: ''` alone is deliberate: it makes any reordering of these child
+    // parts fail here, because reordering can move lit's markers even when every idiom
+    // survives.
+    expect(leavesSource).toMatch(/\$\{eventDescription\s*\? html`[\s\S]*?`\s*: ''\}\s*<\/div>/);
     expect(leavesSource).toMatch(
-      /\$\{eventDescription\s*\? html`[\s\S]*?`\s*: ''\}\s*\$\{weatherRow\}/,
-    );
-    expect(leavesSource).toMatch(
-      /progressPercentage !== null && config\.show_progress_bar[\s\S]*?: nothing\}\s*\$\{eventLocation/,
+      /progressPercentage !== null && config\.show_progress_bar[\s\S]*?: nothing\}\s*\$\{weatherRow\}\s*\$\{eventLocation/,
     );
     expect(eventWeatherSource.match(/return html``;/g)).toHaveLength(3);
 

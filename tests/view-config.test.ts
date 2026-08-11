@@ -7,6 +7,7 @@ import {
   COLUMN_DEFAULTS,
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
+  VIEW_SWITCH_HYSTERESIS_PX,
   computeColumnThresholdPx,
   isZeroLength,
   resolveColumnOption,
@@ -399,9 +400,9 @@ describe('column view config surface', () => {
 });
 
 describe('min_day_column_width_px normalization', () => {
-  it('defaults to 152', () => {
-    expect(DEFAULT_CONFIG.min_day_column_width_px).toBe(152);
-    expect(buildConfig().min_day_column_width_px).toBe(152);
+  it('defaults to 140', () => {
+    expect(DEFAULT_CONFIG.min_day_column_width_px).toBe(140);
+    expect(buildConfig().min_day_column_width_px).toBe(140);
   });
 
   it('accepts a numeric string, which is what the editor persists', () => {
@@ -423,7 +424,7 @@ describe('min_day_column_width_px normalization', () => {
   ])('falls back to the default for %s', (_label, value) => {
     const config = { ...DEFAULT_CONFIG, min_day_column_width_px: value } as unknown as Types.Config;
     normalizeNumericOptions(config);
-    expect(config.min_day_column_width_px).toBe(152);
+    expect(config.min_day_column_width_px).toBe(140);
   });
 });
 
@@ -436,38 +437,40 @@ describe('min_day_column_width_px normalization', () => {
  * looking at.
  */
 describe('computeColumnThresholdPx', () => {
-  it('needs more than a single-span Home Assistant section for the default config', () => {
-    // 152 x 3 + 32 padding + 2 x 12 gutter = 512, against a measured 500px section.
+  it('fits the default config inside a standard Home Assistant section', () => {
+    // 140 x 3 + 32 padding + 2 x 12 gutter = 476, against a measured 500px section.
     //
-    // This assertion used to read "fits the default config inside a standard Home
-    // Assistant section", and it no longer does -- by 12px. Recorded here rather than
-    // quietly relaxed, because it is a real behaviour change: a default 3-day card
-    // dropped into a single-span section now renders as a list. Three live-reviewed
-    // rulings spent that headroom deliberately. The card padding went from a
-    // symmetric 8px back to 16px so the first column lines up with the card title
-    // (it had been narrowed purely to buy this headroom, which bought nothing --
-    // below the threshold the card falls back to a list anyway), and `day_gap` went
-    // from 4px to 8px and then to 12px because adjacent columns read as one block
-    // without it.
+    // This assertion has now flipped twice, and the history matters because the
+    // arithmetic has three independent terms that have each moved:
     //
-    // min_day_column_width_px stays at 152 rather than the 160 originally proposed.
-    // That measurement still stands on its own: at 160 the threshold would be 536px,
-    // spending a further 32px for no reviewed reason. Do not "restore" 160 for
-    // consistency with the design doc.
+    //   - It first read "fits", at min 152 with 8px padding and a 4px gap.
+    //   - Live review then widened the padding to 32px (so the first column lines up
+    //     with the card title) and the gap to 12px (adjacent columns read as one
+    //     block without it). That pushed the threshold to 512 and the assertion was
+    //     rewritten to "needs more than a single-span section", recording the loss as
+    //     a deliberate, reviewed cost.
+    //   - That cost was then rejected on sight: a default 3-day card rendering as a
+    //     list in the single most common desktop placement is not an acceptable
+    //     default, whatever the reasoning behind it. min_day_column_width_px dropped
+    //     152 -> 140 to buy the fit back without giving up the padding or the gap.
     //
-    // The practical floor is now a two-span section, or `days_to_show: 2`.
+    // The margin is thinner than 476-vs-500 suggests, because the view only *enters*
+    // column mode at threshold + VIEW_SWITCH_HYSTERESIS_PX / 2 = 492. That is the
+    // number with 8px of headroom, not 476. 144 would have computed 488 and entered
+    // at 504 -- an apparent fit that does not actually activate. Recompute the enter
+    // threshold, not just the raw one, before touching any of the three terms.
     const threshold = computeColumnThresholdPx(buildConfig());
 
-    expect(threshold).toBe(512);
-    expect(threshold).toBeGreaterThan(500);
+    expect(threshold).toBe(476);
+    expect(threshold + VIEW_SWITCH_HYSTERESIS_PX / 2).toBeLessThanOrEqual(500);
   });
 
   it('scales with days_to_show', () => {
     const config = buildConfig();
     config.days_to_show = 5;
 
-    // 152 x 5 + 32 + 4 x 12 = 840
-    expect(computeColumnThresholdPx(config)).toBe(840);
+    // 140 x 5 + 32 + 4 x 12 = 780
+    expect(computeColumnThresholdPx(config)).toBe(780);
   });
 
   it('accounts for a configured gutter', () => {
@@ -476,8 +479,8 @@ describe('computeColumnThresholdPx', () => {
     // the configured value were ignored entirely.
     config.column = { day_gap: '10px' };
 
-    // 152 x 3 + 32 + 2 x 10 = 508
-    expect(computeColumnThresholdPx(config)).toBe(508);
+    // 140 x 3 + 32 + 2 x 10 = 472
+    expect(computeColumnThresholdPx(config)).toBe(472);
   });
 
   it('falls back rather than producing NaN for a non-px gutter', () => {
@@ -492,26 +495,33 @@ describe('computeColumnThresholdPx', () => {
     // The fallback is the default gutter, so an unresolvable length costs nothing.
     // Asserting the same number as the default-config case above is the point: it
     // pins the two together, which is what `DEFAULT_DAY_GAP_PX` exists to guarantee.
-    expect(threshold).toBe(512);
+    expect(threshold).toBe(476);
   });
 });
 
 describe('resolveEffectiveView', () => {
+  // The Schmitt trigger is centred on the threshold, so neither edge is the threshold
+  // itself. Deriving both from the exported constant rather than hardcoding 508/476
+  // means widening the band cannot leave these tests asserting a stale geometry while
+  // still passing.
   const THRESHOLD = 492;
+  const HALF = VIEW_SWITCH_HYSTERESIS_PX / 2;
+  const ENTER = THRESHOLD + HALF;
+  const LEAVE = THRESHOLD - HALF;
 
   it('leaves a list request alone at every width', () => {
-    for (const width of [200, 492, 2000, null]) {
+    for (const width of [200, THRESHOLD, 2000, null]) {
       expect(resolveEffectiveView('list', width, THRESHOLD, null)).toBe('list');
     }
   });
 
-  it('renders columns at or above the threshold', () => {
-    expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, null)).toBe('column');
+  it('renders columns at or above the entry edge', () => {
+    expect(resolveEffectiveView('column', ENTER, THRESHOLD, null)).toBe('column');
     expect(resolveEffectiveView('column', 1200, THRESHOLD, null)).toBe('column');
   });
 
-  it('falls back to a list below the threshold', () => {
-    expect(resolveEffectiveView('column', THRESHOLD - 1, THRESHOLD, null)).toBe('list');
+  it('falls back to a list below the entry edge', () => {
+    expect(resolveEffectiveView('column', ENTER - 1, THRESHOLD, null)).toBe('list');
     expect(resolveEffectiveView('column', 320, THRESHOLD, null)).toBe('list');
   });
 
@@ -521,36 +531,45 @@ describe('resolveEffectiveView', () => {
     expect(resolveEffectiveView('column', null, THRESHOLD, null)).toBe('column');
   });
 
-  it('holds the column view through the hysteresis band', () => {
-    // Already in column view, drifting just under the threshold: stay put. Without
-    // this, a card sitting within a pixel of the boundary flips layout on every
-    // scrollbar appearance or font swap.
+  it('holds the column view down to the leaving edge', () => {
+    // Already in column view, drifting under the threshold: stay put. Without this, a
+    // card sitting within a pixel of the boundary flips layout on every scrollbar
+    // appearance or font swap.
     expect(resolveEffectiveView('column', THRESHOLD - 1, THRESHOLD, 'column')).toBe('column');
-    // The band's far edge is inclusive, matching the inclusive `>=` at the entry
-    // threshold above. Both comparisons read the same way, so neither boundary is a
-    // special case to remember.
-    expect(resolveEffectiveView('column', THRESHOLD - 32, THRESHOLD, 'column')).toBe('column');
+    // The edge is inclusive, matching the inclusive `>=` at the entry edge, so neither
+    // boundary is a special case to remember.
+    expect(resolveEffectiveView('column', LEAVE, THRESHOLD, 'column')).toBe('column');
   });
 
-  it('leaves the column view once past the hysteresis band', () => {
-    expect(resolveEffectiveView('column', THRESHOLD - 33, THRESHOLD, 'column')).toBe('list');
+  it('leaves the column view once past the leaving edge', () => {
+    expect(resolveEffectiveView('column', LEAVE - 1, THRESHOLD, 'column')).toBe('list');
     expect(resolveEffectiveView('column', 200, THRESHOLD, 'column')).toBe('list');
   });
 
-  it('requires the full threshold to re-enter the column view', () => {
-    // Asymmetric by design: the band is only lenient in the direction that keeps the
-    // current layout. Coming back from a list, nothing short of the real threshold
-    // will do, or the two rules would fight and the card would oscillate anyway.
-    expect(resolveEffectiveView('column', THRESHOLD - 1, THRESHOLD, 'list')).toBe('list');
-    expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, 'list')).toBe('column');
+  it('centres the band on the threshold rather than hanging it below', () => {
+    // The band used to run from the threshold down to threshold - 32, so a card had to
+    // reach the *full* computed threshold to enter column view but only lost it a full
+    // band later. Widening a window therefore felt far stickier than narrowing it, which
+    // is the behaviour this centring exists to fix. Assert both edges relative to the
+    // threshold so a regression to the asymmetric form fails here rather than in a
+    // subjective "feels wrong" report.
+    expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, 'list')).toBe('list');
+    expect(resolveEffectiveView('column', ENTER, THRESHOLD, 'list')).toBe('column');
+    expect(resolveEffectiveView('column', THRESHOLD, THRESHOLD, 'column')).toBe('column');
+    expect(resolveEffectiveView('column', LEAVE - 1, THRESHOLD, 'column')).toBe('list');
+    // The total width of the band is what protects against oscillation, and centring
+    // must not have changed it.
+    expect(ENTER - LEAVE).toBe(VIEW_SWITCH_HYSTERESIS_PX);
   });
 });
 
 describe('resolveViewOnMeasurement', () => {
-  // Not the default threshold (that is 512). This is the value that was live when the
+  // Not the default threshold (that is 476). This is the value that was live when the
   // regression below was measured, and these are pure-function inputs, so it is kept
   // as the historical record rather than tracked against COLUMN_DEFAULTS.
   const THRESHOLD = 492;
+  const ENTER = THRESHOLD + VIEW_SWITCH_HYSTERESIS_PX / 2;
+  const LEAVE = THRESHOLD - VIEW_SWITCH_HYSTERESIS_PX / 2;
 
   it('applies the enter threshold to the first measurement', () => {
     // Regression: measured live in Home Assistant. A 464px card against a 492px
@@ -558,23 +577,27 @@ describe('resolveViewOnMeasurement', () => {
     // seeded the hysteresis and the first measurement was judged against 460.
     expect(resolveViewOnMeasurement('column', null, 464, THRESHOLD, 'column')).toBe('list');
     // The whole band is affected, not just the width that exposed it.
-    expect(resolveViewOnMeasurement('column', null, THRESHOLD - 1, THRESHOLD, 'column')).toBe(
-      'list',
-    );
-    expect(resolveViewOnMeasurement('column', null, THRESHOLD, THRESHOLD, 'column')).toBe('column');
+    expect(resolveViewOnMeasurement('column', null, ENTER - 1, THRESHOLD, 'column')).toBe('list');
+    expect(resolveViewOnMeasurement('column', null, ENTER, THRESHOLD, 'column')).toBe('column');
   });
 
   it('applies the hysteresis band once a measurement has confirmed the view', () => {
-    // Same width, same rendered view, different history: now the band is earned.
-    expect(resolveViewOnMeasurement('column', 800, 464, THRESHOLD, 'column')).toBe('column');
-    expect(resolveViewOnMeasurement('column', 800, THRESHOLD - 33, THRESHOLD, 'column')).toBe(
-      'list',
-    );
+    // Same width, same rendered view, different history: now the band is earned. The
+    // width has to sit *inside* the band for the contrast to mean anything, which the
+    // original 464 no longer does now that the band is centred -- 464 is below the
+    // leaving edge, so it would resolve to a list either way and the test would pass
+    // for the wrong reason.
+    const insideBand = THRESHOLD - 1;
+    expect(insideBand).toBeGreaterThanOrEqual(LEAVE);
+    expect(insideBand).toBeLessThan(ENTER);
+    expect(resolveViewOnMeasurement('column', 800, insideBand, THRESHOLD, 'column')).toBe('column');
+    expect(resolveViewOnMeasurement('column', null, insideBand, THRESHOLD, 'column')).toBe('list');
+    expect(resolveViewOnMeasurement('column', 800, LEAVE - 1, THRESHOLD, 'column')).toBe('list');
   });
 
   it('never lets the band help a card that is rendering a list', () => {
-    expect(resolveViewOnMeasurement('column', 200, THRESHOLD - 1, THRESHOLD, 'list')).toBe('list');
-    expect(resolveViewOnMeasurement('column', 200, THRESHOLD, THRESHOLD, 'list')).toBe('column');
+    expect(resolveViewOnMeasurement('column', 200, ENTER - 1, THRESHOLD, 'list')).toBe('list');
+    expect(resolveViewOnMeasurement('column', 200, ENTER, THRESHOLD, 'list')).toBe('column');
   });
 
   it('leaves a list request alone regardless of measurement history', () => {

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildConfig } from './fixtures';
 import '../src/calendar-card-pro';
 import { TIMING } from '../src/config/constants';
-import { computeColumnThresholdPx } from '../src/config/view';
+import { VIEW_SWITCH_HYSTERESIS_PX, computeColumnThresholdPx } from '../src/config/view';
 
 /**
  * Width measurement settling.
@@ -54,22 +54,30 @@ interface CardUnderTest extends HTMLElement {
 /**
  * Config under test.
  *
- * Not the bare default. A default 3-day card now needs 512px (152 x 3 + 32 padding +
- * 2 x 12 gutter), so it no longer fits Home Assistant's 500px single-span section at
- * all -- both the transient and the settled width below would resolve to a list and
- * the ordering bug could not be reproduced. Pinning `day_gap` to 0px puts the
- * threshold at 488px, between the two measured widths, so the straddle this file
- * depends on is deliberate rather than an accident of the current defaults.
+ * Not the bare default, and the gutter is pinned rather than inherited. The straddle
+ * this file depends on -- transient above the decision edge, settled below it -- has to
+ * survive changes to `min_day_column_width_px`, the card padding and the default
+ * `day_gap`, none of which this file is about. Pinning `day_gap` to 4px puts the
+ * decision edge at 476px, comfortably between the two measured widths, so the straddle
+ * is deliberate rather than an accident of the current defaults.
+ *
+ * The edge is *not* the raw threshold: the Schmitt trigger is centred, so a first
+ * measurement is judged against threshold + VIEW_SWITCH_HYSTERESIS_PX / 2. Asserting
+ * against the raw threshold would leave this file passing while the straddle it needs
+ * had already collapsed.
  */
 function columnConfig() {
   const config = buildConfig();
   config.view = 'column';
-  config.column = { day_gap: '0px' };
+  config.column = { day_gap: '4px' };
   return config;
 }
 
-/** Threshold for the config above: 152 x 3 + 32 padding + 2 x 0 gutter. */
+/** Threshold for the config above: 140 x 3 + 32 padding + 2 x 4 gutter. */
 const THRESHOLD = computeColumnThresholdPx(columnConfig());
+
+/** The width a first measurement is actually judged against. */
+const ENTER_EDGE = THRESHOLD + VIEW_SWITCH_HYSTERESIS_PX / 2;
 
 /** A width HA reports for one frame before constraining a 1280px-viewport section. */
 const TRANSIENT_WIDTH = 500;
@@ -96,11 +104,17 @@ describe('width measurement settling', () => {
 
   it('confirms the fixture widths still straddle the threshold', () => {
     // Guards the two tests below against silently losing their point if the minimum
-    // column width or the card padding changes: both depend on the transient clearing
-    // the threshold while the settled width does not.
-    expect(THRESHOLD).toBe(488);
-    expect(TRANSIENT_WIDTH).toBeGreaterThanOrEqual(THRESHOLD);
-    expect(SETTLED_WIDTH).toBeLessThan(THRESHOLD);
+    // column width, the card padding or the hysteresis band changes: both depend on the
+    // transient clearing the decision edge while the settled width does not. It has
+    // already earned its keep once, catching a 152 -> 140 change that left only 4px
+    // between the settled width and the edge.
+    expect(THRESHOLD).toBe(460);
+    expect(TRANSIENT_WIDTH).toBeGreaterThanOrEqual(ENTER_EDGE);
+    expect(SETTLED_WIDTH).toBeLessThan(ENTER_EDGE);
+    // Both margins are wide enough that a small future change cannot silently erase the
+    // straddle without tripping the two assertions above.
+    expect(TRANSIENT_WIDTH - ENTER_EDGE).toBeGreaterThanOrEqual(12);
+    expect(ENTER_EDGE - SETTLED_WIDTH).toBeGreaterThanOrEqual(12);
   });
 
   it('acts on the settled width, not the transient one that precedes it', () => {
