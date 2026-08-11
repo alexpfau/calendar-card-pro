@@ -47,6 +47,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CONFIG_TS = join(ROOT, 'src/config/config.ts');
+const VIEW_TS = join(ROOT, 'src/config/view.ts');
 const CONSTANTS_TS = join(ROOT, 'src/config/constants.ts');
 const TYPES_TS = join(ROOT, 'src/config/types.ts');
 const DOCS_DIR = join(ROOT, 'docs');
@@ -944,6 +945,69 @@ function checkCrossLinks(docs) {
 }
 
 // ---------------------------------------------------------------------------
+// Check 16 — documented column-only defaults match COLUMN_DEFAULTS
+// ---------------------------------------------------------------------------
+
+/**
+ * Check 1 reconciles `DEFAULT_CONFIG` only, so the four column-only options were
+ * unchecked on both sides at once: their defaults live in `COLUMN_DEFAULTS` in
+ * `view.ts`, and their rows are written `column → day_gap` rather than as a bare
+ * backticked key, which `readReferenceRows` deliberately skips. A wrong default in
+ * that table therefore shipped silently — and `day_gap` has already moved once,
+ * from 8px to 12px.
+ *
+ * Errors rather than warns, matching check 1: a documented default that contradicts
+ * the code is wrong, not merely suspicious.
+ */
+function readColumnDefaults() {
+  const src = readFileSync(VIEW_TS, 'utf8');
+  const block = src.match(/COLUMN_DEFAULTS[^=]*=\s*\{([\s\S]*?)\n\}/);
+  if (!block) {
+    console.error(`\n✗ FATAL: could not locate COLUMN_DEFAULTS in ${relative(ROOT, VIEW_TS)}.\n`);
+    process.exit(2);
+  }
+
+  const out = new Map();
+  for (const line of block[1].split('\n')) {
+    const m = line.match(/^ {2}([a-z0-9_]+):\s*(.+?),?\s*$/);
+    if (m) out.set(m[1], m[2].replace(/,\s*$/, '').trim());
+  }
+  assertFound(out, 'COLUMN_DEFAULTS keys', VIEW_TS);
+  return out;
+}
+
+function readColumnRows() {
+  const doc = readFileSync(REFERENCE_DOC, 'utf8');
+  const out = new Map();
+  for (const line of doc.split('\n')) {
+    // The arrow is what distinguishes a nested column-only row from a top-level one.
+    const m = line.match(/^\|\s*`column\s*→\s*([a-z0-9_]+)`\s*\|([^|]*)\|([^|]*)\|/);
+    if (m) out.set(m[1], { type: m[2].trim(), def: m[3].trim() });
+  }
+  assertFound(out, 'column-only option rows', REFERENCE_DOC);
+  return out;
+}
+
+function checkColumnDefaults(columnDefaults, columnRows) {
+  for (const [key, raw] of columnDefaults) {
+    if (!columnRows.has(key)) {
+      error(`column → ${key}: in COLUMN_DEFAULTS but has no row in docs/reference/configuration.md`);
+      continue;
+    }
+    const { def } = columnRows.get(key);
+    if (normalise(def) !== normalise(raw)) {
+      error(`column → ${key}: docs say ${def} but COLUMN_DEFAULTS has \`${raw}\``);
+    }
+  }
+
+  for (const key of columnRows.keys()) {
+    if (!columnDefaults.has(key)) {
+      warn(`column → ${key}: documented in the reference but not in COLUMN_DEFAULTS — stale row`);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 function report(counts) {
   console.log(
@@ -983,6 +1047,7 @@ function main() {
   assertFound(docs, 'markdown pages', DOCS_DIR);
 
   checkDefaults(defaults, rows, buildConstantResolver());
+  checkColumnDefaults(readColumnDefaults(), readColumnRows());
   checkCoverage(fields, docs);
   checkFences(docs);
   const complete = checkCopyableExamples(docs);
