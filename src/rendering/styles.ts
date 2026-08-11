@@ -501,10 +501,31 @@ export const cardStyles = css`
     width: 100%;
   }
 
+  /*
+   * The 12px trailing gutter belongs here, not on .event-title. Every content row in an
+   * event carries one -- .time/.location/.description share a rule for it -- but those
+   * are block boxes, so the margin sits outside the box and merely narrows it.
+   * .event-title is an inline span *inside* this overflow: hidden box, so a margin there
+   * counted as scrollable content: .summary's min-content became longestWord + 12px, and
+   * at any width inside that 12px window scrollWidth exceeded clientWidth while every
+   * glyph was still painted. text-overflow then appended an ellipsis to a title that had
+   * lost nothing. Measured at 201 spurious overflows in one 400px column-width sweep, and
+   * reproducible in list view with any word long enough to approach the card's width.
+   *
+   * text-overflow goes with it. Nothing else in this stylesheet ellipsises -- the one
+   * genuine truncation the card offers, description_max_lines, uses -webkit-line-clamp
+   * on .description span, which renders its own ellipsis. This rule was the sole holdout
+   * and had no limit to signal: titles are unbounded, so an ellipsis on one could only
+   * ever mean the phantom overflow above, or a real word too long for the column that it
+   * would then have clipped silently. overflow-wrap breaks that word onto the next line
+   * instead, so removing the ellipsis does not trade a false truncation for a hidden one.
+   * overflow: hidden stays as the backstop for anything genuinely unbreakable.
+   */
   .summary {
     flex: 1;
+    margin-right: 12px;
     overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-wrap: break-word;
   }
 
   .event-title {
@@ -512,7 +533,6 @@ export const cardStyles = css`
     font-weight: 500;
     line-height: 1.2;
     color: var(--calendar-card-color-event);
-    margin-right: 12px;
     padding-bottom: 2px;
   }
 
