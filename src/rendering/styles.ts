@@ -43,6 +43,12 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-icon-size-description': config.description_icon_size || '14px',
     '--calendar-card-description-max-lines':
       config.description_max_lines > 0 ? String(config.description_max_lines) : 'none',
+    '--calendar-card-title-max-lines':
+      config.title_max_lines > 0 ? String(config.title_max_lines) : 'none',
+    '--calendar-card-time-max-lines':
+      config.time_max_lines > 0 ? String(config.time_max_lines) : 'none',
+    '--calendar-card-location-max-lines':
+      config.location_max_lines > 0 ? String(config.location_max_lines) : 'none',
     '--calendar-card-date-column-width': `${parseFloat(config.day_font_size) * 1.75}px`,
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-icon-vertical-alignment':
@@ -640,6 +646,34 @@ export const cardStyles = css`
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-description-max-lines);
+    overflow: hidden;
+  }
+
+  /* Per-field line clamping. Each clamp lands on the element that directly
+     contains the text, because -webkit-line-clamp only takes effect on a
+     display: -webkit-box element. Unlimited is expressed as the string 'none',
+     emitted by generateCustomPropertiesObject when the option is 0. */
+  .event-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-title-max-lines);
+    overflow: hidden;
+  }
+
+  /* Target the text span inside .time-actual only -- the .time row also holds a
+     countdown and/or a progress bar as siblings, and clamping the .time or the
+     .time-actual wrapper itself would clamp those away too. */
+  .time .time-actual span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-time-max-lines);
+    overflow: hidden;
+  }
+
+  .location span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-location-max-lines);
     overflow: hidden;
   }
 
