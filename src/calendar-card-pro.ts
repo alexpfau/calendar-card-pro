@@ -394,14 +394,20 @@ class CalendarCardPro extends LitElement {
 
     // Deliberately not passed an `effectiveView`, so this always groups the list way.
     //
-    // The only per-view option `groupEventsByDay` resolves is `show_empty_days`, and
-    // that can only add or remove days whose events are all `_isEmptyDay` — which the
-    // reduce below filters out regardless. So the count of *real* events is the same
-    // in either view, and keying the cache on the view would be dead weight.
+    // `groupEventsByDay` resolves two per-view options. `show_empty_days` can only add
+    // or remove days whose events are all `_isEmptyDay`, which the reduce below filters
+    // out regardless. `split_multiday_events` changes the count — one spanning event
+    // becomes several — but never changes whether the count is zero, because splitting
+    // an event yields at least one segment and produces none out of nothing.
     //
-    // If a second per-view option ever reaches `groupEventsByDay`, re-check this: the
-    // fix is to thread `this.effectiveView` here *and* add it to the cache key, since
-    // the cache below keys only on events/config/language.
+    // Zero-ness is all that is asked of this: the sole consumer is the `hide_when_empty`
+    // test further down. So the answer is view-invariant, and keying the cache on the
+    // view would be dead weight.
+    //
+    // A previous revision of this comment predicted that a second per-view option would
+    // force `this.effectiveView` into both the call and the cache key. That option has
+    // now arrived and it did not, for the reason above. Re-check the reasoning — not the
+    // count — if this value ever gains a consumer that reads more than zero-ness.
     const count = this.events.length
       ? EventUtils.groupEventsByDay(this.events, this.config, true, language).reduce(
           (total, day) => total + day.events.filter((event) => !event._isEmptyDay).length,

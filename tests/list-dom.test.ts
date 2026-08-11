@@ -212,9 +212,41 @@ describe('list view DOM', () => {
   });
 
   it('renders split multi-day events', () => {
-    // `split_multiday_events` changes how the Conference fixture is decomposed across
-    // days, which is one of the paths Phase 1's shared renderers must preserve.
+    // `split_multiday_events` decomposes the Conference fixture across days, which is
+    // one of the paths Phase 1's shared renderers must preserve.
+    //
+    // Until column view arrived this snapshot was byte-identical to the default one,
+    // and the test asserted nothing. Splitting used to live in `processEvents`, on the
+    // fetch path — which this harness deliberately skips (see the file header), so the
+    // fixtures reaching the renderer had never been split whatever the option said.
+    // Column view needs the answer per render rather than per fetch, so the split now
+    // happens in `groupEventsByDay` and this fixture is split for the first time. The
+    // snapshot changing is that gap closing, not the list DOM moving: see the
+    // idempotence test below for why real cards are unaffected.
     expect(renderList(EVENTS, buildConfig({ split_multiday_events: true }))).toMatchSnapshot();
+  });
+
+  it('splits idempotently, so the fetch-time pass and the render-time pass agree', () => {
+    // The load-bearing claim behind moving the split into `groupEventsByDay`: a real
+    // card configured `split_multiday_events: true` has *already* been split on the
+    // fetch path, so the render pass must be a no-op over it, or every list card with
+    // the option on would change. Proven rather than reasoned about: group once to get
+    // the split events, feed those back in, and require identical DOM.
+    const config = buildConfig({ split_multiday_events: true });
+    const alreadySplit = EventUtils.groupEventsByDay(EVENTS, config, false, 'en').flatMap(
+      (day) => day.events,
+    );
+
+    // Guard against the test quietly becoming vacuous. Length is the wrong witness —
+    // grouping filters as well as splits, so the two effects cancelled here and the
+    // array came back the same size. Count the multi-day fixture instead: one event in,
+    // two segments out is the whole precondition this test needs.
+    const conferences = (list: Types.CalendarEventData[]) =>
+      list.filter((event) => event.summary === 'Conference').length;
+
+    expect(conferences(EVENTS)).toBe(1);
+    expect(conferences(alreadySplit)).toBe(2);
+    expect(renderList(alreadySplit, config)).toBe(renderList(EVENTS, config));
   });
 
   it('renders compact mode', () => {

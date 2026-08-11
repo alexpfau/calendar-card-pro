@@ -287,6 +287,32 @@ describe('resolveEffectiveConfig', () => {
       expect(resolveViewOption(blocked, 'show_empty_days', 'column')).toBe(false);
     });
 
+    it('defaults split_multiday_events to true in column view and false in list view', () => {
+      // The second divergent default, and the one with a visible failure mode: a
+      // multi-day event that is not split appears in the column of the day it starts
+      // and nowhere else, so every later day it covers reads as free. In a grid that
+      // is a lie the layout invites — the empty column is right there next to it.
+      const config = buildConfig({});
+
+      expect(config.split_multiday_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'list').split_multiday_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'column').split_multiday_events).toBe(true);
+    });
+
+    it('does not inherit an explicit top-level split_multiday_events false into column view', () => {
+      const config = buildConfig({ split_multiday_events: false });
+
+      expect(resolveEffectiveConfig(config, 'list').split_multiday_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'column').split_multiday_events).toBe(true);
+    });
+
+    it('lets the block switch splitting back off in column view', () => {
+      const config = buildConfig({ column: { split_multiday_events: false } });
+
+      expect(resolveEffectiveConfig(config, 'column').split_multiday_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'list').split_multiday_events).toBe(false);
+    });
+
     // A default that no block can reach is unconditional, not a default.
     it('keeps every divergent default reachable through the block', () => {
       Object.keys(COLUMN_DEFAULT_OVERRIDES).forEach((key) => {

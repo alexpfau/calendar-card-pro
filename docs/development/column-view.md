@@ -961,6 +961,41 @@ round-trips as a truthy string. If a key cannot take a sentinel, it is not kind 
 > would have been kind 4 is now either an override-eligible key (category B) or a distinct
 > new key (category C). See the rationale for the full argument.
 
+> **[v10] `split_multiday_events` is no longer kind 2.** It ships as a **divergent column
+> default** (D6) — `true` in column view, `false` in list, reachable through the block. The
+> row above is kept as the historical example of a structural force, but the key itself moved,
+> on the maintainer's ruling: _"the default must be to always force-split them in column view
+> … even though it doesn't make sense for users to switch this off. But hey, we never know."_
+> A hard force would have meant a disabled editor control, and there is no reason to spend one:
+> the default already produces the honest layout for every user who does not think about it,
+> and the block is there for the one who does. This is the second key in
+> `COLUMN_DEFAULT_OVERRIDES`, after `show_empty_days`, and it arrived by the same argument —
+> a grid makes an absence look like a statement.
+>
+> **Why it is a render-time split rather than a fetch-time one.** `split_multiday_events` is
+> deliberately **not** a `FETCH_TIME_KEY`, so the stored event array is shared across views and
+> a width-driven view change must not refetch (G10, E-crit 3). Splitting therefore happens in
+> `groupEventsByDay`, as a guarded top-up pass over the already-stored events. Three properties
+> make that safe, and all three were checked rather than assumed: `processMultiDayEvents` is
+> **idempotent** (a segment no longer spans days, so `isMultiDayEvent` rejects it on a second
+> pass), so it does not matter how the stored array was processed; the `days_to_show` filter has
+> **already** run on that array, so re-splitting cannot change which events survive; and
+> `groupEventsByDay` sorts within and across days *after* grouping, so insertion order is
+> irrelevant. Moving the split itself into the grouping function — the obvious alternative —
+> would have reordered it against that filter and changed list-view output.
+>
+> **Per-entity precedence is unchanged and still wins.** `shouldSplitEvent` consults
+> `_matchedConfig.split_multiday_events` before the global, so an entity that sets it `false`
+> stays unsplit in column view. That preserves the documented precedence at the cost of leaving
+> one path where a column can still under-report. Open, and deliberately not resolved here.
+>
+> **[v10] Deferred to the grid view.** A grid conventionally lifts multi-day events out of the
+> per-day columns into a dedicated band between the date header and the grid body. For all-day
+> events that is near-universal; for *timed* multi-day events the field splits — Apple Calendar
+> draws them across the grid body (**the maintainer's preference**), Google pins them to the
+> top band, which leaves the grid looking empty for hours that are in fact busy. Revisit when
+> the grid view is designed; column view's force-split is not a commitment either way.
+
 #### Week numbers — designed, no longer deferred
 
 **The original deferral rested on a premise that only holds for a spanning row.** Earlier
@@ -1188,15 +1223,21 @@ block`), inheriting from the merged top-level value, never from `DEFAULT_CONFIG`
   unconditional; a test enforces that. The cost is that column view can no longer return the
   configuration by identity, which is why `effectiveConfig` memoizes on configuration **and**
   view.
-- **`split_multiday_events` belongs in that table but is blocked (new v10).** A column _is_ a
-  day, so an unsplit multi-day event makes the card lie: it renders in its start column only,
-  and every later column it spans asserts "no upcoming events" while a tracked event is in
-  progress. Confirmed on a live card. It cannot join `COLUMN_DEFAULT_OVERRIDES` as things
-  stand, because splitting happens in `processMultiDayEvents`, which runs inside
-  `processRawEvents` on the **fetch and cache-hydration** path — not per render. Its result is
-  baked into the stored event array, so a per-view value would force a reprocess on every
-  width-threshold crossing, which is exactly the refetch-free guarantee G10 and E-crit 3 exist
-  to protect. See §D7.
+- **`split_multiday_events` joined that table — the block is lifted (amended v10).** A column
+  _is_ a day, so an unsplit multi-day event makes the card lie: it renders in its start column
+  only, and every later column it spans asserts "no upcoming events" while a tracked event is
+  in progress. Confirmed on a live card. This was recorded as **blocked**, on the reasoning
+  that splitting happens in `processMultiDayEvents` inside `processRawEvents` — the **fetch and
+  cache-hydration** path, not per render — so a per-view value would force a reprocess on every
+  width-threshold crossing, breaching the refetch-free guarantee of G10 and E-crit 3.
+
+  **The premise was right and the conclusion was wrong.** It assumed the split has to happen
+  where it happens today. It does not: `processMultiDayEvents` is idempotent, so a second pass
+  at _render_ time costs nothing on an array that was already split and produces the right
+  answer on one that was not. The key stays out of `FETCH_TIME_KEYS`, the stored array stays
+  shared between views, no width transition invokes `callApi`, and G10 and E-crit 3 are
+  untouched. See the [v10] note in §D5 for the three properties that make the render-time pass
+  safe, and why moving the split wholesale into `groupEventsByDay` would not have been.
 
 > Full audit, per-key classification and rejected alternatives:
 > [column-view-rationale.md](./column-view-rationale.md#d6-per-view-config-overrides-new-v8)
@@ -1412,8 +1453,9 @@ doubles), week numbers + day rules coexisting (the D5 proof), centring inside a 
 1. **No silent config no-ops.** Every existing option either works in column view, is
    overridable per view via the `column:` block (D6), or is documented as not applicable.
    Current documented-N/A list: `date_vertical_alignment`, `compact_events_to_show`,
-   `compact_events_complete_days`, `split_multiday_events` (structurally forced true), week
-   numbers, and week/month separator spacing multipliers. `compact_days_to_show` is **not**
+   `compact_events_complete_days`, week numbers, and week/month separator spacing multipliers.
+   **[v10]** `split_multiday_events` left this list: it is not forced and not N/A, but a
+   divergent column default (D5, D6) — `true` in column view, and reachable through the block. `compact_days_to_show` is **not**
    N/A — the unit is "days" in both views (D6, category C). G12's compact-scope contradiction
    is resolved by D6: `compact_events_to_show` is out of MVP, and the override block is the
    mechanism for it later, so no key needs two meanings.
@@ -1504,10 +1546,17 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 >
 >     | Resolved value that changed | Action        | Why                                    |
 >     | --------------------------- | ------------- | -------------------------------------- |
->     | `split_multiday_events`     | **reprocess** | splitting happens upstream of grouping |
+>     | `split_multiday_events`     | **regroup**   | [v10] splitting moved into grouping    |
 >     | `show_empty_days`           | **regroup**   | affects grouping only                  |
 >     | compaction only             | **re-render** | presentation only                      |
 >     | —                           | re-render     | default                                |
+>
+>     **[v10] the first row was amended, and the ruling is unaffected.** It said
+>     **reprocess**, because splitting ran in `processEvents` upstream of grouping. As
+>     implemented it runs *inside* `groupEventsByDay` as an idempotent top-up, so the two
+>     divergent defaults now need the same, cheaper action. Nothing above depends on this —
+>     "never refetch" was always the load-bearing clause, and reprocess was merely the most
+>     expensive rung still permitted by it. §D5 [v10] carries the reasoning.
 >
 >   - **Never refetch.** Raw event data is identical across a view transition; only its
 >     processing differs. This is the invariant that bounds D6's override block, and it is

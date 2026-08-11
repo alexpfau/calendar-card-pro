@@ -34,6 +34,7 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & k
   [
     'show_empty_days',
     'empty_day_text',
+    'split_multiday_events',
     'vertical_line_width',
     'event_spacing',
     'day_spacing',
@@ -366,6 +367,7 @@ export const COLUMN_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.ColumnOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
   show_empty_days: true,
+  split_multiday_events: true,
 };
 
 /**

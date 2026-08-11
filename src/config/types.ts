@@ -161,6 +161,7 @@ export interface ColumnOverrides {
   // Day grouping and empty days
   show_empty_days?: boolean;
   empty_day_text?: string;
+  split_multiday_events?: boolean;
 
   // Layout and spacing
   vertical_line_width?: string;

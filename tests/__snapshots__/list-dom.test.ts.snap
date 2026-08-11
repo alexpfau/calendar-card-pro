@@ -1304,7 +1304,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day</span>
 </div>
 </div>
 </div>
@@ -1314,7 +1314,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 </table>
 <table class=" day-table future-day ">
 <tr>
-<td style="position: relative;" class="date-column " rowspan="1">
+<td style="position: relative;" class="date-column " rowspan="2">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -1325,7 +1325,29 @@ exports[`list view DOM > renders split multi-day events 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">

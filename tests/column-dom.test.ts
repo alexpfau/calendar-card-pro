@@ -194,7 +194,12 @@ describe('column view DOM', () => {
       // check, because the placement is only meaningful relative to the other view: the
       // point is that the same leaf emits the badge in two different parents. Asserting
       // only the column side would still pass if the list view drifted to match it.
-      const config = buildConfig({ show_location: true });
+      // Both sides are put on `split_multiday_events: true` so the two views see the
+      // same set of events. Column view raises that option by default (spec §D6), and
+      // without matching it here the counts diverge for a reason that has nothing to do
+      // with badge placement — the multi-day fixture becomes two events in one view and
+      // one in the other, and this assertion fails on a difference it is not testing.
+      const config = buildConfig({ show_location: true, split_multiday_events: true });
       config.weather = {
         entity: 'weather.home',
         position: 'event',
@@ -718,7 +723,12 @@ describe('column view DOM', () => {
       // `buildEventPresentation`, which both views call identically. So this asserts
       // that the two views share the rendering leaf, and Phase 2's presentation layer
       // is what guarantees they share the decisions feeding it.
-      const config = buildConfig();
+      //
+      // `split_multiday_events` is set on both sides so the two views group the same
+      // events. Column raises it by default (spec §D6); leaving the list on the default
+      // would make this compare a split event against an unsplit one, which is a
+      // difference in *which* events exist rather than in how the leaf renders one.
+      const config = buildConfig({ split_multiday_events: true });
 
       expect(eventContents(renderColumnContainer(EVENTS, config))).toEqual(
         eventContents(renderListContainer(EVENTS, config)),
@@ -733,6 +743,7 @@ describe('column view DOM', () => {
         show_end_time: true,
         show_countdown: true,
         show_progress_bar: true,
+        split_multiday_events: true,
       });
 
       expect(eventContents(renderColumnContainer(EVENTS, config))).toEqual(
@@ -760,6 +771,57 @@ describe('column view DOM', () => {
 
       expect(style).toContain('border-inline-start');
       expect(style).toContain('--calendar-card-line-width-vertical');
+    });
+  });
+
+  /**
+   * Multi-day events, and why column view splits them without being asked.
+   *
+   * In the list view an unsplit multi-day event is honest: it renders once, under the
+   * day it starts, reading "All day, until Jun 19" — the end date is right there in
+   * the text. A grid has no such affordance. The event renders in one column and the
+   * columns for every other day it covers sit next to it looking free, which is
+   * exactly the question a week-at-a-glance layout exists to answer. So column view
+   * defaults `split_multiday_events` on (spec §D5/§D6) rather than inheriting the
+   * top-level default.
+   */
+  describe('multi-day events', () => {
+    it('splits across every column it covers with no config asking for it', () => {
+      // `buildConfig()` sets no split option at all, so this fails if the divergent
+      // default stops being applied — which is the regression worth catching, since a
+      // card configured the normal way would silently go back to lying.
+      const container = renderColumnContainer(EVENTS, buildConfig());
+      const covered = Array.from(container.querySelectorAll('.day-column')).filter((column) =>
+        column.textContent?.includes('Conference'),
+      );
+
+      // The fixture is all-day Jun 18 → Jun 20 exclusive, so it covers two days.
+      expect(covered.length).toBe(2);
+    });
+
+    it('renders each segment as its own day rather than carrying the end date', () => {
+      const container = renderColumnContainer(EVENTS, buildConfig());
+      const column = Array.from(container.querySelectorAll('.day-column')).find((candidate) =>
+        candidate.textContent?.includes('Conference'),
+      );
+
+      // The tell of an unsplit event. Its absence is what proves the split ran, rather
+      // than the event merely appearing twice for some other reason.
+      expect(column?.textContent).toContain('All day');
+      expect(column?.textContent).not.toContain('until');
+    });
+
+    it('lets the column block turn splitting back off', () => {
+      const container = renderColumnContainer(
+        EVENTS,
+        buildConfig({ column: { split_multiday_events: false } }),
+      );
+      const covered = Array.from(container.querySelectorAll('.day-column')).filter((column) =>
+        column.textContent?.includes('Conference'),
+      );
+
+      expect(covered.length).toBe(1);
+      expect(covered[0]?.textContent).toContain('until');
     });
   });
 

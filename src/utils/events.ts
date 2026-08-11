@@ -172,6 +172,20 @@ export function groupEventsByDay(
   // edit update one and miss the others.
   const showEmptyDays = ViewConfig.resolveViewOption(config, 'show_empty_days', effectiveView);
 
+  // Splitting normally happens once, at fetch time, inside `processRawEvents`. Column
+  // view raises `split_multiday_events` to `true` as a divergent default (spec §D6), and
+  // that answer is not known when the events are processed — the width fallback decides
+  // it per render. So the split is topped up here instead of being moved: the stored
+  // array has already been filtered to `days_to_show`, so re-splitting cannot change
+  // which events survive, and re-running is a no-op on an array that was already split,
+  // because a segment no longer spans days. Ordering is unaffected too, since every day
+  // sorts its own events further down. Skipped entirely when the resolved answer is
+  // `false`, where the fetch-time pass — including any per-entity opt-in — already
+  // stands.
+  const splitEvents = ViewConfig.resolveViewOption(config, 'split_multiday_events', effectiveView)
+    ? processMultiDayEvents(events, { ...config, split_multiday_events: true })
+    : events;
+
   // Use reference date from configuration instead of hardcoded "today"
   const referenceDate = getStartDateReference(
     config,
@@ -185,7 +199,7 @@ export function groupEventsByDay(
   const now = new Date();
 
   // Process events into initial days structure
-  const upcomingEvents = events.filter((event) => {
+  const upcomingEvents = splitEvents.filter((event) => {
     if (!event?.start || !event?.end) return false;
 
     const isAllDayEvent = !event.start.dateTime;
