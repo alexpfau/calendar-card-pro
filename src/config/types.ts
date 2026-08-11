@@ -125,7 +125,6 @@ export interface Config {
   refresh_on_navigate: boolean;
 
   // Column view
-  min_day_column_width_px: number;
   column?: ColumnOverrides;
 }
 
@@ -242,6 +241,15 @@ export interface ColumnOverrides {
   day_header_gap?: string;
   day_header_separator_width?: string;
   day_header_separator_color?: string;
+
+  // Column density
+  //
+  // Named as a family on purpose. `min_column_width_px` was `min_day_column_width_px`
+  // at the top level until it moved here: it is meaningless in list view, so it was a
+  // Category C key sitting in Category A's namespace. Moving it also puts it next to
+  // the keys it is read with, which is where a user configuring column density will
+  // look for it — in the editor, in the reference table and here.
+  min_column_width_px?: number;
 }
 
 /**

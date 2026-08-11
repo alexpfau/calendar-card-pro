@@ -104,6 +104,7 @@ export const COLUMN_ONLY_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = [
   'day_header_gap',
   'day_header_separator_width',
   'day_header_separator_color',
+  'min_column_width_px',
 ];
 
 const OVERRIDE_KEY_SET: ReadonlySet<string> = new Set<string>([
@@ -233,7 +234,44 @@ export const COLUMN_DEFAULTS = {
   day_header_gap: '8px',
   day_header_separator_width: '0px',
   day_header_separator_color: 'var(--divider-color)',
+
+  // 140, not the 160 the G13 spike reported. G13 measured the floor a column can
+  // survive at, but computed the fit as `160 x 3 + 20 = 500` against a measured
+  // 500px HA section -- arithmetic with no room for the card's own horizontal
+  // padding, which is real. Fitting three columns into that section is the
+  // constraint that sets this number, because a single section is the most common
+  // desktop placement and column view must activate there at defaults.
+  //
+  // The full sum is `min x days + COLUMN_CARD_PADDING_PX + (days - 1) x day_spacing`,
+  // and the *entering* threshold adds half the hysteresis band on top
+  // (VIEW_SWITCH_HYSTERESIS_PX / 2). At the current 32px padding, 10px gutter and
+  // 16px half-band: `140 x 3 + 32 + 2 x 10 = 472`, entering at 488 -- 12px under a
+  // 500px section. 144 would compute 484 and enter at 500, exactly on the boundary
+  // with nothing left for a scrollbar; the margin here is thinner than it looks, so
+  // recompute all three terms rather than adjusting one.
+  //
+  // The gutter term was `day_gap` until it merged into `day_spacing`, taking the
+  // default from 12px to 10px and buying back 4px of headroom.
+  //
+  // Do not "restore" this to 160 on the strength of the G13 number alone: that
+  // reintroduces a large deficit and silently disables the feature at defaults.
+  min_column_width_px: 140,
 } as const;
+
+/**
+ * Value type a column-only option resolves to.
+ *
+ * Derived from the shape of the key's `COLUMN_DEFAULTS` entry rather than from a
+ * second hand-maintained list, for the same reason `coerceOverrideLength` infers
+ * length-ness that way: a list that has to be edited in lockstep with the table
+ * above is a list that will eventually disagree with it.
+ *
+ * The conditional widens the literal type — `COLUMN_DEFAULTS.min_column_width_px`
+ * is typed `140` under `as const`, and a user who configures `220` must still be
+ * assignable to the return type.
+ */
+type ColumnOptionValue<K extends keyof typeof COLUMN_DEFAULTS> =
+  (typeof COLUMN_DEFAULTS)[K] extends number ? number : string;
 
 /**
  * Column-only options whose value is a CSS length.
@@ -254,13 +292,28 @@ const COLUMN_LENGTH_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Normalizes a column-only option value to a usable CSS string.
+ * Normalizes a column-only option value to a usable value of its declared type.
+ *
+ * Numeric keys carry their own validation here, and must: the `column:` block is raw
+ * user input that never passes through `normalizeConfig`'s `toValidNumber` sweep, so
+ * this is the only place a bad value can be caught. A non-finite or non-positive
+ * `min_column_width_px` would otherwise produce a zero or `NaN` view-switch threshold
+ * — column view rendering at every width, at any degree of crampedness, or never
+ * rendering at all. Falling back to the default is the only safe reading of a value
+ * the card cannot use.
  *
  * @param key - Option being resolved
  * @param value - Raw configured value, which YAML may have typed as a number
- * @returns A CSS-valid string
+ * @returns A value of the key's declared type
  */
-function normalizeColumnValue(key: string, value: unknown): string {
+function normalizeColumnValue(key: keyof typeof COLUMN_DEFAULTS, value: unknown): string | number {
+  const fallback = COLUMN_DEFAULTS[key];
+
+  if (typeof fallback === 'number') {
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
   if (typeof value === 'number' && Number.isFinite(value)) {
     return COLUMN_LENGTH_KEYS.has(key) ? `${value}px` : String(value);
   }
@@ -283,14 +336,14 @@ function normalizeColumnValue(key: string, value: unknown): string {
 export function resolveColumnOption<K extends keyof typeof COLUMN_DEFAULTS>(
   config: Types.Config,
   key: K,
-): string {
+): ColumnOptionValue<K> {
   const overrides = config.column;
 
   if (overrides && hasOverride(overrides, key)) {
-    return normalizeColumnValue(key, overrides[key]);
+    return normalizeColumnValue(key, overrides[key]) as ColumnOptionValue<K>;
   }
 
-  return COLUMN_DEFAULTS[key];
+  return COLUMN_DEFAULTS[key] as ColumnOptionValue<K>;
 }
 
 /**
@@ -622,7 +675,7 @@ function warnAboutTopLevelColumnOnlyKeys(config: Types.Config): void {
  * left of the card title. Reverted; the arithmetic follows the stylesheet.
  *
  * This is not cosmetic — it is load-bearing arithmetic. See
- * `DEFAULT_CONFIG.min_day_column_width_px`.
+ * `COLUMN_DEFAULTS.min_column_width_px`.
  */
 export const COLUMN_CARD_PADDING_PX = 32;
 
@@ -682,17 +735,19 @@ const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
  * Computes the card width, in pixels, at or above which column view can render.
  *
  * ```
- * min_day_column_width_px x days_to_show + card padding + (days_to_show - 1) x gutter
+ * column.min_column_width_px x days_to_show + card padding + (days_to_show - 1) x gutter
  * ```
  *
  * This is A3-C's formula verbatim. Every term is required: dropping the padding term
  * is what made an earlier iteration compute 500px for a layout that needs 524px.
  *
- * The gutter reads `column.day_spacing` before the top-level value, and cannot use
- * `resolveEffectiveConfig` to get there. This function decides *whether* column view
- * renders, so it necessarily runs before the view is known, whereas
- * `resolveEffectiveConfig` needs the view as an input. Resolving the one key it
- * depends on by hand is the way out of that ordering constraint.
+ * Both the width floor and the gutter are read out of `column:` by hand, and cannot
+ * use `resolveEffectiveConfig` to get there. This function decides *whether* column
+ * view renders, so it necessarily runs before the view is known, whereas
+ * `resolveEffectiveConfig` needs the view as an input. Resolving the two keys it
+ * depends on directly is the way out of that ordering constraint — there is no
+ * circularity, because neither `resolveColumnOption` nor `coerceOverrideLength`
+ * consults the view.
  *
  * @param config - Merged configuration, defaults already applied
  * @returns Minimum card width in pixels for the configured number of columns
@@ -707,8 +762,9 @@ export function computeColumnThresholdPx(config: Types.Config): number {
       : config.day_spacing;
 
   const gutter = parsePx(String(configuredGap), DEFAULT_DAY_GAP_PX);
+  const minColumnWidth = resolveColumnOption(config, 'min_column_width_px');
 
-  return config.min_day_column_width_px * days + COLUMN_CARD_PADDING_PX + (days - 1) * gutter;
+  return minColumnWidth * days + COLUMN_CARD_PADDING_PX + (days - 1) * gutter;
 }
 
 /**

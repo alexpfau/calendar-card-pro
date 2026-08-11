@@ -150,28 +150,6 @@ export const DEFAULT_CONFIG: Types.Config = {
   refresh_on_navigate: true,
 
   // Column view
-  //
-  // 140, not the 160 the G13 spike reported. G13 measured the floor a column can
-  // survive at, but computed the fit as `160 x 3 + 20 = 500` against a measured
-  // 500px HA section -- arithmetic with no room for the card's own horizontal
-  // padding, which is real. Fitting three columns into that section is the
-  // constraint that sets this number, because a single section is the most common
-  // desktop placement and column view must activate there at defaults.
-  //
-  // The full sum is `min x days + COLUMN_CARD_PADDING_PX + (days - 1) x day_spacing`,
-  // and the *entering* threshold adds half the hysteresis band on top
-  // (VIEW_SWITCH_HYSTERESIS_PX / 2). At the current 32px padding, 10px gutter and
-  // 16px half-band: `140 x 3 + 32 + 2 x 10 = 472`, entering at 488 -- 12px under a
-  // 500px section. 144 would compute 484 and enter at 500, exactly on the boundary
-  // with nothing left for a scrollbar; the margin here is thinner than it looks, so
-  // recompute all three terms rather than adjusting one.
-  //
-  // The gutter term was `day_gap` until it merged into `day_spacing`, taking the
-  // default from 12px to 10px and buying back 4px of headroom.
-  //
-  // Do not "restore" this to 160 on the strength of the G13 number alone: that
-  // reintroduces a large deficit and silently disables the feature at defaults.
-  min_day_column_width_px: 140,
   column: undefined,
 };
 
@@ -218,8 +196,6 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
     toValidNumber(config.refresh_interval, 1) ?? DEFAULT_CONFIG.refresh_interval;
   config.event_background_opacity =
     toValidNumber(config.event_background_opacity, 0) ?? DEFAULT_CONFIG.event_background_opacity;
-  config.min_day_column_width_px =
-    toValidNumber(config.min_day_column_width_px, 1) ?? DEFAULT_CONFIG.min_day_column_width_px;
 
   // Optional limits: `undefined` means "no limit", so invalid values clear them rather
   // than collapsing to zero and hiding content.

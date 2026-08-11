@@ -18,7 +18,7 @@ import { VIEW_SWITCH_HYSTERESIS_PX, computeColumnThresholdPx } from '../src/conf
  * the section's constraint, so a card that settles at 464px is measured at 500px
  * first. Acting on that first measurement lets the card enter column view legitimately
  * at 500px and then *keep* it at 464px via the hysteresis band, rendering columns
- * below `min_day_column_width_px`. The threshold is bypassed without ever being
+ * below `min_column_width_px`. The threshold is bypassed without ever being
  * violated by any single comparison, which is why the pure resolvers cannot catch it.
  */
 
@@ -56,7 +56,7 @@ interface CardUnderTest extends HTMLElement {
  *
  * Not the bare default, and the gutter is pinned rather than inherited. The straddle
  * this file depends on -- transient above the decision edge, settled below it -- has to
- * survive changes to `min_day_column_width_px`, the card padding and the default
+ * survive changes to `min_column_width_px`, the card padding and the default
  * `day_spacing`, none of which this file is about. Pinning the column gutter to 4px
  * puts the decision edge at 476px, comfortably between the two measured widths, so the
  * straddle

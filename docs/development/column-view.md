@@ -21,7 +21,7 @@ alternatives are archived in [column-view-rationale.md](./column-view-rationale.
 | 1       | View name is **`column`**                                                              | `view: 'list' \| 'column'`.                                                                                                                                                                                            |
 | 2       | **`navigation_days` is deleted**, folded into `days_to_show`                           | Removed, not renamed.                                                                                                                                                                                                  |
 | 3       | Column-view MVP excludes overlap lanes, time axis, now-line                            | Those belong to time-grid.                                                                                                                                                                                             |
-| 4       | **Date at the top** of each column                                                     | The original 128px comparator is superseded by decision 14's provisional 160px minimum; the date header remains sound and has more room.                                                                               |
+| 4       | **Date at the top** of each column                                                     | The original 128px comparator is superseded by decision 14's 160px provisional, itself now corrected to the shipped 140px **[v12]**; the date header remains sound and has more room.                                                                               |
 | 5       | **Header rule is fully configurable** — width, colour                                  | Start visible by default.                                                                                                                                                                                              |
 | 6       | Between-day chrome rotates 90°; within-day chrome stays untouched                      | The organising thesis.                                                                                                                                                                                                 |
 | 7       | `date_vertical_alignment` is **ignored** in column view                                | Naming harmonisation with a future `date_horizontal_alignment` is out of scope.                                                                                                                                        |
@@ -30,7 +30,7 @@ alternatives are archived in [column-view-rationale.md](./column-view-rationale.
 | 10      | Feature milestone is **v4.0.0**                                                        | This is a choice, not a semver requirement.                                                                                                                                                                            |
 | 11 + 12 | Below a width threshold, the **view falls back to list**                               | Do not clamp the number of columns. See A3-C.                                                                                                                                                                          |
 | 13      | The list DOM equality gate is retained, tightened, shipped, and mutation-tested        | Phase 0 PR #390 delivered `tests/list-dom.test.ts`; Phase 1 must keep it green.                                                                                                                                        |
-| 14      | `min_day_column_width_px` starts at **160**, is **measured**, and is **public config** | Measured in the G13 spike: 160 survives, 128 is disproven. G14 makes it a user-facing key — it is the escape hatch that keeps decision 11+12 ("do not clamp the number of columns") viable in a 500px default section. |
+| 14      | `column.min_column_width_px` ships at **140**, is **measured**, and is **public config** | **[v12] The shipped default is 140, not the 160 G13 reported.** G13 measured the floor a column survives at correctly, but computed the fit as `160 × 3 + 20 = 500` against a measured 500px section — arithmetic carrying no term for the card's own horizontal padding, which is real. Restoring the full formula leaves 140 as the largest floor that still fits three columns in a default section, which is the constraint that sets the number. 128 remains disproven. G14 makes it a user-facing key — the escape hatch that keeps decision 11+12 ("do not clamp the number of columns") viable. **[v12] It lives inside `column:`**, not at the top level: it is Category C, meaningless in list view. |
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#a-decisions-ledger)
 
@@ -208,7 +208,7 @@ This supersedes column-count clamping. List view is already designed for narrow 
 cramped columns are not useful. The fallback threshold is computed from:
 
 ```
-min_day_column_width_px × days_to_show  +  card padding  +  (days_to_show − 1) × gutter
+min_column_width_px × days_to_show  +  card padding  +  (days_to_show − 1) × gutter
 ```
 
 User-facing rule: **above the threshold you get the columns you asked for; below it you get
@@ -873,13 +873,19 @@ Today highlighting needs no new keys: `today_weekday_color`, `today_day_color`, 
 band. Document that positions such as `15% 50%` resolve visually differently in a short wide
 band.
 
-**[v9, ruled by the maintainer] Weather truncates; it is never dropped.** At the 160px minimum,
-G13 measured date + weather on one line at roughly 157px — it fits, with nothing to spare. When
-it does not fit, the temperature text elides rather than the badge disappearing, and the header
-stays one line high. Dropping it instead would have let the floor fall to ~130px, but a user who
-configured weather would sometimes not see it with no explanation — the same silent
-config/render divergence G14 rejected for columns. `min_day_column_width_px` therefore stays at
-**160**. Weather is rendered by `Leaves.renderDateWeather` (`leaves.ts:54`), which the header
+**[v9, ruled by the maintainer] Weather truncates; it is never dropped.** At the 160px
+provisional, G13 measured date + weather on one line at roughly 157px — it fits, with nothing to
+spare. When it does not fit, the temperature text elides rather than the badge disappearing, and
+the header stays one line high. Dropping it instead would have let the floor fall to ~130px, but
+a user who configured weather would sometimes not see it with no explanation — the same silent
+config/render divergence G14 rejected for columns.
+
+**[v12] The shipped floor is 140px, and this is why the ruling still holds at that width.** 140
+is set by the three-columns-in-a-500px-section fit (decision 14), not by the header, so it lands
+17px under G13's 157px header measurement — meaning at the default, in the worst case, the
+temperature elides. That is exactly the behaviour ruled for here, so the truncate-not-drop rule
+is what makes 140 viable rather than something 140 contradicts. A user who wants the header
+uncompressed raises the key. Weather is rendered by `Leaves.renderDateWeather` (`leaves.ts:54`), which the header
 container positions itself; document the fixed header vertical budget as one line.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#d2-header)
@@ -1119,7 +1125,7 @@ one view breaks the other.
 
 Column view is triggered by a **wide card** but produces **narrow content boxes**. Using the
 **measured** placement widths from the G13 spike rather than a hypothetical card width, and the
-largest column count that clears the 160px floor at each:
+largest column count that clears the floor at each (computed at the 160px provisional; the shipped 140px floor is more permissive, so these counts are a lower bound) **[v12]**:
 
 | Context                              | Columns | Horizontal budget per event |
 | ------------------------------------ | ------- | --------------------------- |
@@ -1135,7 +1141,7 @@ generous in a column.
 
 Note that the first row is the _default_ placement and it caps at three columns, which is why
 G14 rules that the card falls back to list rather than clamping, and why
-`min_day_column_width_px` is public.
+`min_column_width_px` is public.
 
 #### Eligibility — the boundary follows from G10
 
@@ -1614,8 +1620,8 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 >   demanded a 7-column-wide container before showing 2 columns — defeating dense mode
 >   outright. **Ruled: the threshold uses the rendered column count**, which is already known
 >   at render time because grouping precedes it. Same N as G11. **The spike has now run:**
->   `min_day_column_width_px: 160` survived measurement, 128 is confirmed disproven, and the
->   card-edit modal measured 480px. **`min_day_column_width_px` is now ruled public config**
+>   `min_column_width_px: 160` survived measurement, 128 is confirmed disproven, and the
+>   card-edit modal measured 480px. **`min_column_width_px` is now ruled public config**
 >   (G14). Still open after the spike: the hysteresis band, weather truncate-or-drop (which
 >   _sets_ the minimum), and the header vertical budget. The default-width finding it surfaced
 >   is ruled in **G14** below.
@@ -1648,7 +1654,7 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    A3-B-3.
 8. **[v4] To verify in HA, not on paper:** the actual card-edit modal width, which determines
    how severe A3-C.4 is (the mitigation is mandatory regardless). **[v5]** Now also determines
-   whether the provisional `min_day_column_width_px: 160` (decision 14) survives measurement.
+   whether the provisional `min_column_width_px: 160` (decision 14) survives measurement.
    **[v6] MEASURED: 480px, i.e. two columns. A3-C.4 is severe. 160px survives.** See G13
    results.
 9. **No runtime or visual HA testing has happened on any of this yet.**
@@ -1706,7 +1712,11 @@ number 26px, time 12px):
 | `10:00 - 11:30`      | 69px  |
 | `Team Standup`       | 91px  |
 
-**`min_day_column_width_px: 160` survives measurement.** A single-line D2 header carrying date
+**`min_column_width_px: 160` survives measurement.** **[v12 — superseded as the shipped
+value; the measurement below stands, the conclusion drawn from it did not.** 160 is a valid
+*header* floor, but the constant is also the multiplier in A3-C's view-switch threshold, and the
+fit arithmetic that accepted 160 omitted the card's horizontal padding. The shipped default is
+**140**; see decision 14 and the derivation comment on `COLUMN_DEFAULTS`.**] A single-line D2 header carrying date
 plus weather needs 76 + 73 + gap ≈ **157px**, and the longest common localised date form
 (`Mittwoch 24. Sept.`, 117px) still needs padding around it. 128px cannot fit date and weather
 on one line — **confirming it is disproven, not merely superseded**. If weather is _dropped_
@@ -1764,7 +1774,7 @@ false` (the content-driven reduction already ruled in G13). Width never enters t
 This is the same N as G11's `repeat(N, minmax(0, 1fr))` and the same N as G13's threshold input,
 so all three remain consistent.
 
-The rejected alternative was to render `⌊width / min_day_column_width_px⌋` columns, capped at
+The rejected alternative was to render `⌊width / min_column_width_px⌋` columns, capped at
 days available — a 500px card would then show a tidy 3-day column view out of the box. It was
 rejected because it makes the card **quietly disagree with its own configuration**: a user who
 asks for 7 days and sees 3 has no signal explaining the difference, and the same config renders
@@ -1773,7 +1783,7 @@ worse than an honest fallback.
 
 Three mechanisms carry the decision instead:
 
-1. **`min_day_column_width_px` becomes public config** (upgrading decision 14, and closing the
+1. **`min_column_width_px` becomes public config** (upgrading decision 14, and closing the
    G13 sub-question of whether it should be). It is the user's escape hatch: the threshold is
    theirs to lower. A user who genuinely wants 7 columns in a 500px card can set it to `70` and
    get them. The card's opinion about legibility becomes a default, not a rule.
@@ -1781,9 +1791,9 @@ Three mechanisms carry the decision instead:
    count does not fit, the card falls back to list _wholesale_ — it never renders a degraded
    column view. This is the already-ruled behaviour; the finding does not change it.
 3. **The editor warns at configuration time.** When
-   `days_to_show × min_day_column_width_px + gutters` exceeds a reference width, the editor
+   `days_to_show × min_column_width_px + gutters` exceeds a reference width, the editor
    surfaces a warning naming the arithmetic and the remedies: raise `column_span`, use a panel
-   view, reduce `days_to_show`, or lower `min_day_column_width_px`. The decision stays with the
+   view, reduce `days_to_show`, or lower `min_column_width_px`. The decision stays with the
    user; the card's job is to make the consequence visible _before_ they hit it.
 
 The warning is **computed statically, never measured**. The editor cannot know the card's
@@ -1804,7 +1814,7 @@ regardless of where the card ends up.
   (windowed by `days_to_show`) and the rendering would have diverged and needed reconciling.
   With the column count pinned to `days_to_show`, the existing window is already correct. **No
   change required** — recorded here so the reconciliation is not re-derived later.
-- **New key cost.** `min_day_column_width_px` becoming public means: a `DEFAULT_CONFIG` entry, a
+- **New key cost.** `min_column_width_px` becoming public means: a `DEFAULT_CONFIG` entry, a
   documentation row (`check:docs` enforces defaults ↔ reference-table parity), an editor
   control, and editor strings in all 11 editor-translated languages.
 - **The editor warning is a v4.0.0 release blocker, not an MVP blocker** — consistent with the

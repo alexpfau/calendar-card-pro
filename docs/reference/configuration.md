@@ -31,7 +31,6 @@ cards.
 | `split_multiday_events`        | boolean | `false`                       | Display multi-day events on each day they cover                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `language`                     | string  | `System`, fallback `en`       | Interface language (auto-detects from HA)                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `column`                       | object  | Inherits the top-level values | Options that should take a different value in column view. Only presentation options may appear here — see [Column View](/features/core-settings#column-view)                                                                                                                                                                                                                                                                                       |
-| `min_day_column_width_px`      | number  | `140`                         | Narrowest a day column may become in column view before the card falls back to the list layout                                                                                                                                                                                                                                                                                                                                                      |
 
 ### Column-Only Options
 
@@ -44,6 +43,7 @@ absent `column:` block a visual no-op.
 | `column → day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                            |
 | `column → day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule   |
 | `column → day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                                 |
+| `column → min_column_width_px`        | number | `140`                  | Narrowest a day column may become before the card falls back to the list layout    |
 
 **→ [Column View](/features/core-settings#column-view)** — worked examples.
 

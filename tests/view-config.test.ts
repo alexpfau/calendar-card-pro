@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { DEFAULT_CONFIG, normalizeNumericOptions } from '../src/config/config';
+import { DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
@@ -687,21 +687,29 @@ describe('column view config surface', () => {
   });
 });
 
-describe('min_day_column_width_px normalization', () => {
+describe('column.min_column_width_px normalization', () => {
   it('defaults to 140', () => {
-    expect(DEFAULT_CONFIG.min_day_column_width_px).toBe(140);
-    expect(buildConfig().min_day_column_width_px).toBe(140);
+    expect(resolveColumnOption(buildConfig(), 'min_column_width_px')).toBe(140);
+  });
+
+  it('reads a configured value out of the column block', () => {
+    const config = buildConfig({ column: { min_column_width_px: 220 } });
+    expect(resolveColumnOption(config, 'min_column_width_px')).toBe(220);
   });
 
   it('accepts a numeric string, which is what the editor persists', () => {
-    expect(buildConfig({ min_day_column_width_px: '220' as unknown as number })).toHaveProperty(
-      'min_day_column_width_px',
-      220,
-    );
+    const config = buildConfig({
+      column: { min_column_width_px: '220' as unknown as number },
+    });
+    expect(resolveColumnOption(config, 'min_column_width_px')).toBe(220);
   });
 
-  // The #327 inputs. Each would otherwise coerce to 0 and make every viewport wide
-  // enough for any number of columns.
+  // The #327 inputs. Each would otherwise coerce to 0 or NaN and make every viewport
+  // wide enough for any number of columns — or none.
+  //
+  // This matters more here than it did at the top level. The key used to be swept by
+  // `normalizeNumericOptions`; inside `column:` it is raw user input that reaches
+  // `computeColumnThresholdPx` unvalidated unless `normalizeColumnValue` catches it.
   it.each([
     ['empty string', ''],
     ['null', null],
@@ -710,9 +718,20 @@ describe('min_day_column_width_px normalization', () => {
     ['zero', 0],
     ['negative', -100],
   ])('falls back to the default for %s', (_label, value) => {
-    const config = { ...DEFAULT_CONFIG, min_day_column_width_px: value } as unknown as Types.Config;
-    normalizeNumericOptions(config);
-    expect(config.min_day_column_width_px).toBe(140);
+    const config = buildConfig({
+      column: { min_column_width_px: value as unknown as number },
+    });
+    expect(resolveColumnOption(config, 'min_column_width_px')).toBe(140);
+  });
+
+  // The threshold is the reason the validation above exists, so assert the outcome
+  // and not only the resolver: a bad value must not widen or disable the fallback.
+  it('keeps the view-switch threshold finite for an unusable value', () => {
+    const config = buildConfig({
+      days_to_show: 3,
+      column: { min_column_width_px: 'wide' as unknown as number },
+    });
+    expect(computeColumnThresholdPx(config)).toBe(140 * 3 + 32 + 2 * 10);
   });
 });
 
@@ -739,7 +758,7 @@ describe('computeColumnThresholdPx', () => {
     //     a deliberate, reviewed cost.
     //   - That cost was then rejected on sight: a default 3-day card rendering as a
     //     list in the single most common desktop placement is not an acceptable
-    //     default, whatever the reasoning behind it. min_day_column_width_px dropped
+    //     default, whatever the reasoning behind it. min_column_width_px dropped
     //     152 -> 140 to buy the fit back without giving up the padding or the gap.
     //
     // The margin is thinner than 476-vs-500 suggests, because the view only *enters*

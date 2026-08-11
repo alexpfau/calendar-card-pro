@@ -311,8 +311,28 @@ card omits the element entirely; a transparent rule still occupies its own heigh
 
 ### Falling Back to the List Layout
 
-Columns stop being readable below a certain width. `min_day_column_width_px` sets that floor, `152` by default. When the card is too narrow to give every day that much room, it renders as a list instead.
+Columns stop being readable below a certain width. `min_column_width_px` sets that floor,
+`140` by default. When the card is too narrow to give every day that much room, it renders
+as a list instead.
 
-The number of columns follows `days_to_show`. A narrower card shows the same days in the list layout rather than quietly showing fewer of them.
+It lives inside the `column:` block rather than at the top level, because a minimum column
+width has no meaning in a layout that has no columns:
 
-**→ [Core Settings in the configuration reference](/reference/configuration#core-settings)** — full option table.
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+view: column
+days_to_show: 5
+column:
+  min_column_width_px: 170
+```
+
+Raising it makes the card fall back to the list layout sooner, which is what you want when
+your events have long titles. Lowering it keeps columns on narrower cards, at the cost of
+more wrapping.
+
+The number of columns follows `days_to_show`. A narrower card shows the same days in the
+list layout rather than quietly showing fewer of them.
+
+**→ [Column-Only Options in the configuration reference](/reference/configuration#column-only-options)** — full option table.
