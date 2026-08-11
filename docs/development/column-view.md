@@ -239,6 +239,14 @@ Design against these risks:
 > `compact_events_to_show` is **out**. The analysis below is why the rotation is correct, and
 > stands as the design for when it ships — but it is **not MVP scope**, and D6 (not a shared
 > key with per-view help text) is now the mechanism it will use.
+>
+> **[v14] Superseded — the split did not survive implementation.** _Neither_ key ships in
+> column view: the whole compact family is inert there (commit `376bdcc`), and the tap/hold
+> `action: 'expand'` that drives it is a measured flat no-op. The G12 split was a scoping
+> decision made before it was clear that in a grid these keys remove columns rather than
+> reduce height. What replaces compact mode in column view is the density framework
+> (`min_days_to_show` + the width-fallback rule), which degrades column *count* against
+> available width instead of trading it for width. See D8 and the density section.
 
 The user-level meaning of `compact_events_to_show` is _how tall the card is when collapsed_.
 That meaning rotates through different height functions:
@@ -254,14 +262,36 @@ different algorithm and it is the half that entangles with G10's transition rule
 
 Limits and related keys:
 
+> **[v14] Two rows below were overtaken by implementation and are corrected in place.**
+> The compact family was ruled inert in column view wholesale (commit `376bdcc`), for a
+> reason this section did not anticipate: it analysed each key as a *height* control and
+> asked how the height budget rotates, but in a grid every one of them removes **content
+> or columns** while the card occupies identical width. A collapsed column card is not
+> shorter — it is emptier. The struck rows are kept rather than deleted because the
+> rotation analysis remains the right design for if per-column compaction ever ships;
+> only the interim behaviour changed. See D8 for the full inert set.
+
 - `compact_events_complete_days` is inapplicable per-column. It is a cross-day inclusion
   filter under a shared budget (`events.ts:413-441`); a per-column budget has no shared pool
   and renders every column. Ignore and annotate.
-- **`compact_days_to_show` maps to fewer columns when collapsed — in MVP.** The unit is "days"
-  in both views, so it needs neither an override nor a new key; it is simply N.
-- Per-entity `compact_events_to_show` must stay global in both views (`events.ts:350-391`). It
+- ~~**`compact_days_to_show` maps to fewer columns when collapsed — in MVP.** The unit is "days"
+  in both views, so it needs neither an override nor a new key; it is simply N.~~
+  **[v14] Reversed — it is inert in column view.** The unit does map cleanly, which is why
+  this looked safe; the problem is what the mapping *means*. Capping the day slice deletes
+  trailing columns from a grid whose width does not shrink, so "compact" renders three wide
+  columns where seven narrow ones were configured. That is not a compact card, it is a
+  different card. The user's framing settles it: a compact toggle that trades column count
+  for column width is not a height control at all.
+- ~~Per-entity `compact_events_to_show` must stay global in both views (`events.ts:350-391`). It
   is a temporal cap — e.g. next one birthday — not a height cap; rebasing it per column would
-  multiply the cap by `days_to_show`.
+  multiply the cap by `days_to_show`.~~
+  **[v14] The rebasing argument stands; the conclusion drawn from it does not.** Rebasing
+  per column would indeed multiply the cap, so it was not done — but *leaving it global* in
+  column view is not the safe fallback this row assumed. The bucket at `events.ts:419` is
+  keyed `${entityId}__${configIdx}`, i.e. **one budget per entity per card**, so a cap of 1
+  on a single-entity card yields exactly one event in the entire grid and collapses every
+  column but one. Both options were unacceptable; the key is inert in column view instead.
+  This is the correction referenced from D8.
 - **[v8]** When per-column compaction does ship, it is configured as `column.compact_events_to_show`
   under D6's override block, **not** as the same flat key carrying two meanings. `view: column`
   falls back to list below a width breakpoint, so one card instance renders both views and a
@@ -743,6 +773,38 @@ is a manual port, not a rebase.
 `ViewAdapter` abstraction together, designed against list and column at the same time. Section D
 is the implementation spec.
 
+> **[v14] The `ViewAdapter` half of this phase was never built, and this is now a known,
+> accepted deviation rather than an oversight to be silently carried.** `git grep -i viewadapter
+> src/` returns zero hits on the v4 branch. Column view shipped as **ten hard-coded binary view
+> gates** — `effectiveView === 'column'` or `!== 'column'` — instead of an abstraction.
+>
+> This is not, in itself, wrong. The rationale log's own argument for cancelling Phase 3
+> ([rationale :719-731](./column-view-rationale.md)) — *"you cannot see the seam with one
+> implementation; an adapter designed against list alone encodes list's shape as though it were
+> the general shape"* — applies with almost equal force to an adapter designed against list and
+> column, which are both day-partitioned. The independent grid-view feasibility review reached
+> the same conclusion and explicitly recommended **not** generalising now.
+>
+> What *is* wrong is the consequence nobody recorded: the **pre-Phase-5 conformance gate at
+> :716-736 has therefore never run**, even though it is specified to run *before `view` ships*.
+> Two of the ten gates are semantic rather than cosmetic, and both are written in the negative
+> form that silently mis-answers for a third view:
+>
+> | Site | Gate | Why the negative form is a trap |
+> | --- | --- | --- |
+> | `events.ts:207` | `compactLimitsApply = !isExpanded && effectiveView !== 'column'` | Sits under a 30-line comment arguing compact caps are meaningless **in grid layouts** — reasoning that applies verbatim to a time grid. A third view inherits list's answer against the comment's own logic. |
+> | `events.ts:229` | `ignorePerEntityOverride` keyed on `=== 'column'` | Column force-splits multi-day events; the frozen prototype force-splits them *off* because the list splitter emits synthetic middle segments that land in the wrong band. A third view needs a **third** answer, not either existing one. |
+>
+> Neither is visible to the test suite: both branches are reachable only under non-default
+> config, and `compact_days_to_show` defaults `undefined`. This is exactly the failure mode
+> :922-923 was written to forbid.
+>
+> **Ruling:** do not build the adapter. Do name the two semantic gates —
+> `viewAppliesCompactLimits(view)` and `viewForcesMultidaySplit(view)` — so the decision is
+> stated once, in the positive, and a new view must answer it explicitly rather than inherit
+> list's answer by falling through a `!==`. That is ~15 lines, no config-surface change, and it
+> discharges :922-923 without pretending one more view reveals the seam.
+
 ### Phase 5 — time-grid — v4 branch — risk: medium
 
 Rebuild on lenaxia's four commits as ancestors so `git log` retains authorship, plus
@@ -752,6 +814,31 @@ now-line is disabled; dead swipe in 7-day mode; unguarded `navigator.clipboard`;
 `hide_when_empty` window mismatch; now-line re-rendering the whole card every 60s; the 35-day
 default fetch; about eight shipped config options silently ignored; six runtime i18n keys
 present only in `en.json`; and `time_grid_interval_minutes` being a zoom control.
+
+> **[v14] "Four commits" is right for attribution and wrong for the rebuild base.**
+> `origin/dev..origin/alexpfau-review-339-time-grid` is **seven** commits: four by
+> `mikekao@amazon.com` (`72ce3a3`, `f2115e3`, `3b1198f`, `6f9da8a`) — the ones authorship
+> depends on — and three subsequent maintainer commits. The branch is FROZEN: never rebase,
+> force-push or delete it.
+>
+> The three maintainer commits are not incidental; `d9cceb6` is **prior art on questions this
+> branch has since re-litigated independently**, and reaching the same answers twice is itself
+> evidence:
+>
+> - It renamed `time_grid_breakpoint_{three,seven}_day_px` → **`min_day_column_width_px`** and
+>   `time_grid_max_days` (a `1|3|7` enum) → **`max_day_columns`** (`1..31`), on the stated
+>   grounds that keys solving the *day-column* problem "which a future column view shares" must
+>   lose the view prefix, "since renaming after release would be a breaking change". That is the
+>   same conclusion D6 reached for Category C, arrived at eight months earlier from the other
+>   side. It also means the column-count-versus-width lever was invented twice independently.
+> - It replaced the whole-language editor-translation swap with a **per-key** fallback
+>   (requested → English → raw key), using a `\u0000` sentinel to distinguish a missing key from
+>   a legitimately empty translation. `AGENTS.md` documents the all-or-nothing hazard this
+>   removes: `hasEditorTranslations()` returns true on **one** key, so a partially translated
+>   `editor` block renders every missing key as its raw name. The column editor will add roughly
+>   15–20 keys across 35 language files, which is precisely the moment a translator does half
+>   the block. **Port this hunk forward before the column editor lands** — it is ~10 lines and
+>   needs no contact with the frozen branch.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#c-phases-v5--phase-3-folded-into-phase-4)
 
@@ -1325,13 +1412,52 @@ the Phase 2b diff. Drop it from both, together, whenever that file is next touch
 
 **Ruled: no option may be inert in a view without the editor saying so.** This is the D5
 kind-3 row ("ignored, meaningless in this view") escalated from a table cell to a policy,
-because kind 3 is no longer hypothetical. Three options are inert in column view today:
+because kind 3 is no longer hypothetical.
 
-| Option                        | Inert in    | Why                                                                    |
-| ----------------------------- | ----------- | ---------------------------------------------------------------------- |
-| `date_vertical_alignment`     | column      | Nothing to align against — the header is its own row (A3-A)            |
-| `today_indicator_position`    | column      | The percentage model does not survive the axis flip (see below)        |
-| `compact_events_complete_days`| column      | The height budget rotates per column, not per card (A3-D)              |
+**[v14] The inert set is now eight options, not three.** It grew twice after this section
+was first written — once when the compact-mode family was ruled inert wholesale, and once
+when live measurement settled two cases that code reading had gotten wrong. Every row
+below is verified against the running card, not inferred from source:
+
+| Option                                       | Why it is inert in column view                                                                     |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `date_vertical_alignment`                    | Nothing to align against — the header is its own row (A3-A)                                          |
+| `today_indicator_position`                   | The percentage model does not survive the axis flip (D8-A)                                           |
+| `compact_events_to_show`                     | Caps events per *card*; in a grid that deletes content from columns rather than shortening the card  |
+| `compact_events_to_show` (per-entity)        | **Same, and worse** — the bucket is keyed per entity per card, so one cap collapses every column      |
+| `compact_days_to_show`                       | Caps the day slice, which deletes trailing **columns** — the card occupies identical width either way |
+| `compact_events_complete_days`               | The height budget rotates per column, not per card (A3-D)                                            |
+| `action: 'expand'` (tap / hold / double-tap) | Nothing to expand once the caps above are inert — the gesture is a flat no-op                        |
+| `split_multiday_events` (per-entity)         | Overridden by the column force-default; the `column:`-level key is the escape hatch                  |
+
+Three of these need their provenance stated, because each contradicts something written
+earlier in this document and the earlier text is the more intuitive reading:
+
+- **Per-entity `compact_events_to_show` is not column-safe.** A3-D:262-264 recorded it as
+  safe on the assumption that a per-entity cap distributes per day. It does not: the bucket
+  at `events.ts:419` is keyed `${entityId}__${configIdx}` — **one budget per entity per
+  card**. A cap of 1 on a single-entity card therefore yields exactly one event in the
+  whole grid, collapsing a 3-column layout to a single populated column. A3-D is corrected,
+  not extended.
+- **`action: 'expand'` is _unconditionally_ inert.** An earlier reading of the
+  `!isExpanded && !showEmptyDays` filter at `events.ts:497-505` predicted that `expand`
+  stayed live in the narrow case of `column: { show_empty_days: false }` combined with a
+  compact cap, toggling the column count. **Measured: it does not.** A column card held at
+  five columns across a real click while an otherwise-identical list card moved from two
+  events to five on the same gesture and the same `compact_events_to_show: 2` — proving
+  `isExpanded` genuinely flipped and the column render simply does not consume it. The
+  likely mechanism is that with `show_empty_days: false` the empty days are never generated,
+  so the filter operates on a list that never held them. The mechanism is unconfirmed; the
+  behaviour is not. **Do not re-derive this from source and re-open it** — the source reads
+  misleadingly, and the table needs no conditional caveat.
+- **Per-entity `split_multiday_events` loses to the column force-default.** Measured: a
+  card setting it `false` per entity is byte-identical to the control that sets nothing —
+  the event still splits across three columns. Setting it inside `column:` *is* honoured
+  (the same fixture renders once). The precedence chain is therefore
+  `column:` explicit > `COLUMN_DEFAULT_OVERRIDES` > per-entity > top-level, which is
+  coherent — a per-view force-default must outrank a per-entity preference or it is not a
+  force-default — but it makes the per-entity switch silently ineffective, which is exactly
+  what this section exists to forbid.
 
 E1 forbids silent config no-ops, and a control that visibly does nothing when you drag it
 is the loudest possible violation of that: worse than an option that is missing, because
@@ -1378,6 +1504,14 @@ list the docs check reads, so the two cannot drift. `NOT_YET_IMPLEMENTED_KEYS` i
 wrong home: those keys are unfinished, whereas these are finished and deliberately
 scoped, and conflating "not built yet" with "does not apply here" would make the first
 category impossible to burn down.
+
+**[v14] That export is now overdue rather than merely desirable.** It was proposed when
+the set was three static rows; it is eight, it grew twice in one development cycle, and
+two of its rows exist only because a live measurement contradicted a plausible reading of
+the source. A list that volatile cannot be maintained as prose in three places — the
+`[v14]` pass above found the D8 table describing less than half the real set while the
+implementation had been correct for two commits. Build the export **before** the editor
+annotations, not alongside them, so the annotation work has a single source to read.
 
 #### D8-A. Why `today_indicator_position` is inert rather than remapped
 

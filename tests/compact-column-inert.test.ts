@@ -73,16 +73,18 @@ const FIRST_DAY_ONLY: Types.CalendarEventData[] = [
  *
  * Resolves the `column:` block first, exactly as `calendar-card-pro.ts` does — grouping
  * takes the effective config, so a harness passing the raw one would never see an
- * override. `isExpanded` is `false` throughout: compact limits only apply unexpanded, so
- * passing `true` would make every assertion here vacuously green.
+ * override. `isExpanded` defaults to `false`: compact limits only apply unexpanded, so
+ * passing `true` would make most assertions here vacuously green. The one test that does
+ * pass `true` sets it on both sides of a comparison, deliberately.
  */
 function group(
   events: Types.CalendarEventData[],
   overrides: Partial<Types.Config>,
   view: Types.EffectiveView,
+  isExpanded = false,
 ): Types.EventsByDay[] {
   const config = ViewConfig.resolveEffectiveConfig(buildConfig(overrides), view);
-  return EventUtils.groupEventsByDay(events, config, false, 'en', view);
+  return EventUtils.groupEventsByDay(events, config, isExpanded, 'en', view);
 }
 
 /** Real events across the whole grid, excluding the empty-day placeholders. */
@@ -212,5 +214,41 @@ describe('compact-mode limits are inert in column view', () => {
 
     expect(days).toHaveLength(1);
     expect(realEventCount(days)).toBe(3);
+  });
+
+  it('makes the expand gesture a flat no-op, even with show_empty_days: false', () => {
+    // Reading `events.ts` alone predicts the opposite. The empty-day filter at :497-505
+    // is guarded by `!isExpanded && !showEmptyDays`, so with `show_empty_days: false`
+    // inside the column block the gesture *looks* live — expanding should reveal the
+    // trailing empty columns. Measured against the running card it does not: a column
+    // card held at its column count across a real click while a list control on the
+    // identical mechanism moved. The likely reason is that with `show_empty_days: false`
+    // the empty days are never generated, so the filter runs over a list that never held
+    // them — mechanism unconfirmed, behaviour unambiguous.
+    //
+    // This test exists so that reasoning is never re-derived from source and re-opened.
+    // If it fails, the gesture has become live and the editor annotation ruling for
+    // `action: 'expand'` (D8) needs revisiting — do not simply update the expectation.
+    const overrides = {
+      days_to_show: 5,
+      compact_events_to_show: 2,
+      column: { show_empty_days: false },
+    } as Partial<Types.Config>;
+
+    // The control. In list view the same gesture on the same keys is emphatically live,
+    // which is what stops this test passing for the trivial reason that nothing anywhere
+    // responds to `isExpanded`.
+    expect(realEventCount(group(THREE_DAYS, overrides, 'list', false))).toBe(2);
+    expect(realEventCount(group(THREE_DAYS, overrides, 'list', true))).toBe(9);
+
+    const collapsed = group(THREE_DAYS, overrides, 'column', false);
+    const expanded = group(THREE_DAYS, overrides, 'column', true);
+
+    // Concrete anchors, not just equality: if both sides drifted to 5 together the
+    // relative assertion below would still pass while the behaviour had changed.
+    expect(collapsed).toHaveLength(3);
+    expect(expanded).toHaveLength(3);
+    expect(realEventCount(expanded)).toBe(realEventCount(collapsed));
+    expect(realEventCount(collapsed)).toBe(9);
   });
 });
