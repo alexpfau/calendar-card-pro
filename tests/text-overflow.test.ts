@@ -14,10 +14,10 @@ import { cardStyles } from '../src/rendering/styles';
  *    `.summary`'s min-content became `longestWord + 12px`, and every width inside that
  *    12px window rendered a full, untruncated title with a trailing ellipsis anyway.
  *
- * 2. `.description span` carries `overflow: hidden` unconditionally, for a
- *    `-webkit-line-clamp` that is `none` at the default. As a flex item that collapses
- *    `min-width: auto` to 0 (Flexbox 4.5), so it shrank below its longest word and
- *    clipped it mid-glyph -- with no ellipsis at all.
+ * 2. `.time span` / `.location span` / `.description span` carry `overflow: hidden`
+ *    unconditionally, for a `-webkit-line-clamp` that is `none` at the default. As flex
+ *    items that collapses `min-width: auto` to 0 (Flexbox 4.5), so they shrank below
+ *    their longest word and clipped it mid-glyph -- with no ellipsis at all.
  *
  * These assertions read the stylesheet rather than the DOM on purpose -- happy-dom does
  * no layout, so the overflow itself is not observable here. What is observable, and what
@@ -87,11 +87,19 @@ describe('metadata row overflow', () => {
   const SHARED = '.time span,\n  .location span,\n  .description span';
 
   it('breaks an over-long word in time, location and description', () => {
-    // .description span is a flex item carrying overflow: hidden, which per Flexbox 4.5
-    // collapses min-width: auto to 0. Without break-word it shrinks below its longest
-    // word and clips it mid-glyph, with no ellipsis to signal the loss. .time and
-    // .location share the declaration so the three rows wrap alike.
+    // These spans are flex items carrying overflow: hidden, which per Flexbox 4.5
+    // collapses min-width: auto to 0. Without break-word they shrink below their longest
+    // word and clip it mid-glyph, with no ellipsis to signal the loss.
     expect(ruleBody(SHARED)).toMatch(/overflow-wrap:\s*break-word/);
+  });
+
+  it('still clamps each field when its max_lines option is set', () => {
+    // The clamps are what overflow: hidden is actually there for, and break-word must
+    // not disturb them. Unscoped on purpose: .description span is declared twice.
+    for (const field of ['time', 'location', 'description'])
+      expect(cardStyles.cssText).toMatch(
+        new RegExp(`-webkit-line-clamp:\\s*var\\(--calendar-card-${field}-max-lines\\)`),
+      );
   });
 
   it('keeps the gutter on the flex row, not on the span', () => {
