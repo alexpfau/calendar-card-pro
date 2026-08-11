@@ -206,6 +206,11 @@ export interface ColumnOverrides {
   description_max_lines?: number;
   description_font_size?: string;
   description_icon_size?: string;
+  show_week_numbers?: null | 'iso' | 'simple';
+  show_current_week_number?: boolean;
+  week_number_font_size?: string;
+  week_number_color?: string;
+  week_number_background_color?: string;
 
   // Column-only layout — Category C
   //

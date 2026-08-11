@@ -32,6 +32,52 @@ import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 
 //-----------------------------------------------------------------------------
+// DAY BOUNDARIES
+//-----------------------------------------------------------------------------
+
+/**
+ * Where each day sits relative to the one before it.
+ *
+ * The list view derives the same two flags inline inside `renderGroupedEvents`
+ * (render.ts:434-454). This is a separate, column-local copy on purpose: the list
+ * view's copy is load-bearing for a DOM the snapshot gate pins byte-for-byte, and
+ * nothing is gained by rewriting working code to share four lines of arithmetic.
+ *
+ * What it *is* shared by is everything on this side of the axis. Week numbers read
+ * `isNewWeek`; the day, week and month separators will read both. Computing them once
+ * per render for the whole run keeps the two features from disagreeing about where a
+ * boundary is, which is the failure mode that matters — a week pill on one column and
+ * a week rule between two others.
+ */
+interface DayBoundary {
+  /** True when this day starts a new week. The first day always does. */
+  isNewWeek: boolean;
+  /** True when this day starts a new month. The first day never does — nothing precedes it. */
+  isNewMonth: boolean;
+}
+
+/**
+ * Classify every day in a run by the boundaries it opens.
+ *
+ * Week boundaries compare week *numbers* rather than weekday indices, so they survive
+ * `show_empty_days: false` removing the day a week nominally starts on. Month
+ * boundaries compare month numbers for the same reason.
+ *
+ * @param days - Days to classify, already grouped and in ascending date order
+ * @returns One entry per day, index-aligned with the input
+ */
+function computeDayBoundaries(days: Types.EventsByDay[]): DayBoundary[] {
+  return days.map((day, index) => {
+    const prevDay = index > 0 ? days[index - 1] : undefined;
+
+    return {
+      isNewWeek: !prevDay || day.weekNumber !== prevDay.weekNumber,
+      isNewMonth: Boolean(prevDay && day.monthNumber !== prevDay.monthNumber),
+    };
+  });
+}
+
+//-----------------------------------------------------------------------------
 // EVENT RENDERING
 //-----------------------------------------------------------------------------
 
@@ -106,6 +152,7 @@ function renderColumnEvent(
  * @param day - Day data containing events
  * @param config - Card configuration
  * @param language - Language code for translations
+ * @param weekRow - Reserved week-number row, or `nothing` when week numbers are off
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @returns Rendered day column
@@ -114,6 +161,7 @@ function renderDayColumn(
   day: Types.EventsByDay,
   config: Types.Config,
   language: string,
+  weekRow: TemplateResult | typeof nothing,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
@@ -177,9 +225,10 @@ function renderDayColumn(
           class=${classMap({
             'column-date-content': true,
             'with-today-indicator': hasInlineIndicator,
+            'with-week-number': weekRow !== nothing,
           })}
         >
-          ${todayIndicator}
+          ${weekRow} ${todayIndicator}
           ${Leaves.renderDateContent(dayDate, config, language, isToday, weatherContent)}
         </div>
       </div>
@@ -197,9 +246,89 @@ function renderDayColumn(
 }
 
 //-----------------------------------------------------------------------------
-// GRID CONTAINER
+// WEEK NUMBERS
 //-----------------------------------------------------------------------------
 
+/**
+ * Render one column's week-number cell.
+ *
+ * The pill reuses the list view's `.week-number` class, so the three
+ * `week_number_*` options style both views from one set of custom properties and a
+ * user who has tuned the colours does not have to tune them twice.
+ *
+ * What differs is the container. The list view hangs its pill in a table row that
+ * spans the full card width; here it is a grid item in the day header, taking a
+ * reserved row directly above the weekday — the position the maintainer specified,
+ * and the only one that reads as "this column belongs to week 32" rather than
+ * decorating the events below it.
+ *
+ * @param weekNumber - Week number for this day, or null when unavailable
+ * @param visible - Whether this column is the one that shows the number
+ * @returns Rendered week-number cell
+ */
+function renderColumnWeekNumber(
+  weekNumber: number | null | undefined,
+  visible: boolean,
+): TemplateResult {
+  return html`
+    <div class="column-week-number" style=${styleMap(visible ? {} : { visibility: 'hidden' })}>
+      <div class="week-number">${weekNumber ?? ''}</div>
+    </div>
+  `;
+}
+
+/**
+ * Build the week-number row for every column, or `nothing` for all of them.
+ *
+ * Returns one entry per day, index-aligned with `days`, so the caller can hand each
+ * column its own cell without re-deriving anything.
+ *
+ * Two rulings are encoded here.
+ *
+ * **Every column emits a cell, not only the week starts.** An empty grid area
+ * collapses, so emitting the pill only where a week begins would give those columns a
+ * taller header and push their weekday, day number and entire event stack down
+ * relative to their neighbours — the row of dates would stop reading as a row, which
+ * is the one thing the column view exists to provide. The non-starts therefore render
+ * the same element and hide it with `visibility: hidden`. That reserves the exact
+ * height from the real pill rather than from a guessed constant, keeps a single code
+ * path, and is correctly skipped by assistive technology. It is the same collapse
+ * constraint that ruled out a leading grid track for the today dot (spec D8-A).
+ *
+ * **The row is dropped entirely when nothing would fill it.** `show_current_week_number:
+ * false` suppresses the pill on the week already in progress, which is the first
+ * column by construction. A short span sitting wholly inside that week would then
+ * reserve a row of blank space in every column for a number none of them shows, so
+ * the row is omitted unless at least one column will actually fill it.
+ *
+ * @param days - Days to render, already grouped and sorted
+ * @param config - Card configuration, already resolved for the column view
+ * @returns One cell per day, or one `nothing` per day when no row is warranted
+ */
+function buildWeekRows(
+  days: Types.EventsByDay[],
+  config: Types.Config,
+): Array<TemplateResult | typeof nothing> {
+  const boundaries = computeDayBoundaries(days);
+
+  // A column shows its pill when it starts a week. The first column always starts one
+  // by construction, and `show_current_week_number: false` suppresses exactly that
+  // one, mirroring the list view (render.ts:476) where the flag skips the first week's
+  // pill and nothing else.
+  const visible = boundaries.map(
+    (boundary, index) => boundary.isNewWeek && !(index === 0 && !config.show_current_week_number),
+  );
+
+  if (config.show_week_numbers === null || !visible.some(Boolean)) {
+    return days.map(() => nothing);
+  }
+
+  return days.map((day, index) => renderColumnWeekNumber(day.weekNumber, visible[index]));
+}
+
+//-----------------------------------------------------------------------------
+// GRID CONTAINER
+//-----------------------------------------------------------------------------
 /**
  * Render grouped events as side-by-side day columns.
  *
@@ -223,6 +352,9 @@ function renderDayColumn(
  * by giving it a width. B2 originally ruled the opposite; see the `COLUMN_DEFAULTS`
  * docstring for why that was reversed.
  *
+ * Week numbers, by contrast, *are* rendered — as a reserved header row above the
+ * weekday. See `renderColumnWeekNumber` for why every column emits one.
+ *
  * @param days - Days to render, already grouped and sorted
  * @param config - Card configuration
  * @param language - Language code for translations
@@ -238,6 +370,7 @@ export function renderColumnGroupedEvents(
   hass?: Types.Hass | null,
 ): TemplateResult {
   const headerGap = ViewConfig.resolveColumnOption(config, 'day_header_gap');
+  const weekRows = buildWeekRows(days, config);
 
   // `day_header_gap` is published as a custom property on the grid rather than applied
   // inline per column, because two separate rules consume it -- the header's bottom
@@ -257,7 +390,9 @@ export function renderColumnGroupedEvents(
         '--calendar-card-column-header-gap': headerGap,
       })}
     >
-      ${days.map((day) => renderDayColumn(day, config, language, weatherForecasts, hass))}
+      ${days.map((day, index) =>
+        renderDayColumn(day, config, language, weekRows[index], weatherForecasts, hass),
+      )}
     </div>
   `;
 }

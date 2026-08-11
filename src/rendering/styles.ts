@@ -914,7 +914,7 @@ export const cardStyles = css`
   .column-grid {
     display: grid;
     /* grid-template-columns and column-gap are set inline: the track count is the
-       number of days being rendered, and the gap is the column.day_gap option. */
+       number of days being rendered, and the gap is the day_spacing option. */
     align-items: start;
     width: 100%;
   }
@@ -1063,6 +1063,32 @@ export const cardStyles = css`
    */
   .column-header-separator {
     margin-bottom: var(--calendar-card-column-header-gap, 8px);
+  }
+
+  /*
+   * Week numbers occupy a reserved row at the top of the day header, above the
+   * weekday. The row exists only when week numbers are on, so the default header keeps
+   * its two-row shape and pays nothing for a feature that is off.
+   *
+   * Every column emits a cell whether or not it starts a week -- the non-starts hide
+   * theirs -- because an empty grid area collapses, and a collapsed area in some
+   * columns and not others would stagger the weekday, day number and event stack
+   * across the row. See buildWeekRows in column.ts.
+   */
+  .column-date-content.with-week-number {
+    grid-template-areas:
+      'week week .'
+      'weekday weekday .'
+      'day month weather';
+  }
+
+  .column-date-content .column-week-number {
+    grid-area: week;
+    justify-self: start;
+
+    /* The grid aligns to baselines, which a fixed-height pill has no useful one for.
+     * Centring in its own row keeps it off the weekday's baseline entirely. */
+    align-self: center;
   }
 
   .column-events {

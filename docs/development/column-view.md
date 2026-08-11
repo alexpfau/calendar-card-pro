@@ -800,11 +800,11 @@ present only in `en.json`; and `time_grid_interval_minutes` being a zoom control
 | ------------------------- | --------------------------- | ------------------------------------- | -------------------------------------------- |
 | Per-event accent          | vertical, left of event     | **unchanged**                         | `vertical_line_width`                        |
 | Day separator             | horizontal between days     | **replaced by the header rule** (§D6) | `day_separator_*` → `day_header_separator_*` |
-| Week separator            | horizontal at boundary      | **deferred with week numbers** (§D6)  | `week_separator_*`                           |
-| Month separator           | horizontal at boundary      | **deferred with week numbers** (§D6)  | `month_separator_*`                          |
+| Week separator            | horizontal at boundary      | **vertical, full height** (§D5)       | `week_separator_*`                           |
+| Month separator           | horizontal at boundary      | **vertical, full height** (§D5)       | `month_separator_*`                          |
 | Header rule               | does not exist              | **horizontal, under header**          | `day_header_separator_*`                     |
-| Week number badge         | own full-width row          | **deferred**                          | `show_week_numbers`, `week_number_*`         |
-| Day spacing               | vertical gap                | **column gutter, new key** (§D6)      | `day_spacing` → `column.day_gap`             |
+| Week number badge         | own full-width row          | **per-column header row** (§D5)       | `show_week_numbers`, `week_number_*`         |
+| Day spacing               | vertical gap                | **column gutter, same key** (§D6)     | `day_spacing`                                |
 | Event spacing             | vertical gap                | **unchanged**                         | `event_spacing`                              |
 | Today indicator           | absolute in date cell       | **absolute in header band**           | `today_indicator*`                           |
 | Weekday / day / month     | vertical stack, left        | **horizontal, in header**             | `weekday_*`, `day_*`, `month_*`              |
@@ -1029,11 +1029,11 @@ show_location: true # list view: plenty of room
 day_spacing: 16px
 column:
   show_location: false # column view: ~166px per column is not enough
-  day_gap: 4px # a new key (Category C), not an override of day_spacing
+  day_header_gap: 4px # a new key (Category C), no top-level counterpart
 ```
 
 > Note the asymmetry in that block: `show_location` is an **override** of the top-level key,
-> whereas `day_gap` is a **new key** that has no top-level counterpart. Both live inside
+> whereas `day_header_gap` is a **new key** that has no top-level counterpart. Both live inside
 > `column:`, but only the first participates in inheritance. See the Category C table below.
 
 #### Why a shared key is not enough
@@ -1099,10 +1099,10 @@ user to hold two meanings for one word. These get distinct keys:
 
 | List-view key              | Column-view meaning                | Resolution                          |
 | -------------------------- | ---------------------------------- | ----------------------------------- |
-| `day_spacing`              | vertical gap → horizontal gutter   | new `column.day_gap`                |
+| `day_spacing`              | vertical gap → horizontal gutter   | reuse — "gap between days" in both  |
 | `day_separator_*`          | horizontal rule → vertical rule    | new `column.day_header_separator_*` |
-| `week_separator_*`         | horizontal rule → vertical rule    | deferred with week numbers          |
-| `month_separator_*`        | horizontal rule → vertical rule    | deferred with week numbers          |
+| `week_separator_*`         | horizontal rule → vertical rule    | reuse — full-height vertical rule   |
+| `month_separator_*`        | horizontal rule → vertical rule    | reuse — full-height vertical rule   |
 | `compact_days_to_show`     | day rows → columns                 | reuse — the unit is "days" in both  |
 | `compact_events_to_show`   | total budget → per-column budget   | **out of MVP** (G12)                |
 | `today_indicator_position` | tall date cell → short header band | needs a real dashboard (G13)        |

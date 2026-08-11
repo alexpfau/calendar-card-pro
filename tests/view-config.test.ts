@@ -422,23 +422,38 @@ describe('validateColumnOverrides', () => {
 
   // A deferred key is in DEFAULT_CONFIG but not in the override set, so without its
   // own branch it falls through to "set it at the top level instead" -- advice that
-  // does not work, because column view renders no week rows or separators at all.
-  // Wrong advice is worse than none, so the distinct message is the point here.
+  // does not work, because column view renders no separators at all. Wrong advice is
+  // worse than none, so the distinct message is the point here.
+  it.each(['week_separator_width', 'month_separator_color', 'day_separator_width'])(
+    'tells the user %s is planned rather than misdirecting them to the top level',
+    (key) => {
+      const config = buildConfig();
+      config.column = { [key]: 1 } as unknown as Types.ColumnOverrides;
+
+      validateColumnOverrides(config);
+
+      expect(warnMock).toHaveBeenCalledTimes(1);
+      expect(warnMock.mock.calls[0][0]).toContain('not implemented yet');
+      expect(warnMock.mock.calls[0][0]).not.toContain('top level');
+    },
+  );
+
+  // The mirror image of the list above, and the reason it has to be kept honest: these
+  // five graduated out of the deferred set when week numbers landed. A key that stays
+  // on the list after it ships warns the user away from an option that works.
   it.each([
     'show_week_numbers',
+    'show_current_week_number',
+    'week_number_font_size',
     'week_number_color',
-    'week_separator_width',
-    'month_separator_color',
-    'day_separator_width',
-  ])('tells the user %s is planned rather than misdirecting them to the top level', (key) => {
+    'week_number_background_color',
+  ])('accepts %s inside the block now that week numbers render in column view', (key) => {
     const config = buildConfig();
-    config.column = { [key]: 1 } as unknown as Types.ColumnOverrides;
+    config.column = { [key]: 'iso' } as unknown as Types.ColumnOverrides;
 
     validateColumnOverrides(config);
 
-    expect(warnMock).toHaveBeenCalledTimes(1);
-    expect(warnMock.mock.calls[0][0]).toContain('not implemented yet');
-    expect(warnMock.mock.calls[0][0]).not.toContain('top level');
+    expect(warnMock).not.toHaveBeenCalled();
   });
 
   // The mirror-image mistake, and the more likely one: the reference documentation

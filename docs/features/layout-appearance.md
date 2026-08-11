@@ -142,6 +142,34 @@ Week numbers can be displayed using either:
 - **ISO Week Numbering**: Weeks start on Monday, and the first week of the year is the one containing the first Thursday (ISO 8601 standard)
 - **Simple Week Numbering**: Counts weeks starting from January 1st
 
+### Week Numbers in Column View
+
+In column view the badge moves into the day header, on its own row directly above the
+weekday, and each column answers for itself: a column that opens a week shows its number,
+and the rest show nothing. That is what makes the option coherent in a grid — a seven-day
+window can straddle two weeks, so a single badge spanning the card would have nowhere
+sensible to sit.
+
+The row is reserved in **every** column, not only the ones that start a week, so the
+weekday, day number and events below stay aligned across the whole card. When
+`show_week_numbers` is `null` — the default — no row is added at all.
+
+`show_current_week_number` keeps its meaning: set it to `false` to hide the badge on the
+first column, which is usually a partial week. All three styling options carry over
+unchanged, so a badge you have already tuned looks the same in both views.
+
+::: tip Per-View Week Numbers
+Every option in this section may be set inside a `column:` block, so you can leave week
+numbers off in the list layout and switch them on only when the card renders as columns.
+
+```yaml
+show_week_numbers: null
+column:
+  show_week_numbers: iso
+```
+
+:::
+
 ## 📆 Date Column Customization
 
 Control the appearance of the date column for a personalized calendar view:

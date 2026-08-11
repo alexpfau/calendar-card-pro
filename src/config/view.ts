@@ -71,6 +71,11 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & k
     'description_max_lines',
     'description_font_size',
     'description_icon_size',
+    'show_week_numbers',
+    'show_current_week_number',
+    'week_number_font_size',
+    'week_number_color',
+    'week_number_background_color',
   ];
 
 /**
@@ -129,24 +134,20 @@ const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
  * because of where they would otherwise fall: each one *is* a valid member of
  * `DEFAULT_CONFIG`, so without this set the validator reaches the "cannot be
  * overridden per view — set it at the top level instead" branch and gives advice
- * that does not work. Column view renders no week rows and no day, week or month
- * separators at all, so setting these at the top level changes nothing there.
+ * that does not work. Column view renders no day, week or month separators at all,
+ * so setting these at the top level changes nothing there.
  *
  * The set was briefly empty after Phase 4b implemented the three keys that used to
- * live here. It is kept rather than deleted because the situation it describes
- * recurs on every phase boundary: the design document is published, so a key can be
- * public knowledge before it is public behaviour, and "planned but not built" is a
- * materially different message from "not a recognized option".
+ * live here, and shrank again when week numbers landed. It is kept rather than
+ * deleted because the situation it describes recurs on every phase boundary: the
+ * design document is published, so a key can be public knowledge before it is public
+ * behaviour, and "planned but not built" is a materially different message from
+ * "not a recognized option".
  */
 const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
-  // Week numbering — column view renders no week rows (spec D1 table, :785-788).
-  'show_week_numbers',
-  'show_current_week_number',
-  'week_number_font_size',
-  'week_number_color',
-  'week_number_background_color',
-  // Separators — the boundary between days in a column layout is the grid gap,
-  // which `day_gap` controls, so none of these have a surface to render on.
+  // Separators — the boundary between days in a column layout is currently the grid
+  // gap, which `day_spacing` controls, so none of these have a surface to render on
+  // yet. The spec rules all three in at full column height; see D5.
   'week_separator_width',
   'week_separator_color',
   'month_separator_width',
