@@ -6,6 +6,14 @@ removed from the current column-view specification. It is for audit and context 
 **The spec in [column-view.md](./column-view.md) is authoritative where the two files
 disagree.**
 
+> **[v15] Two density keys were renamed, and the new names were substituted into the entries
+> below.** `min_column_width_px` → `min_day_width`, and `min_width_fallback` →
+> `min_days_fallback`. Entries here that discuss those keys therefore read with names that did
+> not yet exist when the entry was written. This is the one case where archived text is
+> rewritten rather than annotated: a rename changes no ruling, and leaving the old spelling in
+> place would make the corpus un-greppable and imply two distinct keys once existed. Nothing
+> had shipped, so no migration exists. See A3-F in the spec for the full record.
+
 > **[v14] One archived constraint no longer holds.** Several entries below (A3-B-3, D2,
 > G-section) warn that the `editor` translation section is **all-or-nothing** — that a
 > partially translated section defeats `hasEditorTranslations()` and renders every missing
@@ -179,7 +187,7 @@ marked **[v6]**; changes from v6 are marked **[v7]**; changes from v7 are marked
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 11 + 12 | **Merged into one design: the view itself falls back to list below a width threshold.** Not column-count clamping. See A3-C.                                                                                                                                                                                                                                                                                                                                                                                                         | You flagged that 11 and 12 described the same issue. They did.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | 13      | **[v4] Approved in principle, but re-scoped** — a DOM snapshot cannot gate the Phase 1 refactor, because the DOM is now _allowed_ to change. See A3-A and the new section C0. **[v5] Corrected:** this row was missed by the v4 pass and read as though the gate had become manual. It has not. The automated gate is **retained and tightened**, and it is the _list_ DOM that must be byte-identical across Phase 1 — see **Phase 0 Stage 2**, which owns it. **[v7] Shipped (PR #390) and mutation-tested — the gate now exists** | **[v5]** The _visual_ check in Home Assistant covers the **column** view, which has no baseline to be identical to. It does **not** replace the automated list-DOM gate; the two cover different things and both are required before Phase 1 merges                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 14      | **Approved:** "fully flexible here, let's try out once we have a first implementation." Measure `min_column_width_px` in Phase 4.                                                                                                                                                                                                                                                                                                                                                                                                | **[v5] A provisional value is now fixed so Phase 4 is buildable: `min_column_width_px = 160`.** This is a **starting point, not a result** — it is to be measured and revised in Phase 4, and the plan is not "correct" until it has been. It is not a free choice, however: (a) **128 is disproven**, not neutral — the narrow-column analysis below showed titles wrapping badly at that width, so the inherited #339 default must not ship unchanged; (b) `atomic-calendar-revive` ships `min-width: 150px` on its Planner columns, which is the only real-world number available and brackets the answer from below; (c) 160 leaves the decision-4 date-header arithmetic at ≈ 34–39% of column width rather than 43–50%, which is the margin the header band needs for weather (D2). **[v4] Two facts still bank before measuring:** the number does **double duty** — usable column-width floor _and_ the multiplier in A3-C's view-switch threshold — so a wrong value produces two _aligned_ bad outcomes (cramped columns that also fail to trigger the list fallback) |
+| 14      | **Approved:** "fully flexible here, let's try out once we have a first implementation." Measure `min_day_width` in Phase 4.                                                                                                                                                                                                                                                                                                                                                                                                | **[v5] A provisional value is now fixed so Phase 4 is buildable: `min_day_width = 160`.** This is a **starting point, not a result** — it is to be measured and revised in Phase 4, and the plan is not "correct" until it has been. It is not a free choice, however: (a) **128 is disproven**, not neutral — the narrow-column analysis below showed titles wrapping badly at that width, so the inherited #339 default must not ship unchanged; (b) `atomic-calendar-revive` ships `min-width: 150px` on its Planner columns, which is the only real-world number available and brackets the answer from below; (c) 160 leaves the decision-4 date-header arithmetic at ≈ 34–39% of column width rather than 43–50%, which is the margin the header band needs for weather (D2). **[v4] Two facts still bank before measuring:** the number does **double duty** — usable column-width floor _and_ the multiplier in A3-C's view-switch threshold — so a wrong value produces two _aligned_ bad outcomes (cramped columns that also fail to trigger the list fallback) |
 
 ---
 
@@ -483,7 +491,7 @@ picking a renderer replaces it.
 Default threshold is computable, not magic:
 
 ```
-min_column_width_px × days_to_show  +  card padding  +  (days_to_show − 1) × gutter
+min_day_width × days_to_show  +  card padding  +  (days_to_show − 1) × gutter
 ```
 
 Rule the user can hold in their head: **above the threshold you get the columns you asked
@@ -2022,7 +2030,7 @@ change an allow/block pattern. Confirm the view updates.
 >   applicable. Rule it in or out and update A3-D, D3, D5, E1 and G2 **together**.
 > - **G13. Phase 4 needs a measurement spike before implementation.** Minimum column width,
 >   hysteresis band, weather truncate-or-drop, header vertical budget, whether
->   `min_column_width_px` is public config, and — most consequentially — **which column
+>   `min_day_width` is public config, and — most consequentially — **which column
 >   count drives the threshold**. With `show_empty_days: false` the formula still uses
 >   `days_to_show`, so a 7-day config with events on 2 days demands a 7-column-wide container
 >   before it will show 2 columns, which defeats dense mode outright.
@@ -2054,7 +2062,7 @@ change an allow/block pattern. Confirm the view updates.
    A3-B-3.
 8. **[v4] To verify in HA, not on paper:** the actual card-edit modal width, which determines
    how severe A3-C.4 is (the mitigation is mandatory regardless). **[v5]** Now also determines
-   whether the provisional `min_column_width_px: 160` (decision 14) survives measurement.
+   whether the provisional `min_day_width: 160` (decision 14) survives measurement.
    **[v6] MEASURED — 480px.** A3-C.4 is real and severe: a user configuring a 7-day column view
    watches the preview fall back to list _while editing_. The mitigation is load-bearing.
 9. **No runtime or visual HA testing has happened on any of this yet.** **[v6] Superseded** —
@@ -2102,7 +2110,7 @@ either conclusion is not evidence.** The tell was the physical impossibility, no
 Point 3 is the one that changed the ruling. Had the spike only sampled widths, 500px would have
 looked like an immovable ceiling, and the design would have been built around working within
 it. Reading the property revealed it as a default the user can raise — which is what makes
-`min_column_width_px` a coherent escape hatch rather than a token gesture.
+`min_day_width` a coherent escape hatch rather than a token gesture.
 
 ---
 

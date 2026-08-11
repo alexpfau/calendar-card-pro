@@ -17,8 +17,8 @@ import {
   resolveColumnOption,
   resolveEffectiveConfig,
   resolveEffectiveView,
+  resolveMinDaysFallback,
   resolveMinDaysToShow,
-  resolveMinWidthFallback,
   resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
@@ -799,21 +799,21 @@ describe('column view config surface', () => {
   });
 });
 
-describe('column.min_column_width_px normalization', () => {
+describe('column.min_day_width normalization', () => {
   it('defaults to 140', () => {
-    expect(resolveColumnOption(buildConfig(), 'min_column_width_px')).toBe(140);
+    expect(resolveColumnOption(buildConfig(), 'min_day_width')).toBe(140);
   });
 
   it('reads a configured value out of the column block', () => {
-    const config = buildConfig({ column: { min_column_width_px: 220 } });
-    expect(resolveColumnOption(config, 'min_column_width_px')).toBe(220);
+    const config = buildConfig({ column: { min_day_width: 220 } });
+    expect(resolveColumnOption(config, 'min_day_width')).toBe(220);
   });
 
   it('accepts a numeric string, which is what the editor persists', () => {
     const config = buildConfig({
-      column: { min_column_width_px: '220' as unknown as number },
+      column: { min_day_width: '220' as unknown as number },
     });
-    expect(resolveColumnOption(config, 'min_column_width_px')).toBe(220);
+    expect(resolveColumnOption(config, 'min_day_width')).toBe(220);
   });
 
   // The #327 inputs. Each would otherwise coerce to 0 or NaN and make every viewport
@@ -831,9 +831,9 @@ describe('column.min_column_width_px normalization', () => {
     ['negative', -100],
   ])('falls back to the default for %s', (_label, value) => {
     const config = buildConfig({
-      column: { min_column_width_px: value as unknown as number },
+      column: { min_day_width: value as unknown as number },
     });
-    expect(resolveColumnOption(config, 'min_column_width_px')).toBe(140);
+    expect(resolveColumnOption(config, 'min_day_width')).toBe(140);
   });
 
   // The threshold is the reason the validation above exists, so assert the outcome
@@ -841,7 +841,7 @@ describe('column.min_column_width_px normalization', () => {
   it('keeps the view-switch threshold finite for an unusable value', () => {
     const config = buildConfig({
       days_to_show: 3,
-      column: { min_column_width_px: 'wide' as unknown as number },
+      column: { min_day_width: 'wide' as unknown as number },
     });
     expect(computeColumnThresholdPx(config)).toBe(140 * 3 + 32 + 2 * 10);
   });
@@ -870,7 +870,7 @@ describe('computeColumnThresholdPx', () => {
     //     a deliberate, reviewed cost.
     //   - That cost was then rejected on sight: a default 3-day card rendering as a
     //     list in the single most common desktop placement is not an acceptable
-    //     default, whatever the reasoning behind it. min_column_width_px dropped
+    //     default, whatever the reasoning behind it. min_day_width dropped
     //     152 -> 140 to buy the fit back without giving up the padding or the gap.
     //
     // The margin is thinner than 476-vs-500 suggests, because the view only *enters*
@@ -1114,16 +1114,16 @@ describe('resolveMinDaysToShow', () => {
   });
 });
 
-describe('resolveMinWidthFallback', () => {
+describe('resolveMinDaysFallback', () => {
   it('defaults to the wholesale list fallback the card shipped with', () => {
-    expect(resolveMinWidthFallback(buildConfig())).toBe('list');
+    expect(resolveMinDaysFallback(buildConfig())).toBe('list');
   });
 
   it('honours an explicit cramp', () => {
     const config = buildConfig();
-    config.column = { min_width_fallback: 'cramp' };
+    config.column = { min_days_fallback: 'cramp' };
 
-    expect(resolveMinWidthFallback(config)).toBe('cramp');
+    expect(resolveMinDaysFallback(config)).toBe('cramp');
   });
 
   it('treats an unrecognized value as list rather than as not-list', () => {
@@ -1134,8 +1134,8 @@ describe('resolveMinWidthFallback', () => {
     const config = buildConfig();
 
     for (const value of ['lst', 'List', 'columns', '', 'true']) {
-      config.column = { min_width_fallback: value as Types.ColumnMinWidthFallback };
-      expect(resolveMinWidthFallback(config)).toBe('list');
+      config.column = { min_days_fallback: value as Types.ColumnMinDaysFallback };
+      expect(resolveMinDaysFallback(config)).toBe('list');
     }
   });
 });
@@ -1279,9 +1279,9 @@ describe('resolveColumnFit — reduction', () => {
   });
 
   it('holds the floor below it when asked to cramp', () => {
-    const config = build({ min_width_fallback: 'cramp' });
+    const config = build({ min_days_fallback: 'cramp' });
 
-    // Columns now narrower than min_column_width_px, which is the entire point: the
+    // Columns now narrower than min_day_width, which is the entire point: the
     // minimum is a judgement about legibility and the user is entitled to overrule it.
     expect(resolveColumnFit('column', config, 471, null)).toEqual({ view: 'column', columns: 3 });
     expect(resolveColumnFit('column', config, 200, null)).toEqual({ view: 'column', columns: 3 });
@@ -1311,7 +1311,7 @@ describe('resolveColumnFit — reduction', () => {
   });
 
   it('keeps adjacent hysteresis bands from overlapping at a pathological width floor', () => {
-    // With min_column_width_px at 12 and a 10px gutter the boundaries sit 22px apart,
+    // With min_day_width at 12 and a 10px gutter the boundaries sit 22px apart,
     // so an unclamped +/-16 band would reach past its neighbour and the trigger would
     // oscillate rather than damp. The clamp caps the half-band at (22 - 1) / 2.
     //
@@ -1320,7 +1320,7 @@ describe('resolveColumnFit — reduction', () => {
     // either direction, from any starting layout.
     const config = buildConfig();
     config.days_to_show = 7;
-    config.column = { min_days_to_show: 1, min_column_width_px: 12 };
+    config.column = { min_days_to_show: 1, min_day_width: 12 };
 
     for (let width = 40; width <= 220; width += 1) {
       const from = resolveColumnFit('column', config, width, null);

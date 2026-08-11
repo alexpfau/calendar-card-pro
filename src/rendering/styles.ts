@@ -694,7 +694,7 @@ export const cardStyles = css`
    * intrinsic sizing -- so it cannot widen a row that fits today. Below roughly one
    * character of usable width there is nothing left to give: a cramped column narrower
    * than a single glyph still overflows, which is the degenerate limit of
-   * min_width_fallback: 'cramp' rather than a defect.
+   * min_days_fallback: 'cramp' rather than a defect.
    */
   .time span,
   .location span,

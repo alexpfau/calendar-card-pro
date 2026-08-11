@@ -86,7 +86,7 @@ export const TIMING = {
    * at 464px is measured at 500px first. Acting on that first measurement lets a card
    * enter column view above the threshold and then keep it via the hysteresis band all
    * the way down to its settled width, rendering columns narrower than
-   * `min_column_width_px` — the exact outcome the threshold exists to prevent.
+   * `min_day_width` — the exact outcome the threshold exists to prevent.
    *
    * Waiting for the measurements to stop means the band is only ever earned by a width
    * the layout has actually committed to. 100ms is long enough to outlast the transient

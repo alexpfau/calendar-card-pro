@@ -22,7 +22,7 @@ import {
  * the section's constraint, so a card that settles at 464px is measured at 500px
  * first. Acting on that first measurement lets the card enter column view legitimately
  * at 500px and then *keep* it at 464px via the hysteresis band, rendering columns
- * below `min_column_width_px`. The threshold is bypassed without ever being
+ * below `min_day_width`. The threshold is bypassed without ever being
  * violated by any single comparison, which is why the pure resolvers cannot catch it.
  */
 
@@ -68,7 +68,7 @@ interface CardUnderTest extends HTMLElement {
  *
  * Not the bare default, and the gutter is pinned rather than inherited. The straddle
  * this file depends on -- transient above the decision edge, settled below it -- has to
- * survive changes to `min_column_width_px`, the card padding and the default
+ * survive changes to `min_day_width`, the card padding and the default
  * `day_spacing`, none of which this file is about. Pinning the column gutter to 4px
  * puts the decision edge at 476px, comfortably between the two measured widths, so the
  * straddle
@@ -417,11 +417,11 @@ describe('column density', () => {
   });
 
   it('cramps below the floor when asked to', () => {
-    const card = mountDensityCard({ min_width_fallback: 'cramp' });
+    const card = mountDensityCard({ min_days_fallback: 'cramp' });
     settle(card, 1400);
     settle(card, 300);
 
-    // Three columns in 300px is well under `min_column_width_px`. That is the whole
+    // Three columns in 300px is well under `min_day_width`. That is the whole
     // point of the option: the user has said the grid matters more than legibility.
     expect(card.effectiveView).toBe('column');
     expect(card._columnCount).toBe(3);

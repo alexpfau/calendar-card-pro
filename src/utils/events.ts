@@ -183,7 +183,7 @@ export function groupEventsByDay(
   // three wide columns instead of seven narrow ones. That is not a denser card; it is a
   // different, smaller card occupying identical space, with nothing on screen to say four
   // days are missing. Column view answers the density question with `min_days_to_show` and
-  // `min_width_fallback`, which reduce columns only when the width genuinely cannot carry
+  // `min_days_fallback`, which reduce columns only when the width genuinely cannot carry
   // them (spec §D7).
   //
   // All four keys are covered, and each was corrupting the grid differently:

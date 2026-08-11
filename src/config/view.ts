@@ -105,9 +105,9 @@ export const COLUMN_ONLY_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = [
   'day_header_gap',
   'day_header_separator_width',
   'day_header_separator_color',
-  'min_column_width_px',
+  'min_day_width',
   'min_days_to_show',
-  'min_width_fallback',
+  'min_days_fallback',
 ];
 
 const OVERRIDE_KEY_SET: ReadonlySet<string> = new Set<string>([
@@ -258,18 +258,18 @@ export const COLUMN_DEFAULTS = {
   //
   // Do not "restore" this to 160 on the strength of the G13 number alone: that
   // reintroduces a large deficit and silently disables the feature at defaults.
-  min_column_width_px: 140,
+  min_day_width: 140,
 
   // 'list' preserves the wholesale fallback the card shipped with. The alternative,
   // 'cramp', is only reachable by writing it, and only *matters* once the user has
   // also lowered `min_days_to_show` -- at the default floor of `days_to_show` the two
   // values differ solely in whether an over-narrow card shows a list or a squeezed
   // grid, and 'list' is the honest answer there.
-  // Deliberately written bare rather than cast to `Types.ColumnMinWidthFallback`:
+  // Deliberately written bare rather than cast to `Types.ColumnMinDaysFallback`:
   // the surrounding `as const` already narrows it to the literal, so the cast bought
   // nothing, and `check:docs` reconciles this table by reading the source text --
   // an inline assertion there reads as a default of "'list' as Types..." and fails.
-  min_width_fallback: 'list',
+  min_days_fallback: 'list',
 } as const;
 
 /**
@@ -280,7 +280,7 @@ export const COLUMN_DEFAULTS = {
  * length-ness that way: a list that has to be edited in lockstep with the table
  * above is a list that will eventually disagree with it.
  *
- * The conditional widens the literal type — `COLUMN_DEFAULTS.min_column_width_px`
+ * The conditional widens the literal type — `COLUMN_DEFAULTS.min_day_width`
  * is typed `140` under `as const`, and a user who configures `220` must still be
  * assignable to the return type.
  */
@@ -311,7 +311,7 @@ const COLUMN_LENGTH_KEYS: ReadonlySet<string> = new Set([
  * Numeric keys carry their own validation here, and must: the `column:` block is raw
  * user input that never passes through `normalizeConfig`'s `toValidNumber` sweep, so
  * this is the only place a bad value can be caught. A non-finite or non-positive
- * `min_column_width_px` would otherwise produce a zero or `NaN` view-switch threshold
+ * `min_day_width` would otherwise produce a zero or `NaN` view-switch threshold
  * — column view rendering at every width, at any degree of crampedness, or never
  * rendering at all. Falling back to the default is the only safe reading of a value
  * the card cannot use.
@@ -446,7 +446,7 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * not: the same cap deletes columns from the right while the card keeps its full
  * height, so the result is a differently-shaped card of identical size that merely
  * holds less, with nothing on screen to say the rest is missing. Column view answers
- * the density question with `min_days_to_show` / `min_width_fallback` instead, which
+ * the density question with `min_days_to_show` / `min_days_fallback` instead, which
  * reduce columns only when the width genuinely cannot carry them (spec §D7).
  *
  * Written as a predicate over the view rather than an inline `!== 'column'` because the
@@ -774,7 +774,7 @@ function warnAboutTopLevelColumnOnlyKeys(config: Types.Config): void {
  * left of the card title. Reverted; the arithmetic follows the stylesheet.
  *
  * This is not cosmetic — it is load-bearing arithmetic. See
- * `COLUMN_DEFAULTS.min_column_width_px`.
+ * `COLUMN_DEFAULTS.min_day_width`.
  */
 export const COLUMN_CARD_PADDING_PX = 32;
 
@@ -834,7 +834,7 @@ const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
  * Computes the card width, in pixels, at or above which column view can render.
  *
  * ```
- * column.min_column_width_px x days_to_show + card padding + (days_to_show - 1) x gutter
+ * column.min_day_width x days_to_show + card padding + (days_to_show - 1) x gutter
  * ```
  *
  * This is A3-C's formula verbatim. Every term is required: dropping the padding term
@@ -869,9 +869,9 @@ export function computeColumnThresholdPx(config: Types.Config): number {
 export function computeColumnThresholdPxFor(config: Types.Config, days: number): number {
   const count = Math.max(1, Math.floor(days));
   const gutter = columnGutterPx(config);
-  const minColumnWidth = resolveColumnOption(config, 'min_column_width_px');
+  const minDayWidth = resolveColumnOption(config, 'min_day_width');
 
-  return minColumnWidth * count + COLUMN_CARD_PADDING_PX + (count - 1) * gutter;
+  return minDayWidth * count + COLUMN_CARD_PADDING_PX + (count - 1) * gutter;
 }
 
 /**
@@ -950,8 +950,8 @@ export function resolveMinDaysToShow(config: Types.Config): number {
  * @param config - Merged configuration, defaults already applied
  * @returns `'list'` or `'cramp'`
  */
-export function resolveMinWidthFallback(config: Types.Config): Types.ColumnMinWidthFallback {
-  return resolveColumnOption(config, 'min_width_fallback') === 'cramp' ? 'cramp' : 'list';
+export function resolveMinDaysFallback(config: Types.Config): Types.ColumnMinDaysFallback {
+  return resolveColumnOption(config, 'min_days_fallback') === 'cramp' ? 'cramp' : 'list';
 }
 
 /**
@@ -1091,7 +1091,7 @@ export interface ColumnFit {
  */
 function fitColumns(config: Types.Config, widthPx: number): number {
   const gutter = columnGutterPx(config);
-  const unit = resolveColumnOption(config, 'min_column_width_px') + gutter;
+  const unit = resolveColumnOption(config, 'min_day_width') + gutter;
 
   if (unit <= 0) {
     return 0;
@@ -1107,20 +1107,20 @@ function fitColumns(config: Types.Config, widthPx: number): number {
  *
  * `VIEW_SWITCH_HYSTERESIS_PX / 2` was chosen when there was exactly one boundary to
  * defend. Column reduction introduces `days_to_show - min_days_to_show + 1` of them,
- * spaced `min_column_width_px + gutter` apart, and bands wider than half that spacing
+ * spaced `min_day_width + gutter` apart, and bands wider than half that spacing
  * would overlap — at which point a single width could satisfy the enter condition for
  * one count and the leave condition for the next, and the trigger would oscillate
  * instead of damping.
  *
  * At defaults the spacing is 150px and the clamp never binds. It binds only for a
- * user who has driven `min_column_width_px` down near the gutter, which is a
+ * user who has driven `min_day_width` down near the gutter, which is a
  * configuration the card deliberately permits.
  *
  * @param config - Merged configuration, defaults already applied
  * @returns Half-band in pixels, never negative
  */
 function columnHysteresisHalfBandPx(config: Types.Config): number {
-  const spacing = resolveColumnOption(config, 'min_column_width_px') + columnGutterPx(config);
+  const spacing = resolveColumnOption(config, 'min_day_width') + columnGutterPx(config);
 
   return Math.max(0, Math.min(VIEW_SWITCH_HYSTERESIS_PX / 2, (spacing - 1) / 2));
 }
@@ -1131,13 +1131,13 @@ function columnHysteresisHalfBandPx(config: Types.Config): number {
  * Generalizes `resolveEffectiveView` from a single yes/no boundary to a staircase.
  * Column view renders as many columns as the width carries, never more than
  * `days_to_show` and never fewer than `min_days_to_show`; below that floor
- * `min_width_fallback` decides between falling back to the list layout and holding
+ * `min_days_fallback` decides between falling back to the list layout and holding
  * the floor with columns narrower than the configured minimum.
  *
  * **At defaults this reduces exactly to the previous behaviour.** `min_days_to_show`
  * defaults to `days_to_show`, so the staircase has one step: either every configured
  * column fits and the view is `'column'`, or none of them do and
- * `min_width_fallback: 'list'` returns the list layout — the same two outcomes, at the
+ * `min_days_fallback: 'list'` returns the list layout — the same two outcomes, at the
  * same threshold, with the same 16px band. The generalization is inert until a user
  * lowers the floor.
  *
@@ -1198,7 +1198,7 @@ export function resolveColumnFit(
     return { view: 'column', columns: Math.min(fitted, days) };
   }
 
-  return resolveMinWidthFallback(config) === 'cramp'
+  return resolveMinDaysFallback(config) === 'cramp'
     ? { view: 'column', columns: floor }
     : { view: 'list', columns: 0 };
 }

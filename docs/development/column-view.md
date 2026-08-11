@@ -30,7 +30,7 @@ alternatives are archived in [column-view-rationale.md](./column-view-rationale.
 | 10      | Feature milestone is **v4.0.0**                                                        | This is a choice, not a semver requirement.                                                                                                                                                                            |
 | 11 + 12 | Below a width threshold, the **view falls back to list**                               | Do not clamp the number of columns. See A3-C.                                                                                                                                                                          |
 | 13      | The list DOM equality gate is retained, tightened, shipped, and mutation-tested        | Phase 0 PR #390 delivered `tests/list-dom.test.ts`; Phase 1 must keep it green.                                                                                                                                        |
-| 14      | `column.min_column_width_px` ships at **140**, is **measured**, and is **public config** | **[v12] The shipped default is 140, not the 160 G13 reported.** G13 measured the floor a column survives at correctly, but computed the fit as `160 × 3 + 20 = 500` against a measured 500px section — arithmetic carrying no term for the card's own horizontal padding, which is real. Restoring the full formula leaves 140 as the largest floor that still fits three columns in a default section, which is the constraint that sets the number. 128 remains disproven. G14 makes it a user-facing key — the escape hatch that keeps decision 11+12 ("do not clamp the number of columns") viable. **[v12] It lives inside `column:`**, not at the top level: it is Category C, meaningless in list view. |
+| 14      | `column.min_day_width` ships at **140**, is **measured**, and is **public config** | **[v12] The shipped default is 140, not the 160 G13 reported.** G13 measured the floor a column survives at correctly, but computed the fit as `160 × 3 + 20 = 500` against a measured 500px section — arithmetic carrying no term for the card's own horizontal padding, which is real. Restoring the full formula leaves 140 as the largest floor that still fits three columns in a default section, which is the constraint that sets the number. 128 remains disproven. G14 makes it a user-facing key — the escape hatch that keeps decision 11+12 ("do not clamp the number of columns") viable. **[v12] It lives inside `column:`**, not at the top level: it is Category C, meaningless in list view. |
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#a-decisions-ledger)
 
@@ -214,7 +214,7 @@ This supersedes column-count clamping. List view is already designed for narrow 
 cramped columns are not useful. The fallback threshold is computed from:
 
 ```
-min_column_width_px × days_to_show  +  card padding  +  (days_to_show − 1) × gutter
+min_day_width × days_to_show  +  card padding  +  (days_to_show − 1) × gutter
 ```
 
 User-facing rule: **above the threshold you get the columns you asked for; below it you get
@@ -333,6 +333,33 @@ Resolution:
 comment when nearby.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#a3-e-separator-defaults--two-different-mechanisms)
+
+---
+
+### A3-F. Density key rename **[v15]**
+
+Two Category C keys were renamed before shipping. Nothing had been released, so no migration
+is needed and `DEPRECATED_CONFIG_MAP` is deliberately not involved:
+
+| Old name              | New name           | Why                                                                     |
+| --------------------- | ------------------ | ----------------------------------------------------------------------- |
+| `min_column_width_px` | `min_day_width`    | `column` appears in zero of the 93 shipped keys; `day` appears in 14. In a time grid the time axis is itself a column, so `min_column_width_px` would be genuinely ambiguous there. No shipped key carries a `_px` suffix. |
+| `min_width_fallback`  | `min_days_fallback` | It named the wrong gate. The fallback fires when `min_days_to_show` will not fit — a *days* floor, not a width. Raising `min_days_to_show` triggers it at a **wider** card with the width key untouched. |
+
+The identifiers moved with them: `ColumnMinWidthFallback` → `ColumnMinDaysFallback`,
+`resolveMinWidthFallback` → `resolveMinDaysFallback`.
+
+**Both names were substituted throughout this document and the rationale log, including inside
+historical entries.** That is a deliberate departure from the rule that archived rulings are
+never rewritten. The rule exists so a superseded *decision* is not falsified; a rename alters
+no decision, only a spelling. Leaving the old spelling in place would make
+`grep min_day_width` miss half the discussion and invite a reader to conclude two distinct
+keys once existed. This table is the record of the old names.
+
+Dropping `_px` costs nothing at runtime: `normalizeColumnValue` parses with
+`Number.parseFloat`, so `min_day_width: '140px'` resolves to `140` and an unparseable value
+falls back to the default. It does move the unit out of the key name, so the reference row and
+the feature-page prose now state "in pixels" explicitly.
 
 ---
 
@@ -1259,7 +1286,7 @@ generous in a column.
 
 Note that the first row is the _default_ placement and it caps at three columns, which is why
 G14 rules that the card falls back to list rather than clamping, and why
-`min_column_width_px` is public.
+`min_day_width` is public.
 
 #### Eligibility — the boundary follows from G10
 
@@ -1799,10 +1826,10 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 >   demanded a 7-column-wide container before showing 2 columns — defeating dense mode
 >   outright. **Ruled: the threshold uses the rendered column count**, which is already known
 >   at render time because grouping precedes it. Same N as G11. **The spike has now run:**
->   `min_column_width_px: 160` survived measurement (**[v12] the shipped default is 140** —
+>   `min_day_width: 160` survived measurement (**[v12] the shipped default is 140** —
 >   the measurement stands, the value drawn from it did not; see the G13 results below), 128 is
 >   confirmed disproven, and the
->   card-edit modal measured 480px. **`min_column_width_px` is now ruled public config**
+>   card-edit modal measured 480px. **`min_day_width` is now ruled public config**
 >   (G14). Still open after the spike: the hysteresis band, weather truncate-or-drop (which
 >   _sets_ the minimum), and the header vertical budget. The default-width finding it surfaced
 >   is ruled in **G14** below.
@@ -1835,7 +1862,7 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    A3-B-3.
 8. **[v4] To verify in HA, not on paper:** the actual card-edit modal width, which determines
    how severe A3-C.4 is (the mitigation is mandatory regardless). **[v5]** Now also determines
-   whether the provisional `min_column_width_px: 160` (decision 14) survives measurement.
+   whether the provisional `min_day_width: 160` (decision 14) survives measurement.
    **[v6] MEASURED: 480px, i.e. two columns. A3-C.4 is severe. 160px survives.** See G13
    results.
 9. **No runtime or visual HA testing has happened on any of this yet.**
@@ -1893,7 +1920,7 @@ number 26px, time 12px):
 | `10:00 - 11:30`      | 69px  |
 | `Team Standup`       | 91px  |
 
-**`min_column_width_px: 160` survives measurement.** **[v12 — superseded as the shipped
+**`min_day_width: 160` survives measurement.** **[v12 — superseded as the shipped
 value; the measurement below stands, the conclusion drawn from it did not.** 160 is a valid
 *header* floor, but the constant is also the multiplier in A3-C's view-switch threshold, and the
 fit arithmetic that accepted 160 omitted the card's horizontal padding. The shipped default is
@@ -1955,7 +1982,7 @@ false` (the content-driven reduction already ruled in G13). Width never enters t
 This is the same N as G11's `repeat(N, minmax(0, 1fr))` and the same N as G13's threshold input,
 so all three remain consistent.
 
-The rejected alternative was to render `⌊width / min_column_width_px⌋` columns, capped at
+The rejected alternative was to render `⌊width / min_day_width⌋` columns, capped at
 days available — a 500px card would then show a tidy 3-day column view out of the box. It was
 rejected because it makes the card **quietly disagree with its own configuration**: a user who
 asks for 7 days and sees 3 has no signal explaining the difference, and the same config renders
@@ -1964,7 +1991,7 @@ worse than an honest fallback.
 
 Three mechanisms carry the decision instead:
 
-1. **`min_column_width_px` becomes public config** (upgrading decision 14, and closing the
+1. **`min_day_width` becomes public config** (upgrading decision 14, and closing the
    G13 sub-question of whether it should be). It is the user's escape hatch: the threshold is
    theirs to lower. A user who genuinely wants 7 columns in a 500px card can set it to `70` and
    get them. The card's opinion about legibility becomes a default, not a rule.
@@ -1972,9 +1999,9 @@ Three mechanisms carry the decision instead:
    count does not fit, the card falls back to list _wholesale_ — it never renders a degraded
    column view. This is the already-ruled behaviour; the finding does not change it.
 3. **The editor warns at configuration time.** When
-   `days_to_show × min_column_width_px + gutters` exceeds a reference width, the editor
+   `days_to_show × min_day_width + gutters` exceeds a reference width, the editor
    surfaces a warning naming the arithmetic and the remedies: raise `column_span`, use a panel
-   view, reduce `days_to_show`, or lower `min_column_width_px`. The decision stays with the
+   view, reduce `days_to_show`, or lower `min_day_width`. The decision stays with the
    user; the card's job is to make the consequence visible _before_ they hit it.
 
 The warning is **computed statically, never measured**. The editor cannot know the card's
@@ -1995,7 +2022,7 @@ regardless of where the card ends up.
   (windowed by `days_to_show`) and the rendering would have diverged and needed reconciling.
   With the column count pinned to `days_to_show`, the existing window is already correct. **No
   change required** — recorded here so the reconciliation is not re-derived later.
-- **New key cost.** `min_column_width_px` becoming public means: a `DEFAULT_CONFIG` entry, a
+- **New key cost.** `min_day_width` becoming public means: a `DEFAULT_CONFIG` entry, a
   documentation row (`check:docs` enforces defaults ↔ reference-table parity), an editor
   control, and editor strings in all 11 editor-translated languages.
 - **The editor warning is a v4.0.0 release blocker, not an MVP blocker** — consistent with the

@@ -14,7 +14,7 @@ import * as EventUtils from '../src/utils/events';
  * is a tail-trim: the card gets shorter and the soonest events survive. In a grid the
  * same cap deletes columns from the right while the card keeps its full height, so it
  * renders a smaller card in identical space with nothing on screen to say days are
- * missing. Column view answers density with `min_days_to_show` / `min_width_fallback`
+ * missing. Column view answers density with `min_days_to_show` / `min_days_fallback`
  * instead.
  *
  * ## Why every case here is a *paired* assertion

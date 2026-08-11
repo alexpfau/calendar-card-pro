@@ -331,7 +331,7 @@ describe('column view DOM', () => {
       // on a single-entity card a cap of 1 leaves one event in the entire grid and collapses
       // every column but the first. That is the same defect as the global cap, reached by a
       // narrower door. A3-D:262-264 is corrected; all four compact keys are now inert in
-      // column view, and density is answered by `min_days_to_show` / `min_width_fallback`.
+      // column view, and density is answered by `min_days_to_show` / `min_days_fallback`.
       const config = buildConfig({
         show_empty_days: true,
         entities: [{ entity: 'calendar.personal', compact_events_to_show: 1 }],

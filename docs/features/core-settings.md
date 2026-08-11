@@ -311,9 +311,9 @@ card omits the element entirely; a transparent rule still occupies its own heigh
 
 ### Falling Back to the List Layout
 
-Columns stop being readable below a certain width. `min_column_width_px` sets that floor,
-`140` by default. When the card is too narrow to give every day that much room, it renders
-as a list instead.
+Columns stop being readable below a certain width. `min_day_width` sets that floor in
+pixels, `140` by default. When the card is too narrow to give every day that much room, it
+renders as a list instead.
 
 It lives inside the `column:` block rather than at the top level, because a minimum column
 width has no meaning in a layout that has no columns:
@@ -325,7 +325,7 @@ entities:
 view: column
 days_to_show: 5
 column:
-  min_column_width_px: 170
+  min_day_width: 170
 ```
 
 Raising it makes the card give up the column layout sooner, which is what you want when
@@ -362,16 +362,16 @@ is no marker saying days were dropped. That is why `min_days_to_show` defaults t
 that happens to a config you already had.
 :::
 
-### When Even the Minimum Will Not Fit
+### When Even the Fewest Columns Will Not Fit
 
-`min_width_fallback` decides what happens at the very bottom. The default, `list`, gives up
+`min_days_fallback` decides what happens at the very bottom. The default, `list`, gives up
 the column layout — the behavior described above. Set it to `cramp` and the card holds at
-`min_days_to_show` columns instead, letting them narrow past `min_column_width_px`:
+`min_days_to_show` columns instead, letting them narrow past `min_day_width`:
 
 ```yaml
 column:
   min_days_to_show: 2
-  min_width_fallback: cramp
+  min_days_fallback: cramp
 ```
 
 Use `cramp` when the column layout matters more to you than legibility at extreme widths —
