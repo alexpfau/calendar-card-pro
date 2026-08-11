@@ -212,6 +212,20 @@ export interface ColumnOverrides {
   week_number_color?: string;
   week_number_background_color?: string;
 
+  // Separators between days
+  //
+  // These keep their top-level names because they keep their meaning: the rule that
+  // divides one day from the next. Only its axis rotates, from a horizontal rule
+  // between stacked days to a vertical rule between side-by-side columns. A width
+  // that reads well as a horizontal rule can read heavily as a full-height vertical
+  // one, which is exactly the case the override block exists for.
+  day_separator_width?: string;
+  day_separator_color?: string;
+  week_separator_width?: string;
+  week_separator_color?: string;
+  month_separator_width?: string;
+  month_separator_color?: string;
+
   // Column-only layout — Category C
   //
   // These have no top-level counterpart, so they are not overrides and do not

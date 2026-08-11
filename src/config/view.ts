@@ -76,6 +76,12 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & k
     'week_number_font_size',
     'week_number_color',
     'week_number_background_color',
+    'day_separator_width',
+    'day_separator_color',
+    'week_separator_width',
+    'week_separator_color',
+    'month_separator_width',
+    'month_separator_color',
   ];
 
 /**
@@ -138,22 +144,16 @@ const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
  * so setting these at the top level changes nothing there.
  *
  * The set was briefly empty after Phase 4b implemented the three keys that used to
- * live here, and shrank again when week numbers landed. It is kept rather than
- * deleted because the situation it describes recurs on every phase boundary: the
- * design document is published, so a key can be public knowledge before it is public
- * behaviour, and "planned but not built" is a materially different message from
- * "not a recognized option".
+ * live here, shrank again when week numbers landed, and is empty once more now that
+ * the day, week and month separators render. It is kept rather than deleted because
+ * the situation it describes recurs on every phase boundary: the design document is
+ * published, so a key can be public knowledge before it is public behaviour, and
+ * "planned but not built" is a materially different message from "not a recognized
+ * option".
  */
 const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
-  // Separators — the boundary between days in a column layout is currently the grid
-  // gap, which `day_spacing` controls, so none of these have a surface to render on
-  // yet. The spec rules all three in at full column height; see D5.
-  'week_separator_width',
-  'week_separator_color',
-  'month_separator_width',
-  'month_separator_color',
-  'day_separator_width',
-  'day_separator_color',
+  // Empty. Add a key here when the design document publishes it ahead of the code,
+  // and remove it in the same commit that makes it render.
 ]);
 
 //-----------------------------------------------------------------------------

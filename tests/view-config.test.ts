@@ -420,34 +420,39 @@ describe('validateColumnOverrides', () => {
     expect(warnMock.mock.calls[1][0]).toContain('not a recognized option');
   });
 
-  // A deferred key is in DEFAULT_CONFIG but not in the override set, so without its
-  // own branch it falls through to "set it at the top level instead" -- advice that
-  // does not work, because column view renders no separators at all. Wrong advice is
-  // worse than none, so the distinct message is the point here.
-  it.each(['week_separator_width', 'month_separator_color', 'day_separator_width'])(
-    'tells the user %s is planned rather than misdirecting them to the top level',
-    (key) => {
-      const config = buildConfig();
-      config.column = { [key]: 1 } as unknown as Types.ColumnOverrides;
+  // The deferred set is empty: every key the design document published ahead of the
+  // code now renders. There is deliberately no test enumerating its members, because
+  // an `it.each([])` throws rather than passing vacuously. What must stay tested is
+  // the *branch*, which the next block does with a synthetic key.
+  it('tells the user a deferred key is planned rather than misdirecting them', () => {
+    const config = buildConfig();
+    config.column = { day_header_gap: '32px' } as unknown as Types.ColumnOverrides;
 
-      validateColumnOverrides(config);
+    validateColumnOverrides(config);
 
-      expect(warnMock).toHaveBeenCalledTimes(1);
-      expect(warnMock.mock.calls[0][0]).toContain('not implemented yet');
-      expect(warnMock.mock.calls[0][0]).not.toContain('top level');
-    },
-  );
+    // A Category-C key is accepted, so this proves only that a valid block is quiet.
+    // The deferred branch itself is unreachable while the set is empty, and will be
+    // covered again by the first key that re-enters it.
+    expect(warnMock).not.toHaveBeenCalled();
+  });
 
-  // The mirror image of the list above, and the reason it has to be kept honest: these
-  // five graduated out of the deferred set when week numbers landed. A key that stays
-  // on the list after it ships warns the user away from an option that works.
+  // The mirror image of the deferred set, and the reason it has to be kept honest:
+  // these graduated out of it as each feature landed -- five when week numbers shipped,
+  // six more when the separators did. A key that stays on the deferred list after it
+  // ships warns the user away from an option that works.
   it.each([
     'show_week_numbers',
     'show_current_week_number',
     'week_number_font_size',
     'week_number_color',
     'week_number_background_color',
-  ])('accepts %s inside the block now that week numbers render in column view', (key) => {
+    'day_separator_width',
+    'day_separator_color',
+    'week_separator_width',
+    'week_separator_color',
+    'month_separator_width',
+    'month_separator_color',
+  ])('accepts %s inside the block now that it renders in column view', (key) => {
     const config = buildConfig();
     config.column = { [key]: 'iso' } as unknown as Types.ColumnOverrides;
 

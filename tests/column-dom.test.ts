@@ -5,6 +5,7 @@ import { EVENTS, FROZEN_NOW, SINGLE_EVENT, WEATHER, buildConfig } from './fixtur
 import { DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { COLUMN_DEFAULTS } from '../src/config/view';
+import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
@@ -355,6 +356,191 @@ describe('column view DOM', () => {
 
       expect(columnDays.length).toBe(3);
       expect(count(columnDays)).toBeLessThan(count(baseline));
+    });
+  });
+
+  describe('separators between columns', () => {
+    // 15 days from the frozen Wednesday 2026-06-17 reaches Wed 2026-07-01, so one
+    // config produces all three boundary kinds: plain days throughout, new weeks at
+    // Mon 06-22 (index 5) and Mon 06-29 (index 12), and a new month at 07-01 (index
+    // 14, which is also a plain day so month and week never collide here).
+    //
+    // `show_empty_days` is what makes that possible at all -- the fixture carries
+    // events on three days only, and without it the grid would be three columns wide
+    // with no week boundary anywhere in it.
+    function spanConfig(overrides: Partial<Types.Config> = {}): Types.Config {
+      return buildConfig({
+        days_to_show: 15,
+        show_empty_days: true,
+        ...overrides,
+      });
+    }
+
+    function separators(container: HTMLElement): { column: string; color: string }[] {
+      return Array.from(container.querySelectorAll<HTMLElement>('.column-separator')).map(
+        (element) => ({
+          column: element.style.gridColumn,
+          color: element.style.backgroundColor,
+        }),
+      );
+    }
+
+    it('renders nothing when all three widths are zero', () => {
+      const container = renderColumnContainer(EVENTS, spanConfig());
+
+      // Every separator width defaults to 0px, so the default card has no rules at
+      // all -- the same as the list view, where the same defaults produce no lines.
+      expect(container.querySelectorAll('.column-separator').length).toBe(0);
+    });
+
+    it('draws a day rule in every gutter but never before the first column', () => {
+      const container = renderColumnContainer(
+        EVENTS,
+        spanConfig({ day_separator_width: '1px', day_separator_color: 'rgb(1, 2, 3)' }),
+      );
+
+      const rules = separators(container);
+
+      // 15 columns, 14 gutters. The absent 15th is the point: `computeDayBoundaries`
+      // reports index 0 as opening a new week *and* a new month by construction, and
+      // a rule there would be drawn against the outside of the card.
+      expect(rules.length).toBe(14);
+      expect(rules.map((rule) => rule.column)).toEqual([
+        '2',
+        '3',
+        '4',
+        '5',
+        '6',
+        '7',
+        '8',
+        '9',
+        '10',
+        '11',
+        '12',
+        '13',
+        '14',
+        '15',
+      ]);
+      expect(new Set(rules.map((rule) => rule.color))).toEqual(new Set(['rgb(1, 2, 3)']));
+    });
+
+    it('lets a week rule win over a day rule at a week boundary', () => {
+      const container = renderColumnContainer(
+        EVENTS,
+        spanConfig({
+          day_separator_width: '1px',
+          day_separator_color: 'rgb(1, 2, 3)',
+          week_separator_width: '3px',
+          week_separator_color: 'rgb(4, 5, 6)',
+        }),
+      );
+
+      const weekRules = Array.from(
+        container.querySelectorAll<HTMLElement>('.column-separator-week'),
+      );
+
+      // Mondays 06-22 and 06-29 are indices 5 and 12, so tracks 6 and 13.
+      expect(weekRules.map((rule) => rule.style.gridColumn)).toEqual(['6', '13']);
+      expect(weekRules.map((rule) => rule.style.width)).toEqual(['3px', '3px']);
+      // Every other gutter keeps its day rule rather than losing it to the week.
+      expect(container.querySelectorAll('.column-separator-day').length).toBe(12);
+    });
+
+    it('lets a month rule win over both', () => {
+      const container = renderColumnContainer(
+        EVENTS,
+        spanConfig({
+          day_separator_width: '1px',
+          week_separator_width: '3px',
+          month_separator_width: '5px',
+          month_separator_color: 'rgb(7, 8, 9)',
+        }),
+      );
+
+      const monthRules = Array.from(
+        container.querySelectorAll<HTMLElement>('.column-separator-month'),
+      );
+
+      // 2026-07-01 is index 14, so track 15.
+      expect(monthRules.map((rule) => rule.style.gridColumn)).toEqual(['15']);
+      expect(monthRules[0].style.backgroundColor).toBe('rgb(7, 8, 9)');
+    });
+
+    it('falls through to the next family when the winning one is switched off', () => {
+      const container = renderColumnContainer(
+        EVENTS,
+        spanConfig({ day_separator_width: '1px', week_separator_width: '0px' }),
+      );
+
+      // A zero-width week separator must not *suppress* the day rule at a week
+      // boundary. In the list view `hasWeekSeparator` does exactly that, because the
+      // week-number row occupies the slot; column view has no such collision, so the
+      // day rule stays. Tracks 6 and 13 are the Mondays.
+      const dayColumns = Array.from(
+        container.querySelectorAll<HTMLElement>('.column-separator-day'),
+      ).map((rule) => rule.style.gridColumn);
+
+      expect(dayColumns).toContain('6');
+      expect(dayColumns).toContain('13');
+      expect(dayColumns.length).toBe(14);
+    });
+
+    it('keeps the day rule at a week boundary when week numbers are on', () => {
+      const container = renderColumnContainer(
+        EVENTS,
+        spanConfig({ day_separator_width: '1px', show_week_numbers: 'iso' }),
+      );
+
+      // The amended D5 ruling. Switching week numbers on must not silently delete the
+      // rule at every week boundary and leave a gap in an otherwise regular run.
+      expect(container.querySelectorAll('.column-separator').length).toBe(14);
+      expect(container.querySelectorAll('.column-week-number').length).toBeGreaterThan(0);
+    });
+
+    it('centres the rule in the gutter for any spacing and width', () => {
+      const container = renderColumnContainer(
+        EVENTS,
+        spanConfig({ day_spacing: '20px', day_separator_width: '4px' }),
+      );
+
+      const rule = requireElement<HTMLElement>(container, '.column-separator');
+
+      // Half the gutter plus half the rule pulls a 4px line to sit centred across the
+      // 20px gap. Asserted as the expression rather than a computed number because
+      // day_spacing can be any CSS length, including one the browser resolves.
+      expect(rule.style.marginInlineStart).toBe('calc(-0.5 * (20px + 4px))');
+    });
+
+    it('honours a separator width overridden inside the column block', () => {
+      const config = spanConfig({ day_separator_width: '0px' });
+      config.column = { day_separator_width: '2px' };
+
+      // Category B keys are resolved by `resolveEffectiveConfig`, which the card runs
+      // once before rendering so the renderer only ever sees view-resolved values.
+      // The harness has to do the same, or this would assert against the raw config
+      // and prove only that `day_separator_width: '0px'` draws nothing.
+      const resolved = ViewConfig.resolveEffectiveConfig(config, 'column');
+      const container = renderColumnContainer(EVENTS, resolved);
+
+      // Category B: the same key, a different value per view. A user who wants a hair
+      // line between stacked days but a heavier rule between full-height columns has
+      // no other way to say so.
+      expect(container.querySelectorAll('.column-separator-day').length).toBe(14);
+      expect(requireElement<HTMLElement>(container, '.column-separator').style.width).toBe('2px');
+    });
+
+    it('places both columns and separators explicitly so neither displaces the other', () => {
+      const container = renderColumnContainer(EVENTS, spanConfig({ day_separator_width: '1px' }));
+
+      const columns = Array.from(container.querySelectorAll<HTMLElement>('.day-column'));
+
+      // Auto-placement fills only cells no explicitly-placed item claims, so a mix of
+      // the two would push the auto-placed columns into row 2 the moment a separator
+      // claimed a row-1 cell. Every item carries its own placement for that reason.
+      expect(columns.map((column) => column.style.gridRow)).toEqual(Array(15).fill('1'));
+      expect(columns.map((column) => column.style.gridColumn)).toEqual(
+        Array.from({ length: 15 }, (_, index) => String(index + 1)),
+      );
     });
   });
 

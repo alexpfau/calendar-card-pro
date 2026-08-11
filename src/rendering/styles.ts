@@ -1117,4 +1117,28 @@ export const cardStyles = css`
   .column-events .progress-bar {
     margin-inline-end: 0;
   }
+
+  /*
+   * A vertical rule in the gutter between two day columns: day, week or month.
+   *
+   * Everything variable -- width, colour, which track it precedes and the negative
+   * margin that centres it -- is set inline per rule, because all four depend on the
+   * boundary and on day_spacing. Only the two properties that never vary live here.
+   *
+   * align-self: stretch is the load-bearing one. The grid sets align-items: start so a
+   * quiet day is only as tall as its own events, and a rule inheriting that would be
+   * as short as the column it happens to precede -- so a run of rules would have
+   * ragged lengths determined by which day sat to their right. Stretching against the
+   * row instead makes every rule the height of the busiest day, which is what a
+   * separator between days has to be to read as one.
+   *
+   * justify-self: start pins it to the inline-start edge of its cell, which the
+   * inline margin then pulls out into the gutter. Without it the item would stretch
+   * to fill the track, and the inline width would be fighting a stretched box.
+   */
+  .column-separator {
+    align-self: stretch;
+    justify-self: start;
+    pointer-events: none;
+  }
 `;

@@ -78,6 +78,121 @@ function computeDayBoundaries(days: Types.EventsByDay[]): DayBoundary[] {
 }
 
 //-----------------------------------------------------------------------------
+// SEPARATORS
+//-----------------------------------------------------------------------------
+
+/** Which of the three separator families is drawn at a given boundary. */
+type SeparatorKind = 'day' | 'week' | 'month';
+
+/** A resolved rule: what to draw in one gutter, and in which family's colours. */
+interface ColumnSeparator {
+  kind: SeparatorKind;
+  width: string;
+  color: string;
+}
+
+/**
+ * Decide which rule, if any, belongs in the gutter to the inline-start of a column.
+ *
+ * Precedence is month, then week, then day — the list view's order (`render.ts:463-488`
+ * for the outer pair, `:375-400` for the day rule), so a user who has tuned the three
+ * widths sees the same one win in both views.
+ *
+ * **This deliberately drops one piece of list-view behaviour, and the spec text saying
+ * to keep it is amended rather than ignored.** D5 instructed column view to "carry the
+ * coupling over": in list view `hasWeekSeparator` (`render.ts:385-386`) is true when
+ * `show_week_numbers !== null` *or* `week_separator_width` is non-zero, which D5 read as
+ * "switching week numbers on implicitly switches a week separator on". It does not. The
+ * flag suppresses the *day* rule at week boundaries and renders nothing itself
+ * (`render.ts:282-296` sets `--separator-display: none` when the width is zero). It
+ * exists because the list view's week-number pill is a full-width table row sitting in
+ * the exact slot a day separator would occupy — two horizontal rules in one gap.
+ *
+ * Column view has no such collision. The pill is a header row *inside* a column; the
+ * rules are vertical and live *between* columns, so they cannot overlap. Carrying the
+ * suppression over would mean a card with day separators and week numbers both on
+ * silently loses the rule at every week boundary — a gap in an otherwise regular run
+ * of rules, which reads as a bug rather than as a design. So each family is gated on
+ * its own width and nothing else.
+ *
+ * @param boundary - What this column opens relative to the one before it
+ * @param config - Card configuration, already resolved for the column view
+ * @returns The rule to draw, or null when this gutter carries none
+ */
+function resolveSeparator(boundary: DayBoundary, config: Types.Config): ColumnSeparator | null {
+  if (boundary.isNewMonth && !ViewConfig.isZeroLength(config.month_separator_width)) {
+    return {
+      kind: 'month',
+      width: config.month_separator_width,
+      color: config.month_separator_color,
+    };
+  }
+
+  if (boundary.isNewWeek && !ViewConfig.isZeroLength(config.week_separator_width)) {
+    return {
+      kind: 'week',
+      width: config.week_separator_width,
+      color: config.week_separator_color,
+    };
+  }
+
+  if (!ViewConfig.isZeroLength(config.day_separator_width)) {
+    return { kind: 'day', width: config.day_separator_width, color: config.day_separator_color };
+  }
+
+  return null;
+}
+
+/**
+ * Render one vertical rule, centred in the gutter to the inline-start of a column.
+ *
+ * Three things make this work, and each replaces an approach that does not.
+ *
+ * **It is a grid item sharing a cell with the column it precedes, not a track of its
+ * own.** Giving separators their own tracks would put a `column-gap` on *both* sides of
+ * each rule, so the gutter would visibly widen at every boundary that carried one —
+ * enabling a 1px rule would move every column. Overlaying the item in an existing cell
+ * leaves the track geometry untouched, so switching separators on changes only what is
+ * painted.
+ *
+ * **It is pulled into the gutter by a negative inline-start margin**, half the gutter
+ * plus half its own width, which centres it on the boundary for any `day_spacing` and
+ * any rule width. `margin-inline-start` rather than `margin-left` so RTL mirrors for
+ * free. At `day_spacing: 0` the calc still resolves — the rule straddles the seam,
+ * which is the only place left for it.
+ *
+ * **`align-self: stretch` (styles.ts) makes it full height** while the grid keeps
+ * `align-items: start` for the columns themselves. The row is as tall as the busiest
+ * day, so every rule runs from the top of the header to the bottom of that day's last
+ * event and they are all the same length — the maintainer's ruling. A rule drawn as a
+ * `border-inline-start` on the column instead would stop at that column's own content,
+ * making a quiet Tuesday's rule shorter than its neighbours'.
+ *
+ * @param separator - The resolved rule for this gutter
+ * @param columnIndex - Zero-based index of the column this rule precedes
+ * @param gap - The grid's column gap, i.e. the resolved `day_spacing`
+ * @returns Rendered separator
+ */
+function renderColumnSeparator(
+  separator: ColumnSeparator,
+  columnIndex: number,
+  gap: string,
+): TemplateResult {
+  return html`
+    <div
+      class="column-separator column-separator-${separator.kind}"
+      style=${styleMap({
+        gridColumn: String(columnIndex + 1),
+        gridRow: '1',
+        width: separator.width,
+        backgroundColor: separator.color,
+        marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
+      })}
+    ></div>
+  `;
+}
+
+//-----------------------------------------------------------------------------
 // EVENT RENDERING
 //-----------------------------------------------------------------------------
 
@@ -153,6 +268,8 @@ function renderColumnEvent(
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param weekRow - Reserved week-number row, or `nothing` when week numbers are off
+ * @param columnIndex - Zero-based track this column occupies, placed explicitly so
+ *   the separators can share the same cells without displacing it
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @returns Rendered day column
@@ -162,6 +279,7 @@ function renderDayColumn(
   config: Types.Config,
   language: string,
   weekRow: TemplateResult | typeof nothing,
+  columnIndex: number,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
@@ -219,6 +337,7 @@ function renderDayColumn(
         'future-day': !isToday,
         weekend: isWeekendDay,
       })}
+      style=${styleMap({ gridColumn: String(columnIndex + 1), gridRow: '1' })}
     >
       <div class="column-day-header">
         <div
@@ -345,12 +464,19 @@ function buildWeekRows(
  * `align-items: start` (styles.ts) so each column is only as tall as its own content.
  * The headers still line up, because every column starts at the same grid row.
  *
- * Day, week and month separators are not rendered. The list view's separators are
- * horizontal rules between stacked days; in a column layout the equivalent boundary
- * is the gap between tracks, which `day_spacing` already controls. The header rule is
- * the column view's own separator, and it is opt-in: it defaults to `0px` and is shown
- * by giving it a width. B2 originally ruled the opposite; see the `COLUMN_DEFAULTS`
- * docstring for why that was reversed.
+ * Day, week and month separators render as vertical rules in the gutters between
+ * tracks, in the same month > week > day precedence the list view uses and off by
+ * default at `0px`, exactly as there. `resolveSeparator` documents the one piece of
+ * list-view behaviour they deliberately drop. They are laid out as overlaid grid items
+ * rather than tracks of their own so that switching one on cannot move a column; see
+ * `renderColumnSeparator`.
+ *
+ * The header rule is a separate thing again — a horizontal rule *inside* a column,
+ * between its header and its events, controlled by `column → day_header_separator_*`.
+ *
+ * Every item in the grid is placed explicitly. Auto-placement fills only cells that no
+ * explicitly-placed item claims, so mixing the two would push the auto-placed day
+ * columns down into row 2 the moment a separator claimed a row-1 cell.
  *
  * Week numbers, by contrast, *are* rendered — as a reserved header row above the
  * weekday. See `renderColumnWeekNumber` for why every column emits one.
@@ -371,6 +497,19 @@ export function renderColumnGroupedEvents(
 ): TemplateResult {
   const headerGap = ViewConfig.resolveColumnOption(config, 'day_header_gap');
   const weekRows = buildWeekRows(days, config);
+  const boundaries = computeDayBoundaries(days);
+
+  // A separator sits *before* the column it is resolved for, so index 0 is skipped:
+  // there is no gutter to the left of the first column. This mirrors the list view's
+  // `isFirstWeek` guard (`render.ts:196`) -- `boundaries[0]` reports a new week and a
+  // new month by construction, and in both views that first boundary has no edge to
+  // draw on.
+  const separators = boundaries
+    .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))
+    .filter(({ separator, index }) => separator !== null && index > 0)
+    .map(({ separator, index }) =>
+      renderColumnSeparator(separator as ColumnSeparator, index, config.day_spacing),
+    );
 
   // `day_header_gap` is published as a custom property on the grid rather than applied
   // inline per column, because two separate rules consume it -- the header's bottom
@@ -391,8 +530,9 @@ export function renderColumnGroupedEvents(
       })}
     >
       ${days.map((day, index) =>
-        renderDayColumn(day, config, language, weekRows[index], weatherForecasts, hass),
+        renderDayColumn(day, config, language, weekRows[index], index, weatherForecasts, hass),
       )}
+      ${separators}
     </div>
   `;
 }

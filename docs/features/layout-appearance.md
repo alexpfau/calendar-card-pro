@@ -170,6 +170,41 @@ column:
 
 :::
 
+### Separators in Column View
+
+The three separators keep their meaning in column view, but rotate: instead of horizontal
+lines between stacked days, they are **vertical rules in the gaps between day columns**.
+The precedence is unchanged — month beats week beats day — and every width still defaults
+to `0px`, so a card that shows no lines in the list layout shows none as columns either.
+
+Each rule runs the full height of the grid, from the top of the day headers to the bottom
+of the busiest column, so a run of them reads as a set of dividers rather than as ragged
+marks of differing lengths.
+
+Two details differ from the list layout:
+
+- **Spacing multipliers are not applied.** In the list a week separator carries more
+  breathing room than a day separator, and a month separator more again. In a grid the gap
+  between columns is a single uniform `day_spacing`, so a rule sits centered in that gap
+  whatever its kind. Use width and color to signal the hierarchy.
+- **Week numbers do not imply a week separator.** In the list layout, switching week
+  numbers on suppresses the day line at a week boundary, because the week-number row
+  physically occupies that slot. Column view has no such collision — the badge sits inside
+  a column header, the rules sit between columns — so the day rule stays put and the run
+  of dividers remains regular.
+
+::: tip Heavier Rules Between Columns
+A hairline reads well between stacked rows but can disappear against a full-height column.
+Set the widths independently per view when that happens:
+
+```yaml
+day_separator_width: '1px'
+column:
+  day_separator_width: '2px'
+```
+
+:::
+
 ## 📆 Date Column Customization
 
 Control the appearance of the date column for a personalized calendar view:
