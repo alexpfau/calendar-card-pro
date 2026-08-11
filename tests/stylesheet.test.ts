@@ -213,6 +213,30 @@ describe('card stylesheet', () => {
     );
   });
 
+  describe('the weather badge in its own-row placement', () => {
+    /*
+     * `.event-weather` is styled for the list view's title-row badge, where it floats
+     * to the right of the title. The column view reuses the same element as a fourth
+     * row beneath time/location/description, so every property tuned for the badge
+     * has to be undone -- and each one missed showed up as a small visual
+     * inconsistency rather than as anything a DOM test could see.
+     */
+    it.each([
+      ['margin-inline-start', '0'],
+      ['margin-inline-end', '12px'],
+      ['font-weight', 'normal'],
+    ])('resets %s, which the badge sets for the title row', (prop, value) => {
+      expect(declared('.time-location .event-weather', prop)).toBe(value);
+    });
+
+    it('is scoped by descendant selector, not by a modifier class', () => {
+      // The two placements are structurally exclusive, so the row variant must stay
+      // a descendant of .time-location. A bare .event-weather rule would leak into
+      // the list view's badge.
+      expect(rulesFor('.time-location .event-weather')).toHaveLength(1);
+    });
+  });
+
   describe('single-declaration invariants', () => {
     it.each(['.event-title', '.summary'])('%s is declared exactly once', (selector) => {
       // Both were split across two blocks at some point, which made the winning

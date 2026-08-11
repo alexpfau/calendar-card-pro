@@ -710,11 +710,17 @@ export const cardStyles = css`
    * title and has no gutter to join. Inherited here they pushed the icon 8px right of
    * the gutter and its text a further 2px -- measured live at v=260, against an earlier
    * version of this comment that asserted the opposite without checking.
+   *
+   * font-weight is a third such reset. The badge is 500 so it reads as a distinct chip
+   * beside the title; in this placement it is one row among four, and the other three
+   * declare no weight at all. Leaving it inherited made the temperature the only
+   * semi-bold text in the block.
    */
   .time-location .event-weather {
     display: flex;
     align-items: var(--calendar-card-event-icon-vertical-alignment);
     line-height: 1.2;
+    font-weight: normal;
     margin-top: 2px;
     margin-inline-start: 0;
     margin-inline-end: 12px;
