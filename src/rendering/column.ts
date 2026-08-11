@@ -17,7 +17,8 @@
  *
  * - a CSS grid with one track per day, instead of a stack of tables
  * - a horizontal day header, instead of a fixed-width date cell beside the events
- * - an optional horizontal rule under that header, instead of vertical day separators
+ * - an optional horizontal rule under that header, which the list view has no counterpart for
+ * - vertical day/week/month separators in the gutters, rotating the list's horizontal rules
  *
  * @see renderGroupedEvents in `render.ts` for the list-view counterpart
  */

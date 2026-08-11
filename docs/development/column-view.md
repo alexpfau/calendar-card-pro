@@ -1001,11 +1001,23 @@ added at all and the header is unchanged, so the cost is paid only by users who 
 suppresses the badge and nothing else, because there is no separator bound up with it to fall
 back to.
 
-**Carry the coupling over deliberately.** In list view `hasWeekSeparator` fires when
+**Do not carry the list's week/day-separator coupling over — the premise was false.** Earlier
+revisions of this section claimed that in list view `hasWeekSeparator` fires when
 `show_week_numbers !== null` **or** `week_separator_width !== '0px'`, so switching week numbers
-on implicitly switches a week separator on. Column view should keep that, because a user who
-turns on week numbers is asking for the week boundary to be visible, and the badge alone is a
-weaker signal in a grid than it is in a list.
+on implicitly switches a week separator on, and that column view should keep that. **The
+premise does not survive reading the code.** `hasWeekSeparator` (`render.ts:385-386`) has
+exactly one consumer, at `:391`, where it **suppresses the day separator**. With week numbers
+on and `week_separator_width: '0px'`, `renderWeekRow` sets `--separator-display: none` and
+nothing is drawn — no week rule appears. So the flag is not a coupling that turns a separator
+*on*; it is day-separator *suppression*, and it exists only because the list's week-number pill
+is a full-width row that physically occupies the slot a day separator would otherwise take.
+
+Column view has no such collision: the week pill lives inside the column header, and the
+separator lives in the gutter between columns. Carrying the flag over would silently delete
+the day rule at every week boundary for anyone who turned week numbers on — a regression
+wearing the costume of a feature. **Ruled: pure width-driven precedence** (see D9). Two unit
+tests pin it, and live test card 3 is the visual proof — week pills 33/34/35 render with all
+14 day rules intact.
 
 **Sequencing: implement immediately after the separators**, not before. The two share boundary
 detection — a week-start column is exactly a column that would carry a week separator — and
@@ -1302,6 +1314,59 @@ in both views. Only `_position` is inert.
 and `_size` are. That looks like an oversight rather than a decision and should be ruled
 before v4. `_position` is now correctly absent from that list — an override for an inert
 key would be a no-op wearing the costume of a feature.
+
+---
+
+### D9. Separators between columns — shipped, live-verified
+
+Column view carries all three of the list view's separators, rotated 90°: `day_separator_*`,
+`week_separator_*` and `month_separator_*` each draw a **vertical rule in the gutter** rather
+than a horizontal rule between rows. All three default to `0px`, so the default card is
+unchanged, and all six keys are override-eligible inside the `column:` block.
+
+**Precedence is pure and width-driven: month > week > day.** A boundary draws exactly one
+rule, of the highest-ranking kind whose own width is non-zero. Each kind is gated only on its
+own width — never on `show_week_numbers` — which is the D5 correction above. A boundary is
+never doubled, and a rule is only emitted for column index **k ≥ 1**, so no card ever opens
+with a leading rule.
+
+**Geometry: full height for all three.** An earlier proposal gave the day rule a shorter span
+(events only, mirroring the list) and the week/month rules a full span. The maintainer
+overruled it — _"lets use full height for all three separators"_ — and the result is visually
+much cleaner, because the three kinds then differ only in width and colour rather than in two
+dimensions at once.
+
+**Technique: an overlaid grid item with a negative inline-start margin.** The rule is an
+*additional* item placed in the same cell as the column it precedes, `align-self: stretch`,
+`justify-self: start`, offset by `calc(-0.5 * (gap + width))` so it centres in the gutter.
+Tracks stay `repeat(N, minmax(0, 1fr))` and `column-gap` is untouched.
+
+Three alternatives were tried and rejected, each for a concrete reason worth keeping:
+
+| Rejected                              | Why                                                                                     |
+| ------------------------------------- | --------------------------------------------------------------------------------------- |
+| Extra `auto` tracks for the gutters   | `column-gap` applies on **both** sides of the new track, so every gutter doubles          |
+| `border-inline-start` on `.day-column` | The grid sets `align-items: start`, so the border stops at that column's own content      |
+| Absolute positioning                  | The x-offset is unknowable without subgrid                                                |
+
+**Explicit grid placement is mandatory on both the columns and the separators.** Explicitly
+placed items lay out before auto-placed ones, so mixing the two pushes auto-placed day columns
+onto row 2 and the card collapses.
+
+Because the grid uses `align-items: start`, a stretched separator contributes nothing to row
+sizing, so every rule is exactly as tall as the tallest column and all rules are identical in
+length. That is what makes the full-height choice cheap.
+
+**The `SEPARATOR_SPACING` multipliers are dropped** (week 1×, month 1.5×, `constants.ts:87-92`).
+CSS `column-gap` is uniform across the grid; widening the gutter at one boundary would require
+per-track sizing and buys nothing once the rules differ by width and colour.
+
+**Live verification** — 8 purpose-built cards on `ccp-current-testing`, all passing: default
+(no rules), day-only (14 identical full-height rules, none leading), full precedence across a
+window straddling both a week and a month boundary (month rule *replaces* the week rule, never
+doubles), week numbers + day rules coexisting (the D5 proof), centring inside a 24 px gap,
+`day_spacing: 0` straddle, and a `column:` override producing rules where the top level says
+`0px`.
 
 ---
 
