@@ -51,8 +51,25 @@ interface CardUnderTest extends HTMLElement {
   getGridOptions(): { columns: 'full'; rows: 'auto' };
 }
 
-/** Threshold for the default config: 152 x 3 + 16 padding + 2 x 4 gutter. */
-const THRESHOLD = computeColumnThresholdPx({ ...buildConfig(), view: 'column' });
+/**
+ * Config under test.
+ *
+ * Not the bare default. A default 3-day card now needs 504px (152 x 3 + 32 padding +
+ * 2 x 8 gutter), so it no longer fits Home Assistant's 500px single-span section at
+ * all -- both the transient and the settled width below would resolve to a list and
+ * the ordering bug could not be reproduced. Pinning `day_gap` to 0px puts the
+ * threshold at 488px, between the two measured widths, so the straddle this file
+ * depends on is deliberate rather than an accident of the current defaults.
+ */
+function columnConfig() {
+  const config = buildConfig();
+  config.view = 'column';
+  config.column = { day_gap: '0px' };
+  return config;
+}
+
+/** Threshold for the config above: 152 x 3 + 32 padding + 2 x 0 gutter. */
+const THRESHOLD = computeColumnThresholdPx(columnConfig());
 
 /** A width HA reports for one frame before constraining a 1280px-viewport section. */
 const TRANSIENT_WIDTH = 500;
@@ -62,7 +79,7 @@ const SETTLED_WIDTH = 464;
 
 function mountColumnCard(): CardUnderTest {
   const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
-  card.setConfig({ ...buildConfig(), view: 'column' });
+  card.setConfig(columnConfig());
   document.body.appendChild(card);
   return card;
 }
@@ -78,10 +95,10 @@ describe('width measurement settling', () => {
   });
 
   it('confirms the fixture widths still straddle the threshold', () => {
-    // Guards the two tests below against silently losing their point if the default
-    // gutter or minimum column width changes: both depend on the transient clearing
+    // Guards the two tests below against silently losing their point if the minimum
+    // column width or the card padding changes: both depend on the transient clearing
     // the threshold while the settled width does not.
-    expect(THRESHOLD).toBe(480);
+    expect(THRESHOLD).toBe(488);
     expect(TRANSIENT_WIDTH).toBeGreaterThanOrEqual(THRESHOLD);
     expect(SETTLED_WIDTH).toBeLessThan(THRESHOLD);
   });

@@ -253,28 +253,33 @@ side by side need a horizontal gap instead, and a rule that runs under each head
 rather than between days. Those options live inside `column:` and have no top-level
 counterpart.
 
-| Option                       | Type   | Default                | Description                                                        |
-| ---------------------------- | ------ | ---------------------- | ------------------------------------------------------------------ |
-| `day_gap`                    | string | `10px`                 | Horizontal space between columns                                   |
-| `day_header_separator_width` | string | `1px`                  | Thickness of the rule under each day header; `0px` renders no rule |
-| `day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                 |
+| Option                       | Type   | Default                | Description                                                                      |
+| ---------------------------- | ------ | ---------------------- | -------------------------------------------------------------------------------- |
+| `day_gap`                    | string | `8px`                  | Horizontal space between columns                                                 |
+| `day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                          |
+| `day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule |
+| `day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                               |
 
 ```yaml
 view: column
 days_to_show: 5
 column:
   day_gap: 16px
+  day_header_gap: 12px
   day_header_separator_width: 2px
   day_header_separator_color: var(--primary-color)
 ```
 
-The gap defaults to the same `10px` as `day_spacing`, so columns sit as far apart as list
-rows do. The header rule is the one option here that starts switched **on**, which is
-deliberate and worth explaining, because every other separator in the card starts at `0px`.
-Those are decoration between days that vertical space already separates. This one is
-structural: it marks where a column's header ends and its events begin, and without it a
-tall column reads as one undifferentiated block. It also exists only in column view, so
-switching it on by default cannot change how an existing list-view card looks.
+The gap between columns is the only thing separating one day's events from the next, so it
+is doing more work than `day_spacing` does in a list — widen it before anything else if two
+columns read as one block. It is also the option that costs the most, because every gap
+comes out of the width the columns themselves have to share.
+
+The header rule starts switched **off**, like every other separator in the card. Seen next
+to the colored accent bar beside each event, a full-width horizontal rule reads as a table
+border rather than as part of a calendar. What separates the header from the events is
+`day_header_gap` instead, and that gap is constant: switching the rule on centers it inside
+the existing space rather than adding to it, so the layout does not shift.
 
 Its color is `var(--divider-color)`, Home Assistant's semantic divider token, rather than
 the `var(--secondary-text-color)` the list separators use — this is a divider, not text, so
@@ -282,14 +287,14 @@ it follows your theme's divider color and stays a little quieter than the day la
 it.
 
 ::: tip Turning the Rule Off
-Set `day_header_separator_width: 0px` rather than reaching for a transparent color. At
-`0px` the card omits the element entirely, so it takes up no vertical space; a
-transparent rule still occupies its own height and leaves an unexplained gap.
+`0px` is already the default. If you have switched it on and want it back off, set
+`day_header_separator_width: 0px` rather than reaching for a transparent color. At `0px` the
+card omits the element entirely; a transparent rule still occupies its own height.
 :::
 
 ### Falling Back to the List Layout
 
-Columns stop being readable below a certain width. `min_day_column_width_px` sets that floor, `160` by default. When the card is too narrow to give every day that much room, it renders as a list instead.
+Columns stop being readable below a certain width. `min_day_column_width_px` sets that floor, `152` by default. When the card is too narrow to give every day that much room, it renders as a list instead.
 
 The number of columns follows `days_to_show`. A narrower card shows the same days in the list layout rather than quietly showing fewer of them.
 

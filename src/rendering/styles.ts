@@ -594,6 +594,7 @@ export const cardStyles = css`
     width: 100%;
     flex-wrap: wrap;
     row-gap: 2px;
+    column-gap: 8px;
   }
 
   /*
@@ -608,12 +609,20 @@ export const cardStyles = css`
     align-items: center;
   }
 
+  /*
+   * margin-inline-start: auto right-aligns the countdown on its own line when the
+   * time row wraps. Without it, a lone item on the second line sits at flex-start
+   * (justify-content: space-between places a single item at the start), which reads
+   * as a stray fragment rather than a right-hand column. On the first line the auto
+   * margin is equivalent to space-between, and .time's column-gap keeps the minimum
+   * separation the old margin-left: 8px used to provide.
+   */
   .time-countdown {
     text-align: right;
     color: var(--calendar-card-color-time);
     font-size: var(--calendar-card-font-size-time);
-    margin-left: 8px;
-    margin-right: 12px;
+    margin-inline-start: auto;
+    margin-inline-end: 12px;
     white-space: nowrap;
   }
 
@@ -636,14 +645,16 @@ export const cardStyles = css`
 
   /* ===== PROGRESS BAR STYLES ===== */
 
+  /* margin-inline-start: auto for the same reason as .time-countdown -- it is the
+     other element that can end up alone on the time row's second line. */
   .progress-bar {
     width: var(--calendar-card-progress-bar-width);
     height: var(--calendar-card-progress-bar-height);
     background-color: color-mix(in srgb, var(--calendar-card-progress-bar-color) 20%, transparent);
     border-radius: 999px;
     overflow: hidden;
-    margin-left: 8px;
-    margin-right: 12px;
+    margin-inline-start: auto;
+    margin-inline-end: 12px;
   }
 
   .progress-bar-filled {
@@ -720,19 +731,31 @@ export const cardStyles = css`
   }
 
   /*
-   * Column view narrows the card's own horizontal padding to a symmetric 8px.
+   * Column view uses a symmetric 16px horizontal padding, matching the inset the
+   * list view gives its own content.
    *
-   * The list view's asymmetric 8px-left / 16px-right exists to sit beside its
-   * fixed-width date column; a column has no date column, so the asymmetry has
-   * nothing to align to. Trimming it is not cosmetic: at default settings the
-   * card needs 152px x 3 days + padding + 2 gutters to fit, and a standard
-   * single-span Home Assistant section is 500px. The 24px the list view reserves
-   * is most of the margin between activating and never activating at all.
+   * The list view reaches 16px in two steps -- 8px of card padding plus 8px on
+   * .date-column -- and the title matches it the same way, 8px of card padding
+   * plus its own 8px margin. A column grid has no such inner offset to lean on,
+   * so the card supplies the whole 16px and the title's extra margin is removed
+   * below to keep the two aligned.
+   *
+   * An earlier revision narrowed this to 8px to buy width against the 500px
+   * single-span Home Assistant section. That traded a visible misalignment
+   * against the title for headroom in the one layout that renders as a list
+   * anyway when it does not fit, so it is reverted; see COLUMN_CARD_PADDING_PX.
    *
    * Scoped to the column class so list output is untouched.
    */
   .calendar-card-pro.column-view {
-    padding-inline: 8px;
+    padding-inline: 16px;
+  }
+
+  /* The title's 8px margin exists to add to the list view's 8px card padding.
+     Column view already supplies the full 16px, so the margin would push the
+     title 8px past the first column's edge. */
+  .calendar-card-pro.column-view .card-header {
+    margin-inline-start: 0;
   }
 
   /* ===== COLUMN VIEW STYLES ===== */
@@ -870,18 +893,23 @@ export const cardStyles = css`
   }
 
   /*
-   * The list view's event padding is tuned for a cell that sits beside a fixed-width
-   * date column, and its trailing padding is genuinely zero: the base .event rule sets
-   * a right padding of 0, and the day table uses border-spacing: 0. In a list that is
-   * invisible, because the table's own right edge is the card padding. In a column the
-   * event spans the full track, so text would otherwise run to the column boundary and
-   * sit flush against the neighbouring column's text. This adds the trailing gutter
-   * that the layout no longer provides for free.
+   * Every content row inside an event already carries its own 12px trailing margin --
+   * .event-title, and the shared .time/.location/.description rule -- so an event in a
+   * column already ends 12px short of the track's right edge. An earlier revision added
+   * padding-inline-end: 12px here on the belief that the trailing gutter was missing,
+   * reading the base .event rule's padding-right: 0 in isolation. It was not missing;
+   * that padding doubled it to 24px and quietly spent 12px of the column's width, which
+   * is the dimension the layout is short of. The rule is gone.
    *
-   * Logical property, matching border-inline-start on the event accent and
-   * margin-inline-start on the header weather badge, so RTL mirrors correctly.
+   * What does need correcting is the countdown and the progress bar: both sit inside
+   * .time, which already supplies the 12px, and both add a further 12px of their own, so
+   * they end 12px inside every other row. Invisible in a list, where nothing lines up
+   * against them; obvious in a column once the time row wraps and the trailing element
+   * is right-aligned on its own line. Zeroed here rather than in the shared rule so
+   * list output is byte-identical.
    */
-  .column-events .event {
-    padding-inline-end: 12px;
+  .column-events .time-countdown,
+  .column-events .progress-bar {
+    margin-inline-end: 0;
   }
 `;

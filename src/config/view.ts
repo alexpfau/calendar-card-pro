@@ -161,22 +161,24 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  * The chosen values make an absent `column:` block a visual no-op relative to the
  * list view's own defaults:
  *
- * - `day_gap` is `4px`, the value the spec's own worked example uses. B2 rules only
- *   the two separator keys, so this one was decided rather than cited. It shipped
- *   briefly as `10px`, justified as matching `DEFAULT_CONFIG.day_spacing` — the same
+ * - `day_gap` is `8px`, set by the maintainer's explicit ruling after live review of
+ *   the 4px build: adjacent columns read as one block, exactly the legibility risk
+ *   the 4px note below flagged as the first thing to re-measure. Record this as an
+ *   amendment, not a re-derivation — the value is now ruled and must not be narrowed
+ *   again on threshold-headroom grounds without asking.
+ *
+ *   The history matters because it is the shape of two prior defects. It shipped
+ *   first as `10px`, justified as matching `DEFAULT_CONFIG.day_spacing` — the same
  *   vertical-to-horizontal category error that produced the B2 defect. `day_spacing`
  *   separates stacked days along the axis where space is free; this gap spends the
  *   horizontal budget D6's sizing table calls the scarce resource, roughly 161px per
- *   event in a 500px section. At the default `days_to_show: 3` the difference is
- *   12px of the width threshold (492px at 10px, 480px at 4px), which is most of the
- *   margin the card has against Home Assistant's 500px section.
- *
- *   The cost is real and is accepted knowingly: the MVP renders **no vertical rule
- *   between columns** (D6 defers that alongside week numbers), so this gap is the
- *   only thing separating two adjacent columns of text. 4px is therefore a
- *   legibility risk, not a free saving, and it is the first thing to re-measure if
- *   columns read as one block. Widening it costs threshold headroom, so the two
- *   cannot be traded independently.
+ *   event in a 500px section. It was then narrowed to `4px`, the value the spec's own
+ *   worked example uses — correct arithmetic, and still wrong on screen, because the
+ *   MVP renders **no vertical rule between columns** (D6 defers that alongside week
+ *   numbers), so this gap is the only thing separating two adjacent columns of text.
+ *   Threshold cost is real: at the default `days_to_show: 3` the gutter accounts for
+ *   16px of the width threshold at 8px against 8px at 4px. Widening the gap and
+ *   widening the threshold are the same act and cannot be traded independently.
  * - `day_header_gap` is `8px` — the vertical space between a day's header and its
  *   first event. It exists as its own option because that space used to be an
  *   emergent property of two unrelated rules, a 4px padding under the header plus a
@@ -201,7 +203,7 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  *   half of B2 stands unchanged.
  */
 export const COLUMN_DEFAULTS = {
-  day_gap: '4px',
+  day_gap: '8px',
   day_header_gap: '8px',
   day_header_separator_width: '0px',
   day_header_separator_color: 'var(--divider-color)',
@@ -439,14 +441,21 @@ function warnAboutTopLevelColumnOnlyKeys(config: Types.Config): void {
 /**
  * Horizontal padding the card reserves for itself in column view, in pixels.
  *
- * Column view narrows `ha-card`'s horizontal padding to a symmetric 8px. The list
- * view's asymmetric 8px-left / 16px-right exists to sit beside its fixed-width date
- * column, which column view does not have, so the asymmetry has no meaning here.
+ * 32px = 16px on each side. Column view keeps `ha-card`'s horizontal padding
+ * symmetric at 16px, matching the inset the list view builds up in two steps
+ * (8px of card padding plus 8px on `.date-column`). A column grid has no inner
+ * offset to lean on, so the card carries the whole amount.
+ *
+ * This shipped briefly as 16px, when the stylesheet narrowed the card to 8px a
+ * side to buy width against Home Assistant's 500px single-span section. The
+ * saving was real but bought nothing: below the threshold the card falls back to
+ * list view anyway, so the only visible effect was the first column sitting 8px
+ * left of the card title. Reverted; the arithmetic follows the stylesheet.
  *
  * This is not cosmetic — it is load-bearing arithmetic. See
  * `DEFAULT_CONFIG.min_day_column_width_px`.
  */
-export const COLUMN_CARD_PADDING_PX = 16;
+export const COLUMN_CARD_PADDING_PX = 32;
 
 /**
  * Width band, in pixels, by which the column-to-list threshold is lowered once
@@ -498,7 +507,7 @@ function parsePx(value: string, fallback: number): number {
  */
 export function computeColumnThresholdPx(config: Types.Config): number {
   const days = Math.max(1, Math.floor(config.days_to_show));
-  const gutter = parsePx(resolveColumnOption(config, 'day_gap'), 4);
+  const gutter = parsePx(resolveColumnOption(config, 'day_gap'), 8);
 
   return config.min_day_column_width_px * days + COLUMN_CARD_PADDING_PX + (days - 1) * gutter;
 }

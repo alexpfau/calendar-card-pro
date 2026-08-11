@@ -332,7 +332,7 @@ describe('column view config surface', () => {
     // is the expected first step of any such change, not an obstacle to route around.
     const config = buildConfig();
 
-    expect(resolveColumnOption(config, 'day_gap')).toBe('4px');
+    expect(resolveColumnOption(config, 'day_gap')).toBe('8px');
     expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
     expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
     expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('var(--divider-color)');
@@ -436,39 +436,47 @@ describe('min_day_column_width_px normalization', () => {
  * looking at.
  */
 describe('computeColumnThresholdPx', () => {
-  it('fits the default config inside a standard Home Assistant section', () => {
-    // 152 x 3 + 16 padding + 2 x 4 gutter = 480, against a measured 500px section.
+  it('needs more than a single-span Home Assistant section for the default config', () => {
+    // 152 x 3 + 32 padding + 2 x 8 gutter = 504, against a measured 500px section.
     //
-    // This assertion is the reason min_day_column_width_px is 152 rather than the
-    // 160 originally proposed: at 160 the threshold is 512px, so the column view
-    // would never have activated in the default HA layout at all. Do not "restore"
-    // 160 for consistency with the design doc — measurement supersedes it.
+    // This assertion used to read "fits the default config inside a standard Home
+    // Assistant section", and it no longer does -- by 4px. Recorded here rather than
+    // quietly relaxed, because it is a real behaviour change: a default 3-day card
+    // dropped into a single-span section now renders as a list. Two live-reviewed
+    // rulings spent that headroom deliberately. The card padding went from a
+    // symmetric 8px back to 16px so the first column lines up with the card title
+    // (it had been narrowed purely to buy this headroom, which bought nothing --
+    // below the threshold the card falls back to a list anyway), and `day_gap` went
+    // from 4px to 8px because adjacent columns read as one block without it.
     //
-    // The 20px of headroom here is the entire margin the default config has. It was
-    // 8px until `day_gap` dropped from 10px to the 4px the spec's worked example
-    // uses. Anything that widens the gutter or the minimum column width spends it.
+    // min_day_column_width_px stays at 152 rather than the 160 originally proposed.
+    // That measurement still stands on its own: at 160 the threshold would be 536px,
+    // spending a further 32px for no reviewed reason. Do not "restore" 160 for
+    // consistency with the design doc.
+    //
+    // The practical floor is now a two-span section, or `days_to_show: 2`.
     const threshold = computeColumnThresholdPx(buildConfig());
 
-    expect(threshold).toBe(480);
-    expect(threshold).toBeLessThanOrEqual(500);
+    expect(threshold).toBe(504);
+    expect(threshold).toBeGreaterThan(500);
   });
 
   it('scales with days_to_show', () => {
     const config = buildConfig();
     config.days_to_show = 5;
 
-    // 152 x 5 + 16 + 4 x 4 = 792
-    expect(computeColumnThresholdPx(config)).toBe(792);
+    // 152 x 5 + 32 + 4 x 8 = 824
+    expect(computeColumnThresholdPx(config)).toBe(824);
   });
 
   it('accounts for a configured gutter', () => {
     const config = buildConfig();
-    // Deliberately not 4px: that is the default, so the assertion would pass even if
+    // Deliberately not 8px: that is the default, so the assertion would pass even if
     // the configured value were ignored entirely.
     config.column = { day_gap: '10px' };
 
-    // 152 x 3 + 16 + 2 x 10 = 492
-    expect(computeColumnThresholdPx(config)).toBe(492);
+    // 152 x 3 + 32 + 2 x 10 = 508
+    expect(computeColumnThresholdPx(config)).toBe(508);
   });
 
   it('falls back rather than producing NaN for a non-px gutter', () => {
@@ -481,7 +489,7 @@ describe('computeColumnThresholdPx', () => {
     const threshold = computeColumnThresholdPx(config);
     expect(Number.isFinite(threshold)).toBe(true);
     // The fallback is the default gutter, so an unresolvable length costs nothing.
-    expect(threshold).toBe(480);
+    expect(threshold).toBe(504);
   });
 });
 
@@ -536,7 +544,7 @@ describe('resolveEffectiveView', () => {
 });
 
 describe('resolveViewOnMeasurement', () => {
-  // Not the default threshold (that is 480). This is the value that was live when the
+  // Not the default threshold (that is 504). This is the value that was live when the
   // regression below was measured, and these are pure-function inputs, so it is kept
   // as the historical record rather than tracked against COLUMN_DEFAULTS.
   const THRESHOLD = 492;
