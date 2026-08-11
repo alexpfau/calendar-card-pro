@@ -131,6 +131,25 @@ entities:
     show_description: false # Hide descriptions for personal events
 ```
 
+## ✂️ Limiting Lines Per Field
+
+Long titles, times, locations and descriptions can each be capped to a fixed number of lines, after which the text is truncated with `...`. Each field has its own option, and `0` means unlimited (no clamp):
+
+```yaml
+title_max_lines: 1 # Keep every event title to a single line
+time_max_lines: 1 # Keep the time on one line
+location_max_lines: 2 # Allow locations up to two lines
+description_max_lines: 3 # Allow descriptions up to three lines
+```
+
+Each option is a line count, not a toggle: `1` shows one line then an ellipsis, `2` shows two lines, and so on. All four work in both list and column view, and each can be overridden inside a `column:` block to clamp differently per view:
+
+```yaml
+title_max_lines: 0 # Unlimited in list view
+column:
+  title_max_lines: 1 # But single-line in the denser column view
+```
+
 ## ⏳ Countdown Display
 
 Show how much time remains until an event starts with the countdown display feature:

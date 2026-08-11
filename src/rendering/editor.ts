@@ -1296,6 +1296,7 @@ export class CalendarCardProEditor extends LitElement {
             ${this.addTextField('event_font_size', this._getTranslation('event_font_size'))}
             ${this.addTextField('event_color', this._getTranslation('event_color'))}
             ${this.addTextField('empty_day_color', this._getTranslation('empty_day_color'))}
+            ${this.addTextField('title_max_lines', this._getTranslation('title_max_lines'))}
 
             <!-- Time Display -->
             <h3>${this._getTranslation('time')}</h3>
@@ -1319,6 +1320,7 @@ export class CalendarCardProEditor extends LitElement {
                 ${this.addTextField('time_font_size', this._getTranslation('time_font_size'))}
                 ${this.addTextField('time_color', this._getTranslation('time_color'))}
                 ${this.addTextField('time_icon_size', this._getTranslation('time_icon_size'))}
+                ${this.addTextField('time_max_lines', this._getTranslation('time_max_lines'))}
               `;
             })()}
 
@@ -1340,6 +1342,10 @@ export class CalendarCardProEditor extends LitElement {
                 ${this.addTextField(
                   'location_icon_size',
                   this._getTranslation('location_icon_size'),
+                )}
+                ${this.addTextField(
+                  'location_max_lines',
+                  this._getTranslation('location_max_lines'),
                 )}
                 ${this.addSelectField(
                   'remove_location_country_selector',
