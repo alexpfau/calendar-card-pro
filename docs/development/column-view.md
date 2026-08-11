@@ -984,10 +984,31 @@ round-trips as a truthy string. If a key cannot take a sentinel, it is not kind 
 > irrelevant. Moving the split itself into the grouping function — the obvious alternative —
 > would have reordered it against that filter and changed list-view output.
 >
-> **Per-entity precedence is unchanged and still wins.** `shouldSplitEvent` consults
-> `_matchedConfig.split_multiday_events` before the global, so an entity that sets it `false`
-> stays unsplit in column view. That preserves the documented precedence at the cost of leaving
-> one path where a column can still under-report. Open, and deliberately not resolved here.
+> **[v11] Per-entity precedence is overridden in column view.** `shouldSplitEvent` consults
+> `_matchedConfig.split_multiday_events` before the global, so before this ruling an entity
+> that set it `false` stayed unsplit in column view. That preserved the documented precedence
+> and was left open in v10 — but live testing made the cost concrete rather than theoretical:
+> a card with the opt-out on one calendar and not the other rendered **two different truth
+> standards side by side**, one calendar's multi-day event spanning its columns while the
+> other's sat in its start column carrying `until Friday, Aug 14` and left Friday's column
+> blank. On the maintainer's ruling the column default now wins: **a per-entity
+> `split_multiday_events: false` is inert in column view**, joining `compact_events_to_show`
+> in that category (A3-D). List view is untouched — there a multi-day event is one row that
+> names its own end date, so nothing is concealed and the documented precedence still holds.
+>
+> The argument is the same one that made the divergent default: a column is a claim about a
+> single day, so an unsplit event does not merely render differently, it makes every later
+> column it covers assert an absence that is false. Precedence is a convenience; structural
+> honesty is not negotiable per entity. Mechanically this is an `ignorePerEntityOverride`
+> flag threaded `groupEventsByDay` → `processMultiDayEvents` → `shouldSplitEvent`, set only
+> on the column render-time top-up. `_matchedConfig` is **not** mutated — it is shared state
+> on the event objects, and every other consumer of it (labels, colours, `show_time`) must
+> keep reading the user's real value.
+>
+> **Editor obligation.** This is the third column-inert key, after `today_indicator_position`
+> and the compact-mode cluster, and it inherits the same unresolved problem: the editor
+> currently offers the control with no indication that column view ignores it. Tracked with
+> the others under the per-view editor surface question (D7).
 >
 > **[v10] Deferred to the grid view.** A grid conventionally lifts multi-day events out of the
 > per-day columns into a dedicated band between the date header and the grid body. For all-day

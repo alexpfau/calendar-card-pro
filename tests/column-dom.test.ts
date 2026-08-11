@@ -823,6 +823,56 @@ describe('column view DOM', () => {
       expect(covered.length).toBe(1);
       expect(covered[0]?.textContent).toContain('until');
     });
+
+    /**
+     * A per-entity `split_multiday_events: false` is inert in column view (spec §D5), and
+     * these two tests are a matched pair: the same event, the same opt-out, opposite
+     * outcomes in the two views. Asserting only the column half would pass just as well
+     * if the per-entity setting had been broken outright rather than scoped to one view.
+     *
+     * The reason for the exception is structural. A column is a claim about one day, so
+     * an unsplit event leaves every later column it spans silently blank — and because
+     * precedence is per entity, one calendar in a card would be honest while another was
+     * not. In list view a multi-day event is one row that names its own end date, so
+     * nothing is hidden and the documented precedence stands.
+     */
+    const optedOutOfSplitting = () =>
+      EVENTS.map((event) =>
+        event.summary === 'Conference'
+          ? {
+              ...event,
+              _matchedConfig: { entity: 'calendar.personal', split_multiday_events: false },
+            }
+          : event,
+      );
+
+    it('ignores a per-entity opt-out, because a column cannot lie about its own day', () => {
+      const container = renderColumnContainer(optedOutOfSplitting(), buildConfig());
+      const covered = Array.from(container.querySelectorAll('.day-column')).filter((column) =>
+        column.textContent?.includes('Conference'),
+      );
+
+      expect(covered.length).toBe(2);
+      // Both segments carry the per-entity config through the split, so a later change
+      // that re-reads it downstream cannot quietly undo this.
+      for (const column of covered) {
+        expect(column.textContent).not.toContain('until');
+      }
+    });
+
+    it('still honours a per-entity opt-out in list view', () => {
+      // Top-level `true` so the opt-out is the only thing that can hold the event
+      // together; with the default `false` the event would stay whole either way and
+      // the test would pass without asserting anything.
+      const container = renderListContainer(
+        optedOutOfSplitting(),
+        buildConfig({ split_multiday_events: true }),
+      );
+      const appearances = (container.textContent ?? '').split('Conference').length - 1;
+
+      expect(appearances).toBe(1);
+      expect(container.textContent).toContain('until');
+    });
   });
 
   describe('day classification', () => {

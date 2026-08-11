@@ -182,8 +182,18 @@ export function groupEventsByDay(
   // sorts its own events further down. Skipped entirely when the resolved answer is
   // `false`, where the fetch-time pass — including any per-entity opt-in — already
   // stands.
+  //
+  // `ignorePerEntityOverride` is set because a per-entity `split_multiday_events: false`
+  // is inert in column view (spec §D5). A column is a claim about one day, so an unsplit
+  // event would leave every later column it spans silently blank; per-entity precedence
+  // would otherwise make one calendar honest and another not, in the same card. In list
+  // view the flag is `false` and the per-entity setting keeps its documented precedence.
   const splitEvents = ViewConfig.resolveViewOption(config, 'split_multiday_events', effectiveView)
-    ? processMultiDayEvents(events, { ...config, split_multiday_events: true })
+    ? processMultiDayEvents(
+        events,
+        { ...config, split_multiday_events: true },
+        effectiveView === 'column',
+      )
     : events;
 
   // Use reference date from configuration instead of hardcoded "today"
@@ -770,16 +780,21 @@ function processEvents(
 
 /**
  * Process and split multi-day events based on configuration
+ *
+ * @param ignorePerEntityOverride - Skip the per-entity `split_multiday_events` check and
+ *   obey the global value alone. Used by the column-view render pass, where a per-entity
+ *   opt-out is inert (spec §D5).
  */
 function processMultiDayEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
+  ignorePerEntityOverride = false,
 ): Types.CalendarEventData[] {
   const result: Types.CalendarEventData[] = [];
 
   for (const event of events) {
     // Skip if we shouldn't split this event
-    if (!shouldSplitEvent(event, config)) {
+    if (!shouldSplitEvent(event, config, ignorePerEntityOverride)) {
       result.push(event);
       continue;
     }
@@ -827,10 +842,18 @@ function isMultiDayEvent(event: Types.CalendarEventData): boolean {
 
 /**
  * Check if event splitting should be applied based on configuration
+ *
+ * @param ignorePerEntityOverride - Ignore any per-entity `split_multiday_events` and use
+ *   the global value. Column view sets this; see `groupEventsByDay`.
  */
-function shouldSplitEvent(event: Types.CalendarEventData, config: Types.Config): boolean {
+function shouldSplitEvent(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  ignorePerEntityOverride = false,
+): boolean {
   // Check entity-specific setting if available
   if (
+    !ignorePerEntityOverride &&
     event._entityId &&
     event._matchedConfig &&
     typeof event._matchedConfig.split_multiday_events !== 'undefined'
