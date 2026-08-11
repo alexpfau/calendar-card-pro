@@ -201,6 +201,11 @@ class CalendarCardPro extends LitElement {
     language: string;
     count: number;
   };
+  private _effectiveConfigCache?: {
+    config: Types.Config;
+    view: Types.EffectiveView;
+    resolved: Types.Config;
+  };
 
   // Interaction state
   private _activePointerId: number | null = null;
@@ -263,7 +268,7 @@ class CalendarCardPro extends LitElement {
   get groupedEvents(): Types.EventsByDay[] {
     return EventUtils.groupEventsByDay(
       this.events,
-      this.config,
+      this.effectiveConfig,
       this.isExpanded,
       this.effectiveLanguage,
       this.effectiveView,
@@ -296,6 +301,36 @@ class CalendarCardPro extends LitElement {
     }
 
     return this._effectiveView;
+  }
+
+  /**
+   * The configuration as it applies to the view currently on screen.
+   *
+   * Everything downstream of the render entry points reads this rather than
+   * `config`, so a `column:` override reaches the renderers, the leaf helpers and
+   * the custom-property map without any of them having to know a view exists. See
+   * `resolveEffectiveConfig` for why the merge happens here rather than at each
+   * read.
+   *
+   * Memoized on configuration and view identity because the result is passed to
+   * caches that compare configurations by reference — handing them a freshly
+   * allocated equal object on every access would turn each of those into a miss.
+   * In list view the resolver returns the original object, so the common path
+   * allocates nothing at all.
+   */
+  get effectiveConfig(): Types.Config {
+    const view = this.effectiveView;
+    const cache = this._effectiveConfigCache;
+
+    if (cache && cache.config === this.config && cache.view === view) {
+      return cache.resolved;
+    }
+
+    const resolved = ViewConfig.resolveEffectiveConfig(this.config, view);
+
+    this._effectiveConfigCache = { config: this.config, view, resolved };
+
+    return resolved;
   }
 
   /**
@@ -697,7 +732,7 @@ class CalendarCardPro extends LitElement {
    */
   private getCustomStyles(): Record<string, string> {
     // Convert CSS custom properties to a style object
-    return Styles.generateCustomPropertiesObject(this.config);
+    return Styles.generateCustomPropertiesObject(this.effectiveConfig);
   }
 
   /**
@@ -1125,14 +1160,14 @@ class CalendarCardPro extends LitElement {
       this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
             days,
-            this.config,
+            this.effectiveConfig,
             this.effectiveLanguage,
             this.weatherForecasts,
             this.safeHass,
           )
         : Render.renderGroupedEvents(
             days,
-            this.config,
+            this.effectiveConfig,
             this.effectiveLanguage,
             this.weatherForecasts,
             this.safeHass,
@@ -1155,7 +1190,7 @@ class CalendarCardPro extends LitElement {
       // which now handles empty API results correctly
       const groupedEmptyDays = EventUtils.groupEventsByDay(
         [], // Empty events array
-        this.config,
+        this.effectiveConfig,
         this.isExpanded,
         this.effectiveLanguage,
         this.effectiveView,

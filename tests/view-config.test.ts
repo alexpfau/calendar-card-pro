@@ -11,11 +11,13 @@ import {
   computeColumnThresholdPx,
   isZeroLength,
   resolveColumnOption,
+  resolveEffectiveConfig,
   resolveEffectiveView,
   resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
 } from '../src/config/view';
+import { generateCustomPropertiesObject } from '../src/rendering/styles';
 
 /**
  * Per-view option resolution.
@@ -151,6 +153,145 @@ describe('resolveViewOption — falsy values are values', () => {
     // `'toString' in {}` is true; `hasOwnProperty` is what keeps that from
     // registering as a configured option.
     expect(resolveViewOption(config, 'show_location', 'column')).toBe(true);
+  });
+});
+
+describe('resolveEffectiveConfig', () => {
+  it('applies an override of false against a top-level true', () => {
+    const config = buildConfig({
+      show_location: true,
+      column: { show_location: false },
+    });
+
+    expect(resolveEffectiveConfig(config, 'column').show_location).toBe(false);
+  });
+
+  // The mirror, for the same reason the per-option resolver has one.
+  it('applies an override of true against a top-level false', () => {
+    const config = buildConfig({
+      show_location: false,
+      column: { show_location: true },
+    });
+
+    expect(resolveEffectiveConfig(config, 'column').show_location).toBe(true);
+  });
+
+  it('leaves an option the block does not mention', () => {
+    const config = buildConfig({
+      show_location: true,
+      show_description: true,
+      column: { show_location: false },
+    });
+
+    expect(resolveEffectiveConfig(config, 'column').show_description).toBe(true);
+  });
+
+  /**
+   * The parity contract.
+   *
+   * Two resolvers now answer the same question, and the bulk one is reached by far
+   * the more travelled path. Asserting them equal over every declared key means a key
+   * added to `COLUMN_OVERRIDE_KEYS` is covered the moment it is declared, and neither
+   * resolver can be changed in isolation without this failing.
+   */
+  it('agrees with resolveViewOption on every declared override key', () => {
+    expect(COLUMN_OVERRIDE_KEYS.length).toBeGreaterThan(30);
+
+    for (const key of COLUMN_OVERRIDE_KEYS) {
+      // Resolution is pass-through, so a sentinel exercises it as well as a
+      // well-typed value would — and unlike a real value it cannot coincide with
+      // whatever the top level or the shipped default happens to hold.
+      const sentinel = `__${key}__`;
+      const config = buildConfig({
+        column: { [key]: sentinel } as Partial<Types.Config>['column'],
+      });
+
+      const merged = resolveEffectiveConfig(config, 'column') as unknown as Record<string, unknown>;
+
+      expect(merged[key]).toBe(sentinel);
+      expect(resolveViewOption(config, key, 'column')).toBe(sentinel);
+    }
+  });
+
+  /**
+   * Identity on the no-op paths.
+   *
+   * The card memoizes on configuration identity and hands the result to caches that
+   * compare by reference. Returning a fresh equal object where nothing applies would
+   * still render correctly, so nothing else in the suite would notice — it would just
+   * quietly turn every one of those comparisons into a miss.
+   */
+  describe('returns the original object when nothing applies', () => {
+    it('in list view, however populated the block', () => {
+      const config = buildConfig({
+        show_location: true,
+        column: { show_location: false, event_font_size: '11px' },
+      });
+
+      expect(resolveEffectiveConfig(config, 'list')).toBe(config);
+    });
+
+    it('when there is no block at all', () => {
+      const config = buildConfig({ show_location: true });
+
+      expect(config.column).toBeUndefined();
+      expect(resolveEffectiveConfig(config, 'column')).toBe(config);
+    });
+
+    it('when the block supplies only column-only options', () => {
+      const config = buildConfig({ column: { day_gap: '20px' } });
+
+      expect(resolveEffectiveConfig(config, 'column')).toBe(config);
+    });
+  });
+
+  /**
+   * `COLUMN_ONLY_KEYS` have no top-level counterpart, so hoisting one would put a key
+   * on the configuration that no `Types.Config` field describes — and would shadow
+   * nothing, since there is nothing there to shadow. They stay in the block for
+   * `resolveColumnOption`, which is still the only reader.
+   */
+  it('does not hoist column-only options to the top level', () => {
+    const config = buildConfig({
+      show_location: false,
+      column: { show_location: true, day_gap: '20px' },
+    });
+
+    const merged = resolveEffectiveConfig(config, 'column') as unknown as Record<string, unknown>;
+
+    expect(merged.show_location).toBe(true);
+    expect(merged.day_gap).toBeUndefined();
+  });
+
+  it('keeps the block intact so column-only options still resolve downstream', () => {
+    const config = buildConfig({
+      show_location: false,
+      column: { show_location: true, day_gap: '20px' },
+    });
+
+    const merged = resolveEffectiveConfig(config, 'column');
+
+    expect(merged.column).toBe(config.column);
+    expect(resolveColumnOption(merged, 'day_gap')).toBe('20px');
+  });
+
+  /**
+   * The end-to-end case that motivated the merge. `max_height` is read only by the
+   * custom-property map, which takes a configuration and no view — so before this
+   * resolver existed, `column: { max_height }` parsed, validated and did nothing.
+   */
+  it('carries an override into the emitted custom properties', () => {
+    const config = buildConfig({
+      max_height: 'none',
+      column: { max_height: '250px' },
+    });
+
+    expect(generateCustomPropertiesObject(config)['--calendar-card-max-height']).toBe('none');
+    expect(
+      generateCustomPropertiesObject(resolveEffectiveConfig(config, 'column'))[
+        '--calendar-card-max-height'
+      ],
+    ).toBe('250px');
   });
 });
 

@@ -239,6 +239,8 @@ column:
 
 What decides the outcome is whether the block mentions an option at all, not what value it holds. `show_location: false` inside the block is a real instruction to hide the location, not an empty value that falls back to the top level.
 
+The block covers the card's dimensions too, and that is where it earns its keep most often: the same events laid out side by side are far shorter than they are stacked, so a `height` or `max_height` tuned for one view is usually wrong for the other. See [Height in Column View](/features/layout-appearance#height-in-column-view).
+
 ### Options That Cannot Be Overridden
 
 Only presentation options may appear in `column:`. Anything that decides _which_ events the card loads from Home Assistant — `entities`, `start_date`, `days_to_show`, `first_day_of_week`, `show_past_events`, `filter_duplicates`, `weather`, `refresh_interval` and `refresh_on_navigate` — has to hold the same value in both views. The card switches between the two layouts as the dashboard resizes, and a per-view value here would mean reloading events every time it crossed that boundary.

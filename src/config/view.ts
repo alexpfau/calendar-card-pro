@@ -22,47 +22,55 @@ import * as Logger from '../utils/logger';
  *
  * Exported so tests and future editor work can enumerate the block rather than
  * re-deriving it. Membership is deliberately narrow: see `ColumnOverrides`.
+ *
+ * The element type is intersected with `keyof Types.Config` to state the invariant the
+ * list has always held but never enforced — every option here has a top-level
+ * counterpart it overrides. That is what separates these from `COLUMN_ONLY_KEYS`, and
+ * it is what lets `resolveEffectiveConfig` spread them onto a configuration without
+ * inventing fields no `Types.Config` describes. Adding a column-only key here is now a
+ * compile error rather than a silently malformed configuration.
  */
-export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = [
-  'show_empty_days',
-  'empty_day_text',
-  'vertical_line_width',
-  'event_spacing',
-  'additional_card_spacing',
-  'height',
-  'max_height',
-  'today_indicator',
-  'today_indicator_size',
-  'weekday_font_size',
-  'day_font_size',
-  'show_month',
-  'month_font_size',
-  'event_background_opacity',
-  'event_font_size',
-  'show_countdown',
-  'show_countdown_allday',
-  'show_progress_bar',
-  'progress_bar_height',
-  'progress_bar_width',
-  'event_icon_vertical_alignment',
-  'show_time',
-  'show_single_allday_time',
-  'time_two_digit_hours',
-  'show_end_time',
-  'time_font_size',
-  'time_icon_size',
-  'time_max_lines',
-  'show_location',
-  'remove_location_country',
-  'location_font_size',
-  'location_icon_size',
-  'location_max_lines',
-  'show_description',
-  'title_max_lines',
-  'description_max_lines',
-  'description_font_size',
-  'description_icon_size',
-];
+export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & keyof Types.Config> =
+  [
+    'show_empty_days',
+    'empty_day_text',
+    'vertical_line_width',
+    'event_spacing',
+    'additional_card_spacing',
+    'height',
+    'max_height',
+    'today_indicator',
+    'today_indicator_size',
+    'weekday_font_size',
+    'day_font_size',
+    'show_month',
+    'month_font_size',
+    'event_background_opacity',
+    'event_font_size',
+    'show_countdown',
+    'show_countdown_allday',
+    'show_progress_bar',
+    'progress_bar_height',
+    'progress_bar_width',
+    'event_icon_vertical_alignment',
+    'show_time',
+    'show_single_allday_time',
+    'time_two_digit_hours',
+    'show_end_time',
+    'time_font_size',
+    'time_icon_size',
+    'time_max_lines',
+    'show_location',
+    'remove_location_country',
+    'location_font_size',
+    'location_icon_size',
+    'location_max_lines',
+    'show_description',
+    'title_max_lines',
+    'description_max_lines',
+    'description_font_size',
+    'description_icon_size',
+  ];
 
 /**
  * Column-only options — the ones with no top-level counterpart.
@@ -349,6 +357,69 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
   // `hasOverride` has established that the option is present and not `undefined`,
   // which is the only way the optional override type can widen the config type.
   return overrides[key] as Types.Config[K];
+}
+
+/**
+ * Applies the `column:` block to a configuration, once, for the view being rendered.
+ *
+ * This is the bulk resolution counterpart to `resolveViewOption`, and it exists
+ * because the per-option form does not scale to where the options are actually read.
+ * Roughly two thirds of the override keys are consumed several frames deep in the
+ * render tree — inside `presentation.ts`, the leaf renderers, and the custom-property
+ * map — none of which take an effective view. Reaching them one option at a time
+ * would mean threading a view argument through every function that accepts a
+ * `Types.Config` and rewriting each `config.x` read into a resolver call, where a
+ * single missed read is an override that silently does nothing. Merging once, at the
+ * one boundary where the effective view is known, makes every existing read correct
+ * by construction and leaves exactly one place to test.
+ *
+ * `resolveViewOption` remains for callers that run *outside* that boundary and must
+ * resolve a single option against an explicitly supplied view — `groupEventsByDay`
+ * being the case in hand, since it is also called for a count that deliberately wants
+ * list semantics regardless of what is on screen.
+ *
+ * Two properties of the merge are load-bearing:
+ *
+ * - Only `COLUMN_OVERRIDE_KEYS` are applied. `COLUMN_ONLY_KEYS` are deliberately left
+ *   in the block for `resolveColumnOption` to read, because they have no top-level
+ *   counterpart; hoisting them would put keys on the configuration that no
+ *   `Types.Config` field describes. `NOT_YET_IMPLEMENTED_KEYS` are excluded for free,
+ *   as they are not members of the override list either.
+ * - The `column` block itself survives on the returned object, because
+ *   `resolveColumnOption` still reads it downstream. Spreading the applied keys over
+ *   the configuration preserves it, and nothing in the applied set can shadow it.
+ *
+ * The original object is returned by identity whenever nothing applies — list view, no
+ * block, or a block that sets nothing usable. Callers memoize on configuration
+ * identity, so allocating a fresh equal object per render would quietly defeat them.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param effectiveView - View currently being rendered
+ * @returns The configuration as it applies in that view
+ */
+export function resolveEffectiveConfig(
+  config: Types.Config,
+  effectiveView: Types.EffectiveView,
+): Types.Config {
+  const overrides = config.column;
+
+  if (effectiveView !== 'column' || !overrides) {
+    return config;
+  }
+
+  const applied: Record<string, unknown> = {};
+
+  for (const key of COLUMN_OVERRIDE_KEYS) {
+    if (hasOverride(overrides, key)) {
+      applied[key] = overrides[key];
+    }
+  }
+
+  if (Object.keys(applied).length === 0) {
+    return config;
+  }
+
+  return { ...config, ...applied } as Types.Config;
 }
 
 //-----------------------------------------------------------------------------

@@ -82,6 +82,9 @@ the card-wide settings for that one calendar:
 | `height`                  | string | `auto`                 | Sets a fixed, exact height for the card regardless of content amount (always this height, never more or less) |
 | `max_height`              | string | `none`                 | Allows the card to grow with content up to this maximum height limit                                          |
 
+Both height options may be overridden inside a `column:` block, and usually should be — see
+[Height in Column View](/features/layout-appearance#height-in-column-view).
+
 **→ [Layout and appearance](/features/layout-appearance)**
 
 ## 📐 Week Numbers & Horizontal Separators

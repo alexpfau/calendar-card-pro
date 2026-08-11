@@ -29,6 +29,33 @@ Both options provide:
 - Modern, clean scrollbars that only appear during hover/scrolling
 - Consistent behavior across desktop and mobile browsers
 
+### Height in Column View
+
+Both options work the same way when the card renders as columns, and both may be
+overridden inside a `column:` block. That matters more here than it looks: the same events
+laid out side by side are far shorter than they are stacked, so a `max_height` tuned for
+the list layout often never comes into play in column view — and one tuned for columns
+would truncate the list badly.
+
+```yaml
+view: column
+max_height: '600px'
+column:
+  max_height: '320px'
+```
+
+What scrolls is the **whole card**, not an individual day. The columns sit inside one
+scrolling area, so the day headers move together with their events and nothing scrolls out
+of alignment with its neighbors. The grid is exactly as tall as its tallest day, which
+means a quiet day leaves empty space beneath its last event rather than stretching to
+match — the events stay anchored under their header.
+
+::: tip Sizing From The Dashboard Instead
+Home Assistant's own layout controls (⋮ → **Edit** → **Layout**) can constrain the card
+too, and they scroll it the same way. Use them when a row height is precise enough;
+reach for `max_height` when you want an exact pixel value, or a different limit per view.
+:::
+
 ## 🎨 Visual Styling & Colors
 
 Customize the appearance of your calendar with various styling options:
