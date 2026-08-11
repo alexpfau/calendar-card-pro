@@ -49,6 +49,12 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       config.time_max_lines > 0 ? String(config.time_max_lines) : 'none',
     '--calendar-card-location-max-lines':
       config.location_max_lines > 0 ? String(config.location_max_lines) : 'none',
+    // The title is the one clamp target whose parent (.summary) is not a flex
+    // container, so blockifying it with -webkit-box is NOT layout-neutral -- it
+    // measurably tightens every event row. Keep the span inline until the user
+    // actually asks for a limit. The other three targets sit inside flex parents
+    // and are already blockified, so they need no such guard.
+    '--calendar-card-title-display': config.title_max_lines > 0 ? '-webkit-box' : 'inline',
     '--calendar-card-date-column-width': `${parseFloat(config.day_font_size) * 1.75}px`,
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-icon-vertical-alignment':
@@ -686,7 +692,7 @@ export const cardStyles = css`
      display: -webkit-box element. Unlimited is expressed as the string 'none',
      emitted by generateCustomPropertiesObject when the option is 0. */
   .event-title {
-    display: -webkit-box;
+    display: var(--calendar-card-title-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
     overflow: hidden;

@@ -35,6 +35,22 @@ describe('per-field max-lines custom properties', () => {
     expect(props[prop]).toBe('none');
   });
 
+  // Regression guard. The title is the only clamp target whose parent (.summary)
+  // is not a flex container, so an unconditional `display: -webkit-box` blockifies
+  // it and measurably tightens every event row -- in BOTH views, for every user,
+  // at a default that is meant to be a no-op. Measured live: card height fell
+  // 386px -> 372px before this was made conditional. The other three targets sit
+  // inside flex parents and are already blockified, so they need no guard.
+  it('leaves the title inline at the default so clamping is layout-neutral', () => {
+    const props = generateCustomPropertiesObject(buildConfig());
+    expect(props['--calendar-card-title-display']).toBe('inline');
+  });
+
+  it('blockifies the title only once a limit is actually set', () => {
+    const props = generateCustomPropertiesObject(buildConfig({ title_max_lines: 2 }));
+    expect(props['--calendar-card-title-display']).toBe('-webkit-box');
+  });
+
   it('honours a per-field value overridden inside a column block', () => {
     const config = buildConfig({ time_max_lines: 0, column: { time_max_lines: 1 } });
     // The override lives in the column block; generateCustomPropertiesObject reads
