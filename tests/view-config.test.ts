@@ -5,6 +5,7 @@ import { DEFAULT_CONFIG, normalizeNumericOptions } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
+  COLUMN_DEFAULT_OVERRIDES,
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   VIEW_SWITCH_HYSTERESIS_PX,
@@ -221,8 +222,8 @@ describe('resolveEffectiveConfig', () => {
    * still render correctly, so nothing else in the suite would notice — it would just
    * quietly turn every one of those comparisons into a miss.
    */
-  describe('returns the original object when nothing applies', () => {
-    it('in list view, however populated the block', () => {
+  describe('object identity', () => {
+    it('returns the original in list view, however populated the block', () => {
       const config = buildConfig({
         show_location: true,
         column: { show_location: false, event_font_size: '11px' },
@@ -231,17 +232,66 @@ describe('resolveEffectiveConfig', () => {
       expect(resolveEffectiveConfig(config, 'list')).toBe(config);
     });
 
-    it('when there is no block at all', () => {
+    // Column view always allocates, because `COLUMN_DEFAULT_OVERRIDES` applies there
+    // whether or not a block exists. Cheap only because the card memoizes the call on
+    // configuration *and* view identity; see the `effectiveConfig` getter.
+    it('allocates in column view even with no block at all', () => {
       const config = buildConfig({ show_location: true });
 
       expect(config.column).toBeUndefined();
-      expect(resolveEffectiveConfig(config, 'column')).toBe(config);
+      expect(resolveEffectiveConfig(config, 'column')).not.toBe(config);
+      expect(resolveEffectiveConfig(config, 'column').show_location).toBe(true);
     });
 
-    it('when the block supplies only column-only options', () => {
+    it('allocates in column view when the block supplies only column-only options', () => {
       const config = buildConfig({ column: { day_header_gap: '20px' } });
 
-      expect(resolveEffectiveConfig(config, 'column')).toBe(config);
+      expect(resolveEffectiveConfig(config, 'column')).not.toBe(config);
+    });
+  });
+
+  /**
+   * The keys where the two views disagree about what "unconfigured" means. These do
+   * not inherit the top-level value in column view at all — the column default stands
+   * until the block overrides it, so the escape hatch is always the block.
+   */
+  describe('divergent column defaults', () => {
+    it('defaults show_empty_days to true in column view and false in list view', () => {
+      const config = buildConfig({});
+
+      expect(config.show_empty_days).toBe(false);
+      expect(resolveEffectiveConfig(config, 'list').show_empty_days).toBe(false);
+      expect(resolveEffectiveConfig(config, 'column').show_empty_days).toBe(true);
+    });
+
+    it('does not inherit an explicit top-level false into column view', () => {
+      const config = buildConfig({ show_empty_days: false });
+
+      expect(resolveEffectiveConfig(config, 'list').show_empty_days).toBe(false);
+      expect(resolveEffectiveConfig(config, 'column').show_empty_days).toBe(true);
+    });
+
+    it('lets the block switch the column default back off', () => {
+      const config = buildConfig({ column: { show_empty_days: false } });
+
+      expect(resolveEffectiveConfig(config, 'column').show_empty_days).toBe(false);
+      expect(resolveEffectiveConfig(config, 'list').show_empty_days).toBe(false);
+    });
+
+    it('applies the same precedence through resolveViewOption', () => {
+      const plain = buildConfig({ show_empty_days: false });
+      const blocked = buildConfig({ column: { show_empty_days: false } });
+
+      expect(resolveViewOption(plain, 'show_empty_days', 'list')).toBe(false);
+      expect(resolveViewOption(plain, 'show_empty_days', 'column')).toBe(true);
+      expect(resolveViewOption(blocked, 'show_empty_days', 'column')).toBe(false);
+    });
+
+    // A default that no block can reach is unconditional, not a default.
+    it('keeps every divergent default reachable through the block', () => {
+      Object.keys(COLUMN_DEFAULT_OVERRIDES).forEach((key) => {
+        expect(COLUMN_OVERRIDE_KEYS).toContain(key);
+      });
     });
   });
 

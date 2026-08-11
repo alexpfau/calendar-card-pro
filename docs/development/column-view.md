@@ -1165,6 +1165,38 @@ block`), inheriting from the merged top-level value, never from `DEFAULT_CONFIG`
   editor-translated languages — a _partial_ `editor` section renders raw key names rather than
   falling back to English. Building those controls against a spec that is still moving would
   mean building them twice, so they follow the block rather than accompany it.
+- **Divergent column defaults — a carve-out of the inheritance rule (new v10).** Two keys are
+  wrong at their shipped default in a grid of days. `show_empty_days` is the case in hand: a
+  _list_ of events reads perfectly well with blank days omitted, but a _grid_ with the blank
+  columns missing stops corresponding to consecutive days, and the card silently becomes a
+  different thing than it looks like. Such keys are listed in `COLUMN_DEFAULT_OVERRIDES` and
+  **do not inherit their top-level value in column view at all** — the column default stands
+  until the `column:` block overrides it:
+
+  ```yaml
+  view: column
+  column:
+    show_empty_days: false # the only way to switch it off for columns
+  ```
+
+  The rejected alternative was "inherit only where the user left the top level untouched",
+  which needs a record of which keys were typed by hand and produces the surprising result
+  that two cards with identical _effective_ list behaviour render differently in column view
+  depending on whether a value was written or defaulted. One sentence of documentation beats a
+  distinction invisible in the YAML. Every member of the table must also be a member of
+  `COLUMN_OVERRIDE_KEYS`, or the escape hatch fails validation and the default becomes
+  unconditional; a test enforces that. The cost is that column view can no longer return the
+  configuration by identity, which is why `effectiveConfig` memoizes on configuration **and**
+  view.
+- **`split_multiday_events` belongs in that table but is blocked (new v10).** A column _is_ a
+  day, so an unsplit multi-day event makes the card lie: it renders in its start column only,
+  and every later column it spans asserts "no upcoming events" while a tracked event is in
+  progress. Confirmed on a live card. It cannot join `COLUMN_DEFAULT_OVERRIDES` as things
+  stand, because splitting happens in `processMultiDayEvents`, which runs inside
+  `processRawEvents` on the **fetch and cache-hydration** path — not per render. Its result is
+  baked into the stored event array, so a per-view value would force a reprocess on every
+  width-threshold crossing, which is exactly the refetch-free guarantee G10 and E-crit 3 exist
+  to protect. See §D7.
 
 > Full audit, per-key classification and rejected alternatives:
 > [column-view-rationale.md](./column-view-rationale.md#d6-per-view-config-overrides-new-v8)

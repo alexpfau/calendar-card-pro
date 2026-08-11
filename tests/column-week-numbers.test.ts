@@ -126,12 +126,13 @@ describe('column view week numbers', () => {
   it('shows the number only on the column that starts a week', () => {
     const container = renderColumns(ACROSS_A_WEEK, { show_week_numbers: 'iso' });
     const shown = visibleWeekNumbers(container);
+    const visibleAt = shown.flatMap((value, index) => (value === null ? [] : [index]));
 
-    // First column is a week start by construction; Monday opens the next one.
-    expect(shown.filter((value) => value !== null)).toHaveLength(2);
-    expect(shown[0]).not.toBeNull();
-    expect(shown.at(-1)).not.toBeNull();
-    expect(shown.slice(1, -1).every((value) => value === null)).toBe(true);
+    // Empty days are shown by default in column view, so the window is the full seven
+    // days from the frozen now -- Wed 17 June to Tue 23. The first column opens the
+    // current week; Monday 22 opens the next one, five columns along. Tuesday 23
+    // trails it and shows nothing.
+    expect(visibleAt).toEqual([0, 5]);
   });
 
   it('renders a hidden cell with its own real week number, not a blank', () => {
@@ -160,17 +161,21 @@ describe('column view week numbers', () => {
       show_current_week_number: false,
     });
     const shown = visibleWeekNumbers(container);
+    const visibleAt = shown.flatMap((value, index) => (value === null ? [] : [index]));
 
+    // Only the current week is suppressed, so Monday 22 still carries its number.
     expect(shown[0]).toBeNull();
-    expect(shown.at(-1)).not.toBeNull();
+    expect(visibleAt).toEqual([5]);
   });
 
   it('drops the row entirely when no column would fill it', () => {
     // A span wholly inside a week already in progress: the only week start is the
     // first column, and that is the one `show_current_week_number: false` hides. The
     // row would otherwise reserve blank space in every column for a number none of
-    // them shows.
+    // them shows. `days_to_show` is cut to three so the default-on empty days cannot
+    // extend the window past the following Monday and reintroduce a week start.
     const container = renderColumns(INSIDE_ONE_WEEK, {
+      days_to_show: 3,
       show_week_numbers: 'iso',
       show_current_week_number: false,
     });

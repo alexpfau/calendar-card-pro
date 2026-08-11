@@ -334,11 +334,47 @@ function hasOverride(overrides: Types.ColumnOverrides, key: keyof Types.ColumnOv
 }
 
 /**
+ * Options whose shipped default differs in column view.
+ *
+ * These are the keys where the two views disagree about what "unconfigured" should
+ * mean. `show_empty_days` is the case in hand: a list of events reads perfectly well
+ * with the blank days omitted, but a grid of day columns with the blank ones missing
+ * does not — the columns stop corresponding to consecutive days, and the card silently
+ * becomes a different thing than it looks like.
+ *
+ * The rule is deliberately *not* "inherit unless the user said otherwise". A key
+ * listed here does **not** inherit its top-level value in column view at all: the
+ * column default stands until the `column:` block overrides it. The alternative —
+ * inheriting only when the user left the top level untouched — needs a record of
+ * which keys were written by hand, and produces the surprising result that two cards
+ * with identical *effective* list behaviour render differently in column view
+ * depending on whether a value was typed or defaulted. One sentence of documentation
+ * beats a distinction that is invisible in the YAML.
+ *
+ * The escape hatch is therefore always the block, never the top level:
+ *
+ * ```yaml
+ * view: column
+ * column:
+ *   show_empty_days: false   # the only way to switch it off for columns
+ * ```
+ *
+ * Every key here must also be a member of `COLUMN_OVERRIDE_KEYS`, or that escape
+ * hatch fails validation and the default becomes unconditional.
+ */
+export const COLUMN_DEFAULT_OVERRIDES: {
+  readonly [K in keyof Types.ColumnOverrides & keyof Types.Config]?: Types.Config[K];
+} = {
+  show_empty_days: true,
+};
+
+/**
  * Resolves the effective value of an option for the view being rendered.
  *
  * In list view the top-level value always wins. In column view the `column:` block
  * wins where it supplies the option, and the top-level value is inherited where it
- * does not.
+ * does not — except for the keys in `COLUMN_DEFAULT_OVERRIDES`, which substitute a
+ * column-specific default instead of inheriting.
  *
  * Inheritance reads the **merged** configuration passed in, never `DEFAULT_CONFIG`.
  * By the time a configuration reaches a renderer the defaults have already been
@@ -360,19 +396,21 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
   key: K,
   effectiveView: Types.EffectiveView,
 ): Types.Config[K] {
+  if (effectiveView !== 'column') {
+    return config[key];
+  }
+
   const overrides = config.column;
 
-  if (effectiveView !== 'column' || !overrides) {
-    return config[key];
+  if (overrides && hasOverride(overrides, key)) {
+    // `hasOverride` has established that the option is present and not `undefined`,
+    // which is the only way the optional override type can widen the config type.
+    return overrides[key] as Types.Config[K];
   }
 
-  if (!hasOverride(overrides, key)) {
-    return config[key];
-  }
-
-  // `hasOverride` has established that the option is present and not `undefined`,
-  // which is the only way the optional override type can widen the config type.
-  return overrides[key] as Types.Config[K];
+  // `??` rather than a presence test on purpose: a column default of `false` is a
+  // legitimate value and must not fall through to the top-level one.
+  return COLUMN_DEFAULT_OVERRIDES[key] ?? config[key];
 }
 
 /**
@@ -405,9 +443,11 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
  *   `resolveColumnOption` still reads it downstream. Spreading the applied keys over
  *   the configuration preserves it, and nothing in the applied set can shadow it.
  *
- * The original object is returned by identity whenever nothing applies — list view, no
- * block, or a block that sets nothing usable. Callers memoize on configuration
- * identity, so allocating a fresh equal object per render would quietly defeat them.
+ * The original object is returned by identity in list view, where nothing can apply.
+ * Column view always allocates, because `COLUMN_DEFAULT_OVERRIDES` applies there
+ * whether or not a block exists. That is safe only because the card memoizes this
+ * call on configuration *and* view identity — see `effectiveConfig` — so a column
+ * card allocates once per configuration rather than once per render.
  *
  * @param config - Merged configuration, defaults already applied
  * @param effectiveView - View currently being rendered
@@ -417,22 +457,22 @@ export function resolveEffectiveConfig(
   config: Types.Config,
   effectiveView: Types.EffectiveView,
 ): Types.Config {
+  if (effectiveView !== 'column') {
+    return config;
+  }
+
   const overrides = config.column;
 
-  if (effectiveView !== 'column' || !overrides) {
-    return config;
-  }
+  // Seeded first, so an explicit block value overwrites the column default and a card
+  // carrying no block at all still receives the divergent defaults.
+  const applied: Record<string, unknown> = { ...COLUMN_DEFAULT_OVERRIDES };
 
-  const applied: Record<string, unknown> = {};
-
-  for (const key of COLUMN_OVERRIDE_KEYS) {
-    if (hasOverride(overrides, key)) {
-      applied[key] = coerceOverrideLength(key, overrides[key]);
+  if (overrides) {
+    for (const key of COLUMN_OVERRIDE_KEYS) {
+      if (hasOverride(overrides, key)) {
+        applied[key] = coerceOverrideLength(key, overrides[key]);
+      }
     }
-  }
-
-  if (Object.keys(applied).length === 0) {
-    return config;
   }
 
   return { ...config, ...applied } as Types.Config;
