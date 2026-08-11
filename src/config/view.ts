@@ -161,11 +161,12 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  * The chosen values make an absent `column:` block a visual no-op relative to the
  * list view's own defaults:
  *
- * - `day_gap` is `8px`, set by the maintainer's explicit ruling after live review of
- *   the 4px build: adjacent columns read as one block, exactly the legibility risk
- *   the 4px note below flagged as the first thing to re-measure. Record this as an
- *   amendment, not a re-derivation — the value is now ruled and must not be narrowed
- *   again on threshold-headroom grounds without asking.
+ * - `day_gap` is `12px`, set by the maintainer's explicit ruling after live review of
+ *   the 8px build. 8px was itself a ruling that replaced 4px on the same grounds —
+ *   adjacent columns reading as one block — and it moved the card most of the way
+ *   there without quite finishing the job. Record this as a second amendment, not a
+ *   re-derivation: the value is ruled and must not be narrowed again on
+ *   threshold-headroom grounds without asking.
  *
  *   The history matters because it is the shape of two prior defects. It shipped
  *   first as `10px`, justified as matching `DEFAULT_CONFIG.day_spacing` — the same
@@ -177,7 +178,7 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  *   MVP renders **no vertical rule between columns** (D6 defers that alongside week
  *   numbers), so this gap is the only thing separating two adjacent columns of text.
  *   Threshold cost is real: at the default `days_to_show: 3` the gutter accounts for
- *   16px of the width threshold at 8px against 8px at 4px. Widening the gap and
+ *   24px of the width threshold at 12px against 8px at 4px. Widening the gap and
  *   widening the threshold are the same act and cannot be traded independently.
  * - `day_header_gap` is `8px` — the vertical space between a day's header and its
  *   first event. It exists as its own option because that space used to be an
@@ -203,7 +204,7 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  *   half of B2 stands unchanged.
  */
 export const COLUMN_DEFAULTS = {
-  day_gap: '8px',
+  day_gap: '12px',
   day_header_gap: '8px',
   day_header_separator_width: '0px',
   day_header_separator_color: 'var(--divider-color)',
@@ -493,6 +494,16 @@ function parsePx(value: string, fallback: number): number {
 }
 
 /**
+ * Numeric form of `COLUMN_DEFAULTS.day_gap`, derived rather than restated.
+ *
+ * The threshold fallback and the rendered default must be the same number: a user who
+ * writes an unresolvable length such as `2em` should get the default spacing in the
+ * arithmetic, so an unparseable value costs nothing. Hardcoding it here is how those
+ * two drifted apart once already, when `day_gap` moved from 8px to 12px.
+ */
+const DEFAULT_DAY_GAP_PX = parsePx(COLUMN_DEFAULTS.day_gap, 12);
+
+/**
  * Computes the card width, in pixels, at or above which column view can render.
  *
  * ```
@@ -507,7 +518,7 @@ function parsePx(value: string, fallback: number): number {
  */
 export function computeColumnThresholdPx(config: Types.Config): number {
   const days = Math.max(1, Math.floor(config.days_to_show));
-  const gutter = parsePx(resolveColumnOption(config, 'day_gap'), 8);
+  const gutter = parsePx(resolveColumnOption(config, 'day_gap'), DEFAULT_DAY_GAP_PX);
 
   return config.min_day_column_width_px * days + COLUMN_CARD_PADDING_PX + (days - 1) * gutter;
 }

@@ -54,8 +54,8 @@ interface CardUnderTest extends HTMLElement {
 /**
  * Config under test.
  *
- * Not the bare default. A default 3-day card now needs 504px (152 x 3 + 32 padding +
- * 2 x 8 gutter), so it no longer fits Home Assistant's 500px single-span section at
+ * Not the bare default. A default 3-day card now needs 512px (152 x 3 + 32 padding +
+ * 2 x 12 gutter), so it no longer fits Home Assistant's 500px single-span section at
  * all -- both the transient and the settled width below would resolve to a list and
  * the ordering bug could not be reproduced. Pinning `day_gap` to 0px puts the
  * threshold at 488px, between the two measured widths, so the straddle this file

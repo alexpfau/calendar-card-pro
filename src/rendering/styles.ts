@@ -829,7 +829,7 @@ export const cardStyles = css`
     display: grid;
     grid-template-columns: auto auto 1fr;
     grid-template-areas:
-      'weekday weekday weather'
+      'weekday weekday .'
       'day month weather';
     align-items: baseline;
     column-gap: 6px;
@@ -852,19 +852,27 @@ export const cardStyles = css`
   }
 
   /*
-   * The weather badge is the only part of the header that may be long enough to
-   * overflow. It truncates rather than wrapping, because wrapping would push the
-   * header onto a third line and change the height of every column in the row.
+   * The weather badge sits on the second row, immediately after the month, sharing
+   * that row's baseline -- so a header reads as "Tue" over "11 AUG 31deg".
    *
-   * justify-self rather than the margin-inline-start: auto this used to carry -- that
-   * is the flex idiom for pushing an item to the far end, and it does nothing to a
-   * grid item that already owns its own column. align-self centres it against the two
-   * rows it spans instead of sitting on row one's baseline.
+   * justify-self is start, not end. The third track is 1fr and absorbs every pixel of
+   * slack, so ending the badge parks it against the *next* column's edge rather than
+   * its own: at a 304px column the badge landed 275px from the date it belongs to and
+   * 35px from the date it does not. Starting it pins the badge to the track's leading
+   * edge, which is the month, making the placement independent of column width.
+   *
+   * The alternative reviewed alongside this one put the badge on the top row beside
+   * the weekday. Both fix the drift; this one was chosen on the maintainer's ruling
+   * after live review, and it is also 3px shorter, because the badge shares a row with
+   * the tall day number instead of the short weekday.
+   *
+   * It truncates rather than wrapping, because wrapping would push the header onto a
+   * third line and change the height of every column in the row.
    */
   .column-date-content .weather {
     grid-area: weather;
-    justify-self: end;
-    align-self: center;
+    justify-self: start;
+    align-self: baseline;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;

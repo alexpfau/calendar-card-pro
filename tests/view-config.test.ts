@@ -332,7 +332,7 @@ describe('column view config surface', () => {
     // is the expected first step of any such change, not an obstacle to route around.
     const config = buildConfig();
 
-    expect(resolveColumnOption(config, 'day_gap')).toBe('8px');
+    expect(resolveColumnOption(config, 'day_gap')).toBe('12px');
     expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
     expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
     expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('var(--divider-color)');
@@ -437,17 +437,18 @@ describe('min_day_column_width_px normalization', () => {
  */
 describe('computeColumnThresholdPx', () => {
   it('needs more than a single-span Home Assistant section for the default config', () => {
-    // 152 x 3 + 32 padding + 2 x 8 gutter = 504, against a measured 500px section.
+    // 152 x 3 + 32 padding + 2 x 12 gutter = 512, against a measured 500px section.
     //
     // This assertion used to read "fits the default config inside a standard Home
-    // Assistant section", and it no longer does -- by 4px. Recorded here rather than
+    // Assistant section", and it no longer does -- by 12px. Recorded here rather than
     // quietly relaxed, because it is a real behaviour change: a default 3-day card
-    // dropped into a single-span section now renders as a list. Two live-reviewed
+    // dropped into a single-span section now renders as a list. Three live-reviewed
     // rulings spent that headroom deliberately. The card padding went from a
     // symmetric 8px back to 16px so the first column lines up with the card title
     // (it had been narrowed purely to buy this headroom, which bought nothing --
     // below the threshold the card falls back to a list anyway), and `day_gap` went
-    // from 4px to 8px because adjacent columns read as one block without it.
+    // from 4px to 8px and then to 12px because adjacent columns read as one block
+    // without it.
     //
     // min_day_column_width_px stays at 152 rather than the 160 originally proposed.
     // That measurement still stands on its own: at 160 the threshold would be 536px,
@@ -457,7 +458,7 @@ describe('computeColumnThresholdPx', () => {
     // The practical floor is now a two-span section, or `days_to_show: 2`.
     const threshold = computeColumnThresholdPx(buildConfig());
 
-    expect(threshold).toBe(504);
+    expect(threshold).toBe(512);
     expect(threshold).toBeGreaterThan(500);
   });
 
@@ -465,13 +466,13 @@ describe('computeColumnThresholdPx', () => {
     const config = buildConfig();
     config.days_to_show = 5;
 
-    // 152 x 5 + 32 + 4 x 8 = 824
-    expect(computeColumnThresholdPx(config)).toBe(824);
+    // 152 x 5 + 32 + 4 x 12 = 840
+    expect(computeColumnThresholdPx(config)).toBe(840);
   });
 
   it('accounts for a configured gutter', () => {
     const config = buildConfig();
-    // Deliberately not 8px: that is the default, so the assertion would pass even if
+    // Deliberately not 12px: that is the default, so the assertion would pass even if
     // the configured value were ignored entirely.
     config.column = { day_gap: '10px' };
 
@@ -489,7 +490,9 @@ describe('computeColumnThresholdPx', () => {
     const threshold = computeColumnThresholdPx(config);
     expect(Number.isFinite(threshold)).toBe(true);
     // The fallback is the default gutter, so an unresolvable length costs nothing.
-    expect(threshold).toBe(504);
+    // Asserting the same number as the default-config case above is the point: it
+    // pins the two together, which is what `DEFAULT_DAY_GAP_PX` exists to guarantee.
+    expect(threshold).toBe(512);
   });
 });
 
@@ -544,7 +547,7 @@ describe('resolveEffectiveView', () => {
 });
 
 describe('resolveViewOnMeasurement', () => {
-  // Not the default threshold (that is 504). This is the value that was live when the
+  // Not the default threshold (that is 512). This is the value that was live when the
   // regression below was measured, and these are pure-function inputs, so it is kept
   // as the historical record rather than tracked against COLUMN_DEFAULTS.
   const THRESHOLD = 492;

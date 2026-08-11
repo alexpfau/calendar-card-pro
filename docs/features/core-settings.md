@@ -255,7 +255,7 @@ counterpart.
 
 | Option                       | Type   | Default                | Description                                                                      |
 | ---------------------------- | ------ | ---------------------- | -------------------------------------------------------------------------------- |
-| `day_gap`                    | string | `8px`                  | Horizontal space between columns                                                 |
+| `day_gap`                    | string | `12px`                 | Horizontal space between columns                                                 |
 | `day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                          |
 | `day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule |
 | `day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                               |
