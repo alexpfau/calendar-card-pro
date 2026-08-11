@@ -22,6 +22,9 @@ import {
   resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
+  validateView,
+  viewAppliesCompactLimits,
+  viewForcesMultidaySplit,
 } from '../src/config/view';
 import { generateCustomPropertiesObject } from '../src/rendering/styles';
 
@@ -425,6 +428,71 @@ describe('resolveEffectiveConfig', () => {
         '--calendar-card-max-height'
       ],
     ).toBe('250px');
+  });
+});
+
+/**
+ * View-semantics predicates.
+ *
+ * These replaced inline `=== 'column'` comparisons so that a third view has somewhere
+ * to be answered rather than silently inheriting the list answer from a negative-form
+ * check. The tests pin the two shipped answers and, deliberately, nothing about a view
+ * that does not exist yet.
+ */
+describe('view-semantics predicates', () => {
+  it('applies compact-mode limits in list view but not in column view', () => {
+    expect(viewAppliesCompactLimits('list')).toBe(true);
+    expect(viewAppliesCompactLimits('column')).toBe(false);
+  });
+
+  it('forces the multi-day split in column view but not in list view', () => {
+    expect(viewForcesMultidaySplit('column')).toBe(true);
+    expect(viewForcesMultidaySplit('list')).toBe(false);
+  });
+});
+
+describe('validateView', () => {
+  beforeEach(() => {
+    warnMock.mockClear();
+  });
+
+  it.each(['list', 'column'] as const)('leaves %s untouched and stays silent', (view) => {
+    const config = buildConfig({ view });
+
+    validateView(config);
+
+    expect(config.view).toBe(view);
+    expect(warnMock).not.toHaveBeenCalled();
+  });
+
+  // The failure this exists for: a typo matches no `=== 'column'` branch anywhere, so
+  // the card renders a complete, correct-looking list with nothing to connect it to
+  // what the user wrote.
+  it('coerces a misspelled view to list and names the offending value', () => {
+    const config = buildConfig();
+    config.view = 'colunm' as unknown as Types.EffectiveView;
+
+    validateView(config);
+
+    expect(config.view).toBe('list');
+    expect(warnMock).toHaveBeenCalledTimes(1);
+    expect(warnMock.mock.calls[0][0]).toContain('colunm');
+  });
+
+  // `{ ...DEFAULT_CONFIG, ...config }` lets an explicitly-undefined key overwrite the
+  // shipped default, so `view` can be absent despite being a required field.
+  it.each([
+    ['undefined', undefined],
+    ['null', null],
+    ['a number', 3],
+  ])('coerces %s to list', (_label, value) => {
+    const config = buildConfig();
+    config.view = value as unknown as Types.EffectiveView;
+
+    validateView(config);
+
+    expect(config.view).toBe('list');
+    expect(warnMock).toHaveBeenCalledTimes(1);
   });
 });
 

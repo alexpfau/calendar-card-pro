@@ -204,7 +204,7 @@ export function groupEventsByDay(
   // Deliberately *not* implemented as "column view is always expanded". `isExpanded` also
   // selects the empty-day range branch and suppresses the `show_empty_days` day filter, so
   // forcing it would make `column: { show_empty_days: false }` unreachable.
-  const compactLimitsApply = !isExpanded && effectiveView !== 'column';
+  const compactLimitsApply = !isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
 
   // Splitting normally happens once, at fetch time, inside `processRawEvents`. Column
   // view raises `split_multiday_events` to `true` as a divergent default (spec §D6), and
@@ -226,7 +226,7 @@ export function groupEventsByDay(
     ? processMultiDayEvents(
         events,
         { ...config, split_multiday_events: true },
-        effectiveView === 'column',
+        ViewConfig.viewForcesMultidaySplit(effectiveView),
       )
     : events;
 

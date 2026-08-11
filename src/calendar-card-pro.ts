@@ -988,6 +988,7 @@ class CalendarCardPro extends LitElement {
     this.config = mergedConfig;
     this.config.entities = Config.normalizeEntities(this.config.entities);
     Config.normalizeNumericOptions(this.config);
+    ViewConfig.validateView(this.config);
     ViewConfig.validateColumnOverrides(this.config);
 
     // Seed the effective view from the request. Until the first measurement lands

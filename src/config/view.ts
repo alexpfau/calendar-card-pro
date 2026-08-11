@@ -438,6 +438,56 @@ export const COLUMN_DEFAULT_OVERRIDES: {
 };
 
 /**
+ * Whether compact-mode limits apply in the given view.
+ *
+ * Compact mode caps how much a card shows, and the cap only means something in a view
+ * that grows along the axis it trims. A vertical list does: capping it is a tail-trim,
+ * the card gets shorter, and the events that survive are the soonest ones. A grid does
+ * not: the same cap deletes columns from the right while the card keeps its full
+ * height, so the result is a differently-shaped card of identical size that merely
+ * holds less, with nothing on screen to say the rest is missing. Column view answers
+ * the density question with `min_days_to_show` / `min_width_fallback` instead, which
+ * reduce columns only when the width genuinely cannot carry them (spec §D7).
+ *
+ * Written as a predicate over the view rather than an inline `!== 'column'` because the
+ * reasoning is about *grid layouts*, not about column view specifically. A time grid
+ * (Phase 5) will need its own answer here, and a negative-form comparison would have
+ * silently given it the list answer. Prefer extending this function to adding a second
+ * comparison at the call site.
+ *
+ * @param view - View currently being rendered
+ * @returns `true` when `compact_*` keys should be honoured
+ */
+export function viewAppliesCompactLimits(view: Types.EffectiveView): boolean {
+  return view !== 'column';
+}
+
+/**
+ * Whether the given view forces multi-day events to be split into per-day segments,
+ * overriding any per-entity `split_multiday_events: false`.
+ *
+ * A column is a claim about one day. An unsplit multi-day event would appear only in
+ * the column it starts in and leave every later column it spans silently blank, so the
+ * split is not a preference in column view — it is what makes the layout truthful
+ * (spec §D5). Per-entity precedence is therefore ignored, since honouring it would let
+ * one calendar be honest and another not within the same card.
+ *
+ * List view returns `false`: the per-entity setting keeps its documented precedence
+ * there, because a list shows a multi-day event once and reads correctly either way.
+ *
+ * A time grid (Phase 5) is a genuinely open third answer rather than a copy of either.
+ * Grid conventions usually hoist all-day and multi-day events into a banner row above
+ * the grid, spanning their real duration, which is neither "split per day" nor "leave
+ * as one block in the first day". Extend this function when that view lands.
+ *
+ * @param view - View currently being rendered
+ * @returns `true` when the per-entity override must be ignored and the split forced
+ */
+export function viewForcesMultidaySplit(view: Types.EffectiveView): boolean {
+  return view === 'column';
+}
+
+/**
  * Resolves the effective value of an option for the view being rendered.
  *
  * In list view the top-level value always wins. In column view the `column:` block
@@ -584,6 +634,41 @@ function coerceOverrideLength(key: string, value: unknown): unknown {
   return typeof shippedDefault === 'string' && /^-?\d+(?:\.\d+)?px$/.test(shippedDefault)
     ? `${value}px`
     : value;
+}
+
+/**
+ * Coerces `view` to a member of its declared union, warning when it was not one.
+ *
+ * `view` is the only option whose value selects an entire render path, and it is
+ * compared by equality at every one of those branch points. A typo therefore fails
+ * every comparison rather than any single one: `view: 'colunm'` is not `'column'`
+ * anywhere, so the card renders a complete, correct-looking **list** and gives the
+ * user nothing at all to connect that to what they wrote. Every other mistyped option
+ * either loses one visual detail or is caught by `validateColumnOverrides`.
+ *
+ * Coerces rather than only warning, so that `config.view` always satisfies the type
+ * that describes it. Downstream code — the editor's view selector included — reads it
+ * back and is entitled to assume the union holds. The rendered result is the same
+ * either way; what changes is that the configuration object stops lying.
+ *
+ * Follows the same contract as `validateColumnOverrides`: never throws, so one stray
+ * line cannot blank the card, and the diagnostic reaches only the development build.
+ *
+ * @param config - Merged configuration, mutated in place when `view` is not valid
+ */
+export function validateView(config: Types.Config): void {
+  const view = config.view as unknown;
+
+  if (view === 'list' || view === 'column') {
+    return;
+  }
+
+  Logger.warn(
+    `Ignoring "view: ${JSON.stringify(view)}": not a recognized view. ` +
+      `Expected "list" or "column". Falling back to "list".`,
+  );
+
+  config.view = 'list';
 }
 
 /**
