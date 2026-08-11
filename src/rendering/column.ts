@@ -151,6 +151,17 @@ function renderDayColumn(
         })}
       ></div>`;
 
+  // Column view places the indicator inline, as a leading item on the weekday row,
+  // rather than floating it by percentage the way the list view does. See
+  // `renderTodayIndicator` for why the percentage model does not survive the axis flip.
+  //
+  // The rendered result is the authority on whether a dot is actually present, not
+  // `isToday`: the indicator also declines to render when the option is off or resolves
+  // to type `none`. Reading the sentinel back keeps that logic in one place instead of
+  // restating a second, driftable copy of it here.
+  const todayIndicator = Leaves.renderTodayIndicator(config, isToday, 'inline');
+  const hasInlineIndicator = todayIndicator !== nothing;
+
   return html`
     <div
       class=${classMap({
@@ -162,10 +173,15 @@ function renderDayColumn(
       })}
     >
       <div class="column-day-header">
-        <div class="column-date-content">
+        <div
+          class=${classMap({
+            'column-date-content': true,
+            'with-today-indicator': hasInlineIndicator,
+          })}
+        >
+          ${todayIndicator}
           ${Leaves.renderDateContent(dayDate, config, language, isToday, weatherContent)}
         </div>
-        ${Leaves.renderTodayIndicator(config, isToday)}
       </div>
       ${headerSeparator}
       <div class="column-events">
@@ -202,9 +218,9 @@ function renderDayColumn(
  *
  * Day, week and month separators are not rendered. The list view's separators are
  * horizontal rules between stacked days; in a column layout the equivalent boundary
- * is the gap between tracks, which `day_gap` already controls. The header rule is the
- * column view's own separator, and it is opt-in: it defaults to `0px` and is shown by
- * giving it a width. B2 originally ruled the opposite; see the `COLUMN_DEFAULTS`
+ * is the gap between tracks, which `day_spacing` already controls. The header rule is
+ * the column view's own separator, and it is opt-in: it defaults to `0px` and is shown
+ * by giving it a width. B2 originally ruled the opposite; see the `COLUMN_DEFAULTS`
  * docstring for why that was reversed.
  *
  * @param days - Days to render, already grouped and sorted
@@ -221,7 +237,6 @@ export function renderColumnGroupedEvents(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  const dayGap = ViewConfig.resolveColumnOption(config, 'day_gap');
   const headerGap = ViewConfig.resolveColumnOption(config, 'day_header_gap');
 
   // `day_header_gap` is published as a custom property on the grid rather than applied
@@ -238,7 +253,7 @@ export function renderColumnGroupedEvents(
       class="column-grid"
       style=${styleMap({
         gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
-        columnGap: dayGap,
+        columnGap: config.day_spacing,
         '--calendar-card-column-header-gap': headerGap,
       })}
     >

@@ -36,6 +36,7 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & k
     'empty_day_text',
     'vertical_line_width',
     'event_spacing',
+    'day_spacing',
     'additional_card_spacing',
     'height',
     'max_height',
@@ -88,7 +89,6 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & k
  * list-view code path could ever read.
  */
 export const COLUMN_ONLY_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = [
-  'day_gap',
   'day_header_gap',
   'day_header_separator_width',
   'day_header_separator_color',
@@ -172,25 +172,38 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  * The chosen values make an absent `column:` block a visual no-op relative to the
  * list view's own defaults:
  *
- * - `day_gap` is `12px`, set by the maintainer's explicit ruling after live review of
- *   the 8px build. 8px was itself a ruling that replaced 4px on the same grounds —
- *   adjacent columns reading as one block — and it moved the card most of the way
- *   there without quite finishing the job. Record this as a second amendment, not a
- *   re-derivation: the value is ruled and must not be narrowed again on
- *   threshold-headroom grounds without asking.
+ * - `day_gap` no longer exists. The gap between columns is `day_spacing`, a
+ *   `COLUMN_OVERRIDE_KEYS` member, resolved through the ordinary override path.
  *
- *   The history matters because it is the shape of two prior defects. It shipped
- *   first as `10px`, justified as matching `DEFAULT_CONFIG.day_spacing` — the same
- *   vertical-to-horizontal category error that produced the B2 defect. `day_spacing`
- *   separates stacked days along the axis where space is free; this gap spends the
- *   horizontal budget D6's sizing table calls the scarce resource, roughly 161px per
- *   event in a 500px section. It was then narrowed to `4px`, the value the spec's own
- *   worked example uses — correct arithmetic, and still wrong on screen, because the
- *   MVP renders **no vertical rule between columns** (D6 defers that alongside week
- *   numbers), so this gap is the only thing separating two adjacent columns of text.
- *   Threshold cost is real: at the default `days_to_show: 3` the gutter accounts for
- *   24px of the width threshold at 12px against 8px at 4px. Widening the gap and
- *   widening the threshold are the same act and cannot be traded independently.
+ *   This reverses the reasoning recorded here across three prior amendments, and the
+ *   reversal is a maintainer ruling — do not re-derive it. The argument for a separate
+ *   key was that a horizontal gutter and a vertical one are different resources: the
+ *   list view separates stacked days along the axis where space is free, whereas the
+ *   column gutter spends the horizontal budget D6's sizing table calls scarce, roughly
+ *   161px per event in a 500px section. That argument produced a genuine defect twice
+ *   over — the value shipped at `10px`, was narrowed to `4px` on the spec's own worked
+ *   example, and was twice ruled back up after live review (8px, then 12px) because
+ *   adjacent columns read as one block.
+ *
+ *   What settled it is that the two keys always described **one concept on two axes**:
+ *   the configurable space between adjacent days. The reference documentation had
+ *   already conceded as much, describing `day_gap` as "the column-view counterpart to
+ *   `day_spacing`" — which is the definition of a duplicate, not of a sibling. A user
+ *   who wants tighter days should not have to learn a second name for it depending on
+ *   which way the days are laid out.
+ *
+ *   The default is `DEFAULT_CONFIG.day_spacing`, `10px`, for both views. That is 2px
+ *   tighter than the ruled `12px`, and the maintainer accepted the difference
+ *   explicitly rather than carry a per-view default: `resolveColumnOption` returns its
+ *   default whenever no override is present, so a column-specific default would shadow
+ *   an explicit top-level `day_spacing` — a value the user *did* write losing to one
+ *   they did not. Correcting that needs explicitness tracking, which fights the
+ *   merge-once-at-the-boundary model. Not worth 2px. Anyone wanting the old feel writes
+ *   `column: { day_spacing: 12px }`.
+ *
+ *   Threshold cost still tracks the value, because widening the gap and widening the
+ *   width threshold remain the same act: at `days_to_show: 3` the gutter contributes
+ *   20px at 10px. See `computeColumnThresholdPx`.
  * - `day_header_gap` is `8px` — the vertical space between a day's header and its
  *   first event. It exists as its own option because that space used to be an
  *   emergent property of two unrelated rules, a 4px padding under the header plus a
@@ -215,7 +228,6 @@ const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
  *   half of B2 stands unchanged.
  */
 export const COLUMN_DEFAULTS = {
-  day_gap: '12px',
   day_header_gap: '8px',
   day_header_separator_width: '0px',
   day_header_separator_color: 'var(--divider-color)',
@@ -225,13 +237,16 @@ export const COLUMN_DEFAULTS = {
  * Column-only options whose value is a CSS length.
  *
  * These accept a bare number from YAML, because that is what users write. Home
- * Assistant's YAML parser types `day_gap: 4` as a number, and a number is not a
+ * Assistant's YAML parser types `day_header_gap: 4` as a number, and a number is not a
  * valid CSS length: it reaches `styleMap` as `"4"`, the browser rejects the
  * declaration, and the rule silently disappears. Coercing here means the failure
  * cannot reach the renderer.
+ *
+ * Override keys get the same protection from `coerceOverrideLength`, which infers
+ * length-ness from the shape of the key's `DEFAULT_CONFIG` value rather than from a
+ * second hand-maintained list.
  */
 const COLUMN_LENGTH_KEYS: ReadonlySet<string> = new Set([
-  'day_gap',
   'day_header_gap',
   'day_header_separator_width',
 ]);
@@ -411,7 +426,7 @@ export function resolveEffectiveConfig(
 
   for (const key of COLUMN_OVERRIDE_KEYS) {
     if (hasOverride(overrides, key)) {
-      applied[key] = overrides[key];
+      applied[key] = coerceOverrideLength(key, overrides[key]);
     }
   }
 
@@ -427,6 +442,41 @@ export function resolveEffectiveConfig(
 //-----------------------------------------------------------------------------
 
 /**
+ * Coerces a bare number written against a length-valued override key into pixels.
+ *
+ * Home Assistant's YAML parser types `day_spacing: 4` as a number, and a number is not
+ * a valid CSS length: it reaches `styleMap` or a custom property as `"4"`, the browser
+ * rejects the declaration, and the rule silently disappears. `COLUMN_LENGTH_KEYS` has
+ * always protected the column-only options from exactly this; overrides had no
+ * equivalent, which only became load-bearing when `day_spacing` — the column gutter —
+ * moved from the column-only list into the override list.
+ *
+ * Length-ness is inferred from the shape of the key's shipped default rather than from
+ * a second hand-maintained list, because a hand-maintained list is what drifts. A
+ * default matching a plain pixel length is a length; `#03a9f4`, `15% 50%` and `en` are
+ * not, and a number written against one of those is meaningless either way, so
+ * misclassification cannot make anything worse than the raw number already was.
+ *
+ * Non-numeric values pass through untouched, including booleans and numbers written
+ * against genuinely numeric options such as `title_max_lines`.
+ *
+ * @param key - Override option being applied
+ * @param value - Raw configured value, which YAML may have typed as a number
+ * @returns The value, with a bare number turned into a pixel length where appropriate
+ */
+function coerceOverrideLength(key: string, value: unknown): unknown {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return value;
+  }
+
+  const shippedDefault = (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key];
+
+  return typeof shippedDefault === 'string' && /^-?\d+(?:\.\d+)?px$/.test(shippedDefault)
+    ? `${value}px`
+    : value;
+}
+
+/**
  * Reports options inside the `column:` block that will not take effect.
  *
  * Called once per `setConfig`. It never throws and never mutates the configuration:
@@ -440,9 +490,10 @@ export function resolveEffectiveConfig(
  * @param config - Merged configuration to inspect
  */
 export function validateColumnOverrides(config: Types.Config): void {
-  // Before the early return below, not after the loop: a user who writes `day_gap` at
-  // the top level is by definition one who did not write a `column:` block, so running
-  // this last would skip the check for exactly the population it exists for.
+  // Before the early return below, not after the loop: a user who writes
+  // `day_header_gap` at the top level is by definition one who did not write a
+  // `column:` block, so running this last would skip the check for exactly the
+  // population it exists for.
   warnAboutTopLevelColumnOnlyKeys(config);
 
   const overrides = config.column;
@@ -487,14 +538,14 @@ export function validateColumnOverrides(config: Types.Config): void {
 /**
  * Reports column-only options mistakenly written at the top level.
  *
- * `day_gap`, `day_header_separator_width` and `day_header_separator_color` only
+ * `day_header_gap`, `day_header_separator_width` and `day_header_separator_color` only
  * exist inside `column:`. Written at the top level they are silently inert, which
  * is the *more* likely mistake of the two: the reference documentation lists them
  * in the same visual table as genuine top-level options, so nothing about their
  * presentation signals that they are nested.
  *
  * Without this, `column.foo` gets a tailored diagnostic while a misplaced
- * `day_gap: 32px` gets nothing at all.
+ * `day_header_gap: 32px` gets nothing at all.
  *
  * @param config - Merged configuration to inspect
  */
@@ -574,14 +625,15 @@ function parsePx(value: string, fallback: number): number {
 }
 
 /**
- * Numeric form of `COLUMN_DEFAULTS.day_gap`, derived rather than restated.
+ * Numeric form of the default column gutter, derived rather than restated.
  *
  * The threshold fallback and the rendered default must be the same number: a user who
  * writes an unresolvable length such as `2em` should get the default spacing in the
  * arithmetic, so an unparseable value costs nothing. Hardcoding it here is how those
- * two drifted apart once already, when `day_gap` moved from 8px to 12px.
+ * two drifted apart once already, back when the gutter was a separate `day_gap` key
+ * and it moved from 8px to 12px.
  */
-const DEFAULT_DAY_GAP_PX = parsePx(COLUMN_DEFAULTS.day_gap, 12);
+const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
 
 /**
  * Computes the card width, in pixels, at or above which column view can render.
@@ -593,12 +645,25 @@ const DEFAULT_DAY_GAP_PX = parsePx(COLUMN_DEFAULTS.day_gap, 12);
  * This is A3-C's formula verbatim. Every term is required: dropping the padding term
  * is what made an earlier iteration compute 500px for a layout that needs 524px.
  *
+ * The gutter reads `column.day_spacing` before the top-level value, and cannot use
+ * `resolveEffectiveConfig` to get there. This function decides *whether* column view
+ * renders, so it necessarily runs before the view is known, whereas
+ * `resolveEffectiveConfig` needs the view as an input. Resolving the one key it
+ * depends on by hand is the way out of that ordering constraint.
+ *
  * @param config - Merged configuration, defaults already applied
  * @returns Minimum card width in pixels for the configured number of columns
  */
 export function computeColumnThresholdPx(config: Types.Config): number {
   const days = Math.max(1, Math.floor(config.days_to_show));
-  const gutter = parsePx(resolveColumnOption(config, 'day_gap'), DEFAULT_DAY_GAP_PX);
+
+  const overrides = config.column;
+  const configuredGap =
+    overrides && hasOverride(overrides, 'day_spacing')
+      ? coerceOverrideLength('day_spacing', overrides.day_spacing)
+      : config.day_spacing;
+
+  const gutter = parsePx(String(configuredGap), DEFAULT_DAY_GAP_PX);
 
   return config.min_day_column_width_px * days + COLUMN_CARD_PADDING_PX + (days - 1) * gutter;
 }

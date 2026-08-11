@@ -340,8 +340,16 @@ export const cardStyles = css`
     z-index: 2; /* Ensure date content is above indicator */
   }
 
-  /* Today indicator styling */
-  .today-indicator-container {
+  /*
+   * Today indicator styling.
+   *
+   * :not(.inline) rather than a bare selector, because these declarations describe the
+   * list view's placement model specifically: a full-size overlay inside the date cell
+   * that the indicator is then positioned within. An inline indicator is a normal-flow
+   * item its container places, so a 100% box and an absolute position are both actively
+   * wrong for it.
+   */
+  .today-indicator-container:not(.inline) {
     position: absolute;
     top: 0;
     left: 0;
@@ -372,12 +380,30 @@ export const cardStyles = css`
     color: var(--calendar-card-color-month);
   }
 
-  /* Today indicator styling */
+  /*
+   * Today indicator styling, second half: the declarations that apply to both layouts.
+   *
+   * This rule used to restate position: absolute, which read as harmless redundancy
+   * with the rule above and was for as long as there was only one layout. Dropping it
+   * is now load-bearing -- left in place it would force absolute positioning onto the
+   * inline indicator from a selector the .inline rule below cannot outrank on
+   * specificity alone.
+   */
   .today-indicator-container {
-    position: absolute;
     color: var(--calendar-card-today-indicator-color);
     pointer-events: none;
     z-index: 1;
+  }
+
+  /*
+   * The inline layout, used by the column view. A flex box rather than a bare
+   * container so the indicator centres on the weekday regardless of whether it is an
+   * icon, an image or an emoji, each of which reports a different intrinsic box.
+   */
+  .today-indicator-container.inline {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
   }
 
   /* Set proper sizing for icon-based indicators */
@@ -906,9 +932,9 @@ export const cardStyles = css`
   }
 
   /*
-   * The day header. position: relative establishes the containing block for the
-   * today indicator, which is absolutely positioned -- in the list view that job is
-   * done by the date cell, which does not exist here.
+   * The day header. position: relative is retained as the containing block for
+   * anything the header needs to position against itself; the today indicator no
+   * longer needs it, having moved into normal flow inside .column-date-content.
    *
    * The bottom padding is the whole gap between a day's header and its first event,
    * and it is configurable as day_header_gap. It used to be a hardcoded 4px here plus
@@ -967,6 +993,33 @@ export const cardStyles = css`
 
   .column-date-content .month {
     grid-area: month;
+  }
+
+  /*
+   * The today indicator as a leading item on the weekday row.
+   *
+   * It shares the weekday's grid cell rather than taking a track of its own. A
+   * dedicated leading track would indent today's day number relative to every other
+   * column, breaking the horizontal alignment of the number row that makes the grid
+   * scan as a row of days. Sharing the cell confines the shift to the weekday, which
+   * is the line the dot belongs to.
+   *
+   * The weekday is then padded out of the way by exactly the indicator's own width
+   * plus a 4px gap, so the reserved space tracks today_indicator_size instead of
+   * assuming the 6px default. The padding is applied by the container class rather
+   * than by :has(), because the renderer already knows whether an indicator was
+   * emitted -- and it knows more than isToday does, since the indicator also
+   * declines for type none.
+   */
+  .column-date-content .today-indicator-container.inline {
+    grid-area: weekday;
+    justify-self: start;
+    align-self: center;
+    z-index: 3;
+  }
+
+  .column-date-content.with-today-indicator .weekday {
+    padding-inline-start: calc(var(--calendar-card-today-indicator-size, 6px) + 4px);
   }
 
   /*

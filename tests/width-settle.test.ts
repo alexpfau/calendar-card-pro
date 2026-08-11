@@ -57,8 +57,9 @@ interface CardUnderTest extends HTMLElement {
  * Not the bare default, and the gutter is pinned rather than inherited. The straddle
  * this file depends on -- transient above the decision edge, settled below it -- has to
  * survive changes to `min_day_column_width_px`, the card padding and the default
- * `day_gap`, none of which this file is about. Pinning `day_gap` to 4px puts the
- * decision edge at 476px, comfortably between the two measured widths, so the straddle
+ * `day_spacing`, none of which this file is about. Pinning the column gutter to 4px
+ * puts the decision edge at 476px, comfortably between the two measured widths, so the
+ * straddle
  * is deliberate rather than an accident of the current defaults.
  *
  * The edge is *not* the raw threshold: the Schmitt trigger is centred, so a first
@@ -69,7 +70,7 @@ interface CardUnderTest extends HTMLElement {
 function columnConfig() {
   const config = buildConfig();
   config.view = 'column';
-  config.column = { day_gap: '4px' };
+  config.column = { day_spacing: '4px' };
   return config;
 }
 

@@ -2,6 +2,7 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EVENTS, FROZEN_NOW, SINGLE_EVENT, WEATHER, buildConfig } from './fixtures';
+import { DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { COLUMN_DEFAULTS } from '../src/config/view';
 import * as Column from '../src/rendering/column';
@@ -119,18 +120,18 @@ describe('column view DOM', () => {
       expect(style).not.toMatch(/repeat\([0-9]+,\s*1fr\)/);
     });
 
-    it('applies the default day gap without a column block', () => {
+    it('applies the default day spacing without a column block', () => {
       const container = renderColumnContainer(EVENTS, buildConfig());
       const style = requireElement(container, '.column-grid').getAttribute('style') ?? '';
 
       expect(style.replace(/\s/g, '')).toContain(
-        `column-gap:${COLUMN_DEFAULTS.day_gap}`.replace(/\s/g, ''),
+        `column-gap:${DEFAULT_CONFIG.day_spacing}`.replace(/\s/g, ''),
       );
     });
 
-    it('applies a configured day gap', () => {
+    it('applies a configured day spacing', () => {
       const config = buildConfig();
-      config.column = { day_gap: '32px' };
+      config.day_spacing = '32px';
 
       const container = renderColumnContainer(EVENTS, config);
       const style = requireElement(container, '.column-grid').getAttribute('style') ?? '';
@@ -258,7 +259,7 @@ describe('column view DOM', () => {
     it('inherits the top-level value when the column block is silent', () => {
       const config = buildConfig();
       config.show_empty_days = true;
-      config.column = { day_gap: '4px' };
+      config.column = { day_spacing: '4px' };
 
       const columnDays = EventUtils.groupEventsByDay(SINGLE_EVENT, config, false, 'en', 'column');
       const listDays = EventUtils.groupEventsByDay(SINGLE_EVENT, config, false, 'en', 'list');
@@ -512,9 +513,8 @@ describe('column view DOM', () => {
     });
 
     it("renders the today indicator inside today's column header and nowhere else", () => {
-      // .column-day-header carries position: relative solely to be this element's
-      // containing block, so without an assertion here that rule is justified by an
-      // emission nothing checks -- and the indicator could be dropped silently.
+      // Without an assertion here the indicator could be dropped from the column view
+      // silently -- nothing else in the suite would notice.
       const container = renderColumnContainer(
         EVENTS,
         buildConfig({ today_indicator: 'dot' }),
@@ -526,6 +526,77 @@ describe('column view DOM', () => {
       const host = indicators[0].closest('.column-day-header');
       expect(host).not.toBeNull();
       expect(host?.closest('.day-column')?.classList.contains('today')).toBe(true);
+    });
+
+    /**
+     * The inline placement, and the reason it exists.
+     *
+     * The list view floats the indicator inside its date cell using
+     * `today_indicator_position` as a percentage pair, which works because that cell is
+     * roughly 66px wide and centre-aligned -- 15% lands the dot in the margin beside
+     * the date. A column header is the full track width with its date flush left, so
+     * the same 15% resolves *into* the day number. Column view therefore drops
+     * percentage positioning and emits the indicator as a leading item on the weekday
+     * row instead.
+     *
+     * Asserting the absence of `position:absolute` is the load-bearing half: an inline
+     * indicator that kept it would be pulled out of flow and land back on top of the
+     * date, which is the exact defect this replaced and which looks fine in a DOM
+     * snapshot.
+     */
+    it('places the column-view indicator inline rather than by percentage', () => {
+      const container = renderColumnContainer(
+        EVENTS,
+        buildConfig({ today_indicator: 'dot', today_indicator_position: '15% 50%' }),
+      ) as HTMLElement;
+
+      const indicator = container.querySelector('.today-indicator');
+      expect(indicator).not.toBeNull();
+
+      const style = indicator?.getAttribute('style') ?? '';
+      expect(style).not.toContain('position:absolute');
+      expect(style).not.toContain('15%');
+
+      const wrapper = indicator?.closest('.today-indicator-container');
+      expect(wrapper?.classList.contains('inline')).toBe(true);
+      expect(wrapper?.closest('.column-date-content')).not.toBeNull();
+    });
+
+    it("marks the date content so the weekday can reserve the indicator's width", () => {
+      // The dot shares the weekday's grid cell, so the weekday needs padding out of
+      // its way. That padding hangs off this class rather than off :has(), because the
+      // renderer knows more than isToday does -- the indicator also declines to render
+      // for type `none`, and a class driven by isToday alone would pad a gap with
+      // nothing in it.
+      const withIndicator = renderColumnContainer(
+        EVENTS,
+        buildConfig({ today_indicator: 'dot' }),
+      ) as HTMLElement;
+
+      const todayContent = withIndicator
+        .querySelector('.day-column.today')
+        ?.querySelector('.column-date-content');
+      expect(todayContent?.classList.contains('with-today-indicator')).toBe(true);
+
+      const otherContent = withIndicator
+        .querySelector('.day-column:not(.today)')
+        ?.querySelector('.column-date-content');
+      expect(otherContent?.classList.contains('with-today-indicator')).toBe(false);
+    });
+
+    it('does not mark the date content when the value resolves to no indicator', () => {
+      // A truthy value that is neither a string nor a boolean -- YAML types an
+      // unquoted `1` this way -- passes the enabled check and then resolves to type
+      // `none`, so nothing renders. This is the case that separates a class driven by
+      // the render result from one driven by isToday: the latter would pad the weekday
+      // out of the way of a dot that is not there.
+      const container = renderColumnContainer(
+        EVENTS,
+        buildConfig({ today_indicator: 1 as unknown as string }),
+      ) as HTMLElement;
+
+      expect(container.querySelectorAll('.today-indicator').length).toBe(0);
+      expect(container.querySelectorAll('.with-today-indicator').length).toBe(0);
     });
 
     it('renders no today indicator when the option is off', () => {

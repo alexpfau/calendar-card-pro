@@ -41,7 +41,6 @@ absent `column:` block a visual no-op.
 
 | Option                                | Type   | Default                | Description                                                                        |
 | ------------------------------------- | ------ | ---------------------- | ---------------------------------------------------------------------------------- |
-| `column → day_gap`                    | string | `12px`                 | Horizontal space between day columns, the column-view counterpart to `day_spacing` |
 | `column → day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                            |
 | `column → day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule   |
 | `column → day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                                 |
@@ -76,7 +75,7 @@ the card-wide settings for that one calendar:
 | `background_color`        | string | `--ha-card-background` | Card background color                                                                                         |
 | `accent_color`            | string | `#03a9f4`              | Vertical line separator color                                                                                 |
 | `vertical_line_width`     | string | `2px`                  | Vertical line separator width                                                                                 |
-| `day_spacing`             | string | `10px`                 | Spacing between different calendar day rows (replaces `row_spacing`)                                          |
+| `day_spacing`             | string | `10px`                 | Space between days — vertical in list view, the gap between columns in column view (replaces `row_spacing`)   |
 | `event_spacing`           | string | `4px`                  | Vertical padding within each event                                                                            |
 | `additional_card_spacing` | string | `0px`                  | Additional top/bottom padding for the card                                                                    |
 | `height`                  | string | `auto`                 | Sets a fixed, exact height for the card regardless of content amount (always this height, never more or less) |

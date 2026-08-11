@@ -247,17 +247,38 @@ Only presentation options may appear in `column:`. Anything that decides _which_
 
 An unusable entry inside the block is ignored rather than treated as an error, so one stray line cannot break the rest of the card.
 
+### Spacing Between Days
+
+`day_spacing` is the space between one day and the next, and it applies in both views —
+vertically between stacked days in a list, horizontally between columns in a column
+layout. It is one option because it is one idea: how far apart the days sit.
+
+```yaml
+view: column
+days_to_show: 5
+day_spacing: 16px
+```
+
+It takes a per-view value like any other option, which is worth reaching for here more
+often than elsewhere. The gap between two columns is the only thing separating one day's
+events from the next, so it carries more weight than the same number does in a list —
+widen it first if two columns read as one block. It is also the option that costs the
+most, because every gap comes out of the width the columns themselves have to share.
+
+```yaml
+day_spacing: 10px
+column:
+  day_spacing: 16px
+```
+
 ### Spacing Options That Only Exist in Column View
 
-A few things have no meaning in a list. Days stacked vertically are separated by
-`day_spacing` and by the horizontal rules `day_separator_width` controls; days sitting
-side by side need a horizontal gap instead, and a rule that runs under each header
-rather than between days. Those options live inside `column:` and have no top-level
-counterpart.
+A few things have no meaning in a list. A column layout needs a gap under each day
+header, and a rule that can run under that header rather than between days. Those
+options live inside `column:` and have no top-level counterpart.
 
 | Option                       | Type   | Default                | Description                                                                      |
 | ---------------------------- | ------ | ---------------------- | -------------------------------------------------------------------------------- |
-| `day_gap`                    | string | `12px`                 | Horizontal space between columns                                                 |
 | `day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                          |
 | `day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule |
 | `day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                               |
@@ -266,16 +287,10 @@ counterpart.
 view: column
 days_to_show: 5
 column:
-  day_gap: 16px
   day_header_gap: 12px
   day_header_separator_width: 2px
   day_header_separator_color: var(--primary-color)
 ```
-
-The gap between columns is the only thing separating one day's events from the next, so it
-is doing more work than `day_spacing` does in a list — widen it before anything else if two
-columns read as one block. It is also the option that costs the most, because every gap
-comes out of the width the columns themselves have to share.
 
 The header rule starts switched **off**, like every other separator in the card. Seen next
 to the colored accent bar beside each event, a full-width horizontal rule reads as a table

@@ -239,9 +239,61 @@ describe('resolveEffectiveConfig', () => {
     });
 
     it('when the block supplies only column-only options', () => {
-      const config = buildConfig({ column: { day_gap: '20px' } });
+      const config = buildConfig({ column: { day_header_gap: '20px' } });
 
       expect(resolveEffectiveConfig(config, 'column')).toBe(config);
+    });
+  });
+
+  /**
+   * `day_spacing` as the column gutter — the merge that retired `day_gap`.
+   *
+   * The two keys always described one concept on two axes: the configurable space
+   * between adjacent days, vertical when they are stacked and horizontal when they sit
+   * side by side. Carrying a second name for the second axis meant a user who wanted
+   * tighter days had to learn which name applied to which layout.
+   *
+   * The consequence worth pinning is that the gutter is now an *override* rather than
+   * a column-only option, so it inherits: a top-level `day_spacing` reaches the column
+   * grid with no `column:` block written at all.
+   */
+  describe('day_spacing as the column gutter', () => {
+    it('inherits the top-level value with no column block', () => {
+      const config = buildConfig({ day_spacing: '18px' });
+
+      expect(resolveEffectiveConfig(config, 'column').day_spacing).toBe('18px');
+    });
+
+    it('prefers a column override over the top-level value', () => {
+      const config = buildConfig({ day_spacing: '18px', column: { day_spacing: '4px' } });
+
+      expect(resolveEffectiveConfig(config, 'column').day_spacing).toBe('4px');
+      expect(resolveEffectiveConfig(config, 'list').day_spacing).toBe('18px');
+    });
+
+    it('coerces a bare number written against a length-valued override', () => {
+      // Home Assistant's YAML parser types `day_spacing: 4` as a number. A number is
+      // not a CSS length: it reaches styleMap as "4", the browser rejects the
+      // declaration, and the columns collapse to a zero gutter. COLUMN_LENGTH_KEYS has
+      // always protected the column-only options from this; overrides had no
+      // equivalent, which only started to matter when the gutter moved into the
+      // override list.
+      const config = buildConfig({
+        column: { day_spacing: 4 } as unknown as Types.Config['column'],
+      });
+
+      expect(resolveEffectiveConfig(config, 'column').day_spacing).toBe('4px');
+    });
+
+    it('leaves a number alone where the shipped default is not a pixel length', () => {
+      // Length-ness is inferred from the shape of the key's DEFAULT_CONFIG value, so
+      // the coercion cannot misfire on a genuinely numeric option and turn a line
+      // count into "2px".
+      const config = buildConfig({
+        column: { title_max_lines: 2 } as unknown as Types.Config['column'],
+      });
+
+      expect(resolveEffectiveConfig(config, 'column').title_max_lines).toBe(2);
     });
   });
 
@@ -254,25 +306,25 @@ describe('resolveEffectiveConfig', () => {
   it('does not hoist column-only options to the top level', () => {
     const config = buildConfig({
       show_location: false,
-      column: { show_location: true, day_gap: '20px' },
+      column: { show_location: true, day_header_gap: '20px' },
     });
 
     const merged = resolveEffectiveConfig(config, 'column') as unknown as Record<string, unknown>;
 
     expect(merged.show_location).toBe(true);
-    expect(merged.day_gap).toBeUndefined();
+    expect(merged.day_header_gap).toBeUndefined();
   });
 
   it('keeps the block intact so column-only options still resolve downstream', () => {
     const config = buildConfig({
       show_location: false,
-      column: { show_location: true, day_gap: '20px' },
+      column: { show_location: true, day_header_gap: '20px' },
     });
 
     const merged = resolveEffectiveConfig(config, 'column');
 
     expect(merged.column).toBe(config.column);
-    expect(resolveColumnOption(merged, 'day_gap')).toBe('20px');
+    expect(resolveColumnOption(merged, 'day_header_gap')).toBe('20px');
   });
 
   /**
@@ -344,7 +396,7 @@ describe('validateColumnOverrides', () => {
     // inverts: the keys must validate silently.
     const config = buildConfig();
     config.column = {
-      day_gap: '8px',
+      day_header_gap: '8px',
       day_header_separator_width: '1px',
       day_header_separator_color: 'red',
     } as unknown as Types.ColumnOverrides;
@@ -393,7 +445,7 @@ describe('validateColumnOverrides', () => {
   // lists these three in the same visual table as genuine top-level options, so
   // nothing about their presentation signals that they are nested. Left unreported
   // they are silently inert, which spec E rules out.
-  it.each(['day_gap', 'day_header_separator_width', 'day_header_separator_color'])(
+  it.each(['day_header_gap', 'day_header_separator_width', 'day_header_separator_color'])(
     'warns when %s is written at the top level instead of inside the block',
     (key) => {
       const config = buildConfig();
@@ -411,7 +463,7 @@ describe('validateColumnOverrides', () => {
     // Guards the pairing between the two checks above: a validator that looked at the
     // merged config rather than at own top-level keys would fire on a correct config.
     const config = buildConfig();
-    config.column = { day_gap: '8px' } as unknown as Types.ColumnOverrides;
+    config.column = { day_header_gap: '8px' } as unknown as Types.ColumnOverrides;
 
     validateColumnOverrides(config);
 
@@ -474,7 +526,6 @@ describe('column view config surface', () => {
     // is the expected first step of any such change, not an obstacle to route around.
     const config = buildConfig();
 
-    expect(resolveColumnOption(config, 'day_gap')).toBe('12px');
     expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
     expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
     expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('var(--divider-color)');
@@ -482,12 +533,12 @@ describe('column view config surface', () => {
 
   it('prefers a configured column-only value over its default', () => {
     const config = buildConfig();
-    config.column = { day_gap: '24px' };
+    config.column = { day_header_gap: '24px' };
 
-    expect(resolveColumnOption(config, 'day_gap')).toBe('24px');
+    expect(resolveColumnOption(config, 'day_header_gap')).toBe('24px');
     // Untouched siblings still fall through to their defaults, asserted as a literal
     // rather than against COLUMN_DEFAULTS so this cannot pass by moving with the code.
-    expect(resolveColumnOption(config, 'day_header_gap')).toBe('8px');
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
   });
 
   it('coerces a bare number to px for length-valued column options', () => {
@@ -497,11 +548,11 @@ describe('column view config surface', () => {
     // a visible separator and got nothing.
     const config = buildConfig();
     config.column = {
-      day_gap: 4,
+      day_header_gap: 4,
       day_header_separator_width: 1,
     } as unknown as Types.Config['column'];
 
-    expect(resolveColumnOption(config, 'day_gap')).toBe('4px');
+    expect(resolveColumnOption(config, 'day_header_gap')).toBe('4px');
     expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('1px');
   });
 
@@ -579,7 +630,7 @@ describe('min_day_column_width_px normalization', () => {
  */
 describe('computeColumnThresholdPx', () => {
   it('fits the default config inside a standard Home Assistant section', () => {
-    // 140 x 3 + 32 padding + 2 x 12 gutter = 476, against a measured 500px section.
+    // 140 x 3 + 32 padding + 2 x 10 gutter = 472, against a measured 500px section.
     //
     // This assertion has now flipped twice, and the history matters because the
     // arithmetic has three independent terms that have each moved:
@@ -596,13 +647,13 @@ describe('computeColumnThresholdPx', () => {
     //     152 -> 140 to buy the fit back without giving up the padding or the gap.
     //
     // The margin is thinner than 476-vs-500 suggests, because the view only *enters*
-    // column mode at threshold + VIEW_SWITCH_HYSTERESIS_PX / 2 = 492. That is the
-    // number with 8px of headroom, not 476. 144 would have computed 488 and entered
-    // at 504 -- an apparent fit that does not actually activate. Recompute the enter
+    // column mode at threshold + VIEW_SWITCH_HYSTERESIS_PX / 2 = 488. That is the
+    // number with 12px of headroom, not 472. 144 would have computed 484 and entered
+    // at 500 -- an apparent fit sitting exactly on the boundary. Recompute the enter
     // threshold, not just the raw one, before touching any of the three terms.
     const threshold = computeColumnThresholdPx(buildConfig());
 
-    expect(threshold).toBe(476);
+    expect(threshold).toBe(472);
     expect(threshold + VIEW_SWITCH_HYSTERESIS_PX / 2).toBeLessThanOrEqual(500);
   });
 
@@ -610,39 +661,40 @@ describe('computeColumnThresholdPx', () => {
     const config = buildConfig();
     config.days_to_show = 5;
 
-    // 140 x 5 + 32 + 4 x 12 = 780
-    expect(computeColumnThresholdPx(config)).toBe(780);
+    // 140 x 5 + 32 + 4 x 10 = 772
+    expect(computeColumnThresholdPx(config)).toBe(772);
   });
 
   it('accounts for a configured gutter', () => {
     const config = buildConfig();
-    // Deliberately not 12px: that is the default, so the assertion would pass even if
+    // Deliberately not 10px: that is the default, so the assertion would pass even if
     // the configured value were ignored entirely.
-    config.column = { day_gap: '10px' };
+    config.column = { day_spacing: '20px' };
 
-    // 140 x 3 + 32 + 2 x 10 = 472
-    expect(computeColumnThresholdPx(config)).toBe(472);
+    // 140 x 3 + 32 + 2 x 20 = 492
+    expect(computeColumnThresholdPx(config)).toBe(492);
   });
 
   it('falls back rather than producing NaN for a non-px gutter', () => {
-    // `day_gap` is a CSS length, so `2em` and `calc(...)` are legal values the card
+    // `day_spacing` is a CSS length, so `2em` and `calc(...)` are legal values the card
     // cannot resolve without layout. A NaN threshold compares false against every
     // width, which would silently pin the card to one view forever.
     const config = buildConfig();
-    config.column = { day_gap: '2em' };
+    config.column = { day_spacing: '2em' };
 
     const threshold = computeColumnThresholdPx(config);
     expect(Number.isFinite(threshold)).toBe(true);
     // The fallback is the default gutter, so an unresolvable length costs nothing.
     // Asserting the same number as the default-config case above is the point: it
     // pins the two together, which is what `DEFAULT_DAY_GAP_PX` exists to guarantee.
-    expect(threshold).toBe(476);
+    expect(threshold).toBe(472);
   });
 });
 
 describe('resolveEffectiveView', () => {
   // The Schmitt trigger is centred on the threshold, so neither edge is the threshold
   // itself. Deriving both from the exported constant rather than hardcoding 508/476
+  // (the default threshold is now 472; 492 below is a deliberate round test input)
   // means widening the band cannot leave these tests asserting a stale geometry while
   // still passing.
   const THRESHOLD = 492;
@@ -705,7 +757,7 @@ describe('resolveEffectiveView', () => {
 });
 
 describe('resolveViewOnMeasurement', () => {
-  // Not the default threshold (that is 476). This is the value that was live when the
+  // Not the default threshold (that is 472). This is the value that was live when the
   // regression below was measured, and these are pure-function inputs, so it is kept
   // as the historical record rather than tracked against COLUMN_DEFAULTS.
   const THRESHOLD = 492;

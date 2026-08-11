@@ -158,13 +158,16 @@ export const DEFAULT_CONFIG: Types.Config = {
   // constraint that sets this number, because a single section is the most common
   // desktop placement and column view must activate there at defaults.
   //
-  // The full sum is `min x days + COLUMN_CARD_PADDING_PX + (days - 1) x day_gap`,
+  // The full sum is `min x days + COLUMN_CARD_PADDING_PX + (days - 1) x day_spacing`,
   // and the *entering* threshold adds half the hysteresis band on top
-  // (VIEW_SWITCH_HYSTERESIS_PX / 2). At the current 32px padding, 12px gap and
-  // 16px half-band: `140 x 3 + 32 + 2 x 12 = 476`, entering at 492 -- 8px under a
-  // 500px section. 144 would compute 488 and enter at 504, which does not fit; the
-  // margin here is thinner than it looks, so recompute all three terms rather than
-  // adjusting one.
+  // (VIEW_SWITCH_HYSTERESIS_PX / 2). At the current 32px padding, 10px gutter and
+  // 16px half-band: `140 x 3 + 32 + 2 x 10 = 472`, entering at 488 -- 12px under a
+  // 500px section. 144 would compute 484 and enter at 500, exactly on the boundary
+  // with nothing left for a scrollbar; the margin here is thinner than it looks, so
+  // recompute all three terms rather than adjusting one.
+  //
+  // The gutter term was `day_gap` until it merged into `day_spacing`, taking the
+  // default from 12px to 10px and buying back 4px of headroom.
   //
   // Do not "restore" this to 160 on the strength of the G13 number alone: that
   // reintroduces a large deficit and silently disables the feature at defaults.

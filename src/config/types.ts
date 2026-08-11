@@ -165,6 +165,7 @@ export interface ColumnOverrides {
   // Layout and spacing
   vertical_line_width?: string;
   event_spacing?: string;
+  day_spacing?: string;
   additional_card_spacing?: string;
   height?: string;
   max_height?: string;
@@ -218,7 +219,6 @@ export interface ColumnOverrides {
   // of these is a `Config` key, so passing one is a compile error rather than a
   // silent `undefined`. Read them with `resolveColumnOption`, which owns their
   // defaults.
-  day_gap?: string;
   day_header_gap?: string;
   day_header_separator_width?: string;
   day_header_separator_color?: string;

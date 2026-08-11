@@ -635,13 +635,38 @@ function parseIndicatorPosition(position: string): Record<string, string> {
 /**
  * Render the today indicator based on configuration
  *
+ * Two layouts, because the two views give the indicator very different room.
+ *
+ * `absolute` is the list view's: the indicator floats inside the date cell, placed by
+ * `today_indicator_position` as a percentage pair. That works there because the date
+ * cell is a narrow, centre-aligned column — roughly 66px — so the default `15% 50%`
+ * lands the dot in the margin beside the date, and the percentages stay meaningful
+ * because the box is the size of the thing being marked.
+ *
+ * `inline` is the column view's, and it exists because percentages stop meaning
+ * anything once the axis flips. A column header is the full track width with its date
+ * flush left, so `15%` resolves *into* the day number rather than beside it, and no
+ * other percentage fixes it: the header's own content box is full-width too, so there
+ * is no box in the column whose width tracks the date text. Right-anchored values are
+ * worse than wrong — at `95%` the dot lands in the gutter, closer to the *next* day's
+ * content than to the day it marks. Rather than ask users to calibrate a percentage
+ * against their column width, the column view drops positioning entirely and sets the
+ * indicator as a leading item on the weekday row, giving an unambiguous `● Tue`.
+ *
+ * `today_indicator_position` is therefore inert in column view, in the same way and
+ * for the same reason as `date_vertical_alignment`: it describes a placement the
+ * layout does not have. `today_indicator`, `_size` and `_color` all still apply.
+ *
  * @param config Calendar card configuration
  * @param isToday Whether the current day is today
+ * @param layout Placement strategy — `absolute` positions by percentage, `inline`
+ *   emits the indicator in normal flow for a container to place
  * @returns TemplateResult or nothing
  */
 export function renderTodayIndicator(
   config: Types.Config,
   isToday: boolean,
+  layout: 'absolute' | 'inline' = 'absolute',
 ): TemplateResult | typeof nothing {
   // Don't render anything if indicator is disabled or this isn't today
   if (!config.today_indicator || !isToday) {
@@ -656,12 +681,18 @@ export function renderTodayIndicator(
     return nothing;
   }
 
-  // Get position styles using CSS-like syntax
-  const positionStyles = parseIndicatorPosition(config.today_indicator_position);
+  // Get position styles using CSS-like syntax. An inline indicator is placed by its
+  // container, so it takes none: passing them would leave `position: absolute` on an
+  // element whose containing block is the one it is supposed to sit beside.
+  const positionStyles =
+    layout === 'inline' ? {} : parseIndicatorPosition(config.today_indicator_position);
 
-  // Render indicator based on type
+  // Render indicator based on type. The class is bare for the absolute layout rather
+  // than spelled out, so the list view's markup is byte-identical to what it was
+  // before the inline layout existed -- the DOM equality gate in tests/list-dom is
+  // there to catch exactly that kind of incidental churn.
   return html`
-    <div class="today-indicator-container">
+    <div class="today-indicator-container${layout === 'inline' ? ' inline' : ''}">
       ${renderIndicatorByType(indicatorType, indicatorValue, positionStyles)}
     </div>
   `;
