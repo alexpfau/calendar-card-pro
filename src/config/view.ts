@@ -105,6 +105,8 @@ export const COLUMN_ONLY_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = [
   'day_header_separator_width',
   'day_header_separator_color',
   'min_column_width_px',
+  'min_days_to_show',
+  'min_width_fallback',
 ];
 
 const OVERRIDE_KEY_SET: ReadonlySet<string> = new Set<string>([
@@ -256,6 +258,17 @@ export const COLUMN_DEFAULTS = {
   // Do not "restore" this to 160 on the strength of the G13 number alone: that
   // reintroduces a large deficit and silently disables the feature at defaults.
   min_column_width_px: 140,
+
+  // 'list' preserves the wholesale fallback the card shipped with. The alternative,
+  // 'cramp', is only reachable by writing it, and only *matters* once the user has
+  // also lowered `min_days_to_show` -- at the default floor of `days_to_show` the two
+  // values differ solely in whether an over-narrow card shows a list or a squeezed
+  // grid, and 'list' is the honest answer there.
+  // Deliberately written bare rather than cast to `Types.ColumnMinWidthFallback`:
+  // the surrounding `as const` already narrows it to the literal, so the cast bought
+  // nothing, and `check:docs` reconciles this table by reading the source text --
+  // an inline assertion there reads as a default of "'list' as Types..." and fails.
+  min_width_fallback: 'list',
 } as const;
 
 /**
@@ -753,18 +766,106 @@ const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
  * @returns Minimum card width in pixels for the configured number of columns
  */
 export function computeColumnThresholdPx(config: Types.Config): number {
-  const days = Math.max(1, Math.floor(config.days_to_show));
+  return computeColumnThresholdPxFor(config, configuredDays(config));
+}
 
+/**
+ * Computes the card width, in pixels, at or above which `days` columns can render.
+ *
+ * The generalized form of `computeColumnThresholdPx`, which is this function at
+ * `days_to_show`. Column reduction needs a threshold per candidate column count, not
+ * just the one, so the arithmetic moved here and the original became a call site.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param days - Number of columns to size for
+ * @returns Minimum card width in pixels for that many columns
+ */
+export function computeColumnThresholdPxFor(config: Types.Config, days: number): number {
+  const count = Math.max(1, Math.floor(days));
+  const gutter = columnGutterPx(config);
+  const minColumnWidth = resolveColumnOption(config, 'min_column_width_px');
+
+  return minColumnWidth * count + COLUMN_CARD_PADDING_PX + (count - 1) * gutter;
+}
+
+/**
+ * Resolves the gutter between day columns, in pixels.
+ *
+ * Read out of `column:` by hand for the ordering reason documented on
+ * `computeColumnThresholdPx`: width arithmetic runs before the view is known, so it
+ * cannot go through `resolveEffectiveConfig`.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns Gutter width in pixels
+ */
+function columnGutterPx(config: Types.Config): number {
   const overrides = config.column;
   const configuredGap =
     overrides && hasOverride(overrides, 'day_spacing')
       ? coerceOverrideLength('day_spacing', overrides.day_spacing)
       : config.day_spacing;
 
-  const gutter = parsePx(String(configuredGap), DEFAULT_DAY_GAP_PX);
-  const minColumnWidth = resolveColumnOption(config, 'min_column_width_px');
+  return parsePx(String(configuredGap), DEFAULT_DAY_GAP_PX);
+}
 
-  return minColumnWidth * days + COLUMN_CARD_PADDING_PX + (days - 1) * gutter;
+/**
+ * Normalizes `days_to_show` to a usable column count.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns At least one day
+ */
+function configuredDays(config: Types.Config): number {
+  return Math.max(1, Math.floor(config.days_to_show));
+}
+
+/**
+ * Resolves the fewest columns the card may reduce to.
+ *
+ * Unlike its siblings this key has no `COLUMN_DEFAULTS` entry, because its default is
+ * not a constant: it is `days_to_show`, the value at which the reduction range
+ * collapses to a point and the card behaves exactly as it did before the key existed.
+ * `COLUMN_DEFAULTS` is a static table and cannot express that, so resolution lives
+ * here rather than being faked with a sentinel that every reader would have to
+ * decode.
+ *
+ * The result is always clamped into `[1, days_to_show]`. A floor above the ceiling is
+ * not a configuration the card can honour, and a floor of zero would ask it to render
+ * a grid with no columns in it.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns Column floor, within `[1, days_to_show]`
+ */
+export function resolveMinDaysToShow(config: Types.Config): number {
+  const days = configuredDays(config);
+  const overrides = config.column;
+
+  if (!overrides || !hasOverride(overrides, 'min_days_to_show')) {
+    return days;
+  }
+
+  const raw = overrides.min_days_to_show;
+  const parsed = typeof raw === 'number' ? raw : Number.parseFloat(String(raw));
+
+  if (!Number.isFinite(parsed)) {
+    return days;
+  }
+
+  return Math.min(days, Math.max(1, Math.floor(parsed)));
+}
+
+/**
+ * Resolves what the card does below its narrowest permitted column layout.
+ *
+ * Validated against the two legal values rather than passed through, because
+ * `normalizeColumnValue` has no notion of an enum: a typo would otherwise reach the
+ * caller as an unrecognized string and be read as "not 'list'", silently selecting
+ * the behaviour the user did not ask for.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns `'list'` or `'cramp'`
+ */
+export function resolveMinWidthFallback(config: Types.Config): Types.ColumnMinWidthFallback {
+  return resolveColumnOption(config, 'min_width_fallback') === 'cramp' ? 'cramp' : 'list';
 }
 
 /**
@@ -862,5 +963,187 @@ export function resolveViewOnMeasurement(
     measuredWidthPx,
     thresholdPx,
     previousMeasuredWidthPx === null ? null : previousEffectiveView,
+  );
+}
+
+//-----------------------------------------------------------------------------
+// COLUMN DENSITY
+//-----------------------------------------------------------------------------
+
+/**
+ * The layout the card settles on at a given width.
+ *
+ * `columns` is meaningful only when `view` is `'column'`; in list view it is `0`,
+ * because a column count is not a thing the list layout has. Keeping the two in one
+ * record rather than as two returns is what lets the host detect a change in either
+ * with a single comparison — a width change that drops a column without changing the
+ * view still has to re-render, and a host tracking only the view would miss it.
+ */
+export interface ColumnFit {
+  view: Types.EffectiveView;
+  columns: number;
+}
+
+/**
+ * Largest number of columns that fits in a width, ignoring the floor.
+ *
+ * Closed form of `computeColumnThresholdPxFor`. That function is monotonic in `days`,
+ * so inverting it is exact and avoids a loop:
+ *
+ * ```
+ * w >= min x d + padding + (d - 1) x gutter
+ *   <=>  d <= (w - padding + gutter) / (min + gutter)
+ * ```
+ *
+ * The epsilon absorbs binary-floating-point error at an exact boundary, where a
+ * fractional gutter can make a quotient that is mathematically `3` evaluate as
+ * `2.9999999999999996` and floor to `2`.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param widthPx - Card width to fit into
+ * @returns Column count, `0` when not even one column fits
+ */
+function fitColumns(config: Types.Config, widthPx: number): number {
+  const gutter = columnGutterPx(config);
+  const unit = resolveColumnOption(config, 'min_column_width_px') + gutter;
+
+  if (unit <= 0) {
+    return 0;
+  }
+
+  const fitted = Math.floor((widthPx - COLUMN_CARD_PADDING_PX + gutter) / unit + 1e-9);
+
+  return Math.max(0, Math.min(configuredDays(config), fitted));
+}
+
+/**
+ * Half-width of the hysteresis band applied at each column boundary.
+ *
+ * `VIEW_SWITCH_HYSTERESIS_PX / 2` was chosen when there was exactly one boundary to
+ * defend. Column reduction introduces `days_to_show - min_days_to_show + 1` of them,
+ * spaced `min_column_width_px + gutter` apart, and bands wider than half that spacing
+ * would overlap — at which point a single width could satisfy the enter condition for
+ * one count and the leave condition for the next, and the trigger would oscillate
+ * instead of damping.
+ *
+ * At defaults the spacing is 150px and the clamp never binds. It binds only for a
+ * user who has driven `min_column_width_px` down near the gutter, which is a
+ * configuration the card deliberately permits.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns Half-band in pixels, never negative
+ */
+function columnHysteresisHalfBandPx(config: Types.Config): number {
+  const spacing = resolveColumnOption(config, 'min_column_width_px') + columnGutterPx(config);
+
+  return Math.max(0, Math.min(VIEW_SWITCH_HYSTERESIS_PX / 2, (spacing - 1) / 2));
+}
+
+/**
+ * Resolves the layout — view and column count — for a measured width.
+ *
+ * Generalizes `resolveEffectiveView` from a single yes/no boundary to a staircase.
+ * Column view renders as many columns as the width carries, never more than
+ * `days_to_show` and never fewer than `min_days_to_show`; below that floor
+ * `min_width_fallback` decides between falling back to the list layout and holding
+ * the floor with columns narrower than the configured minimum.
+ *
+ * **At defaults this reduces exactly to the previous behaviour.** `min_days_to_show`
+ * defaults to `days_to_show`, so the staircase has one step: either every configured
+ * column fits and the view is `'column'`, or none of them do and
+ * `min_width_fallback: 'list'` returns the list layout — the same two outcomes, at the
+ * same threshold, with the same 16px band. The generalization is inert until a user
+ * lowers the floor.
+ *
+ * The Schmitt trigger is applied to the *width* rather than to each threshold, which
+ * is the same trick in a form that survives having more than one boundary: growing
+ * costs half a band, shrinking is granted half a band, and a width inside a band
+ * holds whatever is already rendered.
+ *
+ * Neither key is a `FETCH_TIME_KEY` and neither may become one. Reducing the column
+ * count renders a subset of a fetch already sized to `days_to_show`, so every
+ * transition here is render-side and costs zero Home Assistant API calls — the same
+ * guarantee (G10) that governs the view switch itself.
+ *
+ * @param requestedView - The configured view
+ * @param config - Merged configuration, defaults already applied
+ * @param measuredWidthPx - Card width, `null` before the first measurement
+ * @param previous - Layout currently rendered, `null` if none is confirmed
+ * @returns The layout to render
+ */
+export function resolveColumnFit(
+  requestedView: Types.EffectiveView,
+  config: Types.Config,
+  measuredWidthPx: number | null,
+  previous: ColumnFit | null,
+): ColumnFit {
+  const days = configuredDays(config);
+
+  if (requestedView !== 'column') {
+    return { view: requestedView, columns: 0 };
+  }
+
+  // Optimistic before the first measurement, for the reason documented on
+  // `resolveEffectiveView`: rendering the list layout and then swapping flashes the
+  // wrong thing at every load on a card that is wide enough.
+  if (measuredWidthPx === null || measuredWidthPx <= 0) {
+    return { view: 'column', columns: days };
+  }
+
+  const floor = Math.min(resolveMinDaysToShow(config), days);
+  const previousColumns = previous && previous.view === 'column' ? previous.columns : 0;
+  const halfBand = columnHysteresisHalfBandPx(config);
+  const raw = fitColumns(config, measuredWidthPx);
+
+  // Note that a `null` previous layout deliberately lands in the growing branch, via a
+  // previous count of zero. That matches `resolveEffectiveView`, where a `null`
+  // previous view means "not currently in column view" and so requires the *enter*
+  // threshold rather than no band at all. Skipping the band for an unknown previous
+  // layout would let a card qualify for a column it has never been wide enough for.
+  let fitted = raw;
+
+  if (raw > previousColumns) {
+    fitted = fitColumns(config, measuredWidthPx - halfBand);
+  } else if (raw < previousColumns) {
+    fitted = fitColumns(config, measuredWidthPx + halfBand);
+  }
+
+  if (fitted >= floor) {
+    return { view: 'column', columns: Math.min(fitted, days) };
+  }
+
+  return resolveMinWidthFallback(config) === 'cramp'
+    ? { view: 'column', columns: floor }
+    : { view: 'list', columns: 0 };
+}
+
+/**
+ * Resolves the layout for a freshly measured width, given the previous measurement.
+ *
+ * Stands to `resolveColumnFit` exactly as `resolveViewOnMeasurement` stands to
+ * `resolveEffectiveView`, and for the identical reason: the optimistic
+ * pre-measurement answer is a bet rather than an observation and must not seed the
+ * hysteresis. A `null` `previousMeasuredWidthPx` means no measurement has confirmed
+ * the current layout, which is precisely when the band must not apply.
+ *
+ * @param requestedView - The configured view
+ * @param config - Merged configuration, defaults already applied
+ * @param previousMeasuredWidthPx - Width at the previous measurement, `null` if none
+ * @param measuredWidthPx - The width just measured
+ * @param previous - Layout currently rendered
+ * @returns The layout to render
+ */
+export function resolveColumnFitOnMeasurement(
+  requestedView: Types.EffectiveView,
+  config: Types.Config,
+  previousMeasuredWidthPx: number | null,
+  measuredWidthPx: number,
+  previous: ColumnFit,
+): ColumnFit {
+  return resolveColumnFit(
+    requestedView,
+    config,
+    measuredWidthPx,
+    previousMeasuredWidthPx === null ? null : previous,
   );
 }

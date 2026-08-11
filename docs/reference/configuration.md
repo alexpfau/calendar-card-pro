@@ -43,7 +43,9 @@ absent `column:` block a visual no-op.
 | `column → day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                            |
 | `column → day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule   |
 | `column → day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                                 |
-| `column → min_column_width_px`        | number | `140`                  | Narrowest a day column may become before the card falls back to the list layout    |
+| `column → min_column_width_px`        | number | `140`                  | Narrowest a day column may become before the card drops a column                   |
+| `column → min_days_to_show`          | number | `days_to_show`         | Fewest columns the card may shrink to; below this, `min_width_fallback` decides    |
+| `column → min_width_fallback`        | string | `list`                 | What happens when even `min_days_to_show` will not fit: `list` or `cramp`          |
 
 **→ [Column View](/features/core-settings#column-view)** — worked examples.
 

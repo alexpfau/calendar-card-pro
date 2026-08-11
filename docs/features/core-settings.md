@@ -328,11 +328,54 @@ column:
   min_column_width_px: 170
 ```
 
-Raising it makes the card fall back to the list layout sooner, which is what you want when
+Raising it makes the card give up the column layout sooner, which is what you want when
 your events have long titles. Lowering it keeps columns on narrower cards, at the cost of
 more wrapping.
 
-The number of columns follows `days_to_show`. A narrower card shows the same days in the
-list layout rather than quietly showing fewer of them.
+By default the number of columns follows `days_to_show` exactly, and a card too narrow for
+all of them switches to the list layout rather than quietly showing fewer days than you
+configured.
+
+### Showing Fewer Columns Instead
+
+`min_days_to_show` changes that. It is the fewest columns the card may shrink to, and it
+lets a narrow card drop trailing days one at a time instead of abandoning the column layout
+outright:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+view: column
+days_to_show: 7
+column:
+  min_days_to_show: 3
+```
+
+That card shows seven columns when there is room, then six, five, four and three as it
+narrows, and only falls back to the list layout once even three columns will not fit.
+
+::: warning Days You Configured Can Disappear
+A card showing four of seven days looks exactly like a card configured for four days — there
+is no marker saying days were dropped. That is why `min_days_to_show` defaults to
+`days_to_show`, which switches the behavior off: reducing columns is opt-in, not something
+that happens to a config you already had.
+:::
+
+### When Even the Minimum Will Not Fit
+
+`min_width_fallback` decides what happens at the very bottom. The default, `list`, gives up
+the column layout — the behavior described above. Set it to `cramp` and the card holds at
+`min_days_to_show` columns instead, letting them narrow past `min_column_width_px`:
+
+```yaml
+column:
+  min_days_to_show: 2
+  min_width_fallback: cramp
+```
+
+Use `cramp` when the column layout matters more to you than legibility at extreme widths —
+on a phone-width card, for example, where two cramped columns still beat a long list. It is
+deliberately capable of producing an unreadable card; that is the trade you are making.
 
 **→ [Column-Only Options in the configuration reference](/reference/configuration#column-only-options)** — full option table.

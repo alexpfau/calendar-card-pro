@@ -137,6 +137,15 @@ export interface Config {
 export type EffectiveView = 'list' | 'column';
 
 /**
+ * What column view does when even its narrowest permitted layout will not fit.
+ *
+ * `'list'` falls back to the list layout, which is what the card has always done.
+ * `'cramp'` keeps the columns and lets them narrow past `min_column_width_px`,
+ * accepting a layout the card would otherwise refuse to draw.
+ */
+export type ColumnMinWidthFallback = 'list' | 'cramp';
+
+/**
  * Per-view configuration overrides applied when the card renders in column view.
  *
  * Shape follows the `WeatherConfig` precedent — one option family, two rendering
@@ -250,6 +259,31 @@ export interface ColumnOverrides {
   // the keys it is read with, which is where a user configuring column density will
   // look for it — in the editor, in the reference table and here.
   min_column_width_px?: number;
+
+  /**
+   * Fewest day columns the card may reduce to when the width will not carry
+   * `days_to_show` of them.
+   *
+   * Defaults to `days_to_show`, at which the reduction range collapses to a point and
+   * the card behaves exactly as it did before this key existed: either every
+   * configured day fits, or the view falls back wholesale. Lower it to trade columns
+   * for fit rather than losing the layout.
+   *
+   * The default is dynamic, so unlike its siblings it has no entry in
+   * `COLUMN_DEFAULTS`; `resolveMinDaysToShow` owns it.
+   */
+  min_days_to_show?: number;
+
+  /**
+   * What the card does once even `min_days_to_show` columns will not fit at
+   * `min_column_width_px`.
+   *
+   * `'list'` falls back to list view, which is the shipped behaviour. `'cramp'` holds
+   * the floor and lets the columns narrow past the configured minimum — deliberately
+   * available, because the minimum is a judgement about legibility and a user is
+   * entitled to disagree with it.
+   */
+  min_width_fallback?: ColumnMinWidthFallback;
 }
 
 /**

@@ -988,7 +988,38 @@ function readColumnRows() {
   return out;
 }
 
+/**
+ * Column-only options whose default is computed rather than constant, and which
+ * therefore have no `COLUMN_DEFAULTS` entry to reconcile against.
+ *
+ * `min_days_to_show` defaults to `days_to_show`, a sibling option — not a value a
+ * static table can hold. `resolveMinDaysToShow` owns it instead. Listing it here
+ * rather than silently tolerating unmatched rows keeps the reconciliation total:
+ * every documented row is either checked against the code or named as an exception,
+ * and a new row that matches neither still warns.
+ *
+ * The documented default must name the option it derives from, so the reader is sent
+ * somewhere real rather than to a dash.
+ */
+const DYNAMIC_COLUMN_DEFAULTS = new Map([['min_days_to_show', '`days_to_show`']]);
+
 function checkColumnDefaults(columnDefaults, columnRows) {
+  for (const [key, expected] of DYNAMIC_COLUMN_DEFAULTS) {
+    if (columnDefaults.has(key)) {
+      error(
+        `column → ${key}: listed as a dynamic default in check-docs but now has a ` +
+          `COLUMN_DEFAULTS entry — drop the exemption so the value is reconciled`,
+      );
+    } else if (!columnRows.has(key)) {
+      error(`column → ${key}: has no row in docs/reference/configuration.md`);
+    } else if (normalise(columnRows.get(key).def) !== normalise(expected)) {
+      error(
+        `column → ${key}: docs say ${columnRows.get(key).def} but its default is ` +
+          `${expected}, computed by resolveMinDaysToShow`,
+      );
+    }
+  }
+
   for (const [key, raw] of columnDefaults) {
     if (!columnRows.has(key)) {
       error(`column → ${key}: in COLUMN_DEFAULTS but has no row in docs/reference/configuration.md`);
@@ -1001,7 +1032,7 @@ function checkColumnDefaults(columnDefaults, columnRows) {
   }
 
   for (const key of columnRows.keys()) {
-    if (!columnDefaults.has(key)) {
+    if (!columnDefaults.has(key) && !DYNAMIC_COLUMN_DEFAULTS.has(key)) {
       warn(`column → ${key}: documented in the reference but not in COLUMN_DEFAULTS — stale row`);
     }
   }

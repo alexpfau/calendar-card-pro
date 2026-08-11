@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildConfig } from './fixtures';
 import '../src/calendar-card-pro';
 import { TIMING } from '../src/config/constants';
-import { VIEW_SWITCH_HYSTERESIS_PX, computeColumnThresholdPx } from '../src/config/view';
+import {
+  VIEW_SWITCH_HYSTERESIS_PX,
+  computeColumnThresholdPx,
+  computeColumnThresholdPxFor,
+} from '../src/config/view';
 
 /**
  * Width measurement settling.
@@ -47,6 +51,14 @@ interface CardUnderTest extends HTMLElement {
   editMode?: boolean;
   updateEvents(force?: boolean): Promise<void>;
   readonly effectiveView: 'list' | 'column';
+  /**
+   * The number of columns actually rendered.
+   *
+   * Read rather than derived, because the density tests below are about the host
+   * holding this across measurements — deriving it from width in the test would
+   * re-implement the very resolver under test and pass regardless of the wiring.
+   */
+  _columnCount: number;
   _scheduleWidthMeasurement(widthPx: number): void;
   getGridOptions(): { columns: 'full'; rows: 'auto' };
 }
@@ -301,5 +313,143 @@ describe('grid options', () => {
 
     expect(typeof card.getGridOptions).toBe('function');
     expect(Object.keys(card.getGridOptions()).length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * Column density — reducing the column count instead of abandoning the layout.
+ *
+ * These drive the real element for the same reason the settling tests above do: the
+ * pure resolver is exhaustively covered in `view-config.test.ts`, so what is left to
+ * prove is that the host *carries the previous layout forward* between measurements.
+ * A host that recomputed from width alone would pass every resolver test and still
+ * oscillate on the dashboard.
+ *
+ * Every config here lowers `min_days_to_show` below `days_to_show`. That is not
+ * incidental — at the default the floor equals the ceiling, the staircase collapses to
+ * a single step and a test written at defaults exercises none of this machinery while
+ * appearing to.
+ */
+
+/** Seven days, floor of three, 4px gutter — a five-step staircase. */
+function densityConfig(overrides: Record<string, unknown> = {}) {
+  const config = buildConfig() as unknown as Record<string, unknown>;
+  config.view = 'column';
+  config.days_to_show = 7;
+  config.column = { day_spacing: '4px', min_days_to_show: 3, ...overrides };
+  return config;
+}
+
+function mountDensityCard(overrides: Record<string, unknown> = {}): CardUnderTest {
+  const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+  card.setConfig(densityConfig(overrides));
+  document.body.appendChild(card);
+  return card;
+}
+
+/** Width at which a cold card first accepts `n` columns. */
+function enterWidth(n: number): number {
+  return computeColumnThresholdPxFor(densityConfig() as never, n) + VIEW_SWITCH_HYSTERESIS_PX / 2;
+}
+
+function settle(card: CardUnderTest, widthPx: number): void {
+  card._scheduleWidthMeasurement(widthPx);
+  vi.advanceTimersByTime(TIMING.WIDTH_SETTLE_DELAY);
+}
+
+describe('column density', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    document.body.innerHTML = '';
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('confirms the staircase the tests below depend on', () => {
+    // Same role as the straddle guard above: if the gutter, padding or minimum column
+    // width moves, these widths stop meaning what the tests claim they mean.
+    expect(enterWidth(7)).toBe(1052);
+    expect(enterWidth(3)).toBe(476);
+    // Steps must be far enough apart that a single measurement cannot skip one by
+    // accident, which would make the one-at-a-time assertions vacuous.
+    expect(enterWidth(4) - enterWidth(3)).toBe(144);
+  });
+
+  it('renders every configured day when there is room', () => {
+    const card = mountDensityCard();
+    settle(card, 1400);
+
+    expect(card.effectiveView).toBe('column');
+    expect(card._columnCount).toBe(7);
+  });
+
+  it('drops columns rather than falling back to the list layout', () => {
+    const card = mountDensityCard();
+    settle(card, 1400);
+
+    // 700px fits four columns (604) but not five (748). Before the density framework
+    // this width produced a list card, because the only question asked was whether all
+    // seven fitted.
+    settle(card, 700);
+
+    expect(card.effectiveView).toBe('column');
+    expect(card._columnCount).toBe(4);
+  });
+
+  it('holds the floor down to the width where the floor itself stops fitting', () => {
+    const card = mountDensityCard();
+    settle(card, 1400);
+    settle(card, 480);
+
+    expect(card.effectiveView).toBe('column');
+    expect(card._columnCount).toBe(3);
+  });
+
+  it('falls back to the list layout below the floor by default', () => {
+    const card = mountDensityCard();
+    settle(card, 1400);
+    settle(card, 300);
+
+    expect(card.effectiveView).toBe('list');
+    expect(card._columnCount).toBe(0);
+  });
+
+  it('cramps below the floor when asked to', () => {
+    const card = mountDensityCard({ min_width_fallback: 'cramp' });
+    settle(card, 1400);
+    settle(card, 300);
+
+    // Three columns in 300px is well under `min_column_width_px`. That is the whole
+    // point of the option: the user has said the grid matters more than legibility.
+    expect(card.effectiveView).toBe('column');
+    expect(card._columnCount).toBe(3);
+  });
+
+  it('carries the previous layout forward, so a width inside the band does not flip', () => {
+    // The reason `_columnCount` is held on the host rather than recomputed at render.
+    // 1050px is two pixels below the width that *earns* the seventh column but well
+    // above the width that loses it, so a card already showing seven must keep it.
+    const card = mountDensityCard();
+    settle(card, 1400);
+    expect(card._columnCount).toBe(7);
+
+    settle(card, 1050);
+
+    expect(card._columnCount).toBe(7);
+  });
+
+  it('does not grant a column the card has never been wide enough for', () => {
+    // The optimistic seed claims all seven before anything is measured. If that seed
+    // were treated as a confirmed layout it would earn the hysteresis band, and the
+    // seventh column would survive a first measurement below its enter width. This is
+    // the column-count form of the bug `resolveViewOnMeasurement` exists to prevent.
+    const card = mountDensityCard();
+    expect(card._columnCount).toBe(7);
+
+    settle(card, 1050);
+
+    expect(card._columnCount).toBe(6);
   });
 });

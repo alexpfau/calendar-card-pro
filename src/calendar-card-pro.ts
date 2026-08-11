@@ -217,14 +217,24 @@ class CalendarCardPro extends LitElement {
    * Card width in CSS pixels, as most recently measured.
    *
    * `null` until the first `ResizeObserver` callback. That distinction matters:
-   * a width of `null` means "not measured yet", which `resolveEffectiveView`
-   * treats as "render what was asked for", so a column card does not flash a list
-   * layout for one frame on load.
+   * a width of `null` means "not measured yet", which `resolveColumnFit` treats as
+   * "render what was asked for, at full width", so a column card does not flash a
+   * list layout for one frame on load.
    */
   private _measuredWidthPx: number | null = null;
 
   /** The view actually rendered, after any width fallback. */
   private _effectiveView: Types.EffectiveView = 'list';
+
+  /**
+   * Day columns actually rendered, after any width-driven reduction.
+   *
+   * Meaningful only in column view; `0` in list view, mirroring `ColumnFit`. Held
+   * alongside `_effectiveView` rather than derived at render time because the
+   * hysteresis needs the previously *rendered* layout as its input, and a value
+   * recomputed during render would feed itself.
+   */
+  private _columnCount = 0;
 
   private _resizeObserver: ResizeObserver | null = null;
 
@@ -570,35 +580,42 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Records a new width and re-renders if it changes which view applies.
+   * Records a new width and re-renders if it changes the layout.
    *
-   * Deliberately does **not** refetch. Crossing the threshold changes only how
+   * Deliberately does **not** refetch. Crossing a threshold changes only how
    * already-fetched events are laid out; the fetch window is derived from
    * `days_to_show`, which is a fetch-time option and cannot be overridden per
-   * view. Spec E makes "no fetch on a view transition" an acceptance criterion.
+   * view. Spec E makes "no fetch on a view transition" an acceptance criterion,
+   * and column reduction inherits it — dropping a column renders a subset of a
+   * fetch already sized to `days_to_show`, so it costs no API calls either.
    *
    * @param widthPx - Measured content width in CSS pixels
    */
   private _handleWidthMeasured(widthPx: number): void {
-    const nextView = ViewConfig.resolveViewOnMeasurement(
+    const next = ViewConfig.resolveColumnFitOnMeasurement(
       this.requestedView,
+      this.config,
       this._measuredWidthPx,
       widthPx,
-      ViewConfig.computeColumnThresholdPx(this.config),
-      this._effectiveView,
+      { view: this._effectiveView, columns: this._columnCount },
     );
 
     this._measuredWidthPx = widthPx;
 
-    if (nextView === this._effectiveView) {
+    // Both halves must be compared. A width change that drops a column without
+    // changing the view is still a layout change, and a check on the view alone
+    // would silently skip the re-render.
+    if (next.view === this._effectiveView && next.columns === this._columnCount) {
       return;
     }
 
     Logger.debug(
-      `View changed from ${this._effectiveView} to ${nextView} at ${Math.round(widthPx)}px`,
+      `Layout changed from ${this._effectiveView}/${this._columnCount} to ` +
+        `${next.view}/${next.columns} at ${Math.round(widthPx)}px`,
     );
 
-    this._effectiveView = nextView;
+    this._effectiveView = next.view;
+    this._columnCount = next.columns;
     this.requestUpdate();
   }
 
@@ -983,12 +1000,15 @@ class CalendarCardPro extends LitElement {
     // yet — and a live probe at 464px observed no intermediate column render. On a
     // warm cache that masking is not guaranteed, which is the accepted cost of
     // debouncing; see _scheduleWidthMeasurement for why the debounce is required.
-    this._effectiveView = ViewConfig.resolveEffectiveView(
+    const seededFit = ViewConfig.resolveColumnFit(
       this.config.view,
+      this.config,
       this._measuredWidthPx,
-      ViewConfig.computeColumnThresholdPx(this.config),
       null,
     );
+
+    this._effectiveView = seededFit.view;
+    this._columnCount = seededFit.columns;
 
     // Generate deterministic ID for caching
     this._instanceId = Helpers.generateDeterministicId(
@@ -1165,7 +1185,13 @@ class CalendarCardPro extends LitElement {
     const renderDays = (days: Types.EventsByDay[]): TemplateResult =>
       this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
-            days,
+            // Width-driven reduction is applied here rather than inside the renderer,
+            // so separators and week numbers are derived from the columns actually
+            // drawn. Trailing days are dropped, never leading ones — the first column
+            // is the anchor the user reads from.
+            this._columnCount > 0 && this._columnCount < days.length
+              ? days.slice(0, this._columnCount)
+              : days,
             this.effectiveConfig,
             this.effectiveLanguage,
             this.weatherForecasts,

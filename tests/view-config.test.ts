@@ -10,10 +10,15 @@ import {
   COLUMN_OVERRIDE_KEYS,
   VIEW_SWITCH_HYSTERESIS_PX,
   computeColumnThresholdPx,
+  computeColumnThresholdPxFor,
   isZeroLength,
+  resolveColumnFit,
+  resolveColumnFitOnMeasurement,
   resolveColumnOption,
   resolveEffectiveConfig,
   resolveEffectiveView,
+  resolveMinDaysToShow,
+  resolveMinWidthFallback,
   resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
@@ -601,9 +606,26 @@ describe('column view config surface', () => {
     // These cannot default through DEFAULT_CONFIG, because DEFAULT_CONFIG.column is
     // undefined by design. COLUMN_DEFAULTS is the only thing standing between them
     // and an undefined reaching the stylesheet.
+    //
+    // One key is exempt, and the exemption is named rather than implied:
+    // `min_days_to_show` defaults to `days_to_show`, which is not a constant and so
+    // cannot live in a static table. It is covered by its own assertion below, so the
+    // invariant "every column-only key has a default" still holds end to end -- what
+    // is relaxed is only *where* that default is written down.
+    const DYNAMIC_DEFAULT_KEYS = ['min_days_to_show'];
+
     for (const key of COLUMN_ONLY_KEYS) {
+      if (DYNAMIC_DEFAULT_KEYS.includes(key)) continue;
       expect(COLUMN_DEFAULTS).toHaveProperty(key);
     }
+  });
+
+  it('defaults min_days_to_show to days_to_show', () => {
+    // The other half of the exemption above. Without this the dynamic default would
+    // be unasserted, and the loop's `continue` would be a hole rather than a
+    // redirection.
+    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 7 })).toBe(7);
+    expect(resolveMinDaysToShow({ ...DEFAULT_CONFIG, days_to_show: 3 })).toBe(3);
   });
 
   it('pins each column-only default to its literal value', () => {
@@ -911,5 +933,334 @@ describe('resolveViewOnMeasurement', () => {
   it('leaves a list request alone regardless of measurement history', () => {
     expect(resolveViewOnMeasurement('list', null, 2000, THRESHOLD, 'list')).toBe('list');
     expect(resolveViewOnMeasurement('list', 2000, 2000, THRESHOLD, 'list')).toBe('list');
+  });
+});
+
+describe('computeColumnThresholdPxFor', () => {
+  it('reproduces computeColumnThresholdPx at days_to_show', () => {
+    // The generalization must be a strict superset, not a reimplementation that
+    // happens to agree at the default. Swept, because a single spot check would pass
+    // for a function that ignored its argument entirely.
+    for (const days of [1, 2, 3, 5, 7, 14]) {
+      const config = buildConfig();
+      config.days_to_show = days;
+
+      expect(computeColumnThresholdPxFor(config, days)).toBe(computeColumnThresholdPx(config));
+    }
+  });
+
+  it('costs one column width plus one gutter per additional column', () => {
+    const config = buildConfig();
+
+    expect(computeColumnThresholdPxFor(config, 1)).toBe(140 + 32);
+    expect(computeColumnThresholdPxFor(config, 2)).toBe(140 * 2 + 32 + 10);
+    expect(computeColumnThresholdPxFor(config, 3)).toBe(140 * 3 + 32 + 2 * 10);
+    expect(computeColumnThresholdPxFor(config, 7)).toBe(140 * 7 + 32 + 6 * 10);
+  });
+});
+
+describe('resolveMinDaysToShow', () => {
+  it('defaults to days_to_show, collapsing the reduction range to a point', () => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+
+    expect(resolveMinDaysToShow(config)).toBe(7);
+  });
+
+  it('reads a configured floor out of the column block', () => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_to_show: 3 };
+
+    expect(resolveMinDaysToShow(config)).toBe(3);
+  });
+
+  it('clamps a floor above the ceiling down to days_to_show', () => {
+    // Asking for at least 9 columns out of a 7-day fetch is not a layout the card can
+    // produce; the honest reading is "never reduce", which is days_to_show.
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_to_show: 9 };
+
+    expect(resolveMinDaysToShow(config)).toBe(7);
+  });
+
+  it('clamps zero and negatives up to one', () => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+
+    for (const value of [0, -1, -100]) {
+      config.column = { min_days_to_show: value };
+      expect(resolveMinDaysToShow(config)).toBe(1);
+    }
+  });
+
+  it('floors a fractional floor rather than rendering a fraction of a column', () => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_to_show: 3.9 };
+
+    expect(resolveMinDaysToShow(config)).toBe(3);
+  });
+
+  it('falls back to days_to_show for a value that is not a number', () => {
+    // The column block is raw user input and never passes through normalizeConfig's
+    // numeric sweep, so a string reaches this function intact.
+    const config = buildConfig();
+    config.days_to_show = 7;
+
+    for (const value of ['banana', '', Number.NaN, Number.POSITIVE_INFINITY]) {
+      config.column = { min_days_to_show: value as unknown as number };
+      expect(resolveMinDaysToShow(config)).toBe(7);
+    }
+  });
+
+  it('accepts a numeric string, matching every other column length', () => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_to_show: '4' as unknown as number };
+
+    expect(resolveMinDaysToShow(config)).toBe(4);
+  });
+});
+
+describe('resolveMinWidthFallback', () => {
+  it('defaults to the wholesale list fallback the card shipped with', () => {
+    expect(resolveMinWidthFallback(buildConfig())).toBe('list');
+  });
+
+  it('honours an explicit cramp', () => {
+    const config = buildConfig();
+    config.column = { min_width_fallback: 'cramp' };
+
+    expect(resolveMinWidthFallback(config)).toBe('cramp');
+  });
+
+  it('treats an unrecognized value as list rather than as not-list', () => {
+    // The trap this function exists to close. `normalizeColumnValue` has no notion of
+    // an enum, so a typo arrives here as a plain string -- and a naive
+    // `value === 'list' ? 'list' : 'cramp'` would read every typo as an instruction to
+    // cramp, which is the behaviour the user did not ask for.
+    const config = buildConfig();
+
+    for (const value of ['lst', 'List', 'columns', '', 'true']) {
+      config.column = { min_width_fallback: value as Types.ColumnMinWidthFallback };
+      expect(resolveMinWidthFallback(config)).toBe('list');
+    }
+  });
+});
+
+describe('resolveColumnFit — equivalence with resolveEffectiveView at defaults', () => {
+  // The load-bearing test of the whole density framework.
+  //
+  // min_days_to_show defaults to days_to_show, at which the staircase has exactly one
+  // step and must be indistinguishable from the boundary it replaces. Anything else is
+  // a silent behavioural change shipped to every existing column-view user, none of
+  // whom asked for the feature.
+  //
+  // Swept rather than spot-checked, and swept across both hysteresis states, because
+  // the two functions apply the band in structurally different places -- one adjusts
+  // the threshold, the other adjusts the width -- and agreement at a handful of widths
+  // would not establish that those are the same thing.
+  const widthsAround = (threshold: number) => {
+    const offsets = [-400, -100, -33, -17, -16, -15, -1, 0, 1, 15, 16, 17, 33, 100, 400];
+    return offsets.map((offset) => threshold + offset).filter((width) => width > 0);
+  };
+
+  for (const days of [1, 3, 7]) {
+    it(`agrees at every sampled width for days_to_show: ${days}`, () => {
+      const config = buildConfig();
+      config.days_to_show = days;
+      const threshold = computeColumnThresholdPx(config);
+
+      for (const width of widthsAround(threshold)) {
+        for (const previousView of ['list', 'column'] as Types.EffectiveView[]) {
+          const previousFit = { view: previousView, columns: previousView === 'column' ? days : 0 };
+
+          expect(resolveColumnFit('column', config, width, previousFit).view).toBe(
+            resolveEffectiveView('column', width, threshold, previousView),
+          );
+        }
+
+        // And with no confirmed previous layout, where neither applies the band.
+        expect(resolveColumnFit('column', config, width, null).view).toBe(
+          resolveEffectiveView('column', width, threshold, null),
+        );
+      }
+    });
+  }
+
+  it('renders every configured column whenever it renders columns at all', () => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+    const threshold = computeColumnThresholdPx(config);
+
+    for (const width of widthsAround(threshold)) {
+      const fit = resolveColumnFit('column', config, width, null);
+      expect(fit.columns).toBe(fit.view === 'column' ? 7 : 0);
+    }
+  });
+
+  it('answers optimistically before the first measurement', () => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+
+    expect(resolveColumnFit('column', config, null, null)).toEqual({ view: 'column', columns: 7 });
+    expect(resolveColumnFit('column', config, 0, null)).toEqual({ view: 'column', columns: 7 });
+  });
+
+  it('leaves a list request alone', () => {
+    const config = buildConfig();
+
+    expect(resolveColumnFit('list', config, 2000, null)).toEqual({ view: 'list', columns: 0 });
+    expect(resolveColumnFit('list', config, 100, null)).toEqual({ view: 'list', columns: 0 });
+  });
+});
+
+describe('resolveColumnFit — reduction', () => {
+  // The worked example from the density spec: 7 configured days, floor of 3.
+  //
+  // Thresholds at defaults (140 wide, 10 gutter, 32 padding) are
+  // 140n + 32 + 10(n-1), so: 3 -> 472, 4 -> 622, 5 -> 772, 6 -> 922, 7 -> 1072.
+  const build = (overrides: Partial<Types.ColumnOverrides> = {}) => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_to_show: 3, ...overrides };
+    return config;
+  };
+
+  it('drops one column at a time from a cold start', () => {
+    // With no confirmed previous layout each column must clear its *enter* threshold,
+    // raw + VIEW_SWITCH_HYSTERESIS_PX / 2, for the same reason a cold-started view has
+    // to clear it: nothing has yet demonstrated that the card is that wide.
+    const config = build();
+
+    for (const [width, columns] of [
+      [2000, 7],
+      [1088, 7],
+      [1087, 6],
+      [938, 6],
+      [937, 5],
+      [788, 5],
+      [787, 4],
+      [638, 4],
+      [637, 3],
+      [488, 3],
+    ] as const) {
+      expect(resolveColumnFit('column', config, width, null)).toEqual({
+        view: 'column',
+        columns,
+      });
+    }
+  });
+
+  it('drops one column at a time across a continuous resize', () => {
+    // What actually happens in a browser: a settled layout, then a width that moves a
+    // pixel at a time. Asserted as a sweep rather than a table because the property
+    // that matters is monotonicity -- the count may only ever decrease as the card
+    // narrows, and only by one at a time.
+    const config = build();
+    let fit = resolveColumnFit('column', config, 2000, null);
+    const drops: number[] = [];
+
+    expect(fit).toEqual({ view: 'column', columns: 7 });
+
+    for (let width = 2000; width >= 300; width -= 1) {
+      const next = resolveColumnFit('column', config, width, fit);
+
+      if (next.view === 'column' && fit.view === 'column' && next.columns !== fit.columns) {
+        expect(next.columns).toBe(fit.columns - 1);
+        drops.push(width);
+      }
+
+      fit = next;
+    }
+
+    // Leave thresholds: raw - VIEW_SWITCH_HYSTERESIS_PX / 2, one per boundary.
+    expect(drops).toEqual([1055, 905, 755, 605]);
+    expect(fit).toEqual({ view: 'list', columns: 0 });
+  });
+
+  it('falls back to list below the floor by default', () => {
+    const config = build();
+
+    expect(resolveColumnFit('column', config, 471, null)).toEqual({ view: 'list', columns: 0 });
+    expect(resolveColumnFit('column', config, 200, null)).toEqual({ view: 'list', columns: 0 });
+  });
+
+  it('holds the floor below it when asked to cramp', () => {
+    const config = build({ min_width_fallback: 'cramp' });
+
+    // Columns now narrower than min_column_width_px, which is the entire point: the
+    // minimum is a judgement about legibility and the user is entitled to overrule it.
+    expect(resolveColumnFit('column', config, 471, null)).toEqual({ view: 'column', columns: 3 });
+    expect(resolveColumnFit('column', config, 200, null)).toEqual({ view: 'column', columns: 3 });
+    expect(resolveColumnFit('column', config, 1, null)).toEqual({ view: 'column', columns: 3 });
+  });
+
+  it('never exceeds days_to_show however wide the card gets', () => {
+    const config = build();
+
+    expect(resolveColumnFit('column', config, 100000, null).columns).toBe(7);
+  });
+
+  it('applies hysteresis at every boundary, not just the last one', () => {
+    const config = build();
+
+    // Sitting just below the 5-column threshold of 772. Coming from 5 columns the
+    // band holds it there; coming from 4 it does not yet grant the fifth.
+    const holding = { view: 'column' as const, columns: 5 };
+    const growing = { view: 'column' as const, columns: 4 };
+
+    expect(resolveColumnFit('column', config, 765, holding).columns).toBe(5);
+    expect(resolveColumnFit('column', config, 765, growing).columns).toBe(4);
+
+    // Outside the band both agree.
+    expect(resolveColumnFit('column', config, 750, holding).columns).toBe(4);
+    expect(resolveColumnFit('column', config, 790, growing).columns).toBe(5);
+  });
+
+  it('keeps adjacent hysteresis bands from overlapping at a pathological width floor', () => {
+    // With min_column_width_px at 12 and a 10px gutter the boundaries sit 22px apart,
+    // so an unclamped +/-16 band would reach past its neighbour and the trigger would
+    // oscillate rather than damp. The clamp caps the half-band at (22 - 1) / 2.
+    //
+    // Swept over every width in the dense region, asserting the only property that
+    // actually matters: the answer never moves by more than one column per pixel, in
+    // either direction, from any starting layout.
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.column = { min_days_to_show: 1, min_column_width_px: 12 };
+
+    for (let width = 40; width <= 220; width += 1) {
+      const from = resolveColumnFit('column', config, width, null);
+      const stepped = resolveColumnFit('column', config, width + 1, from);
+
+      expect(Math.abs(stepped.columns - from.columns)).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
+describe('resolveColumnFitOnMeasurement', () => {
+  const config = (() => {
+    const built = buildConfig();
+    built.days_to_show = 7;
+    built.column = { min_days_to_show: 3 };
+    return built;
+  })();
+
+  it('ignores the optimistic pre-measurement layout as a hysteresis seed', () => {
+    // The mistake this wrapper exists to prevent, in its column-count form: the
+    // optimistic answer claims 7 columns, and letting that seed the band would grant
+    // the seventh column at a width that has never qualified for it.
+    const optimistic = { view: 'column' as const, columns: 7 };
+
+    expect(resolveColumnFitOnMeasurement('column', config, null, 1065, optimistic).columns).toBe(6);
+  });
+
+  it('applies the band once a measurement has confirmed the layout', () => {
+    const confirmed = { view: 'column' as const, columns: 7 };
+
+    expect(resolveColumnFitOnMeasurement('column', config, 1200, 1065, confirmed).columns).toBe(7);
   });
 });
