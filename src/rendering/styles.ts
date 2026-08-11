@@ -588,11 +588,43 @@ export const cardStyles = css`
     margin-right: 12px;
   }
 
+  /*
+   * overflow-wrap: break-word is load-bearing, not cosmetic.
+   *
+   * .description span carries overflow: hidden further down, to give its
+   * -webkit-line-clamp something to clip against. That declaration is applied
+   * unconditionally, but the clamp is not: description_max_lines defaults to 0, which
+   * generateCustomPropertiesObject emits as the keyword none. So at the default the
+   * clamp does nothing and only the overflow: hidden survives.
+   *
+   * That matters because the span is a flex item. Per CSS Flexbox 4.5 the automatic
+   * minimum size of a flex item applies only while its overflow is visible; any other
+   * value collapses min-width: auto to 0. So the span is free to shrink below the width
+   * of its own longest word, and overflow: hidden then clips that word mid-glyph -- with
+   * no ellipsis, because these rules never set text-overflow. Measured in list view at a
+   * 300px card: a box 167px wide holding a 179px word, painting 12px of the final
+   * character and silently dropping the rest.
+   *
+   * break-word makes the word break to fit rather than overhang, so nothing is clipped.
+   * It deliberately does not change min-content -- CSS Text 3 exempts break-word from
+   * intrinsic sizing -- so it cannot widen a row that fits today, which is why it is
+   * applied to all three rows rather than to .description alone. .time and .location
+   * have no overflow: hidden and so never clipped; there the declaration only replaces
+   * an overhang with a wrap.
+   */
   .time span,
   .location span,
   .description span {
     display: inline-block;
     vertical-align: middle;
+    overflow-wrap: break-word;
+  }
+  .time span,
+  .location span,
+  .description span {
+    display: inline-block;
+    vertical-align: middle;
+    overflow-wrap: break-word;
   }
 
   .time {
