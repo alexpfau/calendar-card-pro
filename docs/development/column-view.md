@@ -998,6 +998,20 @@ measurement spike and the 160px provisional minimum, not against column layout.
 deferred, `+N more` mandatory if any cap ships — describe the design for when per-column
 compaction ships, not MVP. `max_height` is inherited unchanged in both cases.
 
+> **[v14] Superseded — this is the second site stating the ruling A3-D corrects, and it is
+> stated here in the opposite direction.** `compact_days_to_show` does **not** ship in MVP.
+> The entire compact family is inert in column view: `compact_days_to_show`,
+> `compact_events_to_show` (global and per-entity), `compact_events_complete_days`, and the
+> `action: 'expand'` gesture that drives them. See the D8 table for the verified set.
+>
+> "It simply sets N" was the argument, and it is wrong on the layout: three wide columns in the
+> space of five narrow ones is a **different card**, not a denser one — the horizontal axis has
+> no equivalent of a list's vertical truncation. `max_height` is genuinely inherited unchanged,
+> so that clause stands.
+>
+> The A3-D design notes remain the design for any future per-column compaction. What does not
+> survive is the MVP scope line in this paragraph.
+
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#d3-height-and-overflow-changed--substantially-rewritten)
 
 ### D4. Editor gate audit
@@ -1015,6 +1029,12 @@ Frozen-branch gates and their three-view outcomes:
 - `:778` `[frozen]`: `days_to_show` is benign for column by luck; make it explicit.
 - `:826` `[frozen]`: Compact Mode shows for column and that is correct. Make it explicit and
   hide `compact_events_complete_days` for column.
+  > **[v14] Reversed.** Compact Mode is **wholly** inert in column view, so the instruction is
+  > not "hide one key" but "the whole section does nothing". Hiding it outright is the wrong
+  > fix — a user who set a compact cap in list view and switched to column would watch their
+  > configuration vanish from the editor with no explanation, which is the silent
+  > config/render divergence G14 rejected. Annotate instead, via the conditional helper-text
+  > idiom already used at `editor.ts:1119-1124`. Same treatment as `today_indicator_position`.
 - `editor.ts:897` on `dev`: `show_empty_days` becomes the A3-B-3 3-option select in both
   views, not a switch. Correct the `:900-902` visibility conditional at the same time.
 - `:908` `[frozen]`: correctly grid-only, unchanged.
@@ -1264,9 +1284,16 @@ user to hold two meanings for one word. These get distinct keys:
 | `day_separator_*`          | horizontal rule → vertical rule    | new `column.day_header_separator_*` |
 | `week_separator_*`         | horizontal rule → vertical rule    | reuse — full-height vertical rule   |
 | `month_separator_*`        | horizontal rule → vertical rule    | reuse — full-height vertical rule   |
-| `compact_days_to_show`     | day rows → columns                 | reuse — the unit is "days" in both  |
+| `compact_days_to_show`     | day rows → columns                 | ~~reuse — the unit is "days" in both~~ **inert [v14]** |
 | `compact_events_to_show`   | total budget → per-column budget   | **out of MVP** (G12)                |
 | `today_indicator_position` | tall date cell → short header band | needs a real dashboard (G13)        |
+
+> **[v14] The `compact_days_to_show` row is corrected in place** rather than cross-referenced,
+> because the table is a lookup and a reader who consults one row will not read D8. "The unit is
+> days in both" is true and was still the wrong conclusion: the unit surviving translation does
+> not mean the *effect* does. Dropping day rows shortens a list; dropping columns widens the
+> survivors into the freed space, so the card is the same size and merely holds less. The whole
+> compact family is inert — see D8 for the verified set.
 
 `day_spacing` is the concrete case that motivated this: at `day_spacing: 24px`, seven columns
 lose **144px** to gutters before any content is laid out.
@@ -1749,13 +1776,21 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 >   D6 removes the residue: with `compact_events_to_show` out of MVP and the override block
 >   available for it later, no key needs to carry two meanings.
 >
+>   **[v14] The split has since been superseded by a wholesale exclusion: `compact_days_to_show`
+>   is now OUT too, and with it the rest of the family.** Kept here as the log of what was ruled
+>   at the time — the reasoning above is sound about the *unit* and wrong about the *effect*.
+>   See D3 and D8 for the current position, and the D8 warning against re-deriving the
+>   `action: 'expand'` row from source.
+>
 > - **G13. Measurement spike — RUN. See "G13 spike results" at the end of this section.**
 >   One sub-question was a **defect**, not an open parameter: with `show_empty_days: false` the
 >   threshold formula still used `days_to_show`, so a 7-day config with events on 2 days
 >   demanded a 7-column-wide container before showing 2 columns — defeating dense mode
 >   outright. **Ruled: the threshold uses the rendered column count**, which is already known
 >   at render time because grouping precedes it. Same N as G11. **The spike has now run:**
->   `min_column_width_px: 160` survived measurement, 128 is confirmed disproven, and the
+>   `min_column_width_px: 160` survived measurement (**[v12] the shipped default is 140** —
+>   the measurement stands, the value drawn from it did not; see the G13 results below), 128 is
+>   confirmed disproven, and the
 >   card-edit modal measured 480px. **`min_column_width_px` is now ruled public config**
 >   (G14). Still open after the spike: the hysteresis band, weather truncate-or-drop (which
 >   _sets_ the minimum), and the header vertical budget. The default-width finding it surfaced
