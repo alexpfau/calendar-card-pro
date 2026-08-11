@@ -550,14 +550,15 @@ export const cardStyles = css`
    * lost nothing. Measured at 201 spurious overflows in one 400px column-width sweep, and
    * reproducible in list view with any word long enough to approach the card's width.
    *
-   * text-overflow goes with it. Nothing else in this stylesheet ellipsises -- the one
-   * genuine truncation the card offers, description_max_lines, uses -webkit-line-clamp
-   * on .description span, which renders its own ellipsis. This rule was the sole holdout
-   * and had no limit to signal: titles are unbounded, so an ellipsis on one could only
-   * ever mean the phantom overflow above, or a real word too long for the column that it
-   * would then have clipped silently. overflow-wrap breaks that word onto the next line
-   * instead, so removing the ellipsis does not trade a false truncation for a hidden one.
-   * overflow: hidden stays as the backstop for anything genuinely unbreakable.
+   * text-overflow goes with it. It had no limit to signal at the default: title_max_lines
+   * unset means titles are unbounded, so an ellipsis on one could only ever mean the
+   * phantom overflow above, or a real word too long for the column that it would then
+   * have clipped silently. When title_max_lines *is* set the ellipsis comes from
+   * -webkit-line-clamp on .event-title, which renders its own -- exactly as
+   * description_max_lines already does on .description span. overflow-wrap breaks an
+   * over-long word onto the next line instead, so removing the ellipsis does not trade a
+   * false truncation for a hidden one. overflow: hidden stays as the backstop for
+   * anything genuinely unbreakable.
    */
   .summary {
     flex: 1;
@@ -1119,7 +1120,7 @@ export const cardStyles = css`
 
   /*
    * Every content row inside an event already carries its own 12px trailing margin --
-   * .event-title, and the shared .time/.location/.description rule -- so an event in a
+   * .summary, and the shared .time/.location/.description rule -- so an event in a
    * column already ends 12px short of the track's right edge. An earlier revision added
    * padding-inline-end: 12px here on the belief that the trailing gutter was missing,
    * reading the base .event rule's padding-right: 0 in isolation. It was not missing;

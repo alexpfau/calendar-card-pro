@@ -43,8 +43,8 @@ describe('title overflow', () => {
   });
 
   it('does not ellipsise .summary', () => {
-    // Titles are unbounded, so there is no limit for an ellipsis to signal. The card's
-    // one real truncation, description_max_lines, clamps instead -- see below.
+    // At the default title_max_lines there is no limit for an ellipsis to signal, and
+    // when it is set the ellipsis comes from -webkit-line-clamp on .event-title instead.
     expect(ruleBody('.summary')).not.toMatch(/text-overflow/);
   });
 
@@ -58,11 +58,19 @@ describe('title overflow', () => {
     expect(ruleBody('.summary')).toMatch(/overflow:\s*hidden/);
   });
 
-  it('leaves the description clamp -- the one real truncation -- intact', () => {
+  it('leaves the description clamp -- a real truncation -- intact', () => {
     // Not rule-scoped: .description span is declared twice, and all this needs to know
     // is that the clamp survives somewhere.
     expect(cardStyles.cssText).toMatch(
       /-webkit-line-clamp:\s*var\(--calendar-card-description-max-lines\)/,
     );
+  });
+
+  it('still clamps on .event-title when title_max_lines is set', () => {
+    // The clamp is the only remaining truncation path for a title, so it has to stay
+    // intact -- dropping text-overflow must not disable intentional truncation.
+    const body = ruleBody('.event-title');
+    expect(body).toMatch(/-webkit-line-clamp:\s*var\(--calendar-card-title-max-lines\)/);
+    expect(body).toMatch(/display:\s*var\(--calendar-card-title-display\)/);
   });
 });
