@@ -43,3 +43,6 @@ docs/.vitepress/cache/
 
 # Ignore Cloudflare Workers local state
 .wrangler/
+
+# Ignore local-only MCP server config (may contain access tokens)
+.mcp.json
