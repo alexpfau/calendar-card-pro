@@ -209,6 +209,13 @@ polish for `Never show`, not required for the MVP default.
 **Verified against:** `origin/dev` @ `29b8226`. The modal-width figures still need live HA
 verification.
 
+> **[v16] Partly superseded by A3-G.** The wholesale flip described here is now the *default*
+> case rather than the only one: width first reduces the column count down to
+> `min_days_to_show`, and this fallback fires below that floor. Since `min_days_to_show`
+> defaults to `days_to_show`, everything below still describes default behaviour exactly. The
+> threshold formula is unchanged — it is now `computeColumnThresholdPxFor(config, days)`
+> evaluated at `days_to_show`. Risks 1-5 all survive intact.
+
 Users can set a screen width above which column view is active; underneath, render list view.
 This supersedes column-count clamping. List view is already designed for narrow screens, while
 cramped columns are not useful. The fallback threshold is computed from:
@@ -360,6 +367,49 @@ Dropping `_px` costs nothing at runtime: `normalizeColumnValue` parses with
 `Number.parseFloat`, so `min_day_width: '140px'` resolves to `140` and an unparseable value
 falls back to the default. It does move the unit out of the key name, so the reference row and
 the feature-page prose now state "in pixels" explicitly.
+
+### A3-G. Density framework — width reduces the column count before it changes the view **[v16]**
+
+**Verified against:** `feature/column-view-v4` @ `74ab6e4`. Shipped; `view.ts:1092-1204` is the
+implementation and `tests/width-settle.test.ts` pins it.
+
+**Ruled.** Column view no longer answers a single yes/no question about width. It renders as
+many columns as the width carries — never more than `days_to_show`, never fewer than
+`min_days_to_show` — and only when even that floor will not fit does `min_days_fallback` decide
+between the list layout and holding the floor with narrower columns.
+
+Three Category C keys, all inside `column:`:
+
+| Key                 | Type               | Default        | Role                                                |
+| ------------------- | ------------------ | -------------- | --------------------------------------------------- |
+| `min_day_width`     | number (px)        | `140`          | Width one column needs before another one is added  |
+| `min_days_to_show`  | number             | `days_to_show` | Floor — the card never renders fewer columns        |
+| `min_days_fallback` | `'list' \| 'cramp'` | `'list'`       | What happens when even the floor will not fit       |
+
+**This supersedes two earlier rulings**, both of which forbade exactly what now ships:
+
+1. **A3-C's** "above the threshold you get the columns you asked for; below it you get list. Do
+   not silently drop days." The wholesale flip is now the *default* case rather than the only
+   case — see the collapse property below.
+2. **G13's** "the rendered column count is determined by grouping, never by available width",
+   which recorded auto-fit as the *rejected* alternative. The objection there was honesty, not
+   mechanism: a user who asks for 7 days and is shown 3 has no signal explaining the difference.
+   That objection stands and is answered by keeping the **default floor at `days_to_show`**, so
+   no user sees a silent drop until they ask for one.
+
+**The defaults collapse to the old behaviour exactly.** `min_days_to_show` defaults to
+`days_to_show`, which makes the staircase one step high: either every configured column fits, or
+none do and `'list'` returns the list layout — the same two outcomes, at the same threshold,
+inside the same 16px band. The generalization is inert until a user lowers the floor. This is
+why it could ship without waiting for the honesty affordance, which remains a release blocker in
+D7 and gates any future change to these defaults.
+
+**Neither new key is a `FETCH_TIME_KEY`, and neither may become one.** Reducing the column count
+renders a subset of a fetch already sized to `days_to_show`, so every transition on this
+staircase is render-side and costs zero `callApi` invocations — the same G10 guarantee that
+governs the view switch itself.
+
+The mechanism is specified in D6-B.
 
 ---
 
@@ -1421,6 +1471,74 @@ block`), inheriting from the merged top-level value, never from `DEFAULT_CONFIG`
 > Full audit, per-key classification and rejected alternatives:
 > [column-view-rationale.md](./column-view-rationale.md#d6-per-view-config-overrides-new-v8)
 
+#### D6-B. The density framework — how width picks a column count **[v16]**
+
+Mechanism for [A3-G](#a3-g-density-framework--width-reduces-the-column-count-before-it-changes-the-view-v16).
+Shipped at `view.ts:1092-1204`; the ruling, the supersessions and the key table live in A3-G and
+are not repeated here.
+
+**The width one column costs.** Every threshold derives from a single unit —
+`min_day_width + gutter` — where the gutter is `column.day_spacing`, falling back to the
+top-level `day_spacing`, defaulting to 10px (`columnGutterPx`). The width needed for `d` columns
+is `computeColumnThresholdPxFor`:
+
+```
+min_day_width × d  +  COLUMN_CARD_PADDING_PX  +  (d − 1) × gutter
+```
+
+`computeColumnThresholdPx` is now this function evaluated at `days_to_show`, which is why A3-C's
+formula is unchanged rather than replaced.
+
+**Inverting it, rather than looping.** The function above is monotonic in `d`, so `fitColumns`
+solves it in closed form:
+
+```
+d ≤ (width − COLUMN_CARD_PADDING_PX + gutter) / (min_day_width + gutter)
+```
+
+floored, clamped to `[0, days_to_show]`, with a `1e-9` epsilon. The epsilon is not decoration: a
+fractional gutter makes a quotient that is mathematically `3` evaluate as `2.9999999999999996`
+and floor to `2`, so an exact boundary would resolve to the wrong column count.
+
+**Thresholds at defaults** (`min_day_width: 140`, gutter 10, padding 16):
+
+| Columns | Enter (px) | Leave (px) |
+| ------- | ---------- | ---------- |
+| 3       | 488        | 472        |
+| 4       | 638        | 622        |
+| 5       | 788        | 772        |
+| 6       | 938        | 922        |
+| 7       | 1088       | 1072       |
+
+**Hysteresis applies to the width, not to each threshold.** `VIEW_SWITCH_HYSTERESIS_PX` is 32
+and is applied as ±16 — growing costs half a band, shrinking is granted half a band, and a width
+inside a band holds whatever is already rendered. Applying it to the measured width rather than
+to each boundary is the same Schmitt trigger in the one form that survives having more than one
+boundary to defend.
+
+That matters because column reduction introduces `days_to_show − min_days_to_show + 1`
+boundaries where there was one, spaced one unit apart. Bands wider than half that spacing would
+overlap, and a single width could then satisfy the enter condition for one count and the leave
+condition for the next — oscillation rather than damping. `columnHysteresisHalfBandPx` clamps
+the half-band to `(spacing − 1) / 2` for exactly this. At defaults the spacing is 150px and the
+clamp never binds; it binds only for a user who has driven `min_day_width` down near the gutter,
+which is a configuration the card deliberately permits.
+
+**Before the first measurement the card is optimistic** — it renders `days_to_show` columns
+rather than the list layout, for the reason documented on `resolveEffectiveView`: rendering list
+and then swapping flashes the wrong thing on every load of a card that is wide enough. As with
+the view switch, that optimism is a bet rather than an observation and must not seed the
+trigger, which is why `resolveColumnFitOnMeasurement` refuses the band when
+`previousMeasuredWidthPx` is `null`. A `null` previous layout deliberately lands in the *growing*
+branch via a previous count of zero, so a card must qualify at the enter threshold for a column
+it has never been wide enough for.
+
+**Return shape.** `resolveColumnFit` returns `{ view, columns }` rather than a view alone.
+`columns` is `0` in list view, because a column count is not a thing the list layout has.
+Keeping both in one record is what lets the host detect a change in either with one comparison —
+a width change that drops a column without changing the view still has to re-render, and a host
+tracking only the view would miss it.
+
 ### D7. Deferred past MVP — required before the first production release
 
 **[v8]** MVP here means "the column view renders correctly and is testable", not "shippable".
@@ -1438,6 +1556,7 @@ forgotten.
 | **View-scoped keys flagged in editor**  | D8          | Ships with editor support as a whole       | Must ship — E1 is otherwise carried by docs alone  |
 | **Editor too-narrow warning**           | G14         | Editor support as a whole is post-MVP      | Must ship — it is what makes G14's ruling honest   |
 | **Feedback for a bad key in `column:`** | 4a / D-1    | `Logger.warn` is silent in prod builds     | Editor prevents it at source; docs list valid keys |
+| **Honesty affordance for auto-fit**     | A3-G        | A truncated card looks like a complete one | Ship before any change to the A3-G defaults        |
 
 The E1 acceptance criterion is what enforces this: _no silent config no-ops_. Anything still
 deferred at release must appear in the documented not-applicable list, so a user who sets it
@@ -1976,6 +2095,12 @@ example did.
 
 **Ruled: the rendered column count is determined by grouping, never by available width. The
 card never silently drops columns because they do not fit.**
+
+> **[v16] Superseded by A3-G.** Width *does* now reduce the column count, down to a floor the
+> user sets (`min_days_to_show`). The honesty objection below was not overruled — it was
+> answered by defaulting that floor to `days_to_show`, so the reduction range is empty unless a
+> user opens it deliberately. Everything below remains the reason the *default* is what it is,
+> and mechanisms 1 and 3 shipped as described.
 
 Precisely: N is `days_to_show`, minus any days suppressed by an explicit `show_empty_days:
 false` (the content-driven reduction already ruled in G13). Width never enters the calculation.
