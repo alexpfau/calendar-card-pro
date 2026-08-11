@@ -717,7 +717,13 @@ describe('list view DOM', () => {
     expect(leavesSource).toMatch(
       /\$\{eventLocation\s*\? html`[\s\S]*?`\s*: ''\}\s*\$\{eventDescription/,
     );
-    expect(leavesSource).toMatch(/\$\{eventDescription\s*\? html`[\s\S]*?`\s*: ''\}\s*<\/div>/);
+    // Repointed once, at the weather-placement seam: the own-row badge binding was
+    // inserted between the description and the closing `</div>`. The `: ''` idiom itself
+    // is unchanged -- re-read and confirmed byte-for-byte -- so the regex now anchors on
+    // the binding that follows it instead of on the tag.
+    expect(leavesSource).toMatch(
+      /\$\{eventDescription\s*\? html`[\s\S]*?`\s*: ''\}\s*\$\{weatherRow\}/,
+    );
     expect(leavesSource).toMatch(
       /progressPercentage !== null && config\.show_progress_bar[\s\S]*?: nothing\}\s*\$\{eventLocation/,
     );

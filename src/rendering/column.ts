@@ -79,7 +79,13 @@ function renderColumnEvent(
       class=${classMap(eventClasses)}
       style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};"
     >
-      ${Leaves.renderEventContent(event, config, presentation.contentParts, weatherForecasts)}
+      ${Leaves.renderEventContent(
+        event,
+        config,
+        presentation.contentParts,
+        weatherForecasts,
+        'row',
+      )}
     </div>
   `;
 }

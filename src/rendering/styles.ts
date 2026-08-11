@@ -636,6 +636,26 @@ export const cardStyles = css`
     color: var(--calendar-card-color-description);
   }
 
+  /*
+   * The event weather badge in its own-row placement -- see renderEventContent's
+   * weatherPlacement parameter. The descendant selector is the whole distinction: the
+   * same element inside .summary-row is the list view's title-row badge and must not
+   * pick this up. The two placements are structurally exclusive, so no modifier class
+   * is needed to tell them apart.
+   *
+   * These are the .time/.location/.description values, repeated rather than folded into
+   * that rule, because those three are shared with the list view and this row exists
+   * only here. Matching them is what lines the condition icon up under the location and
+   * description icons -- both are a bare ha-icon at 14px with the global 4px gutter.
+   */
+  .time-location .event-weather {
+    display: flex;
+    align-items: var(--calendar-card-event-icon-vertical-alignment);
+    line-height: 1.2;
+    margin-top: 2px;
+    margin-inline-end: 12px;
+  }
+
   .description span {
     display: -webkit-box;
     -webkit-box-orient: vertical;

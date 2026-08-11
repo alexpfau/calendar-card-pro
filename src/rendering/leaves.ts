@@ -317,6 +317,27 @@ export function renderEventTitle(
 }
 
 /**
+ * Whether the card is configured to show a weather badge on individual events.
+ *
+ * Extracted so `renderEventContent` can ask the question without calling the renderer.
+ * It has to: `renderEventWeather` answers "no" with an empty template, which lit renders
+ * as a comment marker, and a marker the list view does not emit is a real DOM divergence
+ * that `tests/column-dom.test.ts`'s byte-identity gate correctly rejects. Asking first
+ * lets the column view emit `nothing` -- exactly what the list view emits -- whenever no
+ * badge was configured, so the two views stay byte-identical on the default path and
+ * diverge only where the placement genuinely differs.
+ *
+ * Shared rather than duplicated: an inline copy of this predicate in the caller would be
+ * free to drift from the one the renderer actually enforces.
+ */
+export function hasEventWeather(config: Types.Config): boolean {
+  return !!(
+    config.weather?.entity &&
+    (config.weather.position === 'event' || config.weather.position === 'both')
+  );
+}
+
+/**
  * Render weather information for an event
  */
 export function renderEventWeather(
@@ -325,9 +346,7 @@ export function renderEventWeather(
   weatherForecasts?: Types.WeatherForecasts,
 ): TemplateResult {
   // Only render if weather is enabled for events
-  const showEventWeather =
-    config.weather?.entity &&
-    (config.weather.position === 'event' || config.weather.position === 'both');
+  const showEventWeather = hasEventWeather(config);
 
   if (!showEventWeather || !weatherForecasts?.hourly) {
     return html``;
@@ -421,10 +440,27 @@ export interface EventContentParts {
  * first/middle/last position classes belong to the container, because they are what
  * differs between the list's `<td class="event">` and the column view's card.
  *
+ * Weather placement is the one axis-dependent decision left in here, and it is a markup
+ * decision rather than a CSS one, which is why it is a parameter instead of a class.
+ * In the list view the badge sits on the title row, to the right of the summary: there is
+ * always slack there, because the event cell is as wide as the card. In the column view
+ * there is none -- the narrowest track is 152px -- so a badge on the title row competes
+ * with the title for the same line and the title wraps *around* it, breaking a two-word
+ * summary into three lines. Live-verified at 6 columns, where `Team Sync Meeting` rendered
+ * as `Team` / `Sync 24 degrees` / `Meeting`.
+ *
+ * So the column view moves it to a row of its own after the description, where it lines up
+ * under the time/location/description icons and costs one predictable line instead of
+ * fragmenting the title. Both placements reuse `renderEventWeather` unchanged; only the
+ * insertion point moves.
+ *
  * @param event Event to render
  * @param config Card configuration
  * @param parts Pre-computed locals from the container - see `EventContentParts`
  * @param weatherForecasts Fetched forecasts, if any
+ * @param weatherPlacement Where the event weather badge goes. `'title'` (the default, and
+ *   the list view's behaviour) puts it on the summary row; `'row'` gives it its own row
+ *   beneath the description.
  * @returns Rendered event body
  */
 export function renderEventContent(
@@ -432,6 +468,7 @@ export function renderEventContent(
   config: Types.Config,
   parts: EventContentParts,
   weatherForecasts?: Types.WeatherForecasts,
+  weatherPlacement: 'title' | 'row' = 'title',
 ): TemplateResult {
   const {
     eventTime,
@@ -442,9 +479,27 @@ export function renderEventContent(
     progressPercentage,
   } = parts;
 
+  // Withholding the forecasts is what suppresses the title-row badge -- `renderEventTitle`
+  // renders nothing without them. Deliberately not a second flag: one source of truth for
+  // "is there a badge here", so the two placements can never both fire.
+  const titleForecasts = weatherPlacement === 'title' ? weatherForecasts : undefined;
+
+  // Resolved to a value rather than branched inside the template, so both placements share
+  // one template shape. A `${cond ? x : nothing}` inline would give the column view a lit
+  // child-part the list view lacks, and `tests/column-dom.test.ts`'s byte-identity gate --
+  // which compares serialized DOM, markers included -- would fail on the marker alone.
+  //
+  // `hasEventWeather` is asked first for the same reason: without it, the no-weather case
+  // would emit the renderer's empty template, which lit renders as a marker the list view
+  // does not have. With it, both views emit `nothing` unless a badge was actually asked for.
+  const weatherRow =
+    weatherPlacement === 'row' && hasEventWeather(config)
+      ? renderEventWeather(event, config, weatherForecasts)
+      : nothing;
+
   return html`
     <div class="event-content">
-      ${renderEventTitle(event, config, weatherForecasts)}
+      ${renderEventTitle(event, config, titleForecasts)}
       <div class="time-location">
         ${shouldShowTime
           ? html`
@@ -500,6 +555,7 @@ export function renderEventContent(
               </div>
             `
           : ''}
+        ${weatherRow}
       </div>
     </div>
   `;

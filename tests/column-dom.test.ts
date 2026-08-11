@@ -182,6 +182,46 @@ describe('column view DOM', () => {
       expect(badge).not.toBeNull();
       expect(header?.contains(badge)).toBe(true);
     });
+
+    it('moves the event weather badge off the title row and into its own row', () => {
+      // Two gaps in one. `position: 'event'` had never been exercised in the column view
+      // at all -- the test above covers only `position: 'date'` -- and the badge's own-row
+      // placement is a markup decision no other test can see.
+      //
+      // Written as a differential against the list view rather than as a bare containment
+      // check, because the placement is only meaningful relative to the other view: the
+      // point is that the same leaf emits the badge in two different parents. Asserting
+      // only the column side would still pass if the list view drifted to match it.
+      const config = buildConfig({ show_location: true });
+      config.weather = {
+        entity: 'weather.home',
+        position: 'event',
+        event: { show_conditions: true, show_temp: true },
+      };
+
+      const column = renderColumnContainer(EVENTS, config, { weather: WEATHER });
+      const list = renderListContainer(EVENTS, config, { weather: WEATHER });
+
+      const columnBadge = column.querySelector('.event-weather');
+      const listBadge = list.querySelector('.event-weather');
+      expect(columnBadge).not.toBeNull();
+      expect(listBadge).not.toBeNull();
+
+      // Column: under the description, sharing the icon gutter with time/location.
+      expect(columnBadge?.closest('.time-location')).not.toBeNull();
+      expect(columnBadge?.closest('.summary-row')).toBeNull();
+
+      // List: unchanged, on the title row beside the summary.
+      expect(listBadge?.closest('.summary-row')).not.toBeNull();
+      expect(listBadge?.closest('.time-location')).toBeNull();
+
+      // Exactly one badge per event -- the placement is exclusive, not additive. Guards
+      // the failure mode where a future edit adds the row without suppressing the title
+      // badge, which renders correctly at a glance and duplicates every forecast.
+      expect(column.querySelectorAll('.event-weather').length).toBe(
+        list.querySelectorAll('.event-weather').length,
+      );
+    });
   });
 
   describe('per-view overrides', () => {
