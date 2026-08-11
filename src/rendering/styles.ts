@@ -526,6 +526,50 @@ export const cardStyles = css`
     color: var(--calendar-card-color-event);
     margin-right: 12px;
     padding-bottom: 2px;
+    /* The hanging indent below is set on .summary, and text-indent inherits.
+       That is harmless while this span is inline, but the moment
+       title_max_lines blockifies it the inherited value would indent the
+       title's own first line as well. Neutralise it here once. */
+    text-indent: 0;
+    /* Per-field line clamping. The clamp lands on this element because it is
+       what directly contains the text, and -webkit-line-clamp only takes
+       effect on a display: -webkit-box element. Unlimited is expressed as the
+       string 'none', emitted by generateCustomPropertiesObject when the option
+       is 0 -- see the note on --calendar-card-title-display for why the
+       display value is a variable rather than a literal here. */
+    display: var(--calendar-card-title-display);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-title-max-lines);
+    overflow: hidden;
+  }
+
+  /* Hanging indent for glyph labels.
+   *
+   * A wrapped title otherwise returns to the far left and tucks underneath its
+   * own label, which reads as a second event. Hanging the glyph in the margin
+   * instead lines every continuation line up with the first.
+   *
+   * This is deliberately done with text-indent rather than by making .summary a
+   * flex or grid container: either of those would blockify .event-title, which
+   * measurably retightens every event row (the same trap documented on
+   * --calendar-card-title-display). text-indent changes no formatting context.
+   *
+   * Prose labels are excluded on purpose -- indenting by the width of
+   * "Familienkalender: " would consume most of a narrow column. :has() keeps the
+   * distinction in CSS so no wrapper element or DOM change is needed.
+   *
+   * The offsets mirror each label type's own box: icons and images are sized to
+   * the event font size, an emoji's advance width runs about 1.25x that, and all
+   * three carry the same 4px margin-right. */
+  .summary:has(> .label-icon),
+  .summary:has(> .label-image) {
+    text-indent: calc(-1 * (var(--calendar-card-font-size-event) + 4px));
+    padding-inline-start: calc(var(--calendar-card-font-size-event) + 4px);
+  }
+
+  .summary:has(> .label-emoji) {
+    text-indent: calc(-1 * (var(--calendar-card-font-size-event) * 1.25 + 4px));
+    padding-inline-start: calc(var(--calendar-card-font-size-event) * 1.25 + 4px);
   }
 
   /* Text label styling */
@@ -690,13 +734,9 @@ export const cardStyles = css`
   /* Per-field line clamping. Each clamp lands on the element that directly
      contains the text, because -webkit-line-clamp only takes effect on a
      display: -webkit-box element. Unlimited is expressed as the string 'none',
-     emitted by generateCustomPropertiesObject when the option is 0. */
-  .event-title {
-    display: var(--calendar-card-title-display);
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: var(--calendar-card-title-max-lines);
-    overflow: hidden;
-  }
+     emitted by generateCustomPropertiesObject when the option is 0.
+     The .event-title clamp is declared with the rest of its styling above,
+     because that one has to co-exist with the hanging-indent reset. */
 
   /* Target the text span inside .time-actual only -- the .time row also holds a
      countdown and/or a progress bar as siblings, and clamping the .time or the

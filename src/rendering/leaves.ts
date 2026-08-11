@@ -250,6 +250,33 @@ export function renderDateContent(
 // EVENT LEAVES
 //-----------------------------------------------------------------------------
 /**
+ * A pictographic character: emoji (as a surrogate pair) or a symbol/dingbat.
+ *
+ * Written out longhand rather than as `\p{Extended_Pictographic}` because
+ * tsconfig targets ES2017 and Unicode property escapes are ES2018.
+ */
+const GLYPH_CHAR =
+  /[\u2000-\u3300]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDC00-\uDFFF]/;
+
+/** Whitespace or a Latin letter -- the tell-tale of prose rather than a glyph. */
+const PROSE_CHAR = /[\sA-Za-z]/;
+
+/**
+ * Whether a text label is a compact glyph (emoji, symbol) rather than prose.
+ *
+ * This drives the hanging indent applied to wrapped titles. Hanging a single
+ * glyph in the margin buys the title a couple of characters back on a narrow
+ * column view; hanging a text label such as "Familienkalender: " would throw
+ * most of the column away, so those keep the flush-left wrap they have today.
+ *
+ * Icon and image labels are already distinguishable by their own classes, so
+ * only this text branch needs splitting.
+ */
+function isGlyphLabel(label: string): boolean {
+  return GLYPH_CHAR.test(label) && !PROSE_CHAR.test(label);
+}
+
+/**
  * Render calendar label with support for text, emojis, images, and icons
  *
  * @param label - Label content from entity configuration
@@ -275,8 +302,11 @@ export function renderLabel(
     return html`<img src="${label}" class="label-image"></img>`;
   }
 
-  // Default: text/emoji (original behavior)
-  return html`<span class="calendar-label">${label}</span>`;
+  // Default: text/emoji (original behavior). The extra class on the emoji case
+  // is what lets the stylesheet hang a glyph in the margin without doing the
+  // same to a prose label.
+  const glyphClass = isGlyphLabel(label) ? ' label-emoji' : '';
+  return html`<span class="calendar-label${glyphClass}">${label}</span>`;
 }
 /**
  * Render an event title with optional label and weather data
