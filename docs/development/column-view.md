@@ -961,11 +961,55 @@ round-trips as a truthy string. If a key cannot take a sentinel, it is not kind 
 > would have been kind 4 is now either an override-eligible key (category B) or a distinct
 > new key (category C). See the rationale for the full argument.
 
-Week numbers are deferred in the column MVP. `show_week_numbers` is tri-state
-(`editor.ts:1110-1114`) and its non-null path renders the full-width `week-row-table`. In a
-partial-week column layout, placement is genuinely incoherent: a 7-day window can span two ISO
-weeks and need zero, one, or two badges on non-adjacent columns. Ignore and document for MVP;
-revisit with real usage. Default `null` means only opted-in users are affected.
+#### Week numbers — designed, no longer deferred
+
+**The original deferral rested on a premise that only holds for a spanning row.** Earlier
+revisions argued placement was "genuinely incoherent" because a 7-day window can span two ISO
+weeks and need zero, one, or two badges on non-adjacent columns. That is a real objection to a
+single header row spanning the grid — it would have to draw a badge over column 0 and another
+over column 5 with nothing between. It is not an objection to a **per-column** badge, where
+each column independently shows its own or shows none, and the "non-adjacent" case is simply
+two columns that each answer for themselves.
+
+**Ruled, on the maintainer's proposal: a third header row directly above the weekday.** The
+column header is already a named-area grid (`styles.ts:972`); this adds one row:
+
+```
+grid-template-areas:
+  'week    week    .'         <- new
+  'weekday weekday .'
+  'day     month   weather'
+```
+
+The badge reuses the list view's `.week-number` pill, so the existing
+`week_number_font_size`, `week_number_color` and `week_number_background_color` options
+carry over untouched, and the two numbering modes keep working through the same helper.
+
+**The load-bearing detail: the row must be reserved in every column, not only the ones that
+start a week.** An empty grid area collapses, so a week-start column would render a taller
+header and push its own weekday, day number and entire event stack down relative to its
+neighbours — the header row would stop scanning as a row of days. This is the same
+constraint that ruled out a leading track for the today indicator in D8-A, and it has the
+same shape of fix: emit the pill in every column when week numbers are on, and set
+`visibility: hidden` on the columns that do not begin a week. That reserves the exact height
+from the real element rather than from a guessed value, keeps one code path, and is correctly
+ignored by assistive technology. When `show_week_numbers` is `null` — the default — no row is
+added at all and the header is unchanged, so the cost is paid only by users who opted in.
+
+`show_current_week_number: false` keeps its list-view meaning: it suppresses the badge on the
+**first** column only, which is usually a partial week (`render.ts:476`). In column view it
+suppresses the badge and nothing else, because there is no separator bound up with it to fall
+back to.
+
+**Carry the coupling over deliberately.** In list view `hasWeekSeparator` fires when
+`show_week_numbers !== null` **or** `week_separator_width !== '0px'`, so switching week numbers
+on implicitly switches a week separator on. Column view should keep that, because a user who
+turns on week numbers is asking for the week boundary to be visible, and the badge alone is a
+weaker signal in a grid than it is in a list.
+
+**Sequencing: implement immediately after the separators**, not before. The two share boundary
+detection — a week-start column is exactly a column that would carry a week separator — and
+building them together means detecting it once.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#d5-forced-config-and-week-numbers-new)
 
@@ -1127,7 +1171,7 @@ forgotten.
 | **`column.entities[]` overrides**       | D6          | Addressing scheme unresolved (index vs id) | Ruled and implemented, or documented as N/A        |
 | **`compact_events_to_show` overrides**  | G12         | Per-column budget is a different algorithm | Ruled in or documented as N/A (E1 forbids silence) |
 | **Week / month separator overrides**    | D6          | Axis-rotated; needs its own visual design  | Ruled in or documented as N/A                      |
-| **`today_indicator_position`**          | D6          | Depends on the G13 header-budget spike     | Ruled once G13 measures                            |
+| **View-scoped keys flagged in editor**  | D8          | Ships with editor support as a whole       | Must ship — E1 is otherwise carried by docs alone  |
 | **Editor too-narrow warning**           | G14         | Editor support as a whole is post-MVP      | Must ship — it is what makes G14's ruling honest   |
 | **Feedback for a bad key in `column:`** | 4a / D-1    | `Logger.warn` is silent in prod builds     | Editor prevents it at source; docs list valid keys |
 
@@ -1164,6 +1208,102 @@ affect the API response, and it is applied at render time in `groupEventsByDay` 
 also baked into `generateDeterministicId` (`helpers.ts`), which feeds `_instanceId` and hence
 the key anyway. Removing it from one place alone changes no behaviour, so it was left out of
 the Phase 2b diff. Drop it from both, together, whenever that file is next touched.
+
+### D8. Keys that do not apply in every view — the editor must say so
+
+**Ruled: no option may be inert in a view without the editor saying so.** This is the D5
+kind-3 row ("ignored, meaningless in this view") escalated from a table cell to a policy,
+because kind 3 is no longer hypothetical. Three options are inert in column view today:
+
+| Option                        | Inert in    | Why                                                                    |
+| ----------------------------- | ----------- | ---------------------------------------------------------------------- |
+| `date_vertical_alignment`     | column      | Nothing to align against — the header is its own row (A3-A)            |
+| `today_indicator_position`    | column      | The percentage model does not survive the axis flip (see below)        |
+| `compact_events_complete_days`| column      | The height budget rotates per column, not per card (A3-D)              |
+
+E1 forbids silent config no-ops, and a control that visibly does nothing when you drag it
+is the loudest possible violation of that: worse than an option that is missing, because
+the user concludes the feature is broken rather than absent.
+
+**Hiding the field when `view: column` is selected is not an option, and the reason is
+structural rather than aesthetic.** There is no third `auto` mode — the narrow-viewport
+fallback belongs to `column` itself (`types.ts:135`), so a card configured
+`view: column` renders **as a list** on any dashboard narrower than its threshold. Both
+layouts are live for the same card at the same time. Hiding `today_indicator_position`
+because column view is selected would therefore remove the only control for the layout
+that card actually uses on a phone. The key is not inert for the card; it is inert for
+one of the two layouts the card renders.
+
+That leaves the field in place, and the question is only how it is annotated.
+
+**Baseline, and what should ship: a conditional `helper-text` note under the field.** The
+idiom already exists and is used about twenty times in `editor.ts`, including
+**conditionally on config state** — `week_number_note_iso` versus `week_number_note_simple`
+at `editor.ts:1119-1124` swap on `first_day_of_week`. A note that appears only when
+`view` is `column`, reading approximately _"List view only — column view places the
+indicator for you"_, is the same construction against a different condition. Cost: one
+render branch and one string per language. It is additive, so it cannot regress list view.
+
+**Recorded but not planned: two configuration surfaces.** A tabbed editor with separate
+list and column sections would express the split exactly, and would also solve D6's
+unbuilt `column:` controls in the same stroke — every override key would simply appear in
+both tabs. It is recorded here so the idea is not lost, **not** adopted. It is a rewrite of
+the editor's structure, it multiplies the surface every future option has to be added to,
+and it would double the translation burden across all 11 editor languages. Revisit only if
+building D6's override controls one at a time proves worse.
+
+**Sequencing.** Editor work as a whole is post-MVP (D7), so this ships with it rather than
+before it — but it is a **release blocker for v4.0.0**, on the same footing as the `column:`
+controls, and for the same reason: it is what makes the deferral honest. Until then the
+documented not-applicable list is the contract, exactly as for D7's last row. Both
+`date_vertical_alignment` and `today_indicator_position` are already documented as
+list-view-only in `docs/features/layout-appearance.md`.
+
+**One thing to fix while implementing this**: the inert set is currently spread across
+prose in three sections and no single place in code. A named export in `view.ts` — the
+counterpart to `COLUMN_ONLY_KEYS` — would let the editor drive its notes from the same
+list the docs check reads, so the two cannot drift. `NOT_YET_IMPLEMENTED_KEYS` is the
+wrong home: those keys are unfinished, whereas these are finished and deliberately
+scoped, and conflating "not built yet" with "does not apply here" would make the first
+category impossible to burn down.
+
+#### D8-A. Why `today_indicator_position` is inert rather than remapped
+
+Recorded because the obvious fix does not work, and the next person will try it.
+
+The default `15% 50%` is calibrated for the list view's date cell — roughly 66px wide,
+text centred — where 15% puts the dot in the margin beside the date. It is not a bug in
+positioning: measured live, the value resolves to 14.8% / 50.0%, exactly as configured.
+
+A column header is the full track width (176px measured at a 3-column span) with its date
+flush left, so the same 15% resolves **into** the day number. No percentage fixes this:
+
+- **Re-anchoring does not help.** `.column-date-content` is full-width too, so there is no
+  box in the header whose width tracks the date text.
+- **Right-anchored values are worse than wrong.** At 95% the dot sits in the gutter,
+  nearer the *next* day's content than the day it marks. With a 10px gutter the ambiguity
+  is unavoidable, not merely tight.
+- **A width-dependent default is not a default.** Any percentage correct at 176px is wrong
+  at 300px, and the column width is set by the dashboard, not by config.
+
+All four candidate placements were built as live test cards and reviewed before this was
+settled. **Ruling: column view emits the indicator as a leading item on the weekday row** —
+an unambiguous `● Tue` at any column width. It shares the weekday's grid cell rather than
+taking a track of its own, because a leading track would indent today's day number
+relative to every other column and break the alignment of the number row. The weekday is
+padded aside by exactly `today_indicator_size + 4px`, driven by a class the renderer sets
+from the *rendered* result rather than from `isToday`, so a value resolving to no
+indicator does not reserve space for a dot that is not there.
+
+`today_indicator`, `today_indicator_size` and `today_indicator_color` all apply normally
+in both views. Only `_position` is inert.
+
+**Open:** `today_indicator_color` is not in `COLUMN_OVERRIDE_KEYS` while `today_indicator`
+and `_size` are. That looks like an oversight rather than a decision and should be ruled
+before v4. `_position` is now correctly absent from that list — an override for an inert
+key would be a no-op wearing the costume of a feature.
+
+---
 
 ---
 
