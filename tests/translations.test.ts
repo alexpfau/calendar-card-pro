@@ -6,7 +6,7 @@ import {
   TRANSLATIONS,
   getEffectiveLanguage,
   getTranslations,
-  hasEditorTranslations,
+  translateEditorKey,
 } from '../src/translations/localize';
 
 /**
@@ -20,7 +20,7 @@ import {
  *
  *   - that a registered language actually resolves to its own translations rather
  *     than falling through to English,
- *   - that the editor's whole-language English fallback works as AGENTS.md describes,
+ *   - that the editor's per-key English fallback works as AGENTS.md describes,
  *   - and that relative times are localized, which is the silent failure mode that
  *     shipped broken in Catalan and Romanian for months because the language works
  *     everywhere *except* here.
@@ -117,26 +117,75 @@ describe('getTranslations', () => {
   });
 });
 
-describe('hasEditorTranslations', () => {
-  it('reports true for English', () => {
-    expect(hasEditorTranslations('en')).toBe(true);
+describe('translateEditorKey', () => {
+  type EditorSection = { editor: Record<string, string> };
+  const editorKeys = Object.keys(en.editor) as Array<keyof typeof en.editor>;
+
+  it('resolves a translated key in the requested language', () => {
+    // German translates the editor, so this must NOT come back in English.
+    const german = translateEditorKey('de', 'calendar_entities');
+    expect(german).toBe(
+      (getTranslations('de') as unknown as EditorSection).editor.calendar_entities,
+    );
   });
 
-  it('is all-or-nothing for every language that claims editor support', () => {
-    // This is the AGENTS.md trap. `hasEditorTranslations` returns true when the
-    // section has *one or more* keys, so a partially translated editor defeats the
-    // whole-language English fallback: translated keys render, missing ones render
-    // as the raw key name. Either translate all of it or omit the section.
-    const editorKeys = Object.keys(en.editor);
+  it('falls back to English for a language with no editor section', () => {
+    // French omits `editor` entirely — the supported, documented case.
+    const french = getTranslations('fr') as unknown as Partial<EditorSection>;
+    expect(french.editor, 'fixture assumption: fr has no editor section').toBeUndefined();
+    expect(translateEditorKey('fr', 'calendar_entities')).toBe(en.editor.calendar_entities);
+  });
 
+  it('falls back per key, not per language', () => {
+    // The regression this function exists to prevent. The previous implementation asked
+    // "does this language translate the editor at all?" and one key was enough to answer
+    // yes, after which every *missing* key rendered as its own raw name in the UI.
+    //
+    // Simulating a half-finished translation directly: German with a single key deleted
+    // must still render that key in English, while its neighbours stay German.
+    const german = getTranslations('de') as unknown as EditorSection;
+
+    // Pick a key German actually translates differently, so "fell back to English" and
+    // "stayed German" are distinguishable.
+    const victim = editorKeys.find(
+      (k) => k !== 'calendar_entities' && german.editor[k as string] !== en.editor[k],
+    ) as string;
+    expect(victim, 'fixture assumption: de translates some key differently').toBeDefined();
+
+    const saved = german.editor[victim];
+    delete german.editor[victim];
+
+    try {
+      const englishValue = en.editor[victim as keyof typeof en.editor] as string;
+      expect(translateEditorKey('de', victim)).toBe(englishValue);
+      expect(translateEditorKey('de', victim)).not.toBe(victim);
+      expect(translateEditorKey('de', 'calendar_entities')).toBe(german.editor.calendar_entities);
+    } finally {
+      german.editor[victim] = saved;
+    }
+  });
+
+  it('accepts both bare and prefixed key forms', () => {
+    expect(translateEditorKey('en', 'calendar_entities')).toBe(
+      translateEditorKey('en', 'editor.calendar_entities'),
+    );
+  });
+
+  it('returns the key name only when English itself lacks the key', () => {
+    // The last resort. check:i18n treats a key referenced in editor.ts but absent from
+    // en.json as an error, so reaching this in production means that check was bypassed.
+    expect(translateEditorKey('de', 'no_such_editor_key')).toBe('no_such_editor_key');
+  });
+
+  it('resolves every editor key to a non-empty string in every language', () => {
     for (const language of LANGUAGES) {
-      if (!hasEditorTranslations(language)) continue;
-
-      const editor = (getTranslations(language) as unknown as { editor: Record<string, string> })
-        .editor;
-
-      const missing = editorKeys.filter((key) => !editor[key] || editor[key].trim() === '');
-      expect(missing, `${language} has a partial editor section`).toEqual([]);
+      for (const key of editorKeys) {
+        const resolved = translateEditorKey(language, key);
+        expect(typeof resolved, `${language}.${key} is not a string`).toBe('string');
+        expect(resolved.trim(), `${language}.${key} resolved to empty`).not.toBe('');
+        // The sentinel is an implementation detail and must never reach the UI.
+        expect(resolved, `${language}.${key} leaked the sentinel`).not.toContain('\u0000');
+      }
     }
   });
 });

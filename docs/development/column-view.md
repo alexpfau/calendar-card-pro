@@ -184,9 +184,15 @@ Implementation requirements:
   `hide_when_empty: true` and `show_empty_days` unset, the field is visible in column view and
   hidden in list view.
 - Labels: `Automatic`, `Always show`, `Never show`, with per-view help text under
-  `Automatic`. Add the three editor translation keys to every language file that has an
-  `editor` section, or to none. A partial `editor` section defeats `hasEditorTranslations()`
-  and renders missing labels as raw key names.
+  `Automatic`. Add the three editor translation keys to `en.json`, and to any other language
+  file whose `editor` section you can complete. A partial section is fine — `translateEditorKey()`
+  falls back per key, so an untranslated label renders in English.
+
+  > **[v14]** Superseded detail. This bullet previously required adding the keys "to every
+  > language file that has an `editor` section, or to none", because the old whole-language
+  > swap turned a partial section into raw key names in the UI. That hazard is gone:
+  > `hasEditorTranslations()` has been deleted and the fallback now resolves per key. See
+  > _Adding or changing a translation_ in `AGENTS.md`.
 
 `hide_when_empty` counts events as if expanded (`calendar-card-pro.ts:236-239`), so
 `compact_events_to_show: 0` cannot hide a card that can never be tapped open. A placeholder is
@@ -839,6 +845,11 @@ present only in `en.json`; and `time_grid_interval_minutes` being a zoom control
 >   15–20 keys across 35 language files, which is precisely the moment a translator does half
 >   the block. **Port this hunk forward before the column editor lands** — it is ~10 lines and
 >   needs no contact with the frozen branch.
+>
+>   **[v14] Done.** Ported as `translateEditorKey()` in `localize.ts`; `hasEditorTranslations()`
+>   is deleted, `check:i18n` downgraded the partial-section error to a warning, and
+>   `tests/translations.test.ts` pins the per-key chain. Written independently rather than
+>   cherry-picked, so the frozen branch is untouched.
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#c-phases-v5--phase-3-folded-into-phase-4)
 

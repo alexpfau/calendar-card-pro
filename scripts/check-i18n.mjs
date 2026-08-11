@@ -246,13 +246,17 @@ function checkLanguageParity(languages) {
 }
 
 /**
- * The `editor` section is all-or-nothing.
+ * The `editor` section is optional, and may now be partially translated.
  *
- * hasEditorTranslations() returns true when the section has one *or more* keys, and
- * _getTranslation() uses it to decide whether to swap the whole language to English. So a
- * partially translated section defeats that fallback: the keys present render fine, and every
- * key missing renders as its own raw name (`show_end_time`) in the UI. Omitting the section
- * entirely is fully supported and correct — 24 of the language files do exactly that.
+ * `translateEditorKey()` resolves the fallback chain per key — requested language, then
+ * English, then the raw key name — so a key the translator has not reached renders in
+ * English rather than as `show_end_time`. Omitting the section entirely is still fully
+ * supported and is what 24 of the language files do.
+ *
+ * A partial section is therefore reported as a *warning*, not an error: it is a
+ * translation-completeness signal for the translator, not a defect that breaks the UI.
+ * Empty values remain an error — an empty string is a translation the fallback chain
+ * cannot see through, so it renders as blank UI.
  */
 function checkEditorSection(file, data, refEditorKeys) {
   const editor = data.editor;
@@ -267,12 +271,12 @@ function checkEditorSection(file, data, refEditorKeys) {
   const missing = refEditorKeys.filter((k) => !(k in editor));
 
   if (missing.length > 0) {
-    error(
+    warn(
       file,
       `\`editor\` is partially translated: ${missing.length} of ${refEditorKeys.length} keys ` +
         `missing (${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ', …' : ''}). ` +
-        `A partial section defeats the English fallback — each missing key renders as its own ` +
-        `raw key name. Either translate all ${refEditorKeys.length} or remove \`editor\` entirely.`,
+        `Each missing key renders in English, so this is safe to ship — but completing the ` +
+        `section is preferable to leaving the editor bilingual.`,
     );
   }
 

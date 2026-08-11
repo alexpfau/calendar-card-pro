@@ -79,7 +79,9 @@ Calendar Card Pro supports multiple languages through JSON translation files. He
 
 1. **Create a new file** in `src/translations/languages/[lang-code].json`
 2. **Copy the structure** from an existing language file (e.g., `en.json`) — your file
-   must contain **every** key present in `en.json`, including the `editor` section
+   must contain **every top-level** key present in `en.json`. The `editor` section is
+   optional and may be partial: each editor key falls back to English on its own, so
+   anything you leave out simply renders in English
 3. **Update the localize file** in `src/translations/localize.ts`: add the `import` **and**
    an entry in the `TRANSLATIONS` map. The map key must be **lowercase** (e.g. `'en-gb'`)
 4. **Update the dayjs file** in `src/translations/dayjs.ts` — this needs **two** edits, and

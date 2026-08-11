@@ -358,17 +358,17 @@ repeatedly. A language is only fully wired up when **all** of these are done:
 1. `src/translations/languages/<code>.json` — must contain every **top-level** key present
    in `en.json`. `en.json` is the reference.
 
-   The `editor` section is the exception, and it is **all-or-nothing**. Only 11 of the 35
-   language files translate it; the other 24 omit it entirely and the editor renders in
-   English. That is supported and correct — `_getTranslation()` in `editor.ts` calls
-   `hasEditorTranslations()` and swaps the whole language to `en` for editor keys when the
-   section is absent.
+   The `editor` section is the exception: it is **optional, and may be partial**. Only 11 of
+   the 35 language files translate it; the other 24 omit it entirely and the editor renders
+   in English. Both are supported — `translateEditorKey()` in `localize.ts` resolves each
+   editor key on its own, falling back **requested language → English → raw key name**.
 
-   But `hasEditorTranslations()` returns true when the section has **one or more** keys, so
-   a _partially_ translated `editor` section defeats that fallback: the keys you did
-   translate render fine, and every key you missed renders as the **raw key name**
-   (`show_end_time`) in the UI, not as English. So either omit `editor` completely, or
-   copy every key from `en.json`. Never leave it half-done.
+   That per-key chain is deliberate, and replaced an earlier all-or-nothing swap that made a
+   half-finished translation worse than none at all: any key the translator had not reached
+   rendered as its own **raw key name** (`show_end_time`) in the UI rather than as English.
+   A partial `editor` section is now safe to ship — untranslated keys simply appear in
+   English — so translate as much as you like and leave the rest. `check:i18n` reports the
+   gap as a **warning**, not an error.
 
 2. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups

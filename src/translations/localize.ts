@@ -213,14 +213,49 @@ export function translate(
 }
 
 /**
- * Check if the specified language has editor translations
+ * Sentinel used to tell "this key is absent" apart from "this key is translated".
  *
- * @param language - Language code to check
- * @returns True if the language has editor translations
+ * `translate()` returns its `fallback` argument on a miss, so any ordinary fallback
+ * string is ambiguous: a language that legitimately translates a key *to* that string
+ * would be indistinguishable from one that omits it. A NUL character cannot occur in a
+ * translation file, so it can only ever mean "missing".
  */
-export function hasEditorTranslations(language: string): boolean {
-  const translations = getTranslations(language);
-  return Boolean(translations?.editor && Object.keys(translations.editor).length > 0);
+const MISSING = '\u0000';
+
+/**
+ * Resolve an editor translation key, falling back **per key** rather than per language.
+ *
+ * The `editor` section is optional: 24 of the 35 language files omit it entirely and the
+ * editor renders in English. That much has always worked. What did not work was a
+ * *partial* section — the previous implementation asked "does this language translate the
+ * editor at all?" and, if so, resolved every editor key against it. One translated key was
+ * enough to answer yes, so every key the translator had not reached rendered as its own raw
+ * name (`show_end_time`) in the UI instead of as English.
+ *
+ * Resolving per key removes the cliff: requested language → English → raw key name. A
+ * language may now be translated to any degree, and the untranslated remainder degrades to
+ * English rather than to something that looks like a bug. The raw key name is still the
+ * final fallback, but it is now reachable only when English itself lacks the key — which
+ * `npm run check:i18n` treats as an error.
+ *
+ * @param language - Requested language code
+ * @param key - Editor key, bare (`show_end_time`) or prefixed (`editor.show_end_time`)
+ * @returns The translation, the English translation, or the key name
+ */
+export function translateEditorKey(language: string, key: string): string {
+  const translationKey = key.includes('.') ? key : `editor.${key}`;
+
+  // Not an editor key after all — no fallback chain applies.
+  if (!translationKey.startsWith('editor.')) {
+    return translate(language, translationKey, key) as string;
+  }
+
+  const localized = translate(language, translationKey, MISSING) as string;
+  if (localized !== MISSING) {
+    return localized;
+  }
+
+  return translate(DEFAULT_LANGUAGE, translationKey, key) as string;
 }
 
 //-----------------------------------------------------------------------------

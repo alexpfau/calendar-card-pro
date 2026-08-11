@@ -488,24 +488,18 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Helper to get a translated string for the editor UI.
+   *
+   * Thin wrapper over {@link Localize.translateEditorKey}, which resolves the fallback
+   * chain per key (requested language → English → key name). Kept as a method rather
+   * than inlined because `npm run check:i18n` scans this file for calls to this method
+   * and proves each literal key argument exists in `en.json`.
+   *
    * @param key Translation key
    * @returns Translated string
    */
   private _getTranslation(key: string): string {
-    // Get requested language
     const requestedLang = this._config?.language || this.hass?.locale?.language || 'en';
-
-    // Properly prefix editor keys unless they already have the prefix
-    const translationKey = key.includes('.') ? key : `editor.${key}`;
-    const isEditorTranslation = translationKey.startsWith('editor.');
-
-    // If this is an editor translation, check if translations exist in the requested language
-    // If not, fall back to English only for editor translations
-    const langToUse =
-      isEditorTranslation && !Localize.hasEditorTranslations(requestedLang) ? 'en' : requestedLang;
-
-    // Get translation using appropriate language
-    return Localize.translate(langToUse, translationKey as string, key) as string;
+    return Localize.translateEditorKey(requestedLang, key);
   }
 
   //-----------------------------------------------------------------------------

@@ -83,7 +83,9 @@ To add a new language:
 
 1. **Create a new file** in `src/translations/languages/[lang-code].json`
 2. **Copy the structure** from `en.json` and translate all values (never change the keys).
-   The file must contain **every** key present in `en.json`, including the `editor` section.
+   The file must contain **every top-level** key present in `en.json`. The `editor` section
+   is the exception — it is optional, and may be partially translated: each editor key falls
+   back to English on its own, so anything you leave out simply renders in English.
 3. **Register it in `src/translations/localize.ts`** — this is two edits:
    - add the `import` for your JSON file
    - add an entry to the `TRANSLATIONS` map. **The key must be lowercase**
