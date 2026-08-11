@@ -172,6 +172,40 @@ export function groupEventsByDay(
   // edit update one and miss the others.
   const showEmptyDays = ViewConfig.resolveViewOption(config, 'show_empty_days', effectiveView);
 
+  // Every compact-mode limit is inert in column view. Resolved once and read at all four
+  // sites that consult a `compact_*` key, for the same reason as `showEmptyDays` above:
+  // the answer must not be able to differ between them.
+  //
+  // The rule is a consequence of what compact mode *means* in each view. In a vertical
+  // list a cap is a tail-trim — the card gets shorter and the events that survive are the
+  // soonest ones. In a grid the same cap deletes columns from the right while the card
+  // keeps its full height, so `compact_days_to_show: 3` with `days_to_show: 7` renders
+  // three wide columns instead of seven narrow ones. That is not a denser card; it is a
+  // different, smaller card occupying identical space, with nothing on screen to say four
+  // days are missing. Column view answers the density question with `min_days_to_show` and
+  // `min_width_fallback`, which reduce columns only when the width genuinely cannot carry
+  // them (spec §D7).
+  //
+  // All four keys are covered, and each was corrupting the grid differently:
+  //
+  // - `compact_days_to_show` capped `effectiveDaysToShow`, deleting trailing columns.
+  // - Per-entity `compact_events_to_show` buckets by `${entityId}__${configIdx}` — one
+  //   budget per entity for the whole *card*, not per day. On the common single-entity
+  //   card a cap of 1 therefore leaves exactly one event in the whole grid and collapses
+  //   a seven-column layout to one. This is the correction to A3-D:262-264, which had
+  //   recorded the per-entity form as column-safe; it is not, and for a sharper reason
+  //   than the global cap.
+  // - `compact_events_complete_days` rides the global cap and is gated with it.
+  // - Both keys are read again when the empty-day range is chosen, where
+  //   `compact_events_to_show` truncated generation at the last day *carrying events* —
+  //   silently dropping every trailing empty column even though column view defaults
+  //   `show_empty_days` to true.
+  //
+  // Deliberately *not* implemented as "column view is always expanded". `isExpanded` also
+  // selects the empty-day range branch and suppresses the `show_empty_days` day filter, so
+  // forcing it would make `column: { show_empty_days: false }` unreachable.
+  const compactLimitsApply = !isExpanded && effectiveView !== 'column';
+
   // Splitting normally happens once, at fetch time, inside `processRawEvents`. Column
   // view raises `split_multiday_events` to `true` as a divergent default (spec §D6), and
   // that answer is not known when the events are processed — the width fallback decides
@@ -406,9 +440,9 @@ export function groupEventsByDay(
   });
 
   // Sort days and determine effective days to show based on mode
-  const effectiveDaysToShow = isExpanded
-    ? config.days_to_show
-    : Math.min(config.compact_days_to_show || config.days_to_show, config.days_to_show);
+  const effectiveDaysToShow = compactLimitsApply
+    ? Math.min(config.compact_days_to_show || config.days_to_show, config.days_to_show)
+    : config.days_to_show;
 
   // Get days in chronological order limited to effective days to show
   let days = Object.values(eventsByDay)
@@ -417,7 +451,7 @@ export function groupEventsByDay(
 
   // Apply entity-specific event limits first (pre-filtering)
   // This happens before the global compact_events_to_show limit is applied
-  if (!isExpanded) {
+  if (compactLimitsApply) {
     // Use a map with a unique key per entity config (entityId + config index)
     const entityConfigEventCounts = new Map<string, number>();
 
@@ -458,29 +492,31 @@ export function groupEventsByDay(
       }
       day.events = filteredEvents;
     }
-    // Filter out days with no visible events unless show_empty_days is true
-    if (!showEmptyDays) {
-      days = days.filter(
-        (day) => day.events.length > 0 && !(day.events.length === 1 && day.events[0]._isEmptyDay),
-      );
-    }
+  }
+
+  // Drop days left with nothing visible. Gated on `isExpanded` rather than on
+  // `compactLimitsApply`: this is a `show_empty_days` decision, not a compact-mode one, and
+  // it has to keep working in column view so `column: { show_empty_days: false }` is
+  // reachable. In list view the two conditions coincide, so behaviour is unchanged.
+  if (!isExpanded && !showEmptyDays) {
+    days = days.filter(
+      (day) => day.events.length > 0 && !(day.events.length === 1 && day.events[0]._isEmptyDay),
+    );
   }
 
   // Apply events limit if configured and not expanded (compact mode event limiting)
   //
-  // Skipped entirely in column view. This budget is card-wide and is spent walking days
-  // chronologically, breaking once it runs out — a tail-trim in a vertical list, but in a
-  // grid it deletes whole columns from the right. `compact_events_to_show: 3` with
-  // `days_to_show: 7` exhausts the budget inside the first day or two and renders two
-  // columns instead of seven, with nothing on screen to say five are missing.
+  // Skipped entirely in column view via `compactLimitsApply` — see its definition for why
+  // every compact key is inert there. In short: this budget is card-wide and is spent
+  // walking days chronologically, breaking once it runs out. That is a tail-trim in a
+  // vertical list, but in a grid it deletes whole columns from the right.
   //
   // The spec already ruled both keys inapplicable here — `compact_events_to_show` is out of
   // MVP for column view (G12) and `compact_events_complete_days` is "inapplicable per-column"
-  // because a per-column budget has no shared pool to complete days out of (A3-D). Neither
-  // ruling was ever enforced in code, so both kept running and corrupting the grid; this gate
-  // is what makes them real. A per-column budget is a genuinely different algorithm and is
-  // deferred (A3-D), so there is nothing to substitute here — column view simply does not cap.
-  if (!isExpanded && effectiveView !== 'column') {
+  // because a per-column budget has no shared pool to complete days out of (A3-D). A
+  // per-column budget is a genuinely different algorithm and is deferred (A3-D), so there is
+  // nothing to substitute here — column view simply does not cap.
+  if (compactLimitsApply) {
     // Get the effective max events setting
     const maxEvents = config.compact_events_to_show;
 
@@ -606,11 +642,15 @@ export function groupEventsByDay(
         // just show an empty day for the reference date
         endDateForEmptyDays = new Date(referenceDate);
       }
-    } else if (config.compact_days_to_show && !config.compact_events_to_show) {
+    } else if (
+      compactLimitsApply &&
+      config.compact_days_to_show &&
+      !config.compact_events_to_show
+    ) {
       // In compact mode with compact_days_to_show but no event limit
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
-    } else if (config.compact_events_to_show) {
+    } else if (compactLimitsApply && config.compact_events_to_show) {
       // In compact mode with events and compact_events_to_show
       // Only generate empty days up to the last visible day with events
       if (days.length > 0) {

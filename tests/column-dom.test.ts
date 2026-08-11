@@ -321,15 +321,17 @@ describe('column view DOM', () => {
       expect(columnDays.length).toBe(3);
     });
 
-    it('still caps per entity in column view', () => {
-      // Deliberately *not* gated: A3-D rules the per-entity cap stays global in both views,
-      // because rebasing it per column would multiply it by `days_to_show`.
-      //
-      // ⚠️ It is not, however, harmless here. The bucket key is `entityId__configIdx` — one
-      // budget per entity for the whole *card*, not per day — so on a single-entity card it
-      // starves later days exactly like the global cap, and `show_empty_days: false` then
-      // filters the emptied days away. `show_empty_days: true` below is what isolates this
-      // test to "the cap still applies"; it is not a claim that the cap is column-safe.
+    it('ignores the per-entity cap in column view too', () => {
+      // ⚠️ This assertion is the *reverse* of the one that shipped here first, which held
+      // that A3-D ruled the per-entity cap column-safe because rebasing it per column would
+      // multiply it by `days_to_show`. That reasoning is sound for the rebase, but it was
+      // read as licence to leave the cap live, and the version of this test that encoded it
+      // carried its own refutation in a warning comment: the bucket key is
+      // `entityId__configIdx` — one budget per entity for the whole *card*, not per day — so
+      // on a single-entity card a cap of 1 leaves one event in the entire grid and collapses
+      // every column but the first. That is the same defect as the global cap, reached by a
+      // narrower door. A3-D:262-264 is corrected; all four compact keys are now inert in
+      // column view, and density is answered by `min_days_to_show` / `min_width_fallback`.
       const config = buildConfig({
         show_empty_days: true,
         entities: [{ entity: 'calendar.personal', compact_events_to_show: 1 }],
@@ -339,7 +341,10 @@ describe('column view DOM', () => {
       // events carry none and the cap's type guard (issue #327) would wave every event
       // through — the test would pass against a build with the cap gated out entirely.
       // It also *carries* the cap, so the baseline needs its own uncapped attachment
-      // rather than reusing these events with a different config.
+      // rather than reusing these events with a different config. That baseline is what
+      // gives the assertion a denominator: it is the same run with no cap set, so an
+      // equality that held because grouping had stopped returning anything would show up
+      // as both sides collapsing rather than as a pass.
       const attach = (target: Types.Config) => {
         const matched = target.entities[0] as Types.EntityConfig;
         return EVENTS.map((event) => ({
@@ -359,8 +364,15 @@ describe('column view DOM', () => {
         'column',
       );
 
+      // Same shape as the global-budget assertion above: the cap changes nothing at all.
       expect(columnDays.length).toBe(3);
-      expect(count(columnDays)).toBeLessThan(count(baseline));
+      expect(count(columnDays)).toBe(count(baseline));
+      expect(count(baseline)).toBeGreaterThan(1);
+
+      // And the list-view control, without which this would pass against a build where the
+      // per-entity cap had stopped working everywhere.
+      const listDays = EventUtils.groupEventsByDay(attach(config), config, false, 'en', 'list');
+      expect(count(listDays)).toBe(1);
     });
   });
 
