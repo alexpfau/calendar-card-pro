@@ -99,9 +99,61 @@ Detail in [`column-view.md`](./column-view.md).
 
 | # | Item | Status | Note |
 | - | ---- | ------ | ---- |
-| C1 | **Progress bar in column view** | Open | Not missing code: `column.ts:244` calls the shared `Leaves.renderEventContent`, which renders the bar at `leaves.ts:543`, and `show_progress_bar` / `progress_bar_height` / `progress_bar_width` are all column-override keys (`view.ts:55-57`). It has simply never been *seen* there — it defaults to `false`, so the suite, built from default config, cannot exercise it, which is the blind spot `AGENTS.md` warns about. A bar sized for a full-width row inside a 140px column is unproven. Needs a test that turns it on, and eyes on it. Added to the D7 blocker table. |
+| C1 | **Progress bar in column view** | **Confirmed working** — geometry follow-up is C5 | Not missing code: `column.ts:244` calls the shared `Leaves.renderEventContent`, which renders the bar at `leaves.ts:543`, and `show_progress_bar` / `progress_bar_height` / `progress_bar_width` are all column-override keys (`view.ts:55-57`). It had simply never been *seen* there, because it defaults to `false` and the suite is built from default config — the blind spot `AGENTS.md` warns about. **Maintainer verified it live in a dev build: it renders, and at adequate column width it sits exactly where the countdown sits, as designed.** The D7 blocker is therefore discharged for *existence*; what remains is how it lays out once the column is too narrow for the time and the bar to share a line, which is C5. A test that turns the option on is still owed, so the suite stops being blind to it. |
 | C2 | **Per-event weather row** | Ruled — ready to build | In list view, `show_conditions` gates the icon. In column view the weather has its own row, so switching conditions off leaves a row holding only a temperature, breaking the leading icon edge that time, location and description share — `styles.ts:786-788` says outright that the alignment resets exist for that gutter and "neither is optional". **Design: in column view the row and its icon are always shown once per-event weather is on, and `show_conditions` instead controls rendering the condition verbally.** Reuses the existing key, no new config, no migration, ~20–30 lines. Spec: [`weather-column-view.md`](./weather-column-view.md). Three things it depends on, all verified: HA already ships the condition vocabulary translated for every language (`component.weather.entity_component._.state.*`, spot-checked live in `de`); `WeatherData.condition` is already stored (`weather.ts:93`) and read by nothing; and `formatEntityState` is already declared on our `Hass` interface (`types.ts:477`) and never called. **Two traps before writing code** — (a) our `HassEntity` has no `entity_id` (`types.ts:530-540`) and `Hass.states` is narrowed to `{ state: string }` (`:463`), so the lookup would miss and fall back to the raw token, showing `sunny` to a German user **with no error**; (b) width — verbal conditions land in a 152px track and German will overflow it, so only the words take `flex: 0 1 auto` with ellipsis while temperature and UV stay `flex: none`. **Open call for the maintainer:** `show_conditions` defaults `true`, so words become the default in column view — settle by eye in a dev build. |
 | C2b | **`weather.event.max_lines`** | Ruled — ready to build | New key, needed because writing conditions out can wrap the row. **Lives in `weather.event.*`, not as a fifth top-level `*_max_lines`**: its neighbours `icon_size` / `font_size` / `color` are already there, and nesting disambiguates the per-event row from the day-header row, which are different widths. The four existing `*_max_lines` are top-level only because their subjects have no nested block. Implementation follows them exactly — `> 0` sets a CSS custom property consumed with `-webkit-box` clamping, `0` means unlimited (`styles.ts:45-51`). **Constraint:** `COLUMN_DEFAULT_OVERRIDES` is typed to top-level keys, and weather sub-keys are not override-eligible, so this is **one value for both views**. That is acceptable because `show_conditions` renders words in column view only — list view has nothing multi-line to clamp. **Default `0`, matching the other four.** An earlier draft proposed `1` on the grounds that this clamps generated text in a fixed-width row rather than text the user wrote. Overruled for consistency, and the consistency argument is the better one: five keys that all mean "lines before truncation" should not disagree about what an unconfigured card does, and silent truncation is a worse default than visible wrapping — a wrapped row explains itself, a truncated one looks like missing data. Users who want one line set one line. Also ruled: **order within the row is temperature / UV first, condition words last**, so the numbers survive truncation when a limit *is* set. |
+| C5 | **Countdown & progress bar on their own row in column view** | Specified — ready to build | Maintainer-observed in a live dev build. Detail below. |
+
+#### C5 — the countdown and progress bar row
+
+**Observed.** With wide enough day columns the progress bar sits exactly where the countdown
+sits, which is correct and matches list view by design. As the column narrows and the time
+and the bar no longer fit on one line, the bar wraps onto a second line **right-aligned**,
+which reads oddly — arguably for the countdown too.
+
+**Proposed.** In **column view only**, put the countdown and the progress bar on a dedicated
+row directly under the time, always rather than only when they do not fit. No icon, and
+left-aligned with the time *text* rather than with the icon.
+
+**Why it happens.** `.time` is a wrapping flex row (`styles.ts:724-734`) holding
+`.time-actual` and then either `.time-countdown` or `.progress-bar` — they are mutually
+exclusive, countdown winning when both apply (`leaves.ts:541-552`). Both siblings carry
+`margin-inline-start: auto`, which right-aligns them. That is deliberate and documented at
+`styles.ts:756`: under `justify-content: space-between` a lone item on the second line would
+otherwise sit at flex-start and "read as a stray fragment rather than a right-hand column".
+So the current behaviour is a considered answer to the same problem, chosen for list view
+where the second line spans the full card width. In a 140px column that reasoning inverts —
+the fragment is now the *right*-aligned one.
+
+**The constraint that shapes the fix.** `tests/column-dom.test.ts:725` asserts the two views
+render event content **byte-identically**, and it is called "the load-bearing test in this
+file". Its sibling at `:750` explicitly turns `show_countdown` and `show_progress_bar` on. A
+column-only *DOM* row would break both by design.
+
+**Therefore: do this in CSS, not in the template.** The container already carries a
+`column-view` class (`render.ts:63-65`) and already scopes rules, so:
+
+- inside `.column-view`, give `.time-actual` a `flex-basis: 100%` so the sibling always
+  wraps onto its own line;
+- replace the sibling's `margin-inline-start: auto` with a left indent that aligns it to the
+  time text — **`calc(var(--calendar-card-icon-size-time, 14px) + 4px)`**, derived rather
+  than hardcoded because `time_icon_size` is configurable (`styles.ts:41`, and the 4px is
+  the shared `ha-icon` margin at `:874`).
+
+Zero DOM change, so the byte-identity gate is untouched, and no new config key.
+
+**Two open parameters for the maintainer:**
+
+1. **Does the countdown get the same treatment, or only the progress bar?** Recommend both —
+   a rule that applies to one of two mutually exclusive siblings would make an event's layout
+   depend on whether it happens to be running.
+2. **How wide is the bar on its own row?** Today it is a fixed `progress_bar_width`, default
+   `60px` (`config.ts:91`). On a dedicated row the natural answer is to let it **fill the
+   available width** — self-scaling, no percentage to tune, and it turns the bar into a
+   readable indicator rather than a 60px stub. Recommend filling, with `progress_bar_width`
+   reinterpreted as a maximum so anyone who set it is not overridden. The alternative, a
+   percentage of column width, needs a new key and a value nobody can guess well.
+
 | C3 | **Named view predicates** | Open | 13 binary `=== 'column'` / `!== 'list'` gates remain outside the editor. `events.ts` in particular gates compact limits with reasoning its own comment applies to *any* grid layout, yet excludes only column. The editor has zero such gates and a test enforcing it; `src/` does not. Raised by the grid-view feasibility review; `column-view.md` forbids the pattern. Cheap now, structural debt once a third view exists. |
 | C4 | **Column view as its own docs page** | Open | It is 175 lines and seven subsections inside `core-settings.md` — the largest section there, and a view mode rather than a core setting. Every other major feature has its own page and a nav entry. Needs every inbound link updated, since `ignoreDeadLinks` is off. |
 
