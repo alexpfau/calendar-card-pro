@@ -360,6 +360,9 @@ function probeConfigs(defaults, views) {
     { today_indicator: 'pulse' },
     { today_indicator: 'mdi:star' },
     { today_indicator: '⭐' },
+    // The compact event limit is a number with no default, so no boolean sweep reaches
+    // it, and the modifier it reveals would be invisible to this check without it.
+    { compact_events_to_show: 3 },
     { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
     {
       weather: {

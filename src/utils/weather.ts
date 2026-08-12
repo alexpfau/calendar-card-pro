@@ -264,6 +264,85 @@ function getWeatherIcon(condition: string, hour?: number): string {
   return CONDITION_ICON_MAP[condition] || 'mdi:weather-cloudy-alert';
 }
 
+/**
+ * Conditions already reported as untranslated, so the log says it once rather than
+ * once per event per render.
+ */
+const untranslatedConditions = new Set<string>();
+
+/**
+ * Localize a forecast condition into the words Home Assistant would use for it.
+ *
+ * The card ships **no** condition strings of its own. Home Assistant translates all
+ * fifteen under `component.weather.entity_component._.state.<condition>` for every
+ * language it supports, and `formatEntityState`'s second parameter is a state
+ * *override* — so handing it the weather entity's own state object plus an arbitrary
+ * forecast condition returns that condition's text rather than the entity's current
+ * one.
+ *
+ * The state object has to be the real one from `hass.states`, not a literal built
+ * here, and the reason is the whole risk of this function: `computeStateDisplay`
+ * derives its lookup key from `computeDomain(stateObj.entity_id)`, so an object
+ * without an `entity_id` resolves nothing and falls through to *return the raw
+ * state*. That failure is invisible — the row still renders, in English, for a
+ * German user. `HassEntity.entity_id` is required for that reason, and the raw-token
+ * case is reported here so it is diagnosable rather than merely cosmetic.
+ *
+ * Every failure mode returns `undefined` instead of throwing, because the icon beside
+ * the words is what fixes the column layout and it needs no `hass` at all: an
+ * instance too old to offer `formatEntityState` must lose the words and keep the row.
+ *
+ * @param hass Home Assistant instance, if one is available
+ * @param entityId Weather entity the forecast came from
+ * @param condition Raw condition token, e.g. `partlycloudy`
+ * @returns The localized condition, or `undefined` when it cannot be resolved
+ */
+export function formatCondition(
+  hass: Types.Hass | null | undefined,
+  entityId: string | undefined,
+  condition: string | undefined,
+): string | undefined {
+  if (!hass || !entityId || !condition) {
+    return undefined;
+  }
+
+  const stateObj = hass.states?.[entityId];
+
+  if (!stateObj || typeof hass.formatEntityState !== 'function') {
+    return undefined;
+  }
+
+  const text = hass.formatEntityState(stateObj, condition);
+
+  if (!text) {
+    return undefined;
+  }
+
+  // `computeStateDisplay` returns the state it was given when no translation matched.
+  // Rendering it is still the right answer — it is HA's own final fallback, and an
+  // unknown condition has no better text — but it is the signature of a lookup that
+  // missed, which is otherwise indistinguishable from working correctly.
+  if (text === condition && !untranslatedConditions.has(condition)) {
+    untranslatedConditions.add(condition);
+    Logger.debug(
+      `Weather condition "${condition}" came back untranslated from ${entityId}; ` +
+        'Home Assistant returned the raw token, so the row will show it as-is',
+    );
+  }
+
+  return text;
+}
+
+/**
+ * Forget which conditions have been reported.
+ *
+ * Exists for the tests, which assert the report fires once and would otherwise be
+ * order-dependent on each other.
+ */
+export function resetUntranslatedConditions(): void {
+  untranslatedConditions.clear();
+}
+
 //-----------------------------------------------------------------------------
 // SUBSCRIPTION MANAGEMENT
 //-----------------------------------------------------------------------------

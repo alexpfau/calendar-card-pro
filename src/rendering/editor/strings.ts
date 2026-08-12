@@ -421,6 +421,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'date.show_conditions': 'Show Conditions',
   'date.show_high_temp': 'Show High Temperature',
   'date.show_low_temp': 'Show Low Temperature',
+  // The card gives the UV index this slot when it shows one, and yields the low
+  // temperature. Stated rather than expressed by hiding the switch, because the
+  // precedence is decided per day at runtime: the index also has to clear its
+  // threshold, so on a dull day it is not shown and the low temperature is. Hiding
+  // this would remove a control that is doing real work.
+  'date.show_low_temp.helper': 'The UV index takes this place on days it is shown.',
   'date.show_uv_index': 'Show UV Index',
   'date.uv_index_threshold': 'UV Index Threshold',
   'date.uv_index_threshold.helper': 'Hide the index below this value. Zero always shows it.',
@@ -431,6 +437,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'weather.event': 'Beside Each Event',
   'weather.event.helper': "The forecast for each event's own start time.",
   'event.show_conditions': 'Show Conditions',
+  // Path-qualified, and it has to be: both weather groups name this field
+  // `show_conditions`, and an applicability note keys on the bare name, so it would
+  // annotate the day header too. A note would also be false here — the option is not
+  // inert in the column layout, it does something different there.
+  'event.show_conditions.helper':
+    'Shows the condition icon. In the column layout the icon is always shown, because ' +
+    'the row shares an icon edge with the time and location, and this adds the ' +
+    'condition in words instead.',
   'event.show_temp': 'Show Temperature',
   'event.show_uv_index': 'Show UV Index',
   'event.uv_index_threshold': 'UV Index Threshold',
@@ -441,6 +455,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event.icon_size': 'Icon Size',
   'event.font_size': 'Font Size',
   'event.color': 'Color',
+  'event.max_lines': 'Weather Line Limit',
+  'event.max_lines.helper':
+    'Zero means no limit. Only the column layout writes the condition out in words, ' +
+    'so only there can this row reach a second line. The temperature and UV index are ' +
+    'never truncated.',
 
   // --- Actions & Refresh ----------------------------------------------------
   'panel.actions': 'Actions & Refresh',
@@ -463,10 +482,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'scope.list_only.compact_events_to_show':
     'Applies to the list layout. Capping events per card would empty columns rather ' +
     'than shorten the card.',
-  'scope.list_only.compact_days_to_show':
-    'Applies to the list layout — capping days would delete trailing columns.',
-  'scope.list_only.compact_events_complete_days':
-    'Applies to the list layout — the height budget rotates per column.',
+  // Stated on the group rather than on each of its three fields, which all share this
+  // scope — see GROUP_SCOPE in localize.ts. The per-field notes the group replaces are
+  // deliberately absent: written, they would never be looked up.
+  'scope.list_only.compact_mode':
+    'These apply to the list layout, which this card also uses on narrow screens. A ' +
+    'column grows sideways, so a cap would delete columns rather than shorten the card.',
 };
 
 /**

@@ -247,6 +247,7 @@ function renderColumnEvent(
         presentation.contentParts,
         weatherForecasts,
         'row',
+        hass,
       )}
     </div>
   `;

@@ -152,6 +152,34 @@ describe('editor: default stripping', () => {
 
     expect(stored.weather).toEqual(weather);
   });
+
+  /**
+   * The round trip for the one key stage 5 added.
+   *
+   * `weather` is written whole or not at all, so a sub-key set and cleared again has to
+   * leave the block equal to the default — otherwise a user who tried a line limit and
+   * changed their mind is left with a `weather:` block in their YAML that does nothing.
+   */
+  it('drops the whole weather block when the line limit goes back to its default', () => {
+    const withLimit = buildConfig({
+      weather: {
+        ...DEFAULT_CONFIG.weather,
+        event: { ...DEFAULT_CONFIG.weather!.event, max_lines: 2 },
+      } as Types.WeatherConfig,
+    });
+
+    const stored = toStoredConfig(withLimit);
+    expect((stored.weather as Types.WeatherConfig).event?.max_lines).toBe(2);
+
+    const cleared = buildConfig({
+      weather: {
+        ...DEFAULT_CONFIG.weather,
+        event: { ...DEFAULT_CONFIG.weather!.event, max_lines: 0 },
+      } as Types.WeatherConfig,
+    });
+
+    expect(toStoredConfig(cleared)).not.toHaveProperty('weather');
+  });
 });
 
 describe('editor: the column block', () => {
@@ -1199,6 +1227,9 @@ describe('editor: the panel set', () => {
       buildConfig({ remove_location_country: 'Germany' }),
       buildConfig({ height: '300px' }),
       buildConfig({ max_height: '400px' }),
+      // Reveals the complete-days modifier, which is held back until there is an event
+      // limit for it to modify.
+      buildConfig({ compact_events_to_show: 3 }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -1608,6 +1639,152 @@ describe('editor: the Time Range & Content panel', () => {
     expect(namesIn(buildConfig({ show_empty_days: true }))).toContain('empty_day_text');
     expect(namesIn(columnConfig())).toContain('empty_day_text');
   });
+
+  /**
+   * The compact-mode group, and the one place where reading the code contradicted the
+   * request.
+   *
+   * The group has no master switch. `compact_days_to_show` and `compact_events_to_show`
+   * *are* compact mode — either one on its own switches it on — and
+   * `compact_events_complete_days` is not a third limit but a modifier of the event
+   * one: `groupEventsByDay` reads it only inside the branch guarded by a finite
+   * `compact_events_to_show`. So the two numbers are never inert, and hiding them
+   * behind the switch would hide the only live controls in the group.
+   */
+  it('always offers the two limits, which are what compact mode is', () => {
+    const names = namesIn(buildConfig());
+
+    expect(names).toContain('compact_days_to_show');
+    expect(names).toContain('compact_events_to_show');
+  });
+
+  it('holds the complete-days modifier back until there is a limit to modify', () => {
+    expect(namesIn(buildConfig())).not.toContain('compact_events_complete_days');
+    expect(namesIn(buildConfig({ compact_events_to_show: 3 }))).toContain(
+      'compact_events_complete_days',
+    );
+  });
+
+  it('treats a zero limit as a limit, because the card does', () => {
+    // `compact_events_to_show: 0` is a valid setting and the card honours it, so the
+    // modifier is live. A truthiness test here would hide a control that is working.
+    expect(namesIn(buildConfig({ compact_events_to_show: 0 }))).toContain(
+      'compact_events_complete_days',
+    );
+  });
+
+  it('offers no modifier for a day limit alone, which it does not modify', () => {
+    expect(namesIn(buildConfig({ compact_days_to_show: 2 }))).not.toContain(
+      'compact_events_complete_days',
+    );
+  });
+
+  /**
+   * The editor and the card must agree about what counts as a limit, and they do not
+   * see the same value: the card normalizes on every `setConfig`, while the editor
+   * merges the raw configuration over the defaults and nothing coerces it. A bare
+   * `Number.isFinite` here would therefore answer a different question from the one
+   * `groupEventsByDay` asks, in both directions.
+   *
+   * Built without `buildConfig`, deliberately — that helper normalizes, which is
+   * exactly the step the editor does not take, so using it would hide the divergence
+   * these two assert.
+   */
+  function asEditorSees(overrides: Record<string, unknown>): Types.Config {
+    return {
+      ...DEFAULT_CONFIG,
+      entities: ['calendar.personal'],
+      ...overrides,
+    } as unknown as Types.Config;
+  }
+
+  it('offers the modifier for a limit YAML happened to quote', () => {
+    // The card coerces `'3'` to 3 and caps events at three. Hiding the modifier here
+    // would make it unreachable while the limit it modifies is actively working.
+    expect(namesIn(asEditorSees({ compact_events_to_show: '3' }))).toContain(
+      'compact_events_complete_days',
+    );
+  });
+
+  it('offers no modifier for a value the card will discard', () => {
+    // Below the minimum, so the card reduces it to "no limit". Offering the modifier
+    // would be a control for something that is not happening.
+    expect(namesIn(asEditorSees({ compact_events_to_show: -1 }))).not.toContain(
+      'compact_events_complete_days',
+    );
+  });
+
+  it('keeps a set modifier in the configuration while it is out of the schema', () => {
+    // Dormant, not dead: clearing the event limit must not destroy a preference the
+    // user gets back by setting one again.
+    const config = buildConfig({
+      compact_events_to_show: undefined,
+      compact_events_complete_days: true,
+    });
+
+    expect(namesIn(config)).not.toContain('compact_events_complete_days');
+    expect(toStoredConfig(config).compact_events_complete_days).toBe(true);
+  });
+});
+
+describe('editor: a group states its family applicability once', () => {
+  /**
+   * All three compact fields are list-only, so each carried the same sentence and the
+   * group read as three separate problems rather than one scoped family.
+   *
+   * Asserted through `computeHelper` rather than against the string table, because the
+   * question is what a user reads. The note has to appear once, on the group, and not
+   * again on the fields inside it.
+   */
+  function contentNodes(view: Types.EffectiveView) {
+    const panel = PANELS.find((entry) => entry.id === 'content')!;
+    const config = buildConfig({ view, compact_events_to_show: 3 });
+    return [...walkSchema(panel.build({ view, config, language: 'en' }))];
+  }
+
+  it('states it on the group', () => {
+    const group = contentNodes('column').find((entry) => entry.node.name === 'compact_mode')!;
+
+    expect(computeHelper('en', 'column', group.node, group.path)).toMatch(/list layout/i);
+  });
+
+  it('does not repeat it on the fields inside', () => {
+    for (const { node, path } of contentNodes('column')) {
+      if (!path.includes('compact_mode')) continue;
+      if ('schema' in node || node.name === '') continue;
+
+      expect(computeHelper('en', 'column', node, path) ?? '', node.name).not.toMatch(
+        /list layout/i,
+      );
+    }
+  });
+
+  it('says nothing at all on a list card', () => {
+    for (const { node, path } of contentNodes('list')) {
+      if (node.name !== 'compact_mode' && !path.includes('compact_mode')) continue;
+
+      expect(computeHelper('en', 'list', node, path) ?? '', node.name).not.toMatch(/list layout/i);
+    }
+  });
+
+  /**
+   * The silencing is keyed on the enclosing group's path, so the same option outside
+   * that group still carries its own note.
+   *
+   * This is the half of the rule that can be exercised today: every entry in
+   * `VIEW_SCOPE` currently states the same scope, so a field whose scope *differs* from
+   * its group's cannot be built from real keys. `sameScope` is what will keep that case
+   * annotated when a differently-scoped option, or a third view, arrives — the group
+   * speaks only for children that share its statement.
+   */
+  it('still annotates the same option outside the group', () => {
+    const note = computeHelper('en', 'column', {
+      name: 'compact_events_to_show',
+      selector: { number: { min: 1 } },
+    });
+
+    expect(note).toMatch(/list layout/i);
+  });
 });
 
 describe('editor: every panel writes a minimal configuration', () => {
@@ -1824,7 +2001,15 @@ describe('editor: group headings resolve their own strings', () => {
       const expected = EDITOR_STRINGS[`${titleKey}.helper`];
       if (expected === undefined) continue;
 
-      expect(computeHelper('en', 'column', node, path), titleKey).toBe(expected);
+      // A group that states an applicability note on behalf of its children carries it
+      // *before* its own helper, exactly as a field does. What this asserts is which key
+      // the helper came from, so a note may precede it and the tail must still match —
+      // resolving from the wrong key produces a different string entirely, which is the
+      // failure being guarded against.
+      const helper = computeHelper('en', 'column', node, path);
+
+      expect(helper, titleKey).toBeDefined();
+      expect(helper!.endsWith(expected), `${titleKey} resolved "${helper}"`).toBe(true);
     }
   });
 

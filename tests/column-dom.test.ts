@@ -229,6 +229,136 @@ describe('column view DOM', () => {
         list.querySelectorAll('.event-weather').length,
       );
     });
+
+    /**
+     * What `show_conditions` means in each layout.
+     *
+     * In the list view it gates the icon, which is what it has always done and what the
+     * docs advertise. In its own row it cannot: that row shares a leading icon edge with
+     * the time, location and description rows, and the stylesheet does explicit work to
+     * line it up there. Dropping the icon leaves a temperature hanging in an empty icon
+     * column between two icon-led rows.
+     *
+     * So in the own-row placement the icon is unconditional and `show_conditions` states
+     * the condition in words instead. Both halves are asserted against the list view,
+     * because a one-sided assertion would pass just as happily against a build that had
+     * changed both.
+     */
+    function weatherConfig(showConditions: boolean): Types.Config {
+      const config = buildConfig({ show_location: true, split_multiday_events: true });
+      config.weather = {
+        entity: 'weather.home',
+        position: 'event',
+        event: { show_conditions: showConditions, show_temp: true },
+      };
+      return config;
+    }
+
+    /** A `hass` whose formatter localizes conditions the way Home Assistant's does. */
+    function germanHass(): Types.Hass {
+      const translations: Record<string, string> = {
+        'component.weather.entity_component._.state.sunny': 'Sonnig',
+        'component.weather.entity_component._.state.cloudy': 'Bewölkt',
+        'component.weather.entity_component._.state.fog': 'Nebel',
+        'component.weather.entity_component._.state.rainy': 'Regnerisch',
+      };
+
+      return {
+        states: {
+          'weather.home': {
+            entity_id: 'weather.home',
+            state: 'sunny',
+            attributes: { friendly_name: 'Home' },
+          },
+        },
+        callApi: async () => undefined,
+        callService: () => undefined,
+        formatEntityState: (stateObj: Types.HassEntity, state?: string) => {
+          const value = state ?? stateObj.state;
+          const domain = String(stateObj.entity_id).split('.')[0];
+          return translations[`component.${domain}.entity_component._.state.${value}`] ?? value;
+        },
+      } as unknown as Types.Hass;
+    }
+
+    it('keeps the icon in the column row when conditions are switched off', () => {
+      const config = weatherConfig(false);
+
+      const column = renderColumnContainer(EVENTS, config, { weather: WEATHER });
+      const list = renderListContainer(EVENTS, config, { weather: WEATHER });
+
+      const columnBadge = requireElement(column, '.event-weather');
+      const listBadge = requireElement(list, '.event-weather');
+
+      // The fix: the gutter keeps its glyph.
+      expect(columnBadge.querySelector('ha-icon')).not.toBeNull();
+      // The list view, unchanged: temperature only, exactly as documented.
+      expect(listBadge.querySelector('ha-icon')).toBeNull();
+    });
+
+    it('states the condition in words in the column row, and only there', () => {
+      const config = weatherConfig(true);
+      const hass = germanHass();
+
+      const column = renderColumnContainer(EVENTS, config, { weather: WEATHER, hass });
+      const list = renderListContainer(EVENTS, config, { weather: WEATHER, hass });
+
+      const columnWords = column.querySelectorAll('.weather-condition');
+      expect(columnWords.length).toBeGreaterThan(0);
+      expect(Array.from(columnWords).map((span) => span.textContent?.trim())).toContain('Sonnig');
+
+      // The list badge shares the title row and has no spare width, so it never carries
+      // words — whatever `show_conditions` is set to.
+      expect(list.querySelectorAll('.weather-condition').length).toBe(0);
+    });
+
+    it('says nothing in words when conditions are switched off', () => {
+      const column = renderColumnContainer(EVENTS, weatherConfig(false), {
+        weather: WEATHER,
+        hass: germanHass(),
+      });
+
+      expect(column.querySelectorAll('.weather-condition').length).toBe(0);
+    });
+
+    it('keeps the row when the condition cannot be localized', () => {
+      // An older instance has no `formatEntityState`. The words are what must be lost;
+      // the icon is what fixes the layout and needs no `hass` at all.
+      const hass = {
+        states: {},
+        callApi: async () => undefined,
+        callService: () => undefined,
+      } as unknown as Types.Hass;
+
+      const column = renderColumnContainer(EVENTS, weatherConfig(true), {
+        weather: WEATHER,
+        hass,
+      });
+
+      const badge = requireElement(column, '.event-weather');
+      expect(badge.querySelector('ha-icon')).not.toBeNull();
+      expect(column.querySelectorAll('.weather-condition').length).toBe(0);
+    });
+
+    it('puts the words after both numbers, so truncation never eats a number', () => {
+      const config = weatherConfig(true);
+      config.weather!.event!.show_uv_index = true;
+      config.weather!.event!.uv_index_threshold = 0;
+
+      const column = renderColumnContainer(EVENTS, config, {
+        weather: WEATHER,
+        hass: germanHass(),
+      });
+
+      // Ordering is a markup decision, so it is asserted on the markup: whatever the
+      // line limit clamps, it reaches the condition before it reaches the temperature.
+      const badge = requireElement(column, '.event-weather');
+      const spans = Array.from(badge.querySelectorAll('span'));
+      const words = spans.findIndex((span) => span.classList.contains('weather-condition'));
+
+      expect(words).toBe(spans.length - 1);
+      expect(words).toBeGreaterThan(0);
+    });
   });
 
   describe('per-view overrides', () => {

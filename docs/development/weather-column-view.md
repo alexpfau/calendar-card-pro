@@ -3,7 +3,41 @@
 **Scope:** column view only (`view: 'column'`, unreleased, targeting v4.0.0).
 List view is shipped and is **not** changed by anything in this document.
 
-**Status:** design proposal for maintainer ruling. Nothing implemented; working tree clean.
+---
+
+## Status — read this before the design **[2026-08-12]**
+
+**Built in stage 5.** The design was adopted; three parts of it were superseded before
+or during implementation and are listed here, because the body below still reads as
+first written.
+
+| Section | Superseded by | What actually shipped |
+| ------- | ------------- | --------------------- |
+| §4.3, row order | C2b in [`v4-backlog.md`](./v4-backlog.md) | **Temperature, UV index, then the words last.** §4.3 orders the row `icon, condition, temperature, UV` and its worked example shows the words first. C2b ruled the reverse, and for a reason §4.3 could not have had: with a line limit in play, whatever truncates must reach the generated text before it reaches a number the user configured on purpose. |
+| §4.3, truncation | C2b | **The words wrap by default and clamp only when a limit is set.** §4.3 prescribes `white-space: nowrap` with `text-overflow: ellipsis`, which is a single line always — and that leaves `weather.event.max_lines` nothing to clamp, so the two cannot both hold. C2b is the later ruling and is explicit that `0` means unlimited and that visible wrapping beats silent truncation. Implemented with the same `-webkit-box` clamp as the other four line limits: wraps at the default, ellipsizes at a limit. The rest of §4.3 — `flex: 0 1 auto` and `min-width: 0` on the words, `flex: none` on both numbers — shipped exactly as written, and is what makes the numbers survive every width. |
+| §5.1, "no new key" | C2b | **One key was added:** `weather.event.max_lines`. §5.1's cost estimate ("no new config key … one optional English editor helper string") predates C2b; the real cost was one key, three English strings, a reference row, a feature-table row and a prose section. |
+
+Two smaller corrections, from building it:
+
+1. **`hass` was threaded to the containers, not to the leaves.** §1 records it as
+   available at both call sites, which is true of `renderEvent` and `renderColumnEvent`
+   — but `renderEventContent` and `renderEventWeather` had no `hass` parameter, so two
+   signatures changed. The "~20–30 lines" estimate assumed otherwise.
+2. **The rule is keyed on the badge's *placement*, not on the view.** §4.1 phrases it as
+   "in column view", which would have been a fourteenth `=== 'column'` gate in `src/`
+   (backlog C3, which forbids exactly that). The placement is already a parameter, and
+   it is also the actual reason — the icon gutter exists because the badge has a row of
+   its own — so a future layout that asks for a row inherits the fix rather than needing
+   to be named.
+
+§7.1's open call — whether words should be *on* by default in column view — was not
+resolved on paper and still wants an eye on a real card. Nothing in the implementation
+makes flipping it expensive.
+
+---
+
+**Status when written:** design proposal for maintainer ruling. Nothing implemented;
+working tree clean. Superseded by the banner above.
 
 ---
 

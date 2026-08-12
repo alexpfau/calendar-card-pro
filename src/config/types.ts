@@ -316,6 +316,19 @@ export interface WeatherPositionConfig {
   show_uv_index?: boolean;
   uv_index_threshold?: number;
   daily_forecast_fallback?: boolean;
+  /**
+   * Lines the per-event weather row may occupy before it truncates. `0` is unlimited.
+   *
+   * Read for the **event** position only, and it is there rather than as a fifth
+   * top-level `*_max_lines` because its neighbours — `icon_size`, `font_size`, `color`
+   * — already are, and because nesting keeps it distinct from the day-header row,
+   * which is a different width. The four top-level ones are top-level because their
+   * subjects have no nested block to live in.
+   *
+   * Only the column layout can reach a second line: the words the row can carry are
+   * the condition text, which `show_conditions` adds in that layout alone.
+   */
+  max_lines?: number;
   icon_size?: string;
   font_size?: string;
   color?: string;
@@ -460,7 +473,15 @@ export interface ActionConfig {
  * Home Assistant interface
  */
 export interface Hass {
-  states: Record<string, { state: string }>;
+  /**
+   * Every entity Home Assistant knows about, as full state objects.
+   *
+   * Narrowed to `{ state: string }` until the column view's weather row needed to
+   * hand one to `formatEntityState`. The runtime value has always carried the whole
+   * object; the narrowing merely hid it, and the field it hid — `entity_id` — is the
+   * one `computeStateDisplay` derives its translation key from. See `HassEntity`.
+   */
+  states: Record<string, HassEntity>;
   callApi: (method: string, path: string, parameters?: object) => Promise<unknown>;
   callService: (domain: string, service: string, serviceData?: object) => void;
   locale?: {
@@ -474,7 +495,23 @@ export interface Hass {
       options: SubscribeMessageOptions,
     ) => Promise<() => void>;
   };
-  formatEntityState?: (stateObj: HassEntity, state: string) => string;
+  /**
+   * Home Assistant's own entity-state formatter.
+   *
+   * The second parameter is an **override**: `computeStateDisplay` resolves the value
+   * as `state !== undefined ? state : stateObj.state`, so passing a forecast's
+   * condition returns *that* condition's localized text rather than the entity's
+   * current one. This is what lets the card write "Teilweise bewölkt" beside an event
+   * without shipping a single condition string of its own — Home Assistant already
+   * translates all fifteen under `component.weather.entity_component._.state.*`, in
+   * every language it supports.
+   *
+   * Optional, and it has to stay optional: it is absent from older instances and from
+   * any non-standard `hass`, and the caller must degrade rather than throw. The
+   * parameter is optional too, matching HA's own `FormatEntityStateFunc` — declaring
+   * it required would have misdescribed the API for every future caller.
+   */
+  formatEntityState?: (stateObj: HassEntity, state?: string) => string;
 }
 
 /**
@@ -528,6 +565,17 @@ export interface RenderTemplateError {
  * Home Assistant state object type
  */
 export interface HassEntity {
+  /**
+   * The entity's own id, and the reason this field is required rather than optional.
+   *
+   * `computeStateDisplay` builds its translation key from `computeDomain(stateObj.entity_id)`.
+   * A state object without one produces `component.undefined.entity_component._.state.sunny`,
+   * which misses every table and falls through to *return the raw state* — so a German
+   * user would read `sunny` instead of `Sonnig`, with no error raised anywhere. Requiring
+   * it here is what makes that failure a compile error instead of a silent one, and it
+   * costs nothing: every state object Home Assistant hands out carries it.
+   */
+  entity_id: string;
   state: string;
   attributes: Record<string, unknown>;
   last_changed?: string;

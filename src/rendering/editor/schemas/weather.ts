@@ -51,17 +51,38 @@ function uvIndexFields(showUvIndex: boolean): HaFormSchema[] {
 }
 
 /**
+ * The event row's line limit, which only means something once there is prose to limit.
+ *
+ * The same shape as the UV threshold above, and for the same reason: the only thing in
+ * the row that can reach a second line is the condition stated in words, and
+ * `show_conditions` is the switch directly above that adds it. With the switch off the
+ * row is an icon and two short numbers, and a limit on it would be a control for
+ * nothing.
+ *
+ * Not offered for the date position at all: that header arranges its fields
+ * horizontally and already truncates on its own.
+ *
+ * @param showConditions - Whether the event row states its condition in words
+ * @returns The limit, when it applies
+ */
+function eventLineLimit(showConditions: boolean): HaFormSchema[] {
+  return showConditions ? [number('max_lines', 0)] : [];
+}
+
+/**
  * Builds the Weather panel schema.
  *
  * Memoised on the entity's presence rather than its id — swapping one weather entity
- * for another changes no field — the chosen position, the two UV switches, and the
- * language.
+ * for another changes no field — the chosen position, the two UV switches, whether the
+ * event row states its condition in words, and the language.
  *
  * @param language - Effective language code
  * @param hasEntity - Whether a weather entity is configured
  * @param position - Where the forecast is shown
  * @param dateUvIndex - Whether the day forecast shows a UV index
  * @param eventUvIndex - Whether the event forecast shows a UV index
+ * @param eventConditions - Whether the event row shows its condition, which is the only
+ *   thing in it long enough to need a line limit
  * @returns The panel's schema
  */
 export const weatherSchema = Helpers.memoizeLast(
@@ -71,6 +92,7 @@ export const weatherSchema = Helpers.memoizeLast(
     position: string,
     dateUvIndex: boolean,
     eventUvIndex: boolean,
+    eventConditions: boolean,
   ): HaFormSchema[] => {
     const inside: HaFormSchema[] = [
       { name: 'entity', selector: { entity: { filter: { domain: 'weather' } } } },
@@ -99,6 +121,7 @@ export const weatherSchema = Helpers.memoizeLast(
             ...uvIndexFields(eventUvIndex),
             bool('daily_forecast_fallback'),
             ...styling(),
+            ...eventLineLimit(eventConditions),
           ]),
         );
       }
@@ -123,5 +146,6 @@ export function buildWeatherSchema(ctx: SchemaCtx): HaFormSchema[] {
     weather?.position ?? 'date',
     Boolean(weather?.date?.show_uv_index),
     Boolean(weather?.event?.show_uv_index),
+    weather?.event?.show_conditions !== false,
   );
 }

@@ -235,6 +235,38 @@ describe('card stylesheet', () => {
       // the list view's badge.
       expect(rulesFor('.time-location .event-weather')).toHaveLength(1);
     });
+
+    /*
+     * The condition words are the only shrinkable thing in the row, and that asymmetry
+     * is the whole width strategy: the column track bottoms out at 152px, so a German
+     * condition cannot fit beside the numbers. Whatever room is short comes out of the
+     * words. The temperature and the UV index survive every width, because they are the
+     * fields a user configured on purpose.
+     */
+    it('lets only the words shrink', () => {
+      expect(declared('.time-location .event-weather .weather-condition', 'flex')).toBe('0 1 auto');
+      expect(declared('.time-location .event-weather span', 'flex')).toBe('none');
+    });
+
+    it('lets the words shrink past their own longest word', () => {
+      // Per CSS Flexbox 4.5 a flex item's automatic minimum size is its min-content
+      // width, so without this the words could not shrink below "Schneeregen" and would
+      // push the temperature out of the row instead of yielding to it.
+      expect(declared('.time-location .event-weather .weather-condition', 'min-width')).toBe('0');
+    });
+
+    it('clamps the words with the same mechanism as every other line limit', () => {
+      // -webkit-line-clamp only takes effect on a -webkit-box, and unlimited is the
+      // keyword `none`, which generateCustomPropertiesObject emits when the option is 0.
+      const selector = '.time-location .event-weather .weather-condition';
+
+      expect(declared(selector, 'display')).toBe('-webkit-box');
+      expect(declared(selector, '-webkit-box-orient')).toBe('vertical');
+      expect(declared(selector, '-webkit-line-clamp')).toBe(
+        'var(--calendar-card-weather-event-max-lines)',
+      );
+      expect(declared(selector, 'overflow')).toBe('hidden');
+    });
   });
 
   describe('single-declaration invariants', () => {

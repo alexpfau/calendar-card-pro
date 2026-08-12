@@ -23,7 +23,8 @@ weather:
     font_size: '14px'
     color: '#3498db'
   event:
-    # Event row shows just the temperature (no icon)
+    # Event row shows just the temperature. In the list layout that means no icon;
+    # the column layout always keeps the icon (see Weather In The Column Layout).
     show_conditions: false
     show_temp: true
     font_size: '13px'
@@ -42,17 +43,18 @@ This flexible configuration allows you to create a personalized experience that 
 | `position`                        | string  | `date`                      | Where to show weather data: `'date'` (date column), `'event'` (next to events), or `'both'` |
 | `date → show_conditions`          | boolean | `true`                      | Whether to show weather condition icons in date column                                      |
 | `date → show_high_temp`           | boolean | `true`                      | Whether to show high temperature in date column                                             |
-| `date → show_low_temp`            | boolean | `false`                     | Whether to show low temperature in date column                                              |
+| `date → show_low_temp`            | boolean | `false`                     | Whether to show low temperature in date column. The UV index takes this place on days it is shown |
 | `date → show_uv_index`            | boolean | `false`                     | Whether to show UV index in date column                                                     |
 | `date → uv_index_threshold`       | number  | `0`                         | Only show UV index when it exceeds this value (0 = always show when enabled)                |
 | `date → icon_size`                | string  | `14px`                      | Size of weather icons in date column                                                        |
 | `date → font_size`                | string  | `12px`                      | Size of weather text in date column                                                         |
 | `date → color`                    | string  | `var(--primary-text-color)` | Color of weather text and icons in date column                                              |
-| `event → show_conditions`         | boolean | `true`                      | Whether to show weather condition icons in event column                                     |
+| `event → show_conditions`         | boolean | `true`                      | List layout: whether to show the condition icon. Column layout: whether to state the condition in words — the icon is always shown |
 | `event → show_temp`               | boolean | `true`                      | Whether to show temperature in event column                                                 |
 | `event → show_uv_index`           | boolean | `false`                     | Whether to show UV index in event column                                                    |
 | `event → uv_index_threshold`      | number  | `0`                         | Only show UV index when it exceeds this value (0 = always show when enabled)                |
 | `event → daily_forecast_fallback` | boolean | `true`                      | Fall back to the daily forecast for timed events beyond the hourly forecast horizon         |
+| `event → max_lines`               | number  | `0`                         | Maximum number of lines the event weather row may use (0 = unlimited). Truncated text shows `...` |
 | `event → icon_size`               | string  | `14px`                      | Size of weather icons in event column                                                       |
 | `event → font_size`               | string  | `12px`                      | Size of weather text in event column                                                        |
 | `event → color`                   | string  | `var(--primary-text-color)` | Color of weather text and icons in event column                                             |
@@ -84,7 +86,7 @@ Each display position can be customized independently with different content and
 
 - `show_conditions`: Show weather condition icon (sun, cloud, rain, etc.)
 - `show_high_temp`: Show high temperature
-- `show_low_temp`: Show low temperature
+- `show_low_temp`: Show low temperature. The UV index takes this place on days it is shown
 - `show_uv_index`: Show UV index
 - `uv_index_threshold`: Minimum UV index value to display (0 = always)
 - `icon_size`: Weather icon size
@@ -93,14 +95,56 @@ Each display position can be customized independently with different content and
 
 **Event Weather:**
 
-- `show_conditions`: Show weather condition icon
+- `show_conditions`: Show the weather condition — as an icon in the list layout, in
+  words in the column layout
 - `show_temp`: Show temperature
 - `show_uv_index`: Show UV index
 - `uv_index_threshold`: Minimum UV index value to display (0 = always)
 - `daily_forecast_fallback`: Use the daily forecast for timed events beyond the hourly forecast horizon
+- `max_lines`: Line limit for the event weather row (0 = unlimited)
 - `icon_size`: Weather icon size
 - `font_size`: Temperature text size
 - `color`: Text and icon color
+
+## 🧭 Weather In The Column Layout
+
+The column layout gives each event's forecast a row of its own, beneath the time and
+above the location, instead of putting it on the title row beside the summary. A column
+track is as narrow as 152px, and a badge on the title row competes with the summary for
+that width — a two-word title breaks into three lines around it.
+
+That row shares a leading icon edge with the time, location and description rows, so
+**the condition icon is always shown there**. `show_conditions` instead decides whether
+the condition is also stated in words:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+view: column
+weather:
+  entity: weather.forecast_home
+  position: event
+  event:
+    show_conditions: true # Column layout: adds "Partly cloudy" beside the temperature
+    show_temp: true
+    max_lines: 1 # Keep the row to one line, truncating the words if needed
+```
+
+The words come from Home Assistant, in whatever language it is set to, so a German
+instance reads `Teilweise bewölkt 21°` with no extra configuration. An instance too old
+to provide them simply shows the icon and the temperature.
+
+Because the words are the longest thing in a narrow row, they are also the only part
+that shrinks: the temperature and the UV index are never truncated, and the condition
+gives up room first. `max_lines` caps how tall the row may grow — `0`, the default, lets
+it wrap as far as it needs, and `1` keeps it on a single line with an ellipsis.
+
+::: tip Same Card, Both Layouts
+A column card falls back to the list layout on a narrow screen, where the same
+`show_conditions` value shows or hides the icon in the usual way. One setting, and it
+does the right thing in each layout rather than needing an exception.
+:::
 
 ## ✨ Benefits & Use Cases
 
