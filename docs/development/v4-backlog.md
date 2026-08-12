@@ -83,43 +83,90 @@ Detail in [`column-view.md`](./column-view.md).
 
 Neither is owned by a spec; the detail is here.
 
-### X1 — Multi-file distribution feasibility — **Open**
+### X1 — Multi-file distribution — **Viable, verified; awaiting a go/no-go**
 
 Home Assistant ships translations as separate hashed JSON files fetched at runtime
-(`src/util/common-translation.ts`), split even per fragment, so a user downloads only
-their own language. We inline all 35 languages into one bundle.
+(`src/util/common-translation.ts`), so a user downloads only their own language. We inline
+all 35 languages into one bundle.
 
-This was previously recorded as impossible for us because HACS distributes a single file.
-**That is wrong.** The HACS plugin documentation says *"All `.js` files it finds in the
-first location it finds one that matches the name will be downloaded"*, and that non-`.js`
-files work when placed in `dist/`. The actual constraint is our own `release.yml`, which
-attaches exactly one asset, and `hacs.json`, which pins one filename.
+This was previously recorded as impossible because HACS distributes a single file.
+**That premise is wrong, and the investigation proved it four ways:**
 
-If multi-file distribution works, it unblocks two things at once:
+- **HACS code.** `release_contents` returns *every* asset attached to a release
+  (`hacs/integration base.py:1236-1253` @ `3249355`). The narrowing filter at `:645-649`
+  applies only under `content_in_root`, which defaults to `false` and we do not set.
+  `hacs.json`'s `filename` selects which file becomes the Lovelace resource — it does not
+  restrict what is downloaded.
+- **HACS's own test** asserts a `.png` is downloaded alongside the `.js`
+  (`tests/helpers/download/test_gather_files_to_download.py:92-101`).
+- **Production existence proof.** `dermotduffy/advanced-camera-card` @ `v7.27.4` ships
+  **53 release assets** (52 `.js`, including `editor-*.js` and seven `lang-*.js`) with a
+  plain `filename` and no `zip_release`. Verified directly.
+- **Download parity.** Its `lang-fr` chunk shows 85,904 downloads against the entry file's
+  87,412 — 98.3%. HACS fetches the chunks for essentially every install.
 
-- **Per-language translation loading**, which is HA's own approach.
-- **Lazy-loading the editor**, ruled out earlier on the same false premise. The editor is
-  measured at 13.6% raw / 10.3% gzip of the bundle and is a static import registered at
-  module top level, so every user pays for it on every dashboard load.
+**The distribution change is one line:** `release.yml` goes from `files:
+dist/calendar-card-pro.js` to `files: dist/*.js`. `hacs.json` needs no change.
 
-Not a free win: it changes distribution for every upgrading user, and a chunk that fails to
-download is worse than a missing sourcemap — the editor would simply never load. Needs a
-real feasibility pass, including what HACS does on upgrade when the asset list changes.
+**Measured on our own bundle** (baseline verified locally at 375,155 raw / 110,635 gzip):
 
-### X2 — Editor translation budget — **Blocked by X1**
+| | raw | gzip | Δ gzip per dashboard load |
+| --- | ---: | ---: | ---: |
+| today | 375,155 | 110,635 | — |
+| lazy editor only | 334,855 | 98,101 | −11.2% |
+| **+ editor translations in that chunk** | **205,570** | **64,477** | **−41.6%** |
+
+Three files, 0.4% more bytes shipped in total, **42% less on every dashboard load**. Note
+what moves where: HACS puts every file on disk, and the *browser* then loads only the entry
+plus what it dynamically imports. The saving is bytes-per-load, which is the number that
+matters.
+
+**The reframe that makes this simple.** Our card's own strings are 19,468 B across *all 35
+languages*. The editor namespace is **87.3% of the translation payload**. So copying HA's
+per-language architecture for card strings would save ~4 KB gzip for all of the risk — a
+trap. Splitting the *editor* is the whole win, and it takes the projected ~+18 KB gzip for
+translating the new namespace off the eager path entirely.
+
+**This is what dissolves X2.** Full language support and the helper prose both become free
+for everyone who never opens the editor, so trimming prose or translating labels only are
+rejected — they degrade the product to fix a budget problem that has a structural fix.
+
+**The one serious risk, hit in our own build.** HACS registers the resource with a
+`?hacstag=` cache-buster, and relative specifiers resolve with the query dropped. If any
+chunk imports back from the *entry*, the browser fetches it as a different module and
+re-evaluates the whole card — `NotSupportedError: … already been used with this registry`,
+editor dead. The first experimental split produced exactly that and would have shipped
+broken. The fix is `preserveEntrySignatures: 'strict'`, which emits a 41-byte facade.
+**This must be a CI assertion, not a comment** — the reference card carries a warning
+comment about it in its own Rollup config, which is evidence that a comment is not enough.
+
+Secondary constraints, all verified: the plugin namespace is **flat**, so no
+`dist/translations/de.json` — subdirectories are never fetched (`base.py:1205-1222`);
+`/hacsfiles/**` is served `max-age=2678400`, so **content-hashed chunk names are
+mandatory**; and `zip_release` must not be used, because for a plugin it would register the
+`.zip` itself as the resource.
+
+**Upgrade path is safe and needs no user action.** The resource filename is unchanged (it
+becomes the facade), HACS rewrites the `hacstag`, and in release-asset mode HACS never
+wipes the directory (`base.py:951`), so upgrades are additive and downgrades safe. Cost is
+stale-file clutter. A `dist` zip should be attached for manual installers.
+
+**A missing editor chunk degrades gracefully** — the dialog fails to open and the card keeps
+rendering, because HA awaits `getConfigElement()` (`frontend hui-element-editor.ts:370`).
+
+Full detail, including seven live checks required before shipping: `multifile-distribution.md`.
+
+### X2 — Editor translation budget — **Dissolved by X1, pending that go/no-go**
 
 Measured, not estimated. The new English string table is **19,154 B across 138 keys**
 against the old section's 11,818 B across 239 keys — 62% larger with 42% fewer keys,
-because **67% of it is helper prose** (48 helper keys, 8,266 B).
+because **67% of it is helper prose**. Projected across 11 languages, roughly **+18,000 B
+gzip net** even after deleting the dormant sections.
 
-Projected across 11 languages at the old sections' measured compression, the new namespace
-lands near **52,000 B gzip** against today's 33,746 B — roughly **+18,000 B gzip net**,
-even after deleting the dormant sections.
-
-The maintainer has ruled that **language support is not to be reduced** and that clear
-prose is worth having. So the options are: solve it structurally via X1; translate labels
-only and let helpers fall back to English; or trim the prose. Decide before the translation
-pass, not after 11 files exist.
+If X1 proceeds this cost lands off the eager path and no longer needs solving. If X1 is
+rejected, the options return: accept it, translate labels only, or trim the prose. The
+maintainer has ruled that **language support is not to be reduced** and that clear prose is
+worth having, so the first is the fallback.
 
 ---
 
