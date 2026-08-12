@@ -1,7 +1,17 @@
 # Column view — design and implementation plan
 
-**Status:** Phase 0 is complete and merged as PR #390 on `dev`; the column view itself is
-not yet implemented. **Target release:** v4.0.0.
+**Status:** Phases 0, 1, 2 and 2b are complete and shipped in 3.x. **Phase 4 — the column
+view itself — is substantially implemented** on `feature/column-view-v4` and is being
+live-tested. Phase 5 (time grid) has not started. **Target release:** v4.0.0.
+
+| Phase | What it covers | State |
+| --- | --- | --- |
+| 0 | DOM golden gate, i18n integrity script | Shipped in 3.x (PR #390) |
+| 1 | Shared leaf renderers (`leaves.ts`) | Shipped in 3.x |
+| 2 | Presentation models | Shipped in 3.x |
+| 2b | Cache correctness | Shipped in 3.x |
+| 4 | Column view + `ViewAdapter` | **In progress** — renders, with density, week numbers, separators, progress bar and per-event weather |
+| 5 | Time grid | Not started; commits preserved on the frozen `alexpfau-review-339-time-grid` |
 
 **Scope:** a second view (`view: 'column'`) that renders the existing agenda list rotated —
 days side by side as columns rather than stacked — without changing how the list view looks
@@ -9,6 +19,13 @@ for anyone who does not opt in.
 
 This is the current implementation specification. Historical arguments and superseded
 alternatives are archived in [column-view-rationale.md](./column-view-rationale.md).
+Open work that no section here owns is indexed in
+[v4-backlog.md](./v4-backlog.md) — **read that before starting a stage**.
+
+::: warning Before Editing A Template
+The DOM gate is whitespace-sensitive in a way that is not obvious and has a destructive
+failure mode. See [§F.8](#f-constraints-that-bind-implementation).
+:::
 
 ---
 
