@@ -380,42 +380,98 @@ to work, so flexing it would trade a spacing bug for a truncation bug.
 
 Neither is owned by a spec; the detail is here.
 
-### X1 — Multi-file distribution — **DONE** *(stage 4; ruled by maintainer, 2026-08-12)*
+### X1 — Multi-file distribution — **DONE** *(stage 4; ruled by maintainer, 2026-08-12; reshaped to two files the same day)*
 
-Built and merged into the v4 branch. The seven live checks below are **still open** and
-are the only thing between this and shipping. The evidence that led to the ruling follows
-the work list.
+Built and merged into the v4 branch. The live checks below are **still open** and are the
+only thing between this and shipping. The evidence that led to the ruling follows the work
+list.
+
+**The shape changed once after the first implementation.** It shipped as three files — a
+41 B facade, a hashed card chunk and a hashed editor chunk — and is now **two**, with
+stable names: `calendar-card-pro.js` and `editor.js` (`-dev` on both for a dev build).
+The facade and the hashes were not wrong; they were the correct answer to a problem the
+single-build shape created for itself, and giving the editor its own Rollup entry removes
+the problem instead of managing it. Details under *The second pass* below.
 
 #### The work, in order — all done except the live checks
 
-1. **Rollup** — `preserveEntrySignatures: 'strict'`, content-hashed
-   `chunkFileNames`. **Done.**
-2. **`getConfigElement()`** — `async`, dynamic `import()`, the define guarded on both
-   sides of the await. **Done.**
+1. **Rollup** — an **array of two configs**, one per entry, stable `entryFileNames`, no
+   `preserveEntrySignatures` and no `chunkFileNames` (neither build emits a chunk), plus
+   `esbuild`'s `supported: { 'import-meta': true }`. **Done.**
+2. **`getConfigElement()`** — `async`, dynamic `import()` of a URL built at runtime from
+   `import.meta.url`, the define guarded on both sides of the await. **Done.**
 3. **Editor strings** — the eleven `editor` sections moved from
    `src/translations/languages/` to `src/translations/editor-languages/`, imported only
-   from `src/rendering/editor/index.ts` and merged into `TRANSLATIONS` at chunk-load
+   from `src/rendering/editor/index.ts` and merged into `TRANSLATIONS` at editor-load
    time. Not deleted: E10 still mines them. **Done.**
 4. **`release.yml`** — `files: dist/*.js` plus `calendar-card-pro.zip` for manual
    installers, and `check:bundle` now runs there too, since that workflow is what
-   actually publishes. **Done.**
+   actually publishes. The glob matches exactly the two files. **Done.**
 5. **CI assertion** — `scripts/check-bundle.mjs`, `npm run check:bundle`. **Done**, and
-   proven by deliberately removing `preserveEntrySignatures` and watching it fail.
-6. **The seven live checks** — **still open**, listed below.
+   every assertion proven by deliberately breaking it — including twice against the real
+   `rollup.config.mjs` rather than against edited output.
+6. **The live checks** — **still open**, listed below.
 
-**Measured on this branch**, production build, before and after:
+**Measured on this branch**, production build:
 
 | | raw | gzip |
 | --- | ---: | ---: |
-| eager path before | 390,155 | 114,341 |
-| eager path after | 206,655 | 64,945 |
-| **change per dashboard load** | **−183,522 (−47.0%)** | **−49,396 (−43.2%)** |
+| eager path, single file (before any of this) | 390,155 | 114,341 |
+| eager path, three files (facade + card chunk) | 209,313 | 65,711 |
+| **eager path, two files (as shipped)** | **206,251** | **64,715** |
+| **change per dashboard load vs. single file** | **−183,904 (−47.1%)** | **−49,626 (−43.4%)** |
 
-Three files now: a 41 B facade, `calendar-card-pro-<hash>.js` (206,614 B) and
-`editor-<hash>.js` (185,475 B). Total shipped is 392,130 B, **1,953 B (+0.5%) more** than
-the single file was — bytes on disk up slightly, bytes per dashboard load nearly halved.
+Two files now: `calendar-card-pro.js` (206,251 B / 64,715 gzip) and `editor.js`
+(233,213 B / 67,346 gzip).
 
-#### Found while building it
+#### The second pass — three files to two
+
+The three-file shape existed for one reason: with a single Rollup entry, the modules the
+card and editor share are emitted as a chunk that **the editor imports back from the
+card**. Under HACS that is fatal — the card is registered as
+`…/calendar-card-pro.js?hacstag=N`, a relative specifier resolves with the query dropped,
+so the browser fetches the card a second time and evaluates it twice.
+`preserveEntrySignatures: 'strict'` avoids it by reducing the entry to a facade, so the
+real code is only ever addressed by one URL.
+
+Correct, and treating a self-inflicted problem. **Two Rollup entries** mean no emitted file
+imports another at all, so the trap has nothing to act on. What made it possible: the card
+names the editor through a URL it computes at runtime, so the editor is invisible to the
+card's module graph.
+
+- **The eager path got *smaller*, which was not the expectation.** The cost of duplicating
+  the shared modules into the editor is +46,541 B raw / +16,756 B gzip, and it is real —
+  but it is paid only by people who open the editor. On the file every dashboard loads the
+  two-file shape is **3,062 B raw / 996 B gzip smaller**, because a split entry has to
+  *export* its shared modules and exported symbols resist mangling and inlining. The
+  maintainer accepted the editor-side trade explicitly; the eager-side gain was a bonus.
+- **Stable names needed a different cache-buster, and got a better one.** `/hacsfiles/**`
+  is served `max-age=2678400` and only the registered resource carries `?hacstag=`, which
+  is what made content hashes mandatory before. `getConfigElement()` now copies the card's
+  own query onto the editor's URL, so the editor busts exactly when the card busts — and
+  unlike a hash it also responds to the dev deploy's `?v=` bump, which previously reloaded
+  the card and left the editor cached.
+- **`import.meta` compiles to `{}` under esbuild `target: 'es2017'`**, silently. No build
+  error, no type error, no failing test — just `new URL("./editor.js", Ir.url)` where
+  `Ir = {}`, and an editor that can never load. `supported: { 'import-meta': true }` fixes
+  it. This is now the single most important assertion in `check:bundle`, because it is the
+  only failure mode in the design that every other gate is blind to. Verified by removing
+  the option, rebuilding, and watching both the broken output and the check that caught it.
+- **Duplicated module state is inert, and that was checked rather than assumed.** The
+  earlier note that two copies would mean "two translation registries, two logger levels"
+  is literally true and practically harmless: the card never reads a string the editor
+  registered (it renders events, not editor labels) and the editor resolves its own;
+  `CURRENT_LOG_LEVEL` is a build-time constant, identical in both; and `BANNER_SHOWN` is
+  only ever touched card-side. Re-check this before moving anything shared *and mutable*
+  across the boundary.
+- **`clean-dist` had to become targeted.** Wiping `dist/` was right when names carried
+  hashes. With two configs it is wrong twice over: under `--watch` the watcher rebuilds
+  only the config whose inputs moved, so a card-only edit would delete the editor and
+  leave it deleted. It now removes only what the current build will not itself write,
+  which still catches the case that actually matters — a dev pair left behind for
+  `release.yml`'s `dist/*.js` glob to publish.
+
+#### Found while building it *(first pass; all still current)*
 
 - **`addTranslations()` could not be used, and using it would have been silent and
   severe.** The specification named it as the registration hook — it exists, and it is
@@ -428,37 +484,40 @@ the single file was — bytes on disk up slightly, bytes per dashboard load near
   strings survive registration.
 - **Registration mutates the imported JSON module objects.** `TRANSLATIONS[lang]` holds
   the very object `localize.ts` imported, so merging into it means `en.json`'s module
-  object *acquires* an `editor` property once the editor chunk loads. Correct — that is
-  the mechanism — but it means the imported module stops being evidence about the file on
+  object *acquires* an `editor` property once the editor loads. Correct — that is the
+  mechanism — but it means the imported module stops being evidence about the file on
   disk, so "no `editor` key in `languages/*.json`" cannot honestly be a runtime
   assertion. It is a `check:i18n` check instead, across all 35 files rather than one.
 - **Nothing cleaned `dist/`.** Harmless when the output was one fixed filename; not
-  harmless once names carry a content hash and `release.yml` globs `dist/*.js` — every
-  local rebuild left the previous build's chunks in place to be published as garbage
-  assets. The build now wipes `dist/` first (in `rollup.config.mjs`, so `npx rollup -c`
-  and the watcher get it too), and `check:bundle` asserts every emitted file is
-  reachable from the entry rather than trusting that.
+  harmless once `release.yml` globs `dist/*.js` — every local rebuild left the previous
+  build's output in place to be published as garbage assets. The build now removes it
+  (in `rollup.config.mjs`, so `npx rollup -c` and the watcher get it too), and
+  `check:bundle` asserts `dist/` holds exactly the two files of one build variant rather
+  than trusting that.
 - **Manual-installation instructions were about to become wrong**, in the README and in
   `docs/guide/installation.md`. Both said to download `calendar-card-pro.js` and copy
-  that one file, which now yields a 41-byte facade importing a chunk the user does not
-  have — a card that silently cannot load. Both now point at the zip. The specification
-  listed the zip as an optional nicety for manual installers; it is not optional.
-- **The dev build's chunks were indistinguishable from production ones.** Rollup names
-  the main chunk after the input module, so a dev build emitted
-  `calendar-card-pro-<hash>.js` — the same shape as the production chunk, in a directory
-  where both can sit side by side, which is the entire point of the `-dev` suffix.
-  Chunk names now carry it too.
+  that one file. Under the three-file shape that yielded a 41-byte facade importing a
+  chunk the user did not have — a card that silently could not load. Under the two-file
+  shape the failure is milder but still real: the card renders and only the editor is
+  missing. Both now point at the zip, which stays required either way. The specification
+  listed it as an optional nicety; it is not optional.
+- **The dev build's output was indistinguishable from production output.** Rollup names a
+  chunk after its input module, so a dev build emitted `calendar-card-pro-<hash>.js` — the
+  same shape as the production chunk, in a directory where both can sit side by side,
+  which is the entire point of the `-dev` suffix. Both filenames now carry it, and the
+  editor filename the card *names* follows the same `replace()` mechanism as the element
+  names — a mismatch there is a dead editor that builds perfectly.
 - **§3.2's `try`/`catch` sketch was adopted but not as written.** Swallowing the error
   and continuing would hand Home Assistant a broken element; logging alone is invisible
   to the dialog. `getConfigElement()` logs *and* rethrows a message written for the
   person reading the editor dialog, naming the cause (a missing file) and the fix
   (reinstall via HACS) rather than the platform's bare *failed to fetch dynamically
   imported module*.
-- **The missing-chunk path cannot be tested under Vitest.** Vite's import-analysis
-  resolves `import()` specifiers at transform time, so deleting the editor chunk fails
-  at *load* of the parent module rather than at the call — the opposite of browser
-  behaviour. Live check 6 stays genuinely live-only. What *was* provable offline, against
-  the real built bundle in happy-dom: the facade registers `calendar-card-pro`, the
+- **The missing-file path cannot be tested under Vitest.** Vite's import-analysis
+  resolves `import()` specifiers at transform time, so deleting the editor fails at
+  *load* of the parent module rather than at the call — the opposite of browser
+  behaviour. That live check stays genuinely live-only. What *was* provable offline,
+  against the real built bundle in happy-dom: the card registers `calendar-card-pro`, the
   editor element is **not** registered until `getConfigElement()` is called, and two
   concurrent calls both resolve without a duplicate-`define()` throw.
 
@@ -498,7 +557,8 @@ dist/calendar-card-pro.js` to `files: dist/*.js`. `hacs.json` needs no change.
 Three files, 0.4% more bytes shipped in total, **42% less on every dashboard load**. Note
 what moves where: HACS puts every file on disk, and the *browser* then loads only the entry
 plus what it dynamically imports. The saving is bytes-per-load, which is the number that
-matters.
+matters. *(Two files as shipped, and the eager path is smaller still — the measured table
+under "The work" is the current one.)*
 
 **The reframe that makes this simple.** Our card's own strings are 19,468 B across *all 35
 languages*. The editor namespace is **87.3% of the translation payload**. So copying HA's
@@ -519,46 +579,71 @@ broken. The fix is `preserveEntrySignatures: 'strict'`, which emits a 41-byte fa
 **This must be a CI assertion, not a comment** — the reference card carries a warning
 comment about it in its own Rollup config, which is evidence that a comment is not enough.
 
+> *Superseded by the second pass.* The trap is real and the reproduction stands; the fix
+> is not what shipped. Two Rollup entries mean nothing imports the entry at all, so no
+> facade is needed — see *The second pass* above. The CI-assertion conclusion survives and
+> got stronger.
+
 Secondary constraints, all verified: the plugin namespace is **flat**, so no
 `dist/translations/de.json` — subdirectories are never fetched (`base.py:1205-1222`);
 `/hacsfiles/**` is served `max-age=2678400`, so **content-hashed chunk names are
 mandatory**; and `zip_release` must not be used, because for a plugin it would register the
 `.zip` itself as the resource.
 
+> *Superseded by the second pass, in one clause.* The cache header is right and the
+> conclusion followed from it, but a hash is not the only way to answer it: the card copies
+> its own query onto the editor's URL instead, which busts on the dev deploy's `?v=` too.
+> Flat namespace and no `zip_release` are unchanged.
+
 **Upgrade path is safe and needs no user action.** The resource filename is unchanged (it
 becomes the facade), HACS rewrites the `hacstag`, and in release-asset mode HACS never
 wipes the directory (`base.py:951`), so upgrades are additive and downgrades safe. Cost is
 stale-file clutter. A `dist` zip should be attached for manual installers.
 
-**A missing editor chunk degrades gracefully** — the dialog fails to open and the card keeps
+**A missing editor file degrades gracefully** — the dialog fails to open and the card keeps
 rendering, because HA awaits `getConfigElement()` (`frontend hui-element-editor.ts:370`).
 
 Full detail and source citations: [`multifile-distribution.md`](./multifile-distribution.md).
 
-#### The seven live checks — **open**, and the gate on shipping
+#### The live checks — **open**, and the gate on shipping
 
 None of this can be proven from source, and the offline work above deliberately does not
-claim to have. On a real Home Assistant, before release:
+claim to have. Rewritten for the two-file shape: checks 2 and 3 named artefacts that no
+longer exist, and check 8 is new — it only became a question once Lit was bundled twice.
+
+On a real Home Assistant, before release:
 
 1. **Upgrade in place** — install the current release via HACS, upgrade to a multi-file
    pre-release, confirm the card renders **without clearing the browser cache**.
-2. **Every chunk arrives** in `www/community/calendar-card-pro/` after the download.
-   Three files: `calendar-card-pro.js`, `calendar-card-pro-<hash>.js`,
-   `editor-<hash>.js` — plus `calendar-card-pro.zip`, which HACS downloads like any
-   other asset and never registers.
-3. **The editor opens**, and the Network tab shows its chunk fetched *on open*, not on
-   dashboard load — otherwise the split achieved nothing. (The module-graph half of this
-   is proven offline: the editor element is not registered until `getConfigElement()`
-   runs. What needs a browser is that the *fetch* is deferred too.)
+2. **Both files arrive** in `www/community/calendar-card-pro/` after the download:
+   `calendar-card-pro.js` and `editor.js`, plus `calendar-card-pro.zip`, which HACS
+   downloads like any other asset and never registers.
+3. **The editor opens**, and the Network tab shows `editor.js` fetched *on open*, not on
+   dashboard load — otherwise the split achieved nothing. Confirm the request carries the
+   card's own `?hacstag=`; a bare `editor.js` means the query propagation was lost, and it
+   would not show up as a failure until the *next* release served a stale editor. (The
+   module-graph half of this is proven offline: the editor element is not registered until
+   `getConfigElement()` runs. What needs a browser is that the fetch is deferred too.)
 4. **No duplicate registration.** Watch specifically for `NotSupportedError: … has
    already been used with this registry` after opening the editor. That is the
    `?hacstag=` trap recurring, and the one thing `check:bundle` cannot observe: it
    asserts the module graph, not what a browser does with a query string.
 5. **YAML-mode dashboards**, where cache headers are off and resources are hand-managed.
-6. **A deliberate 404** — delete the editor chunk from disk and confirm the card still
-   renders and the failure is readable. Vitest cannot stand in for this: Vite resolves
-   `import()` at transform time, so the failure lands in the wrong place entirely.
+6. **A deliberate 404** — delete `editor.js` from disk and confirm the card still renders
+   and the failure is readable. Vitest cannot stand in for this: Vite resolves `import()`
+   at transform time, so the failure lands in the wrong place entirely.
 7. **A downgrade** back to a single-file version.
+8. **Two Lit copies on one page.** The card and the editor each bundle Lit now, so two
+   `LitElement` base classes coexist. Home Assistant hosts many cards that each bundle
+   their own, so this is expected to be fine — but it is expected, not verified. Open the
+   editor and watch for a `Multiple versions of Lit loaded` warning, and confirm the
+   editor's own controls render and respond.
+
+**Moot under the two-file shape**, and previously passed or open: anything asserting the
+facade's existence or size, and anything about content-hashed chunk names — including the
+old check 2's expectation of three files. `check:bundle` now asserts the inverse of the
+first (no file may be small enough to be a facade) and the cache concern behind the second
+moved to query propagation, folded into check 3 above.
 
 Full detail and the source citations behind each finding:
 [`multifile-distribution.md`](./multifile-distribution.md).

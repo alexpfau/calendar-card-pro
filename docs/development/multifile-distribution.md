@@ -10,14 +10,32 @@
 All measurements below were produced by real builds, in a scratch copy at `/tmp/ccp-exp`.
 **The repository working tree was not modified.**
 
-> **Status: implemented in stage 4 (2026-08-12).** The verdict held and the shape of the
-> result matched: three files, ~0.5% more bytes shipped, 43% fewer per dashboard load.
-> Read the inline **Correction** notes in §3.2 and §6 before following this document —
-> two of its concrete steps were wrong in ways that would have shipped a bug, and one
-> optional recommendation turned out to be mandatory. Measured figures on the real branch
-> and everything else found while building it are in
-> [`v4-backlog.md` § X1](./v4-backlog.md). The seven live checks in §6 remain open and
-> are the gate on shipping.
+> **Status: implemented in stage 4 (2026-08-12), then superseded in shape (2026-08-12).**
+> The verdict held — multi-file distribution works, and everything in §2 about what HACS
+> downloads is still current and still the reason any of this is possible.
+>
+> **What changed: the output is now two files, not three.** This document's §3.1 concludes
+> that `preserveEntrySignatures: 'strict'` and a facade entry are mandatory, and §3.3 that
+> content-hashed filenames are mandatory. Both conclusions are **correct about the
+> situation they describe** — one Rollup build, one entry, code-split by a dynamic
+> `import()` — and both stop applying once the editor is given **its own build entry**.
+> With two builds, no emitted file imports another at all, so the `?hacstag=` trap in §3.1
+> has nothing to act on and needs no facade; and the editor's URL is built at runtime from
+> `import.meta.url` with the card's own query copied across, which busts the cache in §3.3
+> more precisely than a content hash did. The reasoning below is kept because the trap it
+> documents is real and would recur the moment anyone merges the two builds back into one.
+>
+> **Two things this document did not know.** The facade shape costs bytes on the *eager*
+> path: a split entry must export its shared modules, and exported symbols resist mangling
+> and inlining, so the two-file shape is 1.1 KB gzip **smaller** on the file every
+> dashboard loads, even though it duplicates the shared modules into the editor
+> (+16.8 KB gzip, paid only on opening it). And content hashes never responded to the dev
+> deploy's `?v=` bump at all, because a hash changes only when that file's own contents
+> change.
+>
+> Read the inline **Correction** notes in §3.1, §3.2, §3.3 and §6 before following any
+> concrete step here. Measured figures, the current live-check list and everything else
+> found while building both shapes are in [`v4-backlog.md` § X1](./v4-backlog.md).
 
 ---
 
@@ -326,6 +344,24 @@ The real code now lives in a hashed chunk that is only ever addressed by one URL
 once. This is the same 28-byte-stub shape the reference card ships, arrived at independently.
 **Any implementation must include this and must assert on it in CI.**
 
+> **Correction, from the second implementation (2026-08-12).** The diagnosis is right and
+> the reproduction above is exactly what happens. The *conclusion* is too narrow: the
+> facade is mandatory only for the shape being assumed here, which is **one build with one
+> entry**. The chunks import back from the entry because Rollup put the shared modules
+> there — that is a consequence of code-splitting a single graph, not of multi-file
+> distribution.
+>
+> Give the editor its own Rollup entry — an array of two configs — and the shared modules
+> are duplicated into it instead. Then **no emitted file imports another at all**, so
+> there is no relative specifier for the query to be dropped from and no facade is needed.
+> The card names the editor through a URL it computes at runtime from `import.meta.url`,
+> which neither build's module graph can see.
+>
+> What survives unchanged is the last sentence: this must be a CI assertion. `check:bundle`
+> now asserts that neither emitted file imports anything at all, which is a stronger
+> property than "no chunk imports the entry" and fails the moment someone merges the two
+> builds back into one.
+
 ### 3.2 A missing chunk (404)
 
 Worse than the missing sourcemap in #315/#358, because a failed `import()` rejects. Realistic causes:
@@ -396,6 +432,29 @@ name, so a stale cache entry is simply never requested. Rollup's `[hash]` gives 
 experiment produced `index-RGN0INY1.js` unprompted). It is also why the flat-namespace constraint
 (§2.3) is survivable: hashes, not directories, provide the versioning.
 
+> **Correction, from the second implementation (2026-08-12).** The cache facts are right —
+> one month, and no `?hacstag=` on a sibling — but a content hash is not the only answer
+> and turned out not to be the best one. The card can **build the editor's URL itself** and
+> copy its own query across:
+>
+> ```ts
+> const url = new URL('./editor.js', import.meta.url);
+> url.search = new URL(import.meta.url).search;
+> ```
+>
+> The card is loaded as `…/calendar-card-pro.js?hacstag=N`, so the editor is fetched as
+> `…/editor.js?hacstag=N` and busts exactly when the card busts. Two advantages over a
+> hash. It keeps filenames stable and readable, which matters in a flat directory a human
+> has to look at. And it busts on the *dev deploy's* `?v=` bump too, which content hashes
+> never did: a hash changes only when that file's own contents change, so a shared-module
+> edit reloaded the card and left the previous editor cached.
+>
+> One trap comes with it, and it is silent. **esbuild's `target: 'es2017'` lowers
+> `import.meta` to the literal `{}`**, making `import.meta.url` undefined and the editor
+> unloadable — with no build error, no type error and no failing test. `supported:
+> { 'import-meta': true }` prevents it and `check:bundle` asserts the result survived into
+> the output.
+
 ### 3.4 Offline / reverse proxy / install type
 
 `/hacsfiles/` is a path on the same origin as the dashboard, resolved relatively from the module URL.
@@ -418,6 +477,8 @@ internet dependency at runtime.
 
 1. The registered Lovelace resource is `/hacsfiles/calendar-card-pro/calendar-card-pro.js?hacstag=…`.
    That filename **does not change** — it becomes a 41-byte facade instead of the whole bundle.
+   *(As shipped, it stays the whole card and gains an `editor.js` beside it — see the
+   §3.1 correction. Everything else in this section holds either way.)*
 2. HACS rewrites the `hacstag` on upgrade (`plugin.py:137-144`, `update_dashboard_resources()` at
    `plugin.py:193-220`), so the browser re-fetches the entry. Users get the facade, which immediately
    pulls the hashed main chunk.
@@ -434,6 +495,8 @@ Two residual risks, both minor:
   `calendar-card-pro.zip` of `dist/` as an extra asset for manual installers — exactly what the
   reference card does (`advanced-camera-card.zip`, 108,958 downloads, notably *more* than the entry,
   which is what manual installs look like). Mention it in the release notes.
+  *(Milder as shipped: the card renders and only the editor is missing, because the entry is
+  the whole card. The zip is still required — see the §6 step-4 correction.)*
 - **A stale browser cache of the old entry.** The `hacstag` changes on upgrade, so the entry itself is
   re-fetched. Not a concern.
 
@@ -531,9 +594,24 @@ Ordered so that each step is independently verifiable.
    returns it from an `async` method and `hui-element-editor.ts:370` awaits it.
    **Verified:** this refactor typechecks with **0 `src/` errors**.
 
+   > **Correction, from the second implementation (2026-08-12).** The structure is right
+   > and the guards are still there; the *specifier* is not. `import('./rendering/editor/index')`
+   > is a relative specifier, which is exactly what drops the `?hacstag=` query (§3.3's
+   > correction). As shipped it is `import(editorModuleUrl(import.meta.url))`, a URL built
+   > at runtime — which also means the editor is invisible to the card's module graph, and
+   > is what makes two separate builds possible in the first place.
+
 3. **Add `preserveEntrySignatures: 'strict'` to `rollup.config.mjs`.** Non-negotiable (§3.1). Keep the
    `entryFileNames` switch so the dev build still emits `calendar-card-pro-dev.js`, and add
    `chunkFileNames: '[name]-[hash].js'` explicitly rather than relying on the default.
+
+   > **Correction, from the second implementation (2026-08-12).** Superseded entirely.
+   > `rollup.config.mjs` exports an **array of two configs** — one per entry, the card and
+   > `src/rendering/editor/index.ts` — with stable `entryFileNames` and no
+   > `preserveEntrySignatures` and no `chunkFileNames`, because neither build emits a
+   > chunk. The `-dev` suffix switch stays and now covers both filenames. `esbuild` gains
+   > `supported: { 'import-meta': true }` (§3.3's correction), without which the editor
+   > silently never loads.
 
 4. **Change the release workflow to attach all built files.**
    `.github/workflows/release.yml` currently has `files: dist/calendar-card-pro.js`; it becomes
@@ -561,6 +639,17 @@ Ordered so that each step is independently verifiable.
      That last check is the direct analogue of the sourcemap-404 lesson from #315/#358: never ship a
      reference to a file we do not publish.
 
+   > **Correction, from the second implementation (2026-08-12).** The first bullet inverts:
+   > the entry must **not** be a facade, and `check:bundle` now fails a file small enough
+   > to be one. The second generalises — no emitted file imports *anything* — which
+   > subsumes the third, since there are no relative specifiers left to resolve. Three
+   > assertions were added that this list could not have anticipated: that `dist/` holds
+   > exactly the two files belonging to one build variant, that the card names the editor
+   > of its own variant (`./editor.js` in production, `./editor-dev.js` in dev), and that
+   > **`import.meta.url` survived into the built card**. The last is the most important
+   > check in the script: it is the only failure mode in this whole design that is
+   > invisible to typecheck, lint, tests and the build itself.
+
 7. **Revisit the sourcemap decision.** The comment in `rollup.config.mjs` disables sourcemaps
    *because* only one file is attached. Once the workflow globs `dist/*`, that specific reason no
    longer holds. Not part of this change — but the comment should be corrected so it does not
@@ -569,6 +658,11 @@ Ordered so that each step is independently verifiable.
 ### Must be verified live before shipping
 
 None of this can be fully proven from source; it needs one real HA instance.
+
+> **Correction, from the second implementation (2026-08-12).** This list was written for
+> the three-file shape and two of its items no longer describe what ships. The current
+> list — six checks, plus one the two-file shape adds — is maintained in
+> [`v4-backlog.md` § X1](./v4-backlog.md) and is the one to work from.
 
 1. **The upgrade in place.** Install the current release via HACS, then upgrade to a multi-file
    pre-release, and confirm the card renders without clearing the browser cache.

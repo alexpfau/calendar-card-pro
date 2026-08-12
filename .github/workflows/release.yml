@@ -52,17 +52,17 @@ jobs:
 
       # The release is the only thing users ever download, and this is the build that
       # produces it — so the multi-file assertions run here too, not only on pull
-      # requests. A chunk importing back from the entry, a specifier pointing at a file
-      # the build did not emit, or a stale chunk left over from an earlier build would
-      # otherwise be published and then downloaded by every user.
+      # requests. A file importing another, a card that names the wrong editor, an
+      # `import.meta` lowered to `{}` by esbuild, or a stale file left over from an
+      # earlier build would otherwise be published and then downloaded by every user.
       - name: Verify bundle integrity
         run: npm run check:bundle
 
-      # For people who install by copying files rather than through HACS. The card is no
-      # longer a single file — the entry is a facade that imports a hashed chunk — so
-      # copying just the .js named in hacs.json now yields a card that cannot load. The
-      # zip is flat, matching the layout HACS itself writes into
-      # <config>/www/community/calendar-card-pro/.
+      # For people who install by copying files rather than through HACS. The card is not
+      # a single file — it is the card plus a separate editor, and the card fetches the
+      # editor by URL when someone opens it — so copying just the .js named in hacs.json
+      # yields a card that renders but cannot be configured. The zip is flat, matching the
+      # layout HACS itself writes into <config>/www/community/calendar-card-pro/.
       #
       # HACS downloads it like any other asset but never registers it: `filename` in
       # hacs.json selects the Lovelace resource, and it names the .js.
@@ -72,7 +72,8 @@ jobs:
           cd .. && unzip -l calendar-card-pro.zip
 
       # dist/*.js deliberately, not dist/* — the glob does not match *.js.map, so the
-      # sourcemap decision (still off, see rollup.config.mjs) is unaffected by this.
+      # sourcemap decision (still off, see rollup.config.mjs) is unaffected by this. It
+      # matches exactly two files, and `check:bundle` above has already asserted that.
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
