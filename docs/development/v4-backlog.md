@@ -121,9 +121,11 @@ Detail in [`column-view.md`](./column-view.md).
 | C1 | **Progress bar in column view** | **Confirmed working** — geometry follow-up is C5 | Not missing code: `column.ts:244` calls the shared `Leaves.renderEventContent`, which renders the bar at `leaves.ts:543`, and `show_progress_bar` / `progress_bar_height` / `progress_bar_width` are all column-override keys (`view.ts:55-57`). It had simply never been *seen* there, because it defaults to `false` and the suite is built from default config — the blind spot `AGENTS.md` warns about. **Maintainer verified it live in a dev build: it renders, and at adequate column width it sits exactly where the countdown sits, as designed.** The D7 blocker is therefore discharged for *existence*; what remains is how it lays out once the column is too narrow for the time and the bar to share a line, which is C5. A test that turns the option on is still owed, so the suite stops being blind to it. |
 | C2 | **Per-event weather row** | **Done** (stage 5) | In list view, `show_conditions` gates the icon and still does. In column view the weather has its own row, so switching conditions off left a row holding only a temperature, breaking the leading icon edge that time, location and description share. **Built as ruled: in the own-row placement the icon is unconditional and `show_conditions` states the condition in words instead.** Keyed on the *placement* rather than on the view, so it is not a fourteenth `=== 'column'` gate (C3) and a future layout that asks for a row inherits the fix. Reuses the existing key, no migration. The three things it depends on all held: HA ships the condition vocabulary translated (`formatEntityState` with its state override), `WeatherData.condition` was already stored, and the declaration already existed. Both traps were real — `Hass.states` and `HassEntity.entity_id` are widened, with `entity_id` **required** so the silent-fallback trap is a compile error, and an untranslated token is reported once per condition through `Logger.debug` so it is diagnosable rather than merely cosmetic. Spec: [`weather-column-view.md`](./weather-column-view.md), whose §4.3 was superseded — see the note at the top of that file. |
 | C2b | **`weather.event.max_lines`** | **Done** (stage 5) | New key in `weather.event.*`, default `0`, `> 0` sets `--calendar-card-weather-event-max-lines` and clamps with `-webkit-box`, exactly as the four top-level `*_max_lines` do. One value for both views, as ruled. **Read with a fallback rather than off the merged default, and that is not optional:** `setConfig` merges shallowly (`{ ...DEFAULT_CONFIG, ...config }`), so a user's `weather:` block replaces the default sub-tree whole and every card that configures weather at all has no `max_lines` in its merged config. Reading `DEFAULT_CONFIG.weather.event.max_lines` would have emitted `none` for every user who set one. Every other weather property already reads this way; the reason was not written down anywhere, and now is. Order within the row is temperature / UV / words, so truncation reaches the generated text before it reaches either number. |
+
 | C3 | **Named view predicates** | Open | 13 binary `=== 'column'` / `!== 'list'` gates remain outside the editor. `events.ts` in particular gates compact limits with reasoning its own comment applies to *any* grid layout, yet excludes only column. The editor has zero such gates and a test enforcing it; `src/` does not. Raised by the grid-view feasibility review; `column-view.md` forbids the pattern. Cheap now, structural debt once a third view exists. |
 | C4 | **Column view as its own docs page** | Open | It is 175 lines and seven subsections inside `core-settings.md` — the largest section there, and a view mode rather than a core setting. Every other major feature has its own page and a nav entry. Needs every inbound link updated, since `ignoreDeadLinks` is off. |
 | C5 | **Countdown & progress bar on their own row in column view** | Specified — ready to build | Maintainer-observed in a live dev build. Detail below. |
+| C6 | **Weather row: colour, composition, spacing** | Specified — ready to build | Three defects found on the live build. Detail below. |
 
 #### C5 — the countdown and progress bar row
 
@@ -310,6 +312,67 @@ placement itself. Do not delete the comparison.
 - `show_progress_bar` is turned on in at least one test, closing the default-config blind
   spot recorded above.
 
+
+---
+
+#### C6 — weather presentation
+Found by the maintainer against `?v=286`. Three separate defects, all in the same area.
+##### 1. The row renders in the title's colour, not its neighbours'
+`weather.event.color` defaults to `var(--primary-text-color)` (`config.ts`), while `time_color`
+and `location_color` both default to `var(--secondary-text-color)`. That default was right for
+the placement it was written for — the title-row badge sits beside the black summary — and is
+wrong in the row placement, where the badge is one of four siblings and the other three are
+grey. The icon is worse: it is given no colour at all, so it simply inherits.
+**Same shape as `progress_bar_width`, and the same fix.** The default is merged in before
+render, so CSS cannot tell a value the user set from one they never touched. Make
+`weather.event.color` **absent by default** and let each placement supply its own fallback:
+title keeps `var(--primary-text-color)`, row uses `var(--secondary-text-color)`. Apply the
+resolved colour to the **icon** as well as the text.
+Check `weather.date.color` at the same time — the day header has its own placement and may
+have inherited the same assumption.
+##### 2. The composed string is not a string
+It renders as `30°Sunny`, and with UV on as `30° UV4Sunny`. Three causes, one of them
+structural:
+- **No separators exist.** The pieces are sibling `<span>`s in a flex container with no `gap`,
+  so the whitespace in the template collapses away entirely — flex containers drop
+  inter-item whitespace, and a flex item's own leading and trailing whitespace is stripped.
+  The `2px` margin on `.weather-uv-index` is why a gap appears there and nowhere else.
+- **The condition can itself contain a comma.** HA's own vocabulary includes
+  *"Clear, night"* — visible in the maintainer's screenshot as `20° UV0Clear, night`. So a
+  comma separator would produce `20°, UV 0, clear, night`, where nothing distinguishes our
+  separator from the one inside the translated string. **Use a middot.**
+- **Capitalisation should be left alone.** The obvious reading of `30° · Sunny` is to
+  lowercase the condition, but the string is HA's translation and we do not know the grammar
+  of 35 languages — in some, downcasing a weather term is simply wrong. A middot separator
+  makes each piece a standalone chip, where HA's own capitalisation reads correctly. So this
+  is not a compromise: choosing the separator dissolves the capitalisation question.
+Target: **`[icon] 30° · UV 4 · Sunny`**, with separators only between text pieces and never
+after the icon. Implement with `span + span::before` so the separator follows from which
+pieces are present, rather than being emitted by the template for every combination.
+Two things to settle while building: whether `UV4` becomes `UV 4` (it reads better and costs
+one character; the day header spells it the same way, so change both or neither), and whether
+the title-row badge gets the separators too. Recommend yes to both — the badge currently shows
+`30° UV4` for the same reason, and consistency between the two placements is worth more than
+the two characters.
+##### 3. The day header adds a phantom space, only in column view
+The temperature sits too far from the icon in the column day header. `.weather ha-icon` sets
+`margin-right: 1px`, so the CSS is not the cause. The template is: `renderDateWeather` emits
+`` html` <span class="weather-temp-high">…` `` — with a **leading space inside the template
+literal**. In list view `.date-column .weather` is `display: flex`, which discards it. In
+column view `.column-date-content .weather` is a grid item with no `display: flex`, so the
+same markup renders that space for real, on top of the margin.
+**Fix the template, not the container.** Removing the stray whitespace corrects both
+placements and cannot regress either. Do **not** make the column container flex to absorb it:
+it carries `text-overflow: ellipsis` and `white-space: nowrap`, which need a block container
+to work, so flexing it would trade a spacing bug for a truncation bug.
+##### Acceptance
+- In column view the weather row's icon and text match the time and location rows, and no
+  card that sets `weather.event.color` changes appearance.
+- List view renders byte-identically to today — the DOM snapshots must pass untouched.
+- The composed string shows separators between every adjacent pair of text pieces and none
+  after the icon, at every combination of temperature, UV and condition.
+- A condition containing a comma is still unambiguous.
+- The day-header icon-to-temperature gap is identical in both views.
 
 ---
 
