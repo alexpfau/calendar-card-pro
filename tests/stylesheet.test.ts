@@ -321,6 +321,160 @@ describe('card stylesheet', () => {
     });
   });
 
+  describe('the progress bar and countdown in column view', () => {
+    /*
+     * C5. The two are strictly mutually exclusive -- `getCountdownString` returns null
+     * once the event has started, `progressPercentage` is non-null only while it is
+     * running -- which is what lets them be treated asymmetrically without ever
+     * producing a visually inconsistent event. The countdown stays inline with the
+     * time; the bar takes a row of its own. Neither half is visible to a DOM test on
+     * the countdown side, and the width strategy is not visible to one at all.
+     */
+
+    it('gives each placement its own width fallback', () => {
+      // The whole reason DEFAULT_CONFIG.progress_bar_width had to become absent. A
+      // shipped default is merged in before render, so by the time CSS sees the value a
+      // width the user chose and one they never touched are the same string -- and the
+      // row would be pinned to the inline bar's 60px for everybody.
+      expect(declared('.progress-bar', 'width')).toBe(
+        'var(--calendar-card-progress-bar-width, 60px)',
+      );
+      expect(declared('.progress-bar-row', 'width')).toBe(
+        'var(--calendar-card-progress-bar-width, 75%)',
+      );
+    });
+
+    it('reads one custom property from both placements, so a set width is a width', () => {
+      // "A plain width, not a maximum" was the ruling. Both fallbacks hang off the same
+      // property, so a user-set value replaces both -- top level for every view, inside
+      // `column:` for one. Two properties would have made a set width mean two things.
+      const widths = ['.progress-bar', '.progress-bar-row'].map((s) => declared(s, 'width'));
+
+      for (const width of widths) {
+        expect(width).toContain('var(--calendar-card-progress-bar-width,');
+      }
+    });
+
+    it('declares the row modifier after the base rule it has to beat', () => {
+      // Both selectors are a single class, so specificity is tied and source order
+      // decides. `.progress-bar` sets `margin-inline-start: auto` and a 60px width; the
+      // modifier overrides both. Declared first it would silently lose, and the symptom
+      // would be a right-aligned 60px bar sitting on its own row -- which reads as the
+      // bug C5 exists to fix rather than as a regression.
+      const base = RULES.findIndex((rule) => rule.selectors.includes('.progress-bar'));
+      const modifier = RULES.findIndex((rule) => rule.selectors.includes('.progress-bar-row'));
+
+      expect(base).toBeGreaterThanOrEqual(0);
+      expect(modifier).toBeGreaterThan(base);
+    });
+
+    it('keys the row on the placement, not on the view', () => {
+      // `.progress-bar-row` is emitted by a placement parameter, so it must be styled
+      // unqualified. Scoping it under `.column-events` would tie a *placement* to a
+      // *view*, and a future layout that asks for the row would silently get the inline
+      // styling. Same reasoning as C3's named view predicates, one level down.
+      const rules = RULES.filter((rule) =>
+        rule.selectors.some((selector) => selector.includes('progress-bar-row')),
+      );
+
+      expect(rules).toHaveLength(1);
+      expect(rules[0].selectors).toEqual(['.progress-bar-row']);
+    });
+
+    it('sits flush left, aligned with the title above it', () => {
+      // The bar spans a row between the title and the time, so it reads as an indicator
+      // for the whole event. Indenting it to the time text would align it with the row
+      // *below* it, which is the weaker reading. `.progress-bar`'s auto start margin is
+      // what would otherwise push it right, so it has to be zeroed explicitly.
+      expect(declared('.progress-bar-row', 'margin-inline-start')).toBe('0');
+    });
+
+    it('left-aligns the countdown instead of stranding it at the right edge', () => {
+      // The reported defect. `margin-inline-start: auto` plus `justify-content:
+      // space-between` put the countdown at the far right of a second line that was
+      // otherwise empty once the column got too narrow to hold both. Both have to go:
+      // zeroing the margin alone would leave space-between doing the same job.
+      expect(declared('.column-events .time-countdown', 'margin-inline-start')).toBe('0');
+      expect(declared('.column-events .time', 'justify-content')).toBe('flex-start');
+    });
+
+    it('marks the join with a middot, and cannot reach the list view', () => {
+      // Generated content rather than a character in the string, because the countdown
+      // strings are translated -- 35 languages would each need the punctuation baking in,
+      // and every one would then carry it in list view too.
+      const selector = '.column-events .time-countdown::before';
+
+      expect(declared(selector, 'content')).toBe("'·'");
+      expect(declared(selector, 'margin-inline-end')).not.toBe('');
+
+      const unscoped = RULES.filter((rule) =>
+        rule.selectors.some((s) => s.includes('.time-countdown::before')),
+      );
+      expect(unscoped).toHaveLength(1);
+      expect(unscoped[0].selectors).toEqual([selector]);
+    });
+
+    it('keeps the countdown from breaking mid-phrase', () => {
+      // So the separator travels with the phrase and opens the second line, rather than
+      // being orphaned at the end of the first.
+      expect(declared('.time-countdown', 'white-space')).toBe('nowrap');
+    });
+
+    /*
+     * 🚨 The alignment trap, and a correction to the specification that describes it.
+     *
+     * C5 §1 proposed dropping `display: flex` from `.time` in column view so the time and
+     * countdown would participate in inline flow, and warned that inline flow ignores
+     * `align-items`, so `--calendar-card-event-icon-vertical-alignment` would stop
+     * reaching this row and would have to be re-expressed as `vertical-align`.
+     *
+     * Two things are wrong with that. The smaller one: the property does not reach `.time`
+     * today either. The shared `.time, .location, .description` rule sets it, and `.time`'s
+     * own later rule -- same specificity, so source order wins -- hardcodes
+     * `align-items: center` straight over the top. So the value is already inert on this
+     * row, in both views, and has been. That is pre-existing and deliberately left alone:
+     * changing it would move the list view, which C5 may not do.
+     *
+     * The larger one: the icon is not a child of `.time` at all, it is nested inside
+     * `.time-actual`, which hardcodes `align-items: center` of its own. Nothing declared
+     * on `.time` has ever positioned the time icon against the time text. Where the
+     * property genuinely works is `.location` and `.description`, whose icon and text are
+     * direct flex children -- which is what the first assertion below pins.
+     *
+     * What dropping the flex would actually have broken is worse than the trap named:
+     * `.time-actual` is a block-level flex container, so in inline flow it and the
+     * countdown would have stacked vertically instead of sharing a line -- the exact
+     * layout the design rejected. It was built as flex instead, which is why nothing here
+     * needed re-expressing.
+     */
+    it('leaves the configured icon alignment working where it actually applies', () => {
+      expect(declared('.location', 'align-items')).toBe(
+        'var(--calendar-card-event-icon-vertical-alignment)',
+      );
+      expect(declared('.description', 'align-items')).toBe(
+        'var(--calendar-card-event-icon-vertical-alignment)',
+      );
+    });
+
+    it('changes neither the layout mode nor the alignment of the time row', () => {
+      // The C5 invariant: column view adds no `display` or `align-items` override, so the
+      // row resolves identically in both views and whatever the shared rules decide keeps
+      // deciding. This is what fails if a future change reaches for inline flow.
+      expect(declared('.time', 'display')).toBe('flex');
+      expect(declared('.column-events .time', 'display')).toBe('');
+      expect(declared('.column-events .time', 'align-items')).toBe('');
+    });
+
+    it('keeps .time-actual a flex container, which is what makes the row work at all', () => {
+      // Two things depend on it. `.time .time-actual span` clamps with a literal
+      // -webkit-box, which is only safe while its parent blockifies it (see the
+      // blockification trap above). And in inline flow this box is block-level, so it
+      // would take a line of its own and push the countdown off the row entirely.
+      expect(declared('.time-actual', 'display')).toBe('flex');
+      expect(declared('.column-events .time-actual', 'display')).toBe('');
+    });
+  });
+
   describe('single-declaration invariants', () => {
     it.each(['.event-title', '.summary'])('%s is declared exactly once', (selector) => {
       // Both were split across two blocks at some point, which made the winning

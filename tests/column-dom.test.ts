@@ -88,6 +88,53 @@ function eventContents(container: ParentNode): string[] {
   );
 }
 
+/**
+ * `.event-content` blocks with the documented per-view **placements** folded back to a
+ * common position, so the two views can still be compared for everything else.
+ *
+ * The contract this serves is "identical except for documented per-view placements", and
+ * that is a widening of the original "identical", not an abandonment of it. It was
+ * already true in spirit: the weather badge has had a per-view placement since C2, and
+ * the byte-identity gate survived only because its configs happen to leave weather off.
+ * C5 gives the progress bar the same treatment, and `show_progress_bar` *is* turned on in
+ * one of those configs — so the exception has to become explicit rather than incidental.
+ *
+ * Folding rather than deleting is what keeps the assertion strong. The bar is moved back
+ * to the inline placement's position and stripped of its modifier class, so its presence,
+ * its remaining classes, its fill percentage and its inline style are all still compared;
+ * only *which parent it hangs from* is normalized. Deleting the node would have thrown
+ * all of that away along with the placement.
+ *
+ * Whitespace between tags is normalized because moving a node necessarily moves the text
+ * nodes around it — reattaching the bar leaves it flush against its new closing tag where
+ * the list view has a newline. That is very nearly the equivalence `list-dom.test.ts`'s
+ * serializer already applies (`>\s+<`), widened by one character to `>\s*<` so that "no
+ * whitespace between two tags" and "some whitespace between two tags" also compare equal,
+ * which is the precise artefact the fold creates. Whitespace *adjacent to text* still
+ * survives verbatim, which is the half that is load-bearing.
+ */
+function eventContentsAtCommonPlacement(container: ParentNode): string[] {
+  return Array.from(container.querySelectorAll('.event-content')).map((element) => {
+    const clone = element.cloneNode(true) as HTMLElement;
+
+    for (const bar of Array.from(clone.querySelectorAll('.progress-bar-row'))) {
+      const time = clone.querySelector('.time');
+      // Not a fallback: the row placement drops `.time` entirely when there is no time
+      // to show, and the inline placement emits an empty one. That is a real structural
+      // difference and must fail the comparison rather than be quietly papered over.
+      if (time === null) continue;
+      bar.classList.remove('progress-bar-row');
+      time.append(bar);
+    }
+
+    return clone.innerHTML
+      .replace(/<!--\?lit\$[0-9]+\$-->/g, '')
+      .replace(/<!---->/g, '')
+      .replace(/>\s*</g, '>\n<')
+      .trim();
+  });
+}
+
 describe('column view DOM', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -880,6 +927,18 @@ describe('column view DOM', () => {
     it('stays identical when display options are turned on', () => {
       // Default config leaves several branches unrendered, so equality under defaults
       // proves less than it appears to. This turns them on.
+      //
+      // Compared through `eventContentsAtCommonPlacement` rather than `eventContents`,
+      // and that is the deliberate widening C5 owes this gate. `show_progress_bar` is on
+      // here and the fixture set contains a currently-running event, so the bar renders
+      // in both views — inline in the list, in its own row in the column. The contract
+      // becomes "identical except for documented per-view placements": the helper folds
+      // the row back to the inline position and everything else, the bar's own fill
+      // included, is still compared. See that helper for why folding beats deleting.
+      //
+      // The test above deliberately keeps the strict comparison. Under default config no
+      // placement fires, so byte-identity still holds there and the stronger assertion is
+      // kept where it can be.
       const config = buildConfig({
         show_location: true,
         show_end_time: true,
@@ -888,9 +947,86 @@ describe('column view DOM', () => {
         split_multiday_events: true,
       });
 
-      expect(eventContents(renderColumnContainer(EVENTS, config))).toEqual(
+      expect(eventContentsAtCommonPlacement(renderColumnContainer(EVENTS, config))).toEqual(
+        eventContentsAtCommonPlacement(renderListContainer(EVENTS, config)),
+      );
+    });
+
+    it('proves the fold is doing work, not passing vacuously', () => {
+      // `eventContentsAtCommonPlacement` would be worthless if the two views happened to
+      // agree before it ran — the widening would then be hiding nothing and also proving
+      // nothing. This pins that the strict comparison genuinely fails on the same input,
+      // so the helper is neutralizing a real difference rather than decorating a pass.
+      const config = buildConfig({
+        show_progress_bar: true,
+        split_multiday_events: true,
+      });
+
+      expect(eventContents(renderColumnContainer(EVENTS, config))).not.toEqual(
         eventContents(renderListContainer(EVENTS, config)),
       );
+    });
+
+    it('moves the progress bar off the time row and into its own row', () => {
+      // The column half of C5, and the reason the gate above had to widen. Written as a
+      // differential against the list view for the same reason the weather-row test is:
+      // the placement only means anything relative to the other view, and asserting the
+      // column side alone would still pass if the list view drifted to match it.
+      const config = buildConfig({ show_progress_bar: true, split_multiday_events: true });
+
+      const column = renderColumnContainer(EVENTS, config);
+      const list = renderListContainer(EVENTS, config);
+
+      const columnBar = requireElement(column, '.progress-bar');
+      const listBar = requireElement(list, '.progress-bar');
+
+      // Column: a row of its own, hanging off .time-location rather than .time.
+      expect(columnBar.classList.contains('progress-bar-row')).toBe(true);
+      expect(columnBar.parentElement?.classList.contains('time-location')).toBe(true);
+      expect(column.querySelector('.time .progress-bar')).toBeNull();
+
+      // List: untouched. Still a child of the time row, still without the modifier.
+      expect(listBar.parentElement?.classList.contains('time')).toBe(true);
+      expect(list.querySelector('.progress-bar-row')).toBeNull();
+    });
+
+    it('puts the progress bar row above the time, between it and the title', () => {
+      // Ordering is the whole placement. `.time-location` is a column flex container, so
+      // DOM order is visual order and being *first* is what puts the bar under the title
+      // rather than under the description.
+      const config = buildConfig({ show_progress_bar: true, split_multiday_events: true });
+      const container = renderColumnContainer(EVENTS, config);
+
+      const row = requireElement(container, '.progress-bar-row');
+      const timeLocation = row.parentElement;
+
+      expect(timeLocation?.classList.contains('time-location')).toBe(true);
+
+      const children = Array.from(timeLocation?.children ?? []);
+      const timeIndex = children.findIndex((child) => child.classList.contains('time'));
+
+      expect(children[0]).toBe(row);
+      expect(timeIndex).toBeGreaterThan(0);
+    });
+
+    it('leaves the countdown inline with the time in both views', () => {
+      // The other half of C5 is CSS-only, and this is what pins that. The countdown must
+      // stay a child of `.time` in the column view: a row of its own was proposed and
+      // rejected, because every other row here leads with an icon and a bare text row
+      // reads as one whose icon has gone missing. If a future change reaches for the
+      // markup instead of the stylesheet, it fails here.
+      //
+      // The separator and the alignment are stylesheet invariants and live in
+      // `stylesheet.test.ts`; nothing in the DOM can see them.
+      const config = buildConfig({ show_countdown: true, split_multiday_events: true });
+
+      for (const container of [
+        renderColumnContainer(EVENTS, config),
+        renderListContainer(EVENTS, config),
+      ]) {
+        const countdown = requireElement(container, '.time-countdown');
+        expect(countdown.parentElement?.classList.contains('time')).toBe(true);
+      }
     });
 
     it('reuses the list view event classes, so accent styling is shared', () => {

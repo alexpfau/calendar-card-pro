@@ -591,6 +591,65 @@ export interface EventContentParts {
 }
 
 /**
+ * Per-view choices `renderEventContent` cannot derive for itself.
+ *
+ * An object rather than a positional tail, and that is a decision taken once rather
+ * than half-taken. The two placements below are both string unions containing `'row'`,
+ * so as positional arguments separated by `hass` they would read
+ * `(…, 'row', hass, 'row')` at the call site -- two identical literals meaning
+ * different things, with nothing but argument order to tell a reader which is which.
+ * Naming them removes the question. The precedent this replaces was positional, so the
+ * whole optional tail moved together; nothing is left half-converted.
+ */
+export interface EventContentOptions {
+  /** Fetched forecasts, if any. */
+  weatherForecasts?: Types.WeatherForecasts;
+  /**
+   * Where the event weather badge goes. `'title'` (the default, and the list view's
+   * behaviour) puts it on the summary row; `'row'` gives it its own row beneath the
+   * time.
+   */
+  weatherPlacement?: 'title' | 'row';
+  /**
+   * Where the progress bar goes. `'inline'` (the default, and the list view's
+   * behaviour) makes it a child of `.time`, right-aligned on that row; `'row'` gives
+   * it its own row above the time, between the title and the time.
+   *
+   * The countdown deliberately has no such parameter, and the asymmetry is the design.
+   * Inline, both wrap to a right-aligned position beneath the time once the row is too
+   * narrow to hold them -- invisible in a list, where the event cell is as wide as the
+   * card, and routine in a column, where it strands the element in dead space. The
+   * countdown is fixed in the stylesheet, by left-aligning it and marking the join with
+   * a separator, because it is *text* and reads as a continuation of the line above. A
+   * bar cannot be: it is a *graphic*, and a wrapped graphic reads as a mistake wherever
+   * it lands. So it gets a row instead.
+   *
+   * The reverse is equally true, which is why the countdown does not simply follow it
+   * onto a row: every other row here leads with an icon, so a bare *text* row reads as
+   * one whose icon has gone missing, while a bare *graphic* row reads as intentional.
+   *
+   * This can never produce a visually inconsistent event, because the two are strictly
+   * mutually exclusive -- `getCountdownString` returns `null` once the event has started
+   * and `progressPercentage` is non-null only while it is running, so a reader only ever
+   * sees one of them.
+   *
+   * 🚨 A note for anyone revisiting the countdown half. The C5 specification proposed
+   * dropping `display: flex` from `.time` in column view so the time and countdown would
+   * "wrap as one string rather than as two atomic boxes". They cannot: `.time-actual` is
+   * itself a flex container wrapping a `-webkit-box` clamp, so the time is an atomic
+   * inline-level box either way and the wrapping is identical. Inline flow would instead
+   * have stacked the two vertically -- `.time-actual` is block-level -- and taken
+   * `align-items` out of play. It was built as a flex row for that reason.
+   */
+  progressPlacement?: 'inline' | 'row';
+  /**
+   * Home Assistant instance, used only to localize the condition text the own-row
+   * weather placement can carry. Absent for the title placement, which has no words.
+   */
+  hass?: Types.Hass | null;
+}
+
+/**
  * Render the body of a single event: title row, time, location and description.
  *
  * Deliberately excludes the wrapper element. Accent colour, background, padding and the
@@ -612,25 +671,29 @@ export interface EventContentParts {
  * `renderEventWeather`; the insertion point moves, and so does what `show_conditions`
  * gates -- see that function for why the icon cannot be optional in this placement.
  *
+ * Progress placement is the second axis-dependent markup decision, and it is deliberately
+ * asymmetric with the countdown -- see `EventContentOptions.progressPlacement` for why
+ * that can never produce a visually inconsistent event.
+ *
  * @param event Event to render
  * @param config Card configuration
  * @param parts Pre-computed locals from the container - see `EventContentParts`
- * @param weatherForecasts Fetched forecasts, if any
- * @param weatherPlacement Where the event weather badge goes. `'title'` (the default, and
- *   the list view's behaviour) puts it on the summary row; `'row'` gives it its own row
- *   beneath the time.
- * @param hass Home Assistant instance, used only to localize the condition text the
- *   own-row placement can carry. Absent for the title placement, which has no words.
+ * @param options Per-view placement choices - see `EventContentOptions`. The defaults are
+ *   the list view's behaviour, so omitting it renders exactly what the list view renders.
  * @returns Rendered event body
  */
 export function renderEventContent(
   event: Types.CalendarEventData,
   config: Types.Config,
   parts: EventContentParts,
-  weatherForecasts?: Types.WeatherForecasts,
-  weatherPlacement: 'title' | 'row' = 'title',
-  hass?: Types.Hass | null,
+  options: EventContentOptions = {},
 ): TemplateResult {
+  const {
+    weatherForecasts,
+    weatherPlacement = 'title',
+    progressPlacement = 'inline',
+    hass,
+  } = options;
   const {
     eventTime,
     eventLocation,
@@ -639,6 +702,26 @@ export function renderEventContent(
     countdownStr,
     progressPercentage,
   } = parts;
+
+  // Asked once, so the two placements read off one answer and can never both fire.
+  const hasProgressBar = progressPercentage !== null && config.show_progress_bar;
+  const showInlineProgress = hasProgressBar && progressPlacement === 'inline';
+
+  // Resolved to a value for the same reason `weatherRow` is: an inline
+  // `${cond ? x : nothing}` would give one view a lit child-part the other lacks, and
+  // the byte-identity gate compares serialized DOM with markers included.
+  //
+  // `.progress-bar-row` is a modifier on the same element rather than a wrapper. The
+  // bar is already the box being sized and `.time-location` is already a column flex
+  // container, so a wrapper would add a node that does nothing but inherit a width.
+  const progressRow =
+    hasProgressBar && progressPlacement === 'row'
+      ? html`
+          <div class="progress-bar progress-bar-row">
+            <div class="progress-bar-filled" style="width: ${progressPercentage}%"></div>
+          </div>
+        `
+      : nothing;
 
   // Withholding the forecasts is what suppresses the title-row badge -- `renderEventTitle`
   // renders nothing without them. Deliberately not a second flag: one source of truth for
@@ -662,6 +745,7 @@ export function renderEventContent(
     <div class="event-content">
       ${renderEventTitle(event, config, titleForecasts)}
       <div class="time-location">
+        ${progressRow}
         ${shouldShowTime
           ? html`
               <div class="time">
@@ -671,7 +755,7 @@ export function renderEventContent(
                 </div>
                 ${countdownStr
                   ? html`<div class="time-countdown">${countdownStr}</div>`
-                  : progressPercentage !== null && config.show_progress_bar
+                  : showInlineProgress
                     ? html`
                         <div class="progress-bar">
                           <div
@@ -690,7 +774,7 @@ export function renderEventContent(
                   <div class="time-countdown">${countdownStr}</div>
                 </div>
               `
-            : progressPercentage !== null && config.show_progress_bar
+            : showInlineProgress
               ? html`
                   <div class="time">
                     <div class="time-actual"></div>

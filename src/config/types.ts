@@ -86,7 +86,7 @@ export interface Config {
   show_progress_bar: boolean;
   progress_bar_color: string;
   progress_bar_height: string;
-  progress_bar_width: string;
+  progress_bar_width?: string;
   event_icon_vertical_alignment: string;
   event_font_size: string;
   event_color: string;

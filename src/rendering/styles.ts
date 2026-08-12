@@ -37,7 +37,6 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-max-height': config.max_height,
     '--calendar-card-progress-bar-color': config.progress_bar_color,
     '--calendar-card-progress-bar-height': config.progress_bar_height,
-    '--calendar-card-progress-bar-width': config.progress_bar_width,
     '--calendar-card-icon-size-time': config.time_icon_size || '14px',
     '--calendar-card-icon-size-location': config.location_icon_size || '14px',
     '--calendar-card-icon-size-description': config.description_icon_size || '14px',
@@ -113,6 +112,17 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   };
 
   // Optional properties
+  //
+  // The progress bar's width is emitted only when the user set one, and that is what
+  // makes a per-placement default possible at all. Emitting it unconditionally would
+  // hand the stylesheet a value it cannot distinguish from a deliberate choice, so both
+  // the inline bar and the row would be pinned to whatever shipped here. Left absent,
+  // each `var()` reaches its own fallback; set, both resolve to the user's value --
+  // which is exactly the "a plain width, not a maximum" behaviour that was ruled.
+  if (config.progress_bar_width) {
+    props['--calendar-card-progress-bar-width'] = config.progress_bar_width;
+  }
+
   if (config.title_font_size) {
     props['--calendar-card-font-size-title'] = config.title_font_size;
   }
@@ -941,16 +951,31 @@ export const cardStyles = css`
 
   /* ===== PROGRESS BAR STYLES ===== */
 
-  /* margin-inline-start: auto for the same reason as .time-countdown -- it is the
+  /* Width falls back here rather than defaulting in DEFAULT_CONFIG, because the two
+     placements want different answers and a shipped default can only give one. 60px is
+     what the inline bar has always been. See leaves.ts progressPlacement.
+
+     margin-inline-start: auto for the same reason as .time-countdown -- it is the
      other element that can end up alone on the time row's second line. */
   .progress-bar {
-    width: var(--calendar-card-progress-bar-width);
+    width: var(--calendar-card-progress-bar-width, 60px);
     height: var(--calendar-card-progress-bar-height);
     background-color: color-mix(in srgb, var(--calendar-card-progress-bar-color) 20%, transparent);
     border-radius: 999px;
     overflow: hidden;
     margin-inline-start: auto;
     margin-inline-end: 12px;
+  }
+
+  /* The own-row placement. Must stay directly after .progress-bar: both selectors are one
+     class, so source order is what lets the modifier win. Unscoped on purpose -- this is
+     a placement, not a view. Flush left aligns it with the title above rather than the
+     time below. THE ROW WIDTH is the 75%, a percentage because the row is as wide as the
+     column; expect it to move once seen live. */
+  .progress-bar-row {
+    width: var(--calendar-card-progress-bar-width, 75%);
+    margin-inline-start: 0;
+    margin-top: 2px;
   }
 
   .progress-bar-filled {
@@ -1268,6 +1293,30 @@ export const cardStyles = css`
   .column-events .time-countdown,
   .column-events .progress-bar {
     margin-inline-end: 0;
+  }
+
+  /* The countdown in column view (C5). Stays inline with the time, marked off with a
+     middot; a row of its own was rejected because every other row leads with an icon and
+     a bare text row reads as one that lost its icon. The auto margin and space-between
+     together stranded it at the far right of an empty second line once the column got
+     narrow, so both go. Stays a flex row -- inline flow would stack .time-actual and the
+     countdown and drop align-items. Pinned in stylesheet.test.ts. */
+  .column-events .time {
+    justify-content: flex-start;
+  }
+
+  .column-events .time-countdown {
+    margin-inline-start: 0;
+    text-align: start;
+  }
+
+  /* Generated, not baked into the strings: the countdown is translated into 35 languages
+     and every one would then carry the punctuation in list view too. .time's column-gap
+     supplies the leading space; this matches it. Inside the nowrap box, so the separator
+     travels with the phrase instead of being orphaned at the end of the line. */
+  .column-events .time-countdown::before {
+    content: '·';
+    margin-inline-end: 8px;
   }
 
   /*

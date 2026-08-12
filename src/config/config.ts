@@ -88,7 +88,17 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_progress_bar: false,
   progress_bar_color: 'var(--secondary-text-color)',
   progress_bar_height: 'calc(var(--calendar-card-font-size-time) * 0.75)',
-  progress_bar_width: '60px',
+  // Deliberately absent, and the absence is the mechanism -- the same shape the weather
+  // block's `color` uses, for the same reason. The bar has two placements with genuinely
+  // different right answers: sharing the time row it wants to be small and fixed, owning
+  // a row of its own it wants to span that row. A shipped default cannot express that,
+  // because by the time CSS sees the value a width the user chose and one they never
+  // touched are the same string. So each placement supplies its own fallback in the
+  // stylesheet (`.progress-bar` / `.progress-bar-row`), and a value here overrides both.
+  //
+  // Unlike the weather block this key does not reach disk unbidden: it is a top-level
+  // scalar, so `filterDefaultValues` drops it from stored config until the user sets it.
+  progress_bar_width: undefined,
   event_icon_vertical_alignment: 'middle',
   event_font_size: '14px',
   event_color: 'var(--primary-text-color)',
