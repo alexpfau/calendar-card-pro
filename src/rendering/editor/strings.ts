@@ -80,11 +80,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.density.helper':
     'How narrow a column may get before the card gives up a column, and what it does ' +
     'when it runs out.',
-  'column.min_day_width': 'Minimum Column Width',
+  'column.min_day_width': 'Minimum Day Width',
   'column.min_day_width.helper':
     'The narrowest a day column may be. Raising it makes the card demand more width ' +
     'for the same number of columns.',
-  'column.min_days_to_show': 'Fewest Columns',
+  'column.min_days_to_show': 'Fewest Day Columns',
   'column.min_days_to_show.helper':
     'How far the card may reduce the column count to keep the layout. Defaults to the ' +
     'number of days shown, which means it never reduces.',

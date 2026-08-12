@@ -594,7 +594,7 @@ describe('editor: labels', () => {
   it('qualifies a label with the group it sits in', () => {
     const label = computeLabel('en', { name: 'min_day_width', selector: { text: {} } }, ['column']);
 
-    expect(label).toBe('Minimum Column Width');
+    expect(label).toBe('Minimum Day Width');
   });
 
   /**
@@ -608,7 +608,7 @@ describe('editor: labels', () => {
 
     expect(
       computeLabel('en', { name: 'min_day_width', selector: { text: {} } }, options.path),
-    ).toBe('Minimum Column Width');
+    ).toBe('Minimum Day Width');
   });
 
   it('falls back to a readable form rather than a raw key', () => {
