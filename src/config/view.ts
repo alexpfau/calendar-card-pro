@@ -610,6 +610,32 @@ export function viewForcesMultidaySplit(view: Types.EffectiveView): boolean {
 }
 
 /**
+ * The root CSS class that selects a view's layout rules, or `''` for the default.
+ *
+ * List view is the unclassed default: its rules are written unqualified and every other
+ * view opts out of them by adding a class. That is why this returns an empty string
+ * rather than a `list-view` class — adding one would mean requalifying the entire
+ * stylesheet, which is a much larger change than it appears and buys nothing.
+ *
+ * A mapping rather than a predicate, because the answer is not a yes or no: a third view
+ * needs a third class, and the alternative shape at the call site — a ternary on
+ * `=== 'column'` — silently hands a time grid (Phase 5) the *list* class, which is the
+ * one outcome that produces a broken layout rather than a visible error. Extend the
+ * switch when that view lands and the compiler will require the new case.
+ *
+ * @param view - View currently being rendered
+ * @returns The layout class name, or `''` when the view uses the unclassed default
+ */
+export function viewCssClass(view: Types.EffectiveView): string {
+  switch (view) {
+    case 'column':
+      return 'column-view';
+    case 'list':
+      return '';
+  }
+}
+
+/**
  * Resolves the effective value of an option for the view being rendered.
  *
  * In list view the top-level value always wins. In column view the `column:` block

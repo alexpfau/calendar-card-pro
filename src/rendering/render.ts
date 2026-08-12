@@ -13,6 +13,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
@@ -61,9 +62,9 @@ export function renderMainCardStructure(
 ): TemplateResult {
   return html`
     <ha-card
-      class="calendar-card-pro ${maxHeightSet ? 'max-height-set' : ''} ${effectiveView === 'column'
-        ? 'column-view'
-        : ''}"
+      class="calendar-card-pro ${maxHeightSet ? 'max-height-set' : ''} ${ViewConfig.viewCssClass(
+        effectiveView,
+      )}"
       style=${styleMap(customStyles)}
       tabindex="0"
       aria-busy=${isLoading ? 'true' : 'false'}
