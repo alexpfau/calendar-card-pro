@@ -475,6 +475,47 @@ describe('card stylesheet', () => {
     });
   });
 
+  describe('event icon vertical alignment reaches every row', () => {
+    /*
+     * Y5. `event_icon_vertical_alignment` was inert on the time row in both views, so a
+     * user setting `top` or `bottom` got two rows out of three and no indication why.
+     *
+     * Two things had to be true at once for that to hide. The shared
+     * `.time, .location, .description` rule does read the variable — so grepping for it
+     * found a hit and the option looked wired up — but `.time`'s own later rule sets
+     * `align-items: center` at equal specificity, and source order wins. And even had it
+     * applied, `.time`'s children are `.time-actual` plus a countdown or progress bar, so
+     * it would have tilted those and left the icon centred regardless: the icon is one
+     * level deeper.
+     *
+     * These tests are written against the *containers whose children are (icon, text)*,
+     * which is the property that actually governs the icon, rather than against a list of
+     * selectors someone happened to think of.
+     */
+    const ICON_ROWS = ['.location', '.description', '.time-actual'];
+
+    it.each(ICON_ROWS)('%s aligns its icon from the configured variable', (sel) => {
+      expect(declared(sel, 'align-items')).toBe(
+        'var(--calendar-card-event-icon-vertical-alignment)',
+      );
+    });
+
+    it('the time row itself stays centred, which is a different question', () => {
+      // Not an oversight: .time lays out siblings, not the icon. Restoring the variable
+      // here would tilt the countdown and still leave the icon centred -- the exact
+      // half-fix this test exists to prevent.
+      expect(declared('.time', 'align-items')).toBe('center');
+    });
+
+    it('no icon row hardcodes the alignment it is supposed to read', () => {
+      // The original bug in its general form: a literal value silently shadowing the
+      // variable. Asserted across all three rather than only the one that regressed.
+      for (const sel of ICON_ROWS) {
+        expect(declared(sel, 'align-items')).not.toBe('center');
+      }
+    });
+  });
+
   describe('single-declaration invariants', () => {
     it.each(['.event-title', '.summary'])('%s is declared exactly once', (selector) => {
       // Both were split across two blocks at some point, which made the winning

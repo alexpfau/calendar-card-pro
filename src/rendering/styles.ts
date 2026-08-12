@@ -747,6 +747,13 @@ export const cardStyles = css`
    *
    * The list view has a wide event cell and effectively never reaches either point; the
    * column view, whose narrowest track is 152px, reaches the first one routinely.
+   *
+   * align-items: center below is deliberate and overrides the shared
+   * .time, .location, .description rule at equal specificity by source order. It is
+   * about this row's siblings -- .time-actual against a countdown or progress bar --
+   * not about the icon, which is nested a level deeper. The icon's alignment is honoured
+   * on .time-actual; do not "restore" the variable here, because it would tilt the
+   * countdown and still leave the icon centred.
    */
   .time {
     font-size: var(--calendar-card-font-size-time);
@@ -767,9 +774,27 @@ export const cardStyles = css`
    * for it -- and removing the lock lets the time wrap instead of overflowing in the one
    * case wrapping cannot help, where the time alone is wider than the column.
    */
+  /*
+   * The icon's alignment lives here, not on .time.
+   *
+   * .time is a row of siblings -- this wrapper, plus a countdown or a progress bar --
+   * so its align-items positions those against each other and has nothing to say about
+   * where the icon sits relative to its own text. .time-actual is the container whose
+   * children are (icon, text), which is the same shape .location and .description
+   * have, so honouring the option here is what makes the three rows agree.
+   *
+   * That is also why the shared .time, .location, .description rule above cannot do it:
+   * .time's own later rule sets align-items: center at equal specificity and wins on
+   * source order, so the variable was dead there — and even had it applied, it would have
+   * moved the countdown rather than the icon. A user setting top or bottom was getting
+   * two rows out of three, silently, in both views.
+   *
+   * Safe to change: the option defaults to middle, which resolves to center, so a card
+   * that never set it renders identically and the DOM goldens do not move.
+   */
   .time-actual {
     display: flex;
-    align-items: center;
+    align-items: var(--calendar-card-event-icon-vertical-alignment);
   }
 
   /*
