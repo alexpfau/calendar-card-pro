@@ -1971,10 +1971,17 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    gate's whole value is that it is the one artefact the refactorer does not get to edit.
    Verified by running it, which the claim this replaces was not: **prettier *does* reformat
    inside `html` tagged templates** and will put deliberate whitespace straight back. It is
-   careful about *rendered* whitespace — it breaks as `</span\n><span` so no new text node
-   appears between inline elements — which is why this rarely bites, but it is not a
-   guarantee and it rewrites leading and trailing whitespace. **Deliberate whitespace needs
-   `// prettier-ignore`.** `leaves.ts` uses it on the weather badge.
+   careful about whitespace it *already finds* — existing templates round-trip unchanged,
+   and it breaks as `</span\n><span` so no new text node appears between inline elements.
+   That asymmetry is why the false claim survived: a template deliberately written to have
+   **no** whitespace is the one case that breaks, and it gets the indentation put straight
+   back. **Deliberate whitespace needs `// prettier-ignore`.** `leaves.ts` uses it on the
+   weather badge.
+   **Proving a snapshot diff is whitespace-only:** collapse only what the serializer
+   already normalises — `norm = (s) => s.replace(/>\s+</g, '><')` — and compare. A match
+   proves no text, text-adjacent-indentation, attribute or element change anywhere in the
+   file. Stripping *all* whitespace is weaker and will pass a real text-adjacent
+   regression.
    **Promoted here from Phase 1 in [v19].** It was written during Phase 1 and lived under a
    heading marked ✅ complete, where a reader checking the live constraints before touching a
    template would never see it — while the text itself says it "governs every later extraction".

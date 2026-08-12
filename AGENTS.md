@@ -142,17 +142,35 @@ indentation**, even where that looks wrong at the new nesting depth — which is
 **Prettier *does* reformat inside `html` tagged templates, and it will fight you here.**
 An earlier version of this file claimed the opposite, and that claim was wrong: run
 `npm run format` on a single-line template and it reflows the embedded HTML, re-indenting
-and breaking lines. What it is careful about is *rendered* whitespace — it breaks as
-`</span\n><span` precisely so no new text node appears between two inline elements — which
-is why this rarely bites and why the false claim survived. It is not a guarantee, and it
-does rewrite leading and trailing whitespace inside the template. **Deliberate whitespace
-needs `// prettier-ignore`**; `leaves.ts` uses it on the weather badge for exactly this
-reason, after `npm run format` put back the spaces a fix had just removed.
+and breaking lines. The reason the claim survived so long is an asymmetry worth knowing —
+**Prettier preserves significant whitespace it already finds, so existing templates
+round-trip unchanged**, and it breaks as `</span\n><span` so no new text node appears
+between inline elements. But a template deliberately written to have *none* gets the
+indentation put back. **Deliberate whitespace needs `// prettier-ignore`**; `leaves.ts`
+uses it on the weather badge, after `npm run format` reintroduced the exact spaces a fix
+had just removed and turned five snapshot tests red.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artefact the person doing the refactor
 does not get to edit. Fix the indentation, or — if the markup genuinely changed — read the
 diff line by line and commit it deliberately.
+
+**If you believe a snapshot diff is whitespace-only, prove it in one line rather than by
+eye.** The serializer touches whitespace *between tags only*, which makes the claim
+falsifiable:
+
+```js
+const norm = (s) => s.replace(/>\s+</g, '><');
+norm(before) === norm(after); // true  =>  inter-tag whitespace and nothing else
+```
+
+Because that collapses only what the serializer already normalises, a `true` proves there
+is no text change, **no text-adjacent indentation change**, and no attribute, class or
+element change — across the whole file, not just the hunks you looked at. Do **not**
+substitute `replace(/\s+/g, '')`: stripping *all* whitespace also discards the significant
+kind, so it will call a real text-adjacent regression clean. Check the entry count too
+(`^exports\[`), since `-u` prunes as well as rewrites and a silently dropped case looks
+like nothing at all.
 
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
 
