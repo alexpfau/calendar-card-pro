@@ -616,6 +616,13 @@ Full detail and source citations: [`multifile-distribution.md`](./multifile-dist
 >   registered it. The `?v=` propagated, which is the mechanism that replaced content
 >   hashes — a bare `editor-dev.js` here would have gone unnoticed until the next release
 >   served a stale editor.
+> - **3b — the editor opens through HA's real dialog. PASS.** Stronger than the probe
+>   above: the harness drove the actual edit-mode dialog on the two-file build and got a
+>   working editor — **130 fields, 23 expansion panels, schema-driven**, 63 `ha-input`,
+>   21 `ha-select`, 19 `ha-selector-boolean`. An earlier run of this reported the editor
+>   as failing to open; that was an out-of-range `--card` index, which produces output
+>   identical to a genuinely dead editor. Noted in the deploy skill so it does not
+>   mislead again.
 > - **4 — no duplicate registration. PASS.** No `NotSupportedError`, no page errors, no
 >   failed requests.
 > - **6 — deliberate 404. PASS.** With `editor-dev.js` deleted from the share, all five
