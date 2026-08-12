@@ -605,7 +605,39 @@ rendering, because HA awaits `getConfigElement()` (`frontend hui-element-editor.
 
 Full detail and source citations: [`multifile-distribution.md`](./multifile-distribution.md).
 
-#### The live checks — **open**, and the gate on shipping
+#### The live checks — **4 of 8 passed** on 2026-08-12 at `?v=288`
+
+> **Passed: 3, 4, 6 and 8.** Still open: 1, 2, 5 and 7 — all four need a real HACS
+> install/upgrade cycle or a YAML-mode dashboard, so none can be run from the dev deploy.
+>
+> - **3 — deferred fetch, with the query. PASS.** On dashboard load the browser fetched
+>   `calendar-card-pro-dev.js?v=288` and nothing else; `calendar-card-pro-dev-editor` was
+>   not registered; `getConfigElement()` then fetched **`editor-dev.js?v=288`** and
+>   registered it. The `?v=` propagated, which is the mechanism that replaced content
+>   hashes — a bare `editor-dev.js` here would have gone unnoticed until the next release
+>   served a stale editor.
+> - **4 — no duplicate registration. PASS.** No `NotSupportedError`, no page errors, no
+>   failed requests.
+> - **6 — deliberate 404. PASS.** With `editor-dev.js` deleted from the share, all five
+>   cards continued rendering and `getConfigElement()` rejected with the written message
+>   naming cause and fix, wrapping the platform error. **Zero unhandled rejections.** File
+>   restored and verified byte-identical afterwards.
+> - **8 — two Lit copies. PASS.** No `Multiple versions of Lit loaded` warning. The editor
+>   mounted fully: 4,680 nodes, 65 `ha-form`, 28 panels, 194 selectors, 57 inputs.
+>
+> **One thing found and cleared, worth recording.** The mounted editor emitted six
+> `Cannot read properties of undefined (reading 'localize')` errors. A/B against the
+> HACS-installed **single-file** production card produced the same class of error, so the
+> split did not introduce it; the higher count tracks the editor rewrite, which mounts
+> roughly three times as many HA selector components. Probably an artefact of mounting
+> outside HA's dialog, where `hass` is re-set on every state change. Not chased further,
+> but noted rather than dismissed.
+>
+> Both probes initially reported a false failure by using `document.querySelectorAll`,
+> which does **not** pierce shadow DOM — it reported zero cards on a page that had five.
+> Use a Playwright locator, which does.
+
+#### The live checks — **the four that remain**
 
 None of this can be proven from source, and the offline work above deliberately does not
 claim to have. Rewritten for the two-file shape: checks 2 and 3 named artefacts that no
