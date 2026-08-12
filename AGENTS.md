@@ -174,14 +174,16 @@ kind, so it will call a real text-adjacent regression clean. Check the entry cou
 (`^exports\[`), since `-u` prunes as well as rewrites and a silently dropped case looks
 like nothing at all.
 
-One deliberate exception, and it is not a typo to fix: `tests/column-dom.test.ts` has two
-normalisers. Its base `serialize()` uses `>\s+<` like `list-dom`, and the helper that folds
-the column's progress-bar row back to the inline position applies `>\s*<` — one character
-wider — on top. Reattaching a node leaves it flush against its new closing tag where the
-list view has a newline, so zero whitespace has to compare equal to some, which `\s+` will
-not do. The strict path is kept for the default-config comparison, where no placement fires
-and the stronger assertion costs nothing. Both are correct; the difference is the point, and
-it is explained at the helper's docblock.
+One deliberate exception, and it is not a typo to fix: `tests/column-dom.test.ts` carries
+**two independent normalisers**, one per comparison — neither calls the other.
+`serialize()` uses `>\s+<`, as `list-dom` does, and backs the strict default-config
+comparison where no placement fires and the stronger assertion costs nothing.
+`eventContentsAtCommonPlacement()`, which folds the column's progress-bar row back to the
+inline position, does its own marker-stripping and its own `>\s*<` — wider by one character
+because reattaching a node leaves it flush against its new closing tag where the list view
+has a newline, so zero whitespace has to compare equal to some, which `\s+` will not do.
+Both are correct; the difference is the point, and the reasoning is at the helper's
+docblock.
 
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
 
