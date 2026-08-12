@@ -591,3 +591,17 @@ explanation. It does not ship.
   open item for v4, including the ones no specification owns. **Read it before starting a
   stage and add to it when review turns something up**; it exists because findings kept
   living only in a chat thread, which is not a place work survives.
+
+These documents lean hard on the word *verified* — it appears over a hundred times across
+them — so it is worth saying what it has to mean. **A claim that no available case could
+have falsified has not been verified; it has been untested**, and "verified, not assumed" is
+the label most likely to end up attached to exactly that. The worked example is the Prettier
+claim above: every template in the tree at the time round-tripped through `npm run format`
+unchanged, so the check passed honestly and the proposition was untestable — the only case
+that breaks it did not exist until v4 work created it. The author was not careless; the
+claim was unfalsifiable.
+
+So when writing one: say **how** you checked, and prefer a claim that ships with its own
+falsifier. *"Delete `leaves.ts:122` and run `npm test`"* cannot go quietly stale the way
+*"prettier does not reformat templates"* did, because anyone who doubts it can settle it in
+thirty seconds.
