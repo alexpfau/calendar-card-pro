@@ -553,6 +553,18 @@ both directions, by importing the schema modules. A new field with no string fai
 - Match the existing module layout: `config/`, `interaction/`, `rendering/`,
   `translations/`, `utils/`.
 
+**Comment the stylesheets as freely as the TypeScript.** A `css` tagged template's contents
+are a string literal, so no minifier looks inside one — comments there used to ship to every
+user, and 65% of the stylesheet was comment. That is fixed at build time by the
+`strip-css-comments` plugin in `rollup.config.mjs`, which removes them from both
+`rendering/styles.ts` and `rendering/editor/styles.ts` and cost 29,264 raw / 10,879 gzip
+bytes off the eager path when it landed.
+
+This is worth stating because the alternative is worse than it looks: without knowing the
+plugin exists, the reasonable move is to keep CSS comments terse, and the reasoning in
+`styles.ts` is exactly where terse comments have already cost this project twice. Write the
+explanation. It does not ship.
+
 ## Reference
 
 - [`docs/architecture.md`](./docs/architecture.md) — module responsibilities, data flow,
