@@ -209,6 +209,29 @@ export function warn(message: string, ...data: unknown[]): void {
 }
 
 /**
+ * Log a configuration deprecation notice.
+ *
+ * Deliberately ungated, unlike `warn`. Production builds ship with the log level
+ * pinned to ERROR (`rollup.config.mjs` rewrites `CURRENT_LOG_LEVEL` to 0), so a
+ * `warn` call reaches nobody outside a dev build. That is the right trade for the
+ * running commentary — a stale cache entry or a failed unsubscribe is not the user's
+ * problem — but it is the wrong trade here: this message reports a setting the user
+ * wrote by hand that the card is throwing away, and they cannot act on advice they
+ * never see.
+ *
+ * Routed through `console.warn` rather than `error` because it is not an error: the
+ * card renders correctly, just not as configured.
+ */
+export function deprecation(message: string, ...data: unknown[]): void {
+  const [formattedMsg, styleArg] = formatLogMessage(message, LOG_STYLES.warn);
+  if (data.length > 0) {
+    console.warn(formattedMsg, styleArg, ...data);
+  } else {
+    console.warn(formattedMsg, styleArg);
+  }
+}
+
+/**
  * Log an info message
  */
 export function info(message: string, ...data: unknown[]): void {

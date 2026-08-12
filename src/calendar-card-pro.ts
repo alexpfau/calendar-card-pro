@@ -715,12 +715,13 @@ class CalendarCardPro extends LitElement {
   setConfig(config: Partial<Types.Config>): void {
     const previousConfig = this.config;
 
-    // First do the standard merging
-    let mergedConfig = { ...Config.DEFAULT_CONFIG, ...config };
+    // Inspect the raw config before the merge — afterwards every key is present and a
+    // removed one can no longer be told apart from one the user never wrote.
+    for (const message of Config.findDeprecatedKeys(config)) {
+      Logger.deprecation(message);
+    }
 
-    //============================================================================
-    // END OF DEPRECATED PARAMETERS HANDLING
-    //============================================================================
+    const mergedConfig = { ...Config.DEFAULT_CONFIG, ...config };
 
     this.config = mergedConfig;
     this.config.entities = Config.normalizeEntities(this.config.entities);
