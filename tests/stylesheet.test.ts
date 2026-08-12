@@ -267,6 +267,58 @@ describe('card stylesheet', () => {
       );
       expect(declared(selector, 'overflow')).toBe('hidden');
     });
+
+    /*
+     * The separators — C6. `.event-weather` is a flex container, which drops the
+     * whitespace between its items and strips each item's own edge whitespace, so
+     * every space the template contains is discarded and the row rendered as
+     * `30°UV4Sunny`. The rule below is what puts them back.
+     */
+    it('separates the text pieces with a middot', () => {
+      const selector = '.time-location .event-weather span + span::before';
+
+      // A middot, not a comma: Home Assistant's own condition vocabulary contains
+      // "Clear, night", and a comma separator would be indistinguishable from it.
+      expect(declared(selector, 'content')).toBe("'·'");
+      expect(declared(selector, 'margin-inline')).not.toBe('');
+    });
+
+    it('cannot reach the list view badge', () => {
+      // The scoping is the whole safety argument for a change made in CSS: a bare
+      // `.event-weather span + span::before` would separate the title-row badge too,
+      // which is a layout the maintainer has frozen.
+      const separators = RULES.filter((rule) =>
+        rule.selectors.some((s) => s.includes('span + span::before')),
+      );
+
+      expect(separators).toHaveLength(1);
+      expect(separators[0].selectors).toEqual([
+        '.time-location .event-weather span + span::before',
+      ]);
+    });
+
+    it('resets the two properties the UV index sets for the title row', () => {
+      // The margin is the title row's only separator and doubles up with the one
+      // above. The weight is the same reset .time-location .event-weather already
+      // performs on the container -- `font-weight: normal` is inherited, so a
+      // descendant declaring 500 outright still won, leaving the UV index the only
+      // semi-bold text in the event block.
+      const selector = '.time-location .event-weather .weather-uv-index';
+
+      expect(declared(selector, 'margin-inline-start')).toBe('0');
+      expect(declared(selector, 'font-weight')).toBe('normal');
+      expect(declared('.event-weather .weather-uv-index', 'margin-left')).toBe('2px');
+    });
+
+    it('relies on the list header being a flex container, which discards whitespace', () => {
+      // renderDateWeather emits no whitespace between its parts, which is what stops
+      // the column view's grid item rendering a phantom space before the temperature.
+      // The list view never showed that space because this container is flex and a
+      // whitespace-only anonymous flex item is not rendered -- so if this ever stops
+      // being flex, the removal above stops being invisible there too.
+      expect(declared('.date-column .weather', 'display')).toBe('flex');
+      expect(declared('.column-date-content .weather', 'display')).toBe('');
+    });
   });
 
   describe('single-declaration invariants', () => {

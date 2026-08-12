@@ -48,7 +48,7 @@ This flexible configuration allows you to create a personalized experience that 
 | `date → uv_index_threshold`       | number  | `0`                         | Only show UV index when it exceeds this value (0 = always show when enabled)                |
 | `date → icon_size`                | string  | `14px`                      | Size of weather icons in date column                                                        |
 | `date → font_size`                | string  | `12px`                      | Size of weather text in date column                                                         |
-| `date → color`                    | string  | `var(--primary-text-color)` | Color of weather text and icons in date column                                              |
+| `date → color`                    | string  | `var(--primary-text-color)` | Color of weather text and icons in date column. Matches the weekday, day number and month it sits beside |
 | `event → show_conditions`         | boolean | `true`                      | List layout: whether to show the condition icon. Column layout: whether to state the condition in words — the icon is always shown |
 | `event → show_temp`               | boolean | `true`                      | Whether to show temperature in event column                                                 |
 | `event → show_uv_index`           | boolean | `false`                     | Whether to show UV index in event column                                                    |
@@ -57,7 +57,7 @@ This flexible configuration allows you to create a personalized experience that 
 | `event → max_lines`               | number  | `0`                         | Maximum number of lines the event weather row may use (0 = unlimited). Truncated text shows `...` |
 | `event → icon_size`               | string  | `14px`                      | Size of weather icons in event column                                                       |
 | `event → font_size`               | string  | `12px`                      | Size of weather text in event column                                                        |
-| `event → color`                   | string  | `var(--primary-text-color)` | Color of weather text and icons in event column                                             |
+| `event → color`                   | string  | `var(--secondary-text-color)` | Color of weather text and icons beside events. Matches the time and location it sits beside |
 
 These sit under the card's `weather` option — see [Weather in the configuration reference](/reference/configuration#weather).
 
@@ -126,14 +126,30 @@ weather:
   entity: weather.forecast_home
   position: event
   event:
-    show_conditions: true # Column layout: adds "Partly cloudy" beside the temperature
+    show_conditions: true # Column layout: states the condition in words
     show_temp: true
+    show_uv_index: true
     max_lines: 1 # Keep the row to one line, truncating the words if needed
 ```
 
+The pieces are separated by a middot, in the order the icon, the temperature, the UV
+index and finally the words — so the example above reads `21° · UV4 · Partly cloudy`.
+Only the pieces you switched on appear, and the separator appears only between two of
+them, never after the icon.
+
+A middot rather than a comma, because Home Assistant's own condition vocabulary
+contains `Clear, night`: with a comma there would be nothing to tell the card's
+separators apart from the one inside the translated condition. It is also why the
+condition keeps the capital letter Home Assistant gave it — each piece reads as a label
+of its own rather than as a sentence.
+
 The words come from Home Assistant, in whatever language it is set to, so a German
-instance reads `Teilweise bewölkt 21°` with no extra configuration. An instance too old
-to provide them simply shows the icon and the temperature.
+instance reads `21° · Teilweise bewölkt` with no extra configuration. An instance too
+old to provide them simply shows the icon and the temperature.
+
+The row also takes its color from the time and location rows above it rather than from
+the event title, so it reads as one of the event's detail rows. Set
+`weather → event → color` to override that for both layouts.
 
 Because the words are the longest thing in a narrow row, they are also the only part
 that shrinks: the temperature and the UV index are never truncated, and the condition

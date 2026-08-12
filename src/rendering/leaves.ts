@@ -85,25 +85,59 @@ export function renderDateWeather(
   // Get styling from config
   const iconSize = dateConfig.icon_size || '14px';
   const fontSize = dateConfig.font_size || '12px';
+
+  // The day header's own colour, and it is `--primary-text-color` on purpose rather
+  // than by inheritance from the badge's other placement: this badge's neighbours are
+  // the weekday, day number and month, all three of which default to the primary
+  // colour. The event row's neighbours are the time and location, which are secondary.
+  // Two placements, two right answers -- see DEFAULT_CONFIG for why neither is shipped.
   const color = dateConfig.color || 'var(--primary-text-color)';
 
+  // Written with no whitespace between the parts, which is load-bearing rather than
+  // stylistic and is the opposite of the rule at the top of this file.
+  //
+  // `.date-column .weather` is `display: flex`, and a flex container drops the
+  // whitespace between its items -- so in the list view the indentation this template
+  // would otherwise carry costs nothing and is invisible. `.column-date-content
+  // .weather` is a grid *item*, not a flex container: there the very same text nodes
+  // collapse to a real rendered space, which put the temperature roughly a space and a
+  // half from the icon instead of the 1px `margin-right` the stylesheet asks for.
+  //
+  // Fixed here rather than by flexing the column container, which would have been the
+  // shorter change and the wrong one: that container carries `text-overflow: ellipsis`
+  // and `white-space: nowrap`, both of which need a block container, so flexing it
+  // trades a spacing bug for a truncation bug.
+  //
+  // Note this is not only the icon-to-temperature gap the report named. The same
+  // phantom space sat between the temperature and the UV index, where it was added to
+  // the 2px margin that is supposed to be the whole gap. Removing the whitespace makes
+  // every gap in this badge identical in the two views, which is what the acceptance
+  // criterion actually asks for.
+  //
+  // Each part therefore begins immediately after the previous `}`. The line breaks that
+  // keep this readable are placed *inside* the `${ }`, where they are JavaScript rather
+  // than template text and so reach no DOM. `prettier-ignore` is what keeps them there:
+  // Prettier formats embedded HTML inside `html` templates, and left to itself it puts
+  // the indentation -- and the bug -- straight back.
+  // prettier-ignore
   return html`
-    <div class="weather" style="font-size: ${fontSize}; color: ${color};">
-      ${showConditions
-        ? html`
-            <ha-icon .icon=${dailyForecast.icon} style="--mdc-icon-size: ${iconSize};"></ha-icon>
-          `
-        : nothing}
-      ${showHighTemp
-        ? html` <span class="weather-temp-high">${dailyForecast.temperature}°</span> `
-        : nothing}
-      ${showLowTemp
-        ? html` <span class="weather-temp-low">/${dailyForecast.templow}°</span> `
-        : nothing}
-      ${showUvIndex
-        ? html` <span class="weather-uv-index">UV${dailyForecast.uv_index}</span> `
-        : nothing}
-    </div>
+    <div class="weather" style="font-size: ${fontSize}; color: ${color};">${
+      showConditions
+        ? html`<ha-icon .icon=${dailyForecast.icon} style="--mdc-icon-size: ${iconSize};"></ha-icon>`
+        : nothing
+    }${
+      showHighTemp
+        ? html`<span class="weather-temp-high">${dailyForecast.temperature}°</span>`
+        : nothing
+    }${
+      showLowTemp
+        ? html`<span class="weather-temp-low">/${dailyForecast.templow}°</span>`
+        : nothing
+    }${
+      showUvIndex
+        ? html`<span class="weather-uv-index">UV${dailyForecast.uv_index}</span>`
+        : nothing
+    }</div>
   `;
 }
 
@@ -454,18 +488,66 @@ export function renderEventWeather(
   // Get styling from config
   const iconSize = eventConfig.icon_size || '14px';
   const fontSize = eventConfig.font_size || '12px';
+
+  // One colour for the whole badge, resolved once. `--secondary-text-color` is what
+  // this placement's neighbours use -- the time and location rows in the column
+  // layout, and it is also what the title-row badge has always rendered for a
+  // hand-written card, because a user's `weather:` block replaces DEFAULT_CONFIG's
+  // sub-tree whole and there was never a `color` in it to find.
   const color = eventConfig.color || 'var(--secondary-text-color)';
+
+  // The icon takes the same colour, but only in its own row.
+  //
+  // It previously took none at all and inherited, which put a primary-coloured glyph
+  // in front of secondary-coloured text -- invisible on the title row, where the badge
+  // floats beside an equally dark summary, and obvious in the column layout, where the
+  // row sits directly beneath a time and a location whose icons are grey.
+  //
+  // Withheld from the title placement deliberately. Colouring it there would be more
+  // consistent, and it is not worth it: the list view is frozen, the change would show
+  // up in the DOM snapshots, and the badge reads correctly as it is. Keyed on the
+  // placement rather than on the view, so a future layout that asks for the row
+  // inherits the fix.
+  const iconStyle = ownRow
+    ? `--mdc-icon-size: ${iconSize}; color: ${color};`
+    : `--mdc-icon-size: ${iconSize};`;
 
   // Render weather with position-specific options.
   //
   // The words come last, after both numbers. Deliberate, and the reason is
   // weather.event.max_lines: whatever truncates eats the condition and never the
   // temperature or the UV index, which are the two fields a user configured on purpose.
+  //
+  // No separators are emitted here. The pieces are optional and independent, so a
+  // template that placed its own separators would have to enumerate every combination
+  // of the three, and would emit a stray one the moment a fourth piece is added. They
+  // are supplied instead by `span + span::before` in the stylesheet, which follows from
+  // which pieces are actually present and never fires after the icon, because the icon
+  // is not a span. That also keeps the markup identical in both placements, so the DOM
+  // snapshots stay untouched.
+  //
+  // Two decisions about the composed string live here rather than beside that rule,
+  // because they are about the text and not about the CSS -- and because comments in
+  // this file are stripped from the bundle, while comments inside the `css` template
+  // literal ship to every dashboard verbatim.
+  //
+  // **A middot, not a comma.** Home Assistant's own condition vocabulary contains
+  // "Clear, night". With a comma the row would read `20°, UV 0, Clear, night`, in which
+  // nothing distinguishes our separator from the one inside the translated string.
+  //
+  // **The condition keeps its capital.** Lowercasing it reads better in English and is
+  // the obvious thing to reach for; it is also wrong in some of the 35 languages the
+  // card ships, and it is not our string to edit -- Home Assistant translated it. The
+  // middot dissolves the question rather than trading it away: it makes each piece a
+  // standalone chip, and Home Assistant's own capitalisation reads correctly there.
+  //
+  // **`UV4` stays closed up.** The middot has already made three chips of the row, and
+  // a space inside `UV 4` would split a fourth at the same visual weight as the
+  // separators, weakening the grouping the middot just created. It also keeps this
+  // spelling identical to the day header's, which is not separated at all.
   return html`
     <div class="event-weather">
-      ${showIcon
-        ? html`<ha-icon .icon=${forecast.icon} style="--mdc-icon-size: ${iconSize};"></ha-icon>`
-        : nothing}
+      ${showIcon ? html`<ha-icon .icon=${forecast.icon} style="${iconStyle}"></ha-icon>` : nothing}
       ${showTemp
         ? html`<span style="font-size: ${fontSize}; color: ${color};">
             ${forecast.temperature}°
