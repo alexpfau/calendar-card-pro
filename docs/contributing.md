@@ -21,6 +21,39 @@ Want to improve **Calendar Card Pro**? I welcome contributions of all kinds—wh
 
 💡 For detailed contribution guidelines, see [CONTRIBUTING.md](https://github.com/alexpfau/calendar-card-pro/blob/dev/CONTRIBUTING.md).
 
+### Reporting a Bug
+
+Released builds log errors only. Everything below that — the running commentary about
+caching, refreshes and rendering — is compiled out, so the console stays quiet on a
+normal dashboard.
+
+That is the right default, but it is unhelpful when something *is* wrong. To turn the
+detail back on, open your browser's developer console and run:
+
+```js
+window.calendarCardProDebug = true;
+```
+
+Then reload the page and reproduce the problem. The card picks the flag up on its next
+render, so no reinstall or rebuild is needed. Include the resulting console output in
+your issue — it usually identifies the cause immediately.
+
+For finer control, set a level instead: `0` errors only, `1` adds warnings, `2` adds
+information, `3` adds full debug output.
+
+```js
+window.calendarCardProLogLevel = 1;
+```
+
+Neither setting persists. Reloading with the line removed, or simply opening the
+dashboard in a new tab, returns the card to its normal quiet behavior.
+
+::: tip Warnings Are Worth Reading
+Level `1` is the useful one for configuration problems. Several warnings report a
+setting the card could not use and what it fell back to — for example an invalid
+`start_date` — which is exactly the information a bug report needs.
+:::
+
 ## 📅 Roadmap & Planned Features
 
 I am continuously working on improving **Calendar Card Pro**. Here’s what’s planned for upcoming releases:

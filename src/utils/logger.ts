@@ -17,7 +17,57 @@ export enum LogLevel {
 }
 
 // Use the constant from constants.ts as the default value
-let currentLogLevel = Constants.LOGGING.CURRENT_LOG_LEVEL;
+const currentLogLevel = Constants.LOGGING.CURRENT_LOG_LEVEL;
+
+/**
+ * The window keys a user can set to raise the log level on a production build.
+ *
+ * Production pins `CURRENT_LOG_LEVEL` to `ERROR` (`rollup.config.mjs` rewrites it), so
+ * every `warn`, `info` and `debug` call is invisible to real users — including the
+ * user-actionable ones such as *"Invalid start_date … falling back to today"*. That is
+ * the right default: the running commentary is not the user's problem, and a card that
+ * chatters in the console is a card people file bugs about.
+ *
+ * It is the wrong behaviour when someone is *trying* to report a bug, though, and the
+ * alternative — deciding case by case which of the 17 `warn` sites deserve to ship —
+ * is a judgement that has to be re-made every time a call site is added, and gets it
+ * wrong silently. Letting the user ask for the detail instead needs no such judgement:
+ * the default stays quiet and diagnostics are one line away, with no rebuild and no
+ * release.
+ */
+interface LogLevelOverrideHost {
+  calendarCardProDebug?: unknown;
+  calendarCardProLogLevel?: unknown;
+}
+
+/**
+ * Resolve the log level in force for this call.
+ *
+ * Read per call rather than cached at module load, so a user can turn logging on from
+ * the console and reload nothing — the card re-renders on the next Home Assistant state
+ * change, and every subsequent call observes the new level. The cost is one property
+ * lookup on a call that is about to early-return anyway.
+ *
+ * @returns The effective level: a numeric override if one is set and valid, `DEBUG` if
+ *   the boolean flag is on, otherwise the compiled-in default
+ */
+function effectiveLogLevel(): LogLevel {
+  const host = globalThis as unknown as LogLevelOverrideHost;
+
+  const explicit = host.calendarCardProLogLevel;
+  if (
+    typeof explicit === 'number' &&
+    Number.isInteger(explicit) &&
+    explicit >= LogLevel.ERROR &&
+    explicit <= LogLevel.DEBUG
+  ) {
+    return explicit;
+  }
+
+  if (host.calendarCardProDebug === true) return LogLevel.DEBUG;
+
+  return currentLogLevel;
+}
 
 // Styling for log messages - keeping in logger-utils.ts
 const LOG_STYLES = {
@@ -118,7 +168,7 @@ export function error(
   context?: string | Record<string, unknown> | unknown,
   ...data: unknown[]
 ): void {
-  if (currentLogLevel < LogLevel.ERROR) return;
+  if (effectiveLogLevel() < LogLevel.ERROR) return;
 
   // Convert unknown context to a safe format
   const safeContext = formatUnknownContext(context);
@@ -264,7 +314,7 @@ function simpleLog(
   consoleMethod: (...args: unknown[]) => void,
   ...data: unknown[]
 ): void {
-  if (currentLogLevel < level) return;
+  if (effectiveLogLevel() < level) return;
 
   const [formattedMsg, styleArg] = formatLogMessage(message, style);
   if (data.length > 0) {
