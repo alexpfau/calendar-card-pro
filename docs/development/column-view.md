@@ -1933,6 +1933,20 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    `show_empty_days: false`, which is the _same_ suppression the list view already applies — so
    the existing window is correct and no reconciliation is needed. What remains is narrow: prove
    the resolved (not raw) `show_empty_days` value feeds both the count and the grouping.
+8. **🚨 The whitespace trap — binds every template edit, not just extractions. [v19]**
+   The DOM gate's serializer normalises whitespace **between tags only** (`/>\s+</g` → `>\n<`).
+   Whitespace **adjacent to a text node survives verbatim into the snapshot**, so the literal
+   source indentation of an event title is part of the oracle. The rule: **preserve the original
+   absolute indentation verbatim inside every moved template, even when it looks wrong at the new
+   nesting depth.** If a snapshot diff appears, it is a whitespace error — fix the indentation.
+   **Never run `vitest -u`** to make it go away; that launders the change past review, and the
+   gate's whole value is that it is the one artefact the refactorer does not get to edit.
+   Verified, not assumed: prettier does not reformat inside `html` tagged templates, so
+   `npm run format` cannot silently break this.
+   **Promoted here from Phase 1 in [v19].** It was written during Phase 1 and lived under a
+   heading marked ✅ complete, where a reader checking the live constraints before touching a
+   template would never see it — while the text itself says it "governs every later extraction".
+   The full derivation stays in [§C Phase 1](#phase-1--shared-leaf-renderers--ships-3x--risk-low--complete).
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#f-constraints-that-bind-implementation)
 

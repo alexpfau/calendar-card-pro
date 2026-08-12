@@ -103,6 +103,20 @@ defaulting to `false` renders nothing and is invisible to it unless a test sets 
 branches were missed that way, including two the suite existed to protect. When you add a
 config option, add a test that turns it on.
 
+**A snapshot diff you did not intend is usually a whitespace error, not a rendering
+change.** The serializer normalises whitespace *between tags only*; whitespace adjacent to
+a text node survives verbatim, so the literal source indentation inside an `html` template
+is part of the oracle. Moving a template therefore means **preserving its original absolute
+indentation**, even where that looks wrong at the new nesting depth — which is why
+`leaves.ts` carries function bodies indented as though they were still nested. Prettier does
+not reformat inside `html` tagged templates, so `npm run format` will not do it for you and
+cannot silently break it either.
+
+**Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
+and the gate's entire value is that it is the one artefact the person doing the refactor
+does not get to edit. Fix the indentation, or — if the markup genuinely changed — read the
+diff line by line and commit it deliberately.
+
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
 
 ## Branch model
