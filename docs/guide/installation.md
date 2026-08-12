@@ -41,14 +41,14 @@ type: module
 
 5. **Clear cache & refresh** your browser to apply changes.
 
-::: warning Extract Every File
-The card is not a single file. `calendar-card-pro.js` is a small entry point that loads
-the rest — including the visual editor, which is fetched only when you open it, so a
-dashboard never downloads it. All of the files must sit in the same folder, and only
-`calendar-card-pro.js` is named as a resource.
+::: warning Extract Both Files
+The card ships as two files: `calendar-card-pro.js` and `editor.js`. Both must sit in the
+same folder, and only `calendar-card-pro.js` is named as a resource — the card fetches the
+editor itself, the first time you open it, so a dashboard never downloads it.
 
-Copying just `calendar-card-pro.js` leaves you with a card that cannot load. HACS handles
-this for you, which is why it is the recommended route.
+Copying just `calendar-card-pro.js` leaves you with a card that renders normally but
+cannot be configured: opening the visual editor reports that a file is missing. HACS
+handles all of this for you, which is why it is the recommended route.
 :::
 
 </details>

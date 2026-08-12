@@ -10,10 +10,10 @@
  * never open.
  *
  * Nothing here is reachable from the card. The only import of this module is in
- * `src/rendering/editor/index.ts`, which the card reaches through a dynamic `import()`
- * in `getConfigElement()` — so these files land in the editor's chunk. HACS still
- * downloads that chunk to disk (it fetches every release asset), but a browser only
- * fetches and parses it when someone opens the editor.
+ * `src/rendering/editor/index.ts`, which is the entry of a separate build — so these
+ * files land in `editor.js`, which the card fetches by URL when someone opens the
+ * editor. HACS still downloads that file to disk (it fetches every release asset), but
+ * a browser only fetches and parses it when someone opens the editor.
  *
  * **These sections are dormant and are deliberately kept.** They belong to the editor
  * that was replaced; the schema-driven one resolves its own strings from
@@ -69,8 +69,8 @@ let registered = false;
  * Merge every editor section into the language registry.
  *
  * Called at module scope from `src/rendering/editor/index.ts`, so it has run by the
- * time `getConfigElement()` resolves — the `await import()` completes only after the
- * chunk's modules have evaluated, and the editor element is created after that.
+ * time `getConfigElement()` resolves — the `await import()` completes only after that
+ * file's modules have evaluated, and the editor element is created after that.
  *
  * Idempotent, because `getConfigElement()` can be called more than once and because
  * merging the same sections twice should cost nothing.

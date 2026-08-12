@@ -32,46 +32,75 @@ enough that people will otherwise get it wrong.
 | `npm test`             | — (vitest, single run)          |                         |         |
 | `npm run check:i18n`   | — (translation wiring check)    |                         |         |
 | `npm run check:docs`   | — (docs/config parity check)    |                         |         |
-| `npm run check:bundle` | — (emitted-chunk check)         |                         |         |
+| `npm run check:bundle` | — (emitted-file check)          |                         |         |
 
 Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
 command Cloudflare runs), and `docs:preview` (serve the built output).
 
-**The card is no longer one file.** Both builds emit a small facade under the name in the
-table above plus content-hashed chunks beside it — `calendar-card-pro-<hash>.js` and
-`editor-<hash>.js` — and the editor is fetched only when someone opens it, which keeps
-the editor and its translations off every dashboard load. `hacs.json` still names the
-facade and needs no change; HACS downloads every asset attached to a release, and
-`filename` only selects which one becomes the Lovelace resource. Two consequences worth
-holding on to: **nothing may import back from the entry** (see `scripts/check-bundle.mjs`
-for why that would kill the card), and **every emitted file must sit directly in `dist/`**,
-because HACS fetches no subdirectories. `npm run check:bundle` enforces both.
+**The card ships as two files.** `rollup.config.mjs` exports an **array of two configs**,
+so each build emits the name in the table above plus an `editor.js` (`editor-dev.js`)
+beside it, and the editor is fetched only when someone opens it — which keeps it and its
+translations off every dashboard load. Both files are self-contained bundles with stable,
+human-readable names. `hacs.json` names the card and needs no change; HACS downloads every
+asset attached to a release, and `filename` only selects which one becomes the Lovelace
+resource. Three consequences worth holding on to: **neither file may import the other**,
+**every emitted file must sit directly in `dist/`** because HACS fetches no
+subdirectories, and **`import.meta` must survive into the output** (below). `npm run
+check:bundle` enforces all three.
 
-**Why three files and not two.** The obvious layout — the card in
-`calendar-card-pro.js` and the editor beside it — is the one thing that cannot work. The
-editor shares the config model, helpers and view logic with the card, so its chunk has to
-import them; if they lived in the entry, that import would read `./calendar-card-pro.js`
-while HACS had loaded the very same file as `./calendar-card-pro.js?hacstag=…`. A browser
-treats those as two different modules, evaluates the card twice, and the second
-`customElements.define` throws — dead editor, and a card that may not render either. So the
-entry is reduced to a facade whose only job is to be the stable URL HACS registers, and all
-real code sits behind content-hashed names that are only ever referenced relatively. The
-alternative, duplicating the shared modules into the editor chunk, would ship them twice
-*and* give the two copies separate module state — two translation registries, two logger
-levels — which is worse than the problem it solves.
+**Why two builds and not one build with code-splitting.** Rollup, given one entry and a
+dynamic `import()`, puts the modules the card and editor share into a chunk that the
+editor imports *back from the card*. That is the one thing which cannot work here: the
+import would read `./calendar-card-pro.js` while HACS had loaded that very file as
+`./calendar-card-pro.js?hacstag=…`, and a browser treats those as two different modules.
+The card evaluates twice, the second `customElements.define` throws, and the editor is
+dead — possibly the card too. Two entries remove the trap at its root rather than working
+around it: no emitted file imports another at all, so there is nothing for the query to
+be dropped from. The card names the editor through a URL it computes at runtime
+(`src/utils/editor-url.ts`), which is invisible to both module graphs.
+
+The cost is that the shared modules are **duplicated into the editor** — measured at
++16.8 KB gzip, paid only by people who open it. Two things make that acceptable rather
+than merely tolerable. The eager path got *smaller*: a split entry has to export its
+shared modules, and exported symbols resist mangling and inlining, so collapsing the card
+into one self-contained file saved 1.1 KB gzip on the file everyone loads. And the
+duplicated module state is inert — the card never reads a string the editor registered,
+the editor resolves its own; `CURRENT_LOG_LEVEL` is a build-time constant and identical in
+both; and the once-per-session banner flag is only ever touched card-side. Check that
+this still holds before moving anything shared and mutable across the boundary.
+
+**Cache-busting is by query propagation, not by content hash.** `/hacsfiles/**` is served
+`max-age=2678400` — one month — and HACS appends `?hacstag=` to the *registered resource
+only*, so a sibling file gets no cache-buster of its own. `getConfigElement()` therefore
+copies the card's own query onto the editor's URL, making the editor bust exactly when the
+card busts. It is strictly better than the content hashes it replaced, which never
+responded to the dev deploy's `?v=` bump at all: a hash only changes when the editor
+itself changes, so a shared-module change reloaded the card and left a stale editor.
+
+🚨 **`import.meta` compiles to `{}` under esbuild `target: 'es2017'`.** That makes
+`import.meta.url` `undefined` and the editor unloadable, and it is invisible to every
+other gate — it typechecks, builds, lints and tests clean. `supported: { 'import-meta':
+true }` in the `esbuild()` options is what prevents it, and `check:bundle` asserts the
+result. Do not remove either.
 
 **The two builds are not interchangeable.** `rollup.config.mjs` switches on `NODE_ENV`
-and rewrites both the output filename _and_ the custom element name, so a dev build
+and rewrites both output filenames _and_ the custom element names, so a dev build
 registers as `calendar-card-pro-dev` / `calendar-card-pro-dev-editor` and emits
-`-dev`-suffixed chunks. This is deliberate: it lets a dev build run side by side with the
+`-dev`-suffixed files. This is deliberate: it lets a dev build run side by side with the
 HACS-installed release in the same Home Assistant instance. Never hand someone a
-`npm run build` artifact for local testing — they need the `-dev` one.
+`npm run build` artifact for local testing — they need the `-dev` one. The editor filename
+the card names follows the same `replace()` mechanism as the element names; a mismatch
+there is a dead editor that builds perfectly and 404s only when someone opens it.
 
 `npm run dev` runs `rollup -c --watch` and does not exit. For a one-shot dev build in
-automation, use `npx rollup -c` (same config, no watcher). Either way the build wipes
-`dist/` first: chunk names carry a content hash, so builds do not overwrite each other and
-a stale chunk would otherwise be published by the release workflow's `dist/*.js` glob.
+automation, use `npx rollup -c` (same config, no watcher). Either way the build first
+removes anything in `dist/` it will not itself write — not the whole directory, because
+the watcher rebuilds only the config whose inputs moved and a wipe would delete the editor
+on every card-only edit. What it is guarding against is the *other* variant's output: dev
+and production files have different names, so without it a `npm run build` after a
+`npm run dev` would leave the dev pair behind for `release.yml`'s `dist/*.js` glob to
+publish.
 
 There **is** a test suite — Vitest with happy-dom, in `tests/`. It does not aim at coverage;
 it pins the things that have actually broken (the translation wiring, config normalization)
@@ -413,8 +442,8 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    English — so translate as much as you like and leave the rest. `check:i18n` reports the
    gap as a **warning**, not an error.
 
-   These files are reachable **only** from `src/rendering/editor/`, so they load with the
-   editor's chunk rather than on every dashboard load. That is 88.4% of the translation
+   These files are reachable **only** from `src/rendering/editor/`, so they are built into
+   `editor.js` rather than loaded on every dashboard load. That is 88.4% of the translation
    payload moved off the eager path, and it is why they may not go back into `languages/`.
    A new file also needs an `import` **and** an `EDITOR_TRANSLATIONS` entry in
    `editor-languages/index.ts`, under a lowercase key naming a language that already

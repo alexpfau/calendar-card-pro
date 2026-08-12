@@ -68,14 +68,17 @@ jobs:
       - name: Build
         run: npm run build
 
-      # The card ships as a facade plus content-hashed chunks, and every way that can go
-      # wrong is silent at build time and fatal in a browser. The one that matters most:
-      # HACS appends ?hacstag= to the registered resource, relative specifiers resolve
-      # with the query dropped, so a chunk importing back from the entry makes the
-      # browser evaluate the whole card twice — "NotSupportedError: the name has already
-      # been used with this registry", dead editor. The first experimental split produced
-      # exactly that. The reference card that hit it first documented it as a comment in
-      # its Rollup config, which is why this is a check.
+      # The card ships as two self-contained files, and every way that can go wrong is
+      # silent at build time and fatal in a browser. Two matter most. HACS appends
+      # ?hacstag= to the registered resource and relative specifiers resolve with the
+      # query dropped, so a file importing the card back makes the browser evaluate the
+      # whole card twice — "NotSupportedError: the name has already been used with this
+      # registry", dead editor. Separate builds prevent it; merging them back into one
+      # with code-splitting brings it straight back, which is why this is a check and not
+      # a comment — the reference card that hit it first documented it as a comment in its
+      # Rollup config. And esbuild's target: 'es2017' lowers import.meta to `{}` unless
+      # told otherwise, which leaves the editor unloadable while typecheck, lint, tests
+      # and the build itself all pass.
       #
       # Also carries the sourcemap assertions this step used to hold inline (#315, #358):
       # same rule, that we never ship a reference to a file we do not publish.

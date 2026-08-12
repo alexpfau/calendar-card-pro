@@ -94,9 +94,10 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
 2. **Extract all files** into your Home Assistant `www` folder:  
    /config/www/
 
-   The card ships as several files: `calendar-card-pro.js` plus the chunks it loads. They
-   must all sit in the same folder, and `calendar-card-pro.js` is the only one you name
-   as a resource. HACS does this for you, which is why it is the recommended route.
+   The card ships as two files: `calendar-card-pro.js` and `editor.js`. Both must sit in
+   the same folder, and `calendar-card-pro.js` is the only one you name as a resource —
+   the card loads the editor itself, when you open it. HACS does all of this for you,
+   which is why it is the recommended route.
 
 3. **Navigate to:**
    Home Assistant → Settings → Dashboards → Resources → Add Resource

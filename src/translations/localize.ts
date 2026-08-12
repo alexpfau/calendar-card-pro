@@ -414,10 +414,10 @@ export function addTranslations(language: string, translations: Types.Translatio
  *
  * The editor's strings are not shipped on the eager path. They live in
  * `./editor-languages/`, are reachable only from `src/rendering/editor/`, and land in
- * the chunk the card dynamically imports when someone opens the editor — so for the
- * users who never do, they are downloaded to disk by HACS and never parsed by a
+ * `editor.js` — the file the card fetches by URL when someone opens the editor — so for
+ * the users who never do, they are downloaded to disk by HACS and never parsed by a
  * browser. This is the function that puts them back where `translate()` looks once
- * that chunk has loaded.
+ * that file has loaded.
  *
  * Merging, not replacing, and that distinction is the whole reason this exists rather
  * than reusing `addTranslations`: the card's own strings for a language are already in
