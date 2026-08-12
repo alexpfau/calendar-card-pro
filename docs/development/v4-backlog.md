@@ -106,53 +106,71 @@ Detail in [`column-view.md`](./column-view.md).
 
 #### C5 — the countdown and progress bar row
 
-**Observed.** With wide enough day columns the progress bar sits exactly where the countdown
-sits, which is correct and matches list view by design. As the column narrows and the time
-and the bar no longer fit on one line, the bar wraps onto a second line **right-aligned**,
-which reads oddly — arguably for the countdown too.
+**Observed in a live dev build.** At generous column width both look right, matching list
+view by design. As the column narrows and the time and the sibling no longer share a line,
+the sibling wraps and lands **right-aligned in dead space** — see the maintainer's
+screenshots. It reads as broken for the progress bar and questionable for the countdown.
 
-**Proposed.** In **column view only**, put the countdown and the progress bar on a dedicated
-row directly under the time, always rather than only when they do not fit. No icon, and
-left-aligned with the time *text* rather than with the icon.
+**A dedicated left-aligned row was proposed and then rejected**, on four grounds worth
+recording because they rule out the obvious fix:
 
-**Why it happens.** `.time` is a wrapping flex row (`styles.ts:724-734`) holding
-`.time-actual` and then either `.time-countdown` or `.progress-bar` — they are mutually
-exclusive, countdown winning when both apply (`leaves.ts:541-552`). Both siblings carry
-`margin-inline-start: auto`, which right-aligns them. That is deliberate and documented at
-`styles.ts:756`: under `justify-content: space-between` a lone item on the second line would
-otherwise sit at flex-start and "read as a stray fragment rather than a right-hand column".
-So the current behaviour is a considered answer to the same problem, chosen for list view
-where the second line spans the full card width. In a 140px column that reasoning inverts —
-the fragment is now the *right*-aligned one.
+1. Every other row (time, location, description) leads with an icon; a bare text row reads
+   as one with a *missing* icon.
+2. The countdown belongs to the time and reads that way, but a two-row time means the time
+   icon can no longer be vertically centred against what it labels — including when the
+   user has explicitly configured icon alignment.
+3. Countdown strings are lowercase (`in 2 days`) because they were written to trail other
+   text. Left-aligned at the start of a row, that reads as a typo.
+4. If the time text itself wraps to two lines, the countdown lands on a third line beneath
+   a nearly empty second one.
 
-**The constraint that shapes the fix.** `tests/column-dom.test.ts:725` asserts the two views
-render event content **byte-identically**, and it is called "the load-bearing test in this
-file". Its sibling at `:750` explicitly turns `show_countdown` and `show_progress_bar` on. A
-column-only *DOM* row would break both by design.
+**Ruled instead: treat the two differently, because they are never both present.**
+`getCountdownString` returns `null` once `startDate <= now` (`format.ts`), and
+`progressPercentage` is non-null only while the event is running
+(`presentation.ts:162-165`). Countdown means *not yet started*; the bar means *running now*.
+They are **strictly mutually exclusive**, so an asymmetric treatment can never produce a
+visually inconsistent event — a reader only ever sees one of the two.
 
-**Therefore: do this in CSS, not in the template.** The container already carries a
-`column-view` class (`render.ts:63-65`) and already scopes rules, so:
+- **Countdown: always inline with the time**, separated by a middot, never on its own line.
+  Lowercase then reads correctly because it is trailing text again, which dissolves
+  objection 3, and there is no second row, which dissolves 1, 2 and 4.
+- **Progress bar: its own row**, between the event title and the time, spanning a width to
+  be settled. A bar is a *graphic*, not text — a graphic with no icon reads as intentional
+  where a bare text row reads as broken. That is precisely why the asymmetry works.
 
-- inside `.column-view`, give `.time-actual` a `flex-basis: 100%` so the sibling always
-  wraps onto its own line;
-- replace the sibling's `margin-inline-start: auto` with a left indent that aligns it to the
-  time text — **`calc(var(--calendar-card-icon-size-time, 14px) + 4px)`**, derived rather
-  than hardcoded because `time_icon_size` is configurable (`styles.ts:41`, and the 4px is
-  the shared `ha-icon` margin at `:874`).
+**Feasibility: both are buildable. They differ in cost.**
 
-Zero DOM change, so the byte-identity gate is untouched, and no new config key.
+*Countdown inline* is close to CSS-only. `.time` is a wrapping flex row; inside
+`.column-view` it becomes an inline text flow so the time and countdown wrap as one string
+rather than as two atomic boxes, with the separator supplied by a `::before`. **The
+complication to plan for:** `--calendar-card-event-icon-vertical-alignment` is applied
+through `align-items` on a flex container (`styles.ts:664-670`). Inline flow governs icon
+position with `vertical-align` instead, so the configured alignment must be mapped across
+or it silently stops working — which is objection 2 arriving through the back door.
 
-**Two open parameters for the maintainer:**
+*Progress bar in its own row* needs a DOM change: it is currently a child of `.time`
+(`leaves.ts:541-552`) and must become a sibling within `.time-location`, which is already
+`flex-direction: column` (`styles.ts:658-661`), so ordering it above `.time` is then
+trivial. CSS alone cannot lift an element out of its parent.
 
-1. **Does the countdown get the same treatment, or only the progress bar?** Recommend both —
-   a rule that applies to one of two mutually exclusive siblings would make an event's layout
-   depend on whether it happens to be running.
-2. **How wide is the bar on its own row?** Today it is a fixed `progress_bar_width`, default
-   `60px` (`config.ts:91`). On a dedicated row the natural answer is to let it **fill the
-   available width** — self-scaling, no percentage to tune, and it turns the bar into a
-   readable indicator rather than a 60px stub. Recommend filling, with `progress_bar_width`
-   reinterpreted as a maximum so anyone who set it is not overridden. The alternative, a
-   percentage of column width, needs a new key and a value nobody can guess well.
+**This follows an existing precedent rather than inventing one.** `renderEventContent`
+already takes `weatherPlacement: 'title' | 'row'` for exactly this shape of per-view
+difference. Add `progressPlacement: 'inline' | 'row'`, defaulted so list view is unchanged.
+
+**The one thing that must be done deliberately:** `tests/column-dom.test.ts:725` asserts the
+two views render event content byte-identically, and `:750` turns `show_progress_bar` on
+explicitly. That contract has to widen to *"identical except for documented per-view
+placements"*. It is already true in spirit — the weather row is a per-view difference and
+survives only because the test configs leave weather off — so this makes an existing
+exception explicit rather than creating a new one. Widen it by asserting equality with the
+placement parameter held constant, so the test still proves both views share the leaf, which
+is what it exists for.
+
+**Still open: how wide is the bar on its own row?** Today it is a fixed `progress_bar_width`,
+default `60px` (`config.ts:91`). On a dedicated row the natural answer is to fill the
+available width, with `progress_bar_width` reinterpreted as a maximum so anyone who set it
+is not overridden. A percentage of column width would need a new key and a default nobody
+can guess well.
 
 | C3 | **Named view predicates** | Open | 13 binary `=== 'column'` / `!== 'list'` gates remain outside the editor. `events.ts` in particular gates compact limits with reasoning its own comment applies to *any* grid layout, yet excludes only column. The editor has zero such gates and a test enforcing it; `src/` does not. Raised by the grid-view feasibility review; `column-view.md` forbids the pattern. Cheap now, structural debt once a third view exists. |
 | C4 | **Column view as its own docs page** | Open | It is 175 lines and seven subsections inside `core-settings.md` — the largest section there, and a view mode rather than a core setting. Every other major feature has its own page and a nav entry. Needs every inbound link updated, since `ignoreDeadLinks` is off. |
