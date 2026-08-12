@@ -180,6 +180,73 @@ export function toValidNumber(value: unknown, minimum = 0): number | undefined {
 }
 
 /**
+ * Config keys removed in the v3.0.0 API cleanup, mapped to their replacements.
+ *
+ * The removal was deliberate — the runtime no longer understands these names. The
+ * visual editor offers a one-click upgrade for them, but a user who configures the
+ * card in YAML and never opens the editor gets no signal at all: the value is simply
+ * ignored and the replacement key silently takes its default. `warnDeprecatedKeys`
+ * closes that gap by naming the replacement on the console.
+ *
+ * This is the single source of truth — the editor's upgrade path reads it too, so a
+ * key can never be offered for migration in one place and unknown in the other.
+ */
+export const DEPRECATED_CONFIG_MAP: Readonly<Record<string, string>> = {
+  max_events_to_show: 'compact_events_to_show',
+  vertical_line_color: 'accent_color',
+  horizontal_line_width: 'day_separator_width',
+  horizontal_line_color: 'day_separator_color',
+  row_spacing: 'day_spacing',
+};
+
+/**
+ * Per-entity config keys removed in the same cleanup, mapped to their replacements.
+ */
+export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
+  max_events_to_show: 'compact_events_to_show',
+};
+
+/**
+ * Reports removed config keys found in the raw user configuration.
+ *
+ * Reads the config *as the user wrote it*, before the merge with `DEFAULT_CONFIG`
+ * fills every key in — afterwards a removed key is indistinguishable from an absent
+ * one. Entity entries are inspected in place because `normalizeEntities` has not run
+ * yet and a string entry carries no options.
+ *
+ * @param config - Raw configuration passed to `setConfig`
+ * @returns Human-readable messages, one per removed key found; empty when the config is clean
+ */
+export function findDeprecatedKeys(config: Partial<Types.Config>): string[] {
+  const raw = config as Record<string, unknown>;
+  const messages: string[] = [];
+
+  for (const [oldKey, newKey] of Object.entries(DEPRECATED_CONFIG_MAP)) {
+    if (oldKey in raw) {
+      messages.push(`"${oldKey}" was removed in v3.0.0 and is being ignored — use "${newKey}"`);
+    }
+  }
+
+  const entities = raw.entities;
+  if (Array.isArray(entities)) {
+    entities.forEach((entity, index) => {
+      if (typeof entity !== 'object' || entity === null) return;
+      const entry = entity as Record<string, unknown>;
+
+      for (const [oldKey, newKey] of Object.entries(DEPRECATED_ENTITY_CONFIG_MAP)) {
+        if (oldKey in entry) {
+          messages.push(
+            `"${oldKey}" on entities[${index}] was removed in v3.0.0 and is being ignored — use "${newKey}"`,
+          );
+        }
+      }
+    });
+  }
+
+  return messages;
+}
+
+/**
  * Sanitizes every numeric option so invalid values fall back to their defaults.
  *
  * Applied on each `setConfig` call, which means configurations already saved with an
