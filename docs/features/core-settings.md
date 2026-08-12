@@ -208,18 +208,16 @@ These flexible view controls allow you to:
 
 `view` chooses how the card arranges the days it shows. The default, `list`, stacks each day above the next down the card. `column` places the days side by side, one column each, so a week reads across rather than down.
 
-::: warning Under Development
-Column view is being built for v4.0.0. `view: column` is accepted by the configuration but does not change the layout yet, so the card still renders as a list.
-:::
-
 ```yaml
 view: column
 days_to_show: 5
 ```
 
+Column view is responsive by design. A day column has a minimum readable width, so as the card narrows the layout gives up columns one at a time, and eventually falls back to the list layout entirely. That means a card configured `view: column` renders **as a list** on a narrow dashboard or a phone — both layouts are live for the same card, and both are worth configuring. See [Falling Back to the List Layout](#falling-back-to-the-list-layout).
+
 ### Overriding Options in Column View
 
-A column is far narrower than a full-width row, so a value tuned for the list layout is often wrong in a column. The `column:` block holds the values that apply only when the card renders as columns. Anything the block does not mention keeps its top-level value.
+A column is far narrower than a full-width row, so a value tuned for the list layout is often wrong in a column. The `column:` block holds the values that apply only when the card renders as columns. Anything the block does not mention keeps its top-level value, with two deliberate exceptions covered in [Options That Start From a Different Default](#options-that-start-from-a-different-default).
 
 ```yaml
 show_location: true
@@ -240,6 +238,29 @@ column:
 What decides the outcome is whether the block mentions an option at all, not what value it holds. `show_location: false` inside the block is a real instruction to hide the location, not an empty value that falls back to the top level.
 
 The block covers the card's dimensions too, and that is where it earns its keep most often: the same events laid out side by side are far shorter than they are stacked, so a `height` or `max_height` tuned for one view is usually wrong for the other. See [Height in Column View](/features/layout-appearance#height-in-column-view).
+
+### Options That Start From a Different Default
+
+Two options mean something different once days sit side by side, so column view starts them from its own default rather than from yours.
+
+| Option | Type | Default | Column Default |
+| ------ | ---- | ------- | -------------- |
+| `show_empty_days` | boolean | `false` | `true` |
+| `split_multiday_events` | boolean | `false` | `true` |
+
+A list of events reads perfectly well with the blank days left out. A row of day columns does not: drop the empty ones and the columns stop corresponding to consecutive days, so the card quietly becomes something other than it appears. The same reasoning applies to a multi-day event — a column _is_ a day, so an event spanning three of them belongs in all three.
+
+These two do **not** inherit the top-level value at all. Setting `show_empty_days: false` at the top level changes the list layout only; column view keeps showing empty days. The way to change it for columns is the block:
+
+```yaml
+show_empty_days: false # list view hides them
+column:
+  show_empty_days: false # columns hide them too
+```
+
+::: tip Why Not Simply Inherit It
+Inheriting only when you had not set the value yourself would need the card to remember which options you typed and which merely defaulted — and it would produce the odd result that two cards behaving identically in list view render differently in column view, depending on whether a value was typed or left alone. A default you can read in a table beats a rule you cannot see in your own YAML.
+:::
 
 ### Options That Cannot Be Overridden
 

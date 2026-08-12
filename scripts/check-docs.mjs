@@ -1070,6 +1070,73 @@ function report(counts) {
   return 0;
 }
 
+// ---------------------------------------------------------------------------
+// Check 17 — options whose column-view default differs are documented as such
+// ---------------------------------------------------------------------------
+
+/**
+ * `COLUMN_DEFAULT_OVERRIDES` is the only place where the default printed in the
+ * reference table is *wrong* for one of the two layouts the same card renders —
+ * and it is wrong silently. A key listed there does not inherit its top-level
+ * value in column view at all: the column default stands until the `column:`
+ * block overrides it.
+ *
+ * Check 16 reconciles `COLUMN_DEFAULTS`, the column-*only* keys, and knows
+ * nothing about this constant. That gap is not hypothetical: both entries shipped
+ * undocumented, with `show_empty_days` and `split_multiday_events` each
+ * advertising `false` in the reference while column view used `true`, and every
+ * gate stayed green throughout.
+ *
+ * The required phrasing is deliberately fixed rather than fuzzy-matched. A rule
+ * of "mentions the word column somewhere" passes on a description that merely
+ * links to the column page, which is exactly the near-miss that would let this
+ * regress. Rewording is still allowed — it just has to carry this clause.
+ */
+function readColumnDefaultOverrides() {
+  const src = readFileSync(VIEW_TS, 'utf8');
+  const block = src.match(/COLUMN_DEFAULT_OVERRIDES[^=]*=\s*\{([\s\S]*?)\n\}/);
+  if (!block) {
+    console.error(
+      `\n✗ FATAL: could not locate COLUMN_DEFAULT_OVERRIDES in ${relative(ROOT, VIEW_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+
+  const out = new Map();
+  for (const line of block[1].split('\n')) {
+    const m = line.match(/^ {2}([a-z0-9_]+):\s*(.+?),?\s*$/);
+    if (m) out.set(m[1], m[2].replace(/,\s*$/, '').trim());
+  }
+  assertFound(out, 'COLUMN_DEFAULT_OVERRIDES keys', VIEW_TS);
+  return out;
+}
+
+function checkColumnDefaultOverrides(overrides) {
+  const doc = readFileSync(REFERENCE_DOC, 'utf8');
+  const descriptions = new Map();
+  for (const line of doc.split('\n')) {
+    const m = line.match(/^\|\s*`([a-z0-9_]+)`\s*\|([^|]*)\|([^|]*)\|([^|]*)\|/);
+    if (m) descriptions.set(m[1], m[4].trim());
+  }
+
+  for (const [key, value] of overrides) {
+    const description = descriptions.get(key);
+    if (description === undefined) {
+      error(
+        `${key}: in COLUMN_DEFAULT_OVERRIDES but has no row in docs/reference/configuration.md`,
+      );
+      continue;
+    }
+    const required = `Column view defaults this to \`${value}\``;
+    if (!description.includes(required)) {
+      error(
+        `${key}: column view defaults it to \`${value}\`, but its reference row does not say so — ` +
+          `the description must contain "${required}"`,
+      );
+    }
+  }
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -1079,6 +1146,7 @@ function main() {
 
   checkDefaults(defaults, rows, buildConstantResolver());
   checkColumnDefaults(readColumnDefaults(), readColumnRows());
+  checkColumnDefaultOverrides(readColumnDefaultOverrides());
   checkCoverage(fields, docs);
   checkFences(docs);
   const complete = checkCopyableExamples(docs);
