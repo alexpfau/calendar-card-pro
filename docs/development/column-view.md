@@ -153,6 +153,30 @@ Carry-overs that still apply, to the **column** container only:
 
 **Verified against:** `origin/dev` @ `29b8226`.
 
+> **[v17] Superseded — the sentinel was not built, and will not be.** Ruled by the
+> maintainer on 2026-08-12: `show_empty_days` **stays `boolean`**. It is not widened to
+> `boolean | null`, there is no `Automatic` option, and no resolver reads an unset value.
+>
+> What ships instead is the general mechanism rather than a key-specific one:
+> `show_empty_days` is a member of both `COLUMN_DEFAULT_OVERRIDES` and
+> `COLUMN_OVERRIDE_KEYS` (`view.ts:436`, `:35`). In column view the column default of
+> `true` **stands on its own and does not inherit the top-level value at all**; the escape
+> hatch is `column: { show_empty_days: false }`. That delivers every outcome the three-row
+> table below describes, without a sentinel and without a third control state.
+>
+> This is the same move [v8] already made against kind 4 in D5 — the override block turned
+> out to be the general solution that a per-key special case was approximating. The
+> argument is recorded at `view.ts:404-431`, including why the rule is deliberately *not*
+> "inherit unless the user said otherwise": that variant needs a record of which keys were
+> typed by hand, and makes two cards with identical effective list behaviour render
+> differently in column view depending on whether a value was typed or defaulted.
+>
+> **What survives:** everything below about what the two views need — a list reads fine
+> with blank days omitted, a column grid does not, because the columns stop corresponding
+> to consecutive days. That requirement is unchanged and is exactly what the column default
+> satisfies. **What does not:** the `null` row of the table, the `boolean | null` widening,
+> the 3-option select, and the `show_week_numbers` sentinel pattern cited as precedent.
+
 `days_to_show` bounds a **calendar-day window** (`events.ts:1287-1293`; hard post-filter
 `:71-92`). `show_empty_days: false` filters empty days out of the rendered set (`:393-398`);
 `show_empty_days: true` generates placeholder days (`:505-545`, `:561-598`, placeholder
@@ -410,6 +434,33 @@ staircase is render-side and costs zero `callApi` invocations — the same G10 g
 governs the view switch itself.
 
 The mechanism is specified in D6-B.
+
+---
+
+### A3-H. The view vocabulary is `list` / `column` / `grid` **[v17]**
+
+**Ruled by the maintainer, 2026-08-12.** The `view` key takes exactly these three values.
+`list` and `column` ship in v4.0.0; `grid` is reserved now and built later (Phase 5).
+
+Nothing is added to the code for `grid` — this ruling reserves the *name*, nothing else.
+`validateView` continues to reject it until the view exists.
+
+**Why decide it before building it.** `view: column` becomes user-authored YAML at v4.0.0,
+and after that the value is effectively unrenameable. The runtime gained a deprecation
+*notice* in `dev` (PR #408) but still has no migration path: a renamed key is reported on
+the console and then ignored, and `DEPRECATED_CONFIG_MAP` is consulted only by the editor's
+upgrader. So a later rename of a shipped `view` value would silently revert affected cards
+to `list`. Naming the third value now costs nothing and prevents an inconsistent trio.
+
+Two candidates were rejected:
+
+- **`time-grid`**, used on the frozen `alexpfau-review-339-time-grid` branch. Rejected as a
+  compound where the siblings are single words, and because `time-` describes the axis of
+  one possible grid rather than the view's identity.
+- **`day-grid`**, for the same reason in the other direction.
+
+`grid` also matches the vocabulary already used throughout the grid-view feasibility
+assessment, so no existing analysis needs restating.
 
 ---
 
@@ -1139,6 +1190,26 @@ is the A3-C.4 mitigation.
 ### D5. Forced config, override taxonomy, and week numbers
 
 The adapter must express three per-view behaviour kinds without leaving inert editor toggles:
+
+> **[v17] Two of the three rows below are superseded.** The middle row still stands.
+>
+> **Kind 1 — the auto sentinel was not built.** `show_empty_days` ships as a plain
+> `boolean`; per-view defaults are expressed by `COLUMN_DEFAULT_OVERRIDES` plus the
+> `column:` block, not by a `null` value in the flat key. See the [v17] banner on A3-B.
+> This is the second time the override block has absorbed a kind from this table — [v8]
+> removed kind 4 for the same reason, recorded in the note directly below. The taxonomy is
+> therefore now **two** kinds, not three: *forced* and *inert*. A per-view default is no
+> longer a kind at all, because it is no longer an editor problem — it is a config
+> resolution problem, solved before the editor sees a value.
+>
+> **Kind 3 — "Hidden" is wrong, and D8 says so at length.** Inert keys are **annotated,
+> never hidden**. The reason is structural rather than aesthetic: the narrow-viewport
+> fallback belongs to `column` itself, so a card configured `view: column` renders **as a
+> list** below its threshold. Both layouts are live for the same card at the same time, and
+> hiding a list-only control because column is selected removes the only control for the
+> layout that card actually uses on a phone. The key is not inert for the card; it is inert
+> for one of the two layouts the card renders. The full argument, and the
+> conditional-`helper-text` idiom that should ship instead, are in D8.
 
 | Kind                                                          | Example                                                   | Editor treatment                  |
 | ------------------------------------------------------------- | --------------------------------------------------------- | --------------------------------- |
