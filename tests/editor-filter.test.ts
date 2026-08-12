@@ -21,7 +21,7 @@ import {
 } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
-import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
+import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
 import { CHASSIS_STRINGS, chassisSubforms } from '../src/rendering/editor/subforms';
 
 /**
@@ -396,6 +396,48 @@ describe('editor filter: the per-calendar settings', () => {
     );
 
     expect(fieldNames(kept)).toEqual(['show_time']);
+  });
+
+  /**
+   * The label's shape dropdown is derived from the label's value and stores nothing of
+   * its own. Asked in its own name, "customized only" would therefore hide it while
+   * leaving the label it names on screen — a control with no way back to *None*.
+   */
+  it('keeps the label shape dropdown wherever it keeps the label', () => {
+    const config = buildConfig({
+      entities: [{ entity: 'calendar.a', label: 'mdi:home' }, 'calendar.b'],
+    });
+    const ctx = ctxFor(config, { customizedOnly: true });
+
+    const configured = filterEntitySchema(
+      entitySchemaFor(entitySchema(config), 'icon'),
+      config.entities[0],
+      ENTITY_PATH,
+      ctx,
+    );
+    expect(fieldNames(configured)).toEqual(['label_type', 'label']);
+
+    // A calendar with no label of its own keeps neither, so its panel drops out whole.
+    const untouched = filterEntitySchema(
+      entitySchemaFor(entitySchema(config), 'none'),
+      config.entities[1],
+      ENTITY_PATH,
+      ctx,
+    );
+    expect(fieldNames(untouched)).toEqual([]);
+  });
+
+  it('finds the label shape by searching for the label', () => {
+    const config = buildConfig({ entities: [{ entity: 'calendar.a', label: 'Work' }] });
+
+    const kept = filterEntitySchema(
+      entitySchemaFor(entitySchema(config), 'text'),
+      config.entities[0],
+      ENTITY_PATH,
+      ctxFor(config, { query: 'label' }),
+    );
+
+    expect(fieldNames(kept)).toEqual(['label_type', 'label']);
   });
 
   it('keeps a calendar whole when the search names it', () => {

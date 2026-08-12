@@ -41,8 +41,10 @@ import {
   computeLabel,
   computeSubformHelper,
 } from '../src/rendering/editor/localize';
+import * as Overrides from '../src/rendering/editor/overrides';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildDayHeaderSchema } from '../src/rendering/editor/schemas/day-header';
+import { entitySchemaFor } from '../src/rendering/editor/schemas/entity';
 import { buildLayoutSchema, widthTableRows } from '../src/rendering/editor/schemas/layout';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { exceptionSubforms } from '../src/rendering/editor/subforms';
@@ -1177,6 +1179,43 @@ describe('editor: the panel set', () => {
     }
   });
 
+  /**
+   * A helper that repeats its label is worse than no helper: it costs a line of vertical
+   * space and teaches the reader that helpers are not worth reading. Two shipped that
+   * way — the card-height mode restated its own three option labels in prose, and the
+   * today-indicator group said "a mark on the current day" under the heading *Today
+   * Indicator* — and both are deleted rather than rewritten, because there was nothing
+   * left for them to say.
+   *
+   * Pinned as a rule rather than as a list, so a new one fails here instead of being
+   * caught in review. The test is deliberately narrow: it asks only whether every word
+   * of the helper is already in the label, which is the one case that is unambiguous.
+   */
+  it('never writes a helper that only repeats its label', () => {
+    const words = (text: string) =>
+      text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter(Boolean);
+
+    const filler = new Set(['the', 'a', 'an', 'of', 'to', 'for', 'and', 'this', 'is', 'in', 'it']);
+
+    const offenders = Object.keys(EDITOR_STRINGS)
+      .filter((key) => key.endsWith('.helper'))
+      .filter((key) => {
+        const label = EDITOR_STRINGS[key.slice(0, -'.helper'.length)];
+        if (label === undefined) return false;
+
+        const labelWords = new Set(words(label));
+        const helperWords = words(EDITOR_STRINGS[key]).filter((word) => !filler.has(word));
+
+        return helperWords.length > 0 && helperWords.every((word) => labelWords.has(word));
+      });
+
+    expect(offenders).toEqual([]);
+  });
+
   it('builds every panel for every view without producing an empty one', () => {
     for (const view of VIEWS) {
       for (const panel of PANELS) {
@@ -2002,15 +2041,48 @@ describe('editor: group headings resolve their own strings', () => {
       if (expected === undefined) continue;
 
       // A group that states an applicability note on behalf of its children carries it
-      // *before* its own helper, exactly as a field does. What this asserts is which key
-      // the helper came from, so a note may precede it and the tail must still match —
+      // *after* its own helper, unlike a field, which carries its note first. The
+      // difference is not cosmetic: a field's note qualifies a control the reader can
+      // already see and name, whereas a group's would arrive before the reader knew what
+      // the group was. What this asserts either way is which key the helper came from —
       // resolving from the wrong key produces a different string entirely, which is the
       // failure being guarded against.
       const helper = computeHelper('en', 'column', node, path);
 
       expect(helper, titleKey).toBeDefined();
-      expect(helper!.endsWith(expected), `${titleKey} resolved "${helper}"`).toBe(true);
+      expect(
+        helper!.startsWith(expected) || helper!.endsWith(expected),
+        `${titleKey} resolved "${helper}"`,
+      ).toBe(true);
     }
+  });
+
+  /**
+   * The compact-mode group states one scope on behalf of its three fields, and the two
+   * sentences have to read as one paragraph. They did not: the note was prefixed, so the
+   * group opened with "These apply to the list layout…" above the sentence that said
+   * what "these" were, and both halves used the word "apply".
+   */
+  it('reads a group and its scope note as one paragraph', () => {
+    const group = [
+      ...walkSchema(
+        PANELS.find((panel) => panel.id === 'content')!.build({
+          view: 'column',
+          config: buildConfig({ view: 'column' }),
+          language: 'en',
+        }),
+      ),
+    ].find((entry) => (entry.node as { titleKey?: string }).titleKey === 'compact_mode')!;
+
+    const helper = computeHelper('en', 'column', group.node, group.path)!;
+
+    expect(helper.startsWith(EDITOR_STRINGS['compact_mode.helper'])).toBe(true);
+    expect(helper.endsWith(EDITOR_STRINGS['scope.list_only.compact_mode'])).toBe(true);
+
+    // In the layout it applies to there is no note at all, so the helper stands alone.
+    expect(computeHelper('en', 'list', group.node, group.path)).toBe(
+      EDITOR_STRINGS['compact_mode.helper'],
+    );
   });
 
   it('does not fall back to a bare key that belongs to the old namespace', () => {
@@ -2067,6 +2139,21 @@ function exceptionFormIndexFor(element: CalendarCardProEditor, key: string): num
   return forms.findIndex((form) => schemaOf(form).some((node) => node.name === key));
 }
 
+/** Fires a change from one of the editor's forms, the way `ha-form` does. */
+async function fire(
+  element: CalendarCardProEditor,
+  selector: string,
+  patch: Record<string, unknown>,
+  index = 0,
+) {
+  const form = element.shadowRoot!.querySelectorAll(selector)[index];
+  const data = (form as unknown as { data: Record<string, unknown> }).data;
+  form.dispatchEvent(
+    new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
+  );
+  await element.updateComplete;
+}
+
 describe('editor: per-calendar settings', () => {
   const calendars = PANELS.find((panel) => panel.id === 'calendars')!;
   /** The per-calendar schema, as the Calendars panel declares it. */
@@ -2088,13 +2175,67 @@ describe('editor: per-calendar settings', () => {
     expect(element.shadowRoot!.querySelectorAll('ha-form.entity-form')).toHaveLength(2);
   });
 
+  /**
+   * The wiring, not the pure functions. Each calendar's form is narrowed to its own
+   * label shape, which is the one place the per-calendar list renders something other
+   * than the schema the panel declares — so it is worth seeing it happen through the
+   * element rather than only through `entitySchemaFor`.
+   */
+  it('narrows each calendar to its own label shape, through the chassis', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({
+      entities: [{ entity: 'calendar.a', label: 'mdi:home' }, 'calendar.b'],
+    } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const forms = [...element.shadowRoot!.querySelectorAll('ha-form.entity-form')];
+    const names = forms.map((form) => schemaOf(form).map((node) => node.name));
+
+    // The calendar with an icon label gets the picker and the icon colour; the one with
+    // no label at all gets neither, and its shape dropdown reads *None*.
+    expect(names[0]).toContain('label_icon_color');
+    expect(names[1]).not.toContain('label_icon_color');
+    expect(names[1]).not.toContain('label');
+
+    const data = (forms[1] as unknown as { data: Record<string, unknown> }).data;
+    expect(data.label_type).toBe('none');
+  });
+
+  it('stores a label chosen through the shape dropdown, through the chassis', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({ entities: ['calendar.a'] } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const dispatched: Array<Record<string, unknown>> = [];
+    element.addEventListener('config-changed', (event) => {
+      const config = (event as CustomEvent).detail.config as Types.Config;
+      dispatched.push(config as unknown as Record<string, unknown>);
+      element.setConfig(config);
+    });
+
+    await fire(element, 'ha-form.entity-form', { label_type: 'icon' });
+
+    expect(dispatched.at(-1)!.entities).toEqual([{ entity: 'calendar.a', label: 'mdi:calendar' }]);
+
+    // The picker is now on screen, holding what was seeded.
+    const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
+    expect(schemaOf(form).map((node) => node.name)).toContain('label_icon_color');
+    expect((form as unknown as { data: Record<string, unknown> }).data.label).toBe('mdi:calendar');
+  });
+
   it('offers every per-calendar option the card reads', () => {
     const offered = [...walkSchema(entitySchema().schema)]
       .map((entry) => entry.node.name)
       .filter(Boolean);
 
     // Every member of `EntityConfig` except the entity id itself, which is the
-    // picker's business rather than a setting of the calendar's.
+    // picker's business rather than a setting of the calendar's — plus `label_type`,
+    // which is not a config key at all: the label holds four shapes in one value and
+    // this names which, exactly as `today_indicator_style` does at card level.
     expect(offered.sort()).toEqual(
       [
         'accent_color',
@@ -2104,6 +2245,7 @@ describe('editor: per-calendar settings', () => {
         'compact_events_to_show',
         'label',
         'label_icon_color',
+        'label_type',
         'show_description',
         'show_location',
         'show_time',
@@ -2177,6 +2319,142 @@ describe('editor: per-calendar settings', () => {
     expect(fromEntityFormData('calendar.a', { label: '', color: '', show_time: 'inherit' })).toBe(
       'calendar.a',
     );
+  });
+
+  /**
+   * E12 — the label's shape.
+   *
+   * `label` holds four shapes in one key and `renderLabel` decides which by looking at
+   * the value, so the dropdown is derived rather than stored. What these pin is the one
+   * thing that cannot be got from the value alone: whether the user moved the *dropdown*
+   * or edited the *value*, which arrive identically because `ha-form` reports only that
+   * the form changed. The stored entry is what separates them.
+   */
+  it('derives the label shape from the value rather than storing one', () => {
+    expect(toEntityFormData({ entity: 'calendar.a' }).label_type).toBe('none');
+    expect(toEntityFormData({ entity: 'calendar.a', label: 'Work' }).label_type).toBe('text');
+    expect(toEntityFormData({ entity: 'calendar.a', label: '🎉' }).label_type).toBe('text');
+    expect(toEntityFormData({ entity: 'calendar.a', label: 'mdi:home' }).label_type).toBe('icon');
+    expect(toEntityFormData({ entity: 'calendar.a', label: '/local/a.png' }).label_type).toBe(
+      'image',
+    );
+  });
+
+  it('never writes the shape dropdown into the configuration', () => {
+    const written = fromEntityFormData(
+      'calendar.a',
+      { label_type: 'text', label: 'Work' },
+      { entity: 'calendar.a', label: 'Work' },
+    );
+
+    expect(written).toEqual({ entity: 'calendar.a', label: 'Work' });
+  });
+
+  it('gives the icon shape a picker, and the others a text box', () => {
+    const declared = entitySchema().schema;
+
+    const shapes: Array<[string, string[]]> = [
+      ['none', []],
+      ['text', ['label']],
+      ['image', ['label']],
+      ['icon', ['label', 'label_icon_color']],
+    ];
+
+    for (const [type, expected] of shapes) {
+      const narrowed = entitySchemaFor(declared, type);
+      const labelFieldNames = [...walkSchema(narrowed)]
+        .map((entry) => entry.node.name)
+        .filter((name) => name === 'label' || name === 'label_icon_color');
+
+      expect(labelFieldNames, type).toEqual(expected);
+    }
+
+    const iconNode = [...walkSchema(entitySchemaFor(declared, 'icon'))].find(
+      (entry) => entry.node.name === 'label',
+    )!.node;
+    expect('selector' in iconNode && 'icon' in iconNode.selector, 'icon shape gets a picker').toBe(
+      true,
+    );
+
+    const textNode = [...walkSchema(entitySchemaFor(declared, 'text'))].find(
+      (entry) => entry.node.name === 'label',
+    )!.node;
+    expect('selector' in textNode && 'text' in textNode.selector).toBe(true);
+  });
+
+  /**
+   * The colour did nothing unless the label was an icon, and said so in a helper under
+   * every calendar. Shown only where it applies, the sentence is no longer needed.
+   */
+  it('shows the label icon colour only where there is an icon to colour', () => {
+    const declared = entitySchema().schema;
+
+    for (const type of ['none', 'text', 'image']) {
+      const names = [...walkSchema(entitySchemaFor(declared, type))].map(
+        (entry) => entry.node.name,
+      );
+      expect(names, type).not.toContain('label_icon_color');
+    }
+  });
+
+  it('seeds a value when the shape is chosen and the current one cannot serve', () => {
+    const seeded = fromEntityFormData(
+      'calendar.a',
+      { label_type: 'icon', label: 'Work' },
+      { entity: 'calendar.a', label: 'Work' },
+    ) as Types.EntityConfig;
+
+    expect(seeded.label).toBe('mdi:calendar');
+
+    // Chosen from nothing at all, where the form was showing no value field to carry it.
+    const fromNone = fromEntityFormData('calendar.a', { label_type: 'text' }, 'calendar.a');
+    expect((fromNone as Types.EntityConfig).label).toBe('📅');
+  });
+
+  it('carries a value across a shape change that can still hold it', () => {
+    const kept = fromEntityFormData(
+      'calendar.a',
+      { label_type: 'text', label: '🎉' },
+      { entity: 'calendar.a', label: 'Work' },
+    ) as Types.EntityConfig;
+
+    expect(kept.label).toBe('🎉');
+  });
+
+  it('removes the label when the shape is set to none', () => {
+    expect(
+      fromEntityFormData(
+        'calendar.a',
+        { label_type: 'none', label: 'mdi:home' },
+        { entity: 'calendar.a', label: 'mdi:home' },
+      ),
+    ).toBe('calendar.a');
+  });
+
+  /**
+   * The case the seeding rule must not swallow. Typing `mdi:` into the text box is a
+   * *value* edit whose result happens to be an icon — not a dropdown move — so it is
+   * stored verbatim and the shape re-derives on the next render. Comparing the chosen
+   * shape against the stored value instead of against the typed one is what tells the
+   * two apart; comparing against the typed one would replace the user's keystrokes with
+   * a seeded `mdi:calendar` mid-word.
+   */
+  it('stores what was typed even when it changes the shape', () => {
+    const previous = { entity: 'calendar.a', label: 'Work' };
+
+    for (const typed of ['m', 'md', 'mdi', 'mdi:', 'mdi:c', 'mdi:calendar-check']) {
+      const written = fromEntityFormData(
+        'calendar.a',
+        { label_type: 'text', label: typed },
+        previous,
+      ) as Types.EntityConfig;
+
+      expect(written.label, typed).toBe(typed);
+    }
+
+    // And the shape the form shows next follows the value, so the picker appears for
+    // what is now an icon rather than the text box staying and lying about it.
+    expect(toEntityFormData({ entity: 'calendar.a', label: 'mdi:c' }).label_type).toBe('icon');
   });
 
   it('removes a per-calendar key again when its field is emptied', () => {
@@ -2501,15 +2779,12 @@ describe('editor: the exceptions widget', () => {
    * Coverage, stated as a set rather than as a number, so that a key leaving the
    * exceptions is a failing test rather than a thing nobody notices.
    *
-   * The three that are missing are missing for one reason: each is stored as a union
-   * that no single selector can emit — `null | 'iso' | 'simple'`, `boolean | string`,
-   * `string | boolean` — so the panel edits them through a mode dropdown that chooses
-   * which shape is written. An exception to one of those needs the same derivation
-   * again, per exception, which is a mechanism rather than a field. A hand-written
-   * `column:` block carrying any of the three still works and is still preserved on
-   * write; it is the editor that has no control for it.
+   * The set is now empty, and getting it there is what E11 was. Three keys are stored as
+   * a union no single selector can emit — `null | 'iso' | 'simple'`, `boolean | string`,
+   * `string | boolean` — so each is edited through the same mode dropdown its panel uses,
+   * pointed at the block rather than at the card. See `overrides.ts`.
    */
-  it('offers an exception for every overridable option a selector can emit', () => {
+  it('offers an exception for every overridable option, unions included', () => {
     const swept = [
       columnConfig(),
       columnConfig({
@@ -2534,9 +2809,7 @@ describe('editor: the exceptions widget', () => {
       (key) => !offered.has(key),
     );
 
-    expect(missing.sort()).toEqual(
-      ['remove_location_country', 'show_week_numbers', 'today_indicator'].sort(),
-    );
+    expect(missing.sort()).toEqual([]);
   });
 
   it('offers each option exactly once, in the panel that owns it', () => {
@@ -2567,21 +2840,6 @@ describe('editor: the exceptions widget in the chassis', () => {
     });
 
     return { element, dispatched };
-  }
-
-  /** Fires a change from one of the editor's forms, the way `ha-form` does. */
-  async function fire(
-    element: CalendarCardProEditor,
-    selector: string,
-    patch: Record<string, unknown>,
-    index = 0,
-  ) {
-    const form = element.shadowRoot!.querySelectorAll(selector)[index];
-    const data = (form as unknown as { data: Record<string, unknown> }).data;
-    form.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
-    );
-    await element.updateComplete;
   }
 
   it('adds no chrome to a card that has no exceptions', async () => {
@@ -2748,5 +3006,304 @@ describe('editor: the exceptions widget in the chassis', () => {
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]).not.toHaveProperty('column');
+  });
+});
+
+/**
+ * E11 — the three options whose stored value is a union of shapes.
+ *
+ * Each is edited through the same mode dropdown its own panel uses, pointed at the block
+ * rather than at the card. What these pin is the one thing that genuinely differs
+ * between the two scopes: **absent means the opposite**. At card level a missing key
+ * takes the default, so *None* is written by removing it; inside an override block a
+ * missing key inherits the shared value, so *None* has to be written as an explicit
+ * value or the exception the user just asked for would silently disappear.
+ */
+describe('editor: exceptions for the union-typed options', () => {
+  /** The eligible exception fields of one panel, for a configuration. */
+  function eligibleFor(panelId: string, config: Types.Config) {
+    const panel = PANELS.find((entry) => entry.id === panelId)!;
+    const ctx = { view: config.view, config, language: 'en' };
+    return eligibleFields(panel.build(ctx), panel.id, 'en');
+  }
+
+  /** The rows one declared exception renders, given a block. */
+  function rowsFor(
+    config: Types.Config,
+    keys: string[],
+    pending: Record<string, string> = {},
+  ): HaFormSchema[] {
+    const data = Overrides.overrideFormData(exceptionFormBlock(config, keys), keys, pending);
+
+    return Overrides.expandFields(
+      keys.map((name) => ({ name, selector: { text: {} } })),
+      'en',
+      data,
+    );
+  }
+
+  /** Applies one change to the block, the way the chassis does. */
+  function change(
+    config: Types.Config,
+    keys: string[],
+    patch: Record<string, unknown>,
+    pending: Record<string, string> = {},
+  ) {
+    const previous = Overrides.overrideFormData(exceptionFormBlock(config, keys), keys, pending);
+    const stored = (config.column ?? {}) as Record<string, unknown>;
+
+    return Overrides.applyOverrideChange(stored, previous, { ...previous, ...patch }, pending);
+  }
+
+  it('offers each of the three under its own name, not its mode field', () => {
+    const config = columnConfig();
+
+    for (const [panel, key] of [
+      ['day_header', 'show_week_numbers'],
+      ['day_header', 'today_indicator'],
+      ['events', 'remove_location_country'],
+    ] as const) {
+      const names = eligibleFor(panel, config).map((field) => field.name);
+      expect(names, key).toContain(key);
+    }
+  });
+
+  it('labels the picker entry, and carries the real options for the search to match', () => {
+    const field = eligibleFor('day_header', columnConfig()).find(
+      (candidate) => candidate.name === 'show_week_numbers',
+    )!;
+
+    expect(computeLabel('en', field, ['column'])).toBe('Week Numbers');
+
+    const options = (field.selector as { select: { options: SelectOption[] } }).select.options;
+    expect(options.map((option) => option.label)).toEqual(['None', 'ISO 8601', 'Simple']);
+  });
+
+  it('renders the mode dropdown the panel would, not the raw config key', () => {
+    const rows = rowsFor(columnConfig(), ['show_week_numbers']).map((node) => node.name);
+
+    expect(rows).toEqual(['week_number_mode']);
+  });
+
+  it('shows the inherited shape when the exception is first declared', () => {
+    const config = columnConfig({ show_week_numbers: 'iso' });
+    const data = Overrides.overrideFormData(exceptionFormBlock(config, ['show_week_numbers']), [
+      'show_week_numbers',
+    ]);
+
+    expect(data.week_number_mode).toBe('iso');
+    // The raw key never reaches the form: it would ride back untouched on the next
+    // change and mask whatever the dropdown wrote.
+    expect(data).not.toHaveProperty('show_week_numbers');
+  });
+
+  /**
+   * The correction this item turns on. `week_number_mode` writes `undefined` for *None*,
+   * which is right for the card and wrong for a block — so an explicit `null` is written
+   * instead, and `stripColumnDefaults` already declines to treat that as absent.
+   */
+  it('writes an explicit null for week numbers switched off in one view only', () => {
+    const config = columnConfig({ show_week_numbers: 'iso' });
+    const applied = change(config, ['show_week_numbers'], { week_number_mode: 'none' });
+
+    expect(applied.block).toEqual({ show_week_numbers: null });
+    expect(
+      toStoredConfig({ ...config, column: applied.block as Types.ColumnOverrides }).column,
+    ).toEqual({ show_week_numbers: null });
+  });
+
+  it('writes an explicit false for the other two switched off in one view only', () => {
+    const indicator = change(columnConfig({ today_indicator: 'dot' }), ['today_indicator'], {
+      today_indicator_style: 'none',
+    });
+    expect(indicator.block).toEqual({ today_indicator: false });
+
+    const country = change(
+      columnConfig({ remove_location_country: true }),
+      ['remove_location_country'],
+      { location_country_mode: 'keep' },
+    );
+    expect(country.block).toEqual({ remove_location_country: false });
+  });
+
+  it('stores nothing while an exception still matches what it inherits', () => {
+    const config = columnConfig({ show_week_numbers: 'iso' });
+    const applied = change(config, ['show_week_numbers'], { week_number_mode: 'iso' });
+
+    expect(
+      toStoredConfig({ ...config, column: applied.block as Types.ColumnOverrides }),
+    ).not.toHaveProperty('column');
+  });
+
+  it('leaves the block alone until a declared exception is actually edited', () => {
+    const config = columnConfig({ today_indicator: 'dot' });
+    const applied = change(config, ['today_indicator'], {});
+
+    expect(applied.block).toEqual({});
+  });
+
+  it('carries the value control the chosen shape calls for', () => {
+    const icon = columnConfig({ column: { today_indicator: 'mdi:star' } as Types.ColumnOverrides });
+    expect(rowsFor(icon, ['today_indicator']).map((node) => node.name)).toEqual([
+      'today_indicator_style',
+      'today_indicator_icon',
+    ]);
+
+    const custom = columnConfig({ column: { today_indicator: '⭐' } as Types.ColumnOverrides });
+    expect(rowsFor(custom, ['today_indicator']).map((node) => node.name)).toEqual([
+      'today_indicator_style',
+      'today_indicator_custom',
+    ]);
+
+    const pattern = columnConfig({
+      column: { remove_location_country: 'Germany' } as Types.ColumnOverrides,
+    });
+    expect(rowsFor(pattern, ['remove_location_country']).map((node) => node.name)).toEqual([
+      'location_country_mode',
+      'location_country_pattern',
+    ]);
+  });
+
+  it('seeds a shape that has no value yet rather than leaving the control empty', () => {
+    const config = columnConfig({ today_indicator: 'dot' });
+    const applied = change(config, ['today_indicator'], { today_indicator_style: 'icon' });
+
+    expect(String(applied.block.today_indicator)).toMatch(/^mdi:/);
+  });
+
+  /**
+   * The same hold the card-level control uses, and needed for the same reason: an
+   * unrecognised string classifies as a plain dot, so committing `star.pn` on the way to
+   * `star.png` would switch the shape, take this very field away and store the fragment.
+   */
+  it('holds a half-typed value instead of reclassifying the shape under the cursor', () => {
+    const config = columnConfig({ column: { today_indicator: '⭐' } as Types.ColumnOverrides });
+
+    let pending: Record<string, string> = {};
+    let current = config;
+
+    for (const partial of ['s', 'st', 'star', 'star.pn']) {
+      const applied = change(
+        current,
+        ['today_indicator'],
+        { today_indicator_custom: partial },
+        pending,
+      );
+      pending = applied.pending;
+      current = { ...current, column: applied.block as Types.ColumnOverrides };
+
+      expect(current.column!.today_indicator, partial).toBe('⭐');
+      expect(pending['today_indicator_custom'], partial).toBe(partial);
+      expect(
+        rowsFor(current, ['today_indicator'], pending).map((node) => node.name),
+        partial,
+      ).toContain('today_indicator_custom');
+    }
+
+    const done = change(
+      current,
+      ['today_indicator'],
+      { today_indicator_custom: 'star.png' },
+      pending,
+    );
+    expect(done.block.today_indicator).toBe('star.png');
+    expect(done.pending).not.toHaveProperty('today_indicator_custom');
+  });
+
+  /**
+   * Held text is keyed under the block it belongs to. Without that, a card-level
+   * `today_indicator_custom` mid-edit and a column-view one would be the same entry, and
+   * whichever was typed last would appear in both fields.
+   */
+  it('keeps a block’s held text separate from the card’s', () => {
+    const pending = { today_indicator_custom: 'card', 'column.today_indicator_custom': 'block' };
+
+    expect(Overrides.pendingForBlock(pending, 'column')).toEqual({
+      today_indicator_custom: 'block',
+    });
+
+    expect(
+      Overrides.mergeBlockPending(pending, 'column', { today_indicator_custom: 'next' }),
+    ).toEqual({
+      today_indicator_custom: 'card',
+      'column.today_indicator_custom': 'next',
+    });
+  });
+
+  /**
+   * Each panel renders its own exceptions form bound to the same block, so a form only
+   * ever knows about its own rows. The raw union keys are stripped from the data it
+   * binds, which would be destructive if the write replaced the block — it does not: it
+   * diffs against the **stored** block and writes only what moved, which is why another
+   * panel's exception survives an edit here rather than being deleted by omission.
+   */
+  it('leaves another panel’s exception alone when this one is edited', () => {
+    const config = columnConfig({
+      show_week_numbers: 'iso',
+      column: { today_indicator: 'pulse' } as Types.ColumnOverrides,
+    });
+
+    const applied = change(config, ['show_week_numbers'], { week_number_mode: 'simple' });
+
+    expect(applied.block).toEqual({ today_indicator: 'pulse', show_week_numbers: 'simple' });
+  });
+
+  it('never lets a stand-in field reach the stored configuration', () => {
+    const config = columnConfig({ show_week_numbers: 'iso' });
+    const applied = change(config, ['show_week_numbers'], { week_number_mode: 'simple' });
+
+    expect(Object.keys(applied.block)).toEqual(['show_week_numbers']);
+
+    // And the write path refuses one that arrived by any other route.
+    const stored = toStoredConfig({
+      ...config,
+      column: { show_week_numbers: 'simple', week_number_mode: 'simple' } as Types.ColumnOverrides,
+    });
+    expect(stored.column).toEqual({ show_week_numbers: 'simple' });
+  });
+
+  it('edits one through the chassis, end to end', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({
+      entities: ['calendar.a'],
+      view: 'column',
+      show_week_numbers: 'iso',
+    } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const dispatched: Array<Record<string, unknown>> = [];
+    element.addEventListener('config-changed', (event) => {
+      const config = (event as CustomEvent).detail.config as Types.Config;
+      dispatched.push(config as unknown as Record<string, unknown>);
+      element.setConfig(config);
+    });
+
+    const pickerIndex = pickerIndexFor(element, 'show_week_numbers');
+    expect(pickerIndex).toBeGreaterThanOrEqual(0);
+
+    await fire(
+      element,
+      'ha-form.exception-picker',
+      { exceptions: ['show_week_numbers'] },
+      pickerIndex,
+    );
+    expect(dispatched, 'declaring an exception configures nothing').toEqual([]);
+
+    const formIndex = exceptionFormIndexFor(element, 'week_number_mode');
+    expect(formIndex).toBeGreaterThanOrEqual(0);
+
+    await fire(element, 'ha-form.exception-form', { week_number_mode: 'none' }, formIndex);
+
+    expect(dispatched.at(-1)!.column).toEqual({ show_week_numbers: null });
+
+    // The row survives the echo, and still shows the shape that was chosen.
+    const data = (
+      element.shadowRoot!.querySelectorAll('ha-form.exception-form')[formIndex] as unknown as {
+        data: Record<string, unknown>;
+      }
+    ).data;
+    expect(data.week_number_mode).toBe('none');
   });
 });

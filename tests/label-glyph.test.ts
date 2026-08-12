@@ -2,6 +2,7 @@ import { render as litRender } from 'lit';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import * as Leaves from '../src/rendering/leaves';
+import * as Helpers from '../src/utils/helpers';
 
 /**
  * Entity-label classification.
@@ -84,5 +85,47 @@ describe('renderLabel glyph classification', () => {
   it('renders nothing without a label', () => {
     expect(renderLabel(undefined)).toBeNull();
     expect(renderLabel('')).toBeNull();
+  });
+
+  /**
+   * The editor offers a control per label shape, so it needs to know which shape a value
+   * holds — and `renderLabel` is the authority on that, because it is what actually
+   * draws the thing. `getLabelType` mirrors its three tests in its order rather than
+   * being called by it, because the two files are owned by different work in flight;
+   * this is what makes that mirroring a failing test rather than a comment nobody reads.
+   *
+   * Asserted against what is **rendered**, not against a second reading of the source,
+   * so a change to either side that the other does not follow shows up here.
+   */
+  it.each([
+    ['mdi:briefcase', 'icon'],
+    ['phu:octopusenergy', 'icon'],
+    ['/local/family.png', 'image'],
+    ['/static/icons/favicon-192x192.png', 'image'],
+    ['photo.JPEG', 'image'],
+    ['Familienkalender:', 'text'],
+    ['🎉', 'text'],
+    ['2024', 'text'],
+    ['', 'none'],
+  ])('classifies %s the way renderLabel draws it', (label, expected) => {
+    expect(Helpers.getLabelType(label)).toBe(expected);
+
+    const el = renderLabel(label);
+    const drawn =
+      el === null
+        ? 'none'
+        : el.tagName.toLowerCase() === 'ha-icon'
+          ? 'icon'
+          : el.tagName.toLowerCase() === 'img'
+            ? 'image'
+            : 'text';
+
+    expect(drawn, label).toBe(expected);
+  });
+
+  it('classifies a missing label as none', () => {
+    expect(Helpers.getLabelType(undefined)).toBe('none');
+    expect(Helpers.getLabelType(null)).toBe('none');
+    expect(Helpers.getLabelType(42)).toBe('none');
   });
 });

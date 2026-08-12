@@ -25,6 +25,7 @@ import * as Entities from './entities';
 import { type HaFormSchema, isGroupSchema } from './ha-form';
 import * as EditorLocalize from './localize';
 import { type PanelDef, type PanelExtra, walkSchema } from './panels';
+import { entityConfigKey } from './schemas/entity';
 import { deriveSyntheticData, isSyntheticKey } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
 import * as Config from '../../config/config';
@@ -576,6 +577,10 @@ export function matchesEntity(entry: string | Types.EntityConfig, ctx: FilterCtx
  * mere presence is the honest test — the same test the collapsed summary already makes
  * when it says a calendar is configured.
  *
+ * The label's shape dropdown answers for `label` rather than for itself. It is derived
+ * from that value and stores nothing of its own, so asked in its own name it would always
+ * report *not customized* and be hidden here while the label it names stayed on screen.
+ *
  * @param entry - Entry as stored
  * @param node - Schema node
  * @returns `true` when this calendar sets this option
@@ -585,7 +590,7 @@ export function isEntityFieldCustomized(
   node: HaFormSchema,
 ): boolean {
   const config = Entities.asEntityConfig(entry) as unknown as Record<string, unknown>;
-  const value = config[node.name];
+  const value = config[entityConfigKey(node.name)];
 
   return value !== undefined && value !== null && value !== '';
 }

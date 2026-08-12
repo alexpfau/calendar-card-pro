@@ -35,14 +35,32 @@ const TODAY_COLOR_ICON = 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 4a6 6 0 0 1
 const INDICATOR_ICON = 'M12 8a4 4 0 1 1-4 4 4 4 0 0 1 4-4Z';
 const WEEK_NUMBER_ICON = 'M4 5h16v2H4V5m0 6h16v2H4v-2m0 6h16v2H4v-2Z';
 
+/** The six shapes `today_indicator` can hold, in the order they are offered. */
+export const TODAY_INDICATOR_STYLES: ReadonlyArray<string> = [
+  'none',
+  'dot',
+  'pulse',
+  'glow',
+  'icon',
+  'custom',
+];
+
+/** The three shapes `show_week_numbers` can hold, in the order they are offered. */
+export const WEEK_NUMBER_MODES: ReadonlyArray<string> = ['none', 'iso', 'simple'];
+
 /**
- * The today-indicator group, whose second field depends on the first.
+ * The style dropdown and whichever value control the chosen style calls for.
+ *
+ * Exported because the exceptions widget renders the same pair: a `column:` override
+ * for `today_indicator` is a value of the same union, so it needs the same derivation.
+ * Written once here rather than twice, because two copies of an option list are two
+ * places for a seventh style to be added to only one of.
  *
  * @param language - Effective language code
  * @param style - Derived indicator style
- * @returns The group
+ * @returns The dropdown, and its value control where the style has one
  */
-function todayIndicatorGroup(language: string, style: string): HaFormSchema {
+export function todayIndicatorFields(language: string, style: string): HaFormSchema[] {
   const chooser: HaFormSchema[] = [];
 
   if (style === 'icon') {
@@ -51,6 +69,31 @@ function todayIndicatorGroup(language: string, style: string): HaFormSchema {
     chooser.push(text('today_indicator_custom'));
   }
 
+  return [select(language, 'today_indicator_style', TODAY_INDICATOR_STYLES), ...chooser];
+}
+
+/**
+ * The week-numbering dropdown.
+ *
+ * One field rather than two, because every shape of `show_week_numbers` is named by an
+ * option — there is no free value to type. Exported for the same reason as its
+ * neighbour above.
+ *
+ * @param language - Effective language code
+ * @returns The dropdown
+ */
+export function weekNumberFields(language: string): HaFormSchema[] {
+  return [select(language, 'week_number_mode', WEEK_NUMBER_MODES)];
+}
+
+/**
+ * The today-indicator group, whose second field depends on the first.
+ *
+ * @param language - Effective language code
+ * @param style - Derived indicator style
+ * @returns The group
+ */
+function todayIndicatorGroup(language: string, style: string): HaFormSchema {
   const styling: HaFormSchema[] =
     style === 'none'
       ? []
@@ -60,8 +103,7 @@ function todayIndicatorGroup(language: string, style: string): HaFormSchema {
         ];
 
   return group(language, 'today_indicator', INDICATOR_ICON, [
-    select(language, 'today_indicator_style', ['none', 'dot', 'pulse', 'glow', 'icon', 'custom']),
-    ...chooser,
+    ...todayIndicatorFields(language, style),
     ...styling,
   ]);
 }
@@ -84,7 +126,7 @@ function weekNumberGroup(language: string, mode: string): HaFormSchema {
         ];
 
   return group(language, 'week_numbers', WEEK_NUMBER_ICON, [
-    select(language, 'week_number_mode', ['none', 'iso', 'simple']),
+    ...weekNumberFields(language),
     ...styling,
   ]);
 }

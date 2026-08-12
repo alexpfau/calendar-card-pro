@@ -49,6 +49,50 @@ Three things follow their own rule under it, for reasons worth knowing:
 The editor only offers the settings your current configuration calls for: a fixed card height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
 :::
 
+## 🏷️ Per-Calendar Labels
+
+Each calendar under the picker gets its own collapsible form, and the first control in it
+is **Label Type**. A label is the mark shown before every event from that calendar, and it
+can be four things — nothing, text or an emoji, an icon, or an image.
+
+The type is not stored anywhere. It is read back from the value, because the value is what
+decides how the card draws it: `mdi:home` is an icon, `/local/work.png` is an image, and
+anything else is text. Choosing a type simply rewrites the value, so a calendar configured
+in YAML opens with the right control already selected.
+
+Choosing **An Icon** gives you Home Assistant's icon picker rather than a box you have to
+know `mdi:` to use, and it is the only type for which **Label Icon Color** appears — that
+color does nothing unless the label is an icon, so it is no longer shown under every
+calendar.
+
+::: tip Typing an Icon Name Still Works
+Type `mdi:calendar` into the text box and the editor recognises it as an icon and swaps in
+the picker, holding what you typed. Nothing is lost — the value the card would render is
+stored at every keystroke.
+:::
+
+**→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — the `label` option itself, and the rest of the per-calendar table.
+
+## ⚖️ Column View Exceptions
+
+Every panel that owns an option the column layout can override ends with a collapsed
+**Column View Exceptions** group. Pick an option there and it gets a second control, whose
+value applies only when the card renders as columns; remove it and the option returns to
+the shared value above. A card with no exceptions costs one collapsed heading and nothing
+else.
+
+The control an exception gets is the same control the option has in the panel above, which
+now holds for every overridable option without exception. Three of them store more than one
+kind of value in one key — week numbers, the today indicator, and country removal in
+locations — so each gets the same type dropdown it has in its own panel rather than being
+left to hand-written YAML.
+
+An exception that ends up equal to the value it would inherit is not written to your
+configuration, so setting one back to the shared value removes the line rather than
+pinning it.
+
+**→ [Column View](/features/column-view)** — the `column:` block, and what may go in it.
+
 ## 🔄 Configuration Upgrader
 
 When you open the editor with a configuration that uses deprecated parameters, the editor detects this and offers a one-click upgrade. The full set of renames it handles:

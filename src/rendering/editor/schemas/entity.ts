@@ -27,6 +27,20 @@
  * reads as "off" when it means "follow the card", and the first touch wrote a literal
  * `false` that no control could take back. A three-way dropdown is the smallest thing
  * that tells the truth and the only one that can return a calendar to inheriting.
+ *
+ * ## Why the label has a type, and where that type lives
+ *
+ * `label` holds four shapes in one key — nothing, text or an emoji, an icon, or a path
+ * to an image — and `renderLabel` decides which by looking at the value. There is no
+ * `label_type` in the configuration and there must not be one: the shape *is* the value.
+ * So the dropdown is derived, exactly as `today_indicator_style` is at card level, and
+ * choosing a shape rewrites the key rather than storing the choice.
+ *
+ * It buys two things a lone text box could not. An icon gets Home Assistant's icon
+ * picker instead of a field you have to know `mdi:` to use — the one thing the editor
+ * this replaces had here and the rebuild lost. And `label_icon_color`, which does
+ * nothing unless the label is an icon, is now shown only then instead of sitting under
+ * every calendar as a colour for something that is not there.
  */
 
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
@@ -91,6 +105,72 @@ function inheritable(language: string, name: string): SelectorSchema {
   };
 }
 
+/** The UI-only field naming the shape a calendar's label holds. */
+export const LABEL_TYPE = 'label_type';
+
+/** The four shapes, in the order they are offered. */
+export const LABEL_TYPES: ReadonlyArray<'none' | 'text' | 'icon' | 'image'> = [
+  'none',
+  'text',
+  'icon',
+  'image',
+];
+
+/**
+ * The config key a per-calendar form field writes.
+ *
+ * All but one write the key they are named after. `label_type` is derived from the
+ * shape of `label`, so it stands for that key everywhere a field has to be asked what it
+ * configures — which is the filter, where a type dropdown that answered for itself would
+ * be hidden by *Customized only* while the label it names was still on screen.
+ *
+ * @param name - Per-calendar field name
+ * @returns The config key it configures
+ */
+export function entityConfigKey(name: string): string {
+  return name === LABEL_TYPE ? 'label' : name;
+}
+
+/**
+ * The dropdown naming the shape of a calendar's label.
+ *
+ * @param language - Effective language code
+ * @returns The field
+ */
+function labelType(language: string): SelectorSchema {
+  return {
+    name: LABEL_TYPE,
+    selector: {
+      select: {
+        mode: 'dropdown',
+        options: LABEL_TYPES.map((value) => ({
+          value,
+          label: lookup(language, `entity.${LABEL_TYPE}.option.${value}.label`) ?? humanize(value),
+        })),
+      },
+    },
+  };
+}
+
+/**
+ * The label fields for one shape.
+ *
+ * `label` keeps its name in all three shapes that have a value, because it *is* the
+ * value: binding an icon to a second key would mean two form fields writing one config
+ * key and a mapping between them, for no gain. What changes is the selector, which is
+ * how the icon shape gets a picker.
+ *
+ * @param type - Shape the label currently holds
+ * @returns The fields to render under the type dropdown
+ */
+export function labelFields(type: string): SelectorSchema[] {
+  if (type === 'icon') {
+    return [{ name: 'label', selector: { icon: {} } }, text('label_icon_color')];
+  }
+
+  return type === 'none' ? [] : [text('label')];
+}
+
 /**
  * Builds the schema rendered for each configured calendar.
  *
@@ -104,14 +184,21 @@ function inheritable(language: string, name: string): SelectorSchema {
  * order, is the picker's job; repeating the id as an editable field here would give two
  * controls for one fact and a way to make them disagree.
  *
+ * **The superset, for every label shape at once.** This is what the panel *declares*, so
+ * that `check:i18n` reconciles every label the form can draw and the schema stays one
+ * array rather than one per calendar. What each calendar renders is this narrowed to its
+ * own label shape by `entitySchemaFor` — the same act the filter already performs per
+ * calendar, and for the same reason: the list is per item, the schema is not.
+ *
  * @param ctx - Schema context
- * @returns The per-calendar schema
+ * @returns The per-calendar schema, with the label fields of every shape
  */
 export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
+    labelType(ctx.language),
     text('label'),
-    row(text('color'), text('accent_color')),
     text('label_icon_color'),
+    row(text('color'), text('accent_color')),
 
     inheritable(ctx.language, 'show_time'),
     inheritable(ctx.language, 'show_location'),
@@ -128,12 +215,37 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   ];
 }
 
+/**
+ * Narrows the declared schema to the label fields one calendar's shape calls for.
+ *
+ * Every other field passes through untouched, and the order the panel declares is kept —
+ * the label fields simply take the place of the superset's copies of them, wherever the
+ * first of those sits.
+ *
+ * @param schema - The per-calendar schema, as declared
+ * @param type - Shape this calendar's label holds
+ * @returns The schema this calendar renders
+ */
+export function entitySchemaFor(schema: ReadonlyArray<HaFormSchema>, type: string): HaFormSchema[] {
+  const replaced = new Set(['label', 'label_icon_color']);
+  let inserted = false;
+
+  return schema.flatMap((node) => {
+    if (!replaced.has(node.name)) return [node];
+    if (inserted) return [];
+
+    inserted = true;
+    return labelFields(type);
+  });
+}
+
 /** Every per-calendar option the form offers, in render order. */
 export const ENTITY_FIELD_NAMES: ReadonlyArray<string> = [
+  LABEL_TYPE,
   'label',
+  'label_icon_color',
   'color',
   'accent_color',
-  'label_icon_color',
   'show_time',
   'show_location',
   'show_description',
