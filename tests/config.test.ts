@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   DEFAULT_CONFIG,
+  DEPRECATED_CONFIG_MAP,
+  findDeprecatedKeys,
   hasConfigChanged,
   normalizeEntities,
   normalizeNumericOptions,
@@ -247,5 +249,62 @@ describe('hasConfigChanged', () => {
     } as unknown as Types.Config;
 
     expect(hasConfigChanged(previous, current)).toBe(false);
+  });
+});
+
+/**
+ * Removed-key reporting.
+ *
+ * The five keys below were deleted from the runtime in the v3.0.0 API cleanup
+ * (`ac801e0`), but the visual editor kept offering a one-click upgrade for them.
+ * A user who writes YAML and never opens the editor therefore got no signal:
+ * the value was ignored and its replacement silently took the default. These
+ * pin the reporting that closes that gap.
+ *
+ * Note the shape being tested — `findDeprecatedKeys` reads the *raw* config, not
+ * a merged one, because after the `DEFAULT_CONFIG` spread every key is present
+ * and a removed key can no longer be distinguished from an absent one.
+ */
+describe('findDeprecatedKeys', () => {
+  it('says nothing about a clean config', () => {
+    expect(findDeprecatedKeys({ entities: ['calendar.a'] } as Types.Config)).toEqual([]);
+  });
+
+  it('names the replacement for every removed top-level key', () => {
+    for (const [oldKey, newKey] of Object.entries(DEPRECATED_CONFIG_MAP)) {
+      const [message, ...rest] = findDeprecatedKeys({ [oldKey]: 'x' } as unknown as Types.Config);
+
+      expect(rest).toEqual([]);
+      expect(message).toContain(oldKey);
+      // The replacement is the actionable half — a notice without it is just noise.
+      expect(message).toContain(newKey);
+    }
+  });
+
+  it('reports a removed key on a per-entity object, with its index', () => {
+    const messages = findDeprecatedKeys({
+      entities: [{ entity: 'calendar.a' }, { entity: 'calendar.b', max_events_to_show: 3 }],
+    } as unknown as Types.Config);
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain('entities[1]');
+    expect(messages[0]).toContain('compact_events_to_show');
+  });
+
+  it('tolerates string entities, which carry no options', () => {
+    // normalizeEntities has not run at this point, so plain strings are still present.
+    expect(findDeprecatedKeys({ entities: ['calendar.a'] } as Types.Config)).toEqual([]);
+  });
+
+  it('survives a null entity entry rather than throwing during setConfig', () => {
+    // typeof null === 'object', so the guard has to test for null explicitly.
+    expect(
+      findDeprecatedKeys({ entities: [null, 'calendar.a'] } as unknown as Types.Config),
+    ).toEqual([]);
+  });
+
+  it('reports a top-level key set to a falsy value', () => {
+    // `in` rather than truthiness: `row_spacing: 0` is still a setting being discarded.
+    expect(findDeprecatedKeys({ row_spacing: 0 } as unknown as Types.Config)).toHaveLength(1);
   });
 });
