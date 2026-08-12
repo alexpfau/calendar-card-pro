@@ -66,6 +66,35 @@ Only presentation options may appear in `column:`. Anything that decides _which_
 
 An unusable entry inside the block is ignored rather than treated as an error, so one stray line cannot break the rest of the card.
 
+## 📊 Progress Bar & Countdown
+
+A [countdown](/features/event-content#countdown-display) and a [progress bar](/features/event-content#progress-bar-display) never appear on the same event — a countdown means the event has not started, a bar means it is running now. Column view uses that to give each one the treatment it needs, rather than a single compromise that suits neither.
+
+**The countdown stays on the time row**, following the time and separated from it by a middot:
+
+```
+🕐 09:30 – 11:00 · in 2 days
+```
+
+It reads as trailing text, which is what its wording assumes — countdown strings are lowercase (`in 2 days`) because they were written to follow something. On a column too narrow to hold both, the countdown moves under the time and keeps the middot with it, so it still reads as a continuation of the line above rather than as a stray fragment.
+
+**The progress bar takes a row of its own**, directly under the event title and above the time. A bar is a graphic rather than a line of text, so a row with no icon in front of it reads as deliberate — where a bare line of text on the same row would read as a row whose icon had gone missing.
+
+The bar spans 75% of the column, flush with the left edge of the title, so it reads as an indicator for the whole event. Give it a different width with `progress_bar_width`, either for both views at once or for columns only:
+
+```yaml
+show_progress_bar: true
+progress_bar_width: '80px' # the bar on the list view's time row
+column:
+  progress_bar_width: '100%' # the bar on its own row in column view
+```
+
+Set at the top level, the value applies to both views. Left unset entirely, each layout keeps the width that suits it.
+
+::: tip Both Layouts Are Live
+A card set to `view: column` still renders as a list on a narrow dashboard, so both placements are in play for the same card. A width tuned for the column row may be far too wide for the list view's time row — which is what the `column:` exception above is for.
+:::
+
 ## ↔️ Spacing Between Days
 
 `day_spacing` is the space between one day and the next, and it applies in both views —

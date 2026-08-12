@@ -204,7 +204,7 @@ This styling helps users quickly distinguish weekend days from weekdays, making 
 
 Calendar Card Pro can display a progress bar for events that are currently running, showing how much of the event has completed.
 
-The progress bar appears in the same space as the countdown display (they're mutually exclusive - a countdown shows for future events, while a progress bar shows for running events). This provides a clean, visual indication of your event's progress without taking up additional space.
+A countdown and a progress bar are mutually exclusive: a countdown shows for events that have not started yet, a progress bar for events that are running now. No event ever shows both, which is why the two can share the same space in list view without competing.
 
 **To enable progress bars:**
 
@@ -219,6 +219,15 @@ show_progress_bar: true
 progress_bar_color: '#03a9f4'
 progress_bar_height: '10px'
 progress_bar_width: '80px'
+```
+
+`progress_bar_width` has no shipped default. Left unset, the bar sizes itself to where it is drawn: `60px` on the time row in list view, and 75% of the column width in [column view](/features/column-view#progress-bar-countdown), where it takes a row of its own. Setting a width replaces both, so a single value applies to every view — and a [column exception](/features/column-view#overriding-options-in-column-view) gives the two views different widths.
+
+```yaml
+show_progress_bar: true
+progress_bar_width: '80px' # list view
+column:
+  progress_bar_width: '100%' # column view only
 ```
 
 The progress bar is especially useful for tracking ongoing meetings, webinars, or appointments, giving you a quick visual reference of how much time remains.

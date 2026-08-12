@@ -124,7 +124,7 @@ Detail in [`column-view.md`](./column-view.md).
 
 | C3 | **Named view predicates** | **Done** — the count was misleading | Re-counted before acting, and the "13 gates" does not mean 13 policy decisions. **Eleven are inside `src/config/view.ts` itself**, which is where view semantics are *defined* — a comparison there is the vocabulary, not a leak of it. The one genuine policy gate the entry names, `events.ts` compact limits, **was already fixed**: it calls `viewAppliesCompactLimits()` and `viewForcesMultidaySplit()`. That left two, both **dispatch rather than policy**. `calendar-card-pro.ts:1232` chooses which renderer to call; a third view needs a third branch there whatever the spelling, so a predicate would be noise — left alone deliberately. `render.ts:64` mapped view to a root CSS class through a ternary, and that one was worth changing: it is a *mapping*, not a yes/no, and the ternary would have silently handed a time grid the **list** class — a broken layout rather than a visible error. Replaced with an exhaustive `viewCssClass()` switch, and the improvement was proven rather than asserted: adding `'grid'` to `EffectiveView` now fails `tsc` with `TS2366`, where the ternary compiled clean. Zero snapshot drift; the rendered attribute is byte-identical. |
 | C4 | **Column view as its own docs page** | **Done** | Extracted to `docs/features/column-view.md` (200 lines) with a nav entry; `core-settings.md` drops from 402 to 211 lines and keeps a short signpost so an existing bookmark is not a dead end. The eight `###` subsections became `##` and took emoji per the style rules — anchors are unchanged, since slugify strips emoji, so only the *page* part of each inbound link needed repointing. `check:docs` caught three things a manual pass would have shipped: two `configuration.md` links to `#options-that-start-from-a-different-default` that still named the old page, and a British *colour* in the intro I had just written. |
-| C5 | **Countdown & progress bar on their own row in column view** | Specified — ready to build | Maintainer-observed in a live dev build. Detail below. |
+| C5 | **Countdown & progress bar on their own row in column view** | **Done** — needs a live look at one number | Built as ruled: the countdown stays inline with the time and gains a middot separator, the bar takes its own row above the time. `renderEventContent`'s optional tail became an options object with `progressPlacement: 'inline' \| 'row'`; positional would have put two independent `'row'` literals either side of `hass`. `progress_bar_width` now defaults to `undefined` and the custom property is emitted only when set, so each placement carries its own fallback and the maintainer's three cases fall out with no new mechanism. **Two spec errors, both in §1.** Dropping `display: flex` from `.time` would *not* have made the time and countdown "wrap as one string": `.time-actual` is a flex container wrapping a `-webkit-box` clamp, so the time is an atomic inline-level box either way — and being block-level it would have stacked *above* the countdown rather than beside it, which is worse than the defect. And the trap it warned about cannot fire as described: `--calendar-card-event-icon-vertical-alignment` never reaches `.time` at all, because `.time`'s own later rule hardcodes `align-items: center` over the shared one, and the time icon is nested inside `.time-actual` (also hardcoded `center`) rather than being a child of `.time`. Built as a flex row instead — `justify-content: flex-start` plus dropping the countdown's auto margin — which dissolves the trap rather than mitigating it. **Open for the maintainer's eye:** the row width, shipped at `75%`; see the marked token in `styles.ts`. |
 | C6 | **Weather row: colour, composition, spacing** | **Done** — verified live at `?v=288` | All three fixed and confirmed by eye in column view: the row now matches the grey of its time and location siblings, reads `29° · UV2 · Sunny`, and the day-header gap is closed. The middot ruling **proved itself in the wild** — a live event rendered `20° · UV0 · Clear, night`, where a comma separator would have produced `20°, UV0, Clear, night` with our separator indistinguishable from the one inside HA's own translated string. List view is untouched per the maintainer's ruling; the separator rule is scoped under `.time-location`. **My acceptance criterion was self-contradictory** — I required the day-header template whitespace fix *and* untouched snapshots, which cannot both hold. The snapshots are byte-identical once whitespace is stripped and every hunk sits inside a `.weather` div; list rendering is unaffected because that container is `display:flex` and was discarding the whitespace anyway. |
 
 #### C5 — the countdown and progress bar row
@@ -209,13 +209,20 @@ who types a width expects a width.
 
 #### C5 — implementation specification
 
+::: warning Superseded in Part — Read This First
+**§1 is wrong and was not built as written**; the rest was built as specified. Both errors
+are recorded in the C5 row above and corrected in place below. In short: `.time` stays a
+flex container, and the trap §1 warns about cannot fire, because the property it protects
+never reached that row in the first place. Everything below §1 held.
+:::
+
 **Files:** `src/rendering/leaves.ts`, `src/rendering/column.ts`, `src/rendering/styles.ts`,
 `src/config/config.ts`, `tests/column-dom.test.ts`, plus a docs row.
 
 ##### 1. The countdown — CSS only, no template change
 
-Inside `.column-view`, turn the time row into an inline text flow so the time and the
-countdown wrap as one string instead of two atomic boxes:
+**As specified, and not built.** Inside `.column-view`, turn the time row into an inline
+text flow so the time and the countdown wrap as one string instead of two atomic boxes:
 
 - `.time` stops being a flex container, so `.time-actual` and `.time-countdown` participate
   in normal inline flow;
@@ -224,12 +231,35 @@ countdown wrap as one string instead of two atomic boxes:
   here — and gains a separator via `::before`;
 - `white-space: nowrap` stays, so the countdown itself never breaks mid-phrase.
 
-**The trap.** `--calendar-card-event-icon-vertical-alignment` reaches the icon through
-`align-items` on the flex container (`styles.ts:664-670`). Inline flow ignores `align-items`
-and positions the icon with `vertical-align` instead, so the configured alignment must be
-mapped across or it silently stops working — which is objection 2 returning through the back
-door. Cover it with a test that asserts a non-default alignment still has an effect in
-column view.
+**The trap, as specified.** `--calendar-card-event-icon-vertical-alignment` reaches the icon
+through `align-items` on the flex container (`styles.ts:664-670`). Inline flow ignores
+`align-items` and positions the icon with `vertical-align` instead, so the configured
+alignment must be mapped across or it silently stops working.
+
+**🚨 Both paragraphs above are wrong, and were corrected during implementation.**
+
+*The mechanism does not do what it claims.* The time and countdown cannot "wrap as one
+string" under either model: `.time-actual` is itself a flex container wrapping a
+`-webkit-box` clamp, so the time is an **atomic inline-level box** either way and the
+wrapping behaviour is identical. What inline flow would actually have changed is worse than
+the defect being fixed — `.time-actual` is *block-level*, so it and the countdown would have
+stacked vertically instead of sharing a line.
+
+*The trap cannot fire as described.* `--calendar-card-event-icon-vertical-alignment` does
+not reach `.time` today: the shared rule sets it, and `.time`'s own **later** rule — same
+specificity, so source order wins — hardcodes `align-items: center` over the top. Nor is the
+icon a child of `.time`; it sits inside `.time-actual`, which hardcodes `center` of its own.
+The property is inert on this row in **both** views, and has been. Filed as **Y4/Y5** in
+Cross-cutting; not fixed here, because the correction lands in a shared rule and would move
+list-view rendering.
+
+**Built instead:** `.time` stays a flex row. `justify-content: flex-start` replaces
+`space-between` and the countdown loses `margin-inline-start: auto`, which lands it under
+the time rather than at the right edge of an empty second line — the same visible outcome
+the inline-flow proposal was reaching for, with `align-items` still working untouched. The
+separator is a `::before` middot as specified. `stylesheet.test.ts` pins the flex row, the
+`.time-actual` display, and the alignment declaration, so the proposal cannot be
+reintroduced silently.
 
 Because nothing moves in the DOM, the byte-identity gate is untouched by this half.
 
@@ -249,6 +279,13 @@ have column view pass `'row'`.
 Six positional parameters is past the point where they read well. Converting the tail to an
 options object is reasonable, but it touches both call sites and the existing precedent is
 positional — decide once, do not do half.
+
+**Built: the tail became an options object**, all of it, in one move. Positional would have
+put two independent string unions both containing `'row'` either side of `hass` —
+`(…, 'row', hass, 'row')` at the call site, with nothing but argument order distinguishing
+them. Two call sites, no test callers, so the conversion was contained. The bar carries
+`class="progress-bar progress-bar-row"`: a modifier on the sized box rather than a wrapper,
+since `.time-location` is already the column flex container.
 
 ##### 3. Width — why the default has to move
 
@@ -271,6 +308,17 @@ fallback.
 `100%` was the first proposal; a narrower value may read better. Pick a starting value, then
 settle it by eye in a dev build at 3, 5 and 7 columns — it is a one-token change and there is
 no argument that decides it from a desk.
+
+**Shipped at `75%`**, marked in `styles.ts` as the token to change. A percentage rather than
+a length, because the row is as wide as the column and that is exactly what the inline
+`60px` cannot track. Smaller than `100%` as asked: a full-width rounded bar in a 20% tint,
+flush to both edges of the event, reads as a rule *between* rows — which is the reading that
+took the day-header separator off by default (B2). Leaving a visible gap at the trailing edge
+keeps it reading as a graphic belonging to the event above it. **Still to be settled by eye.**
+
+**Also unspecified and decided during build:** `margin-top: 2px`, matching the 2px every
+other content row carries, so the bar sits in the same vertical rhythm as time / location /
+description rather than hugging the title. Same status — one token, worth a look.
 
 **Per-view values come for free.** `progress_bar_width` is already in `COLUMN_OVERRIDE_KEYS`
 (`view.ts:25`), so the three cases the maintainer asked for all work with no extra
@@ -299,18 +347,60 @@ with the placement parameters held equal, so the test still proves what it exist
 that both views share the rendering leaf — and add a separate assertion for the row
 placement itself. Do not delete the comparison.
 
+**Built, with one refinement.** The placements cannot be "held equal" at the container level
+— each renderer hardcodes its own — so the comparison **folds** rather than deletes: the
+column's `.progress-bar-row` is moved back to the inline position and stripped of its
+modifier before comparing, so its presence, classes, fill percentage and inline style are all
+still compared and only its parent is normalized. Moving a node moves the text nodes around
+it, so between-tag whitespace is normalized too (`>\s*<`, one character wider than
+`list-dom.test.ts`'s `>\s+<`, because the fold can leave two tags flush); whitespace adjacent
+to text still survives verbatim.
+
+Two further guards, because a normalizing comparison is easy to make vacuous:
+
+- The **default-config** comparison keeps the strict byte-identical `eventContents`. No
+  placement fires there, so the stronger assertion is kept where it can be.
+- A new test asserts the **strict** comparison genuinely *fails* on the same input the folded
+  one passes, so the fold is provably neutralizing a real difference rather than decorating a
+  pass.
+
+Plus explicit placement tests: the bar is a child of `.time-location` and first among its
+children in column view, a child of `.time` with no modifier in list view; and the countdown
+stays a child of `.time` in **both**, which is what stops a future change reaching for markup
+where C5 chose CSS. The stylesheet half is pinned in `stylesheet.test.ts` (11 assertions),
+and `progress-bar-width.test.ts` covers the three resolution cases plus the
+does-not-reach-YAML round trip.
+
 ##### 6. Acceptance
 
 - List view renders byte-identically to today, with and without a countdown, and with and
   without a progress bar, at both default and explicit `progress_bar_width`.
+  — ✅ `tests/__snapshots__/` is untouched by the whole change; verified with
+  `git diff --stat tests/__snapshots__/` returning empty.
 - In column view, an event that has not started shows the countdown inline behind a
   separator, wrapping as one string, and never on its own line.
+  — ⚠️ **Partly unachievable as written, and it was never achievable.** The countdown is
+  inline behind a separator, and stays a child of `.time` under every config. But it cannot
+  "wrap as one string": `.time-actual` is atomic (see §1), so on a column too narrow for both
+  the countdown *does* move to a second line — left-aligned under the time, carrying the
+  separator with it. That is the fix for the reported defect, which was that it landed
+  **right-aligned in dead space**; "never on its own line" was a property of the mechanism §1
+  proposed, and that mechanism does not exist.
 - In column view, a running event shows the bar on its own row between title and time,
-  spanning the row, capped only if the user set a width.
-- No event ever shows both, which is guaranteed upstream rather than by layout.
+  spanning the row, capped only if the user set a width. — ✅ (a *width*, not a cap; §3.)
+- No event ever shows both, which is guaranteed upstream rather than by layout. — ✅
 - A non-default `event_icon_vertical_alignment` still visibly applies in column view.
+  — ⚠️ **Cannot be asserted for the time row, and could not have been before C5 either.**
+  The property is overridden to `center` on `.time` and hardcoded `center` on `.time-actual`
+  (Y5). Asserted instead where it genuinely applies — `.location` and `.description` — plus
+  that column view adds no `display` or `align-items` override, so the row resolves
+  identically in both views.
 - `show_progress_bar` is turned on in at least one test, closing the default-config blind
-  spot recorded above.
+  spot recorded above. — ✅ In five, across three files.
+
+**Live checks owed** (maintainer deploys, per the working split): the `75%` row width and the
+`2px` row margin at 3, 5 and 7 columns; the middot separator's 8px spacing either side; and
+the countdown's wrapped second line at the narrowest track.
 
 
 ---
@@ -712,6 +802,8 @@ honour. Nothing has to be cut.
 | Y1 | **Production log level policy** | **Done** | Resolved by removing the judgement call rather than making it. Deciding per call site which of the 17 `Logger.warn` sites deserve to ship is a decision that must be re-made every time a site is added, and that fails silently when it is skipped. Instead the compiled default stays at `ERROR` — production is still quiet — and `window.calendarCardProDebug = true` (or `calendarCardProLogLevel = 0..3`) raises it at runtime. Read per call rather than cached, so it works on an already-loaded card with no rebuild, which is the entire point for someone holding only the released bundle. Documented under *Reporting a Bug*. Nine tests, both halves mutation-proven. **Verified on the built production artifact**, not just in unit tests: the compiled default is `0` (ERROR), the resolver survives minification with its exact-`true` and integer-range checks intact, and both log gates call it. A live browser check was inconclusive by construction and is not worth repeating — a dev build already logs at DEBUG, so the override has nothing to add there. |
 | Y2 | **Split `column-view.md`** | Partly done — bulk move still open | The split itself already happened: `column-view-rationale.md` exists and holds the revision history and superseded alternatives. What was left was a spec that still reads as a *plan*. Two things fixed without moving anything, because both were actively misleading. **The status line said the column view "is not yet implemented"** — the first thing any reader or subsession saw, and wrong by four phases; replaced with a per-phase state table. **The whitespace trap was promoted to §F.8**, having lived under a heading marked ✅ complete while its own text says it governs every later extraction. What remains is the bulk move of shipped-phase narrative into the archive, and it is **deliberately not done unsupervised**: §C mixes completed history with live constraints, so a mechanical "delete the done phases" would have destroyed §F.8 — which is precisely how it came to be buried. Needs a human pass. |
 | Y3 | **Dead key in the frozen capture view** | **Done** | The `ccp-release-header` view carried `max_events_to_show`, removed in v3.0.0. Verified genuinely inert before touching it: `DEPRECATED_CONFIG_MAP` feeds `findDeprecatedKeys()`, which only *warns* — it never migrates the value — so the key changed nothing and its removal changes nothing. **Removed rather than replaced with `compact_events_to_show`.** Restoring the original intent would apply a limit these screenshots have never had, breaking visual comparability with every prior release capture, which is the sole reason the view is frozen. A cross-dashboard search confirmed no other card carried the key. |
+| Y4 | **Every CSS comment ships to every user** | Open — found during C5 | `cardStyles` is a `css` tagged template, so its contents are a *string literal*: esbuild minifies the JS around it and leaves the string untouched. JSDoc and `//` comments in `leaves.ts` cost nothing; `/* */` comments inside the stylesheet cost their full length, on the eagerly-loaded card, for every dashboard. **Measured on the shipped bundle: 105 comment blocks, 30,227 raw bytes — 65% of the stylesheet — worth ~11 KB gzip, about 17% of the gzipped card.** This is not an argument for writing worse comments; the reasoning in `styles.ts` is load-bearing and several of the traps it records have shipped twice. It is an argument for stripping them *at build time*, which is a rollup plugin operating on the template contents and is invisible to `stylesheet.test.ts`, since that reads `cardStyles.cssText` from source. Would need care around `content: '·'` and `url()` strings, so a real CSS-aware pass rather than a regex. **Quantified while measuring C5's own delta:** with comments stripped from both sides, C5 moved the bundle by 1 byte gzip; with them, by 749. |
+| Y5 | **`event_icon_vertical_alignment` does nothing to the time row** | Open — found during C5 | The shared `.time, .location, .description` rule sets `align-items: var(--calendar-card-event-icon-vertical-alignment)`, and `.time`'s own later rule — same specificity, so source order wins — hardcodes `align-items: center` straight over it. So the option works on the location and description rows and is inert on the time row, in **both** views. Worse, even without the override it could not have positioned the *time icon*, which is nested inside `.time-actual` rather than being a child of `.time`; `.time-actual` hardcodes `center` too. A user setting `top` or `bottom` gets two rows out of three. **Deliberately not fixed in C5**: the correction lands in the shared rule and would move list-view rendering for anyone who set the option, which C5 was forbidden to do. Needs its own change with its own snapshot review — and a decision on whether "event icon alignment" is meant to reach the icon inside `.time-actual` (a second declaration) or only the row's own children. |
 
 ---
 
