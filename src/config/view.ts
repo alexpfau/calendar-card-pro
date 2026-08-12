@@ -116,6 +116,72 @@ const OVERRIDE_KEY_SET: ReadonlySet<string> = new Set<string>([
 ]);
 
 /**
+ * Every view the card can render, in the order a user should meet them.
+ *
+ * Exported so callers can iterate the views rather than naming one. The editor is
+ * built against this list specifically to keep `=== 'column'` out of it: a third
+ * view should cost an entry here and a set below, not a hunt for comparisons.
+ */
+export const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column'];
+
+/**
+ * Views that give way to another layout when the card is too narrow to render them.
+ *
+ * A card set to one of these renders **two** layouts over its lifetime — its own when
+ * there is room, and the fallback when there is not — which is why the editor annotates
+ * options rather than hiding them, and why it can offer a table of what happens at
+ * which width. A view absent from this set always renders itself.
+ */
+export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
+  new Set<Types.EffectiveView>(['column']);
+
+/**
+ * Views that carry a per-view override block, mapped to the config key holding it.
+ *
+ * `list` is absent because the top level *is* the list configuration — there is
+ * nothing for it to override. A future view with its own block adds one entry, and
+ * every consumer that iterates this map picks it up without further change.
+ */
+export const OVERRIDE_BLOCK_BY_VIEW: Readonly<
+  Partial<Record<Types.EffectiveView, keyof Types.Config>>
+> = {
+  column: 'column',
+};
+
+/**
+ * Which views each option actually affects. An absent key affects every view.
+ *
+ * Keyed by view rather than kept as a flat "inert in column view" list, because the
+ * statement an editor needs to make is *"applies to the list layout"* rather than
+ * *"does nothing"* — both layouts are live for one card, since a column card renders
+ * as a list below its width threshold. A flat list also could not express a key that
+ * applies to two views out of three, which is the shape a third view produces.
+ *
+ * The compact family is here in full. Compact limits cap how much a card shows along
+ * the axis it grows on, which a vertical list has and a grid does not; see
+ * `viewAppliesCompactLimits`, which is the runtime half of the same statement.
+ */
+export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
+  date_vertical_alignment: new Set<Types.EffectiveView>(['list']),
+  today_indicator_position: new Set<Types.EffectiveView>(['list']),
+  compact_events_to_show: new Set<Types.EffectiveView>(['list']),
+  compact_days_to_show: new Set<Types.EffectiveView>(['list']),
+  compact_events_complete_days: new Set<Types.EffectiveView>(['list']),
+};
+
+/**
+ * Whether an option has any effect in the given view.
+ *
+ * @param key - Config key to test
+ * @param view - View to test it against
+ * @returns `true` when the option affects that view, including for every unlisted key
+ */
+export function appliesToView(key: string, view: Types.EffectiveView): boolean {
+  const scope = VIEW_SCOPE[key];
+  return scope === undefined || scope.has(view);
+}
+
+/**
  * Options that influence which events are fetched from Home Assistant.
  *
  * These can never become overrides. Switching between views must not refetch, so an
@@ -1232,4 +1298,74 @@ export function resolveColumnFitOnMeasurement(
     measuredWidthPx,
     previousMeasuredWidthPx === null ? null : previous,
   );
+}
+
+//-----------------------------------------------------------------------------
+// WIDTH BANDS
+//-----------------------------------------------------------------------------
+
+/**
+ * One rung of the column staircase: a column count and the width that earns it.
+ */
+export interface ColumnLayoutBand {
+  /** Day columns rendered in this band. */
+  columns: number;
+  /** Card width, in pixels, at or above which the band is entered. */
+  minWidthPx: number;
+}
+
+/**
+ * The layouts a configuration produces across every card width.
+ *
+ * Ordered widest first, which is how it reads as a table.
+ */
+export interface ColumnLayoutBands {
+  /** Column counts from `days_to_show` down to `min_days_to_show`. */
+  bands: ReadonlyArray<ColumnLayoutBand>;
+  /** What happens below the narrowest band. */
+  fallback: Types.ColumnMinDaysFallback;
+  /** Width, in pixels, below which `fallback` applies. */
+  fallbackBelowPx: number;
+  /** Width either side of a boundary within which the current layout is held. */
+  hysteresisPx: number;
+}
+
+/**
+ * Describes every layout a configuration can settle on, by card width.
+ *
+ * The editor renders this as a table, which is the only honest answer to the
+ * question column view generates most often — *why does my card look different on my
+ * phone*. It lives here rather than in the editor because it is the same arithmetic
+ * `resolveColumnFit` runs, and a second copy of a formula whose every term is
+ * load-bearing (see `COLUMN_DEFAULTS.min_day_width`) is a copy that will drift.
+ *
+ * Thresholds are the **entering** ones — the width a card must reach to gain a
+ * layout, `computeColumnThresholdPxFor` plus half the hysteresis band, exactly as
+ * `resolveColumnFit` computes when growing. Reporting the entering figure for every
+ * rung keeps the table internally consistent; the band that makes a boundary sticky
+ * on the way back down is surfaced separately as `hysteresisPx` rather than as a
+ * second column of numbers nobody asked for.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns Bands widest first, plus what happens below the narrowest
+ */
+export function describeColumnLayoutBands(config: Types.Config): ColumnLayoutBands {
+  const days = configuredDays(config);
+  const floor = Math.min(resolveMinDaysToShow(config), days);
+  const halfBand = columnHysteresisHalfBandPx(config);
+
+  const bands: ColumnLayoutBand[] = [];
+  for (let columns = days; columns >= floor; columns--) {
+    bands.push({
+      columns,
+      minWidthPx: Math.ceil(computeColumnThresholdPxFor(config, columns) + halfBand),
+    });
+  }
+
+  return {
+    bands,
+    fallback: resolveMinDaysFallback(config),
+    fallbackBelowPx: Math.ceil(computeColumnThresholdPxFor(config, floor) + halfBand),
+    hysteresisPx: halfBand,
+  };
 }

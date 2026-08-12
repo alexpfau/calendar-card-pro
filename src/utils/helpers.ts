@@ -416,3 +416,56 @@ export function filterDefaultValues(
 
   return result;
 }
+
+//-----------------------------------------------------------------------------
+// MEMOIZATION
+//-----------------------------------------------------------------------------
+
+/**
+ * Wraps a function so it recomputes only when its arguments change.
+ *
+ * A single-slot cache with shallow (`Object.is`) argument comparison — the same
+ * contract as the `memoize-one` package every Home Assistant card editor uses, in
+ * the six lines it actually takes. It is written here rather than depended upon
+ * because the bundle-size rule governs `dependencies`, and this is the whole of what
+ * we need from that package.
+ *
+ * One slot is the right size for the job. The caller is a schema builder invoked once
+ * per render with the same arguments almost every time, so the hit rate of a
+ * single-entry cache is already ~100% and a larger cache would only add a key to
+ * compute and entries to evict.
+ *
+ * `Object.is` rather than `===` so a `NaN` argument compares equal to itself, which
+ * is what "the arguments did not change" means. Arguments are compared by identity,
+ * so callers must pass the values a schema reads rather than the object holding
+ * them: a config object rebuilt on every keystroke never compares equal.
+ *
+ * @param fn - Function to memoize
+ * @returns A function returning `fn`'s last result while its arguments are unchanged
+ */
+export function memoizeLast<Args extends readonly unknown[], Result>(
+  fn: (...args: Args) => Result,
+): (...args: Args) => Result {
+  let lastArgs: Args | undefined;
+  let lastResult: Result;
+
+  return (...args: Args): Result => {
+    if (
+      lastArgs !== undefined &&
+      lastArgs.length === args.length &&
+      args.every((arg, index) => Object.is(arg, lastArgs![index]))
+    ) {
+      return lastResult;
+    }
+
+    // Computed before either slot is written, so a throwing call leaves the cache as
+    // it was. Committing the arguments first would record a result that was never
+    // produced, and the retry — with identical arguments — would return it.
+    const result = fn(...args);
+
+    lastArgs = args;
+    lastResult = result;
+
+    return result;
+  };
+}

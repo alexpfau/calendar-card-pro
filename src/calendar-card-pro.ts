@@ -42,6 +42,7 @@ import * as Render from './rendering/render';
 import * as Weather from './utils/weather';
 import * as Templates from './utils/templates';
 import * as Editor from './rendering/editor';
+import * as EditorNext from './rendering/editor/index';
 
 //-----------------------------------------------------------------------------
 // GLOBAL TYPE DECLARATIONS
@@ -49,6 +50,24 @@ import * as Editor from './rendering/editor';
 
 // Ensure this file is treated as a module
 export {};
+
+/**
+ * Whether this is the development bundle.
+ *
+ * Substituted by esbuild at build time (`define` in `rollup.config.mjs`), which is
+ * what makes it a **dead-code-elimination switch** rather than a value. Folded to
+ * `false` during transform, the branch below disappears before Rollup resolves
+ * imports, so the schema-driven editor never enters the production bundle at all —
+ * around 5 KB gzip of code no production user could open. Substituting it any later
+ * removes only the call and ships the editor anyway, which is measurably what happens
+ * with the `@rollup/plugin-replace` pass used for the log level and the element name.
+ *
+ * It exists so the schema-driven editor is reachable, and live-testable in a real Home
+ * Assistant, while the editor that ships today keeps serving releases until the
+ * rebuild is complete. When the last panel is migrated, the old editor is deleted,
+ * `getConfigElement` returns the new one unconditionally, and this goes with it.
+ */
+declare const __DEV_BUILD__: boolean;
 
 // Add global type declarations
 declare global {
@@ -59,6 +78,7 @@ declare global {
   interface HTMLElementTagNameMap {
     'calendar-card-pro-dev': CalendarCardPro;
     'calendar-card-pro-dev-editor': Editor.CalendarCardProEditor;
+    'calendar-card-pro-dev-editor-next': EditorNext.CalendarCardProEditorNext;
     'ha-ripple': HTMLElement;
   }
 }
@@ -119,9 +139,17 @@ class CalendarCardPro extends LitElement {
   /**
    * Static method that returns a new instance of the editor
    * This is how Home Assistant discovers and loads the editor
+   *
+   * Two editors exist while the schema-driven rebuild is being built out. The
+   * development bundle opens the new one, so it can be exercised in a real Home
+   * Assistant against a real card; the production bundle keeps opening the editor that
+   * ships today, which stays complete and supported until the last panel is migrated.
+   * Both are registered from one source file, so neither can drift out of the build.
    */
   static getConfigElement() {
-    return document.createElement('calendar-card-pro-dev-editor');
+    return document.createElement(
+      __DEV_BUILD__ ? 'calendar-card-pro-dev-editor-next' : 'calendar-card-pro-dev-editor',
+    );
   }
 
   static getStubConfig = Config.getStubConfig;
@@ -1254,6 +1282,13 @@ class CalendarCardPro extends LitElement {
 
 // Register the editor - main component registered by decorator
 customElements.define('calendar-card-pro-dev-editor', Editor.CalendarCardProEditor);
+
+// The schema-driven editor, registered only where it can be reached. Guarding the
+// registration rather than only the lookup keeps the production bundle from carrying a
+// second custom element nobody can open.
+if (__DEV_BUILD__) {
+  customElements.define('calendar-card-pro-dev-editor-next', EditorNext.CalendarCardProEditorNext);
+}
 
 // Create interface extending CustomElementConstructor to allow getStubConfig property
 interface CalendarCardConstructor extends CustomElementConstructor {

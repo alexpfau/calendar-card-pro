@@ -29,6 +29,15 @@ export default {
     // Do not re-enable without also shipping and serving the map.
     sourcemap: false,
   },
+  // The schema-driven editor modules carry no side effects worth preserving — they
+  // declare classes, tables and a stylesheet, and register nothing. Saying so lets
+  // Rollup drop them from the production bundle once esbuild has eliminated the
+  // development-only branch that references them. Scoped to that directory rather
+  // than set globally, so no other module's side effects are affected.
+  treeshake: {
+    moduleSideEffects: (id) => !id.includes('/rendering/editor/'),
+  },
+
   plugins: [
     replace({
       preventAssignment: true,
@@ -50,9 +59,20 @@ export default {
       // Kept in step with output.sourcemap above; input maps would only be built and
       // then discarded.
       sourceMap: false,
-      // Define NODE_ENV as production to ensure Lit uses production builds
+      // Required for `define` below to actually eliminate the branch it makes dead;
+      // esbuild's transform keeps dead code otherwise.
+      treeShaking: true,
       define: {
+        // Define NODE_ENV as production to ensure Lit uses production builds
         'process.env.NODE_ENV': JSON.stringify('production'),
+        // Whether this is the development bundle. Substituted here rather than
+        // through @rollup/plugin-replace because esbuild folds the constant and
+        // eliminates the dead branch during transform, which is early enough for the
+        // import it contained to be elided and for Rollup never to pull the
+        // schema-driven editor into the production bundle. Replacing the value later
+        // only removes the call, leaving several kilobytes of unreachable editor
+        // behind. See the declaration in calendar-card-pro.ts.
+        __DEV_BUILD__: JSON.stringify(!isProd),
       },
     }),
     resolve({
