@@ -449,3 +449,12 @@ both directions, by importing the schema modules. A new field with no string fai
   and phased implementation plan for the column view (`view: 'column'`, targeting v4.0.0).
   Read before touching the rendering pipeline, the view dispatch, or any view-dependent
   config key, so in-flight work stays compatible with it.
+- [`docs/development/editor-rebuild.md`](./docs/development/editor-rebuild.md) — the design
+  and staging for the schema-driven editor that replaces the hand-rolled one in v4. Read
+  before touching anything under `src/rendering/editor/`. Its status banner records which
+  parts the maintainer has superseded and which claims implementation has corrected — read
+  that first, not the body.
+- [`docs/development/v4-backlog.md`](./docs/development/v4-backlog.md) — the index of every
+  open item for v4, including the ones no specification owns. **Read it before starting a
+  stage and add to it when review turns something up**; it exists because findings kept
+  living only in a chat thread, which is not a place work survives.

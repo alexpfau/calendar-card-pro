@@ -1628,6 +1628,7 @@ forgotten.
 | **Editor too-narrow warning**           | G14         | Editor support as a whole is post-MVP      | Must ship — it is what makes G14's ruling honest   |
 | **Feedback for a bad key in `column:`** | 4a / D-1    | `Logger.warn` is silent in prod builds     | Editor prevents it at source; docs list valid keys |
 | **Honesty affordance for auto-fit**     | A3-G        | A truncated card looks like a complete one | Ship before any change to the A3-G defaults        |
+| **Progress bar in column view**         | —           | Renders via the shared leaf but is never exercised: it defaults off, so the suite (built from default config) cannot see it | Must ship verified — a full-width bar in a 140px column is unproven **[v18]** |
 
 The E1 acceptance criterion is what enforces this: _no silent config no-ops_. Anything still
 deferred at release must appear in the documented not-applicable list, so a user who sets it
