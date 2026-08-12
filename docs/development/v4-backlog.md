@@ -172,6 +172,103 @@ available width, with `progress_bar_width` reinterpreted as a maximum so anyone 
 is not overridden. A percentage of column width would need a new key and a default nobody
 can guess well.
 
+**Ruled: fill the row, with `progress_bar_width` as a maximum** *(maintainer, 2026-08-12)*.
+
+---
+
+#### C5 — implementation specification
+
+**Files:** `src/rendering/leaves.ts`, `src/rendering/column.ts`, `src/rendering/styles.ts`,
+`src/config/config.ts`, `tests/column-dom.test.ts`, plus a docs row.
+
+##### 1. The countdown — CSS only, no template change
+
+Inside `.column-view`, turn the time row into an inline text flow so the time and the
+countdown wrap as one string instead of two atomic boxes:
+
+- `.time` stops being a flex container, so `.time-actual` and `.time-countdown` participate
+  in normal inline flow;
+- `.time-countdown` loses `margin-inline-start: auto`, `text-align: right` and
+  `margin-inline-end: 12px` — all three exist to right-align a block that no longer exists
+  here — and gains a separator via `::before`;
+- `white-space: nowrap` stays, so the countdown itself never breaks mid-phrase.
+
+**The trap.** `--calendar-card-event-icon-vertical-alignment` reaches the icon through
+`align-items` on the flex container (`styles.ts:664-670`). Inline flow ignores `align-items`
+and positions the icon with `vertical-align` instead, so the configured alignment must be
+mapped across or it silently stops working — which is objection 2 returning through the back
+door. Cover it with a test that asserts a non-default alignment still has an effect in
+column view.
+
+Because nothing moves in the DOM, the byte-identity gate is untouched by this half.
+
+##### 2. The progress bar — a placement parameter
+
+`renderEventContent` already takes `weatherPlacement: 'title' | 'row'` (`leaves.ts:501`) and
+column view already passes `'row'` positionally (`column.ts:244-250`). Add
+`progressPlacement: 'inline' | 'row'`, defaulted to `'inline'` so list view is unchanged, and
+have column view pass `'row'`.
+
+- **`'inline'`** — exactly today's markup: the bar is a child of `.time`, right-aligned.
+- **`'row'`** — the bar renders as the **first child of `.time-location`**, before `.time`,
+  which places it between the event title and the time. `.time-location` is already
+  `flex-direction: column` (`styles.ts:658-661`), so no ordering work is needed. Give it its
+  own class so the two placements can be styled independently.
+
+Six positional parameters is past the point where they read well. Converting the tail to an
+options object is reasonable, but it touches both call sites and the existing precedent is
+positional — decide once, do not do half.
+
+##### 3. Width — the part that does not work as first stated
+
+"Reinterpret `progress_bar_width` as a maximum" cannot be implemented directly, because
+`DEFAULT_CONFIG.progress_bar_width` is `'60px'` and is merged in before render. By the time
+CSS sees it, a value the user set and a value they never touched are indistinguishable — so
+`max-width: 60px` would cap every unconfigured bar at 60px and the row would gain nothing.
+
+Fix it at the source: make the default **absent** and let each placement supply its own
+fallback.
+
+- `DEFAULT_CONFIG.progress_bar_width` becomes `undefined`, and the custom property is
+  emitted only when the user actually set it.
+- Inline placement: `width: var(--calendar-card-progress-bar-width, 60px)` — byte-identical
+  behaviour to today for every existing card.
+- Row placement: `width: 100%` with
+  `max-width: var(--calendar-card-progress-bar-width, none)`.
+
+`check:docs` reconciles `DEFAULT_CONFIG` against the reference table, so the row for
+`progress_bar_width` has to change with it. It joins the small set of options whose code
+default is `undefined` with a prose default in the docs — that pattern already exists and
+already emits an advisory warning, so match how those are written.
+
+##### 4. Alignment of the bar row — confirm by eye
+
+The bar sits between the title and the time. Flush left, aligned with the **title**, reads as
+an indicator for the whole event and suits a bar that spans the row. Indenting it to the time
+*text* would align it with a row that sits below it, which is the weaker reading. Recommend
+flush left; it is a one-line difference and worth checking against a real card.
+
+##### 5. The test contract
+
+`tests/column-dom.test.ts:725` and `:750` compare event content across the two views.
+Widen the contract to *"identical except for documented per-view placements"* by comparing
+with the placement parameters held equal, so the test still proves what it exists to prove —
+that both views share the rendering leaf — and add a separate assertion for the row
+placement itself. Do not delete the comparison.
+
+##### 6. Acceptance
+
+- List view renders byte-identically to today, with and without a countdown, and with and
+  without a progress bar, at both default and explicit `progress_bar_width`.
+- In column view, an event that has not started shows the countdown inline behind a
+  separator, wrapping as one string, and never on its own line.
+- In column view, a running event shows the bar on its own row between title and time,
+  spanning the row, capped only if the user set a width.
+- No event ever shows both, which is guaranteed upstream rather than by layout.
+- A non-default `event_icon_vertical_alignment` still visibly applies in column view.
+- `show_progress_bar` is turned on in at least one test, closing the default-config blind
+  spot recorded above.
+
 | C3 | **Named view predicates** | Open | 13 binary `=== 'column'` / `!== 'list'` gates remain outside the editor. `events.ts` in particular gates compact limits with reasoning its own comment applies to *any* grid layout, yet excludes only column. The editor has zero such gates and a test enforcing it; `src/` does not. Raised by the grid-view feasibility review; `column-view.md` forbids the pattern. Cheap now, structural debt once a third view exists. |
 | C4 | **Column view as its own docs page** | Open | It is 175 lines and seven subsections inside `core-settings.md` — the largest section there, and a view mode rather than a core setting. Every other major feature has its own page and a nav entry. Needs every inbound link updated, since `ignoreDeadLinks` is off. |
 
