@@ -198,10 +198,13 @@ export const layoutSchema = Helpers.memoizeLast(
     // Progressive disclosure on a value the user sets in this same panel, which is the
     // case where hiding is right: the two height fields are alternatives, and the
     // control that chooses between them is directly above.
+    // Bound to synthetic fields rather than to `height` / `max_height` themselves: the
+    // mode above is derived from whether those keys are set, so an emptied box would
+    // otherwise delete the value and take this field with it. See `synthetic.ts`.
     if (heightMode === 'fixed') {
-      schema.push({ name: 'height', selector: { text: {} } });
+      schema.push({ name: 'card_height', selector: { text: {} } });
     } else if (heightMode === 'maximum') {
-      schema.push({ name: 'max_height', selector: { text: {} } });
+      schema.push({ name: 'card_max_height', selector: { text: {} } });
     }
 
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];

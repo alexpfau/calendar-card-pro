@@ -129,8 +129,8 @@ export function computeHelper(
   schema: HaFormSchema,
   path: ReadonlyArray<string> = [],
 ): string | undefined {
-  const qualified = qualifiedKey(schema.name, path);
-  const own = lookup(language, `${qualified}.helper`) ?? lookup(language, `${schema.name}.helper`);
+  const own =
+    lookup(language, `${helperKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
 
   const applicability = applicabilityNote(language, schema.name, view);
   if (applicability === undefined) {
@@ -138,6 +138,49 @@ export function computeHelper(
   }
 
   return own === undefined ? applicability : `${applicability} ${own}`;
+}
+
+/**
+ * The key a node's helper text is stored under.
+ *
+ * A group carries its own, and it has to: `ha-form-expandable` resolves a group's
+ * description by calling the helper hook **on itself, with no path**, so a group whose
+ * string key differs from its config key — `weather.date` stored under `date` — would
+ * otherwise be asked for under the bare name. Left that way the group's own helper is
+ * unreachable, and worse than unreachable: `date` and `event` are also keys in the
+ * dormant `editor.*` namespace, so the lookup would succeed and render copy written
+ * for the editor that was replaced.
+ *
+ * @param schema - The node being described
+ * @param path - Enclosing group names, outermost first
+ * @returns The key to look the helper up under
+ */
+function helperKey(schema: HaFormSchema, path: ReadonlyArray<string>): string {
+  if ('titleKey' in schema && schema.titleKey !== undefined) {
+    return schema.titleKey;
+  }
+
+  return qualifiedKey(schema.name, path);
+}
+
+/**
+ * The bare-name helper, for a field inside a group that qualifies its keys.
+ *
+ * Mirrors `computeLabel`'s second attempt, so a field's helper is found under its
+ * config key whether or not it sits in a group. Groups are excluded: their key is
+ * exact, and falling back to the bare name is precisely how the wrong string gets
+ * rendered.
+ *
+ * @param language - Effective language code
+ * @param schema - The node being described
+ * @returns The helper, or `undefined`
+ */
+function fallbackHelper(language: string, schema: HaFormSchema): string | undefined {
+  if ('titleKey' in schema && schema.titleKey !== undefined) {
+    return undefined;
+  }
+
+  return lookup(language, `${schema.name}.helper`);
 }
 
 /**

@@ -73,10 +73,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height_mode.option.auto.label': 'Fit content',
   'height_mode.option.fixed.label': 'Fixed height',
   'height_mode.option.maximum.label': 'Maximum height',
-  height: 'Height',
-  'height.helper': 'The card is always this tall, scrolling if the events do not fit.',
-  max_height: 'Maximum Height',
-  'max_height.helper': 'The card grows with its content up to this height, then scrolls.',
+  card_height: 'Height',
+  'card_height.helper': 'The card is always this tall, scrolling if the events do not fit.',
+  card_max_height: 'Maximum Height',
+  'card_max_height.helper': 'The card grows with its content up to this height, then scrolls.',
 
   // --- Column density -------------------------------------------------------
   'column.density': 'Column Density',

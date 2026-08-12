@@ -19,6 +19,7 @@ import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import type { HaFormSchema, SelectOption } from '../src/rendering/editor/ha-form';
 import { applicabilityNote, computeHelper, computeLabel } from '../src/rendering/editor/localize';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
+import { buildDayHeaderSchema } from '../src/rendering/editor/schemas/day-header';
 import { buildLayoutSchema, widthTableRows } from '../src/rendering/editor/schemas/layout';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import {
@@ -710,10 +711,13 @@ describe('editor: the Layout panel', () => {
   });
 
   it('shows the height field the chosen mode calls for, and only that one', () => {
-    expect(names(buildConfig({ height: '400px' }))).toContain('height');
-    expect(names(buildConfig({ height: '400px' }))).not.toContain('max_height');
-    expect(names(buildConfig({ max_height: '400px' }))).toContain('max_height');
-    expect(names(buildConfig())).not.toContain('height');
+    // The two measurements are bound to synthetic fields rather than to `height` and
+    // `max_height`, so that clearing one to retype it does not delete the value and
+    // take the field with it. See the typing tests below.
+    expect(names(buildConfig({ height: '400px' }))).toContain('card_height');
+    expect(names(buildConfig({ height: '400px' }))).not.toContain('card_max_height');
+    expect(names(buildConfig({ max_height: '400px' }))).toContain('card_max_height');
+    expect(names(buildConfig())).not.toContain('card_height');
   });
 });
 
@@ -1622,5 +1626,154 @@ describe('editor: the write path over the whole configuration', () => {
     const again = toStoredConfig({ ...DEFAULT_CONFIG, ...stored } as Types.Config);
 
     expect(again).toEqual(stored);
+  });
+});
+
+describe('editor: fields that must survive being typed into', () => {
+  /**
+   * Three fields hold a value that the control editing them is derived from, so a
+   * half-typed value re-derives the control away mid-word. `start_date_offset` is the
+   * one the design named; these are the two found beside it.
+   *
+   * Types one character at a time through the real change handler, which is the only
+   * way the failure shows: each keystroke individually looks harmless.
+   */
+  function type(
+    config: Types.Config,
+    field: string,
+    keystrokes: ReadonlyArray<string>,
+  ): { config: Types.Config; pending: Record<string, string> } {
+    let current = config;
+    let pending: Record<string, string> = {};
+
+    for (const value of keystrokes) {
+      const form = {
+        ...(current as unknown as Record<string, unknown>),
+        ...deriveSyntheticData(current, pending),
+      };
+      const applied = applyFormChange(current, form, { ...form, [field]: value }, pending);
+      current = applied.config;
+      pending = applied.pending;
+    }
+
+    return { config: current, pending };
+  }
+
+  function fieldNames(build: () => HaFormSchema[]): string[] {
+    return [...walkSchema(build())].map((entry) => entry.node.name).filter(Boolean);
+  }
+
+  /**
+   * The renderer classifies any string it does not recognise as a plain dot, so
+   * committing each keystroke of `star.png` would switch the style to Dot on the `s`,
+   * remove this field, and leave `s` in the user's configuration.
+   */
+  it('keeps the custom indicator field standing while an image path is typed', () => {
+    const start = buildConfig({ today_indicator: '⭐' });
+
+    for (const partial of ['s', 'st', 'star', 'star.pn']) {
+      const { config, pending } = type(start, 'today_indicator_custom', [partial]);
+
+      expect(config.today_indicator, partial).toBe('⭐');
+      expect(pending.today_indicator_custom, partial).toBe(partial);
+      expect(
+        fieldNames(() => buildDayHeaderSchema({ view: 'list', config, language: 'en' })),
+        partial,
+      ).toContain('today_indicator_custom');
+    }
+
+    const done = type(start, 'today_indicator_custom', ['s', 'st', 'star', 'star.pn', 'star.png']);
+    expect(done.config.today_indicator).toBe('star.png');
+  });
+
+  /**
+   * Home Assistant's text selector reports every keystroke and turns an emptied field
+   * into `undefined`, so binding `height` directly would delete the measurement the
+   * moment the box was cleared to retype it — and take the field with it, since the
+   * height mode is derived from whether the key is set.
+   */
+  it('keeps the height field standing while its measurement is retyped', () => {
+    const start = buildConfig({ height: '500px' });
+    const cleared = type(start, 'card_height', ['']);
+
+    expect(cleared.config.height).toBe('500px');
+    expect(cleared.pending.card_height).toBe('');
+    expect(
+      fieldNames(() => buildLayoutSchema({ view: 'list', config: cleared.config, language: 'en' })),
+    ).toContain('card_height');
+
+    const retyped = type(start, 'card_height', ['', '4', '40', '400px']);
+    expect(retyped.config.height).toBe('400px');
+  });
+
+  it('keeps the maximum-height field standing on the same terms', () => {
+    const start = buildConfig({ height: 'auto', max_height: '600px' });
+    const cleared = type(start, 'card_max_height', ['']);
+
+    expect(cleared.config.max_height).toBe('600px');
+    expect(
+      fieldNames(() => buildLayoutSchema({ view: 'list', config: cleared.config, language: 'en' })),
+    ).toContain('card_max_height');
+  });
+
+  it('never lets a held measurement reach the stored configuration', () => {
+    const { config, pending } = type(buildConfig({ height: '500px' }), 'card_height', ['']);
+
+    expect(toStoredConfig(config).height).toBe('500px');
+    expect(toStoredConfig(config)).not.toHaveProperty('card_height');
+    expect(pending.card_height).toBe('');
+  });
+});
+
+describe('editor: group headings resolve their own strings', () => {
+  /**
+   * `ha-form-expandable` asks for a group's description by calling the helper hook on
+   * itself with **no path**, so a group whose string key differs from its config key —
+   * `weather.date`, stored under `date` — is asked for under the bare name unless the
+   * resolver prefers its title key.
+   *
+   * Left that way the helper is not merely missing: `date` and `event` are also keys in
+   * the dormant `editor.*` sections, so the lookup succeeds and renders a word written
+   * for the editor that was replaced.
+   */
+  it('resolves a group helper from the key its heading came from', () => {
+    const config = buildConfig({
+      view: 'column',
+      weather: { entity: 'weather.home', position: 'both' },
+    });
+
+    const groups = PANELS.flatMap((panel) => [
+      ...walkSchema(panel.build({ view: 'column', config, language: 'en' })),
+    ]).filter((entry) => 'titleKey' in entry.node);
+
+    expect(groups.length).toBeGreaterThan(8);
+
+    for (const { node, path } of groups) {
+      const titleKey = (node as { titleKey?: string }).titleKey!;
+      const expected = EDITOR_STRINGS[`${titleKey}.helper`];
+      if (expected === undefined) continue;
+
+      expect(computeHelper('en', 'column', node, path), titleKey).toBe(expected);
+    }
+  });
+
+  it('does not fall back to a bare key that belongs to the old namespace', () => {
+    const config = buildConfig({ weather: { entity: 'weather.home', position: 'both' } });
+    const groups = [
+      ...walkSchema(
+        PANELS.find((panel) => panel.id === 'weather')!.build({
+          view: 'list',
+          config,
+          language: 'en',
+        }),
+      ),
+    ].filter((entry) => 'titleKey' in entry.node);
+
+    // `editor.date` and `editor.event` still exist in en.json and resolve to "Date" and
+    // "Event" — the exact strings a bare-name fallback would render here.
+    for (const { node, path } of groups) {
+      expect(computeHelper('en', 'list', node, path)).not.toBe('Date');
+      expect(computeHelper('en', 'list', node, path)).not.toBe('Event');
+    }
   });
 });

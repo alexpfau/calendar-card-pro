@@ -147,6 +147,24 @@ export function isCommittableOffset(value: string): boolean {
 }
 
 /**
+ * Whether a today-indicator value is one the card would render as typed.
+ *
+ * The same shape of question `isCommittableOffset` asks, for the same reason.
+ * `getTodayIndicatorType` answers `'dot'` for any string it does not recognise, so
+ * committing a half-typed `star.png` would re-derive the style as a dot, take the text
+ * field away mid-word and write the fragment to the user's configuration. Asking the
+ * renderer's own classifier means the editor commits exactly when the card would agree
+ * about what the value is.
+ *
+ * @param value - Text as typed
+ * @returns `true` when the value can be committed to the config
+ */
+export function isCommittableIndicator(value: string): boolean {
+  const type = Helpers.getTodayIndicatorType(value);
+  return type === 'image' || type === 'emoji';
+}
+
+/**
  * Derives the start-date mode from the shape of the stored value.
  *
  * @param config - Current configuration
@@ -247,6 +265,11 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   height_mode: {
     derive: (config) => heightMode(config),
     apply: (value, config) => {
+      // Every branch discards text held for the two measurement fields, for the same
+      // reason the start-date mode discards its own: abandoned keystrokes must not
+      // reappear the moment the user comes back to this mode.
+      const discardHeights = { card_height: null, card_max_height: null };
+
       if (value === 'fixed') {
         return {
           changes: {
@@ -256,6 +279,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
                 : FALLBACK_BOUNDED_HEIGHT,
             max_height: undefined,
           },
+          pending: discardHeights,
         };
       }
 
@@ -268,10 +292,44 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
                 ? config.max_height
                 : FALLBACK_BOUNDED_HEIGHT,
           },
+          pending: discardHeights,
         };
       }
 
-      return { changes: { height: undefined, max_height: undefined } };
+      return {
+        changes: { height: undefined, max_height: undefined },
+        pending: discardHeights,
+      };
+    },
+  },
+
+  /**
+   * The two measurements, held rather than written straight through.
+   *
+   * `height` and `max_height` cannot be bound to their config keys directly, because
+   * the mode above is derived from *whether they are set*. Home Assistant's text
+   * selector reports every keystroke and turns an emptied field into `undefined`, so
+   * clearing the box to retype a value would delete the value, re-derive the mode as
+   * automatic and remove the field the user was typing into — losing the measurement
+   * and offering `300px` rather than what was there before on the way back.
+   */
+  card_height: {
+    derive: (config) => (heightMode(config) === 'fixed' ? String(config.height) : ''),
+    apply: (value) => {
+      const text = String(value ?? '');
+      return text === ''
+        ? { changes: {}, pending: { card_height: text } }
+        : { changes: { height: text }, pending: { card_height: null } };
+    },
+  },
+
+  card_max_height: {
+    derive: (config) => (heightMode(config) === 'maximum' ? String(config.max_height) : ''),
+    apply: (value) => {
+      const text = String(value ?? '');
+      return text === ''
+        ? { changes: {}, pending: { card_max_height: text } }
+        : { changes: { max_height: text }, pending: { card_max_height: null } };
     },
   },
 
@@ -442,9 +500,14 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       todayIndicatorStyle(config) === 'custom' ? String(config.today_indicator) : '',
     apply: (value) => {
       const text = String(value ?? '');
-      return text === ''
-        ? { changes: {}, pending: { today_indicator_custom: text } }
-        : { changes: { today_indicator: text }, pending: { today_indicator_custom: null } };
+
+      // Held until the value is one the renderer would recognise, because an
+      // unrecognised string classifies as a plain dot — so committing `star.pn` on the
+      // way to `star.png` would switch the style, remove this very field, and store the
+      // fragment. Only an emoji or an image path is committed.
+      return isCommittableIndicator(text)
+        ? { changes: { today_indicator: text }, pending: { today_indicator_custom: null } }
+        : { changes: {}, pending: { today_indicator_custom: text } };
     },
   },
 

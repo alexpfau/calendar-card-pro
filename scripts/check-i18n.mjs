@@ -187,12 +187,15 @@ async function readEditorSchemaKeys() {
   const labels = new Map();
   /** Title keys for collapsible groups, which resolve their own headings. */
   const titles = new Set();
+  /** Every key a `.helper` string could actually be looked up under. */
+  const helpers = new Set();
   /** Every key that is legitimately the root of a table entry. */
   const roots = new Set();
 
   for (const panel of PANELS) {
     roots.add(panel.titleKey);
     titles.add(panel.titleKey);
+    helpers.add(panel.titleKey);
     for (const prefix of panel.strings ?? []) roots.add(prefix);
   }
 
@@ -209,9 +212,11 @@ async function readEditorSchemaKeys() {
 
         // A group resolves its own heading when it is built, so Home Assistant never
         // asks for its label. Its string is `titleKey`, which may differ from its name
-        // — two panels nest the same block under different headings.
+        // — two panels nest the same block under different headings — and its helper is
+        // asked for under that same key, with no path.
         if (node.titleKey !== undefined) {
           titles.add(node.titleKey);
+          helpers.add(node.titleKey);
           roots.add(node.titleKey);
           roots.add(node.name);
           continue;
@@ -219,13 +224,15 @@ async function readEditorSchemaKeys() {
 
         const qualified = [...path, node.name].join('.');
         labels.set(qualified, node.name);
+        helpers.add(qualified);
+        helpers.add(node.name);
         roots.add(qualified);
         roots.add(node.name);
       }
     }
   }
 
-  return { labels, titles, roots, strings: EDITOR_STRINGS, viewScope: VIEW_SCOPE };
+  return { labels, titles, helpers, roots, strings: EDITOR_STRINGS, viewScope: VIEW_SCOPE };
 }
 
 /**
@@ -484,7 +491,7 @@ function checkDayjsWiring(entries, { imports, supported, specialCased }) {
  * old copy stand in for a string nobody has written yet, and the check would pass.
  */
 async function checkEditorStrings() {
-  const { labels, titles, roots, strings, viewScope } = await readEditorSchemaKeys();
+  const { labels, titles, helpers, roots, strings, viewScope } = await readEditorSchemaKeys();
 
   assertFound([...labels.keys()], 'any labelled fields in the editor panels', PANELS_TS);
   assertFound([...titles], 'any panel or group headings', PANELS_TS);
@@ -528,6 +535,21 @@ async function checkEditorStrings() {
   }
 
   for (const key of Object.keys(strings)) {
+    // Helper text is checked exactly rather than by prefix. A prefix test would accept
+    // `weather.date.helper` on the strength of the `weather.date` heading existing,
+    // which is precisely the string nothing can look up: a group's helper is asked for
+    // under its own key, so one written against a config key it does not share is dead.
+    if (key.endsWith('.helper')) {
+      if (!helpers.has(key.slice(0, -'.helper'.length))) {
+        error(
+          'strings.ts',
+          `\`${key}\` can never be looked up — no field or heading resolves its helper ` +
+            `under that key`,
+        );
+      }
+      continue;
+    }
+
     if (!isReachable(key, roots)) {
       error(
         'strings.ts',
