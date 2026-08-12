@@ -1835,11 +1835,25 @@ inversion bites: `show_empty_days`, `empty_day_text`, `vertical_line_width`, `ev
 `event_icon_vertical_alignment`, `show_time`, `show_single_allday_time`,
 `time_two_digit_hours`, `show_end_time`, `time_font_size`, `time_icon_size`, `show_location`,
 `remove_location_country`, `location_font_size`, `location_icon_size`, `show_description`,
-`description_max_lines`, `description_font_size`, `description_icon_size`, the
+`description_max_lines`, `description_font_size`, `description_icon_size`, ~~the
 `weather.date.*` and `weather.event.*` presentation sub-keys (`show_conditions`,
-`show_high_temp`, `show_low_temp`, `show_temp`, `show_uv_index`, `icon_size`, `font_size`),
+`show_high_temp`, `show_low_temp`, `show_temp`, `show_uv_index`, `icon_size`, `font_size`)~~,
 and the per-entity render flags (`entities[].label`, `.show_time`, `.show_location`,
 `.show_description`, `.compact_events_to_show`) subject to the precedence question below.
+
+> **[v18] The weather sub-keys are struck through because they are not override-eligible,
+> and never were.** `weather` is a whole-object `FETCH_TIME_KEY` (`view.ts:198`), and no
+> weather key appears in `COLUMN_OVERRIDE_KEYS` — so `column: { weather: … }` fails
+> validation rather than taking effect. Listing them here as Category B described a
+> capability the card does not have.
+>
+> The classification reasoning still holds in the abstract: these keys really are pure
+> presentation, and a narrow column really would want different ones. What it missed is
+> that eligibility is decided per *top-level key*, and `weather` is claimed whole by the
+> fetch boundary before its sub-keys are ever considered. Splitting the object so its
+> presentation half could be overridden is possible but has never been specified, and is
+> not required by anything currently planned — the column-view weather design reuses
+> `show_conditions` with view-dependent *meaning* rather than a per-view value.
 
 **C — axis-rotated.** Covered by the table in the spec.
 
