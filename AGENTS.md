@@ -147,8 +147,10 @@ and breaking lines. The reason the claim survived so long is an asymmetry worth 
 round-trip unchanged**, and it breaks as `</span\n><span` so no new text node appears
 between inline elements. But a template deliberately written to have *none* gets the
 indentation put back. **Deliberate whitespace needs `// prettier-ignore`**; `leaves.ts`
-uses it on the weather badge, after `npm run format` reintroduced the exact spaces a fix
-had just removed and turned five snapshot tests red.
+uses it at `leaves.ts:122` on the weather badge, added after `npm run format`
+reintroduced the exact spaces a fix had just removed and turned five tests red. If you
+find that directive and wonder whether it is still needed, it is — delete it and run
+`npm test`.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artefact the person doing the refactor

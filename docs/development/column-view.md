@@ -697,16 +697,18 @@ body is indented to column 8 in a top-level function because that is where it sa
 **[v20] Correction — this was wrong, and it was wrong while claiming to be verified.**
 **Prettier *does* reformat inside `html` tagged templates.** Run `npm run format` on a
 single-line template and it reflows the embedded HTML, re-indenting and breaking lines.
-What it is careful about is *rendered* whitespace: it breaks as `</span\n><span` so no new
-text node appears between inline elements, which is why this rarely bites and why the claim
-below went unchallenged for so long. It is not a guarantee, and leading and trailing
-whitespace inside the template is rewritten. **Deliberate whitespace needs
-`// prettier-ignore`** — `leaves.ts` uses it on the weather badge, after `npm run format`
-restored the exact spaces a fix had just removed. Found by the C6 implementation when its
-own tests caught the reversal.
+What it preserves is whitespace it *already finds*, so every pre-existing template
+round-trips unchanged — which is almost certainly how the claim passed verification in the
+first place, since nothing then in the tree could have falsified it. A template deliberately
+written to carry **none** is the case that breaks, and it gets the indentation put straight
+back. **Pin those with `// prettier-ignore`** — `leaves.ts:122` carries one on the weather
+badge, added after `npm run format` restored the exact spaces a fix had just removed and
+turned five tests red. Found by the C6 implementation when its own tests caught the
+reversal.
 
-~~Verified, not assumed: **prettier does not reformat the inside of `html` tagged
-templates**, so `npm run format` cannot silently break this.~~
+The superseded sentence claimed the opposite and is removed rather than struck through:
+leaving it in place put a false reassurance directly beneath the rule it undermines, and
+gave anyone who found the `prettier-ignore` a document telling them it was unnecessary.
 
 If a snapshot diff appears during a later extraction, it is a whitespace error. Fix the
 indentation. **Do not run `vitest -u`** — that launders the change past review, and the
@@ -1975,8 +1977,9 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    and it breaks as `</span\n><span` so no new text node appears between inline elements.
    That asymmetry is why the false claim survived: a template deliberately written to have
    **no** whitespace is the one case that breaks, and it gets the indentation put straight
-   back. **Deliberate whitespace needs `// prettier-ignore`.** `leaves.ts` uses it on the
-   weather badge.
+   back. **Deliberate whitespace needs `// prettier-ignore`.** The counter-example is in the
+   tree: `leaves.ts:122`, on the weather badge, added after `npm run format` put the
+   phantom-space bug back and turned five tests red.
    **Proving a snapshot diff is whitespace-only:** collapse only what the serializer
    already normalises — `norm = (s) => s.replace(/>\s+</g, '><')` — and compare. A match
    proves no text, text-adjacent-indentation, attribute or element change anywhere in the
