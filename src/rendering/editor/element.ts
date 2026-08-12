@@ -6,11 +6,11 @@
  * hooks that resolve every string in the form. There is no per-field code here at all,
  * and that is the measure of whether the rebuild is working.
  *
- * The element names exactly two Home Assistant components — `ha-form` and
- * `ha-expansion-panel` — where the old editor names a dozen, most of them input
+ * The element names three Home Assistant components — `ha-form`, `ha-expansion-panel`
+ * and `ha-svg-icon` — where the editor it replaced named a dozen, most of them input
  * elements. Input elements are the ones Home Assistant renames: `ha-textfield` became
- * `ha-input` in 2026.5 and cost us a runtime-detection shim that is still in the old
- * file. A schema names a selector instead, and Home Assistant picks the element.
+ * `ha-input` in 2026.5 and cost a runtime-detection shim that was deleted with that
+ * editor. A schema names a selector instead, and Home Assistant picks the element.
  */
 
 import { LitElement, TemplateResult, html, nothing } from 'lit';
@@ -30,7 +30,7 @@ import * as Localize from '../../translations/localize';
 /**
  * Schema-driven configuration editor for Calendar Card Pro.
  */
-export class CalendarCardProEditorNext extends LitElement {
+export class CalendarCardProEditor extends LitElement {
   static get styles() {
     return styles;
   }
@@ -244,7 +244,12 @@ export class CalendarCardProEditorNext extends LitElement {
     const extras = panel.extras?.(ctx) ?? [];
 
     return html`
-      <ha-expansion-panel outlined .header=${this._panelTitle(panel, ctx)} .leftChevron=${false}>
+      <ha-expansion-panel
+        outlined
+        .header=${this._panelTitle(panel, ctx)}
+        .secondary=${this._panelHelper(panel, ctx) ?? ''}
+        .leftChevron=${false}
+      >
         <ha-svg-icon slot="leading-icon" .path=${panel.iconPath}></ha-svg-icon>
         <div class="panel-body">
           <ha-form
@@ -273,6 +278,20 @@ export class CalendarCardProEditorNext extends LitElement {
     return (
       EditorLocalize.lookup(ctx.language, panel.titleKey) ?? EditorLocalize.humanize(panel.titleKey)
     );
+  }
+
+  /**
+   * Resolves the sentence under a panel's heading.
+   *
+   * One line saying what the panel is for, which is what makes nine collapsed headings
+   * navigable rather than a list of nouns to guess between.
+   *
+   * @param panel - Panel definition
+   * @param ctx - Schema context
+   * @returns Helper text, or `undefined` when the panel has none
+   */
+  private _panelHelper(panel: PanelDef, ctx: SchemaCtx): string | undefined {
+    return EditorLocalize.lookup(ctx.language, `${panel.titleKey}.helper`);
   }
 
   /**

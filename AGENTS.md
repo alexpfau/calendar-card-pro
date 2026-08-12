@@ -400,23 +400,38 @@ getEffectiveLanguage('lv', undefined); // -> 'lv'
 getRelativeTimeString(futureDate, 'lv'); // -> 'pēc 2 dienām', not 'in 2 days'
 ```
 
-## Editor (`src/rendering/editor.ts`)
+## Editor (`src/rendering/editor/`)
 
-The visual editor renders Home Assistant's own components (`ha-select`, `ha-formfield`,
-`ha-entity-picker`, `ha-icon-picker`, `ha-switch`, …). These are **not our components**
-and Home Assistant removes and renames them without notice — this has broken the editor
-before.
+The visual editor is **schema-driven**: each panel is an `<ha-form>` fed by an array of
+plain schema objects, and a schema names a **selector** rather than an element. That is
+the whole point — Home Assistant renames its input components without notice (`ha-textfield`
+became `ha-input` in 2026.5 and cost us a runtime-detection shim), and a card that names
+selectors is not exposed to it. The element names three Home Assistant components in total:
+`ha-form`, `ha-expansion-panel` and `ha-svg-icon`.
 
-- Text inputs go through `getInputTag()`, which resolves `ha-input` (HA 2026.5+) or
-  `ha-textfield` (older) at render time via `customElements.get()` and emits it with
-  lit's `static-html`. Do not hardcode either tag. The detection deliberately does not
-  cache a result when neither element is registered yet, because the bundle can evaluate
-  before HA registers its components.
-- `_valueChanged` contains **field-specific guards keyed on `event.type`**. Changing a
-  listener (`@input` / `@change` / `@keyup`) can silently disable one. The
-  `start_date_offset` guard exists so the field does not vanish mid-edit while the value
-  is an intermediate string like `-`. Re-check these guards whenever you touch event
-  wiring.
+**Never name an HA input element in a schema.** If a panel seems to need one, that is the
+signal to stop, not to reach for `static-html`.
+
+Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM. That is
+load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a
+schema and read it, rather than scraping the source that produces it. Keep it that way.
+
+Three things are easy to get wrong:
+
+- **`ha-form` hands back the whole merged data object on every keystroke.** `value.ts`
+  narrows it again on the way out. Anything that bypasses `toStoredConfig` writes ninety
+  defaults into the user's YAML — the bug the nearest comparable card shipped twice, the
+  second time introduced by its own move to `ha-form`.
+- **`ha-form` fires one event for the whole form and never says which field moved**, so
+  there is no place for a per-field `event.type` guard. Values that are invalid *while
+  being typed* — `start_date_offset` passing through `-` — are held in `synthetic.ts` and
+  committed only once they parse. Do not "simplify" that into a direct write.
+- **Colours are `text`, not `ui_color`.** HA's colour selector emits a theme token that
+  cards pass through `computeCssColor()`; this card writes colours straight into CSS
+  custom properties and has no such step. See the note in `ha-form.ts`.
+
+`npm run check:i18n` reconciles `strings.ts` against the fields the schemas reference, in
+both directions, by importing the schema modules. A new field with no string fails it.
 
 ## Style
 

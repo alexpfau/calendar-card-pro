@@ -3,12 +3,11 @@
  *
  * `<ha-form>` resolves every string through three caller-supplied hooks — one closure
  * labels the whole form — so this module is the entirety of the editor's i18n surface.
- * Compare the old editor, where 239 keys are fetched at 122 hand-written call sites.
+ * The editor it replaced fetched 239 keys at 122 hand-written call sites.
  *
- * Resolution order for any key is: the user's language, then English, then our own
- * string table, then a humanised form of the key. The translation files come first so
- * that migrating a string out of `strings.ts` and into `en.json` is additive — the
- * moment a key exists there it wins, with no change here.
+ * Resolution order for any key is: our own string table, then the user's language,
+ * then English, then a humanised form of the key. See `lookup` for why our table is
+ * consulted first and why that will stop mattering once the namespace migrates.
  */
 
 import type { HaFormSchema } from './ha-form';
@@ -36,14 +35,18 @@ export function humanize(key: string): string {
 /**
  * Resolves one string key for a language.
  *
- * Our own table is consulted **first**, and that order is deliberate. The old editor
- * still owns the `editor.*` namespace and still ships; several of its keys are spelled
- * the same as ours but worded for a different surface, so consulting the translation
- * files first would silently pull old copy into the new editor and make the two
- * namespaces indistinguishable. Reaching the translation files second means a key we
- * have not defined still resolves — which is what will carry the strings once the
- * namespace migrates, at which point the entries here are deleted and this order stops
- * mattering.
+ * Our own table is consulted **first**, and that order outlived the reason it was
+ * introduced. It was written while the previous editor still shipped and still owned
+ * the `editor.*` namespace; that editor is gone, but its sections in the language files
+ * are deliberately kept to be mined during the translation pass, and several of its
+ * keys are spelled the same as ours while being worded for a surface that no longer
+ * exists. Reaching the translation files second means a key we have not defined still
+ * resolves — which is what will carry the strings once the namespace migrates, at which
+ * point the entries in `strings.ts` are deleted and this order stops mattering.
+ *
+ * `check:i18n` reconciles against `EDITOR_STRINGS` alone rather than through this
+ * function, so a string we have failed to write is reported instead of being filled in
+ * from the old copy behind it.
  *
  * @param language - Effective language code
  * @param key - String key, qualified with its group path where it has one

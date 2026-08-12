@@ -32,6 +32,7 @@
  */
 
 import * as Types from '../../config/types';
+import * as Helpers from '../../utils/helpers';
 import * as StartDate from '../../utils/start-date';
 
 /**
@@ -93,6 +94,18 @@ const FALLBACK_BOUNDED_HEIGHT = '300px';
 
 /** Offset seeded when the user picks the relative mode with nothing to carry over. */
 const INITIAL_OFFSET = '+0';
+
+/** Language seeded when the user asks for a specific one without naming it yet. */
+const INITIAL_LANGUAGE = 'en';
+
+/** Icon seeded when the today indicator is switched to an icon with none chosen. */
+const INITIAL_INDICATOR_ICON = 'mdi:calendar-today';
+
+/** Marker seeded when the today indicator is switched to a custom value. */
+const INITIAL_INDICATOR_CUSTOM = '⭐';
+
+/** The three built-in today-indicator styles, which are stored as their own names. */
+const BUILT_IN_INDICATORS = ['dot', 'pulse', 'glow'] as const;
 
 /** Today, as `YYYY-MM-DD` in local time. */
 function todayIso(): string {
@@ -159,6 +172,68 @@ export function heightMode(config: Readonly<Types.Config>): 'auto' | 'fixed' | '
   if (isSet(config.height) && config.height !== 'auto') return 'fixed';
   if (isSet(config.max_height) && config.max_height !== 'none') return 'maximum';
   return 'auto';
+}
+
+/**
+ * Derives whether the card follows Home Assistant's language or names its own.
+ *
+ * @param config - Current configuration
+ * @returns Which language control applies
+ */
+export function languageMode(config: Readonly<Types.Config>): 'system' | 'custom' {
+  return isSet(config.language) ? 'custom' : 'system';
+}
+
+/**
+ * Derives the today-indicator style from the shape of the stored value.
+ *
+ * Delegates the classification to `getTodayIndicatorType`, which is what the renderer
+ * uses, so the editor and the card can never disagree about what a value means. The
+ * renderer's seven answers collapse to six controls here: an icon and an emoji are
+ * both typed, but only one of them has a picker.
+ *
+ * @param config - Current configuration
+ * @returns Which indicator control applies
+ */
+export function todayIndicatorStyle(
+  config: Readonly<Types.Config>,
+): 'none' | 'dot' | 'pulse' | 'glow' | 'icon' | 'custom' {
+  const type = Helpers.getTodayIndicatorType(config.today_indicator);
+
+  if (type === 'mdi') return 'icon';
+  if (type === 'image' || type === 'emoji') return 'custom';
+
+  // 'dot' is also what the renderer answers for an unrecognised string, which is
+  // exactly how it renders one — so the editor showing the dot control is honest.
+  return type as 'none' | 'dot' | 'pulse' | 'glow';
+}
+
+/**
+ * Derives how much of a location's country the card removes.
+ *
+ * The stored value is a three-way union spelled across two types: `false` keeps the
+ * country, `true` removes anything on the built-in list, and any other string is a
+ * pattern of the user's own.
+ *
+ * @param config - Current configuration
+ * @returns Which location-country control applies
+ */
+export function locationCountryMode(config: Readonly<Types.Config>): 'keep' | 'builtin' | 'custom' {
+  const value = config.remove_location_country;
+
+  if (value === true || value === 'true') return 'builtin';
+  if (value === false || value === 'false' || value === undefined) return 'keep';
+  return 'custom';
+}
+
+/**
+ * Reads the entity id out of an entry that may be a bare string or a config object.
+ *
+ * @param entry - One member of the `entities` array
+ * @returns The entity id, or an empty string for an entry that has none
+ */
+export function entityIdOf(entry: string | Types.EntityConfig): string {
+  return typeof entry === 'string' ? entry : (entry?.entity ?? '');
 }
 
 /**
@@ -246,6 +321,153 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       return isCommittableOffset(text)
         ? { changes: { start_date: text }, pending: { start_date_offset: null } }
         : { changes: {}, pending: { start_date_offset: text } };
+    },
+  },
+
+  language_mode: {
+    derive: (config) => languageMode(config),
+    apply: (value, config) =>
+      value === 'custom'
+        ? {
+            // Seeded rather than left empty, because an empty language re-derives the
+            // mode as `system` and takes the field away on the keystroke that opened it.
+            changes: { language: isSet(config.language) ? config.language : INITIAL_LANGUAGE },
+          }
+        : { changes: { language: undefined } },
+  },
+
+  /**
+   * `time_24h` holds `'system'` or a boolean, and a `select` emits neither reliably —
+   * every option value it offers is a string. Mapping here keeps `'true'` out of the
+   * config, which matters: the formatter tests `config.time_24h === true`, so a string
+   * would silently leave the card on twelve-hour time.
+   */
+  time_format: {
+    derive: (config) => {
+      if (config.time_24h === 'system') return 'system';
+      return config.time_24h === true ? '24' : '12';
+    },
+    apply: (value) => {
+      if (value === '24') return { changes: { time_24h: true } };
+      if (value === '12') return { changes: { time_24h: false } };
+      return { changes: { time_24h: 'system' } };
+    },
+  },
+
+  /**
+   * `show_week_numbers` uses `null` for "off", which no select option can carry — an
+   * option value is a string, and the string `'null'` is a value the card would not
+   * recognise. Written as `undefined` so the key leaves the configuration entirely.
+   */
+  week_number_mode: {
+    derive: (config) => config.show_week_numbers ?? 'none',
+    apply: (value) =>
+      value === 'iso' || value === 'simple'
+        ? { changes: { show_week_numbers: value } }
+        : { changes: { show_week_numbers: undefined } },
+  },
+
+  location_country_mode: {
+    derive: (config) => locationCountryMode(config),
+    apply: (value, config) => {
+      if (value === 'builtin') return { changes: { remove_location_country: true } };
+
+      if (value === 'custom') {
+        const current = config.remove_location_country;
+        const carried =
+          typeof current === 'string' && current !== 'true' && current !== 'false' ? current : '';
+        return { changes: { remove_location_country: carried } };
+      }
+
+      return { changes: { remove_location_country: undefined } };
+    },
+  },
+
+  location_country_pattern: {
+    derive: (config) => {
+      const value = config.remove_location_country;
+      return locationCountryMode(config) === 'custom' ? String(value) : '';
+    },
+    // An empty pattern stays a string rather than becoming `undefined`, so the mode
+    // still derives as `custom` and the field survives being cleared. The card reads
+    // an empty pattern as matching nothing, which is what an empty field should mean.
+    apply: (value) => ({ changes: { remove_location_country: String(value ?? '') } }),
+  },
+
+  today_indicator_style: {
+    derive: (config) => todayIndicatorStyle(config),
+    apply: (value, config) => {
+      const discardText = { today_indicator_custom: null };
+      const current = String(config.today_indicator ?? '');
+
+      if (value === 'icon') {
+        return {
+          changes: {
+            today_indicator: Helpers.isIconValue(current) ? current : INITIAL_INDICATOR_ICON,
+          },
+          pending: discardText,
+        };
+      }
+
+      if (value === 'custom') {
+        const carried =
+          todayIndicatorStyle(config) === 'custom' ? current : INITIAL_INDICATOR_CUSTOM;
+        return { changes: { today_indicator: carried }, pending: discardText };
+      }
+
+      if ((BUILT_IN_INDICATORS as ReadonlyArray<string>).includes(String(value))) {
+        return { changes: { today_indicator: value }, pending: discardText };
+      }
+
+      return { changes: { today_indicator: undefined }, pending: discardText };
+    },
+  },
+
+  today_indicator_icon: {
+    derive: (config) =>
+      todayIndicatorStyle(config) === 'icon' ? String(config.today_indicator) : '',
+    apply: (value) => {
+      const icon = String(value ?? '');
+      // Clearing the picker would re-derive the style as `none` and remove the picker
+      // along with it, so an empty choice is displayed and not committed — the same
+      // treatment `start_date_offset` gets, for the same reason.
+      return icon === ''
+        ? { changes: {}, pending: { today_indicator_icon: icon } }
+        : { changes: { today_indicator: icon }, pending: { today_indicator_icon: null } };
+    },
+  },
+
+  today_indicator_custom: {
+    derive: (config) =>
+      todayIndicatorStyle(config) === 'custom' ? String(config.today_indicator) : '',
+    apply: (value) => {
+      const text = String(value ?? '');
+      return text === ''
+        ? { changes: {}, pending: { today_indicator_custom: text } }
+        : { changes: { today_indicator: text }, pending: { today_indicator_custom: null } };
+    },
+  },
+
+  /**
+   * The calendars, as a list of plain entity ids.
+   *
+   * `entities` accepts either a bare id or an object carrying that calendar's label,
+   * colours and filters, and Home Assistant's entity selector can only bind a list of
+   * ids. Deriving the ids here and matching them back by id on the way out is what
+   * makes deselecting a calendar and selecting it again keep its settings, rather than
+   * replacing the object with a bare string.
+   */
+  calendars: {
+    derive: (config) => (config.entities ?? []).map(entityIdOf),
+    apply: (value, config) => {
+      const ids = Array.isArray(value) ? value.map((id) => String(id)) : [];
+      const existing = new Map(
+        (config.entities ?? []).map((entry) => [entityIdOf(entry), entry] as const),
+      );
+
+      // Order follows the picker, because order is meaningful: `filter_duplicates`
+      // keeps the copy from whichever calendar is listed first.
+      return { changes: { entities: ids.map((id) => existing.get(id) ?? id) } };
     },
   },
 };

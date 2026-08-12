@@ -2,7 +2,10 @@
 /**
  * i18n integrity check for Calendar Card Pro.
  *
- * Adding a language touches four places, and three of the four fail *silently*:
+ * Two independent things live here.
+ *
+ * **Language wiring.** Adding a language touches four places, and three of the four
+ * fail *silently*:
  *
  *   1. src/translations/languages/<code>.json  — missing keys render as raw key names
  *   2. src/translations/localize.ts            — import + a LOWERCASE TRANSLATIONS key
@@ -14,27 +17,44 @@
  * build, the type checker or the linter can see any of it, because every one of these is a
  * runtime lookup with a fallback.
  *
- * This script has no dependencies and is not part of the bundle. Run it with:
+ * **Editor strings.** The editor is schema-driven, so the schema *is* its field
+ * registry: every panel can be built and walked, and what comes back is exactly the set
+ * of keys it will look up. That is checked against `src/rendering/editor/strings.ts` in
+ * both directions — a field with no string, and a string no field uses.
+ *
+ * The `editor` sections inside the language files are **dormant**. They belong to the
+ * editor that was replaced, and are kept to be mined during the translation pass rather
+ * than deleted. Nothing here validates them: they label nothing, so completeness against
+ * them would be a report about a surface that no longer exists.
+ *
+ * This script's only dependency is esbuild, which is already a devDependency and never
+ * reaches the bundle. Run it with:
  *
  *   node scripts/check-i18n.mjs            # errors are fatal, warnings are advisory
  *   node scripts/check-i18n.mjs --strict   # warnings are fatal too
  *
  * Design note: the wiring in localize.ts and dayjs.ts is read out of the TypeScript source
- * with regexes rather than by importing it, so the check stays dependency-free and needs no
- * build step. That is only safe because every extraction below fails *loudly* when it cannot
- * find what it expects — see assertFound(). A regex that silently matched nothing would
- * report a clean run over an empty set, which is the one outcome worse than a false alarm.
+ * with regexes rather than by importing it, because those files are read for their *shape*
+ * — which identifier is imported, how a map key is spelled — and importing them would
+ * evaluate the shape away. That is only safe because every extraction below fails *loudly*
+ * when it cannot find what it expects — see assertFound(). A regex that silently matched
+ * nothing would report a clean run over an empty set, which is the one outcome worse than a
+ * false alarm. The editor half needs no such caution: it is imported, so there is no
+ * pattern to go stale, and it asserts on an empty panel list for the same reason.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { loadEditorModule } from './load-editor-schema.mjs';
+
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANG_DIR = join(ROOT, 'src/translations/languages');
 const LOCALIZE_TS = join(ROOT, 'src/translations/localize.ts');
 const DAYJS_TS = join(ROOT, 'src/translations/dayjs.ts');
-const EDITOR_TS = join(ROOT, 'src/rendering/editor.ts');
+const PANELS_TS = join(ROOT, 'src/rendering/editor/panels.ts');
+const STRINGS_TS = join(ROOT, 'src/rendering/editor/strings.ts');
 const REFERENCE_LANG = 'en.json';
 
 const STRICT = process.argv.includes('--strict');
@@ -145,28 +165,126 @@ function mapLocale(locale, specialCased) {
 }
 
 /**
- * Editor translation keys referenced as string literals: `this._getTranslation('foo')` and
- * `this._getTranslation('editor.foo')`, normalised to the bare key.
+ * Editor string keys the schemas reference, and the panels' own.
  *
- * Seven call sites pass a variable instead (`_getTranslation(name)` in the addXField helpers,
- * where `name` is the config key). Those are unresolvable statically, so the config keys
- * passed to those helpers are collected separately below and treated as reachable.
+ * The schema is the field registry, so this is a real reconciliation rather than a
+ * regex over source: every panel is built, for every view and for a spread of
+ * configurations chosen to open each of its conditional branches, and every node that
+ * comes back is a key that will be looked up.
+ *
+ * Two keys per node, because `computeLabel` resolves the group-qualified key first and
+ * the bare one second — a field inside a flattened group is labelled by its config key
+ * without the group name being repeated in the table.
  */
-function readEditorKeyUsage() {
-  const src = read(EDITOR_TS);
+async function readEditorSchemaKeys() {
+  const editor = await loadEditorModule(ROOT);
+  const { PANELS, walkSchema, EDITOR_STRINGS, DEFAULT_CONFIG, VIEWS, VIEW_SCOPE } = editor;
 
-  const literal = new Set(
-    [...src.matchAll(/_getTranslation\('([^']+)'/g)].map((m) => m[1].replace(/^editor\./, '')),
-  );
-  assertFound([...literal], '_getTranslation() calls', EDITOR_TS);
+  assertFound(PANELS, 'any registered editor panels', PANELS_TS);
+  assertFound(Object.keys(EDITOR_STRINGS), 'any editor strings', STRINGS_TS);
 
-  // First argument of the addXField helpers — the config key, which those helpers fall back
-  // to as a translation key when no explicit label is given.
-  const viaFieldName = new Set(
-    [...src.matchAll(/\bthis\.add[A-Za-z]*Field\(\s*'([^']+)'/g)].map((m) => m[1]),
-  );
+  /** Label keys, each as the pair of candidates `computeLabel` would try. */
+  const labels = new Map();
+  /** Title keys for collapsible groups, which resolve their own headings. */
+  const titles = new Set();
+  /** Every key that is legitimately the root of a table entry. */
+  const roots = new Set();
 
-  return { literal, viaFieldName };
+  for (const panel of PANELS) {
+    roots.add(panel.titleKey);
+    titles.add(panel.titleKey);
+    for (const prefix of panel.strings ?? []) roots.add(prefix);
+  }
+
+  for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
+    for (const panel of PANELS) {
+      const ctx = { view: config.view, config, language: 'en' };
+
+      for (const { node, path } of walkSchema(panel.build(ctx))) {
+        // A grid is a layout, not a level of labelling: Home Assistant renders no
+        // heading for one and passes the label hooks straight through. That is true of
+        // a *named* grid too, which is how the weather block nests without drawing a
+        // second "Weather" heading inside the Weather panel.
+        if (node.type === 'grid' || !node.name) continue;
+
+        // A group resolves its own heading when it is built, so Home Assistant never
+        // asks for its label. Its string is `titleKey`, which may differ from its name
+        // — two panels nest the same block under different headings.
+        if (node.titleKey !== undefined) {
+          titles.add(node.titleKey);
+          roots.add(node.titleKey);
+          roots.add(node.name);
+          continue;
+        }
+
+        const qualified = [...path, node.name].join('.');
+        labels.set(qualified, node.name);
+        roots.add(qualified);
+        roots.add(node.name);
+      }
+    }
+  }
+
+  return { labels, titles, roots, strings: EDITOR_STRINGS, viewScope: VIEW_SCOPE };
+}
+
+/**
+ * Configurations chosen to open every conditional branch in every panel.
+ *
+ * A panel only offers the fields its configuration calls for — a location's styling
+ * appears once locations are shown, a fixed height once the height is fixed — so a
+ * single default configuration would walk past most of the editor and report a clean
+ * run over a third of it. Booleans are swept both ways together, since no panel gates
+ * one field on two switches, and the handful of shape-derived modes are swept
+ * individually.
+ *
+ * @param defaults - The card's default configuration
+ * @param views - Every view the card can render
+ * @returns Configurations to build each panel against
+ */
+function probeConfigs(defaults, views) {
+  const booleans = Object.entries(defaults)
+    .filter(([, value]) => typeof value === 'boolean')
+    .map(([key]) => key);
+
+  const allOn = Object.fromEntries(booleans.map((key) => [key, true]));
+  const allOff = Object.fromEntries(booleans.map((key) => [key, false]));
+
+  const variants = [
+    {},
+    allOn,
+    allOff,
+    { height: '300px' },
+    { max_height: '300px' },
+    { start_date: '2026-01-01' },
+    { start_date: 'today+7' },
+    { language: 'de' },
+    { time_24h: true },
+    { show_week_numbers: 'iso' },
+    { remove_location_country: true },
+    { remove_location_country: 'Germany' },
+    { today_indicator: 'pulse' },
+    { today_indicator: 'mdi:star' },
+    { today_indicator: '⭐' },
+    { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
+    {
+      weather: {
+        ...defaults.weather,
+        entity: 'weather.home',
+        position: 'both',
+        date: { ...defaults.weather.date, show_uv_index: true },
+        event: { ...defaults.weather.event, show_uv_index: true },
+      },
+    },
+  ];
+
+  const configs = [];
+  for (const view of views) {
+    for (const variant of variants) {
+      configs.push({ ...defaults, view, ...variant });
+    }
+  }
+  return configs;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +294,9 @@ function readEditorKeyUsage() {
 /**
  * Every language file must carry every top-level key in en.json, with matching value shapes.
  *
- * `editor` is the documented exception and is checked separately: it is all-or-nothing.
+ * `editor` is skipped throughout. Those sections are dormant — they belong to the editor
+ * that was replaced, and are kept to be mined during the translation pass — so neither
+ * their presence, their absence nor their completeness says anything about the card.
  */
 function checkLanguageParity(languages) {
   const reference = languages.get('en');
@@ -189,11 +309,7 @@ function checkLanguageParity(languages) {
   }
 
   const refKeys = Object.keys(reference.data).filter((k) => k !== 'editor');
-  const refEditorKeys = Object.keys(reference.data.editor ?? {});
-
-  if (refEditorKeys.length === 0) {
-    error(REFERENCE_LANG, 'has no `editor` section; it is the reference for all editor keys');
-  }
+  assertFound(refKeys, 'any translatable keys', join(LANG_DIR, REFERENCE_LANG));
 
   for (const [code, { file, data }] of languages) {
     if (code === 'en') continue;
@@ -240,58 +356,6 @@ function checkLanguageParity(languages) {
         );
       }
     }
-
-    checkEditorSection(file, data, refEditorKeys);
-  }
-}
-
-/**
- * The `editor` section is optional, and may now be partially translated.
- *
- * `translateEditorKey()` resolves the fallback chain per key — requested language, then
- * English, then the raw key name — so a key the translator has not reached renders in
- * English rather than as `show_end_time`. Omitting the section entirely is still fully
- * supported and is what 24 of the language files do.
- *
- * A partial section is therefore reported as a *warning*, not an error: it is a
- * translation-completeness signal for the translator, not a defect that breaks the UI.
- * Empty values remain an error — an empty string is a translation the fallback chain
- * cannot see through, so it renders as blank UI.
- */
-function checkEditorSection(file, data, refEditorKeys) {
-  const editor = data.editor;
-  if (editor === undefined) return; // Supported: the whole language falls back to English.
-
-  if (typeof editor !== 'object' || editor === null || Array.isArray(editor)) {
-    error(file, '`editor` must be an object');
-    return;
-  }
-
-  const present = Object.keys(editor);
-  const missing = refEditorKeys.filter((k) => !(k in editor));
-
-  if (missing.length > 0) {
-    warn(
-      file,
-      `\`editor\` is partially translated: ${missing.length} of ${refEditorKeys.length} keys ` +
-        `missing (${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ', …' : ''}). ` +
-        `Each missing key renders in English, so this is safe to ship — but completing the ` +
-        `section is preferable to leaving the editor bilingual.`,
-    );
-  }
-
-  const extra = present.filter((k) => !refEditorKeys.includes(k));
-  if (extra.length > 0) {
-    warn(
-      file,
-      `\`editor\` has ${extra.length} key(s) not in ${REFERENCE_LANG}: ` +
-        `${extra.slice(0, 5).join(', ')}${extra.length > 5 ? ', …' : ''}`,
-    );
-  }
-
-  const blank = present.filter((k) => typeof editor[k] !== 'string' || editor[k].trim() === '');
-  if (blank.length > 0) {
-    error(file, `\`editor\` has empty or non-string value(s): ${blank.slice(0, 5).join(', ')}`);
   }
 }
 
@@ -400,41 +464,119 @@ function checkDayjsWiring(entries, { imports, supported, specialCased }) {
   }
 }
 
-/** Editor keys referenced in code must exist in en.json, or they render as their own name. */
-function checkEditorKeyUsage(languages) {
-  const reference = languages.get('en');
-  if (!reference?.data?.editor) return;
+/**
+ * The editor's string table must cover every field, and hold nothing else.
+ *
+ * Both directions matter and they fail differently. A field with no string renders a
+ * humanised key — `Show location` rather than `Show Location` — which is a cosmetic
+ * shortfall by design, but a deliberate one for a *missing* string rather than an
+ * acceptable resting state, so it is an error here. A string with no field is dead
+ * weight that will be translated into every language before anyone notices it labels
+ * nothing.
+ *
+ * Helper text is not required. Most fields have none, and `computeHelper` returning
+ * nothing is the normal case rather than a gap.
+ *
+ * The table is checked directly rather than through `lookup`, which would consult the
+ * language files second. Their `editor` sections are dormant — kept to be mined during
+ * the translation pass — and several of their keys are spelled the same as the new
+ * ones but worded for the editor that used to ship. Resolving through them would let
+ * old copy stand in for a string nobody has written yet, and the check would pass.
+ */
+async function checkEditorStrings() {
+  const { labels, titles, roots, strings, viewScope } = await readEditorSchemaKeys();
 
-  const defined = new Set(Object.keys(reference.data.editor));
-  const { literal, viaFieldName } = readEditorKeyUsage();
+  assertFound([...labels.keys()], 'any labelled fields in the editor panels', PANELS_TS);
+  assertFound([...titles], 'any panel or group headings', PANELS_TS);
 
-  for (const key of literal) {
-    if (!defined.has(key)) {
+  for (const [qualified, bare] of labels) {
+    if (!(qualified in strings) && !(bare in strings)) {
       error(
-        'editor.ts',
-        `_getTranslation('${key}') has no matching key in ${REFERENCE_LANG} — it will render ` +
-          `as the literal string "${key}"`,
+        'strings.ts',
+        `\`${qualified}\` has no label — the field will render as "${humanKey(bare)}"`,
       );
     }
   }
 
-  const reachable = new Set([...literal, ...viaFieldName]);
-  const unused = [...defined].filter((k) => !reachable.has(k));
-  if (unused.length > 0) {
-    warn(
-      REFERENCE_LANG,
-      `${unused.length} editor key(s) are never referenced: ` +
-        `${unused.slice(0, 8).join(', ')}${unused.length > 8 ? ', …' : ''} ` +
-        `(each one is dead weight in every language file that translates \`editor\`)`,
-    );
+  for (const key of titles) {
+    if (!(key in strings)) {
+      error(
+        'strings.ts',
+        `\`${key}\` has no heading — the section will be titled "${humanKey(key)}"`,
+      );
+    }
   }
+
+  // Applicability notes are keyed by the scope they describe, so they reconcile
+  // against VIEW_SCOPE rather than against the schema: a scoped option with no note
+  // says nothing about which layout it applies to, which is the whole point of scoping
+  // it. `scope.<id>_only` is the shared wording, `scope.<id>_only.<key>` the specific.
+  for (const [key, views] of Object.entries(viewScope)) {
+    const scopeId = [...views].sort().join('_');
+    const general = `scope.${scopeId}_only`;
+
+    roots.add(general);
+    roots.add(`${general}.${key}`);
+
+    if (!(general in strings) && !(`${general}.${key}` in strings)) {
+      error(
+        'strings.ts',
+        `\`${key}\` is scoped to ${[...views].join(', ')} but has no applicability note — ` +
+          `the editor would say nothing about which layout it applies to`,
+      );
+    }
+  }
+
+  for (const key of Object.keys(strings)) {
+    if (!isReachable(key, roots)) {
+      error(
+        'strings.ts',
+        `\`${key}\` is not referenced by any panel — no field, panel title or declared ` +
+          `panel prefix owns it`,
+      );
+    }
+  }
+
+  return new Set(labels.keys()).size;
+}
+
+/**
+ * Whether a string key belongs to something the editor actually renders.
+ *
+ * A key is owned by the longest prefix of its dotted path that names a field, a panel
+ * title or a prefix a panel declared. That is the convention `strings.ts` states —
+ * helper text is its key plus `.helper`, an option label is its field plus
+ * `.option.<value>.label` — so checking prefixes checks the convention rather than
+ * enumerating every suffix the editor might grow.
+ *
+ * @param key - String key from the table
+ * @param roots - Every key something in the editor references
+ * @returns `true` when some prefix of the key is referenced
+ */
+function isReachable(key, roots) {
+  const parts = key.split('.');
+  for (let end = parts.length; end > 0; end -= 1) {
+    if (roots.has(parts.slice(0, end).join('.'))) return true;
+  }
+  return false;
+}
+
+/**
+ * Mirrors `humanize()` from the editor, for the message that names what a user would see.
+ *
+ * @param key - Config key
+ * @returns The key as the editor would render it with no string defined
+ */
+function humanKey(key) {
+  const words = key.split('.').pop().replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 // ---------------------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------------------
 
-function report(languageCount, editorCount) {
+function report(languageCount, fieldCount) {
   const line = (kind, { where, msg }) => {
     if (IN_CI) console.log(`::${kind === 'error' ? 'error' : 'warning'}::${where}: ${msg}`);
     else console.log(`  ${kind === 'error' ? '✖' : '⚠'} ${where}: ${msg}`);
@@ -450,7 +592,7 @@ function report(languageCount, editorCount) {
   }
 
   const summary =
-    `\n${languageCount} languages, ${editorCount} with editor translations — ` +
+    `\n${languageCount} languages, ${fieldCount} editor fields — ` +
     `${errors.length} error(s), ${warnings.length} warning(s).`;
   console.log(summary);
 
@@ -459,13 +601,13 @@ function report(languageCount, editorCount) {
     console.log('Failing because --strict was passed.');
     return 1;
   }
-  console.log('i18n wiring is consistent.');
+  console.log('i18n wiring and editor strings are consistent.');
   return 0;
 }
 
 // ---------------------------------------------------------------------------
 
-function main() {
+async function main() {
   const languages = readLanguageFiles();
   const localize = readLocalizeWiring();
   const dayjsWiring = readDayjsWiring();
@@ -473,10 +615,10 @@ function main() {
   checkLanguageParity(languages);
   checkLocalizeWiring(languages, localize);
   checkDayjsWiring(localize.entries, dayjsWiring);
-  checkEditorKeyUsage(languages);
 
-  const editorCount = [...languages.values()].filter((l) => l.data.editor !== undefined).length;
-  process.exit(report(languages.size, editorCount));
+  const fieldCount = await checkEditorStrings();
+
+  process.exit(report(languages.size, fieldCount));
 }
 
 main();

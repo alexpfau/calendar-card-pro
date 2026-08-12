@@ -19,8 +19,16 @@ src/
 │   ├── actions.ts                # Action execution (tap, hold, etc.)
 │   └── feedback.ts               # Visual feedback (ripple, hold indicators)
 ├── rendering/                    # UI rendering code
-│   ├── editor.ts                 # Card editor component
-│   ├── editor.styles.ts          # Editor-specific CSS styles
+│   ├── editor/                   # Schema-driven configuration editor
+│   │   ├── element.ts            # The Lit element: lifecycle, panels, one handler
+│   │   ├── panels.ts             # Panel registry and schema context
+│   │   ├── schemas/              # One module per panel, plus their shared vocabulary
+│   │   ├── ha-form.ts            # Our declaration of Home Assistant's schema shape
+│   │   ├── value.ts              # Write path: default-stripping and pruning
+│   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
+│   │   ├── localize.ts           # The string hooks `ha-form` calls
+│   │   ├── strings.ts            # English editor strings
+│   │   └── styles.ts             # Editor chassis CSS
 │   ├── render.ts                 # Component rendering functions
 │   └── styles.ts                 # CSS styles and dynamic styling
 ├── translations/                 # Localization support
@@ -108,9 +116,12 @@ Generates the HTML and CSS for the card:
   - Generates dynamic style properties based on configuration
   - Manages theme variable integration
 
-- **editor.ts**:
-  - Implements the card configuration editor
-  - Handles schema validation for the editor UI
+- **editor/**:
+  - Implements the card configuration editor as a set of `ha-form` schemas
+  - Names selectors rather than Home Assistant input elements, so a component rename
+    cannot break it
+  - Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM, which
+    is what lets both the test suite and `check:i18n` import a schema and read it
 
 ### Translations (`translations/`)
 

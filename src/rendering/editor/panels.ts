@@ -15,7 +15,15 @@
 import { mdiViewDashboardOutline } from '@mdi/js';
 
 import type { HaFormSchema } from './ha-form';
+import { ACTIONS_ICON, buildActionsSchema } from './schemas/actions';
+import { CALENDARS_ICON, buildCalendarsSchema } from './schemas/calendars';
+import { CARD_ICON, buildCardSchema } from './schemas/card';
+import { CONTENT_ICON, buildContentSchema } from './schemas/content';
+import { DAY_HEADER_ICON, buildDayHeaderSchema } from './schemas/day-header';
+import { EVENTS_ICON, buildEventsSchema } from './schemas/events';
 import { buildLayoutSchema, layoutExtras } from './schemas/layout';
+import { SEPARATORS_ICON, buildSeparatorsSchema } from './schemas/separators';
+import { WEATHER_ICON, buildWeatherSchema } from './schemas/weather';
 import * as Types from '../../config/types';
 
 /**
@@ -65,6 +73,17 @@ export interface PanelDef {
   /** Material Design icon path. */
   iconPath: string;
   /**
+   * String-key prefixes the panel resolves itself, beyond its fields.
+   *
+   * Almost every string the editor shows is reachable from a schema node, which is
+   * what makes the schema a field registry the i18n check can reconcile against. The
+   * exceptions are strings a panel resolves for content that is not a field — the
+   * width table being the only one so far. Declaring the prefix here is what keeps
+   * that check free of hardcoded knowledge about which panel owns which strings: an
+   * undeclared prefix is reported as an unreferenced string, which is the truth.
+   */
+  strings?: ReadonlyArray<string>;
+  /**
    * Builds the panel's form schema.
    *
    * @param ctx - Schema context
@@ -83,28 +102,94 @@ export interface PanelDef {
 /**
  * The panels, in the order they are shown.
  *
- * Stage 1 registers one. The eight that follow are named in the design and land as
- * separate modules; the order of this array is the order of the editor, so a new entry
- * goes where it belongs rather than at the end.
+ * Named for the thing they configure rather than for a region of one layout. That is
+ * the point of the taxonomy and the only part of it that is load-bearing: *Date
+ * Display* names a column that exists in one layout and not the other, whereas every
+ * layout has a day and every day has a header. A noun that becomes false when a second
+ * view exists cannot absorb a third.
+ *
+ * The order is the editor's order, so a new panel goes where it belongs rather than at
+ * the end.
  */
 export const PANELS: ReadonlyArray<PanelDef> = [
+  {
+    id: 'calendars',
+    titleKey: 'panel.calendars',
+    iconPath: CALENDARS_ICON,
+    build: buildCalendarsSchema,
+  },
   {
     id: 'layout',
     titleKey: 'panel.layout',
     iconPath: mdiViewDashboardOutline,
+    strings: ['width_table'],
     build: buildLayoutSchema,
     extras: layoutExtras,
+  },
+  {
+    id: 'content',
+    titleKey: 'panel.content',
+    iconPath: CONTENT_ICON,
+    build: buildContentSchema,
+  },
+  {
+    id: 'card',
+    titleKey: 'panel.card',
+    iconPath: CARD_ICON,
+    build: buildCardSchema,
+  },
+  {
+    id: 'day_header',
+    titleKey: 'panel.day_header',
+    iconPath: DAY_HEADER_ICON,
+    build: buildDayHeaderSchema,
+  },
+  {
+    id: 'events',
+    titleKey: 'panel.events',
+    iconPath: EVENTS_ICON,
+    build: buildEventsSchema,
+  },
+  {
+    id: 'separators',
+    titleKey: 'panel.separators',
+    iconPath: SEPARATORS_ICON,
+    build: buildSeparatorsSchema,
+  },
+  {
+    id: 'weather',
+    titleKey: 'panel.weather',
+    iconPath: WEATHER_ICON,
+    build: buildWeatherSchema,
+  },
+  {
+    id: 'actions',
+    titleKey: 'panel.actions',
+    iconPath: ACTIONS_ICON,
+    build: buildActionsSchema,
   },
 ];
 
 /**
  * Walks every node of a schema, groups included.
  *
- * Used by the tests to assert over the whole tree, and by anything that needs to know
- * what a panel actually renders rather than what its top level looks like.
+ * Used by the tests to assert over the whole tree, by `check:i18n` to reconcile the
+ * string table against the fields that reference it, and by anything that needs to
+ * know what a panel actually renders rather than what its top level looks like.
+ *
+ * The path models **Home Assistant's label path**, which is not the same as the data
+ * path. `ha-form-expandable` appends its own name before calling `computeLabel`
+ * whether or not it is flattened, while its data is only nested when it is not — so a
+ * flattened group keeps the configuration flat and still qualifies its children's
+ * label keys. `ha-form-grid` passes the hooks straight through and contributes
+ * nothing either way, which is also true of our grids because they are unnamed.
+ *
+ * `computeLabel` resolves the qualified key first and the bare key second, so a
+ * flattened group's children are labelled by their config key without repeating the
+ * group name in the string table.
  *
  * @param schema - Schema to walk
- * @param path - Enclosing non-flattened group names, outermost first
+ * @param path - Enclosing expandable group names, outermost first
  * @yields Each node with the path it sits under
  */
 export function* walkSchema(
@@ -115,11 +200,8 @@ export function* walkSchema(
     yield { node, path };
 
     if ('schema' in node) {
-      // A flattened group contributes nothing to the data path, so it contributes
-      // nothing to the key path either — the two must agree or a label lookup would
-      // qualify a key the data never nests.
-      const childPath = node.flatten || node.name === '' ? path : [...path, node.name];
-      yield* walkSchema(node.schema, childPath);
+      const nestsLabels = node.type === 'expandable' && node.name !== '';
+      yield* walkSchema(node.schema, nestsLabels ? [...path, node.name] : path);
     }
   }
 }

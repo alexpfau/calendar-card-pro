@@ -87,6 +87,10 @@ function viewOptions(language: string): SelectOption[] {
  * counterpart, which is why they are ordinary configuration here rather than
  * exceptions to something.
  *
+ * The day-header *rule* used to sit here and now lives in the Separators panel, beside
+ * the three rules it is a fourth of. Its *gap* stays, because a gap is spacing and
+ * spacing is what this panel owns.
+ *
  * @param blockKey - Config key holding this view's override block
  * @param daysToShow - Configured day count, which bounds the column floor
  * @param language - Effective language code
@@ -97,6 +101,7 @@ function densityGroup(blockKey: string, daysToShow: number, language: string): H
     type: 'expandable',
     name: blockKey,
     title: lookup(language, `${blockKey}.density`) ?? humanize('density'),
+    titleKey: `${blockKey}.density`,
     iconPath: 'M4 5h16v2H4V5m0 6h16v2H4v-2m0 6h16v2H4v-2Z',
     schema: [
       {
@@ -132,14 +137,6 @@ function densityGroup(blockKey: string, daysToShow: number, language: string): H
       {
         name: 'day_header_gap',
         selector: { text: {} },
-      },
-      {
-        type: 'grid',
-        name: '',
-        schema: [
-          { name: 'day_header_separator_width', selector: { text: {} } },
-          { name: 'day_header_separator_color', selector: { ui_color: {} } },
-        ],
       },
     ],
   };

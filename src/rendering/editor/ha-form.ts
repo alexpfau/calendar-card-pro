@@ -31,7 +31,17 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-/** The selector types this editor uses. Add members as panels need them. */
+/**
+ * The selector types this editor uses. Add members as panels need them.
+ *
+ * `ui_color` is deliberately absent. It looks like the obvious choice for the card's
+ * two dozen colour options, and it is the wrong one: it emits a *theme token* —
+ * `primary`, `red`, `deep-purple` — which Home Assistant's own cards pass through
+ * `computeCssColor()` before use. This card has no such step, so a token would reach
+ * the browser as `color: primary` and be dropped. It also cannot express the card's own
+ * defaults: three are `var(--…)` references and `#03a9f450` carries an alpha channel.
+ * Colours are `text`, which is what the card has always accepted.
+ */
 export type Selector =
   | { boolean: Record<string, never> | null }
   | { text: { multiline?: boolean; prefix?: string; suffix?: string; type?: string } | null }
@@ -54,11 +64,9 @@ export type Selector =
         sort?: boolean;
       } | null;
     }
-  | { ui_color: { include_none?: boolean; include_state?: boolean } | null }
   | { ui_action: Record<string, never> | null }
   | { icon: Record<string, never> | null }
   | { entity: { filter?: { domain?: string | ReadonlyArray<string> }; multiple?: boolean } | null };
-
 /** Fields every schema node shares. */
 interface BaseSchema {
   /** Key into the form's data object. This is what makes a schema self-binding. */
@@ -109,6 +117,17 @@ export interface ExpandableSchema {
   type: 'expandable';
   name: string;
   title?: string;
+  /**
+   * The string key `title` was resolved from.
+   *
+   * Ours, not Home Assistant's — it ignores unknown fields, and it never asks for a
+   * group's label once `title` is set. It is here because a group's title is resolved
+   * by the builder rather than by the label hook, so without it the key is consumed
+   * and thrown away, and `check:i18n` could neither require the string nor tell that
+   * it was used. A group whose title comes from a different key than its `name` is the
+   * normal case: two panels both nest the `column` block, under different headings.
+   */
+  titleKey?: string;
   icon?: string;
   iconPath?: string;
   expanded?: boolean;

@@ -10,19 +10,24 @@
  * | --- | --- |
  * | `element.ts` | the Lit element: lifecycle, panel mounts, one change handler |
  * | `panels.ts` | the panel registry and the schema-context type |
- * | `schemas/*.ts` | one module per panel — the unit of parallel work |
+ * | `schemas/*.ts` | one module per panel, plus the vocabulary they share |
  * | `ha-form.ts` | our declaration of Home Assistant's schema shape |
  * | `value.ts` | the write path: default-stripping, pruning, the `column:` pass |
  * | `synthetic.ts` | UI-only fields, and the values that are invalid while typed |
  * | `localize.ts` | the three string hooks `ha-form` calls |
  * | `strings.ts` | English strings, in a fresh namespace |
+ *
+ * `check:i18n` imports the schema half directly and reconciles `strings.ts` against
+ * the fields that use it, in both directions. That is the payoff of being
+ * schema-driven: the schema is the field registry, so a missing label or a dead string
+ * is a fact about data rather than something to be inferred from source text.
  * | `styles.ts` | the chassis, and nothing that names an input element |
  *
  * Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM, which
  * is what lets the test suite import a schema and assert on it directly.
  */
 
-export { CalendarCardProEditorNext } from './element';
+export { CalendarCardProEditor } from './element';
 export { PANELS, walkSchema } from './panels';
 export type { PanelDef, PanelExtra, SchemaCtx, WidthTableRow } from './panels';
 export type { HaFormSchema } from './ha-form';

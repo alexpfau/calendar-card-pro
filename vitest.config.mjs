@@ -14,15 +14,6 @@ import { defineConfig } from 'vitest/config';
  * below if a real gap ever appears.
  */
 export default defineConfig({
-  // `__DEV_BUILD__` is substituted by esbuild at build time (see rollup.config.mjs),
-  // so it has to be supplied here as well or any test that imports the card entry
-  // point fails on an undefined global. `true` matches the development bundle, which
-  // is the one that reaches the schema-driven editor and therefore the one the suite
-  // is written against.
-  define: {
-    __DEV_BUILD__: 'true',
-  },
-
   test: {
     // Lit needs a DOM to render into. Pure-logic tests do not care either way, so
     // setting this once avoids per-file environment annotations later.
