@@ -102,8 +102,100 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.calendars.helper': 'The calendars this card shows.',
   calendars: 'Calendars',
   'calendars.helper':
-    'Order matters. When two calendars carry the same event and duplicates are ' +
-    'filtered, the copy from the one listed first is the one kept.',
+    'Order matters, and can be dragged. When two calendars carry the same event and ' +
+    'duplicates are filtered, the copy from the one listed first is the one kept.',
+
+  // --- Per-calendar settings ------------------------------------------------
+  //
+  // Each calendar gets its own collapsible form below the picker. Four of these are
+  // three-way rather than switches, because the card reads them presence-first — an
+  // absent key means "follow the card", which no checkbox can say.
+  'entity.customised': 'Configured',
+  'entity.unconfigured': 'Using the card settings',
+  'entity.copy': 'Copy Settings',
+  'entity.paste': 'Paste Settings',
+
+  'entity.label': 'Label',
+  'entity.label.helper':
+    'Shown before every event from this calendar. Text, an emoji, an icon such as ' +
+    'mdi:home, or a path to an image.',
+  'entity.color': 'Event Color',
+  'entity.color.helper': 'Event titles from this calendar. Overrides the card colour.',
+  'entity.accent_color': 'Accent Color',
+  'entity.accent_color.helper':
+    'The vertical line beside each event, and its background where the background ' +
+    'opacity is above zero.',
+  'entity.label_icon_color': 'Label Icon Color',
+  'entity.label_icon_color.helper':
+    'Only applies where the label is an icon. Left empty, the icon takes the text ' +
+    'colour around it.',
+
+  'entity.show_time': 'Event Times',
+  'entity.show_time.option.inherit.label': 'Follow the card',
+  'entity.show_time.option.show.label': 'Always show',
+  'entity.show_time.option.hide.label': 'Never show',
+  'entity.show_location': 'Event Locations',
+  'entity.show_location.option.inherit.label': 'Follow the card',
+  'entity.show_location.option.show.label': 'Always show',
+  'entity.show_location.option.hide.label': 'Never show',
+  'entity.show_description': 'Event Descriptions',
+  'entity.show_description.option.inherit.label': 'Follow the card',
+  'entity.show_description.option.show.label': 'Always show',
+  'entity.show_description.option.hide.label': 'Never show',
+
+  'entity.split_multiday_events': 'Multi-Day Events',
+  'entity.split_multiday_events.option.inherit.label': 'Follow the card',
+  'entity.split_multiday_events.option.split.label': 'Split across each day',
+  'entity.split_multiday_events.option.whole.label': 'Keep as one event',
+
+  'entity.compact_events_to_show': 'Compact Events To Show',
+  'entity.compact_events_to_show.helper':
+    'How many of this calendar\u2019s events compact mode keeps. Left empty, the card ' +
+    'limit applies.',
+  'entity.blocklist': 'Blocklist',
+  'entity.blocklist.helper':
+    'Hide events whose title contains any of these terms, separated by | \u2014 for ' +
+    'example Private|Tentative.',
+  'entity.allowlist': 'Allowlist',
+  'entity.allowlist.helper':
+    'Show only events whose title contains one of these terms, separated by | . Left ' +
+    'empty, every event is shown.',
+
+  // --- Exceptions -----------------------------------------------------------
+  //
+  // The surface for "this option has a different value in column layout". Worded as
+  // exceptions throughout, because that is what they are: the card has one
+  // configuration, and a handful of options may depart from it in one layout.
+  'exceptions.title': 'Column View Exceptions',
+  'exceptions.summary.none': 'Every option above applies to both layouts',
+  'exceptions.summary.one': '1 option differs in column layout',
+  'exceptions.summary.many': '{count} options differ in column layout',
+  exceptions: 'Options With An Exception',
+  'exceptions.helper':
+    'Pick the options that should take a different value when this card renders as ' +
+    'columns. Removing one returns it to the shared value above.',
+  'column.height': 'Height',
+  'column.height.helper': 'A fixed height for the column layout. Use auto to let it grow.',
+  'column.max_height': 'Maximum Height',
+  'column.max_height.helper':
+    'The height the column layout may grow to before it scrolls. Use none for no limit.',
+  'column.show_empty_days.helper':
+    'Column layout defaults this to on, whatever the shared setting above says.',
+  'column.split_multiday_events.helper':
+    'Column layout defaults this to on, whatever the shared setting above says.',
+
+  // --- Defaults a view substitutes -------------------------------------------
+  //
+  // Said beside the shared control rather than as an exception row of its own. The
+  // statement is that the view has already decided the option, which is information
+  // about the control the user is looking at — an exception row would be two rows of
+  // chrome on every card that has asked for none.
+  'view_default.column.show_empty_days':
+    'Column layout shows empty days whatever this is set to, so that the columns keep ' +
+    'matching consecutive days. Add an exception below to change that.',
+  'view_default.column.split_multiday_events':
+    'Column layout splits multi-day events whatever this is set to, so that every day ' +
+    'an event covers shows it. Add an exception below to change that.',
 
   // --- Time Range & Content -------------------------------------------------
   'panel.content': 'Time Range & Content',

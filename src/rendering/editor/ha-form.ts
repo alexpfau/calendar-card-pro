@@ -66,7 +66,19 @@ export type Selector =
     }
   | { ui_action: Record<string, never> | null }
   | { icon: Record<string, never> | null }
-  | { entity: { filter?: { domain?: string | ReadonlyArray<string> }; multiple?: boolean } | null };
+  | {
+      entity: {
+        filter?: { domain?: string | ReadonlyArray<string> };
+        multiple?: boolean;
+        /**
+         * Drag handles on a multiple picker. Added in Home Assistant 2025.8, and
+         * ignored by anything older, which is what makes it safe to set
+         * unconditionally: an instance that does not know the option renders the list
+         * exactly as it does without it.
+         */
+        reorder?: boolean;
+      } | null;
+    };
 /** Fields every schema node shares. */
 interface BaseSchema {
   /** Key into the form's data object. This is what makes a schema self-binding. */

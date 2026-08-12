@@ -170,6 +170,25 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
 };
 
 /**
+ * Which views a **per-entity** option affects, where that differs from the card-level
+ * key of the same name.
+ *
+ * A separate table rather than an entry in `VIEW_SCOPE`, because the two genuinely
+ * disagree for `split_multiday_events` and collapsing them would make one of the two
+ * statements false. At card level the key is a real column override — `column:
+ * { split_multiday_events: false }` skips the split entirely (`events.ts:225`). Per
+ * entity it is ignored in column view, because `viewForcesMultidaySplit` passes
+ * `ignorePerEntityOverride` and a column that silently omitted the later days of a
+ * multi-day event would be a claim about a day that is not true.
+ *
+ * Consulted through `entityScopeFor`, which falls back to the card-level table, so a
+ * key whose per-entity scope matches its card-level one needs no entry here.
+ */
+export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
+  split_multiday_events: new Set<Types.EffectiveView>(['list']),
+};
+
+/**
  * Whether an option has any effect in the given view.
  *
  * @param key - Config key to test
@@ -179,6 +198,16 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
 export function appliesToView(key: string, view: Types.EffectiveView): boolean {
   const scope = VIEW_SCOPE[key];
   return scope === undefined || scope.has(view);
+}
+
+/**
+ * The scope of an option as configured on a single calendar.
+ *
+ * @param key - Config key to test
+ * @returns The views it affects, or `undefined` when it affects all of them
+ */
+export function entityScopeFor(key: string): ReadonlySet<Types.EffectiveView> | undefined {
+  return ENTITY_VIEW_SCOPE[key] ?? VIEW_SCOPE[key];
 }
 
 /**
@@ -502,6 +531,33 @@ export const COLUMN_DEFAULT_OVERRIDES: {
   show_empty_days: true,
   split_multiday_events: true,
 };
+
+/**
+ * Views whose defaults depart from the top level, mapped to what they substitute.
+ *
+ * The lookup form of `COLUMN_DEFAULT_OVERRIDES`, so that a caller can ask *which*
+ * options a view has already decided for the user without naming the view. The editor
+ * is the caller in hand: an option whose default differs in the view the card is set to
+ * needs saying so beside the shared control, or the user reads a switch that does not
+ * describe what they are looking at.
+ */
+export const DEFAULT_OVERRIDES_BY_VIEW: Readonly<
+  Partial<Record<Types.EffectiveView, Readonly<Record<string, unknown>>>>
+> = {
+  column: COLUMN_DEFAULT_OVERRIDES,
+};
+
+/**
+ * Whether a view substitutes its own default for an option.
+ *
+ * @param key - Config key to test
+ * @param view - View the card is configured to render
+ * @returns `true` when the view ignores the top-level value until the block overrides it
+ */
+export function hasDivergentDefault(key: string, view: Types.EffectiveView): boolean {
+  const defaults = DEFAULT_OVERRIDES_BY_VIEW[view];
+  return defaults !== undefined && Object.prototype.hasOwnProperty.call(defaults, key);
+}
 
 /**
  * Whether compact-mode limits apply in the given view.

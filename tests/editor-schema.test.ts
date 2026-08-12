@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import { DEFAULT_CONFIG, DEPRECATED_CONFIG_MAP } from '../src/config/config';
@@ -9,19 +9,43 @@ import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
   COLUMN_DEFAULT_OVERRIDES,
+  COLUMN_OVERRIDE_KEYS,
+  ENTITY_VIEW_SCOPE,
   VIEWS,
   VIEW_SCOPE,
   appliesToView,
   describeColumnLayoutBands,
+  entityScopeFor,
   resolveColumnFit,
 } from '../src/config/view';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
+import {
+  clearCopiedSettings,
+  copiedSettings,
+  copySettings,
+  fromEntityFormData,
+  pasteSettings,
+  toEntityFormData,
+  writeEntity,
+} from '../src/rendering/editor/entities';
+import {
+  applySelection,
+  declaredKeys,
+  eligibleFields,
+  removeException,
+} from '../src/rendering/editor/exceptions';
 import type { HaFormSchema, SelectOption } from '../src/rendering/editor/ha-form';
-import { applicabilityNote, computeHelper, computeLabel } from '../src/rendering/editor/localize';
+import {
+  applicabilityNote,
+  computeHelper,
+  computeLabel,
+  computeSubformHelper,
+} from '../src/rendering/editor/localize';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildDayHeaderSchema } from '../src/rendering/editor/schemas/day-header';
 import { buildLayoutSchema, widthTableRows } from '../src/rendering/editor/schemas/layout';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
+import { exceptionSubforms } from '../src/rendering/editor/subforms';
 import {
   deriveSyntheticData,
   isCommittableOffset,
@@ -31,6 +55,7 @@ import {
   applyFormChange,
   changedKeys,
   columnFormBlock,
+  exceptionFormBlock,
   stripColumnDefaults,
   toStoredConfig,
 } from '../src/rendering/editor/value';
@@ -948,7 +973,7 @@ describe('editor: the chassis', () => {
      * the event. Pass an index where the panel itself is under test.
      */
     const change = async (patch: Record<string, unknown>, panelIndex = 0) => {
-      const target = element.shadowRoot!.querySelectorAll('ha-form')[panelIndex];
+      const target = element.shadowRoot!.querySelectorAll('ha-form.panel-form')[panelIndex];
       const data = (target as unknown as { data: Record<string, unknown> }).data;
       target.dispatchEvent(
         new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
@@ -1002,7 +1027,7 @@ describe('editor: the chassis', () => {
     element.setConfig(dispatched[dispatched.length - 1] as unknown as Types.Config);
     await element.updateComplete;
 
-    const form = element.shadowRoot!.querySelector('ha-form')!;
+    const form = element.shadowRoot!.querySelector('ha-form.panel-form')!;
     const data = (form as unknown as { data: Record<string, unknown> }).data;
     expect(data.start_date_offset).toBe('-');
   });
@@ -1019,7 +1044,9 @@ describe('editor: the chassis', () => {
   it('mounts one form per registered panel', async () => {
     const { element } = await mount({ entities: ['calendar.personal'] });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-form')).toHaveLength(PANELS.length);
+    // `.panel-form` rather than every form: the two hand-written widgets render forms
+    // of their own inside the panels that own them, and those are not panels.
+    expect(element.shadowRoot!.querySelectorAll('ha-form.panel-form')).toHaveLength(PANELS.length);
   });
 
   /**
@@ -1037,7 +1064,8 @@ describe('editor: the chassis', () => {
     });
 
     const panelIndex = PANELS.findIndex((panel) => panel.id === 'content');
-    const contentForm = () => element.shadowRoot!.querySelectorAll('ha-form')[panelIndex];
+    const contentForm = () =>
+      element.shadowRoot!.querySelectorAll('ha-form.panel-form')[panelIndex];
     const dataOf = (form: Element) => (form as unknown as { data: Record<string, unknown> }).data;
     const namesOf = (form: Element) =>
       [...walkSchema((form as unknown as { schema: HaFormSchema[] }).schema)].map(
@@ -1818,5 +1846,717 @@ describe('editor: group headings resolve their own strings', () => {
       expect(computeHelper('en', 'list', node, path)).not.toBe('Date');
       expect(computeHelper('en', 'list', node, path)).not.toBe('Event');
     }
+  });
+});
+
+/**
+ * A tag of this file's own for the widgets mounted below, since a custom element has to
+ * be defined before it can be constructed and may only be defined once.
+ */
+const CHASSIS_TAG = 'test-calendar-card-pro-editor-widgets';
+if (!customElements.get(CHASSIS_TAG)) {
+  customElements.define(CHASSIS_TAG, class extends CalendarCardProEditor {});
+}
+
+/** Reads a mounted form's schema. */
+function schemaOf(form: Element): HaFormSchema[] {
+  return (form as unknown as { schema: HaFormSchema[] }).schema;
+}
+
+/** Which exception picker offers a given option. */
+function pickerIndexFor(element: CalendarCardProEditor, key: string): number {
+  const pickers = [...element.shadowRoot!.querySelectorAll('ha-form.exception-picker')];
+
+  return pickers.findIndex((form) => {
+    const node = schemaOf(form)[0] as unknown as {
+      selector: { select: { options: SelectOption[] } };
+    };
+    return node.selector.select.options.some((option) => option.value === key);
+  });
+}
+
+/** Which exception form renders a given option. */
+function exceptionFormIndexFor(element: CalendarCardProEditor, key: string): number {
+  const forms = [...element.shadowRoot!.querySelectorAll('ha-form.exception-form')];
+
+  return forms.findIndex((form) => schemaOf(form).some((node) => node.name === key));
+}
+
+describe('editor: per-calendar settings', () => {
+  const calendars = PANELS.find((panel) => panel.id === 'calendars')!;
+  /** The per-calendar schema, as the Calendars panel declares it. */
+  function entitySchema(config: Types.Config = buildConfig()) {
+    return calendars.subforms!({ view: config.view, config, language: 'en' })[0];
+  }
+
+  beforeEach(() => {
+    clearCopiedSettings();
+  });
+
+  it('renders one collapsible form per configured calendar', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({ entities: ['calendar.a', 'calendar.b'] } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    expect(element.shadowRoot!.querySelectorAll('ha-form.entity-form')).toHaveLength(2);
+  });
+
+  it('offers every per-calendar option the card reads', () => {
+    const offered = [...walkSchema(entitySchema().schema)]
+      .map((entry) => entry.node.name)
+      .filter(Boolean);
+
+    // Every member of `EntityConfig` except the entity id itself, which is the
+    // picker's business rather than a setting of the calendar's.
+    expect(offered.sort()).toEqual(
+      [
+        'accent_color',
+        'allowlist',
+        'blocklist',
+        'color',
+        'compact_events_to_show',
+        'label',
+        'label_icon_color',
+        'show_description',
+        'show_location',
+        'show_time',
+        'split_multiday_events',
+      ].sort(),
+    );
+  });
+
+  /**
+   * The defect in the editor this replaces, and the reason four of these are dropdowns.
+   *
+   * The card reads them presence-first — `getEntitySetting(…) ?? config.show_time`
+   * (`presentation.ts:124`), and `typeof … !== 'undefined'` for the split
+   * (`events.ts:898`) — so absent means *follow the card*. Bound to a checkbox, that
+   * state renders as "off", which is a different instruction, and the first touch
+   * writes a literal `false` that no checkbox can take back.
+   */
+  it('offers a third state for the options that may be left to the card', () => {
+    const inheritable = ['show_time', 'show_location', 'show_description', 'split_multiday_events'];
+
+    for (const name of inheritable) {
+      const node = [...walkSchema(entitySchema().schema)].find(
+        (entry) => entry.node.name === name,
+      )!.node;
+
+      expect('selector' in node && 'select' in node.selector, name).toBe(true);
+
+      const selector = (node as unknown as { selector: { select: { options: SelectOption[] } } })
+        .selector;
+      expect(
+        selector.select.options.map((option) => option.value),
+        name,
+      ).toHaveLength(3);
+      expect(selector.select.options[0].value, name).toBe('inherit');
+    }
+  });
+
+  it('reads an unset option back as inheriting rather than as off', () => {
+    const data = toEntityFormData({ entity: 'calendar.a', label: 'Work' });
+
+    expect(data.show_time).toBe('inherit');
+    expect(data.show_location).toBe('inherit');
+    expect(data.split_multiday_events).toBe('inherit');
+  });
+
+  it('round-trips the three states of an inheritable option', () => {
+    const cases: Array<[unknown, string]> = [
+      [undefined, 'inherit'],
+      [true, 'show'],
+      [false, 'hide'],
+    ];
+
+    for (const [stored, offered] of cases) {
+      const entry =
+        stored === undefined
+          ? { entity: 'calendar.a' }
+          : ({ entity: 'calendar.a', show_time: stored } as Types.EntityConfig);
+
+      expect(toEntityFormData(entry).show_time, String(stored)).toBe(offered);
+
+      const written = fromEntityFormData('calendar.a', { show_time: offered });
+      if (stored === undefined) {
+        expect(written, String(stored)).toBe('calendar.a');
+      } else {
+        expect(written, String(stored)).toEqual({ entity: 'calendar.a', show_time: stored });
+      }
+    }
+  });
+
+  it('writes a bare entity id for a calendar that carries no settings', () => {
+    expect(fromEntityFormData('calendar.a', { label: '', color: '', show_time: 'inherit' })).toBe(
+      'calendar.a',
+    );
+  });
+
+  it('removes a per-calendar key again when its field is emptied', () => {
+    const entities = writeEntity([{ entity: 'calendar.a', label: 'Work', color: '#f00' }], 0, {
+      ...toEntityFormData({ entity: 'calendar.a', label: 'Work', color: '#f00' }),
+      color: '',
+    });
+
+    expect(entities[0]).toEqual({ entity: 'calendar.a', label: 'Work' });
+  });
+
+  it('never stores a number field as text or as NaN', () => {
+    expect(fromEntityFormData('calendar.a', { compact_events_to_show: '3' })).toEqual({
+      entity: 'calendar.a',
+      compact_events_to_show: 3,
+    });
+
+    expect(fromEntityFormData('calendar.a', { compact_events_to_show: 'x' })).toBe('calendar.a');
+  });
+
+  it('edits one calendar without disturbing the others, or their order', () => {
+    const entities: Array<string | Types.EntityConfig> = [
+      'calendar.a',
+      { entity: 'calendar.b', label: 'Work' },
+      'calendar.c',
+    ];
+
+    const next = writeEntity(entities, 1, {
+      ...toEntityFormData(entities[1]),
+      color: '#0f0',
+    });
+
+    expect(next).toEqual([
+      'calendar.a',
+      { entity: 'calendar.b', label: 'Work', color: '#0f0' },
+      'calendar.c',
+    ]);
+  });
+
+  /**
+   * A blank list item in YAML is `null`, not absent, so this arrives from real
+   * configurations. The editor is the one surface that has to survive reading a
+   * configuration it did not write: throwing here takes the whole editor down and
+   * leaves the user with no way to fix the list that caused it.
+   */
+  it('survives a null entry in the list rather than taking the editor down with it', () => {
+    const broken = [null, 'calendar.a'] as unknown as Array<string | Types.EntityConfig>;
+
+    expect(() => toEntityFormData(broken[0])).not.toThrow();
+    expect(toEntityFormData(broken[0]).show_time).toBe('inherit');
+    expect(() => copySettings(broken[0])).not.toThrow();
+    expect(() => writeEntity(broken, 0, { label: 'x' })).not.toThrow();
+
+    // The calendar beside it is untouched by the broken one being read.
+    expect(writeEntity(broken, 0, { label: 'x' })[1]).toBe('calendar.a');
+  });
+
+  it('copies settings between calendars without carrying the entity id across', () => {
+    const entities: Array<string | Types.EntityConfig> = [
+      { entity: 'calendar.a', label: 'Work', color: '#f00' },
+      'calendar.b',
+    ];
+
+    copySettings(entities[0]);
+    expect(copiedSettings()).toEqual({ label: 'Work', color: '#f00' });
+
+    const pasted = pasteSettings(entities, 1);
+
+    expect(pasted[1]).toEqual({ entity: 'calendar.b', label: 'Work', color: '#f00' });
+    expect(pasted[0]).toBe(entities[0]);
+  });
+
+  it('replaces the target settings on paste rather than merging into them', () => {
+    const entities: Array<string | Types.EntityConfig> = [
+      { entity: 'calendar.a', label: 'Work' },
+      { entity: 'calendar.b', label: 'Home', color: '#00f' },
+    ];
+
+    copySettings(entities[0]);
+
+    expect(pasteSettings(entities, 1)[1]).toEqual({ entity: 'calendar.b', label: 'Work' });
+  });
+
+  it('leaves the list alone when nothing has been copied', () => {
+    const entities: Array<string | Types.EntityConfig> = ['calendar.a'];
+
+    expect(pasteSettings(entities, 0)).toEqual(['calendar.a']);
+  });
+
+  /**
+   * Per-entity and card-level `split_multiday_events` are the same word for two
+   * different scopes. The card-level key is a real column override — `column:
+   * { split_multiday_events: false }` skips the split entirely (`events.ts:225`) —
+   * while the per-entity one is ignored in column view, because a column that omitted
+   * the later days of an event would be a claim about a day that is not true.
+   */
+  it('says that a calendar own multi-day setting applies to the list layout', () => {
+    expect(ENTITY_VIEW_SCOPE.split_multiday_events.has('list')).toBe(true);
+    expect(ENTITY_VIEW_SCOPE.split_multiday_events.has('column')).toBe(false);
+
+    const note = computeSubformHelper(
+      'en',
+      'column',
+      { name: 'split_multiday_events', selector: { text: {} } },
+      ['entity'],
+      entityScopeFor('split_multiday_events'),
+    );
+
+    expect(note).toBeTypeOf('string');
+    expect(VIEW_SCOPE.split_multiday_events).toBeUndefined();
+  });
+
+  /**
+   * A per-calendar helper must not fall back to the card-level one. Four of these are
+   * three-way where the card-level option is a switch, so the card-level sentence would
+   * describe a control that is not on screen.
+   */
+  it('never lends a per-calendar field the card-level helper', () => {
+    // `split_multiday_events` is the sharpest case: the card-level helper describes a
+    // switch that applies to every calendar, and this control is a three-way that
+    // applies to one — so borrowing it would describe neither.
+    const helper = computeSubformHelper(
+      'en',
+      'list',
+      { name: 'split_multiday_events', selector: { text: {} } },
+      ['entity'],
+    );
+
+    expect(helper).toBeUndefined();
+    expect(EDITOR_STRINGS['split_multiday_events.helper']).toBeTypeOf('string');
+  });
+});
+
+describe('editor: the exceptions widget', () => {
+  /** The eligible exception fields of one panel, for a configuration. */
+  function eligibleFor(panelId: string, config: Types.Config = columnConfig()) {
+    const panel = PANELS.find((entry) => entry.id === panelId)!;
+    const ctx = { view: config.view, config, language: 'en' };
+    return eligibleFields(panel.build(ctx), panel.id);
+  }
+
+  it('offers an exception only for options the card can resolve per view', () => {
+    const offered = PANELS.flatMap((panel) => eligibleFor(panel.id).map((field) => field.name));
+
+    for (const name of offered) {
+      expect(COLUMN_OVERRIDE_KEYS as ReadonlyArray<string>, name).toContain(name);
+    }
+  });
+
+  /**
+   * Fetch-time options can never be per-view: switching layout at a viewport boundary
+   * must not fire a Home Assistant API call. `weather` is claimed whole by that
+   * boundary, sub-keys included.
+   */
+  it('offers no exception for anything that decides what is fetched', () => {
+    const offered = new Set(
+      PANELS.flatMap((panel) => eligibleFor(panel.id).map((field) => field.name)),
+    );
+
+    for (const key of ['entities', 'days_to_show', 'start_date', 'weather', 'show_past_events']) {
+      expect(offered.has(key), key).toBe(false);
+    }
+
+    // The weather panel is the one whose every option is claimed by the boundary, so
+    // it is the one that must offer nothing at all.
+    expect(eligibleFor('weather')).toEqual([]);
+  });
+
+  it('gives an exception the same control as the option it overrides', () => {
+    const events = PANELS.find((panel) => panel.id === 'events')!;
+    const ctx = {
+      view: 'column' as const,
+      config: columnConfig({ show_location: true }),
+      language: 'en',
+    };
+    const schema = events.build(ctx);
+
+    const shared = [...walkSchema(schema)].find((entry) => entry.node.name === 'show_location')!
+      .node as { selector: unknown };
+    const exception = eligibleFields(schema, events.id).find(
+      (field) => field.name === 'show_location',
+    )!;
+
+    expect(exception.selector).toEqual(shared.selector);
+  });
+
+  it('offers nothing at all in a view whose configuration is the top level', () => {
+    const listConfig = buildConfig({ view: 'list' });
+    const panel = PANELS.find((entry) => entry.id === 'events')!;
+
+    expect(exceptionSubforms(panel, { view: 'list', config: listConfig, language: 'en' })).toEqual(
+      [],
+    );
+  });
+
+  it('shows an added exception at the value it would otherwise inherit', () => {
+    const config = columnConfig({ event_font_size: '18px' });
+
+    const block = exceptionFormBlock(config, ['event_font_size']);
+
+    expect(block.event_font_size).toBe('18px');
+  });
+
+  /**
+   * `show_empty_days` is the case that makes the projection necessary rather than
+   * merely tidy: absent from the block, its effective value in column view is `true`,
+   * so a control bound to the raw block would render unchecked and state the opposite
+   * of what the card is doing.
+   */
+  it('shows a divergent column default as the column default, not the shared value', () => {
+    const config = columnConfig({ show_empty_days: false });
+
+    expect(exceptionFormBlock(config, ['show_empty_days']).show_empty_days).toBe(true);
+  });
+
+  it('stores nothing for an exception left equal to what it inherits', () => {
+    const config = columnConfig({ event_font_size: '18px' });
+    const block = exceptionFormBlock(config, ['event_font_size']);
+
+    expect(
+      toStoredConfig({ ...config, column: block as Types.ColumnOverrides }),
+    ).not.toHaveProperty('column');
+  });
+
+  it('seeds the exceptions a configuration already sets, and nothing else', () => {
+    const declared = declaredKeys(
+      columnConfig({
+        column: { event_font_size: '22px', min_day_width: 200 } as Types.ColumnOverrides,
+      }),
+    );
+
+    expect([...declared]).toEqual(['event_font_size']);
+  });
+
+  it('reads exceptions out of every view block, not only the one on screen', () => {
+    // A card switched to list view keeps its column block, so the exceptions it holds
+    // must survive being looked at from the other view.
+    const declared = declaredKeys(
+      buildConfig({
+        view: 'list',
+        column: { event_font_size: '22px' } as Types.ColumnOverrides,
+      }),
+    );
+
+    expect([...declared]).toEqual(['event_font_size']);
+  });
+
+  it('removes an exception by deleting the key, not by writing the shared value back', () => {
+    const config = columnConfig({
+      show_location: true,
+      column: { show_location: false, event_font_size: '22px' } as Types.ColumnOverrides,
+    });
+
+    const next = removeException(config, 'column', 'show_location');
+
+    expect(next.column).toEqual({ event_font_size: '22px' });
+    expect(toStoredConfig(next).column).toEqual({ event_font_size: '22px' });
+  });
+
+  /**
+   * The whole reason the widget is hand-written. `ha-form-optional_actions` has no
+   * removal path at all, and force-promotes any key present in the data on every
+   * update — so a field with a value could never be hidden again, and an exception
+   * could never be taken away.
+   */
+  it('leaves no empty block behind when the last exception is removed', () => {
+    const config = columnConfig({
+      show_location: true,
+      column: { show_location: false } as Types.ColumnOverrides,
+    });
+
+    const next = removeException(config, 'column', 'show_location');
+
+    expect(next).not.toHaveProperty('column');
+    expect(toStoredConfig(next)).not.toHaveProperty('column');
+  });
+
+  it('adds and removes through one control, and touches no other panel keys', () => {
+    const config = columnConfig({
+      column: { show_location: false, day_spacing: '20px' } as Types.ColumnOverrides,
+    });
+
+    const eligible = ['show_location', 'show_time'];
+    const declared = new Set(['show_location', 'day_spacing']);
+
+    const applied = applySelection(config, 'column', eligible, declared, ['show_time']);
+
+    // Chosen: declared. Dropped: undeclared and deleted.
+    expect(applied.declared.has('show_time')).toBe(true);
+    expect(applied.declared.has('show_location')).toBe(false);
+    expect(applied.config.column).toEqual({ day_spacing: '20px' });
+
+    // Another panel's exception is untouched, because it was not offered here.
+    expect(applied.declared.has('day_spacing')).toBe(true);
+  });
+
+  it('ignores a selection naming an option this panel does not own', () => {
+    const config = columnConfig();
+    const applied = applySelection(config, 'column', ['show_time'], new Set(), [
+      'show_time',
+      'day_spacing',
+    ]);
+
+    expect([...applied.declared]).toEqual(['show_time']);
+  });
+
+  it('declares every extra key it offers as a real, selectable override', () => {
+    const layout = eligibleFor('layout').map((field) => field.name);
+
+    // The two heights are edited through a mode dropdown, which chooses *which* key is
+    // set and so cannot be an exception to one of them.
+    expect(layout).toContain('height');
+    expect(layout).toContain('max_height');
+
+    for (const field of eligibleFor('layout')) {
+      expect(COLUMN_OVERRIDE_KEYS as ReadonlyArray<string>, field.name).toContain(field.name);
+      expect(field.selector, field.name).toBeTypeOf('object');
+    }
+  });
+
+  /**
+   * Coverage, stated as a set rather than as a number, so that a key leaving the
+   * exceptions is a failing test rather than a thing nobody notices.
+   *
+   * The three that are missing are missing for one reason: each is stored as a union
+   * that no single selector can emit — `null | 'iso' | 'simple'`, `boolean | string`,
+   * `string | boolean` — so the panel edits them through a mode dropdown that chooses
+   * which shape is written. An exception to one of those needs the same derivation
+   * again, per exception, which is a mechanism rather than a field. A hand-written
+   * `column:` block carrying any of the three still works and is still preserved on
+   * write; it is the editor that has no control for it.
+   */
+  it('offers an exception for every overridable option a selector can emit', () => {
+    const swept = [
+      columnConfig(),
+      columnConfig({
+        ...Object.fromEntries(
+          Object.entries(DEFAULT_CONFIG)
+            .filter(([, value]) => typeof value === 'boolean')
+            .map(([key]) => [key, true]),
+        ),
+        view: 'column',
+        show_week_numbers: 'iso',
+      } as Partial<Types.Config>),
+    ];
+
+    const offered = new Set<string>();
+    for (const config of swept) {
+      for (const panel of PANELS) {
+        for (const field of eligibleFor(panel.id, config)) offered.add(field.name);
+      }
+    }
+
+    const missing = (COLUMN_OVERRIDE_KEYS as ReadonlyArray<string>).filter(
+      (key) => !offered.has(key),
+    );
+
+    expect(missing.sort()).toEqual(
+      ['remove_location_country', 'show_week_numbers', 'today_indicator'].sort(),
+    );
+  });
+
+  it('offers each option exactly once, in the panel that owns it', () => {
+    const seen = new Map<string, string[]>();
+
+    for (const panel of PANELS) {
+      for (const field of eligibleFor(panel.id)) {
+        seen.set(field.name, [...(seen.get(field.name) ?? []), panel.id]);
+      }
+    }
+
+    const duplicated = [...seen.entries()].filter(([, panels]) => panels.length > 1);
+    expect(duplicated).toEqual([]);
+  });
+});
+
+describe('editor: the exceptions widget in the chassis', () => {
+  async function mountColumn(config: Partial<Types.Config>) {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({ view: 'column', ...config } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const dispatched: Array<Record<string, unknown>> = [];
+    element.addEventListener('config-changed', (event) => {
+      dispatched.push((event as CustomEvent).detail.config);
+    });
+
+    return { element, dispatched };
+  }
+
+  /** Fires a change from one of the editor's forms, the way `ha-form` does. */
+  async function fire(
+    element: CalendarCardProEditor,
+    selector: string,
+    patch: Record<string, unknown>,
+    index = 0,
+  ) {
+    const form = element.shadowRoot!.querySelectorAll(selector)[index];
+    const data = (form as unknown as { data: Record<string, unknown> }).data;
+    form.dispatchEvent(
+      new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
+    );
+    await element.updateComplete;
+  }
+
+  it('adds no chrome to a card that has no exceptions', async () => {
+    const { element } = await mountColumn({ entities: ['calendar.a'] });
+
+    // One collapsed group per panel that owns an overridable option, and no fields
+    // inside any of them until an exception is added.
+    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(0);
+    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-picker').length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  /**
+   * The design proposed seeding these two as exception rows, so that "column view has
+   * already changed this for you" was visible. The intent is right and the placement
+   * was not: it opens every column card with two rows it did not ask for. The statement
+   * belongs beside the shared control instead, where it is a sentence rather than a row.
+   */
+  it('says that a column default has decided an option, without adding a row for it', () => {
+    const note = computeHelper('en', 'column', {
+      name: 'show_empty_days',
+      selector: { boolean: {} },
+    });
+
+    expect(note).toBeTypeOf('string');
+    expect(
+      computeHelper('en', 'list', { name: 'show_empty_days', selector: { boolean: {} } }),
+    ).not.toBe(note);
+
+    expect([...declaredKeys(columnConfig())]).toEqual([]);
+  });
+
+  it('renders a field once an option is picked, and stores nothing for it yet', async () => {
+    const { element, dispatched } = await mountColumn({ entities: ['calendar.a'] });
+
+    const panelIndex = pickerIndexFor(element, 'event_font_size');
+    await fire(
+      element,
+      'ha-form.exception-picker',
+      { exceptions: ['event_font_size'] },
+      panelIndex,
+    );
+
+    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form').length).toBeGreaterThan(
+      0,
+    );
+
+    // Declaring an exception configures nothing: it starts out equal to the value it
+    // inherits, and an override equal to what it inherits is not an override.
+    expect(dispatched).toEqual([]);
+  });
+
+  it('stores the exception once its value differs, and only then', async () => {
+    const { element, dispatched } = await mountColumn({ entities: ['calendar.a'] });
+
+    const panelIndex = pickerIndexFor(element, 'event_font_size');
+    await fire(
+      element,
+      'ha-form.exception-picker',
+      { exceptions: ['event_font_size'] },
+      panelIndex,
+    );
+
+    const formIndex = exceptionFormIndexFor(element, 'event_font_size');
+    await fire(element, 'ha-form.exception-form', { event_font_size: '22px' }, formIndex);
+
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0].column).toEqual({ event_font_size: '22px' });
+  });
+
+  /**
+   * The whole lifecycle, through the echo. Each step is covered in isolation above; what
+   * this adds is Home Assistant answering every `config-changed` with a `setConfig`,
+   * which is where the two halves of the widget have to agree.
+   *
+   * Step three is the one that needs it. An exception set back to the value it inherits
+   * is stripped from storage — correctly, since it is no longer an exception — and the
+   * echo of that write carries a configuration with no trace of it. If the rows were
+   * derived from the stored block, the row would vanish under the cursor at the moment
+   * the user typed the shared value back. They are derived from what was *declared*,
+   * which the echo does not reset.
+   */
+  it('survives add, differ, revert and remove with Home Assistant echoing each write', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({ entities: ['calendar.a'], view: 'column' } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const dispatched: Array<Record<string, unknown>> = [];
+    element.addEventListener('config-changed', (event) => {
+      const config = (event as CustomEvent).detail.config as Types.Config;
+      dispatched.push(config as unknown as Record<string, unknown>);
+      element.setConfig(config);
+    });
+
+    const rowShown = () =>
+      [...element.shadowRoot!.querySelectorAll('ha-form.exception-form')].some((form) =>
+        schemaOf(form).some((node) => node.name === 'event_font_size'),
+      );
+
+    const pickerIndex = pickerIndexFor(element, 'event_font_size');
+
+    await fire(element, 'ha-form.exception-picker', { exceptions: ['event_font_size'] }, pickerIndex);
+    expect(dispatched, 'declaring an exception configures nothing').toEqual([]);
+    expect(rowShown()).toBe(true);
+
+    const formIndex = exceptionFormIndexFor(element, 'event_font_size');
+    await fire(element, 'ha-form.exception-form', { event_font_size: '22px' }, formIndex);
+    expect(dispatched.at(-1)!.column).toEqual({ event_font_size: '22px' });
+
+    // Set back to what it inherits: the key goes, the row stays.
+    await fire(
+      element,
+      'ha-form.exception-form',
+      { event_font_size: DEFAULT_CONFIG.event_font_size },
+      formIndex,
+    );
+    expect(dispatched.at(-1)).not.toHaveProperty('column');
+    expect(rowShown(), 'the row survives the echo of its own value being stripped').toBe(true);
+
+    const current = (
+      element.shadowRoot!.querySelectorAll('ha-form.exception-picker')[
+        pickerIndex
+      ] as unknown as { data: { exceptions: string[] } }
+    ).data.exceptions;
+
+    await fire(
+      element,
+      'ha-form.exception-picker',
+      { exceptions: current.filter((key) => key !== 'event_font_size') },
+      pickerIndex,
+    );
+    expect(rowShown()).toBe(false);
+  });
+
+  it('deletes the key and the block when the exception is taken away again', async () => {
+    const { element, dispatched } = await mountColumn({
+      entities: ['calendar.a'],
+      column: { event_font_size: '22px' } as Types.ColumnOverrides,
+    });
+
+    const panelIndex = pickerIndexFor(element, 'event_font_size');
+    const current = (
+      element.shadowRoot!.querySelectorAll('ha-form.exception-picker')[panelIndex] as unknown as {
+        data: { exceptions: string[] };
+      }
+    ).data.exceptions;
+
+    expect(current).toContain('event_font_size');
+
+    await fire(
+      element,
+      'ha-form.exception-picker',
+      { exceptions: current.filter((key) => key !== 'event_font_size') },
+      panelIndex,
+    );
+
+    expect(dispatched).toHaveLength(1);
+    expect(dispatched[0]).not.toHaveProperty('column');
   });
 });

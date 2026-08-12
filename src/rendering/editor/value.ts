@@ -393,3 +393,42 @@ export function columnFormBlock(config: Readonly<Types.Config>): Record<string, 
     ...(config.column ?? {}),
   };
 }
+
+/**
+ * Builds the block as the exceptions widget should show it.
+ *
+ * The same projection as `columnFormBlock`, extended to the options a user has declared
+ * an exception for. Those need it for a sharper reason than the density controls do: an
+ * exception that has just been added holds no value of its own, and a control bound to
+ * nothing renders as *off*, *empty* or *zero* — which is not what the card is doing.
+ * `show_empty_days` is the case that makes it obvious: absent from the block, its
+ * effective value in column view is `true`, and an unchecked box would state the
+ * opposite of what the user is looking at.
+ *
+ * Projecting the inherited value is only safe because the write path strips it again.
+ * An exception left equal to what it inherits is removed by `stripColumnDefaults` on
+ * the way out, which is the correct reading of it — a value that matches the one it
+ * would inherit is not an exception to anything.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param keys - Options currently declared as exceptions
+ * @returns The block, with every declared exception at its effective value
+ */
+export function exceptionFormBlock(
+  config: Readonly<Types.Config>,
+  keys: ReadonlyArray<string>,
+): Record<string, unknown> {
+  const block = columnFormBlock(config);
+  const stored = (config.column ?? {}) as Record<string, unknown>;
+
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(stored, key) && stored[key] !== undefined) continue;
+
+    block[key] = inheritedColumnValue(
+      config,
+      key as keyof Types.ColumnOverrides & keyof Types.Config,
+    );
+  }
+
+  return block;
+}

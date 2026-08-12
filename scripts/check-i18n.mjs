@@ -178,7 +178,17 @@ function mapLocale(locale, specialCased) {
  */
 async function readEditorSchemaKeys() {
   const editor = await loadEditorModule(ROOT);
-  const { PANELS, walkSchema, EDITOR_STRINGS, DEFAULT_CONFIG, VIEWS, VIEW_SCOPE } = editor;
+  const {
+    PANELS,
+    walkSchema,
+    panelSubforms,
+    EDITOR_STRINGS,
+    DEFAULT_CONFIG,
+    VIEWS,
+    VIEW_SCOPE,
+    ENTITY_VIEW_SCOPE,
+    DEFAULT_OVERRIDES_BY_VIEW,
+  } = editor;
 
   assertFound(PANELS, 'any registered editor panels', PANELS_TS);
   assertFound(Object.keys(EDITOR_STRINGS), 'any editor strings', STRINGS_TS);
@@ -192,6 +202,47 @@ async function readEditorSchemaKeys() {
   /** Every key that is legitimately the root of a table entry. */
   const roots = new Set();
 
+  /**
+   * Records the keys one schema will look up.
+   *
+   * @param schema - Schema to walk
+   * @param path - Label path it is rendered under
+   * @param bareHelper - Whether an unqualified `.helper` can be reached from it
+   */
+  const collect = (schema, path, bareHelper) => {
+    for (const { node, path: nodePath } of walkSchema(schema, path)) {
+      // A grid is a layout, not a level of labelling: Home Assistant renders no
+      // heading for one and passes the label hooks straight through. That is true of
+      // a *named* grid too, which is how the weather block nests without drawing a
+      // second "Weather" heading inside the Weather panel.
+      if (node.type === 'grid' || !node.name) continue;
+
+      // A group resolves its own heading when it is built, so Home Assistant never
+      // asks for its label. Its string is `titleKey`, which may differ from its name
+      // — two panels nest the same block under different headings — and its helper is
+      // asked for under that same key, with no path.
+      if (node.titleKey !== undefined) {
+        titles.add(node.titleKey);
+        helpers.add(node.titleKey);
+        roots.add(node.titleKey);
+        roots.add(node.name);
+        continue;
+      }
+
+      const qualified = [...nodePath, node.name].join('.');
+      labels.set(qualified, node.name);
+      helpers.add(qualified);
+      roots.add(qualified);
+      roots.add(node.name);
+
+      // The hand-rendered sub-forms resolve helpers by their qualified key alone —
+      // see `computeSubformHelper`, and the reason it exists: a per-calendar
+      // `show_time` falling back to the bare key would render the card-level helper,
+      // which says something broader and, for four of these options, something false.
+      if (bareHelper) helpers.add(node.name);
+    }
+  };
+
   for (const panel of PANELS) {
     roots.add(panel.titleKey);
     titles.add(panel.titleKey);
@@ -203,36 +254,28 @@ async function readEditorSchemaKeys() {
     for (const panel of PANELS) {
       const ctx = { view: config.view, config, language: 'en' };
 
-      for (const { node, path } of walkSchema(panel.build(ctx))) {
-        // A grid is a layout, not a level of labelling: Home Assistant renders no
-        // heading for one and passes the label hooks straight through. That is true of
-        // a *named* grid too, which is how the weather block nests without drawing a
-        // second "Weather" heading inside the Weather panel.
-        if (node.type === 'grid' || !node.name) continue;
+      collect(panel.build(ctx), [], true);
 
-        // A group resolves its own heading when it is built, so Home Assistant never
-        // asks for its label. Its string is `titleKey`, which may differ from its name
-        // — two panels nest the same block under different headings — and its helper is
-        // asked for under that same key, with no path.
-        if (node.titleKey !== undefined) {
-          titles.add(node.titleKey);
-          helpers.add(node.titleKey);
-          roots.add(node.titleKey);
-          roots.add(node.name);
-          continue;
-        }
-
-        const qualified = [...path, node.name].join('.');
-        labels.set(qualified, node.name);
-        helpers.add(qualified);
-        helpers.add(node.name);
-        roots.add(qualified);
-        roots.add(node.name);
+      // The two places the editor stops being schema-driven still render schema, and
+      // are declared for exactly this reason. Left out, the per-calendar fields and
+      // every exception row would be a set of labels nothing reconciles.
+      for (const subform of panelSubforms(panel, ctx)) {
+        collect(subform.schema, subform.path, false);
       }
     }
   }
 
-  return { labels, titles, helpers, roots, strings: EDITOR_STRINGS, viewScope: VIEW_SCOPE };
+  return {
+    labels,
+    titles,
+    helpers,
+    roots,
+    strings: EDITOR_STRINGS,
+    // Merged, because the two tables make the same promise about different surfaces:
+    // an option scoped to some views must say which, wherever it is offered.
+    viewScope: { ...VIEW_SCOPE, ...ENTITY_VIEW_SCOPE },
+    defaultOverridesByView: DEFAULT_OVERRIDES_BY_VIEW,
+  };
 }
 
 /**
@@ -491,7 +534,8 @@ function checkDayjsWiring(entries, { imports, supported, specialCased }) {
  * old copy stand in for a string nobody has written yet, and the check would pass.
  */
 async function checkEditorStrings() {
-  const { labels, titles, helpers, roots, strings, viewScope } = await readEditorSchemaKeys();
+  const { labels, titles, helpers, roots, strings, viewScope, defaultOverridesByView } =
+    await readEditorSchemaKeys();
 
   assertFound([...labels.keys()], 'any labelled fields in the editor panels', PANELS_TS);
   assertFound([...titles], 'any panel or group headings', PANELS_TS);
@@ -531,6 +575,23 @@ async function checkEditorStrings() {
         `\`${key}\` is scoped to ${[...views].join(', ')} but has no applicability note — ` +
           `the editor would say nothing about which layout it applies to`,
       );
+    }
+  }
+
+  // An option a view has already decided for the user needs saying so beside the
+  // shared control, or the control appears to be lying about what the card renders.
+  for (const [view, defaults] of Object.entries(defaultOverridesByView)) {
+    for (const key of Object.keys(defaults)) {
+      const note = `view_default.${view}.${key}`;
+      roots.add(note);
+
+      if (!(note in strings)) {
+        error(
+          'strings.ts',
+          `\`${key}\` defaults differently in ${view} view but has no note — the shared ` +
+            `control would describe something the card is not doing`,
+        );
+      }
     }
   }
 

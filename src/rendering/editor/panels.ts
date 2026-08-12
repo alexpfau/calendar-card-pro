@@ -16,7 +16,7 @@ import { mdiViewDashboardOutline } from '@mdi/js';
 
 import type { HaFormSchema } from './ha-form';
 import { ACTIONS_ICON, buildActionsSchema } from './schemas/actions';
-import { CALENDARS_ICON, buildCalendarsSchema } from './schemas/calendars';
+import { CALENDARS_ICON, buildCalendarsSchema, calendarsSubforms } from './schemas/calendars';
 import { CARD_ICON, buildCardSchema } from './schemas/card';
 import { CONTENT_ICON, buildContentSchema } from './schemas/content';
 import { DAY_HEADER_ICON, buildDayHeaderSchema } from './schemas/day-header';
@@ -64,6 +64,28 @@ export type PanelExtra = {
   note: string;
 };
 
+/**
+ * A schema the panel renders itself, outside its own `<ha-form>`.
+ *
+ * Two things in this editor cannot be a member of the panel's schema and are still
+ * built out of schema: the per-calendar settings, which are one form per item of a list
+ * `ha-form` has no member for, and the per-view exceptions, which need an add-and-remove
+ * control around them. Both are rendered by the chassis with their own form.
+ *
+ * Declaring them here is what keeps that seam honest. `check:i18n` reconciles the
+ * string table against the fields the editor references, and it finds them by building
+ * every panel and walking what comes back — so a schema rendered outside that walk
+ * would be a set of fields nothing could check, in exactly the two places the editor
+ * stops being schema-driven. The `path` is the label path the chassis renders them
+ * under, so the keys reported are the keys that will actually be looked up.
+ */
+export interface SubformDef {
+  /** Label-path prefix the chassis renders this schema under. */
+  path: ReadonlyArray<string>;
+  /** The schema, as it is handed to a form. */
+  schema: ReadonlyArray<HaFormSchema>;
+}
+
 /** One collapsible section of the editor. */
 export interface PanelDef {
   /** Stable id, used for the panel's expanded state. */
@@ -97,6 +119,13 @@ export interface PanelDef {
    * @returns Extra content, empty when the panel has none
    */
   extras?(ctx: SchemaCtx): PanelExtra[];
+  /**
+   * Declares schemas the panel renders outside its own form.
+   *
+   * @param ctx - Schema context
+   * @returns Sub-forms, empty when the panel has none
+   */
+  subforms?(ctx: SchemaCtx): SubformDef[];
 }
 
 /**
@@ -117,6 +146,7 @@ export const PANELS: ReadonlyArray<PanelDef> = [
     titleKey: 'panel.calendars',
     iconPath: CALENDARS_ICON,
     build: buildCalendarsSchema,
+    subforms: calendarsSubforms,
   },
   {
     id: 'layout',
