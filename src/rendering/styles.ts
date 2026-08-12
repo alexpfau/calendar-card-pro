@@ -93,6 +93,15 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-weather-event-font-size': config.weather?.event?.font_size || '12px',
     '--calendar-card-weather-event-color':
       config.weather?.event?.color || 'var(--primary-text-color)',
+    // Read with a fallback rather than from the merged default, because `setConfig`
+    // merges shallowly: a user's `weather:` block replaces DEFAULT_CONFIG's whole
+    // sub-tree, so `weather.event.max_lines` is absent from any config that configures
+    // weather at all. Every weather property above reads the same way, for the same
+    // reason.
+    '--calendar-card-weather-event-max-lines':
+      (config.weather?.event?.max_lines ?? 0) > 0
+        ? String(config.weather?.event?.max_lines)
+        : 'none',
   };
 
   // Optional properties
@@ -808,6 +817,45 @@ export const cardStyles = css`
 
   .time-location .event-weather ha-icon {
     margin-inline-end: 4px;
+  }
+
+  /*
+   * The condition words, and the only shrinkable thing in the row.
+   *
+   * show_conditions states the condition verbally in this placement, which puts
+   * variable-length prose into the narrowest layout the card has -- the column track
+   * bottoms out at 152px, and German is not kind: "Strömender Regen" is longer than the
+   * track it has to sit in.
+   *
+   * So the words take flex: 0 1 auto with min-width: 0, and the temperature and UV
+   * index take flex: none. Whatever room is short comes out of the words; the two
+   * numbers survive every width, which is the right trade because they are the fields a
+   * user configured on purpose and the words are generated text.
+   *
+   * min-width: 0 is load-bearing rather than defensive. Per CSS Flexbox 4.5 a flex
+   * item's automatic minimum size is its min-content width, which for a span of prose is
+   * its longest word -- so without it the words could not shrink below "Schneeregen" and
+   * would push the temperature out of the row instead.
+   *
+   * By default the words *wrap* rather than truncate: weather.event.max_lines is 0,
+   * which generateCustomPropertiesObject emits as the keyword none, so the clamp below
+   * does nothing. That is deliberate and matches the other four line limits -- a wrapped
+   * row explains itself, a silently truncated one looks like missing data. Set a limit
+   * and the clamp truncates with an ellipsis, exactly as title_max_lines and its three
+   * siblings do.
+   */
+  .time-location .event-weather span {
+    flex: none;
+  }
+
+  .time-location .event-weather .weather-condition {
+    flex: 0 1 auto;
+    min-width: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-weather-event-max-lines);
+    overflow: hidden;
+    overflow-wrap: break-word;
   }
 
   .description span {

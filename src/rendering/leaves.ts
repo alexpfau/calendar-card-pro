@@ -369,11 +369,22 @@ export function hasEventWeather(config: Types.Config): boolean {
 
 /**
  * Render weather information for an event
+ *
+ * @param event Event the badge describes
+ * @param config Card configuration
+ * @param weatherForecasts Fetched forecasts, if any
+ * @param placement Where the badge is being placed. `'title'` is the list view's
+ *   summary-row badge; `'row'` is the column view's own row. See the block comment
+ *   below for why the two differ in more than position.
+ * @param hass Home Assistant instance, used only to localize the condition text
+ * @returns Rendered badge, or an empty template when there is nothing to show
  */
 export function renderEventWeather(
   event: Types.CalendarEventData,
   config: Types.Config,
   weatherForecasts?: Types.WeatherForecasts,
+  placement: 'title' | 'row' = 'title',
+  hass?: Types.Hass | null,
 ): TemplateResult {
   // Only render if weather is enabled for events
   const showEventWeather = hasEventWeather(config);
@@ -415,15 +426,44 @@ export function renderEventWeather(
     forecast.uv_index !== undefined &&
     forecast.uv_index >= (eventConfig.uv_index_threshold ?? 0);
 
+  // What `show_conditions` means depends on the placement, and only there.
+  //
+  // On the title row it gates the icon, which is what it has always done and what the
+  // docs advertise: turning it off leaves a bare temperature floating beside the
+  // summary, which reads fine because the badge has no gutter to join.
+  //
+  // In its own row it cannot. That row is one of four siblings inside .time-location,
+  // and the other three each lead with an icon in a shared gutter that the stylesheet
+  // does explicit work to line this one up with (styles.ts, and the comment there says
+  // neither reset is optional). Dropping the icon leaves a temperature hanging in an
+  // empty icon column between two icon-led rows, which looks broken rather than
+  // configured. So the icon is unconditional here and `show_conditions` states the
+  // condition in words instead -- the same promise the option's name makes, in the one
+  // layout with room to keep it.
+  //
+  // Keyed on the placement rather than on the view: the placement *is* the reason, and
+  // a future layout that gives the badge its own row inherits the fix by asking for the
+  // row rather than by being named here.
+  const ownRow = placement === 'row';
+  const showIcon = ownRow || showConditions;
+  const conditionText =
+    ownRow && showConditions
+      ? Weather.formatCondition(hass, config.weather?.entity, forecast.condition)
+      : undefined;
+
   // Get styling from config
   const iconSize = eventConfig.icon_size || '14px';
   const fontSize = eventConfig.font_size || '12px';
   const color = eventConfig.color || 'var(--secondary-text-color)';
 
-  // Render weather with position-specific options
+  // Render weather with position-specific options.
+  //
+  // The words come last, after both numbers. Deliberate, and the reason is
+  // weather.event.max_lines: whatever truncates eats the condition and never the
+  // temperature or the UV index, which are the two fields a user configured on purpose.
   return html`
     <div class="event-weather">
-      ${showConditions
+      ${showIcon
         ? html`<ha-icon .icon=${forecast.icon} style="--mdc-icon-size: ${iconSize};"></ha-icon>`
         : nothing}
       ${showTemp
@@ -434,6 +474,11 @@ export function renderEventWeather(
       ${showUvIndex
         ? html`<span class="weather-uv-index" style="font-size: ${fontSize}; color: ${color};">
             UV${forecast.uv_index}
+          </span>`
+        : nothing}
+      ${conditionText
+        ? html`<span class="weather-condition" style="font-size: ${fontSize}; color: ${color};">
+            ${conditionText}
           </span>`
         : nothing}
     </div>
@@ -479,10 +524,11 @@ export interface EventContentParts {
  * summary into three lines. Live-verified at 6 columns, where `Team Sync Meeting` rendered
  * as `Team` / `Sync 24 degrees` / `Meeting`.
  *
- * So the column view moves it to a row of its own after the description, where it lines up
- * under the time/location/description icons and costs one predictable line instead of
- * fragmenting the title. Both placements reuse `renderEventWeather` unchanged; only the
- * insertion point moves.
+ * So the column view moves it to a row of its own directly beneath the time, where it
+ * lines up in the same icon gutter as the time, location and description rows and costs
+ * one predictable line instead of fragmenting the title. Both placements share
+ * `renderEventWeather`; the insertion point moves, and so does what `show_conditions`
+ * gates -- see that function for why the icon cannot be optional in this placement.
  *
  * @param event Event to render
  * @param config Card configuration
@@ -490,7 +536,9 @@ export interface EventContentParts {
  * @param weatherForecasts Fetched forecasts, if any
  * @param weatherPlacement Where the event weather badge goes. `'title'` (the default, and
  *   the list view's behaviour) puts it on the summary row; `'row'` gives it its own row
- *   beneath the description.
+ *   beneath the time.
+ * @param hass Home Assistant instance, used only to localize the condition text the
+ *   own-row placement can carry. Absent for the title placement, which has no words.
  * @returns Rendered event body
  */
 export function renderEventContent(
@@ -499,6 +547,7 @@ export function renderEventContent(
   parts: EventContentParts,
   weatherForecasts?: Types.WeatherForecasts,
   weatherPlacement: 'title' | 'row' = 'title',
+  hass?: Types.Hass | null,
 ): TemplateResult {
   const {
     eventTime,
@@ -524,7 +573,7 @@ export function renderEventContent(
   // does not have. With it, both views emit `nothing` unless a badge was actually asked for.
   const weatherRow =
     weatherPlacement === 'row' && hasEventWeather(config)
-      ? renderEventWeather(event, config, weatherForecasts)
+      ? renderEventWeather(event, config, weatherForecasts, 'row', hass)
       : nothing;
 
   return html`

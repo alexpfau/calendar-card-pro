@@ -106,6 +106,81 @@ export function computeLabel(
 }
 
 /**
+ * Groups that state their children's applicability once, on the group itself.
+ *
+ * Maps a group's `name` — which is what Home Assistant threads through the label path
+ * — to one config key inside it whose scope the group speaks for. The *scope* still
+ * comes from `VIEW_SCOPE`, so there is exactly one table saying which views an option
+ * affects and this one only says where the sentence is placed.
+ *
+ * The compact family is the case that motivated it. All three of its fields are
+ * list-only, so each carried the same note and the group read as three separate
+ * problems rather than one scoped family. Said once on the group, it is a property of
+ * the family — which is what it is.
+ *
+ * A child is only silenced when its own scope is *identical* to the one the group
+ * states, so adding a field with a different scope to a scoped group leaves that field
+ * carrying its own note rather than being quietly covered by a sentence that does not
+ * describe it.
+ */
+const GROUP_SCOPE: Readonly<Record<string, string>> = {
+  compact_mode: 'compact_events_to_show',
+};
+
+/**
+ * Whether two scopes are the same statement.
+ *
+ * @param a - One scope, or `undefined` for "every view"
+ * @param b - The other
+ * @returns `true` when both are defined and hold the same views
+ */
+function sameScope(
+  a: ReadonlySet<Types.EffectiveView> | undefined,
+  b: ReadonlySet<Types.EffectiveView> | undefined,
+): boolean {
+  if (a === undefined || b === undefined) return false;
+  return a.size === b.size && [...a].every((view) => b.has(view));
+}
+
+/**
+ * The applicability note a group states on behalf of everything inside it.
+ *
+ * @param language - Effective language code
+ * @param name - The group's name
+ * @param view - View the card is configured to render
+ * @returns The note, or `undefined` when this group states none
+ */
+function groupScopeNote(
+  language: string,
+  name: string,
+  view: Types.EffectiveView,
+): string | undefined {
+  const spokenFor = GROUP_SCOPE[name];
+  if (spokenFor === undefined) return undefined;
+
+  // Keyed on the group's own name, so the sentence can be written for the family
+  // rather than reusing one written for a single field in it.
+  return scopeNote(language, ViewConfig.VIEW_SCOPE[spokenFor], name, view);
+}
+
+/**
+ * Whether a group above this field has already stated its applicability.
+ *
+ * @param key - Config key
+ * @param path - Enclosing group names, outermost first
+ * @returns `true` when repeating the note here would say it twice
+ */
+function statedByEnclosingGroup(key: string, path: ReadonlyArray<string>): boolean {
+  return path.some((name) => {
+    const spokenFor = GROUP_SCOPE[name];
+    return (
+      spokenFor !== undefined &&
+      sameScope(ViewConfig.VIEW_SCOPE[spokenFor], ViewConfig.VIEW_SCOPE[key])
+    );
+  });
+}
+
+/**
  * Resolves the helper text for a schema node, including applicability.
  *
  * Two sources, in order. An option that does nothing in the view the card is set to
@@ -116,6 +191,9 @@ export function computeLabel(
  * it is the accurate statement. A column card renders as a list below its width
  * threshold, so a list-only option on a column card is the live control for what that
  * card shows on a narrow screen, and calling it inert would be wrong.
+ *
+ * Where a whole group shares one scope the note is stated on the group and left off
+ * its children — see `GROUP_SCOPE`.
  *
  * @param language - Effective language code
  * @param view - View the card is configured to render
@@ -133,7 +211,10 @@ export function computeHelper(
     lookup(language, `${helperKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
 
   const note =
-    applicabilityNote(language, schema.name, view) ??
+    groupScopeNote(language, schema.name, view) ??
+    (statedByEnclosingGroup(schema.name, path)
+      ? undefined
+      : applicabilityNote(language, schema.name, view)) ??
     divergentDefaultNote(language, schema.name, view);
 
   if (note === undefined) {

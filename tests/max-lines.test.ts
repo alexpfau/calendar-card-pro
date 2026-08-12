@@ -59,3 +59,45 @@ describe('per-field max-lines custom properties', () => {
     expect(config.column?.time_max_lines).toBe(1);
   });
 });
+
+/**
+ * The fifth line limit, and the one that does not sit at the top level.
+ *
+ * `weather.event.max_lines` lives beside its neighbours `icon_size` / `font_size` /
+ * `color` rather than becoming a fifth top-level `*_max_lines`, and it clamps the only
+ * thing in the per-event weather row long enough to wrap: the condition stated in words,
+ * which the column layout adds.
+ *
+ * Read through the same fallback chain as every other weather property, because
+ * `setConfig` merges shallowly — a user's `weather:` block replaces the default sub-tree
+ * whole, so a card that configures weather at all has no `max_lines` in its merged
+ * config. Reading it off the merged default would emit `none` for every user who set
+ * one, which is the failure this pins.
+ */
+describe('the weather row line limit', () => {
+  const PROP = '--calendar-card-weather-event-max-lines';
+
+  function withWeather(event: Record<string, unknown>) {
+    return buildConfig({
+      weather: { entity: 'weather.home', position: 'event', event },
+    } as never);
+  }
+
+  it('emits the line count when set to a positive value', () => {
+    expect(generateCustomPropertiesObject(withWeather({ max_lines: 2 }))[PROP]).toBe('2');
+  });
+
+  it('emits none at the default of 0, so the row wraps rather than truncating', () => {
+    // Deliberately the same default as the other four. A wrapped row explains itself;
+    // a silently truncated one looks like missing data.
+    expect(generateCustomPropertiesObject(buildConfig())[PROP]).toBe('none');
+    expect(generateCustomPropertiesObject(withWeather({ max_lines: 0 }))[PROP]).toBe('none');
+  });
+
+  it('emits none for a weather block that never mentions it', () => {
+    // The shallow-merge case: this block is what a real user's YAML produces.
+    expect(generateCustomPropertiesObject(withWeather({ show_conditions: true }))[PROP]).toBe(
+      'none',
+    );
+  });
+});
