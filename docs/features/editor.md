@@ -8,22 +8,29 @@ To open it, click the three dots (⋮) in the top-right corner of the card and s
 
 ## 🗂️ Editor Organization
 
-The editor is organized into logical panels that guide you through all configuration options:
+The editor is organized into nine panels, each named for what it configures rather than for where the option happens to live in YAML:
 
-- **Calendar Entities** - Add, remove, and configure calendar sources
-- **Core Settings** - Basic card configuration like title, days to show, and language
-- **Appearance & Layout** - Visual styling, spacing, and card dimensions
-- **Date Display** - Date formatting, today indicators, and weekend styling
-- **Event Display** - Event content, time/location settings, and filtering options
-- **Weather Integration** - Configure weather forecasts in your calendar
-- **Interactions** - Set up tap and hold behaviors
+| Panel | What it covers |
+| --- | --- |
+| **Calendars** | Which calendars the card shows, and how each one looks |
+| **Card & Title** | The card itself, and the heading above it |
+| **Time Range & Content** | Which days the card covers, and what it puts in them |
+| **Events** | The events themselves, and the lines each one can carry |
+| **Day Header** | How each day announces itself, whichever layout it is announced in |
+| **Layout** | How the card arranges days, and how much room it takes up |
+| **Separators** | The rules the card draws between days, weeks and months |
+| **Weather** | A forecast beside the day, beside the event, or both |
+| **Actions & Refresh** | What a tap does, and how often the card re-reads its calendars |
+
+Panels open one at a time, and options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
 
 ## ✨ Key Features
 
-- **Live Preview** - See changes immediately as you configure the card
-- **Context-Aware Options** - Settings appear only when they're relevant
-- **Smart Validation** - Input validation prevents configuration errors
-- **Automatic Config Upgrader** - Detects deprecated settings from older versions
+- **Live Preview** — see changes immediately as you configure the card
+- **Context-Aware Options** — settings appear only when they are relevant, so a panel shows what applies rather than everything that exists
+- **Search** — find any option by name or by what it does, without knowing which panel holds it
+- **Customized Only** — hide everything left at its default, to see what a card actually changes
+- **Per-View Exceptions** — give an option a different value in column view without leaving the editor
 
 ::: info Editor Language Support
 The visual configuration editor is currently available in **11 languages**, while the calendar itself supports **35 languages**. If your language is not among the 11, the editor falls back to English — calendar settings applied through it still display correctly in all 35 supported languages. Community contributions for additional editor translations are welcome!
@@ -93,24 +100,24 @@ pinning it.
 
 **→ [Column View](/features/column-view)** — the `column:` block, and what may go in it.
 
-## 🔄 Configuration Upgrader
+## 🔄 Deprecated Options
 
-When you open the editor with a configuration that uses deprecated parameters, the editor detects this and offers a one-click upgrade. The full set of renames it handles:
+Five options were removed in v3.0.0. They are **inert** — the card has not read them in three major versions — so a configuration still carrying one is not doing what it says:
 
-| Deprecated | Current |
-| ---------- | ------- |
+| Removed | Use instead |
+| ------- | ----------- |
 | `max_events_to_show` | `compact_events_to_show` |
 | `vertical_line_color` | `accent_color` |
 | `horizontal_line_width` | `day_separator_width` |
 | `horizontal_line_color` | `day_separator_color` |
 | `row_spacing` | `day_spacing` |
 
-`max_events_to_show` is also upgraded when it appears on an individual entry under `entities:`.
+`max_events_to_show` is also recognized on an individual entry under `entities:`.
 
-Click **"Update config..."** to automatically migrate to the current parameter names.
+**Opening a card in the editor and saving removes them.** There is no button to press: because the options do nothing, deleting them changes no behavior, and leaving them in place only misleads whoever reads the YAML next. Their replacements are not filled in for you — the card has been running on defaults for those settings, so setting them now is a change you should make deliberately.
 
 ::: warning YAML Is Not Migrated Automatically
-The upgrader runs **only in the visual editor**. There is no runtime migration, so a deprecated option written directly in YAML is ignored and the card falls back to the default — it does not keep working under the old name.
+The pruning happens **only when the visual editor saves**. There is no runtime migration, so a deprecated option written directly in YAML is ignored and the card falls back to the default — it does not keep working under the old name.
 
 The card does tell you when this happens: each deprecated option found in your configuration is reported in the browser console, naming the current option to use in its place. Open your browser's developer tools and look for messages prefixed with `📅 Calendar Card Pro`. If you manage your card in YAML, use the current names from the [Configuration Options reference](/reference/configuration).
 :::
