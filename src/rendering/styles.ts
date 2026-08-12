@@ -85,13 +85,22 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
 
     // Weather styling properties.
     //
-    // Note these five are currently emitted and never read: every weather style is
-    // applied as an inline style by the leaf renderers, so the stylesheet has nothing
-    // to resolve them against. They are kept because they are part of the card's
-    // documented custom-property surface, and their fallbacks are kept honest -- the
-    // date badge resolves to the primary colour because its neighbours in the day
-    // header do, the event badge to the secondary colour because its neighbours in the
-    // event block do. See DEFAULT_CONFIG for why neither is a shipped default.
+    // Note these six are emitted and never read: every weather style is applied as an
+    // inline style by the leaf renderers, so the stylesheet has nothing to resolve them
+    // against. Their fallbacks are still kept honest -- the date badge resolves to the
+    // primary colour because its neighbours in the day header do, the event badge to the
+    // secondary colour because its neighbours in the event block do. See DEFAULT_CONFIG
+    // for why neither is a shipped default.
+    //
+    // They are NOT, however, a documented custom-property surface: no page under docs/
+    // names any of them, so nothing outside this file promises they work. Emitting them
+    // is arguably worse than not -- someone inspecting the host element finds
+    // --calendar-card-weather-event-color sitting there and concludes that overriding it
+    // will do something. It will not. Filed as Y6 for the maintainer rather than removed
+    // here, because it is a visible surface and the call is his.
+    //
+    // --calendar-card-weather-event-max-lines, further down, is a different case: it IS
+    // read, by the clamp on .weather-condition. Do not sweep it up with these.
     '--calendar-card-weather-date-icon-size': config.weather?.date?.icon_size || '14px',
     '--calendar-card-weather-date-font-size': config.weather?.date?.font_size || '12px',
     '--calendar-card-weather-date-color':
