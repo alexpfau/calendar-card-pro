@@ -77,6 +77,19 @@ is open.
 - **`ui_color` is the wrong selector for our colours.** It emits a theme token that cards
   resolve through `computeCssColor()`; we write colours straight into CSS custom
   properties, and it cannot express alpha or our `var(--…)` defaults. Colours stay `text`.
+- **A `null` entry in `entities` crashed the editor.** A blank YAML list item parses as
+  `null`, not absent. `fa67dba` hardened the *card's* read path (`normalizeEntities`,
+  issue #389), but the editor never calls it — Home Assistant hands the editor the raw
+  config. Same bug, second surface. It matters more here than on the card: the editor is
+  the one surface that must survive reading a config it did not write, because throwing
+  there removes the only means of fixing the list that caused it. Hardened in
+  `asEntityConfig`, with a test.
+- **Per-entity and card-level `split_multiday_events` have different scopes.** Card-level
+  is a genuine column override — `column: { split_multiday_events: false }` skips the split
+  (`events.ts:225`) — while the per-entity key is ignored in column view entirely. One key
+  name, two scopes, so `VIEW_SCOPE` could not describe both; hence `ENTITY_VIEW_SCOPE` and
+  `entityScopeFor`. Merging them would have made one of the two statements false wherever
+  it was shown.
 
 ---
 

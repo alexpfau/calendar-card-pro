@@ -2501,7 +2501,12 @@ describe('editor: the exceptions widget in the chassis', () => {
 
     const pickerIndex = pickerIndexFor(element, 'event_font_size');
 
-    await fire(element, 'ha-form.exception-picker', { exceptions: ['event_font_size'] }, pickerIndex);
+    await fire(
+      element,
+      'ha-form.exception-picker',
+      { exceptions: ['event_font_size'] },
+      pickerIndex,
+    );
     expect(dispatched, 'declaring an exception configures nothing').toEqual([]);
     expect(rowShown()).toBe(true);
 
@@ -2520,9 +2525,9 @@ describe('editor: the exceptions widget in the chassis', () => {
     expect(rowShown(), 'the row survives the echo of its own value being stripped').toBe(true);
 
     const current = (
-      element.shadowRoot!.querySelectorAll('ha-form.exception-picker')[
-        pickerIndex
-      ] as unknown as { data: { exceptions: string[] } }
+      element.shadowRoot!.querySelectorAll('ha-form.exception-picker')[pickerIndex] as unknown as {
+        data: { exceptions: string[] };
+      }
     ).data.exceptions;
 
     await fire(
