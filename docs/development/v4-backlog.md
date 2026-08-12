@@ -83,7 +83,10 @@ Detail in [`column-view.md`](./column-view.md).
 
 Neither is owned by a spec; the detail is here.
 
-### X1 — Multi-file distribution — **Viable, verified; awaiting a go/no-go**
+### X1 — Multi-file distribution — **RULED: adopt in v4** *(maintainer, 2026-08-12)*
+
+Approved with the CI assertion. Lazy-load the editor and move its translations into that
+chunk. The evidence below is why; the work is listed at the end of this section.
 
 Home Assistant ships translations as separate hashed JSON files fetched at runtime
 (`src/util/common-translation.ts`), so a user downloads only their own language. We inline
@@ -155,6 +158,30 @@ stale-file clutter. A `dist` zip should be attached for manual installers.
 rendering, because HA awaits `getConfigElement()` (`frontend hui-element-editor.ts:370`).
 
 Full detail, including seven live checks required before shipping: `multifile-distribution.md`.
+
+#### The work, in order
+
+Sequenced **after Stage 3 merges** — it touches `getConfigElement()`, the Rollup config and
+the editor's string loading, and Stage 3 is adding editor code and strings on the same
+branch.
+
+1. **Rollup** — code-splitting with content-hashed chunk names, and
+   `preserveEntrySignatures: 'strict'` so the entry stays a facade.
+2. **`getConfigElement()`** — dynamic `import()` of the editor.
+3. **Editor strings** — moved into the editor chunk rather than the eager bundle.
+4. **`release.yml`** — `files: dist/*.js`, plus a `dist` zip for manual installers.
+5. **CI assertion** — fail the build if any emitted chunk imports back from the entry.
+   This is the `?hacstag=` trap and a comment is demonstrably not enough to hold it.
+6. **The seven live checks** from `multifile-distribution.md` §6, on a real HA, before
+   release.
+
+#### Side-finding — the sourcemap comment stops being true
+
+`rollup.config.mjs` disables sourcemaps with the reasoning that the release attaches only
+`dist/calendar-card-pro.js`, so a `.map` would 404 in every browser (#315, #358). Once the
+workflow globs, that reason no longer holds — though note `files: dist/*.js` does **not**
+match `*.js.map`, so nothing changes by accident. Whether to ship sourcemaps is a separate
+decision; the comment must not be left stating a defunct reason either way.
 
 ### X2 — Editor translation budget — **Dissolved by X1, pending that go/no-go**
 
