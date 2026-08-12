@@ -76,6 +76,29 @@ export default css`
   }
 
   /*
+   * The filter bar. Pinned above the panels so that a search box is where a search box
+   * is expected, and separated by a rule rather than by space alone — it is the chassis
+   * talking about the editor, not another section of the card's configuration.
+   */
+  .filter-bar {
+    border-bottom: 1px solid var(--divider-color);
+    padding-bottom: 12px;
+  }
+
+  .filter-empty {
+    color: var(--primary-text-color);
+    padding: 24px 8px;
+    text-align: center;
+  }
+
+  .filter-empty-note {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.4;
+    margin-top: 8px;
+  }
+
+  /*
    * One collapsible group per calendar, and one for a panel's exceptions. Indented so
    * that a group belonging to a panel reads as being inside it rather than as a tenth
    * panel, and matching the inset Home Assistant gives the sub-groups it draws itself.

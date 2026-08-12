@@ -226,6 +226,8 @@ async function readEditorSchemaKeys() {
     PANELS,
     walkSchema,
     panelSubforms,
+    chassisSubforms,
+    CHASSIS_STRINGS,
     EDITOR_STRINGS,
     DEFAULT_CONFIG,
     VIEWS,
@@ -293,6 +295,13 @@ async function readEditorSchemaKeys() {
     helpers.add(panel.titleKey);
     for (const prefix of panel.strings ?? []) roots.add(prefix);
   }
+
+  // The chassis renders schema of its own — the filter bar — and text of its own around
+  // the two hand-written widgets. Both are declared rather than inferred: `entity.copy`
+  // and its neighbours were reachable only because the weather panel happens to hold a
+  // field named `entity`, which is a root by coincidence and would vanish with a rename.
+  for (const subform of chassisSubforms()) collect(subform.schema, subform.path, true);
+  for (const prefix of CHASSIS_STRINGS) roots.add(prefix);
 
   for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
     for (const panel of PANELS) {

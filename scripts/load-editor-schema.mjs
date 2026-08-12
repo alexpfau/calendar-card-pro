@@ -30,7 +30,7 @@ export async function loadEditorModule(root) {
     stdin: {
       contents: `
         export { PANELS, walkSchema } from './src/rendering/editor/panels.js';
-        export { panelSubforms } from './src/rendering/editor/subforms.js';
+        export { panelSubforms, chassisSubforms, CHASSIS_STRINGS } from './src/rendering/editor/subforms.js';
         export { EDITOR_STRINGS } from './src/rendering/editor/strings.js';
         export { humanize, lookup, qualifiedKey } from './src/rendering/editor/localize.js';
         export { SYNTHETIC_FIELDS } from './src/rendering/editor/synthetic.js';
