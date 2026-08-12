@@ -43,11 +43,34 @@ frontend or our own runtime, not inferred:
 6. **The ~480px editor width is a myth** and was fed into the earlier assessment in error.
    HA's card-edit dialog is a two-pane flex, 50/50 side by side at ≥1000px; the 390–500px
    maximum applies to the *preview*.
+7. **The `entity` selector does support `reorder`** — §4.2's ⚠ is discharged. It is a real
+   field on `EntitySelector`, forwarded to `ha-entities-picker`, which without it
+   instantiates `ha-sortable` with `disabled=true` *and renders no drag handle*. Added in
+   PR #26217 (2025-07-18), so HA 2025.8+; older instances ignore it. One flag, no
+   fallback buttons.
+8. **Per-entity `show_time` / `show_location` / `show_description` /
+   `split_multiday_events` are tri-state, not boolean.** The card reads them
+   presence-first, so *absent* means "follow the card". §4 does not say so, and the editor
+   being replaced bound them to checkboxes — which cannot express the third state and
+   whose first touch wrote a `false` nothing could take back. They are three-way
+   dropdowns.
+9. **Divergent view defaults are annotated beside the shared control, not pre-seeded as
+   exceptions.** §3.3 asks for `show_empty_days` and `split_multiday_events` to be seeded
+   into the exceptions node. Seeded, every column card opens with two exception rows it
+   never asked for, against the rule that an unused exceptions widget adds no chrome. The
+   sentence now sits under the shared control, driven from `DEFAULT_OVERRIDES_BY_VIEW`.
 
-**Where implementation stands:** Stages 1 and 2 have landed on `feature/column-view-v4` —
-foundation, value plumbing, the nine-panel taxonomy, and the `check:i18n` rewrite. Open
-work is indexed in [`v4-backlog.md`](./v4-backlog.md) under *Editor*, which is the list to
-read before starting a stage.
+**Where implementation stands:** Stages 1 to 3 have landed on `feature/column-view-v4` —
+foundation, value plumbing, the nine-panel taxonomy, the `check:i18n` rewrite, and the two
+hand-written widgets (per-calendar settings and per-view exceptions). Open work is indexed
+in [`v4-backlog.md`](./v4-backlog.md) under *Editor*, which is the list to read before
+starting a stage.
+
+The seam between schema-driven and hand-written is now explicit rather than implied.
+`PanelDef.subforms` declares the schemas a panel renders outside its own `<ha-form>`, and
+`check:i18n` walks them, so the per-calendar fields and every exception row are reconciled
+against the string table exactly like the panels are. A hand-written widget that stops
+declaring its schema is a check failure, not a silent hole.
 
 ---
 

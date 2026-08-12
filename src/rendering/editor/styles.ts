@@ -74,4 +74,47 @@ export default css`
     line-height: 1.3;
     margin-top: 10px;
   }
+
+  /*
+   * One collapsible group per calendar, and one for a panel's exceptions. Indented so
+   * that a group belonging to a panel reads as being inside it rather than as a tenth
+   * panel, and matching the inset Home Assistant gives the sub-groups it draws itself.
+   */
+  ha-expansion-panel.entity-panel,
+  ha-expansion-panel.exceptions {
+    margin: 0;
+  }
+
+  .entity-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+
+  /*
+   * A plain button rather than one of Home Assistant's. The editor names three of its
+   * components and every one of them is a container: input elements are what Home
+   * Assistant renames — ha-textfield became ha-input in 2026.5 and cost a runtime
+   * shim — so a rule of taking none of them is cheaper to keep than a judgement about
+   * which ones are safe. Ten lines of CSS is the whole price.
+   */
+  .text-button {
+    background: none;
+    border: none;
+    border-radius: 4px;
+    color: var(--primary-color);
+    cursor: pointer;
+    font: inherit;
+    font-size: 14px;
+    padding: 6px 8px;
+  }
+
+  .text-button:hover:not(:disabled) {
+    background: var(--secondary-background-color);
+  }
+
+  .text-button:disabled {
+    color: var(--disabled-text-color);
+    cursor: default;
+  }
 `;

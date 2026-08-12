@@ -16,16 +16,27 @@
 import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
 
-import type { HaFormSchema } from './ha-form';
+import * as Entities from './entities';
+import * as Exceptions from './exceptions';
+import type { HaFormSchema, SelectorSchema } from './ha-form';
 import * as EditorLocalize from './localize';
 import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
+import { ENTITY_PATH } from './schemas/calendars';
+import { interpolate } from './strings';
 import styles from './styles';
+import { EXCEPTION_PICKER } from './subforms';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Localize from '../../translations/localize';
+
+/** Icon for a calendar's own settings, and for the exceptions group. */
+const ENTITY_ICON =
+  'M19 19H5V8h14m-3-7v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2Z';
+const EXCEPTION_ICON =
+  'M11 15h2v2h-2v-2m0-8h2v6h-2V7m1-5C6.47 2 2 6.5 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2Z';
 
 /**
  * Schema-driven configuration editor for Calendar Card Pro.
@@ -53,6 +64,18 @@ export class CalendarCardProEditor extends LitElement {
    * under a form that fires one event for every field. See `synthetic.ts`.
    */
   @state() private _pending: Record<string, string> = {};
+
+  /**
+   * Options the user has asked to hold an exception for.
+   *
+   * Not derivable from the configuration, and that is the whole reason it exists. An
+   * exception starts out equal to the value it inherits, and an override equal to what
+   * it inherits is stripped on write — so a list derived from the stored block would
+   * delete each row at the moment it was created. This is the same shape of problem as
+   * a half-typed value, held the same way: in the editor, until the configuration can
+   * carry it.
+   */
+  @state() private _declaredExceptions: ReadonlySet<string> = new Set();
 
   /**
    * The form data as last rendered, per panel.
@@ -94,6 +117,7 @@ export class CalendarCardProEditor extends LitElement {
 
     if (!isEcho) {
       this._pending = {};
+      this._declaredExceptions = Exceptions.declaredKeys(this._config);
     }
 
     // Recorded even for an echo, and even before anything is edited: without a
@@ -164,12 +188,26 @@ export class CalendarCardProEditor extends LitElement {
     // — a half-typed offset — is reflected back as what the form should now show.
     this._renderedData.set(panelId, this._formData());
 
-    const stored = Value.toStoredConfig(applied.config);
+    this._report(applied.config);
+  }
 
-    // An edit that only moved uncommitted text has changed nothing Home Assistant
-    // needs to hear about, and telling it anyway is actively harmful: it answers with
-    // a `setConfig` carrying the unchanged configuration, and the held keystrokes go
-    // with it. Silence is also correct on its own terms — nothing was configured.
+  /**
+   * Tells Home Assistant what the configuration now is, when it has moved.
+   *
+   * The single exit from the editor, shared by the form handler and by the two
+   * hand-written widgets, so that what is stored is narrowed the same way regardless of
+   * which of the three produced the edit.
+   *
+   * An edit that changed nothing storable is not reported, and telling Home Assistant
+   * anyway would be actively harmful rather than merely noisy: it answers with a
+   * `setConfig` carrying the unchanged configuration, and any held keystrokes go with
+   * it. Silence is also correct on its own terms — nothing was configured.
+   *
+   * @param config - Merged configuration after the edit
+   */
+  private _report(config: Types.Config): void {
+    const stored = Value.toStoredConfig(config);
+
     if (Value.equalConfigs(stored, this._lastDispatched ?? {})) {
       return;
     }
@@ -253,6 +291,7 @@ export class CalendarCardProEditor extends LitElement {
         <ha-svg-icon slot="leading-icon" .path=${panel.iconPath}></ha-svg-icon>
         <div class="panel-body">
           <ha-form
+            class="panel-form"
             .hass=${this.hass}
             .data=${data}
             .schema=${schema}
@@ -261,7 +300,8 @@ export class CalendarCardProEditor extends LitElement {
             .localizeValue=${this._localizeValue}
             @value-changed=${(event: CustomEvent) => this._valueChanged(panel.id, event)}
           ></ha-form>
-          ${extras.map((extra) => this._renderExtra(extra))}
+          ${extras.map((extra) => this._renderExtra(extra))} ${this._renderEntities(panel, ctx)}
+          ${this._renderExceptions(panel, schema, ctx)}
         </div>
       </ha-expansion-panel>
     `;
@@ -320,6 +360,355 @@ export class CalendarCardProEditor extends LitElement {
         <div class="width-table-note">${extra.note}</div>
       </div>
     `;
+  }
+
+  /**
+   * Renders the per-calendar settings, one collapsible form per configured calendar.
+   *
+   * The hand-written half of the editor, and it is hand-written because `ha-form` has
+   * no member for an ordered list of heterogeneous sub-configs — the same reason every
+   * Home Assistant card with a list is a hybrid. What is hand-written is the **list**:
+   * each calendar's fields are an ordinary schema fed to an ordinary form, which is why
+   * labels, helpers, grids and default-stripping all still work here without a second
+   * implementation of any of them.
+   *
+   * The picker above stays. It is the only way to add a calendar at all, it is where
+   * order is set — and order is configuration, since duplicate filtering keeps the copy
+   * from whichever calendar is listed first — and it already merges settings back by
+   * entity id, so a calendar deselected and reselected keeps everything configured for
+   * it. The two are one control split by responsibility: membership and order above,
+   * settings below.
+   *
+   * @param panel - Panel being rendered
+   * @param ctx - Schema context
+   * @returns The list, or nothing for every other panel
+   */
+  private _renderEntities(panel: PanelDef, ctx: SchemaCtx): TemplateResult | typeof nothing {
+    // Selected by the path it is rendered under rather than by position, and by the
+    // panel that owns the list rather than by name. `entities` is the only list-shaped
+    // key the configuration has — `weather.date`, `weather.event` and `column` are all
+    // fixed-key objects — so a panel declaring a sub-form under this path is declaring
+    // the schema for one member of it.
+    const subform = panel
+      .subforms?.(ctx)
+      ?.find((candidate) => candidate.path.join('.') === ENTITY_PATH.join('.'));
+    if (subform === undefined) return nothing;
+
+    const entries = this._config?.entities ?? [];
+    if (entries.length === 0) return nothing;
+
+    const computeLabel = (schema: HaFormSchema): string =>
+      EditorLocalize.computeLabel(ctx.language, schema, subform.path);
+
+    const computeHelper = (schema: HaFormSchema): string | undefined =>
+      EditorLocalize.computeSubformHelper(
+        ctx.language,
+        ctx.view,
+        schema,
+        subform.path,
+        ViewConfig.entityScopeFor(schema.name),
+      );
+
+    return html`
+      ${entries.map((entry, index) => {
+        const entityId = Synthetic.entityIdOf(entry);
+
+        return html`
+          <ha-expansion-panel
+            outlined
+            class="entity-panel"
+            .header=${entityId}
+            .secondary=${this._entitySummary(entry, ctx)}
+            .leftChevron=${false}
+          >
+            <ha-svg-icon slot="leading-icon" .path=${ENTITY_ICON}></ha-svg-icon>
+            <div class="panel-body">
+              <ha-form
+                class="entity-form"
+                .hass=${this.hass}
+                .data=${Entities.toEntityFormData(entry)}
+                .schema=${subform.schema}
+                .computeLabel=${computeLabel}
+                .computeHelper=${computeHelper}
+                .localizeValue=${this._localizeValue}
+                @value-changed=${(event: CustomEvent) => this._entityChanged(index, event)}
+              ></ha-form>
+              <div class="entity-actions">
+                <button
+                  type="button"
+                  class="text-button"
+                  ?disabled=${!Entities.hasSettings(entry)}
+                  @click=${() => this._copyEntitySettings(entry)}
+                >
+                  ${this._string(ctx, 'entity.copy')}
+                </button>
+                <button
+                  type="button"
+                  class="text-button"
+                  ?disabled=${Entities.copiedSettings() === undefined}
+                  @click=${() => this._pasteEntitySettings(index)}
+                >
+                  ${this._string(ctx, 'entity.paste')}
+                </button>
+              </div>
+            </div>
+          </ha-expansion-panel>
+        `;
+      })}
+    `;
+  }
+
+  /**
+   * The line under a calendar's heading.
+   *
+   * Its label where it has one, since that is what the user named it; otherwise a count
+   * of what is configured, so a collapsed calendar still says whether there is anything
+   * inside it.
+   *
+   * @param entry - Entry as stored
+   * @param ctx - Schema context
+   * @returns Secondary text
+   */
+  private _entitySummary(entry: string | Types.EntityConfig, ctx: SchemaCtx): string {
+    const config = Entities.asEntityConfig(entry);
+
+    if (typeof config.label === 'string' && config.label !== '') {
+      return config.label;
+    }
+
+    return Entities.hasSettings(entry)
+      ? this._string(ctx, 'entity.customised')
+      : this._string(ctx, 'entity.unconfigured');
+  }
+
+  /**
+   * Folds one calendar's form change into the configuration.
+   *
+   * @param index - Position of the calendar in the list
+   * @param event - The form's `value-changed`
+   */
+  private _entityChanged(index: number, event: CustomEvent): void {
+    event.stopPropagation();
+
+    const next = event.detail?.value as Record<string, unknown> | undefined;
+    if (!next || !this._config) return;
+
+    this._config = {
+      ...this._config,
+      entities: Entities.writeEntity(this._config.entities ?? [], index, next),
+    };
+
+    this._report(this._config);
+  }
+
+  /**
+   * Copies one calendar's settings, for pasting into another.
+   *
+   * @param entry - Entry as stored
+   */
+  private _copyEntitySettings(entry: string | Types.EntityConfig): void {
+    Entities.copySettings(entry);
+
+    // The clipboard lives outside this element, so that it survives the dialog being
+    // closed and reopened — which is the case the feature exists for. Nothing about it
+    // is reactive, so the paste buttons have to be told it moved.
+    this.requestUpdate();
+  }
+
+  /**
+   * Applies the copied settings to one calendar.
+   *
+   * @param index - Position of the calendar in the list
+   */
+  private _pasteEntitySettings(index: number): void {
+    if (!this._config) return;
+
+    this._config = {
+      ...this._config,
+      entities: Entities.pasteSettings(this._config.entities ?? [], index),
+    };
+
+    this._report(this._config);
+  }
+
+  /**
+   * Renders the exceptions widget for a panel.
+   *
+   * An exception is a value that differs in one view, so it belongs beside the value it
+   * differs from — in the panel that owns that value, not in a panel or a tab of its
+   * own. What is offered comes from the panel's own schema, so the control for an
+   * exception is the same control as for the option itself.
+   *
+   * Nothing is rendered for a view with no override block, or for a panel holding no
+   * overridable option, and nothing is rendered *inside* the group until an exception is
+   * added — a card with none costs one collapsed heading and no fields.
+   *
+   * @param panel - Panel being rendered
+   * @param schema - The panel's schema, as built
+   * @param ctx - Schema context
+   * @returns The widget, or nothing
+   */
+  private _renderExceptions(
+    panel: PanelDef,
+    schema: HaFormSchema[],
+    ctx: SchemaCtx,
+  ): TemplateResult | typeof nothing {
+    const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
+    if (blockKey === undefined) return nothing;
+
+    const eligible = Exceptions.eligibleFields(schema, panel.id);
+    if (eligible.length === 0) return nothing;
+
+    const active = Exceptions.activeFields(eligible, this._declaredExceptions);
+    const path = [blockKey as string];
+
+    const label = (field: SelectorSchema): string =>
+      EditorLocalize.computeLabel(ctx.language, field, path);
+
+    const picker: HaFormSchema = {
+      name: EXCEPTION_PICKER,
+      selector: {
+        select: {
+          mode: 'dropdown',
+          multiple: true,
+          // Labelled from the fields themselves, so the list of options a user can
+          // hold an exception for reads exactly like the panel above it.
+          options: eligible.map((field) => ({ value: field.name, label: label(field) })),
+        },
+      },
+    };
+
+    return html`
+      <ha-expansion-panel
+        outlined
+        class="exceptions"
+        .header=${this._string(ctx, 'exceptions.title')}
+        .secondary=${this._exceptionSummary(active.length, ctx)}
+        .leftChevron=${false}
+      >
+        <ha-svg-icon slot="leading-icon" .path=${EXCEPTION_ICON}></ha-svg-icon>
+        <div class="panel-body">
+          <ha-form
+            class="exception-picker"
+            .hass=${this.hass}
+            .data=${{ [EXCEPTION_PICKER]: active.map((field) => field.name) }}
+            .schema=${[picker]}
+            .computeLabel=${this._computeLabel}
+            .computeHelper=${this._computeHelper}
+            .localizeValue=${this._localizeValue}
+            @value-changed=${(event: CustomEvent) =>
+              this._exceptionsSelected(blockKey, eligible, event)}
+          ></ha-form>
+          ${active.length === 0
+            ? nothing
+            : html`
+                <ha-form
+                  class="exception-form"
+                  .hass=${this.hass}
+                  .data=${Value.exceptionFormBlock(
+                    this._config!,
+                    active.map((field) => field.name),
+                  )}
+                  .schema=${active}
+                  .computeLabel=${(schemaNode: HaFormSchema) =>
+                    EditorLocalize.computeLabel(ctx.language, schemaNode, path)}
+                  .computeHelper=${(schemaNode: HaFormSchema) =>
+                    EditorLocalize.computeSubformHelper(ctx.language, ctx.view, schemaNode, path)}
+                  .localizeValue=${this._localizeValue}
+                  @value-changed=${(event: CustomEvent) => this._exceptionChanged(blockKey, event)}
+                ></ha-form>
+              `}
+        </div>
+      </ha-expansion-panel>
+    `;
+  }
+
+  /**
+   * The line under the exceptions heading.
+   *
+   * @param count - How many options this panel currently overrides
+   * @param ctx - Schema context
+   * @returns Secondary text
+   */
+  private _exceptionSummary(count: number, ctx: SchemaCtx): string {
+    if (count === 0) return this._string(ctx, 'exceptions.summary.none');
+    if (count === 1) return this._string(ctx, 'exceptions.summary.one');
+
+    return interpolate(this._string(ctx, 'exceptions.summary.many'), { count });
+  }
+
+  /**
+   * Adds and removes exceptions as the picker reports them.
+   *
+   * Removal deletes the key from the block rather than writing the inherited value into
+   * it. Those are different acts, and only the first is what "remove this exception"
+   * means: writing the inherited value leaves a line doing nothing, which is how a
+   * configuration accumulates overrides nobody meant, and it would silently become a
+   * real override the moment the shared value changed.
+   *
+   * @param blockKey - Config key holding the view's override block
+   * @param eligible - The panel's eligible fields
+   * @param event - The picker's `value-changed`
+   */
+  private _exceptionsSelected(
+    blockKey: keyof Types.Config,
+    eligible: ReadonlyArray<SelectorSchema>,
+    event: CustomEvent,
+  ): void {
+    event.stopPropagation();
+
+    if (!this._config) return;
+
+    const selection = event.detail?.value?.[EXCEPTION_PICKER];
+    if (!Array.isArray(selection)) return;
+
+    const applied = Exceptions.applySelection(
+      this._config,
+      blockKey,
+      eligible.map((field) => field.name),
+      this._declaredExceptions,
+      selection.map((key) => String(key)),
+    );
+
+    this._config = applied.config;
+    this._declaredExceptions = applied.declared;
+
+    // Declaring an exception configures nothing on its own — it starts out equal to the
+    // value it inherits — so this reports only when a removal actually took a key away.
+    this._report(this._config);
+  }
+
+  /**
+   * Folds a change to an exception's value into the override block.
+   *
+   * The form is bound to the block itself and hands the whole of it back, so this
+   * writes it whole. Anything in it that is redundant — an exception equal to what it
+   * would inherit, a density value left at its default — is stripped on the way to
+   * storage, so displaying an effective value never persists one.
+   *
+   * @param blockKey - Config key holding the view's override block
+   * @param event - The form's `value-changed`
+   */
+  private _exceptionChanged(blockKey: keyof Types.Config, event: CustomEvent): void {
+    event.stopPropagation();
+
+    const next = event.detail?.value as Record<string, unknown> | undefined;
+    if (!next || !this._config) return;
+
+    this._config = { ...this._config, [blockKey]: next } as Types.Config;
+
+    this._report(this._config);
+  }
+
+  /**
+   * Resolves a string the chassis renders itself, rather than through a schema.
+   *
+   * @param ctx - Schema context
+   * @param key - String key
+   * @returns The string, humanised as a last resort
+   */
+  private _string(ctx: SchemaCtx, key: string): string {
+    return EditorLocalize.lookup(ctx.language, key) ?? EditorLocalize.humanize(key);
   }
 
   /**

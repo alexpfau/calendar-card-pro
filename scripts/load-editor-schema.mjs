@@ -30,11 +30,12 @@ export async function loadEditorModule(root) {
     stdin: {
       contents: `
         export { PANELS, walkSchema } from './src/rendering/editor/panels.js';
+        export { panelSubforms } from './src/rendering/editor/subforms.js';
         export { EDITOR_STRINGS } from './src/rendering/editor/strings.js';
         export { humanize, lookup, qualifiedKey } from './src/rendering/editor/localize.js';
         export { SYNTHETIC_FIELDS } from './src/rendering/editor/synthetic.js';
         export { DEFAULT_CONFIG } from './src/config/config.js';
-        export { VIEWS, VIEW_SCOPE } from './src/config/view.js';
+        export { VIEWS, VIEW_SCOPE, ENTITY_VIEW_SCOPE, DEFAULT_OVERRIDES_BY_VIEW } from './src/config/view.js';
       `,
       resolveDir: root,
       sourcefile: 'check-i18n-entry.ts',

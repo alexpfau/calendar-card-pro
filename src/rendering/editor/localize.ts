@@ -132,12 +132,47 @@ export function computeHelper(
   const own =
     lookup(language, `${helperKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
 
-  const applicability = applicabilityNote(language, schema.name, view);
-  if (applicability === undefined) {
+  const note =
+    applicabilityNote(language, schema.name, view) ??
+    divergentDefaultNote(language, schema.name, view);
+
+  if (note === undefined) {
     return own;
   }
 
-  return own === undefined ? applicability : `${applicability} ${own}`;
+  return own === undefined ? note : `${note} ${own}`;
+}
+
+/**
+ * States that the current view has already decided an option, whatever is set above.
+ *
+ * The counterpart to the applicability note, for the opposite situation. An
+ * applicability note says an option affects a layout other than this one; this says it
+ * affects *this* one and the view has substituted its own default, so the control above
+ * is not describing what the card is doing until an exception says otherwise. Two
+ * options are in that position today — a column of days reads wrongly with the blank
+ * ones missing, and an unsplit multi-day event would leave every later column it spans
+ * silently blank — and both are cases where saying nothing would leave a switch that
+ * appears to be lying.
+ *
+ * Driven from `DEFAULT_OVERRIDES_BY_VIEW`, so this is where the note is *placed* rather
+ * than where it is decided, and a view with no divergent defaults produces none.
+ *
+ * @param language - Effective language code
+ * @param key - Config key
+ * @param view - View the card is configured to render
+ * @returns The note, or `undefined` when the view takes the option as configured
+ */
+function divergentDefaultNote(
+  language: string,
+  key: string,
+  view: Types.EffectiveView,
+): string | undefined {
+  if (!ViewConfig.hasDivergentDefault(key, view)) {
+    return undefined;
+  }
+
+  return lookup(language, `view_default.${view}.${key}`);
 }
 
 /**
@@ -201,11 +236,33 @@ export function applicabilityNote(
   key: string,
   view: Types.EffectiveView,
 ): string | undefined {
-  if (ViewConfig.appliesToView(key, view)) {
+  return scopeNote(language, ViewConfig.VIEW_SCOPE[key], key, view);
+}
+
+/**
+ * The applicability note for a given scope, whichever table it came from.
+ *
+ * Shared between the card-level options and the per-calendar ones, which need the same
+ * sentence from a different table: `split_multiday_events` is a real override at card
+ * level and inert per calendar, so one key carries two scopes and neither statement may
+ * be made in the other's name.
+ *
+ * @param language - Effective language code
+ * @param scope - Views the option affects, or `undefined` when it affects all of them
+ * @param key - Config key, for a note written specifically for it
+ * @param view - View the card is configured to render
+ * @returns The note, or `undefined` when the option applies to the current view
+ */
+function scopeNote(
+  language: string,
+  scope: ReadonlySet<Types.EffectiveView> | undefined,
+  key: string,
+  view: Types.EffectiveView,
+): string | undefined {
+  if (scope === undefined || scope.has(view)) {
     return undefined;
   }
 
-  const scope = ViewConfig.VIEW_SCOPE[key];
   const scopeId = [...scope].sort().join('_');
 
   return (
@@ -213,4 +270,37 @@ export function applicabilityNote(
     lookup(language, `scope.${scopeId}_only`) ??
     undefined
   );
+}
+
+/**
+ * Resolves the helper for a field in a hand-rendered sub-form.
+ *
+ * Qualified keys **only**, with no fall back to the bare name — which is the one
+ * difference from `computeHelper` and the reason this exists. A per-calendar
+ * `show_time` that fell back would inherit the card-level helper, which describes what
+ * the option does for every calendar at once; an exception row would repeat, under
+ * every row, the sentence already sitting beside the shared control it is an exception
+ * to. Both are worse than saying nothing, and saying nothing is what an undefined
+ * helper does.
+ *
+ * @param language - Effective language code
+ * @param view - View the card is configured to render
+ * @param schema - The node being described
+ * @param path - Label path the sub-form is rendered under
+ * @param scope - Views the option affects, or `undefined` when it affects all of them
+ * @returns Helper text, or `undefined` when the node needs none
+ */
+export function computeSubformHelper(
+  language: string,
+  view: Types.EffectiveView,
+  schema: HaFormSchema,
+  path: ReadonlyArray<string>,
+  scope?: ReadonlySet<Types.EffectiveView>,
+): string | undefined {
+  const own = lookup(language, `${qualifiedKey(schema.name, path)}.helper`);
+  const applicability = scopeNote(language, scope, schema.name, view);
+
+  if (applicability === undefined) return own;
+
+  return own === undefined ? applicability : `${applicability} ${own}`;
 }
