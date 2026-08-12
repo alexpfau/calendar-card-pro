@@ -316,8 +316,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'week_number_mode.option.iso.label': 'ISO 8601',
   'week_number_mode.option.simple.label': 'Simple',
   'week_number_mode.helper':
-    'ISO counts the first week with four days in the new year as week one; simple ' +
-    'counts from January 1st.',
+    'ISO is the European and international standard: week one is the first with four ' +
+    'days in the new year, so the numbering stays consistent from year to year. Simple ' +
+    'counts from January 1st, which is common in North America and can leave a short ' +
+    'first week.',
   show_current_week_number: 'Show The Current Week',
   week_number_font_size: 'Week Number Font Size',
   week_number_color: 'Week Number Color',
