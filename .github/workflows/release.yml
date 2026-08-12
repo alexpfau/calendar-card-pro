@@ -50,9 +50,34 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The release is the only thing users ever download, and this is the build that
+      # produces it — so the multi-file assertions run here too, not only on pull
+      # requests. A chunk importing back from the entry, a specifier pointing at a file
+      # the build did not emit, or a stale chunk left over from an earlier build would
+      # otherwise be published and then downloaded by every user.
+      - name: Verify bundle integrity
+        run: npm run check:bundle
+
+      # For people who install by copying files rather than through HACS. The card is no
+      # longer a single file — the entry is a facade that imports a hashed chunk — so
+      # copying just the .js named in hacs.json now yields a card that cannot load. The
+      # zip is flat, matching the layout HACS itself writes into
+      # <config>/www/community/calendar-card-pro/.
+      #
+      # HACS downloads it like any other asset but never registers it: `filename` in
+      # hacs.json selects the Lovelace resource, and it names the .js.
+      - name: Package dist for manual installation
+        run: |
+          cd dist && zip -q -j ../calendar-card-pro.zip *.js
+          cd .. && unzip -l calendar-card-pro.zip
+
+      # dist/*.js deliberately, not dist/* — the glob does not match *.js.map, so the
+      # sourcemap decision (still off, see rollup.config.mjs) is unaffected by this.
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
           draft: true
           body_path: release-body.md
-          files: dist/calendar-card-pro.js
+          files: |
+            dist/*.js
+            calendar-card-pro.zip

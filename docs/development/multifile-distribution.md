@@ -10,6 +10,15 @@
 All measurements below were produced by real builds, in a scratch copy at `/tmp/ccp-exp`.
 **The repository working tree was not modified.**
 
+> **Status: implemented in stage 4 (2026-08-12).** The verdict held and the shape of the
+> result matched: three files, ~0.5% more bytes shipped, 43% fewer per dashboard load.
+> Read the inline **Correction** notes in §3.2 and §6 before following this document —
+> two of its concrete steps were wrong in ways that would have shipped a bug, and one
+> optional recommendation turned out to be mandatory. Measured figures on the real branch
+> and everything else found while building it are in
+> [`v4-backlog.md` § X1](./v4-backlog.md). The seven live checks in §6 remain open and
+> are the gate on shipping.
+
 ---
 
 ## 1. Verdict
@@ -345,6 +354,18 @@ try {
 }
 ```
 
+> **Correction, from the implementation (stage 4).** Adopted, but *catch and rethrow*
+> rather than catch and continue: swallowing the error leaves `getConfigElement()`
+> returning an element whose class never loaded, which is worse than rejecting. Logging
+> alone is not enough either — the log reaches the console, not the dialog the user is
+> looking at. `getConfigElement()` now logs *and* throws a message written for that
+> dialog, naming the cause (a file is missing) and the fix (reinstall via HACS) instead
+> of the platform's bare *failed to fetch dynamically imported module*. Also worth
+> knowing: **this path cannot be tested under Vitest.** Vite's import-analysis resolves
+> `import()` specifiers at transform time, so a deleted chunk fails when the *parent*
+> module loads rather than when the import is called — the opposite of browser
+> behaviour, and it makes the card look dead when it is not. Live check 6 stands.
+
 Evidence it holds up in practice: across 1,122★, 53 chunks and ~85k installs per release, I searched
 the reference card's issue tracker for `dynamically imported module`, `failed to load`, `404`,
 `chunk` and found **no reports of chunk-load failure**. The hits were unrelated (media playback,
@@ -473,9 +494,19 @@ Ordered so that each step is independently verifiable.
 1. **Split the editor namespace out of the eagerly-imported language files.**
    Move each `editor` key from `src/translations/languages/<code>.json` into an editor-only location
    (e.g. `src/translations/editor-languages/<code>.json`), imported *only* from
-   `src/rendering/editor/`. Register into `TRANSLATIONS` at editor-load time via the existing
-   `addTranslations()` (`src/translations/localize.ts:398-404`), which already exists for exactly
-   this kind of dynamic registration.
+   `src/rendering/editor/`. Register into `TRANSLATIONS` at editor-load time.
+
+   > **Correction, from the implementation (stage 4).** This step originally named
+   > `addTranslations()` (`src/translations/localize.ts:398-404`) as the registration
+   > hook, on the strength of its existing for "exactly this kind of dynamic
+   > registration". **It cannot be used.** It *assigns* rather than merges —
+   > `TRANSLATIONS[lang] = translations` — so registering an editor-only object through
+   > it replaces the language's entire entry and takes `months`, `daysOfWeek` and every
+   > card string with it. The card would render `undefined` for German month names,
+   > triggered by opening the editor once, in the eleven languages that have editor
+   > strings and no others. A merging `addEditorTranslations()` was added beside it; a
+   > test asserts the card strings survive registration.
+
    *Coordinate with the in-flight editor rebuild:* `src/rendering/editor/strings.ts` (19,154 B) is
    already the new English namespace and is already editor-local, so it lands in the lazy chunk for
    free. This step is really about the 10 other languages and the legacy `editor` sections.
@@ -509,6 +540,15 @@ Ordered so that each step is independently verifiable.
    `files: dist/*.js`. Consider also attaching a `dist` zip for manual installers (§4). Ensure the
    build runs against a clean `dist/` — my experiment produced stale chunks from a previous build
    sitting in `dist/`, which would have been published as garbage assets.
+
+   > **Correction, from the implementation (stage 4).** The zip is **not** optional. The
+   > README and `docs/guide/installation.md` both told manual installers to download
+   > `calendar-card-pro.js` and copy that one file, which after this change is a
+   > 41-byte facade importing a chunk they do not have — a card that silently cannot
+   > load. Both now point at `calendar-card-pro.zip`. Separately, nothing cleaned
+   > `dist/`; the build now wipes it in `rollup.config.mjs` (so `npx rollup -c` and the
+   > watcher are covered too) and `check:bundle` asserts every emitted file is reachable
+   > from the entry, which catches a stale chunk rather than trusting the clean.
 
 5. **`hacs.json` needs no change.** `filename: "calendar-card-pro.js"` stays correct and still names
    the facade. Do **not** add `zip_release` (§2.5).

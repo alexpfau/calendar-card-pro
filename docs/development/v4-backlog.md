@@ -47,7 +47,7 @@ is open.
 | E7b | **Column-view meaning of `show_conditions`** | Ruled — ready to build | Needs a path-qualified helper (`event.show_conditions.helper`), **not** `VIEW_SCOPE`: the option is not inert in column view so an applicability note would be false, and `applicabilityNote` keys on the bare `schema.name` (`localize.ts:135`), which collides because both weather groups name the field `show_conditions`. Helper keys are path-aware; applicability notes are not. Two English strings total, no schema change. |
 | E8 | **Two placement questions** | Open | `first_day_of_week` sits in Time Range & Content while `show_week_numbers` sits in Day Header — arguably one concept, and the docs group them. `day_header_separator_*` moved to Separators (grouped by what it is) while `day_header_gap` stayed in Layout (which owns spacing). Both cheap now, awkward once documented. |
 | E9 | **Fate of the synthetic calendars multi-picker** | **Kept** (stage 3) | **Ruled — kept, unchanged.** The picker and the per-calendar list are one control split by responsibility: membership and order above, settings below. Unwinding it would leave no way to *add* a calendar at all, and its identity-preserving merge is exactly what keeps a deselected calendar's settings alive — the property the per-calendar list depends on. It is also what HA's own calendar card does (`<ha-entities-picker>` above hand-written fields), and it is where `reorder` lands for E4. Reversible if the maintainer disagrees: the list below does not depend on the picker being synthetic, only on `entities` keeping its order. |
-| E10 | **Translations for the new namespace** | Blocked by X1/X2 | English only today. The plan: mine the dormant `editor` sections in the 35 language files for anything reusable, translate, then delete those sections. They currently cost **129,437 B raw / 33,746 B gzip — 30.5% of the shipped bundle** while labelling nothing. |
+| E10 | **Translations for the new namespace** | Open — unblocked by X1 | English only today. The plan: mine the dormant sections in `src/translations/editor-languages/` for anything reusable, translate, then delete them. X1 moved them off the eager path, so the ~+18,000 B gzip this was budgeted at is now downloaded by HACS and parsed only by browsers that open the editor — translate to whatever depth is worth doing, and a partial translation is safe because each key falls back to English on its own. |
 | E11 | **Exceptions for the three union-typed override keys** | Open | `show_week_numbers` (`null \| 'iso' \| 'simple'`), `remove_location_country` (`boolean \| string`) and `today_indicator` (`string \| boolean`) are override-eligible but have no exception control, because the panel edits each through a mode dropdown that chooses *which shape* is written — an exception needs that derivation again, per exception, which is a mechanism rather than a field. A hand-written `column:` block carrying any of the three still works and is still preserved on write; `value.ts` already documents `column: { show_week_numbers: null }` as meaningful. The set is asserted in `editor-schema.test.ts`, so it cannot grow quietly. |
 | E12 | **Per-calendar label has no type picker** | Open | The old editor spent 209 lines (`_renderTypeSelector` and friends) giving the label a type — none / text / icon / image — which is not a config key: `renderLabel` derives it from the value's shape. Stage 3 offers one text field and says so in the helper, which is correct for all four cases and loses only the icon picker. Restoring one needs a *per-item* synthetic field, and `SYNTHETIC_FIELDS` is keyed per card. Worth doing only if users ask. |
 
@@ -111,10 +111,89 @@ Detail in [`column-view.md`](./column-view.md).
 
 Neither is owned by a spec; the detail is here.
 
-### X1 — Multi-file distribution — **RULED: adopt in v4** *(maintainer, 2026-08-12)*
+### X1 — Multi-file distribution — **DONE** *(stage 4; ruled by maintainer, 2026-08-12)*
 
-Approved with the CI assertion. Lazy-load the editor and move its translations into that
-chunk. The evidence below is why; the work is listed at the end of this section.
+Built and merged into the v4 branch. The seven live checks below are **still open** and
+are the only thing between this and shipping. The evidence that led to the ruling follows
+the work list.
+
+#### The work, in order — all done except the live checks
+
+1. **Rollup** — `preserveEntrySignatures: 'strict'`, content-hashed
+   `chunkFileNames`. **Done.**
+2. **`getConfigElement()`** — `async`, dynamic `import()`, the define guarded on both
+   sides of the await. **Done.**
+3. **Editor strings** — the eleven `editor` sections moved from
+   `src/translations/languages/` to `src/translations/editor-languages/`, imported only
+   from `src/rendering/editor/index.ts` and merged into `TRANSLATIONS` at chunk-load
+   time. Not deleted: E10 still mines them. **Done.**
+4. **`release.yml`** — `files: dist/*.js` plus `calendar-card-pro.zip` for manual
+   installers, and `check:bundle` now runs there too, since that workflow is what
+   actually publishes. **Done.**
+5. **CI assertion** — `scripts/check-bundle.mjs`, `npm run check:bundle`. **Done**, and
+   proven by deliberately removing `preserveEntrySignatures` and watching it fail.
+6. **The seven live checks** — **still open**, listed below.
+
+**Measured on this branch**, production build, before and after:
+
+| | raw | gzip |
+| --- | ---: | ---: |
+| eager path before | 390,155 | 114,341 |
+| eager path after | 206,655 | 64,945 |
+| **change per dashboard load** | **−183,522 (−47.0%)** | **−49,396 (−43.2%)** |
+
+Three files now: a 41 B facade, `calendar-card-pro-<hash>.js` (206,614 B) and
+`editor-<hash>.js` (185,475 B). Total shipped is 392,130 B, **1,953 B (+0.5%) more** than
+the single file was — bytes on disk up slightly, bytes per dashboard load nearly halved.
+
+#### Found while building it
+
+- **`addTranslations()` could not be used, and using it would have been silent and
+  severe.** The specification named it as the registration hook — it exists, and it is
+  the obvious candidate — but it *assigns* rather than merges: `TRANSLATIONS[lang] =
+  translations`. Registering an editor-only object through it replaces the language's
+  whole entry, so `months`, `daysOfWeek` and every card string for that language are
+  gone. The card would then render `undefined` for month names in German, triggered by
+  nothing worse than opening the editor once, and only for the eleven languages that
+  have editor strings. `addEditorTranslations()` merges instead; a test asserts the card
+  strings survive registration.
+- **Registration mutates the imported JSON module objects.** `TRANSLATIONS[lang]` holds
+  the very object `localize.ts` imported, so merging into it means `en.json`'s module
+  object *acquires* an `editor` property once the editor chunk loads. Correct — that is
+  the mechanism — but it means the imported module stops being evidence about the file on
+  disk, so "no `editor` key in `languages/*.json`" cannot honestly be a runtime
+  assertion. It is a `check:i18n` check instead, across all 35 files rather than one.
+- **Nothing cleaned `dist/`.** Harmless when the output was one fixed filename; not
+  harmless once names carry a content hash and `release.yml` globs `dist/*.js` — every
+  local rebuild left the previous build's chunks in place to be published as garbage
+  assets. The build now wipes `dist/` first (in `rollup.config.mjs`, so `npx rollup -c`
+  and the watcher get it too), and `check:bundle` asserts every emitted file is
+  reachable from the entry rather than trusting that.
+- **Manual-installation instructions were about to become wrong**, in the README and in
+  `docs/guide/installation.md`. Both said to download `calendar-card-pro.js` and copy
+  that one file, which now yields a 41-byte facade importing a chunk the user does not
+  have — a card that silently cannot load. Both now point at the zip. The specification
+  listed the zip as an optional nicety for manual installers; it is not optional.
+- **The dev build's chunks were indistinguishable from production ones.** Rollup names
+  the main chunk after the input module, so a dev build emitted
+  `calendar-card-pro-<hash>.js` — the same shape as the production chunk, in a directory
+  where both can sit side by side, which is the entire point of the `-dev` suffix.
+  Chunk names now carry it too.
+- **§3.2's `try`/`catch` sketch was adopted but not as written.** Swallowing the error
+  and continuing would hand Home Assistant a broken element; logging alone is invisible
+  to the dialog. `getConfigElement()` logs *and* rethrows a message written for the
+  person reading the editor dialog, naming the cause (a missing file) and the fix
+  (reinstall via HACS) rather than the platform's bare *failed to fetch dynamically
+  imported module*.
+- **The missing-chunk path cannot be tested under Vitest.** Vite's import-analysis
+  resolves `import()` specifiers at transform time, so deleting the editor chunk fails
+  at *load* of the parent module rather than at the call — the opposite of browser
+  behaviour. Live check 6 stays genuinely live-only. What *was* provable offline, against
+  the real built bundle in happy-dom: the facade registers `calendar-card-pro`, the
+  editor element is **not** registered until `getConfigElement()` is called, and two
+  concurrent calls both resolve without a duplicate-`define()` throw.
+
+#### The evidence behind the ruling
 
 Home Assistant ships translations as separate hashed JSON files fetched at runtime
 (`src/util/common-translation.ts`), so a user downloads only their own language. We inline
@@ -187,56 +266,56 @@ rendering, because HA awaits `getConfigElement()` (`frontend hui-element-editor.
 
 Full detail and source citations: [`multifile-distribution.md`](./multifile-distribution.md).
 
-#### The work, in order
+#### The seven live checks — **open**, and the gate on shipping
 
-Sequenced **after Stage 3 merges** — it touches `getConfigElement()`, the Rollup config and
-the editor's string loading, and Stage 3 is adding editor code and strings on the same
-branch.
+None of this can be proven from source, and the offline work above deliberately does not
+claim to have. On a real Home Assistant, before release:
 
-1. **Rollup** — code-splitting with content-hashed chunk names, and
-   `preserveEntrySignatures: 'strict'` so the entry stays a facade.
-2. **`getConfigElement()`** — dynamic `import()` of the editor.
-3. **Editor strings** — moved into the editor chunk rather than the eager bundle.
-4. **`release.yml`** — `files: dist/*.js`, plus a `dist` zip for manual installers.
-5. **CI assertion** — fail the build if any emitted chunk imports back from the entry.
-   This is the `?hacstag=` trap and a comment is demonstrably not enough to hold it.
-6. **The seven live checks**, on a real HA, before release. None of this can be proven from
-   source. Reproduced here so the gate is visible where the work is listed:
-   1. **Upgrade in place** — install the current release via HACS, upgrade to a multi-file
-      pre-release, confirm the card renders **without clearing the browser cache**.
-   2. **Every chunk arrives** in `www/community/calendar-card-pro/` after the download.
-   3. **The editor opens**, and the Network tab shows its chunk fetched *on open*, not on
-      dashboard load — otherwise the split achieved nothing.
-   4. **No duplicate registration.** Watch specifically for `NotSupportedError: … has
-      already been used with this registry` after opening the editor. That is the
-      `?hacstag=` trap recurring.
-   5. **YAML-mode dashboards**, where cache headers are off and resources are hand-managed.
-   6. **A deliberate 404** — delete the editor chunk from disk and confirm the card still
-      renders and the failure is readable rather than an unhandled rejection.
-   7. **A downgrade** back to a single-file version.
+1. **Upgrade in place** — install the current release via HACS, upgrade to a multi-file
+   pre-release, confirm the card renders **without clearing the browser cache**.
+2. **Every chunk arrives** in `www/community/calendar-card-pro/` after the download.
+   Three files: `calendar-card-pro.js`, `calendar-card-pro-<hash>.js`,
+   `editor-<hash>.js` — plus `calendar-card-pro.zip`, which HACS downloads like any
+   other asset and never registers.
+3. **The editor opens**, and the Network tab shows its chunk fetched *on open*, not on
+   dashboard load — otherwise the split achieved nothing. (The module-graph half of this
+   is proven offline: the editor element is not registered until `getConfigElement()`
+   runs. What needs a browser is that the *fetch* is deferred too.)
+4. **No duplicate registration.** Watch specifically for `NotSupportedError: … has
+   already been used with this registry` after opening the editor. That is the
+   `?hacstag=` trap recurring, and the one thing `check:bundle` cannot observe: it
+   asserts the module graph, not what a browser does with a query string.
+5. **YAML-mode dashboards**, where cache headers are off and resources are hand-managed.
+6. **A deliberate 404** — delete the editor chunk from disk and confirm the card still
+   renders and the failure is readable. Vitest cannot stand in for this: Vite resolves
+   `import()` at transform time, so the failure lands in the wrong place entirely.
+7. **A downgrade** back to a single-file version.
 
 Full detail and the source citations behind each finding:
 [`multifile-distribution.md`](./multifile-distribution.md).
 
-#### Side-finding — the sourcemap comment stops being true
+#### Side-finding — the sourcemap comment stopped being true — **corrected**
 
-`rollup.config.mjs` disables sourcemaps with the reasoning that the release attaches only
-`dist/calendar-card-pro.js`, so a `.map` would 404 in every browser (#315, #358). Once the
-workflow globs, that reason no longer holds — though note `files: dist/*.js` does **not**
-match `*.js.map`, so nothing changes by accident. Whether to ship sourcemaps is a separate
-decision; the comment must not be left stating a defunct reason either way.
+`rollup.config.mjs` disabled sourcemaps with the reasoning that the release attaches only
+`dist/calendar-card-pro.js`, so a `.map` would 404 in every browser (#315, #358). The
+workflow now globs, so that specific reason is gone. The comment states the real current
+reason instead: nothing publishes a `.map` at all, because `files: dist/*.js` does **not**
+match `*.js.map`. Sourcemaps remain off; turning them on means shipping the maps too, and
+is its own decision rather than a drive-by. The assertion moved from an inline `grep` in
+`ci.yml` into `check:bundle`, which also means it runs locally and in `release.yml`.
 
-### X2 — Editor translation budget — **Dissolved by X1, pending that go/no-go**
+### X2 — Editor translation budget — **Dissolved by X1**
 
 Measured, not estimated. The new English string table is **19,154 B across 138 keys**
 against the old section's 11,818 B across 239 keys — 62% larger with 42% fewer keys,
 because **67% of it is helper prose**. Projected across 11 languages, roughly **+18,000 B
 gzip net** even after deleting the dormant sections.
 
-If X1 proceeds this cost lands off the eager path and no longer needs solving. If X1 is
-rejected, the options return: accept it, translate labels only, or trim the prose. The
-maintainer has ruled that **language support is not to be reduced** and that clear prose is
-worth having, so the first is the fallback.
+X1 has landed, so this cost is off the eager path and no longer needs solving: the whole
+editor namespace, translated to whatever depth E10 reaches, is downloaded by HACS and
+parsed only by the browsers that open the editor. The maintainer's ruling that **language
+support is not to be reduced** and that clear prose is worth having costs nothing to
+honour. Nothing has to be cut.
 
 ---
 

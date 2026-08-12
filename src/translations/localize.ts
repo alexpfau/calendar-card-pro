@@ -392,6 +392,11 @@ export function isLanguageSupported(language: string): boolean {
  * Add a new translation set for a language
  * This can be used for dynamic registration of new languages
  *
+ * **Replaces** the whole entry rather than merging into it, so the object passed must
+ * be a complete `Translations`. Registering a partial one leaves the card resolving
+ * `undefined` for whatever it omits — month and day names among them. To add only the
+ * editor's section to a language that already exists, use `addEditorTranslations`.
+ *
  * @param language - Language code
  * @param translations - Translations object
  */
@@ -402,4 +407,49 @@ export function addTranslations(language: string, translations: Types.Translatio
   }
 
   TRANSLATIONS[language.toLowerCase()] = translations;
+}
+
+/**
+ * Attach an `editor` section to a language that is already registered.
+ *
+ * The editor's strings are not shipped on the eager path. They live in
+ * `./editor-languages/`, are reachable only from `src/rendering/editor/`, and land in
+ * the chunk the card dynamically imports when someone opens the editor — so for the
+ * users who never do, they are downloaded to disk by HACS and never parsed by a
+ * browser. This is the function that puts them back where `translate()` looks once
+ * that chunk has loaded.
+ *
+ * Merging, not replacing, and that distinction is the whole reason this exists rather
+ * than reusing `addTranslations`: the card's own strings for a language are already in
+ * the map, and overwriting the entry with an editor-only object would take `months`,
+ * `daysOfWeek` and the rest with it. The card would then render `undefined` for every
+ * month name in that language, triggered by nothing more than opening the editor once.
+ *
+ * Unknown languages are refused rather than invented. A registration for a language
+ * with no card strings could only produce that same half-populated entry;
+ * `npm run check:i18n` fails on an editor-language file with no matching language, so
+ * this branch is a runtime guard for something the build already rejects.
+ *
+ * @param language - Language code, matching a key already in `TRANSLATIONS`
+ * @param editor - The language's editor section
+ */
+export function addEditorTranslations(
+  language: string,
+  editor: NonNullable<Types.Translations['editor']>,
+): void {
+  if (!language) {
+    Logger.error('Cannot add editor translations without a language code');
+    return;
+  }
+
+  const existing = TRANSLATIONS[language.toLowerCase()];
+  if (!existing) {
+    Logger.error(
+      `Cannot add editor translations for unregistered language '${language}' — ` +
+        'the card strings for it are missing, so the entry would be incomplete',
+    );
+    return;
+  }
+
+  existing.editor = { ...existing.editor, ...editor };
 }

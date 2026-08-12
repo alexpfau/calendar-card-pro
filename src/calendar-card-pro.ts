@@ -41,7 +41,10 @@ import * as Feedback from './interaction/feedback';
 import * as Render from './rendering/render';
 import * as Weather from './utils/weather';
 import * as Templates from './utils/templates';
-import * as Editor from './rendering/editor/index';
+// Type-only, so the editor is not on the card's import graph. It is reached through a
+// dynamic import() in getConfigElement(), which is what puts it — and its translations —
+// in a separate chunk that a browser fetches only when the editor is opened.
+import type * as Editor from './rendering/editor/index';
 
 //-----------------------------------------------------------------------------
 // GLOBAL TYPE DECLARATIONS
@@ -119,8 +122,49 @@ class CalendarCardPro extends LitElement {
   /**
    * Static method that returns a new instance of the editor
    * This is how Home Assistant discovers and loads the editor
+   *
+   * The editor is loaded on demand. It and its translations are the larger half of the
+   * bundle and are of no use to a dashboard that is only rendering the card, so they
+   * are reached through a dynamic `import()` and emitted as a separate chunk. Home
+   * Assistant awaits this method (`frontend hui-element-editor.ts`), so returning a
+   * promise is supported rather than merely tolerated.
+   *
+   * Registration is guarded **twice**, before and after the await. Two concurrent calls
+   * both see no element on the first check, and `customElements.define()` throws
+   * `NotSupportedError` on a duplicate name — which would surface as a dead editor
+   * dialog rather than as anything legible.
+   *
+   * @returns The editor element, once its chunk has loaded
    */
-  static getConfigElement() {
+  static async getConfigElement(): Promise<HTMLElement> {
+    if (!customElements.get('calendar-card-pro-dev-editor')) {
+      let editor: typeof Editor;
+
+      try {
+        editor = await import('./rendering/editor/index');
+      } catch (error) {
+        // The failure mode the split introduces, and the only new one. A chunk that did
+        // not arrive — an incomplete release, a hand-copied install of the entry alone —
+        // makes this reject. The card is untouched: nothing at module scope imports the
+        // editor, so a dashboard carrying on rendering is the expected outcome rather
+        // than a lucky one. Home Assistant awaits this method and shows the rejection in
+        // the editor dialog, so the message is written for the person reading it there;
+        // the platform's own message names only the file it could not fetch.
+        const detail = error instanceof Error ? error.message : String(error);
+        Logger.error(error, 'loading the editor chunk');
+
+        throw new Error(
+          'Calendar Card Pro: the editor could not be loaded because one of the card’s ' +
+            'files is missing. Reinstalling the card in HACS restores it. The card ' +
+            `itself is unaffected. (${detail})`,
+        );
+      }
+
+      if (!customElements.get('calendar-card-pro-dev-editor')) {
+        customElements.define('calendar-card-pro-dev-editor', editor.CalendarCardProEditor);
+      }
+    }
+
     return document.createElement('calendar-card-pro-dev-editor');
   }
 
@@ -1252,8 +1296,9 @@ class CalendarCardPro extends LitElement {
 // ELEMENT REGISTRATION
 //-----------------------------------------------------------------------------
 
-// Register the editor - main component registered by decorator
-customElements.define('calendar-card-pro-dev-editor', Editor.CalendarCardProEditor);
+// The card element is registered by its decorator. The editor is not registered here
+// at all: it is defined by getConfigElement() once its chunk has loaded, which is what
+// keeps it off the eager path.
 
 // Create interface extending CustomElementConstructor to allow getStubConfig property
 interface CalendarCardConstructor extends CustomElementConstructor {

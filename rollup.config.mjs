@@ -4,7 +4,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import terser from '@rollup/plugin-terser';
 import esbuild from 'rollup-plugin-esbuild';
 import json from '@rollup/plugin-json';
-import { readFileSync } from 'fs';
+import { readFileSync, rmSync } from 'fs';
 
 // Use the existing NODE_ENV variable for both purposes
 const isProd = process.env.NODE_ENV === 'prod';
@@ -15,6 +15,36 @@ const outputFilename = isProd ? 'calendar-card-pro.js' : 'calendar-card-pro-dev.
 const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
 const version = packageJson.version;
 
+/**
+ * Names an emitted chunk, in a namespace that is flat and shared.
+ *
+ * HACS writes every release asset directly into
+ * `<config>/www/community/calendar-card-pro/` — it fetches no subdirectories — so these
+ * filenames are the only handle anyone has on a chunk. Two things follow.
+ *
+ * **The editor is named for what it is.** Rollup names a chunk after its entry module,
+ * which for the editor is `index.ts`: accurate, and useless to anyone reading a
+ * directory listing or deleting a file to test the missing-chunk failure mode. Matched
+ * on the module path rather than on the chunk name, so a future `index.ts` elsewhere
+ * cannot quietly claim it.
+ *
+ * **Dev chunks keep the `-dev` suffix**, exactly as the entry and the custom element
+ * names do. A dev build exists to run side by side with the HACS-installed release, and
+ * its chunks land in the same flat directory — so without this, the dev build's main
+ * chunk is `calendar-card-pro-<hash>.js`, which is indistinguishable from a production
+ * one. Nothing would misload (each facade names its own chunk by hash), but the point of
+ * the suffix is that a human can tell which build a file belongs to.
+ *
+ * @param chunk - Rollup's pre-render chunk info
+ * @returns The filename pattern for the chunk
+ */
+function chunkFileName(chunk) {
+  const isEditor = chunk.facadeModuleId?.replace(/\\/g, '/').endsWith('/rendering/editor/index.ts');
+  const base = isEditor ? 'editor' : chunk.name;
+
+  return `${base}${isProd ? '' : '-dev'}-[hash].js`;
+}
+
 export default {
   input: 'src/calendar-card-pro.ts',
   output: {
@@ -22,15 +52,53 @@ export default {
     format: 'es',
     // Use the dynamic filename based on NODE_ENV
     entryFileNames: outputFilename,
-    // Sourcemaps are deliberately disabled. The release workflow attaches only
-    // dist/calendar-card-pro.js and hacs.json pins that single filename, so a .map is
-    // never published to /hacsfiles/. Emitting one anyway leaves a sourceMappingURL
-    // comment in the bundle that every user's browser resolves to a 404 (#315, #358).
-    // Do not re-enable without also shipping and serving the map.
+    // Content-hashed, and that is mandatory rather than stylistic. HACS serves
+    // /hacsfiles/** with `max-age=2678400` (one month) and appends its `?hacstag=`
+    // cache-buster to the *registered resource only* — a sibling chunk gets no query at
+    // all, so a stable chunk name whose contents changed would be served from cache for
+    // up to 31 days after an update. A new hash is simply a URL the cache has never
+    // seen.
+    chunkFileNames: chunkFileName,
+    // Sourcemaps are deliberately disabled. Nothing publishes a .map: the release
+    // workflow attaches `dist/*.js`, which does not match `*.js.map`, and HACS only
+    // downloads what the release carries. Emitting one anyway leaves a sourceMappingURL
+    // comment that every user's browser resolves to a 404 (#315, #358). Turning them on
+    // means shipping the maps too, and is its own decision rather than a drive-by.
     sourcemap: false,
   },
 
+  // Non-negotiable, and the one thing in this file that will break the card if removed.
+  //
+  // HACS registers the Lovelace resource with a `?hacstag=` query. A relative import
+  // specifier resolves against the importing module's URL **with the query dropped**, so
+  // if any emitted chunk imports back from the entry, the browser fetches the entry a
+  // second time under a different URL and evaluates the whole card again — producing
+  // `NotSupportedError: the name "calendar-card-pro" has already been used with this
+  // registry`, a dead editor and a possibly dead card.
+  //
+  // 'strict' makes the entry a small facade that imports the real code from a hashed
+  // chunk, so the code is only ever addressed by one URL. `scripts/check-bundle.mjs`
+  // asserts this held, because the same trap was first met as a comment in another
+  // card's config and a comment did not hold it.
+  preserveEntrySignatures: 'strict',
+
   plugins: [
+    // Chunk names carry a content hash, so a rebuild leaves the previous build's chunks
+    // behind rather than overwriting them. That matters more than it used to: the
+    // release workflow attaches `dist/*.js`, so a stale chunk from an earlier build
+    // would be published as a release asset and downloaded by every user, and the dev
+    // deploy copies whatever is in dist/ to Home Assistant.
+    //
+    // Here rather than in the npm script, so `npx rollup -c` and the watcher get it too.
+    // `scripts/check-bundle.mjs` asserts the property this maintains — every emitted
+    // file reachable from the entry — so a clean that silently stopped working is caught
+    // rather than merely hoped for.
+    {
+      name: 'clean-dist',
+      buildStart() {
+        rmSync('dist', { recursive: true, force: true });
+      },
+    },
     replace({
       preventAssignment: true,
       delimiters: ['', ''],

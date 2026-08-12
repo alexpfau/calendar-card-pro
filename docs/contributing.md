@@ -83,9 +83,8 @@ To add a new language:
 
 1. **Create a new file** in `src/translations/languages/[lang-code].json`
 2. **Copy the structure** from `en.json` and translate all values (never change the keys).
-   The file must contain **every top-level** key present in `en.json`. The `editor` section
-   is the exception — it is optional, and may be partially translated: each editor key falls
-   back to English on its own, so anything you leave out simply renders in English.
+   The file must contain **every top-level** key present in `en.json`, and nothing else —
+   these files are loaded by every dashboard, so the editor's strings do not belong here.
 3. **Register it in `src/translations/localize.ts`** — this is two edits:
    - add the `import` for your JSON file
    - add an entry to the `TRANSLATIONS` map. **The key must be lowercase**
@@ -99,7 +98,7 @@ To add a new language:
      them to their base code (e.g. `en-gb` → `en`). Only add one if dayjs ships a distinct
      locale you actually need (as with `zh-cn` / `zh-tw`).
 5. **Add your language to the supported list above** on this page, in alphabetical order.
-6. **Verify** with `npm run lint` and `npm run build`
+6. **Verify** with `npm run lint`, `npm run check:i18n` and `npm run build`
 7. **Submit a Pull Request** with your changes
 
 **Example**: To add German support, you would:
@@ -109,6 +108,22 @@ To add a new language:
 3. Add `import deTranslations from './languages/de.json';` and `de: deTranslations,` in `localize.ts`
 4. Add `import 'dayjs/locale/de';` **and** `'de',` to `supportedLocales` in `dayjs.ts`
 5. Add a `- **German** (de)` entry to the list above
+
+### Translating the Editor
+
+The visual editor's strings are optional and live separately, in
+`src/translations/editor-languages/[lang-code].json`. Eleven of the 35 languages translate
+them today; the rest render the editor in English, which is fully supported.
+
+They are kept apart because they are the larger half of the translations by some margin,
+and the editor is loaded only when someone opens it — so a dashboard never downloads them
+at all. Putting them back in `languages/` would undo that, and `npm run check:i18n` fails
+if you do.
+
+A partial translation is safe to ship. Each key falls back on its own, so anything you
+leave out simply renders in English rather than looking broken. Register a new file with an
+`import` and an `EDITOR_TRANSLATIONS` entry in `editor-languages/index.ts`, using the same
+lowercase key as the language itself.
 
 ## 🏆 Acknowledgements
 

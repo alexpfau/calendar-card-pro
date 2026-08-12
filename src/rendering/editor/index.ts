@@ -25,7 +25,20 @@
  *
  * Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM, which
  * is what lets the test suite import a schema and assert on it directly.
+ *
+ * This module is also the editor's **chunk boundary**. `getConfigElement()` reaches it
+ * through a dynamic `import()`, so everything in its graph — the panels, the schemas,
+ * `strings.ts` and the dormant translations registered below — is emitted into a
+ * separate file that a browser fetches only when the editor is opened.
  */
+
+import { registerEditorTranslations } from '../../translations/editor-languages/index';
+
+// Registered here rather than inside the element, so it has happened before anything
+// can resolve a string: awaiting this module's import evaluates it, and the card only
+// creates the editor element afterwards. Idempotent, and it costs nothing for the
+// users who never open the editor — the module holding it is in this chunk.
+registerEditorTranslations();
 
 export { CalendarCardProEditor } from './element';
 export { PANELS, walkSchema } from './panels';

@@ -68,18 +68,16 @@ jobs:
       - name: Build
         run: npm run build
 
-      # A sourceMappingURL comment in the bundle points at a .map that is never shipped
-      # (release.yml attaches only the .js, hacs.json pins that one filename), so every
-      # user's browser resolves it to a 404. This shipped for several releases before
-      # anyone traced it (#315, #358); the check is cheap, the symptom is silent.
-      - name: Verify no sourcemap references in bundle
-        run: |
-          if grep -q 'sourceMappingURL' dist/calendar-card-pro.js; then
-            echo "::error::dist/calendar-card-pro.js contains a sourceMappingURL comment. The .map file is not distributed, so this 404s in every user's browser. Check output.sourcemap in rollup.config.mjs."
-            exit 1
-          fi
-          if compgen -G 'dist/*.map' > /dev/null; then
-            echo "::error::Build emitted a sourcemap into dist/. Sourcemaps are not distributed; check output.sourcemap in rollup.config.mjs."
-            exit 1
-          fi
-          echo "Bundle is free of sourcemap references."
+      # The card ships as a facade plus content-hashed chunks, and every way that can go
+      # wrong is silent at build time and fatal in a browser. The one that matters most:
+      # HACS appends ?hacstag= to the registered resource, relative specifiers resolve
+      # with the query dropped, so a chunk importing back from the entry makes the
+      # browser evaluate the whole card twice — "NotSupportedError: the name has already
+      # been used with this registry", dead editor. The first experimental split produced
+      # exactly that. The reference card that hit it first documented it as a comment in
+      # its Rollup config, which is why this is a check.
+      #
+      # Also carries the sourcemap assertions this step used to hold inline (#315, #358):
+      # same rule, that we never ship a reference to a file we do not publish.
+      - name: Verify bundle integrity
+        run: npm run check:bundle

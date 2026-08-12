@@ -23,29 +23,42 @@ production bundle by 3 bytes, all of which were a bug fix.
 These are the npm scripts. Do not invent others — add one only when a command is run often
 enough that people will otherwise get it wrong.
 
-| Command              | Output                          | Element name            | Logging |
-| -------------------- | ------------------------------- | ----------------------- | ------- |
-| `npm run dev`        | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
-| `npm run build`      | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
-| `npm run lint`       | — (eslint, `--fix`)             |                         |         |
-| `npm run format`     | — (prettier, `--write`)         |                         |         |
-| `npm test`           | — (vitest, single run)          |                         |         |
-| `npm run check:i18n` | — (translation wiring check)    |                         |         |
-| `npm run check:docs` | — (docs/config parity check)    |                         |         |
+| Command                | Output                          | Element name            | Logging |
+| ---------------------- | ------------------------------- | ----------------------- | ------- |
+| `npm run dev`          | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
+| `npm run build`        | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
+| `npm run lint`         | — (eslint, `--fix`)             |                         |         |
+| `npm run format`       | — (prettier, `--write`)         |                         |         |
+| `npm test`             | — (vitest, single run)          |                         |         |
+| `npm run check:i18n`   | — (translation wiring check)    |                         |         |
+| `npm run check:docs`   | — (docs/config parity check)    |                         |         |
+| `npm run check:bundle` | — (emitted-chunk check)         |                         |         |
 
 Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
 command Cloudflare runs), and `docs:preview` (serve the built output).
 
+**The card is no longer one file.** Both builds emit a small facade under the name in the
+table above plus content-hashed chunks beside it — `calendar-card-pro-<hash>.js` and
+`editor-<hash>.js` — and the editor is fetched only when someone opens it, which keeps
+the editor and its translations off every dashboard load. `hacs.json` still names the
+facade and needs no change; HACS downloads every asset attached to a release, and
+`filename` only selects which one becomes the Lovelace resource. Two consequences worth
+holding on to: **nothing may import back from the entry** (see `scripts/check-bundle.mjs`
+for why that would kill the card), and **every emitted file must sit directly in `dist/`**,
+because HACS fetches no subdirectories. `npm run check:bundle` enforces both.
+
 **The two builds are not interchangeable.** `rollup.config.mjs` switches on `NODE_ENV`
 and rewrites both the output filename _and_ the custom element name, so a dev build
-registers as `calendar-card-pro-dev` / `calendar-card-pro-dev-editor`. This is
-deliberate: it lets a dev build run side by side with the HACS-installed release in the
-same Home Assistant instance. Never hand someone a `npm run build` artifact for local
-testing — they need the `-dev` one.
+registers as `calendar-card-pro-dev` / `calendar-card-pro-dev-editor` and emits
+`-dev`-suffixed chunks. This is deliberate: it lets a dev build run side by side with the
+HACS-installed release in the same Home Assistant instance. Never hand someone a
+`npm run build` artifact for local testing — they need the `-dev` one.
 
 `npm run dev` runs `rollup -c --watch` and does not exit. For a one-shot dev build in
-automation, use `npx rollup -c` (same config, no watcher).
+automation, use `npx rollup -c` (same config, no watcher). Either way the build wipes
+`dist/` first: chunk names carry a content hash, so builds do not overwrite each other and
+a stale chunk would otherwise be published by the release workflow's `dist/*.js` glob.
 
 There **is** a test suite — Vitest with happy-dom, in `tests/`. It does not aim at coverage;
 it pins the things that have actually broken (the translation wiring, config normalization)
@@ -59,11 +72,11 @@ npm test
 npm run check:i18n
 npm run check:docs
 npm run build
+npm run check:bundle   # after the build — it reads dist/
 ```
 
-Those six are every npm gate CI runs, so a green local run should mean a green PR. (CI adds one
-inline check after the build — that `dist/` carries no `sourceMappingURL` and no `.map` file,
-since neither is distributed and both 404 in the user's browser.) `check:docs` is the one that
+Those seven are every npm gate CI runs, so a green local run should mean a green PR.
+`check:docs` is the one that
 surprises people: it is described under _Documenting a change_ below, which makes it look like a
 docs-only concern, but it gates **every** PR and it validates the design docs in
 `docs/development/` as well as the user-facing site. A change touching no `src/` file at all can
@@ -148,8 +161,8 @@ Everything else moved to `docs/`.
   three hardcoded counts**. Derive them rather than incrementing by hand — they are prose,
   so nothing fails when they drift, and they were wrong for three consecutive releases:
   ```bash
-  ls src/translations/languages/*.json | wc -l                 # total languages
-  grep -l '"editor"' src/translations/languages/*.json | wc -l # editor languages
+  ls src/translations/languages/*.json | wc -l        # total languages
+  ls src/translations/editor-languages/*.json | wc -l # editor languages
   ```
 
 Run `npm run docs:build` before pushing. `ignoreDeadLinks` is deliberately **off**, so an
@@ -356,38 +369,53 @@ This is the most error-prone area of the codebase; the same mistake has shipped
 repeatedly. A language is only fully wired up when **all** of these are done:
 
 1. `src/translations/languages/<code>.json` — must contain every **top-level** key present
-   in `en.json`. `en.json` is the reference.
+   in `en.json`. `en.json` is the reference. **Card strings only.** An `editor` section
+   here is now a `check:i18n` error, because these files are imported statically for all
+   35 languages and land on every dashboard load.
 
-   The `editor` section is the exception: it is **optional, and may be partial**. Only 11 of
-   the 35 language files translate it; the other 24 omit it entirely and the editor renders
-   in English. Both are supported — `translateEditorKey()` in `localize.ts` resolves each
-   editor key on its own, falling back **requested language → English → raw key name**.
+2. `src/translations/editor-languages/<code>.json` — the editor's strings, **optional and
+   may be partial**. Only 11 of the 35 languages translate the editor; the other 24 have
+   no file here at all and the editor renders in English. Both are supported —
+   `translateEditorKey()` in `localize.ts` resolves each editor key on its own, falling
+   back **requested language → English → raw key name**.
 
    That per-key chain is deliberate, and replaced an earlier all-or-nothing swap that made a
    half-finished translation worse than none at all: any key the translator had not reached
    rendered as its own **raw key name** (`show_end_time`) in the UI rather than as English.
-   A partial `editor` section is now safe to ship — untranslated keys simply appear in
+   A partial section is now safe to ship — untranslated keys simply appear in
    English — so translate as much as you like and leave the rest. `check:i18n` reports the
    gap as a **warning**, not an error.
 
-2. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
+   These files are reachable **only** from `src/rendering/editor/`, so they load with the
+   editor's chunk rather than on every dashboard load. That is 88.4% of the translation
+   payload moved off the eager path, and it is why they may not go back into `languages/`.
+   A new file also needs an `import` **and** an `EDITOR_TRANSLATIONS` entry in
+   `editor-languages/index.ts`, under a lowercase key naming a language that already
+   exists — a file nothing imports is silently never registered.
+
+   The sections here are **dormant**: they belong to the editor that was replaced, and the
+   schema-driven one resolves from `src/rendering/editor/strings.ts` first. They are kept
+   to be mined during the translation pass (backlog E10), not deleted.
+
+3. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups
    lowercase the configured value before matching.
-3. `src/translations/dayjs.ts` — **two separate edits**, both required:
+4. `src/translations/dayjs.ts` — **two separate edits**, both required:
    - `import 'dayjs/locale/<code>';`
    - add the base code to the `supportedLocales` array inside `mapLocale()`
-4. `docs/contributing.md` — the supported-languages list **and the three hardcoded counts**
+5. `docs/contributing.md` — the supported-languages list **and the three hardcoded counts**
    (see _Documenting a change_). The counts are prose, so nothing fails when they
    are wrong; they drifted for three releases before anyone noticed.
 
-Omitting the `supportedLocales` entry (3b) is a **silent failure**: the language works
+Omitting the `supportedLocales` entry (4b) is a **silent failure**: the language works
 everywhere except relative times, which quietly fall back to English. Catalan and
 Romanian shipped broken this way for months. If you add a locale import, add the array
 entry in the same edit.
 
-`npm run check:i18n` now catches all four wiring mistakes mechanically, including that one,
-and runs in CI. Run it before you claim a language is done — but note it verifies **wiring**,
-not translation quality, and it cannot tell you whether `pēc 2 dienām` is correct Latvian.
+`npm run check:i18n` catches every one of these wiring mistakes mechanically, including
+that one, and runs in CI. Run it before you claim a language is done — but note it
+verifies **wiring**, not translation quality, and it cannot tell you whether
+`pēc 2 dienām` is correct Latvian.
 
 Regional variants usually need no `dayjs.ts` change at all, because `mapLocale()`
 reduces them to their base code (`en-gb` → `en`). Only `zh-cn` / `zh-tw` are
