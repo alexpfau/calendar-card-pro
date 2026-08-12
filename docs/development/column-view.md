@@ -694,8 +694,19 @@ moved template, even when it looks wrong at the new nesting depth.** `renderEven
 body is indented to column 8 in a top-level function because that is where it sat inside
 `renderEvent`. `leaves.ts` carries a header comment saying so, so nobody "tidies" it.
 
-Verified, not assumed: **prettier does not reformat the inside of `html` tagged templates**,
-so `npm run format` cannot silently break this.
+**[v20] Correction — this was wrong, and it was wrong while claiming to be verified.**
+**Prettier *does* reformat inside `html` tagged templates.** Run `npm run format` on a
+single-line template and it reflows the embedded HTML, re-indenting and breaking lines.
+What it is careful about is *rendered* whitespace: it breaks as `</span\n><span` so no new
+text node appears between inline elements, which is why this rarely bites and why the claim
+below went unchallenged for so long. It is not a guarantee, and leading and trailing
+whitespace inside the template is rewritten. **Deliberate whitespace needs
+`// prettier-ignore`** — `leaves.ts` uses it on the weather badge, after `npm run format`
+restored the exact spaces a fix had just removed. Found by the C6 implementation when its
+own tests caught the reversal.
+
+~~Verified, not assumed: **prettier does not reformat the inside of `html` tagged
+templates**, so `npm run format` cannot silently break this.~~
 
 If a snapshot diff appears during a later extraction, it is a whitespace error. Fix the
 indentation. **Do not run `vitest -u`** — that launders the change past review, and the
@@ -1958,8 +1969,12 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    nesting depth.** If a snapshot diff appears, it is a whitespace error — fix the indentation.
    **Never run `vitest -u`** to make it go away; that launders the change past review, and the
    gate's whole value is that it is the one artefact the refactorer does not get to edit.
-   Verified, not assumed: prettier does not reformat inside `html` tagged templates, so
-   `npm run format` cannot silently break this.
+   Verified by running it, which the claim this replaces was not: **prettier *does* reformat
+   inside `html` tagged templates** and will put deliberate whitespace straight back. It is
+   careful about *rendered* whitespace — it breaks as `</span\n><span` so no new text node
+   appears between inline elements — which is why this rarely bites, but it is not a
+   guarantee and it rewrites leading and trailing whitespace. **Deliberate whitespace needs
+   `// prettier-ignore`.** `leaves.ts` uses it on the weather badge.
    **Promoted here from Phase 1 in [v19].** It was written during Phase 1 and lived under a
    heading marked ✅ complete, where a reader checking the live constraints before touching a
    template would never see it — while the text itself says it "governs every later extraction".

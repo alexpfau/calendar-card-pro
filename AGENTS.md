@@ -137,9 +137,17 @@ change.** The serializer normalises whitespace *between tags only*; whitespace a
 a text node survives verbatim, so the literal source indentation inside an `html` template
 is part of the oracle. Moving a template therefore means **preserving its original absolute
 indentation**, even where that looks wrong at the new nesting depth — which is why
-`leaves.ts` carries function bodies indented as though they were still nested. Prettier does
-not reformat inside `html` tagged templates, so `npm run format` will not do it for you and
-cannot silently break it either.
+`leaves.ts` carries function bodies indented as though they were still nested.
+
+**Prettier *does* reformat inside `html` tagged templates, and it will fight you here.**
+An earlier version of this file claimed the opposite, and that claim was wrong: run
+`npm run format` on a single-line template and it reflows the embedded HTML, re-indenting
+and breaking lines. What it is careful about is *rendered* whitespace — it breaks as
+`</span\n><span` precisely so no new text node appears between two inline elements — which
+is why this rarely bites and why the false claim survived. It is not a guarantee, and it
+does rewrite leading and trailing whitespace inside the template. **Deliberate whitespace
+needs `// prettier-ignore`**; `leaves.ts` uses it on the weather badge for exactly this
+reason, after `npm run format` put back the spaces a fix had just removed.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artefact the person doing the refactor
