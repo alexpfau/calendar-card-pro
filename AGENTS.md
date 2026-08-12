@@ -48,6 +48,19 @@ holding on to: **nothing may import back from the entry** (see `scripts/check-bu
 for why that would kill the card), and **every emitted file must sit directly in `dist/`**,
 because HACS fetches no subdirectories. `npm run check:bundle` enforces both.
 
+**Why three files and not two.** The obvious layout — the card in
+`calendar-card-pro.js` and the editor beside it — is the one thing that cannot work. The
+editor shares the config model, helpers and view logic with the card, so its chunk has to
+import them; if they lived in the entry, that import would read `./calendar-card-pro.js`
+while HACS had loaded the very same file as `./calendar-card-pro.js?hacstag=…`. A browser
+treats those as two different modules, evaluates the card twice, and the second
+`customElements.define` throws — dead editor, and a card that may not render either. So the
+entry is reduced to a facade whose only job is to be the stable URL HACS registers, and all
+real code sits behind content-hashed names that are only ever referenced relatively. The
+alternative, duplicating the shared modules into the editor chunk, would ship them twice
+*and* give the two copies separate module state — two translation registries, two logger
+levels — which is worse than the problem it solves.
+
 **The two builds are not interchangeable.** `rollup.config.mjs` switches on `NODE_ENV`
 and rewrites both the output filename _and_ the custom element name, so a dev build
 registers as `calendar-card-pro-dev` / `calendar-card-pro-dev-editor` and emits

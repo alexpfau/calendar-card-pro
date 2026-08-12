@@ -187,13 +187,21 @@ exception explicit rather than creating a new one. Widen it by asserting equalit
 placement parameter held constant, so the test still proves both views share the leaf, which
 is what it exists for.
 
-**Still open: how wide is the bar on its own row?** Today it is a fixed `progress_bar_width`,
-default `60px` (`config.ts:91`). On a dedicated row the natural answer is to fill the
-available width, with `progress_bar_width` reinterpreted as a maximum so anyone who set it
-is not overridden. A percentage of column width would need a new key and a default nobody
-can guess well.
+**How wide is the bar on its own row?** Today it is a fixed `progress_bar_width`, default
+`60px` (`config.ts:91`), which is right for a bar sharing a line with the time and too narrow
+for one that owns a row.
 
-**Ruled: fill the row, with `progress_bar_width` as a maximum** *(maintainer, 2026-08-12)*.
+**Ruled** *(maintainer, 2026-08-12)*: the row gets its own default width, and
+`progress_bar_width` **overrides it** — a plain width, not a maximum. The three cases the
+maintainer named are then exactly what falls out: unset, each placement uses its own
+fallback; set at the top level, both views use that value; set inside `column:`, the two
+views differ. **The row's default value is deliberately not fixed here** — `100%` was the
+first proposal and something narrower may read better, so it is settled by eye rather than by
+argument.
+
+Note this supersedes the maximum semantics proposed earlier in this section: a max cannot
+express "wider in the row than inline", which is the whole point, and it reads worse — a user
+who types a width expects a width.
 
 ---
 
@@ -240,12 +248,13 @@ Six positional parameters is past the point where they read well. Converting the
 options object is reasonable, but it touches both call sites and the existing precedent is
 positional — decide once, do not do half.
 
-##### 3. Width — the part that does not work as first stated
+##### 3. Width — why the default has to move
 
-"Reinterpret `progress_bar_width` as a maximum" cannot be implemented directly, because
-`DEFAULT_CONFIG.progress_bar_width` is `'60px'` and is merged in before render. By the time
-CSS sees it, a value the user set and a value they never touched are indistinguishable — so
-`max-width: 60px` would cap every unconfigured bar at 60px and the row would gain nothing.
+Whatever the row's width ends up being, it cannot be expressed while
+`DEFAULT_CONFIG.progress_bar_width` is `'60px'`, because that default is merged in before
+render. By the time CSS sees the value, one the user set and one they never touched are
+indistinguishable — so the row would be pinned to 60px for everybody, and a per-placement
+default would be unreachable.
 
 Fix it at the source: make the default **absent** and let each placement supply its own
 fallback.
@@ -254,8 +263,19 @@ fallback.
   emitted only when the user actually set it.
 - Inline placement: `width: var(--calendar-card-progress-bar-width, 60px)` — byte-identical
   behaviour to today for every existing card.
-- Row placement: `width: 100%` with
-  `max-width: var(--calendar-card-progress-bar-width, none)`.
+- Row placement: `width: var(--calendar-card-progress-bar-width, <row default>)`.
+
+**The row default is not settled and should not be guessed** *(maintainer, 2026-08-12)*.
+`100%` was the first proposal; a narrower value may read better. Pick a starting value, then
+settle it by eye in a dev build at 3, 5 and 7 columns — it is a one-token change and there is
+no argument that decides it from a desk.
+
+**Per-view values come for free.** `progress_bar_width` is already in `COLUMN_OVERRIDE_KEYS`
+(`view.ts:25`), so the three cases the maintainer asked for all work with no extra
+mechanism once the default is absent: unset gives each placement its own fallback; a
+top-level value applies to both views; and a `column:` exception gives the two views
+different values. The editor already offers it in the exceptions widget, since eligibility is
+derived from `COLUMN_OVERRIDE_KEYS` rather than listed by hand.
 
 `check:docs` reconciles `DEFAULT_CONFIG` against the reference table, so the row for
 `progress_bar_width` has to change with it. It joins the small set of options whose code
