@@ -31,8 +31,134 @@ const version = packageJson.version;
  *
  * @returns The plugins, in order
  */
+/**
+ * Strips `/* *\/` comments from the contents of `css` tagged templates.
+ *
+ * A `css` template's contents are a **string literal**, so esbuild and terser minify the
+ * JavaScript around it and leave every byte inside it alone. A JSDoc block in `leaves.ts`
+ * costs nothing in the bundle; the same block inside `styles.ts` ships in full, on the
+ * eagerly-loaded card, to every dashboard. Measured before this plugin existed: **105
+ * comment blocks, 30,227 raw bytes — 65% of the stylesheet, roughly 11 KB gzip, about 17%
+ * of the gzipped card.**
+ *
+ * This is deliberately not an argument for writing terser comments. The reasoning in
+ * `styles.ts` is load-bearing — several of the traps it records have shipped twice — and
+ * the right place to resolve the tension is the build, not the source.
+ *
+ * **Scanned rather than regexed, because a regex gets this wrong.** `content: '/*'` is
+ * legal CSS and the stylesheet really does set `content` (the weather row's middot
+ * separator), so the scanner tracks quoting and only treats `/*` as a comment opener
+ * outside a string. `url()` payloads are covered by the same rule. `//` is left alone: it
+ * is not a CSS comment, and it appears inside protocol-relative URLs.
+ *
+ * Comments are replaced with a single space rather than removed, so two tokens that were
+ * only separated by a comment cannot be fused into one.
+ *
+ * Invisible to `stylesheet.test.ts`, which reads `cardStyles.cssText` from source and so
+ * still sees every comment — the tests assert the CSS, and this only changes what ships.
+ */
+const stripCssComments = {
+  name: 'strip-css-comments',
+  transform(code, id) {
+    if (!/\.ts$/.test(id) || !code.includes('css`')) return null;
+
+    let out = '';
+    let i = 0;
+    let changed = false;
+
+    while (i < code.length) {
+      const start = code.indexOf('css`', i);
+      if (start === -1) {
+        out += code.slice(i);
+        break;
+      }
+
+      // Only a tagged template, not an identifier ending in "css".
+      const prev = code[start - 1];
+      if (prev && /[\w$.]/.test(prev)) {
+        out += code.slice(i, start + 4);
+        i = start + 4;
+        continue;
+      }
+
+      const open = start + 4;
+      let end = open;
+      // Find the closing backtick, honouring escapes. Interpolations cannot contain a
+      // backtick in this codebase, and the scan below leaves ${...} untouched anyway.
+      while (end < code.length) {
+        if (code[end] === '\\') {
+          end += 2;
+          continue;
+        }
+        if (code[end] === '`') break;
+        end++;
+      }
+
+      const body = code.slice(open, end);
+      const stripped = stripComments(body);
+      if (stripped !== body) changed = true;
+
+      out += code.slice(i, open) + stripped;
+      i = end;
+    }
+
+    return changed ? { code: out, map: null } : null;
+  },
+};
+
+/**
+ * Removes CSS comments from one stylesheet body, respecting quoted strings.
+ *
+ * @param css - The contents of a `css` tagged template
+ * @returns The same CSS with comment blocks replaced by a single space
+ */
+export function stripComments(css) {
+  let out = '';
+  let quote = null;
+
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i];
+
+    if (quote) {
+      out += ch;
+      if (ch === '\\') {
+        if (i + 1 < css.length) out += css[++i];
+      } else if (ch === quote) {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      out += ch;
+      continue;
+    }
+
+    if (ch === '/' && css[i + 1] === '*') {
+      const close = css.indexOf('*/', i + 2);
+      // An unterminated comment would swallow the rest of the sheet; leave it and let
+      // the failure be visible rather than silently deleting every rule after it.
+      if (close === -1) {
+        out += css.slice(i);
+        break;
+      }
+      out += ' ';
+      i = close + 1;
+      continue;
+    }
+
+    out += ch;
+  }
+
+  // Comment removal leaves runs of blank lines behind; collapse them so the shipped
+  // stylesheet does not carry the negative space of what was removed.
+  return out.replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n');
+}
+
 function plugins() {
   return [
+    stripCssComments,
     replace({
       preventAssignment: true,
       delimiters: ['', ''],
