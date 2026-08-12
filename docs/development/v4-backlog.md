@@ -72,7 +72,7 @@ Detail in [`column-view.md`](./column-view.md).
 | # | Item | Status | Note |
 | - | ---- | ------ | ---- |
 | C1 | **Progress bar in column view** | Open | Not missing code: `column.ts:244` calls the shared `Leaves.renderEventContent`, which renders the bar at `leaves.ts:543`, and `show_progress_bar` / `progress_bar_height` / `progress_bar_width` are all column-override keys (`view.ts:55-57`). It has simply never been *seen* there — it defaults to `false`, so the suite, built from default config, cannot exercise it, which is the blind spot `AGENTS.md` warns about. A bar sized for a full-width row inside a 140px column is unproven. Needs a test that turns it on, and eyes on it. Added to the D7 blocker table. |
-| C2 | **Per-event weather row** | Ruled — ready to build | In list view, `show_conditions` gates the icon. In column view the weather has its own row, so switching conditions off leaves a row holding only a temperature, breaking the leading icon edge that time, location and description share — `styles.ts:786-788` says outright that the alignment resets exist for that gutter and "neither is optional". **Design: in column view the row and its icon are always shown once per-event weather is on, and `show_conditions` instead controls rendering the condition verbally.** Reuses the existing key, no new config, no migration, ~20–30 lines. Spec: `weather-column-view-spec.md`. Three things it depends on, all verified: HA already ships the condition vocabulary translated for every language (`component.weather.entity_component._.state.*`, spot-checked live in `de`); `WeatherData.condition` is already stored (`weather.ts:93`) and read by nothing; and `formatEntityState` is already declared on our `Hass` interface (`types.ts:477`) and never called. **Two traps before writing code** — (a) our `HassEntity` has no `entity_id` (`types.ts:530-540`) and `Hass.states` is narrowed to `{ state: string }` (`:463`), so the lookup would miss and fall back to the raw token, showing `sunny` to a German user **with no error**; (b) width — verbal conditions land in a 152px track and German will overflow it, so only the words take `flex: 0 1 auto` with ellipsis while temperature and UV stay `flex: none`. **Open call for the maintainer:** `show_conditions` defaults `true`, so words become the default in column view — settle by eye in a dev build. |
+| C2 | **Per-event weather row** | Ruled — ready to build | In list view, `show_conditions` gates the icon. In column view the weather has its own row, so switching conditions off leaves a row holding only a temperature, breaking the leading icon edge that time, location and description share — `styles.ts:786-788` says outright that the alignment resets exist for that gutter and "neither is optional". **Design: in column view the row and its icon are always shown once per-event weather is on, and `show_conditions` instead controls rendering the condition verbally.** Reuses the existing key, no new config, no migration, ~20–30 lines. Spec: [`weather-column-view.md`](./weather-column-view.md). Three things it depends on, all verified: HA already ships the condition vocabulary translated for every language (`component.weather.entity_component._.state.*`, spot-checked live in `de`); `WeatherData.condition` is already stored (`weather.ts:93`) and read by nothing; and `formatEntityState` is already declared on our `Hass` interface (`types.ts:477`) and never called. **Two traps before writing code** — (a) our `HassEntity` has no `entity_id` (`types.ts:530-540`) and `Hass.states` is narrowed to `{ state: string }` (`:463`), so the lookup would miss and fall back to the raw token, showing `sunny` to a German user **with no error**; (b) width — verbal conditions land in a 152px track and German will overflow it, so only the words take `flex: 0 1 auto` with ellipsis while temperature and UV stay `flex: none`. **Open call for the maintainer:** `show_conditions` defaults `true`, so words become the default in column view — settle by eye in a dev build. |
 | C2b | **`weather.event.max_lines`** | Ruled — ready to build | New key, needed because writing conditions out can wrap the row. **Lives in `weather.event.*`, not as a fifth top-level `*_max_lines`**: its neighbours `icon_size` / `font_size` / `color` are already there, and nesting disambiguates the per-event row from the day-header row, which are different widths. The four existing `*_max_lines` are top-level only because their subjects have no nested block. Implementation follows them exactly — `> 0` sets a CSS custom property consumed with `-webkit-box` clamping, `0` means unlimited (`styles.ts:45-51`). **Constraint:** `COLUMN_DEFAULT_OVERRIDES` is typed to top-level keys, and weather sub-keys are not override-eligible, so this is **one value for both views**. That is acceptable because `show_conditions` renders words in column view only — list view has nothing multi-line to clamp. **Default `0`, matching the other four.** An earlier draft proposed `1` on the grounds that this clamps generated text in a fixed-width row rather than text the user wrote. Overruled for consistency, and the consistency argument is the better one: five keys that all mean "lines before truncation" should not disagree about what an unconfigured card does, and silent truncation is a worse default than visible wrapping — a wrapped row explains itself, a truncated one looks like missing data. Users who want one line set one line. Also ruled: **order within the row is temperature / UV first, condition words last**, so the numbers survive truncation when a limit *is* set. |
 | C3 | **Named view predicates** | Open | 13 binary `=== 'column'` / `!== 'list'` gates remain outside the editor. `events.ts` in particular gates compact limits with reasoning its own comment applies to *any* grid layout, yet excludes only column. The editor has zero such gates and a test enforcing it; `src/` does not. Raised by the grid-view feasibility review; `column-view.md` forbids the pattern. Cheap now, structural debt once a third view exists. |
 | C4 | **Column view as its own docs page** | Open | It is 175 lines and seven subsections inside `core-settings.md` — the largest section there, and a view mode rather than a core setting. Every other major feature has its own page and a nav entry. Needs every inbound link updated, since `ignoreDeadLinks` is off. |
@@ -157,7 +157,7 @@ stale-file clutter. A `dist` zip should be attached for manual installers.
 **A missing editor chunk degrades gracefully** — the dialog fails to open and the card keeps
 rendering, because HA awaits `getConfigElement()` (`frontend hui-element-editor.ts:370`).
 
-Full detail, including seven live checks required before shipping: `multifile-distribution.md`.
+Full detail and source citations: [`multifile-distribution.md`](./multifile-distribution.md).
 
 #### The work, in order
 
@@ -172,8 +172,23 @@ branch.
 4. **`release.yml`** — `files: dist/*.js`, plus a `dist` zip for manual installers.
 5. **CI assertion** — fail the build if any emitted chunk imports back from the entry.
    This is the `?hacstag=` trap and a comment is demonstrably not enough to hold it.
-6. **The seven live checks** from `multifile-distribution.md` §6, on a real HA, before
-   release.
+6. **The seven live checks**, on a real HA, before release. None of this can be proven from
+   source. Reproduced here so the gate is visible where the work is listed:
+   1. **Upgrade in place** — install the current release via HACS, upgrade to a multi-file
+      pre-release, confirm the card renders **without clearing the browser cache**.
+   2. **Every chunk arrives** in `www/community/calendar-card-pro/` after the download.
+   3. **The editor opens**, and the Network tab shows its chunk fetched *on open*, not on
+      dashboard load — otherwise the split achieved nothing.
+   4. **No duplicate registration.** Watch specifically for `NotSupportedError: … has
+      already been used with this registry` after opening the editor. That is the
+      `?hacstag=` trap recurring.
+   5. **YAML-mode dashboards**, where cache headers are off and resources are hand-managed.
+   6. **A deliberate 404** — delete the editor chunk from disk and confirm the card still
+      renders and the failure is readable rather than an unhandled rejection.
+   7. **A downgrade** back to a single-file version.
+
+Full detail and the source citations behind each finding:
+[`multifile-distribution.md`](./multifile-distribution.md).
 
 #### Side-finding — the sourcemap comment stops being true
 
