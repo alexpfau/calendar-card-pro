@@ -85,8 +85,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'additional_card_spacing.helper': 'Extra padding above and below the card contents.',
 
   // --- Height ---------------------------------------------------------------
+  //
+  // No helper on the mode: its three option labels — *Fit content*, *Fixed height*,
+  // *Maximum height* — already say what it does, and a sentence restating them in prose
+  // costs a line and teaches the reader that helpers are not worth reading. The two
+  // measurements below say what a helper can only say there: what happens when the
+  // events do not fit.
   height_mode: 'Card Height',
-  'height_mode.helper': 'Whether the card grows with its content or is held to a height.',
   'height_mode.option.auto.label': 'Fit content',
   'height_mode.option.fixed.label': 'Fixed height',
   'height_mode.option.maximum.label': 'Maximum height',
@@ -115,8 +120,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.day_header_gap.helper': 'Space between a column heading and the events under it.',
 
   // --- Calendars ------------------------------------------------------------
+  //
+  // The panel helper earns its line by naming the half of this panel the title does
+  // not: it is not only *which* calendars, it is where each one's label, colours and
+  // filters live. "The calendars this card shows" was *Calendars* with more words in it.
   'panel.calendars': 'Calendars',
-  'panel.calendars.helper': 'The calendars this card shows.',
+  'panel.calendars.helper': 'Which calendars the card shows, and how each one looks.',
   calendars: 'Calendars',
   'calendars.helper':
     'Order matters, and can be dragged. When two calendars carry the same event and ' +
@@ -132,10 +141,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.copy': 'Copy Settings',
   'entity.paste': 'Paste Settings',
 
+  'entity.label_type': 'Label Type',
+  'entity.label_type.helper':
+    'Shown before every event from this calendar. An image label is a path the browser ' +
+    'can reach, such as /local/work.png.',
+  'entity.label_type.option.none.label': 'None',
+  'entity.label_type.option.text.label': 'Text Or Emoji',
+  'entity.label_type.option.icon.label': 'An Icon',
+  'entity.label_type.option.image.label': 'An Image',
   'entity.label': 'Label',
-  'entity.label.helper':
-    'Shown before every event from this calendar. Text, an emoji, an icon such as ' +
-    'mdi:home, or a path to an image.',
   'entity.color': 'Event Color',
   'entity.color.helper': 'Event titles from this calendar. Overrides the card colour.',
   'entity.accent_color': 'Accent Color',
@@ -143,9 +157,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'The vertical line beside each event, and its background where the background ' +
     'opacity is above zero.',
   'entity.label_icon_color': 'Label Icon Color',
-  'entity.label_icon_color.helper':
-    'Only applies where the label is an icon. Left empty, the icon takes the text ' +
-    'colour around it.',
+  'entity.label_icon_color.helper': 'Left empty, the icon takes the text colour around it.',
 
   'entity.show_time': 'Event Times',
   'entity.show_time.option.inherit.label': 'Follow the card',
@@ -196,6 +208,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.max_height': 'Maximum Height',
   'column.max_height.helper':
     'The height the column layout may grow to before it scrolls. Use none for no limit.',
+  // The three options whose stored value is a union of shapes. Each is offered under
+  // its config key rather than under the mode dropdown that edits it, because the
+  // picker lists options and the rows beneath it are how one is edited — so these name
+  // the thing, and the row's own dropdown is labelled *Numbering*, *Style* or *Country
+  // Names* exactly as it is in the panel above.
+  'column.show_week_numbers': 'Week Numbers',
+  'column.today_indicator': 'Today Indicator',
+  'column.remove_location_country': 'Country Names',
   'column.show_empty_days.helper':
     'Column layout defaults this to on, whatever the shared setting above says.',
   'column.split_multiday_events.helper':
@@ -234,9 +254,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'first_day_of_week.option.sunday.label': 'Sunday',
 
   compact_mode: 'Compact Mode',
+  // Written to be read *before* the scope note that follows it in column view, which is
+  // why it opens by saying what compact mode is rather than by saying what applies. The
+  // two used to run the other way round — "These apply to the list layout…" landed
+  // first, before the reader knew what "these" were, and both sentences then used the
+  // word "apply". See `computeHelper`, which appends a group's scope note rather than
+  // prefixing it.
   'compact_mode.helper':
-    'Limits that apply while the card is in a compact dashboard slot. Leaving both ' +
-    'empty means compact mode changes nothing.',
+    'Shortens the card while it sits in a compact dashboard slot. Leaving both empty ' +
+    'means compact mode changes nothing.',
   compact_days_to_show: 'Days',
   compact_events_to_show: 'Events',
   compact_events_complete_days: 'Finish The Last Day',
@@ -310,8 +336,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   today_day_color: "Today's Day Number Color",
   today_month_color: "Today's Month Color",
 
+  // No helper: *Today Indicator* and "a mark on the current day" are the same sentence,
+  // and the style dropdown below lists what the mark can be.
   today_indicator: 'Today Indicator',
-  'today_indicator.helper': 'A mark on the current day, so it can be found at a glance.',
   today_indicator_style: 'Style',
   'today_indicator_style.option.none.label': 'None',
   'today_indicator_style.option.dot.label': 'Dot',
@@ -503,10 +530,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'than shorten the card.',
   // Stated on the group rather than on each of its three fields, which all share this
   // scope — see GROUP_SCOPE in localize.ts. The per-field notes the group replaces are
-  // deliberately absent: written, they would never be looked up.
+  // deliberately absent: written, they would never be looked up. Read as the second half
+  // of `compact_mode.helper`, which is why it starts with *That* rather than repeating
+  // what compact mode is.
   'scope.list_only.compact_mode':
-    'These apply to the list layout, which this card also uses on narrow screens. A ' +
-    'column grows sideways, so a cap would delete columns rather than shorten the card.',
+    'That shortening is the list layout, which this card also uses on narrow screens — ' +
+    'a column grows sideways, so a limit would delete columns rather than shorten the ' +
+    'card.',
 };
 
 /**

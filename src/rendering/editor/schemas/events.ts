@@ -55,6 +55,27 @@ function timeGroup(language: string, showTime: boolean): HaFormSchema {
   return group(language, 'time', TIME_ICON, [bool('show_time'), ...styling]);
 }
 
+/** The three shapes `remove_location_country` can hold, in the order they are offered. */
+export const LOCATION_COUNTRY_MODES: ReadonlyArray<string> = ['keep', 'builtin', 'custom'];
+
+/**
+ * The country-removal dropdown and the pattern it may call for.
+ *
+ * Exported because the exceptions widget renders the same pair: a `column:` override
+ * for `remove_location_country` is a value of the same union and needs the same
+ * derivation. One definition, so a fourth mode cannot reach only one of them.
+ *
+ * @param language - Effective language code
+ * @param countryMode - Derived country-removal mode
+ * @returns The dropdown, and the pattern field where the mode calls for one
+ */
+export function locationCountryFields(language: string, countryMode: string): HaFormSchema[] {
+  return [
+    select(language, 'location_country_mode', LOCATION_COUNTRY_MODES),
+    ...(countryMode === 'custom' ? [text('location_country_pattern')] : []),
+  ];
+}
+
 /**
  * The location group, whose country handling is a union stored in one key.
  *
@@ -66,8 +87,7 @@ function timeGroup(language: string, showTime: boolean): HaFormSchema {
 function locationGroup(language: string, showLocation: boolean, countryMode: string): HaFormSchema {
   const styling: HaFormSchema[] = showLocation
     ? [
-        select(language, 'location_country_mode', ['keep', 'builtin', 'custom']),
-        ...(countryMode === 'custom' ? [text('location_country_pattern')] : []),
+        ...locationCountryFields(language, countryMode),
         row(text('location_font_size'), color('location_color')),
         row(text('location_icon_size'), number('location_max_lines', 0)),
       ]

@@ -19,6 +19,8 @@
 
 import * as Exceptions from './exceptions';
 import { FILTER_SCHEMA } from './filter';
+import type { HaFormSchema } from './ha-form';
+import * as Overrides from './overrides';
 import { PANELS, type PanelDef, type SchemaCtx, type SubformDef } from './panels';
 import * as ViewConfig from '../../config/view';
 
@@ -75,8 +77,25 @@ export function exceptionSubforms(panel: PanelDef, ctx: SchemaCtx): SubformDef[]
   const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
   if (blockKey === undefined) return [];
 
-  const fields = Exceptions.eligibleFields(panel.build(ctx), panel.id);
+  const fields = Exceptions.eligibleFields(panel.build(ctx), panel.id, ctx.language);
   if (fields.length === 0) return [];
+
+  // Declared as the picker's own options **and** the rows the form would draw with
+  // every one of them selected. The two differ for the three union-typed keys, whose
+  // row is a mode dropdown and whatever that mode calls for — so declaring only the
+  // bare key would leave those controls' labels unreconciled, and declaring only the
+  // rows would do the same to the name the picker lists. Every mode is swept, because a
+  // mode's value field exists only while that mode is chosen.
+  const rows = new Map<string, HaFormSchema>();
+  for (const field of fields) {
+    rows.set(field.name, field);
+
+    for (const mode of Overrides.everyMode(field.name)) {
+      for (const row of Overrides.expandFields([field], ctx.language, mode)) {
+        rows.set(row.name, row);
+      }
+    }
+  }
 
   return [
     {
@@ -88,7 +107,7 @@ export function exceptionSubforms(panel: PanelDef, ctx: SchemaCtx): SubformDef[]
         },
       ],
     },
-    { path: [blockKey], schema: fields },
+    { path: [blockKey], schema: [...rows.values()] },
   ];
 }
 

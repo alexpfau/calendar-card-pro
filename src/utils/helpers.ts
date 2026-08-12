@@ -174,9 +174,34 @@ export function getTodayIndicatorType(value: string | boolean): string {
   return 'none';
 }
 
-//-----------------------------------------------------------------------------
-// ID GENERATION FUNCTIONS
-//-----------------------------------------------------------------------------
+/**
+ * Determine which of the four shapes a calendar's label holds
+ *
+ * The counterpart to `getTodayIndicatorType` for the per-calendar label, and written
+ * here beside it for the same reason: the editor has to offer a control per shape, and
+ * a classifier of its own would eventually disagree with the renderer about what a
+ * value means. `renderLabel` in `rendering/leaves.ts` makes exactly these three tests in
+ * exactly this order; `tests/label-glyph.test.ts` pins the two together, so a change to
+ * one that is not made to the other fails rather than drifting silently.
+ *
+ * @param label Label value from a calendar's configuration
+ * @returns Shape of the label ('none', 'icon', 'image' or 'text')
+ */
+export function getLabelType(label: unknown): 'none' | 'icon' | 'image' | 'text' {
+  if (typeof label !== 'string' || label === '') {
+    return 'none';
+  }
+
+  if (isIconValue(label)) {
+    return 'icon';
+  }
+
+  if (label.startsWith('/local/') || /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(label)) {
+    return 'image';
+  }
+
+  return 'text';
+}
 
 /**
  * Generate a random instance ID

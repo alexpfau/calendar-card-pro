@@ -175,6 +175,11 @@ export function stripColumnDefaults(
     // never affect the render and has no business being written out.
     if (value === undefined) continue;
 
+    // A stand-in for one of the union-typed keys, which is UI state and not
+    // configuration. The exceptions widget already strips them; this is the same
+    // backstop the top-level pass keeps, for the same reason.
+    if (isSyntheticKey(key)) continue;
+
     if (key === 'min_days_to_show') {
       // Decided by asking the resolver, not by re-deriving its arithmetic. Its default
       // is dynamic — `days_to_show` — and it parses, floors and clamps on the way

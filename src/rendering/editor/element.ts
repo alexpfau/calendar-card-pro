@@ -21,8 +21,10 @@ import * as Exceptions from './exceptions';
 import * as Filter from './filter';
 import type { HaFormSchema, SelectorSchema } from './ha-form';
 import * as EditorLocalize from './localize';
+import * as Overrides from './overrides';
 import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
 import { ENTITY_PATH } from './schemas/calendars';
+import { entitySchemaFor } from './schemas/entity';
 import { interpolate } from './strings';
 import styles from './styles';
 import { EXCEPTION_PICKER } from './subforms';
@@ -468,7 +470,15 @@ export class CalendarCardProEditor extends LitElement {
       .map((entry, index) => ({
         entry,
         index,
-        schema: Filter.filterEntitySchema(subform.schema, entry, subform.path, filterCtx),
+        schema: Filter.filterEntitySchema(
+          // Narrowed to this calendar's own label shape before the filter runs, so the
+          // filter sees the fields this calendar actually renders rather than the
+          // superset the panel declares.
+          entitySchemaFor(subform.schema, Entities.labelTypeOf(entry)),
+          entry,
+          subform.path,
+          filterCtx,
+        ),
       }))
       .filter((candidate) => Filter.hasFields(candidate.schema));
 
@@ -640,7 +650,7 @@ export class CalendarCardProEditor extends LitElement {
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
     if (blockKey === undefined) return nothing;
 
-    const eligible = Exceptions.eligibleFields(schema, panel.id);
+    const eligible = Exceptions.eligibleFields(schema, panel.id, ctx.language);
     if (eligible.length === 0) return nothing;
 
     const declared = Exceptions.activeFields(eligible, this._declaredExceptions);
@@ -666,6 +676,18 @@ export class CalendarCardProEditor extends LitElement {
         },
       },
     };
+
+    // Bound to the block **plus** the stand-ins for whichever of its keys are unions —
+    // the same mode dropdowns the panel above uses, pointed at the block. Recomputed
+    // rather than remembered: it is a pure function of state the change has not touched
+    // yet, so the handler below can rebuild the identical object to diff against.
+    const names = active.map((field) => field.name);
+    const data = Overrides.overrideFormData(
+      Value.exceptionFormBlock(this._config!, names),
+      names,
+      Overrides.pendingForBlock(this._pending, blockKey as string),
+    );
+    const rows = Overrides.expandFields(active, ctx.language, data);
 
     return html`
       <ha-expansion-panel
@@ -695,17 +717,15 @@ export class CalendarCardProEditor extends LitElement {
                 <ha-form
                   class="exception-form"
                   .hass=${this.hass}
-                  .data=${Value.exceptionFormBlock(
-                    this._config!,
-                    active.map((field) => field.name),
-                  )}
-                  .schema=${active}
+                  .data=${data}
+                  .schema=${rows}
                   .computeLabel=${(schemaNode: HaFormSchema) =>
                     EditorLocalize.computeLabel(ctx.language, schemaNode, path)}
                   .computeHelper=${(schemaNode: HaFormSchema) =>
                     EditorLocalize.computeSubformHelper(ctx.language, ctx.view, schemaNode, path)}
                   .localizeValue=${this._localizeValue}
-                  @value-changed=${(event: CustomEvent) => this._exceptionChanged(blockKey, event)}
+                  @value-changed=${(event: CustomEvent) =>
+                    this._exceptionChanged(blockKey, names, event)}
                 ></ha-form>
               `}
         </div>
@@ -771,21 +791,51 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Folds a change to an exception's value into the override block.
    *
-   * The form is bound to the block itself and hands the whole of it back, so this
-   * writes it whole. Anything in it that is redundant — an exception equal to what it
-   * would inherit, a density value left at its default — is stripped on the way to
-   * storage, so displaying an effective value never persists one.
+   * A diff rather than a whole-object write, for the reason `applyFormChange` is a diff
+   * everywhere else: three of the options here are edited through stand-in fields, so
+   * what the form hands back is not the block — it is the block with some of its keys
+   * replaced by the mode dropdowns that write them. `applyOverrideChange` reverses that,
+   * and the previous data it diffs against is rebuilt rather than remembered, since it
+   * is a pure function of configuration this event has not changed yet.
+   *
+   * Anything the result leaves redundant — an exception equal to what it would inherit,
+   * a density value left at its default — is stripped on the way to storage, so
+   * displaying an effective value never persists one.
    *
    * @param blockKey - Config key holding the view's override block
+   * @param names - Options whose rows this form is currently showing
    * @param event - The form's `value-changed`
    */
-  private _exceptionChanged(blockKey: keyof Types.Config, event: CustomEvent): void {
+  private _exceptionChanged(
+    blockKey: keyof Types.Config,
+    names: ReadonlyArray<string>,
+    event: CustomEvent,
+  ): void {
     event.stopPropagation();
 
     const next = event.detail?.value as Record<string, unknown> | undefined;
     if (!next || !this._config) return;
 
-    this._config = { ...this._config, [blockKey]: next } as Types.Config;
+    const key = blockKey as string;
+    const pending = Overrides.pendingForBlock(this._pending, key);
+    const previous = Overrides.overrideFormData(
+      Value.exceptionFormBlock(this._config, names),
+      names,
+      pending,
+    );
+
+    const stored = this._config[blockKey];
+    const applied = Overrides.applyOverrideChange(
+      stored && typeof stored === 'object' && !Array.isArray(stored)
+        ? (stored as Record<string, unknown>)
+        : {},
+      previous,
+      next,
+      pending,
+    );
+
+    this._pending = Overrides.mergeBlockPending(this._pending, key, applied.pending);
+    this._config = { ...this._config, [blockKey]: applied.block } as Types.Config;
 
     this._report(this._config);
   }

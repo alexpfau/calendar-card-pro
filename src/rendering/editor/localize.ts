@@ -193,7 +193,11 @@ function statedByEnclosingGroup(key: string, path: ReadonlyArray<string>): boole
  * card shows on a narrow screen, and calling it inert would be wrong.
  *
  * Where a whole group shares one scope the note is stated on the group and left off
- * its children — see `GROUP_SCOPE`.
+ * its children — see `GROUP_SCOPE`. **A group's note goes after its helper**, unlike a
+ * field's, and the difference is not cosmetic: a field's note qualifies a control the
+ * reader can already see and name, whereas a group's arrives before the reader knows
+ * what the group is. Prefixed, the compact-mode group opened with "These apply to the
+ * list layout…" above the sentence that said what "these" were.
  *
  * @param language - Effective language code
  * @param view - View the card is configured to render
@@ -210,8 +214,12 @@ export function computeHelper(
   const own =
     lookup(language, `${helperKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
 
+  const groupNote = groupScopeNote(language, schema.name, view);
+  if (groupNote !== undefined) {
+    return own === undefined ? groupNote : `${own} ${groupNote}`;
+  }
+
   const note =
-    groupScopeNote(language, schema.name, view) ??
     (statedByEnclosingGroup(schema.name, path)
       ? undefined
       : applicabilityNote(language, schema.name, view)) ??

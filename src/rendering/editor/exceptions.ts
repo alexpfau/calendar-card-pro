@@ -32,6 +32,7 @@
  */
 
 import type { HaFormSchema, SelectorSchema } from './ha-form';
+import * as Overrides from './overrides';
 import { walkSchema } from './panels';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -39,17 +40,25 @@ import * as ViewConfig from '../../config/view';
 /**
  * Options a panel can hold an exception for despite not rendering them directly.
  *
+ * Two reasons for a key to be here, and they are different reasons.
+ *
  * Both heights are edited through a mode dropdown that chooses *which* of the two keys
  * is set, which is the right control for a card that has one height and the wrong one
- * for an exception to a single key. They are the only two overridable options in this
- * position, and the alternative — teaching the exception list to reach through a
- * synthetic field to the keys behind it — would be machinery for a set of two.
+ * for an exception to a single key. Each is a plain string in the block, so each gets a
+ * plain control below.
+ *
+ * The other three are unions no selector can emit, and they are here because the panel
+ * renders their *stand-ins* rather than the key itself — so walking the schema finds
+ * `week_number_mode` and never `show_week_numbers`. `overrides.ts` gives each the same
+ * derivation the panel uses, pointed at the block.
  *
  * A key here must be override-eligible and must have a selector below; both are
  * asserted by the tests rather than left to review.
  */
 const EXTRA_KEYS_BY_PANEL: Readonly<Record<string, ReadonlyArray<string>>> = {
   layout: ['height', 'max_height'],
+  day_header: ['show_week_numbers', 'today_indicator'],
+  events: ['remove_location_country'],
 };
 
 /**
@@ -62,6 +71,17 @@ const EXTRA_SELECTORS: Readonly<Record<string, SelectorSchema>> = {
   height: { name: 'height', selector: { text: {} } },
   max_height: { name: 'max_height', selector: { text: {} } },
 };
+
+/**
+ * The field offered for an option the panel does not render directly.
+ *
+ * @param key - Config key
+ * @param language - Effective language code
+ * @returns The field, or `undefined` when the key has no control
+ */
+function extraField(key: string, language: string): SelectorSchema | undefined {
+  return EXTRA_SELECTORS[key] ?? Overrides.unionPickerField(key, language);
+}
 
 /** Every option that can be given a different value in a view that has a block. */
 const OVERRIDE_KEYS: ReadonlySet<string> = new Set<string>(ViewConfig.COLUMN_OVERRIDE_KEYS);
@@ -80,11 +100,13 @@ const OVERRIDE_KEYS: ReadonlySet<string> = new Set<string>(ViewConfig.COLUMN_OVE
  *
  * @param schema - The panel's schema, as built for the current configuration
  * @param panelId - Which panel it belongs to
+ * @param language - Effective language code, for the extra fields' option labels
  * @returns One field per eligible option
  */
 export function eligibleFields(
   schema: ReadonlyArray<HaFormSchema>,
   panelId: string,
+  language = 'en',
 ): SelectorSchema[] {
   const seen = new Set<string>();
   const fields: SelectorSchema[] = [];
@@ -101,7 +123,7 @@ export function eligibleFields(
   for (const key of EXTRA_KEYS_BY_PANEL[panelId] ?? []) {
     if (seen.has(key) || !OVERRIDE_KEYS.has(key)) continue;
 
-    const field = EXTRA_SELECTORS[key];
+    const field = extraField(key, language);
     if (field === undefined) continue;
 
     seen.add(key);
@@ -116,13 +138,15 @@ export function eligibleFields(
  *
  * @param schema - The panel's schema, as built for the current configuration
  * @param panelId - Which panel it belongs to
+ * @param language - Effective language code
  * @returns Eligible option names, in render order
  */
 export function eligibleKeys(
   schema: ReadonlyArray<HaFormSchema>,
   panelId: string,
+  language = 'en',
 ): ReadonlyArray<string> {
-  return eligibleFields(schema, panelId).map((field) => field.name);
+  return eligibleFields(schema, panelId, language).map((field) => field.name);
 }
 
 /**
