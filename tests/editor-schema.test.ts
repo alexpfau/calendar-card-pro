@@ -632,6 +632,49 @@ describe('editor: labels', () => {
       expect(label, `${node.name} has no label`).not.toBe(node.name);
     }
   });
+
+  /**
+   * No field may inherit its group's label.
+   *
+   * `translate` split a dotted key into exactly two segments, so a group-qualified key
+   * such as `editor.time.show_end_time` matched on its `editor.time` prefix — a string —
+   * and returned it. Every field inside the `time` group rendered as "Time", with the
+   * group's helper text under it, and the same collapse hit `location`, `description`,
+   * `event` and `date`. It reached a live editor because nothing asserted on what
+   * resolution *returns*: the i18n gate proves each string exists, and the test above
+   * only proves a label is not the raw key. "Time" is neither missing nor a raw key.
+   *
+   * This is the invariant that fails when a qualified lookup silently answers with its
+   * parent, whatever the mechanism, so it does not need updating if the resolution chain
+   * changes again.
+   */
+  it('never resolves a field to the label of the group holding it', () => {
+    for (const panel of PANELS) {
+      for (const view of ['list', 'column'] as const) {
+        const config = buildConfig({ view }) as Types.Config;
+        const schema = panel.build({ view, config, language: 'en' });
+        const groupTitles = new Map<string, string>();
+
+        for (const { node, path } of walkSchema(schema)) {
+          if ('schema' in node) {
+            if (node.name !== '') {
+              groupTitles.set([...path, node.name].join('.'), computeLabel('en', node, path));
+            }
+            continue;
+          }
+          if (node.name === '' || path.length === 0) continue;
+
+          const groupTitle = groupTitles.get(path.join('.'));
+          if (groupTitle === undefined) continue;
+
+          expect(
+            computeLabel('en', node, path),
+            `${panel.id}/${path.join('.')}/${node.name} inherited its group's label in ${view} view`,
+          ).not.toBe(groupTitle);
+        }
+      }
+    }
+  });
 });
 
 describe('editor: the Layout panel', () => {

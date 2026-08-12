@@ -186,9 +186,27 @@ export function translate(
   const translations = getTranslations(language);
 
   // Handle editor translations which use dot notation (editor.some_key)
+  //
+  // The `editor` section is exactly one level deep, so only a two-segment key can name
+  // an entry in it. Anything deeper is a group-qualified key from the schema-driven
+  // editor — `editor.time.show_end_time` — and belongs to a namespace this file does
+  // not hold.
+  //
+  // Matching those on their two-segment prefix is not a near miss, it is a wrong answer
+  // that looks right: `editor.time` is the string "Time", so every field inside the
+  // `time` group resolved to its group's own label, and so did its helper text. The
+  // same collapse hit `location`, `description`, `event` and `date`. The caller's
+  // "no string here" fallback never ran, because a string was returned.
   if (typeof key === 'string' && key.includes('.')) {
-    const [section, subKey] = key.split('.');
-    if (section === 'editor' && translations.editor && subKey in translations.editor) {
+    const [section, ...rest] = key.split('.');
+    const subKey = rest.join('.');
+
+    if (
+      section === 'editor' &&
+      rest.length === 1 &&
+      translations.editor &&
+      subKey in translations.editor
+    ) {
       const editorValue = translations.editor[subKey];
       // Explicitly check and return only string or string[] values
       if (typeof editorValue === 'string' || Array.isArray(editorValue)) {
