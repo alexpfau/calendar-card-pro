@@ -57,8 +57,18 @@ import * as Helpers from '../../utils/helpers';
  */
 const ATOMIC_KEYS = ['tap_action', 'hold_action', 'weather'] as const;
 
-/** Structural comparison, enough for the small plain objects a config holds. */
-function deepEqual(a: unknown, b: unknown): boolean {
+/**
+ * Structural comparison, enough for the small plain objects a config holds.
+ *
+ * Exported because the filter asks the same question of the same values — whether an
+ * option is holding what the card would use anyway — and two implementations of "same
+ * value" would disagree the first time either of them learned about a new shape.
+ *
+ * @param a - One value
+ * @param b - The other
+ * @returns `true` when the two are structurally identical
+ */
+export function deepEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
   if (Array.isArray(a) !== Array.isArray(b)) return false;

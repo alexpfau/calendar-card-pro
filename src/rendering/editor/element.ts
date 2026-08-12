@@ -18,6 +18,7 @@ import { property, state } from 'lit/decorators.js';
 
 import * as Entities from './entities';
 import * as Exceptions from './exceptions';
+import * as Filter from './filter';
 import type { HaFormSchema, SelectorSchema } from './ha-form';
 import * as EditorLocalize from './localize';
 import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
@@ -76,6 +77,15 @@ export class CalendarCardProEditor extends LitElement {
    * carry it.
    */
   @state() private _declaredExceptions: ReadonlySet<string> = new Set();
+
+  /**
+   * What the user has asked the editor to show them.
+   *
+   * Editor state and nothing else: it filters what is rendered and never reaches the
+   * configuration, so there is no write path to guard and no chance of a search term
+   * being persisted to someone's YAML.
+   */
+  @state() private _filter: Filter.FilterCriteria = Filter.NO_FILTER;
 
   /**
    * The form data as last rendered, per panel.
@@ -143,6 +153,22 @@ export class CalendarCardProEditor extends LitElement {
       view,
       config,
       language: Localize.getEffectiveLanguage(config.language, this.hass?.locale),
+    };
+  }
+
+  /**
+   * Builds the context the filter matches against.
+   *
+   * @returns Matching context for the current configuration and criteria
+   */
+  private get _filterCtx(): Filter.FilterCtx {
+    const ctx = this._ctx;
+
+    return {
+      language: ctx.language,
+      view: ctx.view,
+      config: ctx.config,
+      criteria: this._filter,
     };
   }
 
@@ -270,16 +296,51 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Renders one panel: an expansion panel wrapping a form.
    *
+   * Nothing is rendered for a panel the filter has emptied. A collapsed heading with no
+   * fields under it is worse than absent — it reads as a section that holds no match,
+   * which is exactly the thing the user would then open to check.
+   *
+   * A filtered editor renders its panels **expanded**, because the alternative is nine
+   * collapsed headings and no answer: the user asked where an option is, and a closed
+   * panel replies only with which section it is in.
+   *
    * @param panel - Panel definition
    * @param ctx - Schema context
-   * @returns The panel template
+   * @returns The panel template, or nothing when the filter leaves it empty
    */
-  private _renderPanel(panel: PanelDef, ctx: SchemaCtx): TemplateResult {
-    const schema = panel.build(ctx);
+  private _renderPanel(panel: PanelDef, ctx: SchemaCtx): TemplateResult | typeof nothing {
+    const filterCtx = this._filterCtx;
+    const filtering = Filter.isFiltering(this._filter);
+
+    // A panel whose own heading answers the query is shown whole, exactly as a matching
+    // group inside one is: the user asked for the section, not for whichever of its
+    // fields repeats the word. "Customized only" is no such exemption — a section kept
+    // whole on the strength of its title would bring back every default in it.
+    const built = panel.build(ctx);
+    const wholePanel =
+      filtering && !this._filter.customizedOnly && Filter.matchesPanel(panel, filterCtx);
+    const schema = wholePanel ? built : Filter.filterSchema(built, filterCtx);
+
     const data = this._formData();
     this._renderedData.set(panel.id, data);
 
-    const extras = panel.extras?.(ctx) ?? [];
+    // Built against the *unfiltered* schema: which options a panel may hold an exception
+    // for is a property of the panel, not of what is on screen, and deriving it from a
+    // filtered schema would quietly shorten the picker's list of options while a search
+    // was active.
+    const exceptions = this._renderExceptions(panel, built, ctx);
+    const entities = this._renderEntities(panel, ctx);
+    const extras = Filter.filterExtras(panel.extras?.(ctx) ?? [], panel, filterCtx);
+
+    const empty =
+      !Filter.hasFields(schema) &&
+      extras.length === 0 &&
+      exceptions === nothing &&
+      entities === nothing;
+
+    if (filtering && empty) {
+      return nothing;
+    }
 
     return html`
       <ha-expansion-panel
@@ -287,6 +348,7 @@ export class CalendarCardProEditor extends LitElement {
         .header=${this._panelTitle(panel, ctx)}
         .secondary=${this._panelHelper(panel, ctx) ?? ''}
         .leftChevron=${false}
+        .expanded=${filtering}
       >
         <ha-svg-icon slot="leading-icon" .path=${panel.iconPath}></ha-svg-icon>
         <div class="panel-body">
@@ -300,8 +362,7 @@ export class CalendarCardProEditor extends LitElement {
             .localizeValue=${this._localizeValue}
             @value-changed=${(event: CustomEvent) => this._valueChanged(panel.id, event)}
           ></ha-form>
-          ${extras.map((extra) => this._renderExtra(extra))} ${this._renderEntities(panel, ctx)}
-          ${this._renderExceptions(panel, schema, ctx)}
+          ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${exceptions}
         </div>
       </ha-expansion-panel>
     `;
@@ -397,6 +458,22 @@ export class CalendarCardProEditor extends LitElement {
     const entries = this._config?.entities ?? [];
     if (entries.length === 0) return nothing;
 
+    const filterCtx = this._filterCtx;
+    const filtering = Filter.isFiltering(this._filter);
+
+    // Filtered per calendar rather than once for the list: what counts as customized is
+    // a property of the individual calendar, so one calendar's settings can survive a
+    // filter that empties its neighbour's.
+    const shown = entries
+      .map((entry, index) => ({
+        entry,
+        index,
+        schema: Filter.filterEntitySchema(subform.schema, entry, subform.path, filterCtx),
+      }))
+      .filter((candidate) => Filter.hasFields(candidate.schema));
+
+    if (shown.length === 0) return nothing;
+
     const computeLabel = (schema: HaFormSchema): string =>
       EditorLocalize.computeLabel(ctx.language, schema, subform.path);
 
@@ -410,7 +487,7 @@ export class CalendarCardProEditor extends LitElement {
       );
 
     return html`
-      ${entries.map((entry, index) => {
+      ${shown.map(({ entry, index, schema }) => {
         const entityId = Synthetic.entityIdOf(entry);
 
         return html`
@@ -420,6 +497,7 @@ export class CalendarCardProEditor extends LitElement {
             .header=${entityId}
             .secondary=${this._entitySummary(entry, ctx)}
             .leftChevron=${false}
+            .expanded=${filtering}
           >
             <ha-svg-icon slot="leading-icon" .path=${ENTITY_ICON}></ha-svg-icon>
             <div class="panel-body">
@@ -427,7 +505,7 @@ export class CalendarCardProEditor extends LitElement {
                 class="entity-form"
                 .hass=${this.hass}
                 .data=${Entities.toEntityFormData(entry)}
-                .schema=${subform.schema}
+                .schema=${schema}
                 .computeLabel=${computeLabel}
                 .computeHelper=${computeHelper}
                 .localizeValue=${this._localizeValue}
@@ -543,8 +621,14 @@ export class CalendarCardProEditor extends LitElement {
    * overridable option, and nothing is rendered *inside* the group until an exception is
    * added — a card with none costs one collapsed heading and no fields.
    *
+   * Under a filter the widget appears only when it has rows the filter keeps. An
+   * exception is a customization by construction, so "customized only" keeps every
+   * declared row; a search keeps the rows it matches, and the whole widget when the
+   * heading itself matches. A panel showing an exceptions heading with nothing behind it
+   * would be the same empty promise as an empty panel.
+   *
    * @param panel - Panel being rendered
-   * @param schema - The panel's schema, as built
+   * @param schema - The panel's schema, as built and before any filtering
    * @param ctx - Schema context
    * @returns The widget, or nothing
    */
@@ -559,8 +643,13 @@ export class CalendarCardProEditor extends LitElement {
     const eligible = Exceptions.eligibleFields(schema, panel.id);
     if (eligible.length === 0) return nothing;
 
-    const active = Exceptions.activeFields(eligible, this._declaredExceptions);
+    const declared = Exceptions.activeFields(eligible, this._declaredExceptions);
     const path = [blockKey as string];
+    const filtering = Filter.isFiltering(this._filter);
+    const title = this._string(ctx, 'exceptions.title');
+    const active = Filter.filterExceptions(declared, title, path, this._filterCtx);
+
+    if (filtering && active.length === 0) return nothing;
 
     const label = (field: SelectorSchema): string =>
       EditorLocalize.computeLabel(ctx.language, field, path);
@@ -582,16 +671,17 @@ export class CalendarCardProEditor extends LitElement {
       <ha-expansion-panel
         outlined
         class="exceptions"
-        .header=${this._string(ctx, 'exceptions.title')}
-        .secondary=${this._exceptionSummary(active.length, ctx)}
+        .header=${title}
+        .secondary=${this._exceptionSummary(declared.length, ctx)}
         .leftChevron=${false}
+        .expanded=${filtering}
       >
         <ha-svg-icon slot="leading-icon" .path=${EXCEPTION_ICON}></ha-svg-icon>
         <div class="panel-body">
           <ha-form
             class="exception-picker"
             .hass=${this.hass}
-            .data=${{ [EXCEPTION_PICKER]: active.map((field) => field.name) }}
+            .data=${{ [EXCEPTION_PICKER]: declared.map((field) => field.name) }}
             .schema=${[picker]}
             .computeLabel=${this._computeLabel}
             .computeHelper=${this._computeHelper}
@@ -722,9 +812,90 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     const ctx = this._ctx;
+    const panels = PANELS.map((panel) => this._renderPanel(panel, ctx)).filter(
+      (panel) => panel !== nothing,
+    );
+
+    // Only a filter can empty the editor, and only a filter has anything to explain: an
+    // unfiltered editor with no panels would be a bug, and telling the user their search
+    // matched nothing would be the wrong thing to say about it.
+    const empty = panels.length === 0 && Filter.isFiltering(this._filter);
 
     return html`
-      <div class="card-config">${PANELS.map((panel) => this._renderPanel(panel, ctx))}</div>
+      <div class="card-config">
+        ${this._renderFilterBar()} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
+      </div>
+    `;
+  }
+
+  /**
+   * Renders the filter bar above the panels.
+   *
+   * One `<ha-form>` of two fields, which is what keeps a search box from being the
+   * editor's first input element and its fourth Home Assistant component — see
+   * `FILTER_SCHEMA`. Its own form, bound to its own data, with a handler that touches
+   * editor state and nothing else: no configuration passes through here at all.
+   *
+   * @returns The filter bar
+   */
+  private _renderFilterBar(): TemplateResult {
+    return html`
+      <div class="filter-bar">
+        <ha-form
+          class="filter-form"
+          .hass=${this.hass}
+          .data=${Filter.filterFormData(this._filter)}
+          .schema=${Filter.FILTER_SCHEMA}
+          .computeLabel=${this._computeLabel}
+          .computeHelper=${this._computeHelper}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${this._filterChanged}
+        ></ha-form>
+      </div>
+    `;
+  }
+
+  /**
+   * Takes a change from the filter bar.
+   *
+   * @param event - The filter form's `value-changed`
+   */
+  private _filterChanged = (event: CustomEvent): void => {
+    event.stopPropagation();
+
+    const data = event.detail?.value as Record<string, unknown> | undefined;
+    if (!data) return;
+
+    this._filter = Filter.toFilterCriteria(data);
+  };
+
+  /**
+   * Says why the editor is empty.
+   *
+   * Worth its own message rather than a blank pane, and worth two of them. A search that
+   * finds nothing has a specific reason a user cannot see: the panels only build the
+   * fields the current configuration calls for, so an option gated behind a switch that
+   * is off is genuinely not in the editor to be found, and saying so is the difference
+   * between a hint and a dead end. "Customized only" with nothing to show is not a
+   * failure at all — it is the answer, and it deserves to be stated as one.
+   *
+   * @param ctx - Schema context
+   * @returns The message
+   */
+  private _renderNoMatches(ctx: SchemaCtx): TemplateResult {
+    const query = this._filter.query.trim();
+
+    if (query === '') {
+      return html`
+        <div class="filter-empty">${this._string(ctx, 'filter.nothing_customized')}</div>
+      `;
+    }
+
+    return html`
+      <div class="filter-empty">
+        ${interpolate(this._string(ctx, 'filter.no_matches'), { query })}
+        <div class="filter-empty-note">${this._string(ctx, 'filter.gated_note')}</div>
+      </div>
     `;
   }
 }

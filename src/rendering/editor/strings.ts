@@ -33,6 +33,23 @@
  * does at a width* rather than *what an option is called*.
  */
 export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
+  // --- Filter bar -----------------------------------------------------------
+  //
+  // The chassis's own control, above the panels. Written as *settings* rather than as
+  // *options* in the two sentences a user reads while searching: at that moment they are
+  // looking for a thing in a user interface, not for a config key, and the reference
+  // documentation's noun would be the wrong register. Everything that names an option in
+  // its own right still calls it an option.
+  search: 'Search Settings',
+  customized_only: 'Customized Only',
+  'customized_only.helper':
+    'Hides everything left at the value the card would use anyway, so what is left is ' +
+    'what this card changes.',
+  'filter.no_matches': 'Nothing matches “{query}”.',
+  'filter.nothing_customized': 'Nothing is customized — every setting is at the card default.',
+  'filter.gated_note':
+    'Settings that depend on another one appear only once that one is switched on.',
+
   // --- Panels ---------------------------------------------------------------
   'panel.layout': 'Layout',
   'panel.layout.helper': 'How the card arranges days, and how much room it takes up.',

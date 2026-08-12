@@ -11,9 +11,14 @@
  * The exceptions are derived from every panel's own schema, because a panel should not
  * have to know it holds an overridable option — that is a property of the option, and
  * the schema already states it.
+ *
+ * The filter bar is a third kind and belongs to no panel at all; `chassisSubforms`
+ * declares it for the same reason, so that the chassis's own schema is reconciled like
+ * everything else.
  */
 
 import * as Exceptions from './exceptions';
+import { FILTER_SCHEMA } from './filter';
 import { PANELS, type PanelDef, type SchemaCtx, type SubformDef } from './panels';
 import * as ViewConfig from '../../config/view';
 
@@ -26,6 +31,33 @@ import * as ViewConfig from '../../config/view';
  * helper resolve the way every other label and helper does.
  */
 export const EXCEPTION_PICKER = 'exceptions';
+
+/**
+ * Schemas the chassis renders itself, belonging to no panel.
+ *
+ * One so far: the filter bar. It is here rather than inlined in the element for the same
+ * reason the exceptions widget is — a schema the chassis draws is still schema, and one
+ * that nothing declares is a set of labels `check:i18n` cannot reconcile.
+ *
+ * @returns Sub-forms the chassis renders above the panels
+ */
+export function chassisSubforms(): SubformDef[] {
+  return [{ path: [], schema: FILTER_SCHEMA }];
+}
+
+/**
+ * String-key prefixes the chassis resolves itself, beyond its fields.
+ *
+ * The counterpart to `PanelDef.strings`, for text the element renders directly rather
+ * than through a schema: the buttons and summaries around the per-calendar list, the
+ * exceptions heading, and what the filter says when it has nothing to show.
+ *
+ * Declaring them is not bookkeeping. `entity.copy` and its three neighbours are reachable
+ * today only because the *weather* panel happens to contain a field named `entity`, which
+ * makes `entity` a root by coincidence — rename that field and four chassis strings would
+ * be reported as dead. An accidental root proves nothing, so the chassis states its own.
+ */
+export const CHASSIS_STRINGS: ReadonlyArray<string> = ['filter', 'entity', 'exceptions'];
 
 /**
  * Builds the exception controls for one panel.
