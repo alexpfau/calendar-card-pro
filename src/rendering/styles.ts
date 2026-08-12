@@ -84,7 +84,15 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
         ? 'color-mix(in srgb, var(--primary-text-color) 60%, transparent)'
         : config.empty_day_color,
 
-    // Weather styling properties
+    // Weather styling properties.
+    //
+    // Note these five are currently emitted and never read: every weather style is
+    // applied as an inline style by the leaf renderers, so the stylesheet has nothing
+    // to resolve them against. They are kept because they are part of the card's
+    // documented custom-property surface, and their fallbacks are kept honest -- the
+    // date badge resolves to the primary colour because its neighbours in the day
+    // header do, the event badge to the secondary colour because its neighbours in the
+    // event block do. See DEFAULT_CONFIG for why neither is a shipped default.
     '--calendar-card-weather-date-icon-size': config.weather?.date?.icon_size || '14px',
     '--calendar-card-weather-date-font-size': config.weather?.date?.font_size || '12px',
     '--calendar-card-weather-date-color':
@@ -92,7 +100,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-weather-event-icon-size': config.weather?.event?.icon_size || '14px',
     '--calendar-card-weather-event-font-size': config.weather?.event?.font_size || '12px',
     '--calendar-card-weather-event-color':
-      config.weather?.event?.color || 'var(--primary-text-color)',
+      config.weather?.event?.color || 'var(--secondary-text-color)',
     // Read with a fallback rather than from the merged default, because `setConfig`
     // merges shallowly: a user's `weather:` block replaces DEFAULT_CONFIG's whole
     // sub-tree, so `weather.event.max_lines` is absent from any config that configures
@@ -856,6 +864,48 @@ export const cardStyles = css`
     -webkit-line-clamp: var(--calendar-card-weather-event-max-lines);
     overflow: hidden;
     overflow-wrap: break-word;
+  }
+
+  /*
+   * The separators.
+   *
+   * .event-weather is a flex container, and a flex container drops the whitespace
+   * between its items and strips each item's own edge whitespace -- so every space the
+   * row's template contains is discarded before it reaches the screen, and the pieces
+   * rendered as 30°UV4Sunny. The 2px margin below was the only gap anywhere in it.
+   *
+   * Done here rather than in the template because it follows from which pieces are
+   * present: one rule covers all eight combinations of temperature, UV index and
+   * condition, it cannot fire after the icon (an ha-icon is not a span, so the first
+   * text piece never has a span before it), and it moves no markup, which is what keeps
+   * the list view's DOM snapshots still.
+   *
+   * Scoped under .time-location so it reaches the row placement only -- the list view's
+   * title-row badge keeps rendering 30° UV4 run together, which is the deliberate
+   * status quo of a layout that has been stable for years. See renderEventWeather for
+   * why the separator is a middot and why the condition keeps its capital.
+   */
+  .time-location .event-weather span + span::before {
+    content: '·';
+    margin-inline: 4px;
+  }
+
+  /*
+   * Two more properties the badge sets for the title row and this placement has to
+   * undo, both on the UV index and both missed when the row was first built.
+   *
+   * The margin is 2px because in the title row it was the only separator there was;
+   * here it lands on top of the one above and makes one gap 2px wider than the other.
+   *
+   * The weight is the same reset .time-location .event-weather already performs, and it
+   * did not reach this element: font-weight: normal on the container is *inherited*, so
+   * a descendant that declares 500 outright still wins. The UV index was therefore the
+   * only semi-bold text in the whole event block -- precisely the symptom that reset
+   * was written to fix, surviving on the one element it could not reach.
+   */
+  .time-location .event-weather .weather-uv-index {
+    margin-inline-start: 0;
+    font-weight: normal;
   }
 
   .description span {

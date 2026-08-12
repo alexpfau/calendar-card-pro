@@ -116,6 +116,21 @@ export const DEFAULT_CONFIG: Types.Config = {
   description_icon_size: '14px',
 
   // Weather
+  //
+  // `color` is deliberately absent from both positions, and its absence is the whole
+  // mechanism -- same shape as `progress_bar_width`. Each placement wants a different
+  // colour (the day header sits beside the weekday and day number, which are primary;
+  // the event row sits beside the time and location, which are secondary), so the
+  // renderers supply their own fallback. A shipped default cannot express that: by the
+  // time anything downstream sees the value, one the user chose and one they never
+  // touched are the same string.
+  //
+  // Absence matters more here than it does for `progress_bar_width`, because this key
+  // reaches disk. `weather` is an ATOMIC_KEY in the editor (see `editor/value.ts`), so
+  // the whole merged block is written back the moment a user picks a weather entity --
+  // a shipped `color` is therefore copied into their YAML on the first edit, where it is
+  // indistinguishable from a deliberate choice forever after. That is how the event row
+  // came to render in the title's colour on a card nobody had styled.
   weather: {
     entity: undefined,
     position: 'date',
@@ -127,7 +142,6 @@ export const DEFAULT_CONFIG: Types.Config = {
       uv_index_threshold: 0,
       icon_size: '14px',
       font_size: '12px',
-      color: 'var(--primary-text-color)',
     },
     event: {
       show_conditions: true,
@@ -138,7 +152,6 @@ export const DEFAULT_CONFIG: Types.Config = {
       max_lines: 0,
       icon_size: '14px',
       font_size: '12px',
-      color: 'var(--primary-text-color)',
     },
   },
 
