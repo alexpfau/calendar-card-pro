@@ -100,7 +100,23 @@ export const DEFAULT_CONFIG: Types.Config = {
   // Unlike the weather block this key does not reach disk unbidden: it is a top-level
   // scalar, so `filterDefaultValues` drops it from stored config until the user sets it.
   progress_bar_width: undefined,
-  event_icon_vertical_alignment: 'middle',
+  // Changed from 'middle' in v4, and it is a breaking change for anyone who liked the old
+  // one -- see docs/RELEASE_NOTES.md. The option only becomes visible when a row wraps,
+  // and 'middle' then centres the icon against the whole block: a clock or map-marker
+  // floating in the vertical middle of two lines of text, level with neither. The column
+  // view wraps routinely, because its narrowest track is 152px and the countdown now
+  // shares the time row as running text; the list view wraps less often but does wrap, on
+  // a long address or a description.
+  //
+  // Both views, not column only, and that is a decision about the mechanism rather than
+  // about taste. COLUMN_DEFAULT_OVERRIDES does not mean "a different default": a key
+  // listed there stops inheriting the top-level value altogether, so a user who set
+  // `event_icon_vertical_alignment: middle` at the top level would find column view
+  // ignoring it until they repeated themselves inside `column:`. That price is worth
+  // paying for `show_empty_days`, where the alternative is a grid of columns that no
+  // longer corresponds to consecutive days. It is not worth paying for an icon's
+  // alignment, where the surprise is larger than the thing being decided.
+  event_icon_vertical_alignment: 'top',
   event_font_size: '14px',
   event_color: 'var(--primary-text-color)',
   empty_day_color: 'var(--primary-text-color)',
