@@ -85,28 +85,17 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
 
     // Weather styling properties.
     //
-    // Note these six are emitted and, with one exception, never read: every weather
-    // style is applied as an inline style by the leaf renderers, so the stylesheet has
-    // nothing to resolve them against. Their fallbacks are still kept honest -- the date
-    // badge resolves to the primary colour because its neighbours in the day header do,
-    // the event badge to the secondary colour because its neighbours in the event block
-    // do. See DEFAULT_CONFIG for why neither is a shipped default.
+    // These six deliberately mirror the nested `weather.date` and `weather.event`
+    // presentation options. The renderers emit semantic markup only; the stylesheet is
+    // the single reader for size and colour, matching the rest of the card's theming
+    // pattern and making the host properties a real override surface. Keep the fallbacks
+    // position-specific: date badges sit beside primary-coloured day-header text, event
+    // badges sit beside secondary-coloured time/location rows.
     //
-    // 🚨 The exception is --calendar-card-weather-event-icon-size, which the row
-    // placement's hanging indent now reads: .time-location .event-weather reserves an
-    // icon gutter of exactly this plus the icon's own 4px margin, so a wrapped line
-    // starts under the temperature. That is a real reader, and it means removing this
-    // one is no longer free -- see Y6, which proposes removing all six.
-    //
-    // The other five are NOT a documented custom-property surface: no page under docs/
-    // names any of them, so nothing outside this file promises they work. Emitting them
-    // is arguably worse than not -- someone inspecting the host element finds
-    // --calendar-card-weather-event-color sitting there and concludes that overriding it
-    // will do something. It will not. Filed as Y6 for the maintainer rather than removed
-    // here, because it is a visible surface and the call is his.
-    //
-    // --calendar-card-weather-event-max-lines, further down, is a different case: it IS
-    // read, by the clamp on .weather-condition. Do not sweep it up with these.
+    // The event icon size is also the unit for the row placement's hanging indent, so the
+    // wrapped text continues to start under the temperature when a user enlarges the
+    // icon. `--calendar-card-weather-event-max-lines` remains separate: it controls only
+    // the optional condition clamp, not the badge's visual styling.
     '--calendar-card-weather-date-icon-size': config.weather?.date?.icon_size || '14px',
     '--calendar-card-weather-date-font-size': config.weather?.date?.font_size || '12px',
     '--calendar-card-weather-date-color':
@@ -124,6 +113,8 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       (config.weather?.event?.max_lines ?? 0) > 0
         ? String(config.weather?.event?.max_lines)
         : 'none',
+    '--calendar-card-weather-event-condition-display':
+      (config.weather?.event?.max_lines ?? 0) > 0 ? '-webkit-box' : 'inline',
   };
 
   // Optional properties
@@ -497,6 +488,12 @@ export const cardStyles = css`
   }
 
   /* Date column weather */
+  .date-column .weather,
+  .column-date-content .weather {
+    font-size: var(--calendar-card-weather-date-font-size, 12px);
+    color: var(--calendar-card-weather-date-color, var(--primary-text-color));
+  }
+
   .date-column .weather {
     display: flex;
     align-items: center;
@@ -505,6 +502,11 @@ export const cardStyles = css`
 
   .weather ha-icon {
     margin-right: 1px;
+  }
+
+  .date-column .weather ha-icon,
+  .column-date-content .weather ha-icon {
+    --mdc-icon-size: var(--calendar-card-weather-date-icon-size, 14px);
   }
 
   .weather-temp-high,
@@ -693,6 +695,7 @@ export const cardStyles = css`
 
   .event-weather ha-icon {
     margin-right: 2px;
+    --mdc-icon-size: var(--calendar-card-weather-event-icon-size, 14px);
   }
 
   /* ===== TIME, LOCATION & DESCRIPTION STYLES ===== */
@@ -863,27 +866,13 @@ export const cardStyles = css`
    * declare no weight at all. Leaving it inherited made the temperature the only
    * semi-bold text in the block.
    *
-   * flex-wrap is the fourth, and it is a correction rather than an inheritance.
-   *
-   * The row shipped as a single nowrap line whose last item was the only shrinkable one,
-   * so a track too narrow for the whole row did not wrap it -- it squeezed the condition
-   * chip and let that chip wrap *inside itself*. Measured in Chromium against the real
-   * stylesheet: at a 120px track the chip was 19.8px wide and three lines tall, and at
-   * 100px it reached width 0 and rendered 'Sunny' one letter per line. Three separate
-   * defects the maintainer reported all came out of that single box:
-   *
-   *   - the continuation was indented, because it started at the chip's own left edge --
-   *     which is after the temperature and the UV index -- instead of at the row's text;
-   *   - the middot went missing, because it is the chip's own ::before and was breaking
-   *     onto a line of its own inside the squeezed box (see the separator rule below);
-   *   - the words hyphenated, because hyphens: auto is inherited from .content-container
-   *     and a box that narrow gives it plenty to do.
-   *
-   * Wrapping fixes the cause rather than the symptoms. Flex resolves wrapping before
-   * shrinking, so a condition that does not fit beside the numbers now moves to a line
-   * of its own at the row's full width -- where it fits whole -- and only shrinks in the
-   * genuinely degenerate case where a single chip is wider than the entire track. That is
-   * the same order .time already relies on, one rule up.
+   * flex-wrap is the fourth, and it is deliberately *not* the wrapping mechanism now.
+   * A previous fix let flex wrap the direct span children, which stopped the condition
+   * from being squeezed to zero but made the condition an atomic flex item: Chromium
+   * collected the whole "· Clear, night" item onto the next flex line before it ever
+   * considered the ordinary break opportunity inside the text. The row now keeps one flex
+   * line -- icon plus text wrapper -- and the wrapper's own inline formatting context
+   * wraps the temperature, UV index and condition as normal running text.
    *
    * The padding and the icon's matching negative margin are a hanging indent, and they
    * are what makes a wrapped line start under the *temperature* rather than under the
@@ -895,13 +884,12 @@ export const cardStyles = css`
    * The gutter is icon size plus the icon's own 4px trailing margin.
    * --calendar-card-weather-event-icon-size is the host property that carries
    * weather.event.icon_size, so a user who enlarges the icon moves the indent with it.
-   * Note this makes it the first of those six weather properties with a real reader --
-   * see the note in generateCustomPropertiesObject, which still describes them all as
-   * emitted and unread, and the Y6 backlog entry proposing their removal.
+   * The weather size and colour values are read from host custom properties rather than
+   * inline styles, matching the rest of the card's theming surface.
    */
   .time-location .event-weather {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     row-gap: 2px;
     align-items: var(--calendar-card-event-icon-vertical-alignment);
     line-height: 1.2;
@@ -915,25 +903,31 @@ export const cardStyles = css`
   .time-location .event-weather ha-icon {
     margin-inline-end: 4px;
     margin-inline-start: calc(-1 * (var(--calendar-card-weather-event-icon-size, 14px) + 4px));
+    color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
+  }
+
+  .time-location .event-weather .event-weather-text {
+    min-width: 0;
+    flex: 1 1 auto;
+    color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
+  }
+
+  .time-location .event-weather .event-weather-text > span {
+    font-size: var(--calendar-card-weather-event-font-size, 12px);
   }
 
   /*
-   * The condition words, and the only shrinkable thing in the row.
+   * The condition words.
    *
    * show_conditions states the condition verbally in this placement, which puts
    * variable-length prose into the narrowest layout the card has -- the column track
    * bottoms out at 152px, and German is not kind: "Strömender Regen" is longer than the
    * track it has to sit in.
    *
-   * So the words take flex: 0 1 auto with min-width: 0, and the temperature and UV
-   * index take flex: none. Whatever room is short comes out of the words; the two
-   * numbers survive every width, which is the right trade because they are the fields a
-   * user configured on purpose and the words are generated text.
-   *
-   * min-width: 0 is load-bearing rather than defensive. Per CSS Flexbox 4.5 a flex
-   * item's automatic minimum size is its min-content width, which for a span of prose is
-   * its longest word -- so without it the words could not shrink below "Schneeregen" and
-   * would push the temperature out of the row instead.
+   * The flex item is the .event-weather-text wrapper, not this span. That distinction is
+   * load-bearing: as a direct flex item, the condition moved to a new line as one block.
+   * As an inline child of the wrapper, "Clear, night" can break at its space while the
+   * generated separator remains attached to the first word.
    *
    * By default the words *wrap* rather than truncate: weather.event.max_lines is 0,
    * which generateCustomPropertiesObject emits as the keyword none, so the clamp below
@@ -948,33 +942,26 @@ export const cardStyles = css`
    * can be a long compound noun with no break opportunity in it, and hyphenating beats
    * overflowing. The condition is not one of those. It is generated text that Home
    * Assistant translated, it is at most three short words, and the row already has a
-   * better answer for "does not fit": wrap the whole chip to its own line. Hyphenating
+   * better answer for "does not fit": wrap the text normally. Hyphenating
    * it only ever produced 'Sun-' / 'ny', which reads as a rendering fault rather than as
    * typesetting. manual rather than none, so an explicit soft hyphen inside a translated
    * condition is still honoured -- this turns off automatic hyphenation, not the author's.
    */
-  .time-location .event-weather span {
-    flex: none;
-  }
-
   .time-location .event-weather .weather-condition {
-    flex: 0 1 auto;
-    min-width: 0;
-    display: -webkit-box;
+    display: var(--calendar-card-weather-event-condition-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-weather-event-max-lines);
     overflow: hidden;
-    overflow-wrap: break-word;
+    overflow-wrap: normal;
     hyphens: manual;
   }
 
   /*
    * The separators.
    *
-   * .event-weather is a flex container, and a flex container drops the whitespace
-   * between its items -- so the spaces the row's template contains between one span and
-   * the next never reach the screen, and the pieces rendered as 30°UV4Sunny. Every gap
-   * in the row is therefore CSS's to supply.
+   * The text pieces are inline children of .event-weather-text, and the template keeps
+   * them adjacent so no source whitespace participates in the gaps. Every gap between
+   * one piece and the next is therefore CSS's to supply.
    *
    * 🚨 That is true of the whitespace *between* the spans and false of the whitespace
    * *inside* them, which an earlier version of this comment did not distinguish. Each
@@ -1007,29 +994,29 @@ export const cardStyles = css`
    *   - the dot no longer contributes to the chip's intrinsic width, so it cannot push a
    *     condition that would otherwise have fitted onto a second line.
    *
-   * The gutter is one middot plus 6px either side, and centring the glyph in it is what
+   * The gutter is one middot plus 4px either side, and centring the glyph in it is what
    * keeps the two gaps equal without CSS having to know how wide a middot is: whatever
    * the font makes it, the leftover is split in half. 0.28em is that width in the faces
    * Home Assistant ships, and it is in em rather than px so the gutter tracks
-   * weather.event.font_size. 6px matches .column-events .time's countdown separator, so
-   * the two rows punctuate identically; see there for why 6 and not the 8 it had.
+   * weather.event.font_size. 4px matches .column-events .time's countdown separator, so
+   * the two rows punctuate identically.
    *
    * Scoped under .time-location so it reaches the row placement only -- the list view's
    * title-row badge keeps rendering 30° UV4 run together, which is the deliberate
    * status quo of a layout that has been stable for years. See renderEventWeather for
    * why the separator is a middot and why the condition keeps its capital.
    */
-  .time-location .event-weather span + span {
+  .time-location .event-weather .event-weather-text > span + span {
     position: relative;
-    padding-inline-start: calc(2 * 6px + 0.28em);
+    padding-inline-start: calc(2 * 4px + 0.28em);
   }
 
-  .time-location .event-weather span + span::before {
+  .time-location .event-weather .event-weather-text > span + span::before {
     content: '·';
     position: absolute;
     inset-inline-start: 0;
     inset-block-start: 0;
-    width: calc(2 * 6px + 0.28em);
+    width: calc(2 * 4px + 0.28em);
     text-align: center;
   }
 
@@ -1465,7 +1452,7 @@ export const cardStyles = css`
   .column-events .time {
     justify-content: flex-start;
     box-sizing: border-box;
-    column-gap: 6px;
+    column-gap: 4px;
     padding-inline-start: calc(var(--calendar-card-icon-size-time, 14px) + 4px);
   }
 
@@ -1485,13 +1472,11 @@ export const cardStyles = css`
      sides. Inside the nowrap box, so the separator travels with the phrase instead of
      being orphaned at the end of the line.
 
-     6px, down from the 8px this and the column-gap above both inherited from .time. The
-     maintainer read 8px as slightly too much and the weather row's 4px as too little;
-     6px is between them, and it is the value that row now uses as well, so a countdown
-     and a weather condition in the same event punctuate identically. */
+     4px, down from the 8px this and the column-gap above both inherited from .time, and
+     now matching the weather row's separator gutter. */
   .column-events .time-countdown::before {
     content: '·';
-    margin-inline-end: 6px;
+    margin-inline-end: 4px;
   }
 
   /*

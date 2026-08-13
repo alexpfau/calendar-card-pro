@@ -119,8 +119,13 @@ function compose(element: HTMLElement): string {
   const out: string[] = [];
   let previousWasSpan = false;
 
-  for (const child of Array.from(element.children)) {
-    const isSpan = child.tagName.toLowerCase() === 'span';
+  const children = [
+    ...Array.from(element.querySelectorAll(':scope > ha-icon')),
+    ...Array.from(element.querySelectorAll(':scope > .event-weather-text > span')),
+  ];
+
+  for (const child of children) {
+    const isSpan = child.matches('.event-weather-text > span');
     const text = (child.textContent ?? '').trim();
 
     if (isSpan) {
@@ -175,10 +180,15 @@ describe('weather presentation', () => {
         { show_temp: true, show_uv_index: true, show_conditions: true },
         { show_temp: false, show_uv_index: false, show_conditions: true },
       ]) {
-        const children = Array.from(badge(weatherConfig(pieces), 'row').children);
+        const row = badge(weatherConfig(pieces), 'row');
+        const children = [
+          ...Array.from(row.querySelectorAll(':scope > ha-icon')),
+          ...Array.from(row.querySelectorAll(':scope > .event-weather-text > span')),
+        ];
         expect(children[0].tagName.toLowerCase()).toBe('ha-icon');
-        // The first span has no span before it, so the rule cannot fire on it.
-        expect(children[1]?.previousElementSibling?.tagName.toLowerCase()).toBe('ha-icon');
+        // The first span has no previous span inside the text wrapper, so the rule
+        // cannot fire directly after the icon.
+        expect(children[1]?.previousElementSibling).toBeNull();
       }
     });
 
@@ -216,12 +226,10 @@ describe('weather presentation', () => {
       expect(row.textContent).not.toContain('·');
       expect(row.innerHTML).not.toContain('·');
       // Icon plus one element per configured piece, and nothing in between.
-      expect(Array.from(row.children).map((c) => c.tagName)).toEqual([
-        'HA-ICON',
-        'SPAN',
-        'SPAN',
-        'SPAN',
-      ]);
+      expect(Array.from(row.children).map((c) => c.tagName)).toEqual(['HA-ICON', 'SPAN']);
+      expect(
+        Array.from(row.querySelectorAll('.event-weather-text > span')).map((c) => c.tagName),
+      ).toEqual(['SPAN', 'SPAN', 'SPAN']);
     });
 
     it('carries no separator rule that can reach the title badge', () => {
@@ -250,7 +258,7 @@ describe('weather presentation', () => {
       expect(element).not.toBeNull();
       // No condition span, and therefore nothing a separator could sit between.
       expect(element.querySelector('.weather-condition')).toBeNull();
-      expect(element.querySelectorAll('span')).toHaveLength(1);
+      expect(element.querySelectorAll('.event-weather-text > span')).toHaveLength(1);
     });
   });
 
@@ -270,31 +278,28 @@ describe('weather presentation', () => {
       expect(DEFAULT_CONFIG.weather?.date?.color).toBeUndefined();
     });
 
-    it('colours the row icon to match its text', () => {
+    it('leaves row colour to the stylesheet rather than inline styles', () => {
       const element = badge(weatherConfig({ show_temp: true }), 'row');
       const icon = element.querySelector('ha-icon');
-      const text = element.querySelector('span');
+      const text = element.querySelector('.event-weather-text > span');
 
-      expect(icon?.getAttribute('style')).toContain('color: var(--secondary-text-color)');
-      expect(text?.getAttribute('style')).toContain('color: var(--secondary-text-color)');
+      expect(icon?.getAttribute('style')).toBeNull();
+      expect(text?.getAttribute('style')).toBeNull();
     });
 
-    it('leaves the title icon uncoloured, because the list view is frozen', () => {
-      // Not an oversight and not consistency for its own sake: colouring it would be
-      // more correct and would move the DOM snapshots, and the badge reads correctly
-      // as it is.
+    it('leaves the title icon styling to the stylesheet too', () => {
       const icon = badge(weatherConfig({ show_temp: true }), 'title').querySelector('ha-icon');
 
-      expect(icon?.getAttribute('style')).toBe('--mdc-icon-size: 14px;');
+      expect(icon?.getAttribute('style')).toBeNull();
     });
 
-    it('lets a configured colour reach the icon as well as the text', () => {
+    it('does not reintroduce inline styles for a configured colour', () => {
       const config = weatherConfig({ show_temp: true });
       config.weather!.event!.color = 'rgb(1, 2, 3)';
       const element = badge(config, 'row');
 
-      expect(element.querySelector('ha-icon')?.getAttribute('style')).toContain('rgb(1, 2, 3)');
-      expect(element.querySelector('span')?.getAttribute('style')).toContain('rgb(1, 2, 3)');
+      expect(element.querySelector('ha-icon')?.getAttribute('style')).toBeNull();
+      expect(element.querySelector('.event-weather-text > span')?.getAttribute('style')).toBeNull();
     });
 
     it('keeps the day header on the primary colour, whose neighbours it matches', () => {
@@ -310,9 +315,7 @@ describe('weather presentation', () => {
         host,
       );
 
-      expect(host.querySelector('.weather')?.getAttribute('style')).toContain(
-        'color: var(--primary-text-color)',
-      );
+      expect(host.querySelector('.weather')?.getAttribute('style')).toBeNull();
     });
   });
 

@@ -6,6 +6,36 @@ Calendar Card Pro seamlessly integrates with all Home Assistant themes and fully
 - **Standard Card Structure**: Follows HA conventions for consistent styling
 - **CSS Customization**: Accessible structure for easy card-mod targeting
 
+## 🌦️ Weather Custom Properties
+
+The weather badges expose the same custom properties that the card writes from
+`weather.date` and `weather.event`, so themes and card-mod can override them without
+depending on inline styles:
+
+| Custom Property                           | Default                       | Affects                                                     |
+| ----------------------------------------- | ----------------------------- | ----------------------------------------------------------- |
+| `--calendar-card-weather-date-icon-size`  | `14px`                        | Weather icon in the day header                              |
+| `--calendar-card-weather-date-font-size`  | `12px`                        | Weather temperature and UV text in the day header           |
+| `--calendar-card-weather-date-color`      | `var(--primary-text-color)`   | Weather text in the day header                              |
+| `--calendar-card-weather-event-icon-size` | `14px`                        | Weather icon in an event row                                |
+| `--calendar-card-weather-event-font-size` | `12px`                        | Weather temperature, UV, and condition text in an event row |
+| `--calendar-card-weather-event-color`     | `var(--secondary-text-color)` | Weather icon and text in an event row                       |
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+weather:
+  entity: weather.home
+  position: both
+card_mod:
+  style: |
+    ha-card {
+      --calendar-card-weather-event-color: var(--primary-color);
+      --calendar-card-weather-event-font-size: 13px;
+    }
+```
+
 ## 🎨 Card-Mod Examples
 
 ### Custom title styling

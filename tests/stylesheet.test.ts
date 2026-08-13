@@ -251,22 +251,27 @@ describe('card stylesheet', () => {
     });
 
     /*
-     * The condition words are the only shrinkable thing in the row, and that asymmetry
-     * is the whole width strategy: the column track bottoms out at 152px, so a German
-     * condition cannot fit beside the numbers. Whatever room is short comes out of the
-     * words. The temperature and the UV index survive every width, because they are the
-     * fields a user configured on purpose.
+     * The text wrapper is the only shrinkable flex item in the row. Inside it the
+     * temperature, UV index and condition are ordinary inline siblings, so a translated
+     * condition can break at its own spaces instead of moving as one atomic flex item.
      */
-    it('lets only the words shrink', () => {
-      expect(declared('.time-location .event-weather .weather-condition', 'flex')).toBe('0 1 auto');
-      expect(declared('.time-location .event-weather span', 'flex')).toBe('none');
+    it('shrinks the inline text run rather than the condition as a flex chip', () => {
+      expect(declared('.time-location .event-weather .event-weather-text', 'flex')).toBe(
+        '1 1 auto',
+      );
+      expect(declared('.time-location .event-weather .event-weather-text', 'min-width')).toBe('0');
+      expect(declared('.time-location .event-weather .weather-condition', 'flex')).toBe('');
     });
 
-    it('lets the words shrink past their own longest word', () => {
-      // Per CSS Flexbox 4.5 a flex item's automatic minimum size is its min-content
-      // width, so without this the words could not shrink below "Schneeregen" and would
-      // push the temperature out of the row instead of yielding to it.
-      expect(declared('.time-location .event-weather .weather-condition', 'min-width')).toBe('0');
+    it('keeps the condition in inline flow when it is not clamped', () => {
+      // This is the falsifier for the reported wrapping bug. If the condition is a direct
+      // flex item or a literal -webkit-box, flex line collection moves the whole
+      // "· Clear, night" item to the next line before the browser ever considers the
+      // break opportunity after the comma. The generated display custom property resolves
+      // to inline when max_lines is 0, and to -webkit-box only when the user asks to clamp.
+      expect(declared('.time-location .event-weather .weather-condition', 'display')).toBe(
+        'var(--calendar-card-weather-event-condition-display)',
+      );
     });
 
     it('clamps the words with the same mechanism as every other line limit', () => {
@@ -274,7 +279,6 @@ describe('card stylesheet', () => {
       // keyword `none`, which generateCustomPropertiesObject emits when the option is 0.
       const selector = '.time-location .event-weather .weather-condition';
 
-      expect(declared(selector, 'display')).toBe('-webkit-box');
       expect(declared(selector, '-webkit-box-orient')).toBe('vertical');
       expect(declared(selector, '-webkit-line-clamp')).toBe(
         'var(--calendar-card-weather-event-max-lines)',
@@ -292,7 +296,7 @@ describe('card stylesheet', () => {
      * Taking the separator out of the chip's inline flow is what fixes it.
      */
     it('separates the text pieces with a middot', () => {
-      const selector = '.time-location .event-weather span + span::before';
+      const selector = '.time-location .event-weather .event-weather-text > span + span::before';
 
       // A middot, not a comma: Home Assistant's own condition vocabulary contains
       // "Clear, night", and a comma separator would be indistinguishable from it.
@@ -307,8 +311,8 @@ describe('card stylesheet', () => {
       //   - the middot can no longer be broken onto a line of its own by
       //     `overflow-wrap: break-word`, which is what put a stray `·` above the row;
       //   - the middot stops counting towards the chip's intrinsic width.
-      const dot = '.time-location .event-weather span + span::before';
-      const chip = '.time-location .event-weather span + span';
+      const dot = '.time-location .event-weather .event-weather-text > span + span::before';
+      const chip = '.time-location .event-weather .event-weather-text > span + span';
 
       expect(declared(dot, 'position')).toBe('absolute');
       expect(declared(dot, 'inset-inline-start')).toBe('0');
@@ -327,9 +331,12 @@ describe('card stylesheet', () => {
       // it as a plain margin; the weather row states it as half of what is left over
       // once the glyph is centred, which is why the gutter is written as `2 * <gap>`.
       const gap = declared('.column-events .time-countdown::before', 'margin-inline-end');
-      const gutter = declared('.time-location .event-weather span + span', 'padding-inline-start');
+      const gutter = declared(
+        '.time-location .event-weather .event-weather-text > span + span',
+        'padding-inline-start',
+      );
 
-      expect(gap).toBe('6px');
+      expect(gap).toBe('4px');
       expect(gutter).toContain(`2 * ${gap}`);
       expect(declared('.column-events .time', 'column-gap')).toBe(gap);
     });
@@ -351,7 +358,7 @@ describe('card stylesheet', () => {
       // squeezed that one chip -- measured at width 0 on a 100px track -- and everything
       // that then went wrong went wrong *inside* it. Flex resolves wrapping before
       // shrinking, so the chip now moves to a line of its own at full width instead.
-      expect(declared('.time-location .event-weather', 'flex-wrap')).toBe('wrap');
+      expect(declared('.time-location .event-weather', 'flex-wrap')).toBe('nowrap');
     });
 
     it('hangs the wrapped row under the temperature, not under the icon', () => {
@@ -376,7 +383,7 @@ describe('card stylesheet', () => {
 
       expect(separators).toHaveLength(1);
       expect(separators[0].selectors).toEqual([
-        '.time-location .event-weather span + span::before',
+        '.time-location .event-weather .event-weather-text > span + span::before',
       ]);
     });
 
@@ -401,6 +408,27 @@ describe('card stylesheet', () => {
       // being flex, the removal above stops being invisible there too.
       expect(declared('.date-column .weather', 'display')).toBe('flex');
       expect(declared('.column-date-content .weather', 'display')).toBe('');
+    });
+
+    it('reads weather size and colour from the emitted custom properties', () => {
+      expect(declared('.date-column .weather', 'font-size')).toBe(
+        'var(--calendar-card-weather-date-font-size, 12px)',
+      );
+      expect(declared('.date-column .weather', 'color')).toBe(
+        'var(--calendar-card-weather-date-color, var(--primary-text-color))',
+      );
+      expect(declared('.date-column .weather ha-icon', '--mdc-icon-size')).toBe(
+        'var(--calendar-card-weather-date-icon-size, 14px)',
+      );
+      expect(declared('.event-weather ha-icon', '--mdc-icon-size')).toBe(
+        'var(--calendar-card-weather-event-icon-size, 14px)',
+      );
+      expect(declared('.time-location .event-weather .event-weather-text', 'color')).toBe(
+        'var(--calendar-card-weather-event-color, var(--secondary-text-color))',
+      );
+      expect(
+        declared('.time-location .event-weather .event-weather-text > span', 'font-size'),
+      ).toBe('var(--calendar-card-weather-event-font-size, 12px)');
     });
   });
 

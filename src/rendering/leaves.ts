@@ -82,17 +82,6 @@ export function renderDateWeather(
   const showLowTemp =
     dateConfig.show_low_temp === true && !showUvIndex && dailyForecast.templow !== undefined;
 
-  // Get styling from config
-  const iconSize = dateConfig.icon_size || '14px';
-  const fontSize = dateConfig.font_size || '12px';
-
-  // The day header's own colour, and it is `--primary-text-color` on purpose rather
-  // than by inheritance from the badge's other placement: this badge's neighbours are
-  // the weekday, day number and month, all three of which default to the primary
-  // colour. The event row's neighbours are the time and location, which are secondary.
-  // Two placements, two right answers -- see DEFAULT_CONFIG for why neither is shipped.
-  const color = dateConfig.color || 'var(--primary-text-color)';
-
   // Written with no whitespace between the parts, which is load-bearing rather than
   // stylistic and is the opposite of the rule at the top of this file.
   //
@@ -121,9 +110,9 @@ export function renderDateWeather(
   // the indentation -- and the bug -- straight back.
   // prettier-ignore
   return html`
-    <div class="weather" style="font-size: ${fontSize}; color: ${color};">${
+    <div class="weather">${
       showConditions
-        ? html`<ha-icon .icon=${dailyForecast.icon} style="--mdc-icon-size: ${iconSize};"></ha-icon>`
+        ? html`<ha-icon .icon=${dailyForecast.icon}></ha-icon>`
         : nothing
     }${
       showHighTemp
@@ -495,33 +484,6 @@ export function renderEventWeather(
       ? Weather.formatCondition(hass, config.weather?.entity, forecast.condition)
       : undefined;
 
-  // Get styling from config
-  const iconSize = eventConfig.icon_size || '14px';
-  const fontSize = eventConfig.font_size || '12px';
-
-  // One colour for the whole badge, resolved once. `--secondary-text-color` is what
-  // this placement's neighbours use -- the time and location rows in the column
-  // layout, and it is also what the title-row badge has always rendered for a
-  // hand-written card, because a user's `weather:` block replaces DEFAULT_CONFIG's
-  // sub-tree whole and there was never a `color` in it to find.
-  const color = eventConfig.color || 'var(--secondary-text-color)';
-
-  // The icon takes the same colour, but only in its own row.
-  //
-  // It previously took none at all and inherited, which put a primary-coloured glyph
-  // in front of secondary-coloured text -- invisible on the title row, where the badge
-  // floats beside an equally dark summary, and obvious in the column layout, where the
-  // row sits directly beneath a time and a location whose icons are grey.
-  //
-  // Withheld from the title placement deliberately. Colouring it there would be more
-  // consistent, and it is not worth it: the list view is frozen, the change would show
-  // up in the DOM snapshots, and the badge reads correctly as it is. Keyed on the
-  // placement rather than on the view, so a future layout that asks for the row
-  // inherits the fix.
-  const iconStyle = ownRow
-    ? `--mdc-icon-size: ${iconSize}; color: ${color};`
-    : `--mdc-icon-size: ${iconSize};`;
-
   // Render weather with position-specific options.
   //
   // The words come last, after both numbers. Deliberate, and the reason is
@@ -531,15 +493,12 @@ export function renderEventWeather(
   // No separators are emitted here. The pieces are optional and independent, so a
   // template that placed its own separators would have to enumerate every combination
   // of the three, and would emit a stray one the moment a fourth piece is added. They
-  // are supplied instead by `span + span::before` in the stylesheet, which follows from
-  // which pieces are actually present and never fires after the icon, because the icon
-  // is not a span. That also keeps the markup identical in both placements, so the DOM
-  // snapshots stay untouched.
+  // are supplied instead by `.event-weather-text > span + span::before` in the
+  // stylesheet, which follows from which pieces are actually present and never fires
+  // after the icon because the icon is outside the text wrapper.
   //
   // Two decisions about the composed string live here rather than beside that rule,
-  // because they are about the text and not about the CSS -- and because comments in
-  // this file are stripped from the bundle, while comments inside the `css` template
-  // literal ship to every dashboard verbatim.
+  // because they are about the text and not about the CSS.
   //
   // **A middot, not a comma.** Home Assistant's own condition vocabulary contains
   // "Clear, night". With a comma the row would read `20°, UV 0, Clear, night`, in which
@@ -555,25 +514,26 @@ export function renderEventWeather(
   // a space inside `UV 4` would split a fourth at the same visual weight as the
   // separators, weakening the grouping the middot just created. It also keeps this
   // spelling identical to the day header's, which is not separated at all.
+  // The nested text wrapper is the wrapping boundary. The row stays flex so the icon can
+  // use the same alignment mechanism as time/location/description, while the weather
+  // text itself stays ordinary inline content and can break inside "Clear, night".
+  // prettier-ignore
   return html`
-    <div class="event-weather">
-      ${showIcon ? html`<ha-icon .icon=${forecast.icon} style="${iconStyle}"></ha-icon>` : nothing}
-      ${showTemp
-        ? html`<span style="font-size: ${fontSize}; color: ${color};">
-            ${forecast.temperature}°
-          </span>`
-        : nothing}
-      ${showUvIndex
-        ? html`<span class="weather-uv-index" style="font-size: ${fontSize}; color: ${color};">
-            UV${forecast.uv_index}
-          </span>`
-        : nothing}
-      ${conditionText
-        ? html`<span class="weather-condition" style="font-size: ${fontSize}; color: ${color};">
-            ${conditionText}
-          </span>`
-        : nothing}
-    </div>
+    <div class="event-weather">${
+      showIcon ? html`<ha-icon .icon=${forecast.icon}></ha-icon>` : nothing
+    }<span class="event-weather-text">${
+      showTemp
+        ? html`<span>${forecast.temperature}°</span>`
+        : nothing
+    }${
+      showUvIndex
+        ? html`<span class="weather-uv-index">UV${forecast.uv_index}</span>`
+        : nothing
+    }${
+      conditionText
+        ? html`<span class="weather-condition">${conditionText}</span>`
+        : nothing
+    }</span></div>
   `;
 }
 
