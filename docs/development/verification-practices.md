@@ -421,6 +421,26 @@ knowledge, and knowledge does not fire.** That is the argument for pairing every
 a control that must exceed one, rather than for writing a better warning — a warning has to
 be recalled at the moment of use, and this one was not, by the person who had just read it.
 
+**A control is itself a check, and fails the same way.** Auditing whether the split above
+lost any prose, a second session built a sentence-set differential and gave it the obvious
+control: delete a sentence, confirm the audit notices. It reported the same count either
+way. The victim it had picked **was already absent** — so removing it changed nothing, and
+a control that cannot change the answer proves exactly as much as no control at all. On a
+baseline that was also wrong (`HEAD~1` rather than the real split parent, 16 sentences
+instead of 282), that combination produced a confident false positive: _one sentence lost_,
+from an audit structurally unable to report otherwise.
+
+The fix is one word: the victim must be **known-present** before you remove it, which means
+confirming its presence is a step, not an assumption. The full sequence there was **broken
+baseline → failed control → false positive → resolved**, and the only reason none of it
+shipped is that the session treated a non-discriminating control as a defect in the
+instrument rather than as a pass.
+
+So the rule has a second half. _Pair every negative with a positive control_ — and then
+**check that the control itself can move the result**, because a control is not a different
+kind of thing from the check it guards. It is the same kind of thing, one level up, with
+the same failure mode and no third level watching it.
+
 **And the exact inverse of that paragraph is the fourth failure mode: a probe whose own
 structure supplies the finding.** A pattern that matches nothing looks like absence; a
 pattern that matches can smuggle the answer into the question, and the result is worse,
