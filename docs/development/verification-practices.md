@@ -416,6 +416,12 @@ Correct. I measured after merging it and got `0`. Also correct. The two commits 
 **7m31s** apart, verified from the authored timestamps. **Neither of us was stale; `ahead` is
 a time-varying quantity and neither report carried a timestamp.**
 
+It happened **twice**, which is what makes it a pattern rather than a collision. The second
+time they reported `3 ahead` seconds after authoring `cd0a7c7`; that commit reached the
+integration branch **386 seconds** later. And the decisive detail is that they had run *my*
+prescription: a post-fetch `--is-ancestor` printed `NOT YET` — a direct observation, not an
+inference. **A command cannot be the fix for a disagreement it participates in.**
+
 And the prescription I gave — `--is-ancestor` against a freshly fetched ref — does not fix
 it either. That is still a point-in-time measurement: at 23:09 it says *not contained*, at
 23:16 it says *contained*, and both are true. **No command can resolve a disagreement about
