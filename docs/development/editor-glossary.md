@@ -45,6 +45,13 @@ and they are the only per-language oracle available. They are not authoritative.
 > cannot tell a loanword from a gap — but the word can still be right. Where that happens
 > the entry says so, and the decision rests on our own files instead.
 
+> **And the two _can_ be told apart, by looking one string wider.** A translation gap
+> leaves the **whole string** in English; a loanword leaves **one word inside a translated
+> sentence**. HA German's `Label` is a loanword by that test — `Label hinzufügen`,
+> `Keine Labels verfügbar`, `Label konnte nicht erstellt werden` — where a genuine gap
+> reads `Add label`. The test is mechanical, it costs one extra lookup, and it is what
+> decided the German `label` entry below. Use it before concluding a term has no evidence.
+
 > **Rule 2 — the domain sense wins.** Look a term up at a _calendar_ key wherever one
 > exists. This is not a nicety; it reverses conclusions. Reading `event` at HA's `event`
 > **entity** domain — a button press, a doorbell — instead of at
@@ -82,6 +89,50 @@ languages from Polish and leaves room for proper nouns.
 the card's own native-contributed `nb.json` writes `mandag` / `søndag`, which is correct.
 Swedish says `Måndag` in _both_ files — they agree, so no cross-check can see it, and both
 are probably wrong. That one needs a native speaker and is recorded in §6.
+
+### 3.1 Casing is not the only orthographic calque — compounding is the other
+
+**Found by the German session (Stage 1), and it is the German equivalent of Polish's
+title-case defect.** German writes a noun-noun compound solid or with a hyphen; a space
+between the two is the well-known _Deppenleerzeichen_, and it is what the editor shipped:
+
+| shipped                     | English              | correct                    |
+| --------------------------- | -------------------- | -------------------------- |
+| `Wochentag Schriftgröße`    | Weekday Font Size    | `Wochentag-Schriftgröße`   |
+| `Zeit Symbol Größe`         | Time Icon Size       | `Uhrzeit-Symbolgröße`      |
+| `Wochenende Wochentag Farbe`| Weekend Weekday Color| `Wochentagsfarbe am Wochenende` |
+| `Abstand Tag`               | Day Spacing          | `Tagesabstand`             |
+
+**24 of German's 134 existing strings, ~18%.** It is a calque of English's noun-stacking,
+it came in from the pre-v4 archive rather than being introduced by the rebuild, and — the
+part that matters here — **the same contributor wrote `Akzentfarbe`, `Hintergrundfarbe`,
+`Tagestrenner` and `Kalender-Entität` correctly.** So it is not a knowledge gap; it is what
+happens when a qualified English label is rendered word by word in order.
+
+Home Assistant settles it independently: `State color` → `Zustandsfarbe`, `Calendar color`
+→ `Kalenderfarbe`, `Background alignment` → `Hintergrundausrichtung`, and `RGB color` →
+`RGB-Farbe` where an acronym forces the hyphen. Never a space.
+
+**This is not a German-only concern.** Swedish _särskrivning_ and Norwegian _særskriving_
+are the same error under different names, and both languages are in the nine. Danish,
+Dutch and Finnish compound the same way. **The sessions for `sv` and `nb` should check
+their files for it specifically**, because §3's casing check is blind to it — the two are
+independent axes in exactly the way terminology and casing are, and a language can pass the
+casing check while every second label is spaced wrongly.
+
+No mechanical check is proposed. The English side of these labels is genuinely two words,
+so a check would have to know which pairs are compounds in the target language, and that is
+the translator's judgement rather than a shape question. It is recorded here instead.
+
+**The rule German applies, stated once so it is not re-derived eight times:** compounds are
+written solid where that stays readable, and hyphenated (Duden's _Bindestrich zur besseren
+Lesbarkeit_) where it does not. In practice the simple heads — `Farbe`, `Höhe`, `Breite`,
+`Größe`, `Abstand` — go solid with the correct _Fugenelement_ (`Wochentagsfarbe`,
+`Monatsfarbe`, `Tagesabstand`), and the compound heads — `Schriftgröße`, `Symbolgröße`,
+`Zeilenlimit`, `Hintergrundfarbe` — take the hyphen (`Wochentag-Schriftgröße`,
+`Wochennummer-Hintergrundfarbe`). Where the qualifier is a whole phrase rather than a noun,
+German prefers the prepositional form to a three-element compound: `Wochentagsfarbe am
+Wochenende`, not `Wochenend-Wochentagsfarbe`.
 
 ## 4. The Core Noun — `event`
 
@@ -230,16 +281,27 @@ Agrees nine ways with Home Assistant and with our own files. Nothing to decide.
 
 |             | de    | et   | it        | lt      | lv      | nb      | pl       | sk        | sv      |
 | ----------- | ----- | ---- | --------- | ------- | ------- | ------- | -------- | --------- | ------- |
-| **Decided** | —     | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | Štítok    | Etikett |
+| **Decided** | Label | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | Štítok    | Etikett |
 | HA          | _!EN_ | Silt | Etichetta | Etiketė | _!EN_   | Etikett | Etykieta | Štítok    | Etikett |
-| editor now  | —     | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | _Menovka_ | Etikett |
+| editor now  | Label | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | _Menovka_ | Etikett |
 
 **Rejected:** sk `Menovka`
 
-**German is undecided and must be decided by the German session.** There is no evidence
-for it anywhere: HA leaves `Label` untranslated (Rule 1), our editor has no German string
-for it, and the card has no such concept. Both `Beschriftung` and the loanword `Label` are
-defensible in a German technical UI; pick one and record it here.
+**German decided by the German session (Stage 1): `Label`, the loanword.** Rule 1 flags
+HA's German `Label` as English-identical, and here that is a **false positive of a kind the
+rule cannot see but a reader can** — the surrounding string is translated and only the noun
+is kept: `Label hinzufügen`, `Neues Label „{name}“ hinzufügen`, `Keine Labels verfügbar`,
+`Label konnte nicht erstellt werden`. **An untranslated gap leaves the whole string in
+English; a loanword leaves one word in a German sentence.** That distinction is mechanical
+and is the better test — see the note under Rule 1.
+
+`Beschriftung` was the alternative and loses on two counts: our label may be text, an icon
+_or_ an image, and `Beschriftung` means specifically written text; and the reader has
+already learned `Label` from HA's own sidebar, which is the same argument the `entity` entry
+makes. Our editor and the pre-v4 archive both already wrote `Label-Typ`.
+
+Because the decided form is byte-identical to the English, `de:entity.label` is listed in
+`IDENTICAL_TO_ENGLISH_OK` in `scripts/check-i18n.mjs` with that reason.
 
 Slovak moves to HA's `Štítok`. `Menovka` is a nameplate; `Štítok` is what the Slovak user
 sees everywhere else in Home Assistant. A native speaker may overrule this — it is decided
@@ -373,15 +435,21 @@ decapitalised per §3.
 
 ### today indicator — the marker showing the current day or time
 
-|             | de  | et                      | it              | lt                      | lv                  | nb  | pl               | sk                   | sv             |
-| ----------- | --- | ----------------------- | --------------- | ----------------------- | ------------------- | --- | ---------------- | -------------------- | -------------- |
-| **Decided** | —   | Tänase päeva indikaator | Indicatore oggi | Šiandienos indikatorius | Šodienas indikators | —   | Wskaźnik dzisiaj | Identifikátor dneška | Idag-indikator |
+|             | de               | et                      | it              | lt                      | lv                  | nb  | pl               | sk                   | sv             |
+| ----------- | ---------------- | ----------------------- | --------------- | ----------------------- | ------------------- | --- | ---------------- | -------------------- | -------------- |
+| **Decided** | Heute-Markierung | Tänase päeva indikaator | Indicatore oggi | Šiandienos indikatorius | Šodienas indikators | —   | Wskaźnik dzisiaj | Identifikátor dneška | Idag-indikator |
 
-**German and Norwegian are undecided because their current strings are ungrammatical.**
+**German and Norwegian were undecided because their current strings are ungrammatical.**
 `Heute Indikator` is not a German compound — German needs `Heute-Indikator` or a
 prepositional phrase such as `Markierung für heute`; `I dag indikator` has the same problem
-in Norwegian. Which one reads better is a native judgement, so it is left to those two
+in Norwegian. Which one reads better is a native judgement, so it was left to those two
 sessions rather than guessed here. The current strings must not simply be kept.
+
+**German decided by the German session (Stage 1): `Heute-Markierung`.** The hyphen is what
+makes the compound legal, and `Markierung` is chosen over `Indikator` because it is the
+plainer word and because it compounds cleanly into the three sub-labels the group needs —
+`Markierungsfarbe`, `Markierungsgröße`, `Markierungsposition` — where `Indikator` would give
+`Indikatorfarbe`, readable but stiff. Norwegian remains open.
 
 ### color — any colour setting
 
@@ -515,12 +583,24 @@ languages it must agree with the noun each one modifies, which is a different no
 time. All three currently carry one identical form per language, which cannot be right for
 all three.
 
-|             | de  | et     | it  | lt   | lv  | nb    | pl   | sk  | sv    |
-| ----------- | --- | ------ | --- | ---- | --- | ----- | ---- | --- | ----- |
-| **Decided** | —   | Puudub | —   | Nėra | —   | Ingen | Brak | —   | Ingen |
+|             | de   | et     | it  | lt   | lv  | nb    | pl   | sk  | sv    |
+| ----------- | ---- | ------ | --- | ---- | --- | ----- | ---- | --- | ----- |
+| **Decided** | Ohne | Puudub | —   | Nėra | —   | Ingen | Brak | —   | Ingen |
 
-German, Italian, Latvian and Slovak must decide **per key**. Slovak's `Žiadna` is feminine
-and HA's is `Žiadny`; which is right depends on the noun, and may differ between the three.
+Italian, Latvian and Slovak must decide **per key**. Slovak's `Žiadna` is feminine and HA's
+is `Žiadny`; which is right depends on the noun, and may differ between the three.
+
+**German decided by the German session (Stage 1): `Ohne`, and one form does cover all
+three.** German _can_ decide this once where the gendered languages cannot, because `Ohne`
+is a preposition and does not agree with anything — which sidesteps the problem rather than
+solving it three times. HA German does inflect (`Kein` at `conversation-agent-picker.none`
+for _der Agent_, `Keine` at `tts-voice-picker.none` for _die Stimme_), so the per-key
+warning above is real for German too; `Ohne` is the standard German UI answer to it and is
+what a formatting dropdown says. It also reads correctly in all three option lists, where a
+`Kein-` form would have to agree with `das Label`, `der Stil` and `die Nummerierung` in turn.
+
+**A language whose "none" word is invariant should say so here rather than deciding three
+times.** That is the transferable half of this entry.
 
 ### default — the "leave it alone" option
 
