@@ -3,8 +3,13 @@
 **Corpus:** `home-assistant-frontend` **20260128.6** (PyPI wheel, every translation
 fragment merged — 7,341 English keys).
 **Editor table read:** `EDITOR_STRINGS`, 312 keys, imported rather than parsed.
-**Comparisons are case-sensitive** throughout. A comparison that case-folds cannot report
-on capitalisation, and capitalisation is one of the two things this document decides.
+**Comparisons that bear on capitalisation are case-sensitive** — the oracle comparison in §5
+and the casing check of §3. A comparison that case-folds cannot report on capitalisation,
+and capitalisation is one of the two things this document decides. **The rejected-form
+matcher in §8 is the deliberate exception**: it is case-insensitive but anchored at a word
+start, because a case-sensitive rule there caught lower-case `vardag` and silently missed
+`Vardag` at the head of a label. This line used to say "case-sensitive throughout", which
+was true when written and became false one commit later.
 
 This is the termbase the nine language sessions work from. It exists because nine sessions
 deciding _event_ independently is a divergence nobody can repair afterwards without
