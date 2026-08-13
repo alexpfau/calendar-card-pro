@@ -272,6 +272,28 @@ wrapped, with the blockquote's `> ` landing between _the_ and _reader_. Measured
 exact phrase: raw ✗, whitespace+emphasis ✗, prefix→emphasis→flatten ✓, flatten→prefix ✗.
 Three of the four ways to ask return the wrong answer.
 
+🚨 **And a flattened search is honest only for the continuation style it was built for.**
+Checking whether another session's fix had survived a merge, I grepped its error message and
+got **0** — then flattened and *still* got 0, with a live control at 16, which felt
+authoritative. It was not. My flattener joins **comment** continuations (`* `, `// `); the
+message is split by a **string concatenation**:
+
+```js
+`${name}: rejected form \`…\` names a language but has no ` +
+  'backticked term, so it is silently dropped — …',
+```
+
+The phrase spans a `' +` boundary the normaliser knew nothing about. This repo has at least
+three continuation styles — markdown wrap, block-comment continuation, and string
+concatenation — and flattening for one leaves you exactly as blind to the others as raw
+grep, while feeling rigorous. **Two searches, both zero, both wrong, and the second was the
+careful one.**
+
+What settled it was neither: planting the violation and reading the exit code. The fix was
+live, and the case that had been silent now fails. **Behaviour is the only representation
+with no normalisation problem** — which is the argument for reaching for it first when the
+question is "did this change arrive", rather than after two searches have failed.
+
 **A mutation that changes no observable behaviour is evidence about the corpus, not the code.**
 Stage 0 wrote two falsifiers for a glossary-parser bug and both reported IMMUNE with the fix
 reverted — one mutated a term nothing currently violates, so there was nothing to lose; the
