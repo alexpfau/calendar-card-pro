@@ -41,14 +41,14 @@ CI enforces — which is the point.
 > four are covered by was then measured, by planting each form back into its file and
 > asking CI:
 >
-> | superseded form         | `**Rejected:**` | `**Decided**` row | casing check |
-> | ----------------------- | --------------- | ----------------- | ------------ |
-> | `it` _Posizione_        | **error**       | warning           | —            |
-> | `sk` _Menovka_          | **error**       | warning           | —            |
-> | `pl` _Data Początkowa_  | —               | **warning**       | —            |
-> | `de` _Zeit_             | —               | **warning**       | —            |
-> | `it` _Modalità Compatta_ | —              | —                 | —            |
-> | `pl` _Tryb Kompaktowy_  | —               | —                 | —            |
+> | superseded form          | `**Rejected:**` | `**Decided**` row | casing check |
+> | ------------------------ | --------------- | ----------------- | ------------ |
+> | `it` _Posizione_         | **error**       | warning           | —            |
+> | `sk` _Menovka_           | **error**       | warning           | —            |
+> | `pl` _Data Początkowa_   | —               | **warning**       | —            |
+> | `de` _Zeit_              | —               | **warning**       | —            |
+> | `it` _Modalità Compatta_ | —               | —                 | —            |
+> | `pl` _Tryb Kompaktowy_   | —               | —                 | —            |
 >
 > **Four of six are caught, two by nothing at all** — and the relabel is still right,
 > because a stale table caught none of them either and lied about the four.
@@ -444,12 +444,22 @@ German changes. The five languages whose single word covers both senses keep it 
 `Czas`, `Čas`, `Laikas`, `Laiks` are what a clock time is called in those languages, and
 there is no more specific alternative that a UI would use.
 
-**`de` `Zeit` cannot be added as a rejected form, and this is why it is absent rather than
-overlooked.** The matcher anchors at a word start, and `panel.content` — English `Time
-Range & Content`, so the term governs it — renders in German as `Zeitraum & Inhalt`.
-Rejecting `Zeit` would fire on `Zeitraum`, which is the correct word. So the
-`Zeit`/`Uhrzeit` distinction is carried by the decided value alone and by nothing
-mechanical; a file that regresses to `Zeit` for the clock sense will not be caught.
+**`de` `Zeit` cannot be added as a rejected form — but it is enforced anyway, and the
+difference matters.** The matcher anchors at a word start, and `panel.content` — English
+`Time Range & Content`, so the term governs it — renders in German as `Zeitraum & Inhalt`.
+A `**Rejected:** de \`Zeit\``line would fire on`Zeitraum`, which is correct. So `Zeit`is
+**un-rejectable**, not unenforceable:`time`is one of the terms whose whole English matches
+a key, so its`**Decided**`row does the work. Verified by planting it —`Uhrzeit`→`Zeit`
+raises _`time` renders 'time' as "Zeit" where the glossary decided "Uhrzeit"\_.
+
+**The genuinely uncovered forms are the two `compact` ones**, `it` `Modalità Compatta` and
+`pl` `Tryb Kompaktowy`, and they are uncoverable rather than merely uncovered. Adding either
+as a rejected form raises four errors against the **correct** `Modalità compatta`, because
+the matcher is deliberately case-insensitive; and `compact` is one of the 22 terms whose
+`**Decided**` row enforces nothing, for want of a key whose English is exactly `Compact`. So
+**a casing-only regression in a term with no exact-English key is invisible to every gate
+here** — recorded rather than closed, because the fix is a key or a different check, not a
+glossary edit.
 
 ### start date — the day the card's window begins
 
