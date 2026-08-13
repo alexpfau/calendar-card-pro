@@ -123,8 +123,8 @@ Five things the user gets that they cannot have today:
    ```
 
    That turns the single most confusing thing about column view — *why does my card look different
-   on my phone* — into a table, and it discharges two D7 release blockers at once (the too-narrow
-   warning and the auto-fit honesty affordance, `column-view.md` D7 rows 6 and 8).
+   on my phone* — into a table, and it discharges the D7 too-narrow and auto-fit-honesty
+   requirements in `column-view.md`.
 
 4. **Exceptions instead of tabs.** Any option that may differ per view gains an
    *"Add exception for column view"* affordance **inside its own panel**, so the shared value and

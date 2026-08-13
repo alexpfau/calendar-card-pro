@@ -588,8 +588,10 @@ explanation. It does not ship.
 
 - [`docs/architecture.md`](./docs/architecture.md) — module responsibilities, data flow,
   caching and performance design. Read before making structural changes.
-- [`docs/development/column-view.md`](./docs/development/column-view.md) — in-progress design
-  and phased implementation plan for the column view (`view: 'column'`, targeting v4.0.0).
+- [`docs/development/column-view.md`](./docs/development/column-view.md) — short current-state
+  specification for the column view (`view: 'column'`, targeting v4.0.0). Its companion
+  archive, `docs/development/column-view-rationale.md`, holds the rejected alternatives and
+  revision history.
   Read before touching the rendering pipeline, the view dispatch, or any view-dependent
   config key, so in-flight work stays compatible with it.
 - [`docs/development/editor-rebuild.md`](./docs/development/editor-rebuild.md) — the design
