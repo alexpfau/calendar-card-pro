@@ -75,10 +75,10 @@ English uses Title Case for labels. Almost no other language does.
 | it       | Sentence case                                                |                        2% | correct                                              |
 | lt       | Sentence case                                                |                        0% | correct                                              |
 | lv       | Sentence case                                                |                        0% | correct                                              |
-| nb       | Sentence case; **weekdays lowercase**                        |                        5% | correct                                              |
+| nb       | Sentence case                                                |                        5% | correct                                              |
 | **pl**   | Sentence case                                                |                   **80%** | **systematic calque — fix all 111 existing strings** |
 | sk       | Sentence case                                                |                        0% | correct                                              |
-| sv       | Sentence case; **weekdays lowercase**                        |                        5% | correct                                              |
+| sv       | Sentence case                                                |                        5% | correct                                              |
 
 Measured over multi-word labels, counting non-initial words whose first character is
 upper-case, with all-caps acronyms (`UV`) excluded because they are correct. The check
@@ -694,9 +694,13 @@ Named rather than papered over.
 - **Whether any individual decision is correct.** Everything above is decided from
   cross-artefact evidence and from sense. That catches divergence and domain mismatch. It
   cannot tell you whether `Kellaaeg` is the word an Estonian would actually reach for.
-- **Swedish weekday capitalisation.** The card and the editor both say `Måndag`. They
-  agree, so no cross-check can see it, and both are probably wrong. One native speaker
-  resolves it in a sentence.
+- **Norwegian and Swedish weekday casing.** Three sources, and they do not settle it: the
+  card writes `mandag`, the editor writes `Mandag`, and Home Assistant capitalises
+  `ui.weekdays.*` in all nine languages — including Polish and Italian, which lowercase
+  weekdays in prose, so HA is applying a standalone-label convention rather than making an
+  orthographic claim. The question is whether a standalone UI label takes an initial
+  capital in these languages, and no source in reach answers it. **Do not change either
+  language's weekday casing** until a native speaker does. See §3.
 - **Slovak `Žiadna` versus `Žiadny`,** per key. It depends on the gender of the noun each
   option modifies and may differ between the three keys.
 - **The four undecided cells** — German `label`, German and Norwegian `today indicator`,
