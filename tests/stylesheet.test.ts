@@ -105,6 +105,20 @@ function declared(selector: string, prop: string): string {
 }
 
 /**
+ * Strip one enclosing `calc(...)` so a value can be nested inside another.
+ *
+ * CSS forbids `calc(calc(...))`, so a rule that negates another rule's `calc()` gutter
+ * has to inline the inner expression rather than wrap the whole declaration. The tests
+ * that pair a hanging indent with its matching negative margin compare the two through
+ * this, so they assert the invariant — the pull is the exact opposite of the gutter —
+ * rather than restating both numbers and letting them drift apart independently.
+ */
+function inner(value: string): string {
+  const match = /^calc\((.*)\)$/.exec(value.trim());
+  return match ? match[1] : value.trim();
+}
+
+/**
  * A calc() expression reduced to a comparable form: `calc(` becomes a bare
  * paren and all whitespace is dropped, so two spellings of the same quantity
  * compare equal.
@@ -269,10 +283,13 @@ describe('card stylesheet', () => {
     });
 
     /*
-     * The separators — C6. `.event-weather` is a flex container, which drops the
-     * whitespace between its items and strips each item's own edge whitespace, so
-     * every space the template contains is discarded and the row rendered as
-     * `30°UV4Sunny`. The rule below is what puts them back.
+     * The separators — C6, corrected. `.event-weather` is a flex container, so the
+     * whitespace *between* its items is dropped and every gap between one chip and the
+     * next is CSS's to supply. The whitespace *inside* an item is a different matter and
+     * was the bug: `UV${...}` fuses the template's indent into the same text node as the
+     * letters, and an in-flow `::before` in front of it stops that run being
+     * line-leading, so it collapsed to a real 3.34px space on one side of one middot.
+     * Taking the separator out of the chip's inline flow is what fixes it.
      */
     it('separates the text pieces with a middot', () => {
       const selector = '.time-location .event-weather span + span::before';
@@ -280,7 +297,73 @@ describe('card stylesheet', () => {
       // A middot, not a comma: Home Assistant's own condition vocabulary contains
       // "Clear, night", and a comma separator would be indistinguishable from it.
       expect(declared(selector, 'content')).toBe("'·'");
-      expect(declared(selector, 'margin-inline')).not.toBe('');
+    });
+
+    it('takes the separator out of the chip it is attached to', () => {
+      // Absolute positioning is doing three jobs at once, and losing any one of them
+      // reintroduces a defect the maintainer reported:
+      //   - the chip's leading whitespace goes back to being line-leading and collapses,
+      //     which is what makes the gaps either side of the middot equal;
+      //   - the middot can no longer be broken onto a line of its own by
+      //     `overflow-wrap: break-word`, which is what put a stray `·` above the row;
+      //   - the middot stops counting towards the chip's intrinsic width.
+      const dot = '.time-location .event-weather span + span::before';
+      const chip = '.time-location .event-weather span + span';
+
+      expect(declared(dot, 'position')).toBe('absolute');
+      expect(declared(dot, 'inset-inline-start')).toBe('0');
+
+      // Centred in a gutter the chip reserves as padding, so the leftover splits evenly
+      // whatever width the font gives the glyph. The two must agree or the dot is off
+      // centre, which is the asymmetry this replaced.
+      expect(declared(dot, 'text-align')).toBe('center');
+      expect(declared(dot, 'width')).toBe(declared(chip, 'padding-inline-start'));
+      expect(declared(chip, 'position')).toBe('relative');
+    });
+
+    it('spaces the weather separator exactly as the countdown separator', () => {
+      // The maintainer's ruling: one spacing for both rows, so a countdown and a
+      // weather condition in the same event punctuate identically. The countdown states
+      // it as a plain margin; the weather row states it as half of what is left over
+      // once the glyph is centred, which is why the gutter is written as `2 * <gap>`.
+      const gap = declared('.column-events .time-countdown::before', 'margin-inline-end');
+      const gutter = declared('.time-location .event-weather span + span', 'padding-inline-start');
+
+      expect(gap).toBe('6px');
+      expect(gutter).toContain(`2 * ${gap}`);
+      expect(declared('.column-events .time', 'column-gap')).toBe(gap);
+    });
+
+    it('stops hyphenating the generated condition, and only that', () => {
+      // `.content-container` sets `hyphens: auto` for the card, which is right for text
+      // a user wrote and wrong for a translated condition -- it produced `Sun-`/`ny`.
+      // `manual` rather than `none`, so an explicit soft hyphen is still honoured.
+      expect(declared('.time-location .event-weather .weather-condition', 'hyphens')).toBe(
+        'manual',
+      );
+      expect(declared('.content-container', 'hyphens')).toBe('auto');
+      expect(declared('.location span', 'hyphens')).toBe('');
+    });
+
+    it('wraps the row rather than squeezing its last chip', () => {
+      // The cause of every narrow-column defect in the row. The condition is the only
+      // shrinkable item, so without wrapping a track too narrow for the whole row
+      // squeezed that one chip -- measured at width 0 on a 100px track -- and everything
+      // that then went wrong went wrong *inside* it. Flex resolves wrapping before
+      // shrinking, so the chip now moves to a line of its own at full width instead.
+      expect(declared('.time-location .event-weather', 'flex-wrap')).toBe('wrap');
+    });
+
+    it('hangs the wrapped row under the temperature, not under the icon', () => {
+      // The padding reserves the icon gutter on every line; the icon's matching negative
+      // margin collapses its own margin box to nothing so the first line is unmoved and
+      // it still paints in that gutter. The two must be exact opposites or the row is
+      // indented by the difference.
+      const gutter = declared('.time-location .event-weather', 'padding-inline-start');
+      const pull = declared('.time-location .event-weather ha-icon', 'margin-inline-start');
+
+      expect(gutter).toBe('calc(var(--calendar-card-weather-event-icon-size, 14px) + 4px)');
+      expect(pull).toBe(`calc(-1 * (${inner(gutter)}))`);
     });
 
     it('cannot reach the list view badge', () => {
@@ -340,7 +423,7 @@ describe('card stylesheet', () => {
         'var(--calendar-card-progress-bar-width, 60px)',
       );
       expect(declared('.progress-bar-row', 'width')).toBe(
-        'var(--calendar-card-progress-bar-width, 75%)',
+        'var(--calendar-card-progress-bar-width, 80%)',
       );
     });
 
@@ -398,6 +481,28 @@ describe('card stylesheet', () => {
       expect(declared('.column-events .time', 'justify-content')).toBe('flex-start');
     });
 
+    it('hangs the wrapped countdown under the time text, not under the icon', () => {
+      // Left-aligning it was the C5 fix and it landed the countdown under the *icon*.
+      // The maintainer wants the middot directly below the first digit of the time, so
+      // the row reserves the icon gutter as padding on every line and the wrapper that
+      // holds the icon is pulled back by exactly that much -- the icon still paints in
+      // the gutter, the first line is unmoved, and a wrapped line starts at the text.
+      //
+      // The negative margin goes on `.time-actual` rather than on the icon because the
+      // icon is nested inside that wrapper, not a child of `.time`. The two values must
+      // be exact opposites or every row is indented by the difference.
+      const gutter = declared('.column-events .time', 'padding-inline-start');
+
+      expect(gutter).toBe('calc(var(--calendar-card-icon-size-time, 14px) + 4px)');
+      expect(declared('.column-events .time-actual', 'margin-inline-start')).toBe(
+        `calc(-1 * (${inner(gutter)}))`,
+      );
+
+      // Reserving the gutter has to be paid for out of the border box, or `width: 100%`
+      // plus the padding overflows the column by exactly the indent.
+      expect(declared('.column-events .time', 'box-sizing')).toBe('border-box');
+    });
+
     it('marks the join with a middot, and cannot reach the list view', () => {
       // Generated content rather than a character in the string, because the countdown
       // strings are translated -- 35 languages would each need the punctuation baking in,
@@ -414,10 +519,21 @@ describe('card stylesheet', () => {
       expect(unscoped[0].selectors).toEqual([selector]);
     });
 
-    it('keeps the countdown from breaking mid-phrase', () => {
-      // So the separator travels with the phrase and opens the second line, rather than
-      // being orphaned at the end of the first.
+    it('keeps the countdown from breaking mid-phrase in list view, and lets it wrap here', () => {
+      // The list view keeps its single line: the event cell is as wide as the card, so
+      // there is nothing for wrapping to buy there.
       expect(declared('.time-countdown', 'white-space')).toBe('nowrap');
+
+      // The column releases it, and that is the indent above paying its own bill.
+      // Reserving the gutter costs the wrapped countdown 18px of the line it lands on,
+      // and a nowrap box cannot give that back -- measured at a 90px track, `in 10
+      // hours` needed 68.7px against 56px of room and overflowed the column by 10.7px.
+      //
+      // The nowrap existed to stop the separator being orphaned at the end of a line,
+      // and that reason does not survive the move to a `::before`: there is no
+      // whitespace between the middot and the first word, so the only break
+      // opportunities are the spaces inside the phrase.
+      expect(declared('.column-events .time-countdown', 'white-space')).toBe('normal');
     });
 
     /*

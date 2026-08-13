@@ -76,11 +76,11 @@ A [countdown](/features/event-content#countdown-display) and a [progress bar](/f
 🕐 09:30 – 11:00 · in 2 days
 ```
 
-It reads as trailing text, which is what its wording assumes — countdown strings are lowercase (`in 2 days`) because they were written to follow something. On a column too narrow to hold both, the countdown moves under the time and keeps the middot with it, so it still reads as a continuation of the line above rather than as a stray fragment.
+It reads as trailing text, which is what its wording assumes — countdown strings are lowercase (`in 2 days`) because they were written to follow something. On a column too narrow to hold both, the countdown moves under the time and keeps the middot with it, so it still reads as a continuation of the line above rather than as a stray fragment. It lands under the time _text_ rather than under the clock icon, so the middot sits directly below the first digit of the time.
 
 **The progress bar takes a row of its own**, directly under the event title and above the time. A bar is a graphic rather than a line of text, so a row with no icon in front of it reads as deliberate — where a bare line of text on the same row would read as a row whose icon had gone missing.
 
-The bar spans 75% of the column, flush with the left edge of the title, so it reads as an indicator for the whole event. Give it a different width with `progress_bar_width`, either for both views at once or for columns only:
+The bar spans 80% of the column, flush with the left edge of the title, so it reads as an indicator for the whole event. Give it a different width with `progress_bar_width`, either for both views at once or for columns only:
 
 ```yaml
 show_progress_bar: true
