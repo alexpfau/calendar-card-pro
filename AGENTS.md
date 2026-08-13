@@ -686,6 +686,16 @@ run, because the numbers had a relationship to violate. **Prefer measures that c
 contradict each other**, and when a run produces several, spend the ten seconds asking what
 must be true between them before asking whether any of them matches the world.
 
+**Its domain is narrow, though, and this paragraph is the wrong lesson if that goes
+unsaid.** It fires only when you already hold two numbers that *must* relate. Of the day's
+defects it would have caught exactly one: the character class that named two absent glyphs
+produced a plausible count, the case-folded oracle produced a plausible agreement rate, the
+core-only corpus produced a plausible yield, and the mutation harness produced a plausible
+pass. **Nothing internal contradicts any of them**, which is precisely why they needed a
+second derivation. So reach for the invariant first because it is cheap, and do not let it
+displace the expensive thing — one of five is a good return on ten seconds and a poor
+substitute for somebody deriving the number a different way.
+
 And when the check reads a source file, note which question you are asking. **Regex a file
 for its _shape_ — which identifier is imported, how a map key is spelled — and import it for
 its _values_.** `scripts/check-i18n.mjs` already works this way and says so: the wiring in
