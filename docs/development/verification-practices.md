@@ -534,6 +534,19 @@ was inside the deleted directory. *The check that would settle the question is t
 was deleted* — which is a worse position than a lost commit, because a lost commit is at
 least knowable.
 
+**And the follow-up failure was worse than the original: I verified the reported instance
+and not the class.** When the first session told me its worktree was gone, I confirmed *its*
+work was safe, wrote the lesson above, and stopped. A **second** session then told me the
+same thing. I never checked how many of the thirty-one worktrees I removed had live sessions
+in them, because the question I was answering — *is this branch's work contained?* — has no
+bearing on it.
+
+That is the same shape as everything else in this file, committed while writing this file:
+**a correct answer to an adjacent question**, followed by treating one confirmed instance as
+the extent of the problem. The instance is evidence that the class exists; it is never
+evidence of the class's size. After finding one, the next step is to enumerate the
+population, not to record the lesson and move on.
+
 **Shared mutable state makes a measurement void without making it look void.** The dev
 deploy slot and the live test dashboard are both shared across concurrent sessions, and
 three separate failures came from it in one evening: a capture that turned out to have
