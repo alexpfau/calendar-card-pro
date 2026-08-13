@@ -319,6 +319,19 @@ and the guard's own coverage is a second-order property that never enters that f
 explains why it happens to exactly the people who should be immune, which _be careful_
 cannot.
 
+**And this is the limit of _watch it fail_, which is otherwise the strongest rule here.**
+Seeing a check go red proves it detects **the case you had in mind**. It says nothing about
+the superset the check claims to cover. The fifth defect of the evening was found in a guard
+written an hour earlier by an author who *had* watched it fail — on the case they were
+thinking of, which was not the case that mattered.
+
+So the honest form is narrower than the slogan, and the narrowness is the content: **each
+check here has been watched to fail on the case it was written for.** That is a real
+guarantee and a smaller one than "this check works". `watch it fail` and `ask what it matches
+a subset of` are therefore not the same rule at two strengths — the first tests the case you
+imagined, the second asks what you did not imagine, and only the second could have caught
+the two defects that came through this gap tonight.
+
 The habit that follows is mechanical and cheap: **after writing any matcher, ask what it
 matches a subset of.** Not "does it work" — it does — but "what is the superset it claims and
 does not cover". Two real fixes tonight came from that question and none from re-reading the
