@@ -1347,6 +1347,31 @@ function checkGlossaryAdherence(where, code, data, strings, glossary) {
 }
 
 /**
+ * A markdown table cell, with emphasis removed so it can be matched as data.
+ *
+ * The glossary is prose *and* the machine-readable termbase, so every cell this script
+ * parses is one a human may reasonably decide to emphasise. Three separate parsers read
+ * those cells and all three matched raw text, which meant a purely cosmetic edit changed
+ * behaviour:
+ *
+ *   - **bolding a language code** in the casing table dropped that row, so bolding `de`
+ *     silently removed German's noun-capitalisation exemption and produced a confident,
+ *     linguistically wrong warning that German was calquing English orthography;
+ *   - **bolding a language in a term table's header** keyed that column under `**et**`,
+ *     so every lookup by `et` missed and the term stopped being enforced for it;
+ *   - **bolding a decided value** matched the italic test that excludes `*rejected*` and
+ *     `*!EN*`, so an emphasised decision read as *no decision here*.
+ *
+ * All three fail silently and in the same direction: less enforcement, no error. Bold is
+ * therefore stripped everywhere, single-asterisk italic never is — it is load-bearing
+ * syntax meaning the cell holds no decision.
+ *
+ * @param cell - Raw cell text
+ * @returns The cell trimmed, with bold and underscore emphasis removed
+ */
+const unemphasise = (cell) => cell.trim().replace(/\*\*|__/g, '').trim();
+
+/**
  * Reads the termbase out of the glossary.
  *
  * The markdown *is* the source of truth — a second machine-readable copy would be one
@@ -1372,7 +1397,10 @@ function readGlossary() {
     // catch a shape change could not see one row losing its shape. Harmless today, because
     // Polish is not exempt and the cell says `Sentence case` either way; it would not have
     // been the day someone edited that row expecting it to count.
-    const cells = line.split('|').map((c) => c.trim().replace(/\*\*|_/g, ''));
+    // Emphasis is stripped before the code is matched — see `unemphasise()`. The `pl` row
+    // is written `| **pl** |` to mark it as the problem language, and a bare `^[a-z]{2}$`
+    // test silently skipped it, while `sawAnyCasingRow` still passed on the other eight.
+    const cells = line.split('|').map((c) => unemphasise(c));
     if (cells.length < 4 || !/^[a-z]{2}(-[a-z]{2})?$/.test(cells[1])) continue;
     sawAnyCasingRow = true;
     if (/nouns are capitalised/i.test(cells[2])) nounCapsLanguages.add(cells[1]);
@@ -1392,7 +1420,7 @@ function readGlossary() {
     if (!header) continue;
     const langs = header[1]
       .split('|')
-      .map((c) => c.trim())
+      .map((c) => unemphasise(c))
       .filter(Boolean);
 
     const decided = {};
@@ -1403,7 +1431,12 @@ function readGlossary() {
       const cells = row[2].split('|').map((c) => c.trim());
       const forThisTerm = (decided[which] ??= {});
       langs.forEach((lang, i) => {
-        const cell = (cells[i] ?? '').replace(/^`|`$/g, '').trim();
+        // Bold is stripped, single-asterisk italic is not, and the order matters: a cell
+        // written `**Termin**` is a decided value someone emphasised, while `*rejected*`
+        // and `*!EN*` are markers meaning *there is no decision here*. Testing for italic
+        // before removing bold treats the first as the second and silently drops the term
+        // from enforcement — the failure being emphasis on a decision you care about.
+        const cell = (cells[i] ?? '').replace(/^`|`$/g, '').replace(/\*\*/g, '').trim();
         if (cell && cell !== '—' && !/^\*.*\*$/.test(cell)) forThisTerm[lang] = cell;
       });
     }
