@@ -415,8 +415,18 @@ export interface CalendarEventData {
    * This never affects `visibleEventCount`, which filters on `_isEmptyDay`.
    */
   _isCustomEmptyText?: boolean;
+  /**
+   * Set on every segment produced by splitting a multi-day event, so a row can
+   * tell "one day of a longer event" from a standalone event.
+   *
+   * Splitting rewrites the middle days of a *timed* event as all-day segments
+   * and synthesizes a midnight start for its last day, which means a segment's
+   * `start` shape no longer says whether its time of day is real. The countdown
+   * needs that distinction: every row of a split event is a day, so all of them
+   * count whole calendar days rather than one of them measuring wall-clock time.
+   */
+  _isMultiDaySegment?: boolean;
   _matchedConfig?: EntityConfig;
-  time?: string;
 }
 
 /**

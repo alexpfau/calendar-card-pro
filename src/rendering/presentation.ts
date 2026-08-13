@@ -125,12 +125,15 @@ export function buildEventPresentation(
   const isAllDayEvent = !event.start.dateTime;
 
   // Check if this is a multi-day all-day event.
+  // Asked of the event's dates via the shared predicate, never of the rendered text.
+  // It used to substring-match the localized `multiDay` / `endsToday` / `endsTomorrow`
+  // tokens, which made a rendering decision depend on translation wording: the formatter
+  // composes that string, so this was parsing back something it already knew. Eight
+  // languages translate one of those tokens to two characters, narrow enough that
+  // ordinary event text could have matched by accident.
   //
-  // Derived from the event's dates by the shared predicate, not by searching the
-  // formatted `time` string for a translated token. The formatter composes that
-  // string, so it already knew the answer; parsing it back coupled rendering to
-  // translation text, and eight languages translate one of those tokens to two
-  // characters — narrow enough that ordinary event text could match by accident.
+  // No `isAllDayEvent &&` guard is needed — the predicate returns false for any event
+  // with a `dateTime`, and repeating the check here would imply it does not.
   const isMultiDayAllDayEvent = FormatUtils.isMultiDayAllDayEvent(event);
 
   // Determine if we should show time for this specific event

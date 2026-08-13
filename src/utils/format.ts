@@ -16,30 +16,40 @@ import { getRelativeTimeString } from '../translations/dayjs';
 //-----------------------------------------------------------------------------
 
 /**
- * Format an event's time string based on its start and end times
- * Whether an event is an all-day event spanning more than one day.
+ * Does this event span more than one day *as an all-day event*?
  *
- * This is the single source of truth for that question. It is derived from the
- * event's own dates, never from its formatted `time` string: the formatter builds
- * that string as `${allDay}, ${multiDay} …`, so recovering the answer by searching
- * the sentence for the `multiDay` token asks the renderer to parse back something
- * the formatter already knew. That coupling is also fragile — eight languages
- * translate one of these tokens to two characters, and any summary or location text
- * containing those characters would be a false positive.
+ * This is the condition `formatEventTime` branches on to produce an "all day, ends
+ * tomorrow" style string rather than a bare "all day", and it is exported because the
+ * renderer needs the same answer: a single-day all-day event may have its time row
+ * suppressed (`show_single_allday_time`), a multi-day one never is.
  *
- * The iCal end date is exclusive, so it is decremented before comparison.
+ * It exists as a function so there is exactly one place that decides. `presentation.ts`
+ * previously recovered the answer by substring-matching the *rendered string* against
+ * the `multiDay` / `endsToday` / `endsTomorrow` translations — asking the output what
+ * the input had been. That coupling was silent in both directions: eight languages
+ * carry a two-character `multiDay` token (`до`, `do`, `עד`), so a single-day string
+ * that happened to contain those two characters would have shown a time row that
+ * should be hidden, and a translation edit could have removed a token and hidden one
+ * that should show. Neither is an error — only a row appearing or vanishing — so
+ * nothing would have reported it.
+ *
+ * Note that the answer depends only on the event's own dates, never on the current
+ * time: which of the three multi-day phrasings gets rendered changes as the day rolls
+ * over, but whether the event *is* multi-day does not.
  *
  * @param event Calendar event
- * @returns True when the event is all-day and spans two or more days
+ * @returns True for an all-day event whose start and (inclusive) end fall on different days
  */
 export function isMultiDayAllDayEvent(event: Types.CalendarEventData): boolean {
+  // A timed event is not an all-day event, whatever its span.
   if (event.start.dateTime) return false;
 
   const startDate = parseAllDayDate(event.start.date || '');
-  const endDate = parseAllDayDate(event.end.date || '');
-  endDate.setDate(endDate.getDate() - 1);
+  // iCal all-day end dates are exclusive, so the last day the event covers is the day before.
+  const inclusiveEndDate = parseAllDayDate(event.end.date || '');
+  inclusiveEndDate.setDate(inclusiveEndDate.getDate() - 1);
 
-  return startDate.toDateString() !== endDate.toDateString();
+  return startDate.toDateString() !== inclusiveEndDate.toDateString();
 }
 
 /**
@@ -82,12 +92,18 @@ export function formatEventTime(
 
     // Check if it's a multi-day event.
     //
-    // Deliberately kept as its own date comparison rather than delegating to
-    // `isMultiDayAllDayEvent`. The two are independent implementations of one question,
-    // and `tests/multiday-allday-predicate.test.ts` asserts they agree across every
-    // shipped language. Routing this through the predicate would make that test
-    // self-referential — it would compare the predicate against itself and pass for a
-    // broken predicate, which is exactly what it did until a deliberate break exposed it.
+    // Deliberately its own date comparison rather than a call to `isMultiDayAllDayEvent`,
+    // which is the one point where this diverges from the version that landed on `dev`.
+    // Delegating reads better and was tried first. It makes the two an identical single
+    // implementation — and that silently disarms `tests/multiday-allday-predicate.test.ts`,
+    // whose whole job is to prove the new predicate agrees with the string-matching one it
+    // replaced. That differential reproduces the old behaviour by calling `formatEventTime`,
+    // so routing this line through the predicate makes it compare the predicate against
+    // itself.
+    //
+    // Not a theory: breaking the predicate on purpose reports **2** failing tests when this
+    // line delegates and **5** when it does not. Drift between the two is what the test
+    // exists to catch, so the test must be able to see it.
     if (startDate.toDateString() !== adjustedEndDate.toDateString()) {
       return capitalizeFirstLetter(
         formatMultiDayAllDayTime(adjustedEndDate, language, translations),
@@ -136,8 +152,9 @@ export function formatEventTime(
  * Generates a localized countdown string for an event
  * Uses dayjs for consistent, localized relative time formatting
  *
- * All-day events are measured from the start of today rather than from the
- * current instant, so the countdown reflects whole calendar days.
+ * All-day events, and every row of a split multi-day event, are measured
+ * midnight-to-midnight rather than from the current instant, so the countdown
+ * reflects whole calendar days.
  *
  * @param event Calendar event to generate countdown for
  * @param language Language to use
@@ -165,12 +182,33 @@ export function getCountdownString(
   // the countdown drops a day once the clock passes midday and renders tomorrow's
   // event as "in 4 hours". Anchoring to the start of today makes the difference a
   // whole number of calendar days, which is what an all-day countdown means.
-  const reference = isAllDayEvent
-    ? new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    : undefined;
+  //
+  // The same applies to every row of a split multi-day event. Splitting rewrites
+  // the middle days as all-day segments but leaves a real start time on the first
+  // day and a synthesized midnight on the last, so measuring each row on its own
+  // terms gave one event three different countdowns: 3 / 5 / 6 / 6 where the days
+  // are 4 / 5 / 6 / 7 apart. Each row is a day, so each row counts days.
+  //
+  // Both ends are floored to local midnight rather than only the reference. A
+  // segment can start at 20:00, and start-of-today → 20:00 four days out is 4.8
+  // days, which rounds up to five.
+  const countsCalendarDays = isAllDayEvent || Boolean(event._isMultiDaySegment);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfEventDay = new Date(
+    startDate.getFullYear(),
+    startDate.getMonth(),
+    startDate.getDate(),
+  );
+
+  // A row falling on today keeps wall-clock precision: "in an hour" is the useful
+  // answer for an event starting at 07:00 today, and flooring both ends would
+  // collapse the difference to zero and render it as "a few seconds ago".
+  if (countsCalendarDays && startOfEventDay > startOfToday) {
+    return getRelativeTimeString(startOfEventDay, language, startOfToday);
+  }
 
   // Use dayjs for relative time formatting
-  return getRelativeTimeString(startDate, language, reference);
+  return getRelativeTimeString(startDate, language);
 }
 
 /**

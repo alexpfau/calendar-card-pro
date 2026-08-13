@@ -168,6 +168,8 @@ show_countdown: true
 show_countdown_allday: false # Timed events only
 ```
 
+When [`split_multiday_events`](/features/multi-day-events) is on, a multi-day event appears as one row per day and each row counts whole calendar days to its own date, so the countdowns read consecutively down the card.
+
 ## 🕒 Past Events Display
 
 Control visibility of events that have already occurred:
