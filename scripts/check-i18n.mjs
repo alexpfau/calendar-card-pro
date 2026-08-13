@@ -1189,20 +1189,67 @@ async function checkTranslationQuality(languages, glossary) {
     }
 
     checkGlossaryAdherence(where, code, data, EDITOR_STRINGS, glossary);
+    checkCollapsedLabels(where, data, EDITOR_STRINGS);
+  }
+}
+
+/**
+ * Two different settings rendered with the same label.
+ *
+ * Distinct English collapsing to one translation makes two controls indistinguishable in
+ * the editor, which is a worse failure than an awkward wording: the user cannot tell which
+ * one they are changing. Slovak shipped `weekday_color` and `weekend_weekday_color` both
+ * as `Farba pracovného dňa`.
+ *
+ * **Pairs whose English differs only in capitalisation are excluded**, because those are a
+ * defect in `strings.ts` rather than in any translation — `height_mode.option.maximum.label`
+ * says `Maximum height` where `card_max_height` says `Maximum Height`, so every one of the
+ * nine languages collapses them correctly and flagging it would blame nine files for one
+ * English inconsistency.
+ *
+ * A warning rather than an error: a shorter label can be right when the panel it sits in
+ * already supplies the context the English spells out.
+ */
+function checkCollapsedLabels(where, data, strings) {
+  const byValue = new Map();
+  for (const key of Object.keys(data)) {
+    if (key.endsWith('.helper') || !(key in strings)) continue;
+    const list = byValue.get(data[key]) ?? [];
+    list.push(key);
+    byValue.set(data[key], list);
+  }
+
+  for (const [value, keys] of byValue) {
+    if (keys.length < 2) continue;
+    const englishes = [...new Set(keys.map((k) => strings[k]))];
+    if (englishes.length < 2) continue;
+    // Same English bar its capitalisation is an English-table defect, not a translation one.
+    if (new Set(englishes.map((e) => e.toLowerCase())).size < 2) continue;
+    warn(
+      where,
+      `${keys.join(', ')} all render as ${JSON.stringify(value)}, but their English ` +
+        `differs (${englishes.map((e) => JSON.stringify(e)).join(' vs ')}) — settings ` +
+        'the user cannot tell apart',
+    );
   }
 }
 
 /**
  * The decided termbase, enforced.
  *
- * **Rejected forms are matched case-sensitively, as substrings, and only inside the keys
- * the term governs.** Each of those three is load-bearing:
+ * **Rejected forms are matched at a word start, case-insensitively, and only inside the
+ * keys the term governs.** Each of those three is load-bearing, and the first was narrowed
+ * after a mutation test caught it being too strict:
  *
- *   - *Case-sensitively*, because `Zeit` must not match the legitimate lower-case `zeit`
- *     inside `Uhrzeit`, and because a capitalisation-only divergence is exactly what a
- *     case-folding comparison was found to hide.
- *   - *As substrings*, because German, Swedish and Latvian compound: the rejected
- *     `Ereignis` appears as `Ereignisfarbe`, which no word-boundary match would find.
+ *   - *At a word start* — the start of the value, or after any non-letter. This is what
+ *     lets the match be case-insensitive without becoming wrong: rejecting German `Zeit`
+ *     must not fire on the legitimate `Uhrzeit`, and it cannot, because `zeit` there is
+ *     mid-word. Pure case-sensitivity was the first attempt and it silently missed Swedish
+ *     `Vardag` at the head of a label while catching the lower-case `vardag` — the most
+ *     likely form escaping the check that exists to find it.
+ *   - *Including compounds*, because German, Swedish and Latvian compound: the rejected
+ *     `Ereignis` appears as `Ereignisfarbe`, which begins the value and so matches, where
+ *     any whole-word test would miss it.
  *   - *Scoped to governed keys*, because the same word can be right and wrong in one
  *     file. Italian `Posizione` is wrong for *location* and correct for *position*; a
  *     whole-file scan cannot tell them apart and would fire on correct strings.
@@ -1218,10 +1265,16 @@ function checkGlossaryAdherence(where, code, data, strings, glossary) {
     );
 
     for (const form of term.rejected[code] ?? []) {
+      // Word-start, case-insensitive. See the docblock: this is deliberately not a
+      // whole-word match (compounds) and deliberately not a bare substring (`Uhrzeit`).
+      const pattern = new RegExp(
+        `(^|[^\\p{L}])${form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+        'iu',
+      );
       for (const key of governed) {
         const value = data[key];
         if (typeof value !== 'string') continue;
-        if (!value.includes(form)) continue;
+        if (!pattern.test(value)) continue;
         error(
           where,
           `\`${key}\` uses ${JSON.stringify(form)}, which the glossary rejects for ` +

@@ -668,6 +668,34 @@ stated. **The only thing that caught either was somebody deriving the same numbe
 different way** — which is why a figure worth relying on should say which corpus and which
 method produced it, and why two routes agreeing is worth more than one route being careful.
 
+**But a second person is not always required, and assuming so is expensive.** Where two of
+your own measures have a *known relationship*, check that first — it needs no oracle, no
+second derivation, and no idea what the right answer is. Measuring how many labels are
+Title Case under two strengths of one rule, `EVERY non-initial word capitalised` must be a
+subset of `ANY non-initial word capitalised`, so `EVERY ≤ ANY` always. A run reporting
+`ANY=21, EVERY=22` is therefore wrong on its face, and it was: the two predicates had
+silently drifted to different character classes, `/^[A-Z0-9]/` against `/^[A-Z]/`, so the
+digit token in `"ISO 8601"` counted for one measure and not the other. Each predicate reads
+as correct in isolation — the defect is that they were meant to be the same rule. Falsifier,
+thirty seconds: give the two strengths one shared predicate and the violation disappears;
+change one to `/^[A-Z0-9]/` and `"ISO 8601"` brings it back.
+
+That is a different instrument from the three above rather than a fourth instance of them.
+Those all needed a second derivation to surface; this one announced itself from a single
+run, because the numbers had a relationship to violate. **Prefer measures that can
+contradict each other**, and when a run produces several, spend the ten seconds asking what
+must be true between them before asking whether any of them matches the world.
+
+**Its domain is narrow, though, and this paragraph is the wrong lesson if that goes
+unsaid.** It fires only when you already hold two numbers that *must* relate. Of the day's
+defects it would have caught exactly one: the character class that named two absent glyphs
+produced a plausible count, the case-folded oracle produced a plausible agreement rate, the
+core-only corpus produced a plausible yield, and the mutation harness produced a plausible
+pass. **Nothing internal contradicts any of them**, which is precisely why they needed a
+second derivation. So reach for the invariant first because it is cheap, and do not let it
+displace the expensive thing — one of five is a good return on ten seconds and a poor
+substitute for somebody deriving the number a different way.
+
 And when the check reads a source file, note which question you are asking. **Regex a file
 for its _shape_ — which identifier is imported, how a map key is spelled — and import it for
 its _values_.** `scripts/check-i18n.mjs` already works this way and says so: the wiring in
@@ -701,10 +729,40 @@ carries `assertFound()` for exactly this — it would rather fail loudly than re
 run over an empty set — but a shell one-liner has no such thing. So the sharper form of the
 rule is **not "avoid regexes" but "do not run one where a zero match cannot announce
 itself"**: flatten continuations before matching prose, and when a check finds nothing,
-confirm the pattern can match something before believing the absence. more than in most repos: the files worth quoting are largely block-comment
-prose, and a wrapped phrase is the common case rather than the exception. `check-i18n.mjs`
-carries `assertFound()` for exactly this — it would rather fail loudly than report a clean
-run over an empty set — but a shell one-liner has no such thing. So the sharper form of the
-rule is **not "avoid regexes" but "do not run one where a zero match cannot announce
-itself"**: flatten continuations before matching prose, and when a check finds nothing,
 confirm the pattern can match something before believing the absence.
+
+**And once you have flattened, stop counting with `grep -c`.** The two halves of that
+advice destroy each other: `-c` reports *matching lines*, flattening produces exactly one
+line, so the count saturates at 1 and a duplicated phrase is indistinguishable from a
+unique one. This is not hypothetical — it is how the duplicated paragraph directly above
+was verified as removed. The count came back 1, which read as *exactly one occurrence,
+fix confirmed*, and would have read the same with the duplicate still in place. The fix
+happened to be correct; the proof of it was vacuous.
+
+The saturation is total rather than marginal, and `-c` is the wrong tool for counting
+occurrences even before you flatten anything. Run this against this file: the flattened
+`-c` says **1** where the real count is in the hundreds, and even unflattened `-c`
+undercounts, because it is counting lines that contain a match rather than matches.
+
+```bash
+perl -0pe 's/\n\s*/ /g' AGENTS.md | grep -o -c 'the'      # 1 — saturated
+perl -0pe 's/\n\s*/ /g' AGENTS.md | grep -o 'the' | wc -l # the real number
+grep -o -c 'the' AGENTS.md                                # lines, not matches
+grep -o 'the' AGENTS.md | wc -l                           # the same real number
+```
+
+Deliberately no exact figures there: writing them down changes them, since the sentence
+recording the count is itself more text to match. The falsifier that *cannot* drift is the
+one on fixed input, and it is the one to reach for —
+
+```bash
+printf 'a a\n' | grep -o -c 'a'         # 1 — wrong
+printf 'a a\n' | grep -o 'a' | wc -l    # 2 — right
+```
+
+So: `grep -o … | wc -l`, and prove the counter can exceed 1 before trusting that it
+returned 1.
+
+Note the shape, because it is the one this section is least able to warn you about: a
+*zero* is loud once you know to distrust it, and the paragraph above tells you to. A
+**one** looks like the answer you wanted.
