@@ -1046,6 +1046,12 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   // Italian, Stage 1. `Layout` is the Italian word too — HA Italian's `Disposizione` is
   // an arrangement and is rejected by the glossary; see editor-glossary.md §5, `layout`.
   'it:view',
+
+  // Swedish and Norwegian, Stage 1. `Layout` is the ordinary word in both — the glossary's
+  // `layout` row records it as the Rule 1 false-positive case, where HA leaves the English
+  // because the loanword *is* the target word rather than because it has no translation.
+  'sv:view',
+  'nb:view',
 ]);
 
 /**
@@ -1056,11 +1062,53 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
  * of an ISO standard (`ISO 8601`) do not translate into anything, in any of the nine. Held
  * apart from `IDENTICAL_TO_ENGLISH_OK` so that list stays a record of per-language
  * judgements a reviewer can actually check.
+ *
+ * This subsumes the twelve `de:` / `pl:` / `sv:` / `nb:` lines that stood here before, which
+ * said the same thing four times. Behaviour is unchanged and strictly more general: the set
+ * is keyed by bare key and consulted first, so it already covers the five languages still
+ * to come.
  */
 const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
   'width_table.at_least',
   'width_table.below',
   'week_number_mode.option.iso.label',
+]);
+
+/**
+ * Keys where the decided term is deliberately *qualified* rather than used bare.
+ *
+ * Distinct from `IDENTICAL_TO_ENGLISH_OK`: the term is still used, with a word added so
+ * two settings stay distinguishable. This exists because two checks here can genuinely
+ * pull in opposite directions, and the tie has to be broken per key rather than by
+ * weakening either one.
+ *
+ * The English table distinguishes a *field* from a *picker option* with an article —
+ * `Icon` names which icon, `An Icon` is an answer to "what kind?". **A language without
+ * articles cannot carry that distinction**, so both collapse onto the decided term and
+ * `checkCollapsedLabels` correctly reports settings the user cannot tell apart. German
+ * never hits it: `Symbol` against `Ein Symbol` keeps them separate for free.
+ *
+ * Qualifying the field is what gives way, because the option labels are answers in a
+ * list where an added word would read as invented, and because the field's own siblings
+ * are already qualified — `Kolor wskaźnika`, `Rozmiar wskaźnika`, `Pozycja wskaźnika`,
+ * so `Ikona wskaźnika` is the *more* consistent of the two, not a concession.
+ *
+ * Falsifier, thirty seconds: set `pl:today_indicator_icon` to the bare `Ikona` and run
+ * this script. The collapsed-label warning it raises is the defect this entry avoids.
+ *
+ * **Polish and Slovak reached this independently, which is the strongest evidence in this
+ * file that it is the right shape.** Both sessions found the same collision, rejected the
+ * same alternative for the same reason, and landed on the same sibling-consistency
+ * argument before either had seen the other's work.
+ */
+const GLOSSARY_QUALIFIED_OK = new Set([
+  // Polish, Stage 1. `Ikona` alone collides with `entity.label_type.option.icon.label`
+  // and `today_indicator_style.option.icon.label`, both `An Icon`.
+  'pl:today_indicator_icon',
+
+  // Slovak, Stage 1. Identical collision, identical resolution: the siblings read
+  // `Farba identifikátora`, `Veľkosť identifikátora`, `Poloha identifikátora`.
+  'sk:today_indicator_icon',
 ]);
 
 /**
@@ -1309,6 +1357,7 @@ function checkGlossaryAdherence(where, code, data, strings, glossary) {
     if (!decided) continue;
     for (const key of Object.keys(strings)) {
       if (strings[key].trim().toLowerCase() !== term.name) continue;
+      if (GLOSSARY_QUALIFIED_OK.has(`${code}:${key}`)) continue;
       const value = data[key];
       if (typeof value === 'string' && value !== decided) {
         warn(
@@ -1341,7 +1390,13 @@ function readGlossary() {
   const nounCapsLanguages = new Set();
   let sawAnyCasingRow = false;
   for (const line of casingTable[0].split('\n')) {
-    const cells = line.split('|').map((c) => c.trim());
+    // Emphasis is stripped before the code is matched. The `pl` row is written `| **pl** |`
+    // to mark it as the problem language, and a bare `^[a-z]{2}$` test silently skipped it
+    // — `sawAnyCasingRow` still passed on the other eight, so the guard that exists to
+    // catch a shape change could not see one row losing its shape. Harmless today, because
+    // Polish is not exempt and the cell says `Sentence case` either way; it would not have
+    // been the day someone edited that row expecting it to count.
+    const cells = line.split('|').map((c) => c.trim().replace(/\*\*|_/g, ''));
     if (cells.length < 4 || !/^[a-z]{2}(-[a-z]{2})?$/.test(cells[1])) continue;
     sawAnyCasingRow = true;
     if (/nouns are capitalised/i.test(cells[2])) nounCapsLanguages.add(cells[1]);
