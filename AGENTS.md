@@ -234,7 +234,13 @@ a local state indistinguishable from being integrated: `git status` is clean, lo
 remote, your commit is in your own history, and the log reads correctly. Across one evening
 of nine parallel branches feeding `feature/column-view-v4`, that produced **eight** reports
 of work as merged while it sat unintegrated — by three different sessions, each honestly.
-Only ancestry against the integration branch answers the question:
+Only ancestry against the integration branch answers the question — and **the `git fetch` is
+the load-bearing line, not boilerplate**. `origin/feature/column-view-v4` is a _local_
+remote-tracking ref that moves only when you fetch, so the right command against a stale ref
+returns an honest count of a reference from an hour ago, and nothing in the output says
+which. That was the mechanism behind all eight reports: the command was correct every time.
+Check `git status` for unpushed commits in the same breath — "merged locally" is a ninth way
+for the answer to be yes and the state to be no.
 
 ```bash
 git fetch origin
