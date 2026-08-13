@@ -773,6 +773,20 @@ formatter over a phrase before searching for it, or search for the shortest frag
 contains no markup at all — `suspect the reader before the translation` is unambiguous and
 survives any reflow, where the same sentence with its emphasis markers does not.
 
+**A mutation that changes no observable behaviour is evidence about the corpus, not the code.**
+Stage 0 wrote two falsifiers for a glossary-parser bug and both reported IMMUNE with the fix
+reverted — one mutated a term nothing currently violates, so there was nothing to lose; the
+other landed in a neighbouring table rather than the one under test. Both printed clean, and
+a reverted fix that still passes reads as "the bug was never real". The working shape is two
+steps, and the first is the one that gets skipped: **plant a real violation, confirm it is
+caught, and only then mutate.** Verified that way here — with a wrong German term planted,
+`check:i18n` raises the warning; bolding the decided cell leaves it raised, which is what
+proves the emphasis-stripping fix is live. Without the planted violation both states report
+zero and the test is vacuous.
+
+The general form is the positive control from the probe rules, moved one level up: a green
+result only means something if you have shown the thing can go red.
+
 **And once you know how to search, the harder question is what for: a withdrawn
 _observation_ is cheap, a withdrawn _instruction_ is not.** Annotating the finding is the
 easy half. The expensive half is every place it was already turned into a rule, because a
