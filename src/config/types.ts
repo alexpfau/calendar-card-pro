@@ -502,7 +502,21 @@ export interface Hass {
       callback: (message: T) => void,
       options: SubscribeMessageOptions,
     ) => Promise<() => void>;
+    /**
+     * One-shot WebSocket request. `callWS` below is Home Assistant's own one-line
+     * wrapper around exactly this, so either reaches the same place; both are declared
+     * because a `hass` handed to a custom card is not guaranteed to carry both.
+     */
+    sendMessagePromise?: <T = unknown>(message: WebSocketMessage) => Promise<T>;
   };
+  /**
+   * Send a one-shot WebSocket command and await its result.
+   *
+   * Used to fetch Home Assistant's own weather-condition vocabulary in the card's
+   * language rather than the instance's — see `utils/weather-i18n.ts`. Optional for
+   * the same reason `formatEntityState` is: the caller must degrade rather than throw.
+   */
+  callWS?: <T = unknown>(message: WebSocketMessage) => Promise<T>;
   /**
    * Home Assistant's own entity-state formatter.
    *
@@ -540,6 +554,25 @@ export interface SubscribeMessageOptions {
   entity_id?: string;
   forecast_type?: string;
   [key: string]: unknown;
+}
+
+/**
+ * A one-shot WebSocket command. `type` is the command name; everything else is
+ * command-specific, which is why the rest is left open.
+ */
+export interface WebSocketMessage {
+  type: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Home Assistant's reply to `frontend/get_translations`.
+ *
+ * `resources` is a flat map of fully-qualified key to translated string — for the
+ * weather component's states, `component.weather.entity_component._.state.<condition>`.
+ */
+export interface TranslationsResponse {
+  resources?: Record<string, unknown>;
 }
 
 /**
