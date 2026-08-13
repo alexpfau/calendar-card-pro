@@ -773,6 +773,34 @@ formatter over a phrase before searching for it, or search for the shortest frag
 contains no markup at all — `suspect the reader before the translation` is unambiguous and
 survives any reflow, where the same sentence with its emphasis markers does not.
 
+**And once you know how to search, the harder question is what for: a withdrawn
+_observation_ is cheap, a withdrawn _instruction_ is not.** Annotating the finding is the
+easy half. The expensive half is every place it was already turned into a rule, because a
+rule is the half that gets acted on. This happened three times in one day, by three
+different mechanisms, and the wording never survived intact in any of them:
+
+- **Prose → imperative.** A retracted claim about Swedish weekday casing survived three
+  sections away in "Rules a session must follow", in the imperative voice. Two sessions
+  were about to lowercase their weekdays on the strength of a note its own author had
+  already withdrawn.
+- **Prose → parsed table.** The same decision survived again as cells in the glossary's
+  casing table, which `check-i18n.mjs` reads. Worth knowing that the question **"does the
+  machine read that _field_, or merely that _table_?"** is what sizes the problem: here it
+  parsed the table for an unrelated purpose, so the blast radius was documentary. Had the
+  cell fed the casing rule, the identical edit would have silently exempted two languages
+  from the check that exists to catch the defect.
+- **Doc → code.** A paragraph describing the glossary matcher as case-sensitive was
+  restored as "lost content" when it was in fact superseded — by a **code** change that had
+  made the matcher word-start and case-insensitive. A document-to-document audit is
+  structurally blind to this: both documents agreed, and the code disagreed with both.
+
+So when you withdraw a finding, **grep for its consequences rather than its wording**, and
+check the other artefact classes: the imperative restatement, the parsed table, the test
+that pins it, the code it describes. The falsifier for the last kind is the cheapest — take
+the claim the document makes and run it. Restoring that matcher paragraph took one
+counter-example to settle: `sv weekday_color := "Vardag färg"` passes under the restored
+text and is caught by the code, so the document was describing the defect.
+
 **In Markdown the blockquote marker is a third dimension, and it is the same defect as the
 block-comment `*` above.** Verifying that a nine-session merge had preserved every session's
 glossary prose, the normaliser here — whitespace plus emphasis — still reported two of
