@@ -325,3 +325,53 @@ describe('relative time localization', () => {
     expect(first).toBe(second);
   });
 });
+
+describe('the weekday casing split is intentional and stays that way', () => {
+  // `fullDaysOfWeek` and `daysOfWeek` are two arrays for two grammatical positions, and
+  // the difference is deliberate: `daysOfWeek` is a standalone day-header label, while
+  // `fullDaysOfWeek` is only ever emitted mid-sentence, after `multiDay`, as
+  // `till måndag, 5 jan`. Five contributors encoded exactly that — lower-case running
+  // text against a capitalised label.
+  //
+  // Backlog Y13 records that 17 of 35 languages get it wrong, and is deliberately not
+  // fixed yet. This suite guards the other direction: that the five which are *right*
+  // are not "corrected" into the majority while Y13 is open.
+  //
+  // Nothing else in the repo can catch that. `getDayName` — the only other reader — has
+  // no callers, the single live consumer renders without asserting, and no other test
+  // touches these arrays. Before this suite, normalising `понедельника` to the
+  // dictionary form failed nothing anywhere, and it is the sort of edit that looks like
+  // tidying.
+  const SPLIT_CORRECT = ['nb', 'nl', 'nn', 'ru', 'uk'] as const;
+
+  it.each(SPLIT_CORRECT)('%s keeps running-text lower-case against a capitalised label', (code) => {
+    const { fullDaysOfWeek, daysOfWeek } = getTranslations(code);
+
+    for (const [index, running] of fullDaysOfWeek.entries()) {
+      expect(
+        running[0],
+        `${code} fullDaysOfWeek[${index}] "${running}" is capitalised; it is running text`,
+      ).toBe(running[0].toLocaleLowerCase(code));
+    }
+
+    // The paired half. Without it the suite would pass on a language that lower-cased
+    // *both* arrays, which is a different defect and not the one being guarded.
+    const label = daysOfWeek[1];
+    expect(label[0], `${code} daysOfWeek[1] "${label}" should be a capitalised label`).toBe(
+      label[0].toLocaleUpperCase(code),
+    );
+  });
+
+  it('keeps the Slavic genitives, which no dictionary lookup would preserve', () => {
+    // The reason this needs naming rather than leaving to the casing rule above. `до`
+    // governs the genitive, so these are inflected, not merely lower-cased — and they
+    // are the only executable record of what a complete fix looks like for the six
+    // languages that use the same preposition and still carry nominatives.
+    //
+    // dayjs is the tempting oracle and would destroy them: its `weekdays` are nominative
+    // by design, so "align with dayjs" turns the two correct languages into two more
+    // broken ones.
+    expect(getTranslations('ru').fullDaysOfWeek[1]).toBe('понедельника');
+    expect(getTranslations('uk').fullDaysOfWeek[1]).toBe('понеділка');
+  });
+});
