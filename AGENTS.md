@@ -737,13 +737,31 @@ line, so the count saturates at 1 and a duplicated phrase is indistinguishable f
 unique one. This is not hypothetical — it is how the duplicated paragraph directly above
 was verified as removed. The count came back 1, which read as *exactly one occurrence,
 fix confirmed*, and would have read the same with the duplicate still in place. The fix
-happened to be correct; the proof of it was vacuous. Use `grep -o … | wc -l`, and prove
-the counter can exceed 1 before trusting that it returned 1:
+happened to be correct; the proof of it was vacuous.
+
+The saturation is total rather than marginal, and `-c` is the wrong tool for counting
+occurrences even before you flatten anything. Run this against this file: the flattened
+`-c` says **1** where the real count is in the hundreds, and even unflattened `-c`
+undercounts, because it is counting lines that contain a match rather than matches.
 
 ```bash
-printf 'x x\n' | grep -o 'x' | wc -l    # 2 — the counter works
-perl -0pe 's/\n\s*/ /g' AGENTS.md | grep -o 'some phrase' | wc -l
+perl -0pe 's/\n\s*/ /g' AGENTS.md | grep -o -c 'the'      # 1 — saturated
+perl -0pe 's/\n\s*/ /g' AGENTS.md | grep -o 'the' | wc -l # the real number
+grep -o -c 'the' AGENTS.md                                # lines, not matches
+grep -o 'the' AGENTS.md | wc -l                           # the same real number
 ```
+
+Deliberately no exact figures there: writing them down changes them, since the sentence
+recording the count is itself more text to match. The falsifier that *cannot* drift is the
+one on fixed input, and it is the one to reach for —
+
+```bash
+printf 'a a\n' | grep -o -c 'a'         # 1 — wrong
+printf 'a a\n' | grep -o 'a' | wc -l    # 2 — right
+```
+
+So: `grep -o … | wc -l`, and prove the counter can exceed 1 before trusting that it
+returned 1.
 
 Note the shape, because it is the one this section is least able to warn you about: a
 *zero* is loud once you know to distrust it, and the paragraph above tells you to. A
