@@ -625,3 +625,23 @@ go stale". Counting the keys in `EDITOR_STRINGS` is a question about values, and
 it with a regex and reported a number that was wrong by six. The rule existed and did not
 fire, because the measurement happened in a shell one-liner rather than in the script that
 states it — which is the more useful half of the lesson.
+
+The split is not the whole guard, though, because not every question is shape or values.
+**A pattern that finds nothing looks exactly like a fact that is not there.** Verifying the
+paragraph above, the other session grepped this file for a phrase it does contain and got
+zero — the sentence wraps across two lines of a block comment, so `*` sits in the middle
+of it:
+
+```bash
+grep -c "no pattern to go stale" scripts/check-i18n.mjs              # 0  — reads as absent
+perl -0pe 's/\n\s*\*\s*/ /g' scripts/check-i18n.mjs \
+  | grep -c "no pattern to go stale"                                  # 1  — actually present
+```
+
+That matters here more than in most repos: the files worth quoting are largely block-comment
+prose, and a wrapped phrase is the common case rather than the exception. `check-i18n.mjs`
+carries `assertFound()` for exactly this — it would rather fail loudly than report a clean
+run over an empty set — but a shell one-liner has no such thing. So the sharper form of the
+rule is **not "avoid regexes" but "do not run one where a zero match cannot announce
+itself"**: flatten continuations before matching prose, and when a check finds nothing,
+confirm the pattern can match something before believing the absence.
