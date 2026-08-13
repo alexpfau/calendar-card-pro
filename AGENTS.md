@@ -459,10 +459,22 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    commit from step 3 exists only on `main`; without this, `dev` starts the next cycle a
    commit behind. See _`dev` must never fall behind `main`_.
 5. Tag `main` with `vX.Y.Z` and push the tag.
-6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release with
-   `dist/calendar-card-pro.js` attached. Publish it manually.
+6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
+   attaches `dist/*.js` — since the two-file split that is **both** `calendar-card-pro.js`
+   and `editor.js` — plus a flat `calendar-card-pro.zip` containing the same two files.
+   Publish it manually.
 
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
+HACS downloads every asset attached to a release, so it gets the editor without being told
+about it; `filename` only selects which asset becomes the Lovelace resource.
+
+**The zip exists for manual installers, and it is not optional courtesy.** Copying only
+`calendar-card-pro.js` into `www/` yields a card that renders perfectly and then reports a
+missing file the first time someone opens the visual editor — the failure appears nowhere
+near the omission that caused it. The zip makes "extract both" the path of least
+resistance. An earlier version of this section described the release as attaching
+`dist/calendar-card-pro.js` alone, which was true before the split and would have sent
+every manual installer into exactly that trap.
 
 ## CI
 
