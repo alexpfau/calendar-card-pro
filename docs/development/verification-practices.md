@@ -406,8 +406,26 @@ ref 10 behind -> ahead reads 10
 ```
 
 So **`ahead: 0` is trustworthy even unfetched** — you cannot wrongly conclude that nothing is
-outstanding. What a stale ref produces is *phantom* outstanding work, which is exactly the
-seven false "needs merging" reports one session sent. The fetch prevents false alarms.
+outstanding. What a stale ref produces is *phantom* outstanding
+work. The fetch prevents false alarms.
+
+**An earlier version of this paragraph blamed a session's repeated "needs merging" reports
+on that mechanism. That attribution was wrong, and the real cause is a failure mode this
+file did not have.** They pushed a commit and measured immediately, post-fetch: `ahead: 1`.
+Correct. I measured after merging it and got `0`. Also correct. The two commits are
+**7m31s** apart, verified from the authored timestamps. **Neither of us was stale; `ahead` is
+a time-varying quantity and neither report carried a timestamp.**
+
+And the prescription I gave — `--is-ancestor` against a freshly fetched ref — does not fix
+it either. That is still a point-in-time measurement: at 23:09 it says *not contained*, at
+23:16 it says *contained*, and both are true. **No command can resolve a disagreement about
+_when_.** The fix is notational rather than instrumental: *"1 ahead as of 23:09"* and
+*"contained as of 23:16"* do not conflict and need no adjudication.
+
+This is a distinct failure from every other entry here. Those are all measurements that were
+**wrong**. This is two measurements that were **right**, reading as contradictory because the
+dimension separating them was omitted from both — and it produced seven rounds of
+adjudication that had nothing to adjudicate.
 
 Two boundaries, because the claim is only true inside them. It assumes the remote branch is
 **append-only**: a force-push or rewrite breaks the ancestor property and the direction
