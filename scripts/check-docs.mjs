@@ -1184,6 +1184,40 @@ function checkColumnDefaults(columnDefaults, columnRows) {
  * sentence quoted deliberately twice is legitimate and must not fail a build; the file
  * currently has none at this threshold, so this starts green and only speaks up on drift.
  */
+/**
+ * `AGENTS.md` links out to six documents and **nothing resolved those links** until this
+ * check existed — `check:docs` validated the published `docs/` tree and the design docs,
+ * and neither walk opens `AGENTS.md`. Verified by breaking one deliberately: the suite
+ * stayed green.
+ *
+ * That matters more since the verification material was split (Y15): the rules live here
+ * and the worked instances live in `verification-practices.md`, so a rename that broke the
+ * link would leave every rule without the evidence that makes it falsifiable — which is
+ * exactly the property the split was meant to preserve.
+ *
+ * Fatal rather than advisory, unlike the duplication check beside it. A duplicated sentence
+ * is a wart; a link into nothing is a reader sent to a file that is not there.
+ */
+function checkAgentsLinks() {
+  const file = join(ROOT, 'AGENTS.md');
+  if (!existsSync(file)) return; // the duplication check already errors on this
+
+  const raw = readFileSync(file, 'utf8');
+  const links = [...raw.matchAll(/\]\((\.\/[^)#\s]+)(#[^)\s]*)?\)/g)];
+
+  // A zero here must mean "no links", never "the pattern stopped matching".
+  if (links.length === 0) {
+    error('AGENTS.md link check found no relative links — the pattern went stale');
+    return;
+  }
+
+  for (const [, target] of links) {
+    if (!existsSync(join(ROOT, target))) {
+      error(`AGENTS.md links to ${target}, which does not exist`);
+    }
+  }
+}
+
 function checkAgentsDuplication() {
   const file = join(ROOT, 'AGENTS.md');
   if (!existsSync(file)) {
@@ -1343,6 +1377,7 @@ function main() {
   checkOptionNoun(docs);
   checkCrossLinks(docs);
   checkAgentsDuplication();
+  checkAgentsLinks();
 
   process.exit(
     report({
