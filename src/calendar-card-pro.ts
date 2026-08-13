@@ -1189,8 +1189,22 @@ class CalendarCardPro extends LitElement {
    * finite number, not merely truthy. `compact_events_to_show: 0` is a valid
    * configuration meaning "show nothing until expanded", and per-entity limits
    * constrain the compact view even when no global limit is set.
+   *
+   * Gated on the effective view, because A3-D rules the whole compact family inert in
+   * column view — including the `action: 'expand'` gesture that drives it. Without the
+   * gate this read top-level config with no view test, so a column card with a compact
+   * limit set still toggled `isExpanded` on tap. That is not merely a no-op flag: the
+   * same flag gates the empty-day range branch, so with `column.show_empty_days: false`
+   * and an empty range, a collapsed card rendered 1 column and an expanded one 7.
+   *
+   * It needed a deliberate `tap_action: expand` to reach, which is why this is a
+   * correctness fix rather than a release blocker.
    */
   private hasCompactModeLimits(): boolean {
+    if (!ViewConfig.viewAppliesCompactLimits(this.effectiveView)) {
+      return false;
+    }
+
     const isLimit = (value: unknown): boolean =>
       typeof value === 'number' && Number.isFinite(value);
 
