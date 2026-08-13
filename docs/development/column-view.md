@@ -1985,6 +1985,22 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    proves no text, text-adjacent-indentation, attribute or element change anywhere in the
    file. Stripping *all* whitespace is weaker and will pass a real text-adjacent
    regression.
+   **🚨 The trap has a second face, and it bites the renderer rather than the gate. [v20]**
+   Template whitespace inside a flex item is *usually* invisible — a flex container drops the
+   whitespace between its items, and an item's own leading run collapses because it is
+   line-leading. Both halves of `renderEventWeather` relied on that, and the stylesheet said so
+   outright. It is only true while nothing precedes that run on the line. Add a `::before` and
+   the leading whitespace is no longer line-leading, so it renders — but only in the span whose
+   template writes literal text immediately before a binding (`UV${...}`), because lit fuses the
+   indent into that text node while a binding-first span gets a standalone whitespace node that
+   is discarded anyway. The symptom was a single 3.34px space on one side of one middot, which
+   read as an asymmetric separator and was diagnosed twice as a stray margin. Two rules follow.
+   **Never assume template whitespace is inert because a container is flex** — check whether
+   generated content precedes it. And when it does render, **fixing it in the template is the
+   move you cannot make**: that whitespace is text-adjacent, so `norm` above cannot certify the
+   snapshot diff, and any template shared with the list view is therefore CSS's problem. The fix
+   that worked was taking the `::before` out of flow, which restores the collapse rather than
+   compensating for it.
    **Promoted here from Phase 1 in [v19].** It was written during Phase 1 and lived under a
    heading marked ✅ complete, where a reader checking the live constraints before touching a
    template would never see it — while the text itself says it "governs every later extraction".

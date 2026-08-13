@@ -151,10 +151,19 @@ The row also takes its color from the time and location rows above it rather tha
 the event title, so it reads as one of the event's detail rows. Set
 `weather → event → color` to override that for both layouts.
 
-Because the words are the longest thing in a narrow row, they are also the only part
-that shrinks: the temperature and the UV index are never truncated, and the condition
-gives up room first. `max_lines` caps how tall the row may grow — `0`, the default, lets
-it wrap as far as it needs, and `1` keeps it on a single line with an ellipsis.
+On a track too narrow to hold the whole row, the words move to a line of their own
+beneath the numbers rather than being squeezed into whatever space is left beside them,
+and that second line starts under the temperature — not under the icon — so the row
+still reads as one block of text. The temperature and the UV index are never truncated
+and never wrap; the condition is the only part that gives up room, and it gives up a
+whole line rather than a few characters at a time. `max_lines` caps how tall the row may
+grow — `0`, the default, lets it wrap as far as it needs, and `1` keeps it on a single
+line with an ellipsis.
+
+The words are also left unhyphenated, unlike the title and location. Those are text you
+wrote and may have no break opportunity in them at all, so hyphenating beats overflowing;
+the condition is short generated text with a better answer available, and hyphenating it
+only ever produced readings like `Sun-` / `ny`.
 
 ::: tip Same Card, Both Layouts
 A column card falls back to the list layout on a narrow screen, where the same
