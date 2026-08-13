@@ -446,6 +446,35 @@ So **`ahead: 0` is trustworthy even unfetched** — you cannot wrongly conclude 
 outstanding. What a stale ref produces is *phantom* outstanding
 work. The fetch prevents false alarms.
 
+**But the guarantee attaches to the _zero_, not to the number — and an earlier version of
+this paragraph did not say so.** Derived by the session whose reports prompted it, then
+measured here:
+
+```
+stale ancestor  =>  ahead_stale >= ahead_real >= 0
+  ahead_stale == 0    =>  ahead_real == 0            proof
+  ahead_stale == N>0  =>  ahead_real in [0, N]       upper bound only
+```
+
+Measured against a ref held ten commits stale, with the real ref fetched in the same command:
+
+```
+ahead vs real ref     0
+ahead vs stale ref   10
+commits in the stale "ahead" list already integrated:  10 of 10
+control: a commit genuinely absent from the real ref   correctly reported absent
+```
+
+So *"over-reports, therefore safe"* is sound for the **conclusion** _nothing is outstanding_
+and unsound for any use of the **figure**. `ahead: 5` unfetched does not mean five commits
+need merging — it means *at most* five, possibly none, and **the accompanying `git log` list
+is not a work list**, because every member may already be integrated. Ten of ten were, above.
+
+That distinction is what the seven "needs merging" reports actually were: not a number that
+was too big, but a *list* treated as actionable when its contents were already in. Written
+down as a rule: **`ahead: 0` needs no fetch; any non-zero figure means nothing until you
+fetch.**
+
 **An earlier version of this paragraph blamed a session's repeated "needs merging" reports
 on that mechanism. That attribution was wrong, and the real cause is a failure mode this
 file did not have.** They pushed a commit and measured immediately, post-fetch: `ahead: 1`.
