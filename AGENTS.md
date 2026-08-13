@@ -668,6 +668,24 @@ stated. **The only thing that caught either was somebody deriving the same numbe
 different way** — which is why a figure worth relying on should say which corpus and which
 method produced it, and why two routes agreeing is worth more than one route being careful.
 
+**But a second person is not always required, and assuming so is expensive.** Where two of
+your own measures have a *known relationship*, check that first — it needs no oracle, no
+second derivation, and no idea what the right answer is. Measuring how many labels are
+Title Case under two strengths of one rule, `EVERY non-initial word capitalised` must be a
+subset of `ANY non-initial word capitalised`, so `EVERY ≤ ANY` always. A run reporting
+`ANY=21, EVERY=22` is therefore wrong on its face, and it was: the two predicates had
+silently drifted to different character classes, `/^[A-Z0-9]/` against `/^[A-Z]/`, so the
+digit token in `"ISO 8601"` counted for one measure and not the other. Each predicate reads
+as correct in isolation — the defect is that they were meant to be the same rule. Falsifier,
+thirty seconds: give the two strengths one shared predicate and the violation disappears;
+change one to `/^[A-Z0-9]/` and `"ISO 8601"` brings it back.
+
+That is a different instrument from the three above rather than a fourth instance of them.
+Those all needed a second derivation to surface; this one announced itself from a single
+run, because the numbers had a relationship to violate. **Prefer measures that can
+contradict each other**, and when a run produces several, spend the ten seconds asking what
+must be true between them before asking whether any of them matches the world.
+
 And when the check reads a source file, note which question you are asking. **Regex a file
 for its _shape_ — which identifier is imported, how a map key is spelled — and import it for
 its _values_.** `scripts/check-i18n.mjs` already works this way and says so: the wiring in
