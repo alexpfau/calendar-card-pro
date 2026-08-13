@@ -331,6 +331,33 @@ trimming; instructions don't."_ That is the account of how a `git fetch` fell ou
 **a rule erodes into ceremony and gets deleted; an instance carries its own justification and
 resists that.**
 
+**The list of failure dimensions is open — so make the probe name its inputs.** Phrase
+search failed **six distinct ways** in a single evening, and this file kept growing a
+dimension each time: a phrase wrapped across a block-comment marker; a phrase whose first
+letter was capitalised by a sentence start; a phrase split by a `' +` string concatenation;
+`grep -oc` saturating at 1 on flattened text; `\|` written inside `grep -E`, where
+alternation is `|`, so it searched for a literal pipe; and finally **searching the wrong
+artefact entirely** — probing `AGENTS.md` for a passage that a commit had put in this file.
+
+That sixth one is the important one, because the session that hit it **had read the warning
+about the previous five an hour earlier and was actively guarding against them.** Enumerating
+dimensions does not work: the list is open, and remembering it is exactly the mechanism shown
+above not to fire.
+
+What caught it was not vigilance but a **contradiction between two facts already in hand** —
+the commit was on the branch, and its content was not in the file searched. Both cannot be
+true. So the guard that scales is cheaper than the list:
+
+> **Make the probe state which artefact it read, and cross that against something
+> independently known.** A probe printing `searched AGENTS.md` beside
+> `9b57481 touched verification-practices.md` surfaces the contradiction with nobody being
+> careful.
+
+`assertFound()` is the same idea one level down — it fails loudly rather than reporting a
+clean run over an empty set. **A probe that names its inputs beats a reader who remembers the
+list**, and three participants have now demonstrated the remembering approach failing, twice
+by the person who had just written the warning down.
+
 **A passing test whose fixture you did not create is not yet evidence.** Building live test
 cards for the weekday-casing fix, I created three multi-day **all-day** events to exercise
 `fullDaysOfWeek`. They cannot exercise it: that array is read only by the **timed** multi-day
