@@ -425,7 +425,9 @@ the commit was on the branch, and its content was not in the file searched. Both
 true. So the guard that scales is cheaper than the list:
 
 > **Make the probe state which artefact it read, and cross that against something
-> independently known.**
+> independently known.** A probe printing `searched AGENTS.md` beside
+> `9b57481 touched verification-practices.md` surfaces the contradiction with nobody being
+> careful.
 
 **A stale remote-tracking ref over-reports and can never under-report — so the fetch buys
 quiet, not safety.** This was asserted the other way round for most of an evening, including
@@ -568,6 +570,29 @@ What settled this one was naming the commits and using no pattern at all — the
 derivation, which is the instrument that keeps working after ten variants have exhausted the
 first.
 
+**Dislocation passes every gate that deletion and malformation would fail.** A string-replace
+edit to *this file* split the callout above in two: the rule statement stayed at its anchor,
+and its example — `A probe printing \`searched AGENTS.md\` beside …` — was deposited **160 lines
+away**, glued to the end of an unrelated paragraph about byte density, trailing two stray `>`
+markers.
+
+Nothing caught it. Prettier reformatted it happily, `check:docs` passed, `docs:build` passed,
+and VitePress rendered both halves as valid markdown, because **each half is individually
+well-formed**. A rule with no example is a normal paragraph. An example with no rule is a
+normal paragraph. Only the relation between them was destroyed, and no gate here checks
+relations.
+
+That makes it a third failure alongside the two already named. Deletion removes content and
+a diff shows it. Malformation breaks syntax and a build catches it. **Dislocation preserves
+every byte and every gate stays green** — which is why the defect it produced was, precisely,
+_a rule separated from its instance_: the one thing this file exists to prevent, done to this
+file, by the person maintaining it.
+
+It was found only because a session asked me to audit tonight's figures for a *different*
+defect — missing anchors on byte counts. The figures were fine. Third instance of the same
+pattern: **going to check one thing is how the other thing gets found**, and it does not
+work if you skip the check because you expect it to pass.
+
 **A measurement recorded in the present tense will be wrong; label it as a moment instead.**
 A table in the glossary carried a per-language casing percentage under a heading reading
 _"mid-string capitals today"_. Every figure in it was stale within a day, and the fix that
@@ -586,9 +611,7 @@ the reflexive explanation and is often wrong: dividing by character count separa
 from encoding. Restoring Romanian diacritics moved the card chunk **187,554 → 187,572 B, +18
 bytes, with the character count unchanged at 581** — so it was 18 characters each gaining one
 UTF-8 byte, a pure substitution, and not a single character of new text. Reported as bytes
-alone, +18 invites a content explanation that the density figure refutes in one line. A probe printing `searched AGENTS.md` beside
-> `9b57481 touched verification-practices.md` surfaces the contradiction with nobody being
-> careful.
+alone, +18 invites a content explanation that the density figure refutes in one line.
 
 `assertFound()` is the same idea one level down — it fails loudly rather than reporting a
 clean run over an empty set. **A probe that names its inputs beats a reader who remembers the
