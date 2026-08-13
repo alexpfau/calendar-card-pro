@@ -731,6 +731,47 @@ rule is **not "avoid regexes" but "do not run one where a zero match cannot anno
 itself"**: flatten continuations before matching prose, and when a check finds nothing,
 confirm the pattern can match something before believing the absence.
 
+**Flattening is necessary and not sufficient, because a formatter rewrites more than
+whitespace.** Verifying that a merge had preserved another session's paragraphs took three
+passes and the first two were confidently wrong: exact-line `grep -F` reported 8 of 39
+lines missing (prettier had re-wrapped them), flattening whitespace still reported 8
+(prettier had also rewritten `*emphasis*` to `_emphasis_`), and normalising both reported
+6 — the true number, all six being text a later commit had deliberately superseded. Each
+omitted normalisation produced a _false positive_ that read as lost work, which is the
+direction that provokes an unnecessary "restore", so it is worth being exact:
+
+```js
+const norm = (s) => s.replace(/\s+/g, ' ').replace(/_/g, '*');
+```
+
+The general rule is to **normalise every dimension the writer does not control**. Run the
+formatter over a phrase before searching for it, or search for the shortest fragment that
+contains no markup at all — `suspect the reader before the translation` is unambiguous and
+survives any reflow, where the same sentence with its emphasis markers does not.
+
+**In Markdown the blockquote marker is a third dimension, and it is the same defect as the
+block-comment `*` above.** Verifying that a nine-session merge had preserved every session's
+glossary prose, the normaliser here — whitespace plus emphasis — still reported two of
+seventeen claims missing. Both were present. `> ` continuation markers sat inside the
+phrases, so `It is not one key but six` does not match a source reading
+`It is not one key\n> but **six**`. Markdown puts a marker at the head of every wrapped
+line of a blockquote exactly as a block comment does, and this file's own prose is largely
+inside `>` callouts, so it is the common case rather than the exception:
+
+```js
+const norm = (s) =>
+  s
+    .replace(/^\s*>\s?/gm, ' ') // blockquote continuation
+    .replace(/[`*_]/g, '') // code spans and emphasis
+    .replace(/\s+/g, ' ');
+```
+
+Note which way it failed: two **false positives**, reading as another session's work lost in
+a conflict resolution — the direction that provokes an unnecessary "restore", which is the
+same asymmetry recorded above. The cheap guard is the one that generalises: **before
+believing a phrase is absent, strip every marker a formatter or a container may have
+inserted, and prove the probe can still fail** on a phrase you know is not there.
+
 **And once you have flattened, stop counting with `grep -c`.** The two halves of that
 advice destroy each other: `-c` reports _matching lines_, flattening produces exactly one
 line, so the count saturates at 1 and a duplicated phrase is indistinguishable from a
