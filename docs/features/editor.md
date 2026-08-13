@@ -33,7 +33,9 @@ Panels open one at a time, and options inside them appear only when they apply �
 - **Per-View Exceptions** — give an option a different value in column view without leaving the editor
 
 ::: info Editor Language Support
-The visual configuration editor is currently available in **11 languages**, while the calendar itself supports **35 languages**. If your language is not among the 11, the editor falls back to English — calendar settings applied through it still display correctly in all 35 supported languages. Community contributions for additional editor translations are welcome!
+The editor is translated into **10 languages** besides English, and the calendar itself supports **35**. Translation is **per string**: a label that has been translated appears in your language, and one that has not appears in English, in the same form. So an editor in a translated language is currently a mixture — the translations cover the options that existed before v4, and the newer panels are still English.
+
+If your language is not among the 10 the editor is entirely in English. Either way, calendar settings applied through it still display correctly in all 35 supported languages. Community contributions for additional editor translations are very welcome — a partial translation is genuinely useful here, because every string you add appears immediately without waiting for the rest.
 :::
 
 ## 🔎 Search & Customized Only

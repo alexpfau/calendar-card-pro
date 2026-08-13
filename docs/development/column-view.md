@@ -2293,7 +2293,10 @@ regardless of where the card ends up.
   change required** — recorded here so the reconciliation is not re-derived later.
 - **New key cost.** `min_day_width` becoming public means: a `DEFAULT_CONFIG` entry, a
   documentation row (`check:docs` enforces defaults ↔ reference-table parity), an editor
-  control, and editor strings in all 11 editor-translated languages.
+  control, and an **English** editor string. **[v20]** It no longer means a string in every
+  translated language: resolution is per key with a fallback to English, so a new key simply
+  appears in English everywhere until someone translates it. There are 10 translation files,
+  not 11 — English is not one of them.
 - **The editor warning is a v4.0.0 release blocker, not an MVP blocker** — consistent with the
   standing ruling that editor support for `column:` may follow YAML-only internal testing. It is
   registered in §D7.
