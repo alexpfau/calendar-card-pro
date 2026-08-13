@@ -126,17 +126,18 @@ export const LABEL_TYPES: ReadonlyArray<'none' | 'text' | 'icon' | 'image'> = [
 /**
  * The config keys a per-calendar form field answers for.
  *
- * All but one answer for the key they are named after. The shape dropdown answers for
- * **both** `label_type` and `label`: it is stored only where the value would be read
- * wrongly, so asked in its own name alone it would report *not customized* for every
- * ordinary label and be hidden by *Customized only* while the label it names was still
- * on screen.
+ * All but two answer for the key they are named after. The shape dropdown and the label
+ * itself each answer for **both** `label_type` and `label`, because either key alone
+ * tells only half the story: the shape is stored only where the value would be read
+ * wrongly, and the value is absent for a shape not yet filled in. Asked in their own
+ * names, *Customized only* would hide the dropdown from every ordinary label, and hide
+ * the box from exactly the half-finished label the user opened the editor to finish.
  *
  * @param name - Per-calendar field name
  * @returns The config keys it configures
  */
 export function entityConfigKeys(name: string): ReadonlyArray<string> {
-  return name === LABEL_TYPE ? [LABEL_TYPE, 'label'] : [name];
+  return name === LABEL_TYPE || name === 'label' ? [LABEL_TYPE, 'label'] : [name];
 }
 
 /**

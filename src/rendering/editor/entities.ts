@@ -120,6 +120,23 @@ function needsExplicitType(type: string, label: unknown): boolean {
 }
 
 /**
+ * Whether a value is something the given shape could actually render.
+ *
+ * Asymmetric, and deliberately: **any** non-empty string renders as text, which is what
+ * makes *Text or Emoji* a shape nothing is ever lost moving to. An icon and an image are
+ * narrower — `Work` is not an icon name and not a path — so they answer to the reader.
+ *
+ * @param type - Shape being moved to
+ * @param value - Label value as it stands
+ * @returns `true` when that shape can draw that value
+ */
+function fitsShape(type: string, value: unknown): boolean {
+  if (typeof value !== 'string' || value === '') return false;
+
+  return type === 'text' || Helpers.getLabelType(value) === type;
+}
+
+/**
  * Projects one calendar's stored settings into the shape its form binds.
  *
  * Two transformations. The three inheritable switches are stored as `true`, `false` or
@@ -194,19 +211,31 @@ export function fromEntityFormData(
     ? data[LABEL_TYPE]
     : labelTypeOf(previous);
 
+  // Whether this edit *moved* the dropdown, as opposed to changing something else. Two
+  // things are allowed to discard data, and only on a move: a value the new shape cannot
+  // draw, and the icon colour. Doing either on every edit would mean changing `show_time`
+  // silently deleted a setting the user could not see.
+  const moved = chosenType !== labelTypeOf(previous);
+
   for (const [key, value] of Object.entries(data)) {
     // `LABEL_TYPE` names both the form field and the config key, so skipping it here
     // covers the stored value too — the shape is rewritten below from `chosenType`
     // rather than copied through.
     if (key === 'entity' || key === LABEL_TYPE) continue;
 
-    // *None* means no label, so the value does not survive it.
-    if (key === 'label' && chosenType === 'none') continue;
+    if (key === 'label') {
+      // *None* means no label, so the value does not survive it.
+      if (chosenType === 'none') continue;
 
-    // The colour applies to an icon and to nothing else, so it is not carried into a
-    // shape that cannot use it — it would sit in the configuration doing nothing and
-    // reappear the next time the label became an icon, long after it was chosen.
-    if (key === 'label_icon_color' && chosenType !== 'icon') continue;
+      // Moved to a shape that cannot draw what is there: dropped rather than replaced,
+      // so the control arrives empty instead of holding something to delete first.
+      if (moved && !fitsShape(chosenType, value)) continue;
+    }
+
+    // The colour applies to an icon and to nothing else, so it does not follow the label
+    // to a shape that cannot use it. Only on the move, though — left alone it would sit
+    // in the configuration doing nothing, and there is no control to remove it with.
+    if (key === 'label_icon_color' && moved && chosenType !== 'icon') continue;
 
     if (key in ENTITY_TRISTATE_VALUES) {
       const stored = ENTITY_TRISTATE_STORED[String(value)];
