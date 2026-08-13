@@ -35,10 +35,44 @@ CI enforces — which is the point.
 > purpose is to record a disagreement the work is about to resolve**, so a present-tense
 > label is guaranteed to be false exactly where it carried information.
 >
-> Nothing is lost by the relabel, because the historical record has a better home: each
-> superseded form is already on that term's `**Rejected:**` line, where it is
-> machine-enforced and cannot silently drift. **To ask what a file holds now, read the
-> file** — `node scripts/check-i18n.mjs` compares all nine against every decided term.
+> Nothing is lost by the relabel, but **not for the reason first given here.** That read
+> "each superseded form is already on that term's `**Rejected:**` line, where it is
+> machine-enforced" — asserted, not measured, and **two of the six are**. What the other
+> four are covered by was then measured, by planting each form back into its file and
+> asking CI:
+>
+> | superseded form         | `**Rejected:**` | `**Decided**` row | casing check |
+> | ----------------------- | --------------- | ----------------- | ------------ |
+> | `it` _Posizione_        | **error**       | warning           | —            |
+> | `sk` _Menovka_          | **error**       | warning           | —            |
+> | `pl` _Data Początkowa_  | —               | **warning**       | —            |
+> | `de` _Zeit_             | —               | **warning**       | —            |
+> | `it` _Modalità Compatta_ | —              | —                 | —            |
+> | `pl` _Tryb Kompaktowy_  | —               | —                 | —            |
+>
+> **Four of six are caught, two by nothing at all** — and the relabel is still right,
+> because a stale table caught none of them either and lied about the four.
+>
+> **The casing check catches none of these, which is worth knowing before relying on it.**
+> It is a per-language _ratio_ that warns above 15%, so a single regressed label moves
+> Italian from 2% to 2.5% and fires nothing. Control, so the claim is not merely an absence:
+> Title-Case every multi-word Italian label and it reports `100% (204 of 205)`. It catches a
+> systematic calque, which is what it was built for, and never a single string.
+>
+> **The two uncovered are uncoverable, and trying is worse than leaving them.** Their
+> defect is _orthographic only_ — `Modalità Compatta` against `Modalità compatta` — while
+> the `**Rejected:**` matcher is deliberately case-insensitive (§8, after a mutation test
+> caught the case-sensitive version missing Swedish `Vardag`). Falsifier, thirty seconds:
+> add a rejected-form line naming `Modalità Compatta` for `it` under the `compact` table and
+> run the script — it raises **four errors against the correct `Modalità compatta`**. `de`
+> `Zeit` cannot take one either, for the neighbouring reason: it would fire on
+> `Zeitraum & Inhalt`, which is correct German. So a casing-only regression in a term whose `**Decided**` row enforces
+> nothing is invisible to every gate here, and the honest move is to record that rather than
+> to close it.
+>
+> **To ask what a file holds now, read the file** — `node scripts/check-i18n.mjs` compares
+> all nine against every decided term, and its `Glossary enforcement` line says which rows
+> can catch anything at all.
 
 ---
 
@@ -149,24 +183,38 @@ and they are the only per-language oracle available. They are not authoritative.
 
 ## 3. Casing — One Decision Per Language
 
-Terminology and orthography are **independent axes**. Polish agrees with Home Assistant on
-essentially every term while title-casing 80% of its multi-word labels. A session that
+Terminology and orthography are **independent axes**. Polish agreed with Home Assistant on
+essentially every term while title-casing 80% of its multi-word labels — a session that
 checks its vocabulary, finds agreement and reports the language clean will have missed the
 larger defect. So casing is decided once here, per language, and checked separately.
 
 English uses Title Case for labels. Almost no other language does.
 
-| language | rule                                                         | mid-string capitals today | verdict                                             |
-| -------- | ------------------------------------------------------------ | ------------------------: | --------------------------------------------------- |
-| de       | **Nouns are capitalised** — German orthography, not a calque |                       73% | correct, exempt from the check                      |
-| et       | Sentence case                                                |                        3% | correct                                             |
-| it       | Sentence case                                                |                        2% | correct                                             |
-| lt       | Sentence case                                                |                        0% | correct                                             |
-| lv       | Sentence case                                                |                        0% | correct                                             |
-| nb       | Sentence case                                                |                        5% | correct                                             |
-| **pl**   | Sentence case                                                |                    **3%** | **fixed in Stage 1 — was 80%, a systematic calque** |
-| sk       | Sentence case                                                |                        0% | correct                                             |
-| sv       | Sentence case                                                |                        5% | correct                                             |
+| language | rule                                                         | mid-string capitals, Stage 1 complete | verdict                                             |
+| -------- | ------------------------------------------------------------ | ------------------------------------: | --------------------------------------------------- |
+| de       | **Nouns are capitalised** — German orthography, not a calque |                                   69% | correct, exempt from the check                      |
+| et       | Sentence case                                                |                                    5% | correct                                             |
+| it       | Sentence case                                                |                                    3% | correct                                             |
+| lt       | Sentence case                                                |                                    3% | correct                                             |
+| lv       | Sentence case                                                |                                    3% | correct                                             |
+| nb       | Sentence case                                                |                                    6% | correct                                             |
+| **pl**   | Sentence case                                                |                                **3%** | **fixed in Stage 1 — was 80%, a systematic calque** |
+| sk       | Sentence case                                                |                                    3% | correct                                             |
+| sv       | Sentence case                                                |                                    6% | correct                                             |
+
+> **These are a measurement at one moment, not a live reading — the column said `today`
+> and every one of the nine figures was stale.** They were taken when each language held
+> 111–134 strings; at 312 the same files measure differently, and the drift is upward
+> everywhere because the added strings include the few legitimate proper nouns and
+> acronyms. Nothing in the verdicts moves: the check warns above 15%, German is exempt by
+> the rule cell, and the widest non-German figure is 6%.
+>
+> The point is the one §1 makes about the `editor, then` rows, and this is its third
+> instance in this file: a column headed `today` in a document nobody re-measures is
+> guaranteed to be wrong, and it is worst where it once carried the most information —
+> Polish read **80%** with the verdict `fix all 111 existing strings` after that work was
+> finished. **To ask what a file holds now, run the check**, which recomputes this and is
+> the only reading that cannot go stale.
 
 Measured over multi-word labels, counting non-initial words whose first character is
 upper-case, with all-caps acronyms (`UV`) excluded because they are correct. The check
