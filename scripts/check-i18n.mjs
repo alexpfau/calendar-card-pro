@@ -1005,6 +1005,32 @@ async function checkEditorTranslations(languages) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Keys whose value is the same in every language, because it is not language at all.
+ *
+ * A comparison symbol with a placeholder (`≥ {width} px`, `< {width} px`) and the name of
+ * an ISO standard (`ISO 8601`) do not translate into anything, in any of the nine. They
+ * are exempt by **key**, so a language reaching full coverage needs no entry for them.
+ *
+ * **This is the second mechanism the `lang:key` list below anticipated**, added by the
+ * Baltic session (Stage 1) at the point that list predicted: German alone needed three
+ * entries, and `et`, `lt` and `lv` arriving together would have made it twelve where three
+ * would do. Splitting it here retires those twelve and the twelve still to come from `it`,
+ * `nb`, `pl` and `sk`, which is the whole of the growth the note was worried about.
+ *
+ * The bar for adding a key here is higher than for the list below, and deliberately so: a
+ * `lang:key` entry claims *this language* keeps the English word, which is a claim about
+ * one language and is reviewed as such. An entry **here** claims no language will ever
+ * translate it, which is unfalsifiable from inside any single session. Keep it to symbols,
+ * numerals and proper names of standards — anything that is a *word*, however
+ * international it looks, belongs below where one language owns it.
+ */
+const IDENTICAL_TO_ENGLISH_OK_ANY_LANGUAGE = new Set([
+  'width_table.at_least',
+  'width_table.below',
+  'week_number_mode.option.iso.label',
+]);
+
+/**
  * Values that are legitimately byte-identical to their English.
  *
  * Keyed `lang:key`, and deliberately tiny. Every entry is a loanword the language
@@ -1015,16 +1041,6 @@ async function checkEditorTranslations(languages) {
  * `Layout` is the word in German, Italian, Norwegian and Swedish. Home Assistant's own
  * tables leave it untranslated in German and Swedish for the same reason, which
  * corroborates it independently.
- *
- * **Three of these are not about language at all**, and the German session hit all three
- * the moment it reached full coverage: `width_table.at_least` is `≥ {width} px`,
- * `width_table.below` is `< {width} px`, and `week_number_mode.option.iso.label` is
- * `ISO 8601`. A symbol with a placeholder and the name of an ISO standard are the same in
- * every one of the nine, so **every remaining language session will need the same three
- * entries** — the list grows by 27 where 3 would do. If that becomes tiresome, the fix is
- * a key-level set checked before the `lang:key` one rather than nine more lines each; it
- * is left as a judgement for whoever reaches it, because three entries is not yet worth a
- * second mechanism.
  *
  * `view` is `Layout` for the same reason `panel.layout` is, and will recur for `it`, `nb`
  * and `sv`: it is a key those languages had not translated when this list was written.
@@ -1040,11 +1056,6 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   // distinguishes it from an untranslated string; see editor-glossary.md §5, `label`.
   'de:entity.label',
   'de:view',
-
-  // Language-independent: a comparison symbol with a placeholder, and a standard's name.
-  'de:width_table.at_least',
-  'de:width_table.below',
-  'de:week_number_mode.option.iso.label',
 ]);
 
 /**
@@ -1141,7 +1152,11 @@ async function checkTranslationQuality(languages, glossary) {
       }
 
       // --- untranslated English -------------------------------------------
-      if (value === english && !IDENTICAL_TO_ENGLISH_OK.has(`${code}:${key}`)) {
+      if (
+        value === english &&
+        !IDENTICAL_TO_ENGLISH_OK_ANY_LANGUAGE.has(key) &&
+        !IDENTICAL_TO_ENGLISH_OK.has(`${code}:${key}`)
+      ) {
         error(
           where,
           `\`${key}\` is byte-identical to the English — either translate it, or add ` +
