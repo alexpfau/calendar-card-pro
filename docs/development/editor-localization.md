@@ -30,9 +30,9 @@ English in `strings.ts`. What was lost is completeness:
 | genuinely translated, 9 languages | **97–100%** | **36–43%** |
 
 **Mining is finished.** Three sources were assessed by English text, as the standing rule
-requires. Together they fill **≈30 of the 1,786 missing strings — 1.7%.** The archive is
+requires. Together they fill **≈75 of the 1,786 missing strings — 4.2%.** The archive is
 already exhausted; the card's own strings and Home Assistant's frontend are worth almost
-nothing as bulk sources. **98.3% of the work is genuine translation.**
+nothing as bulk sources. **95.8% of the work is genuine translation.**
 
 That makes the glossary the main lever, not a nicety. It is the only artefact that can
 keep nine independent sessions from rendering _event_ three different ways, and it is the
@@ -68,7 +68,12 @@ the half most likely to be done badly under time pressure.
 Structural content that must survive translation:
 
 - **7 keys carry placeholders**: `{band}`, `{count}`, `{query}`, `{width}`.
-- **8 keys carry special glyphs**: `≥`, `→`, `—`, non-breaking space.
+- **8 keys carry special glyphs**: `—` (U+2014, 7 keys) and `≥` (U+2265, 1 key). There is
+  no `→` and no non-breaking space anywhere in the table. _(Corrected: the original named
+  four characters, two of which do not exist. The probe was a regex character class, so it
+  answered "which keys match any of these" and the class **contents** were written up as
+  findings — a shape that can never report a member absent. A check hardcoding that list
+  would have guarded two phantom characters while reporting success.)_
 - **2 keys carry typographic quotes**: `filter.no_matches`, `entity.compact_events_to_show.helper`.
 
 ### 2.2 Current coverage, and the shape of the gap
@@ -144,7 +149,7 @@ labels. They barely intersect.
 **It earned its place as an oracle rather than a mine.** On its two overlapping keys it
 immediately found a defect — §6.2.
 
-### 3.4 Source 3 — Home Assistant's frontend: 1.5% as a mine, 57% as an oracle
+### 3.4 Source 3 — Home Assistant's frontend: 4% as a mine, 57% as an oracle
 
 The brief called this the highest-value idea in it. It is not, and the parent session's
 correction is confirmed independently here, then extended.
@@ -164,20 +169,50 @@ pip download home-assistant-frontend --no-deps
 unzip -q *.whl -d x && ls x/hass_frontend/static/translations/
 ```
 
+> **Two traps in that one command, both found the hard way.**
+>
+> **The translations are not one file per language — they are one file per language _per
+> fragment_.** `static/translations/` holds the core table plus 14 subdirectories
+> (`lovelace`, `config`, `energy`, …), and card-editor vocabulary lives in **`lovelace`**.
+> Reading only the top-level file gives 1,462 English keys; loading every fragment gives
+> **5,884**. The figures in §3.4 and §3.8 were first measured core-only and understated the
+> mine by more than half. Always merge every fragment.
+>
+> **`pip download` is not reproducible across environments.** On this machine pip resolves
+> through a corporate proxy (`packagefeedproxy.microsoft.io`) whose index for this package
+> **stops at `20250109.2`**, so the "latest" wheel here is over a year stale — the version
+> in this document's header, and not the version Stage 0 measured against
+> (`20260128.6`). Two sessions can follow this instruction faithfully and get corpora
+> a year apart, which is how a glossary entry becomes unverifiable. **Pin the version
+> explicitly and record it beside any evidence taken from it**, and if a lookup cannot be
+> reproduced, compare corpus sizes before concluding the evidence is wrong.
+
 **As a bulk mine it fails**, consistently across all nine languages:
 
-| lang                       |   missing | unique fills | fill rate |
-| -------------------------- | --------: | -----------: | --------: |
-| de                         |       178 |            4 |      2.2% |
-| et, it, lt, lv, nb, sk, sv |       201 |            3 |      1.5% |
-| pl                         |       201 |            2 |      1.0% |
-| **total**                  | **1,786** |       **27** |  **1.5%** |
+| lang      | missing   | core-only fills | **+ fragments** | fill rate |
+| --------- | --------: | --------------: | --------------: | --------: |
+| de        |       178 |               4 |           **7** |      3.9% |
+| et        |       201 |               3 |           **9** |      4.5% |
+| it        |       201 |               3 |           **8** |      4.0% |
+| lt        |       201 |               3 |           **9** |      4.5% |
+| lv        |       201 |               3 |           **6** |      3.0% |
+| nb        |       201 |               3 |           **9** |      4.5% |
+| pl        |       201 |               2 |           **8** |      4.0% |
+| sk        |       201 |               3 |           **9** |      4.5% |
+| sv        |       201 |               3 |           **9** |      4.5% |
+| **total** | **1,786** |          **27** |          **74** |  **4.1%** |
+
+The core-only column is what this document originally reported, and it was low by 2.7×
+because it missed the `lovelace` fragment. **The conclusion is unchanged**: 4.1% is still a
+failed bulk mine, and 96% still needs genuine translation. Stage 0 measured 70 against this
+74 on a newer corpus; the gap is normalisation, not substance.
 
 The parent session measured 3 for German with an exact `trim()` match; loosening to
 case-folded, quote-normalised, trailing-punctuation-stripped matching moves it to 4. **The
 null is a property of the data, not of the probe.** The reason is structural: the editor's
 vocabulary is _Day Header Gap_, _Show Countdown for All-Day Events_, _Progress Bar Height_.
-None of that exists in a generic UI table.
+None of that exists in a generic UI table — and the fragments, which _do_ carry dashboard
+vocabulary, still only reach 4.1%.
 
 **As a terminology oracle it is strong.** Probed with 75 single domain terms, HA's German
 table has an opinion on **43 (57%)** — `entity → Entität`, `icon → Symbol`,
@@ -314,15 +349,22 @@ them.
 
 ### 3.8 Combined yield
 
-| source                        |   fills | share of 1,786 |
-| ----------------------------- | ------: | -------------: |
-| archive (`editor-languages/`) |       1 |          0.06% |
-| card strings (`languages/`)   |       0 |             0% |
-| HA frontend (wheel)           |      27 |           1.5% |
-| **total**                     | **≈28** |       **1.6%** |
+| source                             |   fills | share of 1,786 |
+| ---------------------------------- | ------: | -------------: |
+| archive (`editor-languages/`)      |       1 |          0.06% |
+| card strings (`languages/`)        |       0 |             0% |
+| HA frontend (wheel, **fragments**) |      74 |           4.1% |
+| **total**                          | **≈75** |       **4.2%** |
 
-Even taken at its most generous the three sources overlap slightly and land near 30.
-**Round it to 2%. The remaining 98% is genuine translation work.**
+Even taken at its most generous the three sources overlap slightly and land near 75.
+**Round it to 4%. The remaining 96% is genuine translation work.**
+
+> **Corrected from ≈28 / 2%.** The HA row was measured against the core translation table
+> only; adding the 14 fragments — `lovelace` above all — takes it from 27 to 74. The
+> headline conclusion is unchanged and was never close to the margin: a source that fills
+> 4% of the gap is not a bulk mine, and the plan never rested on it. Recorded rather than
+> silently patched because the original figure was quoted onward as "98% is genuine
+> translation", which is now 96%.
 
 ### 3.9 Sources assessed and rejected
 
@@ -919,6 +961,19 @@ Recorded because the brief asked for them explicitly.
 11. **And a correction to this document.** Its own oracle comparison case-folded both sides,
     so a purely-capitalisation disagreement read as agreement — concealing one, in the
     language whose capitalisation is most wrong. Count corrected from 11 to **12**. §3.7.
+12. **Two more corrections to this document, both found by Stage 0 reading it as a
+    specification.** The glyph inventory in §2.1 named `→` and a non-breaking space,
+    **neither of which exists** in the table — the probe was a regex character class, so it
+    reported which keys matched *any* member and the class contents were written up as
+    findings. And the HA mine was measured against the **core** table only, missing the 14
+    fragments where dashboard vocabulary lives; 27 fills became **74**. §2.1, §3.4, §3.8.
+13. **A reproducibility defect in this document's own method.** It tells the reader to
+    `pip download home-assistant-frontend`, which is **not deterministic across
+    environments**: on this machine pip resolves through a corporate proxy whose index for
+    that package is over a year stale, so "latest" here is `20250109.2` while Stage 0
+    measured `20260128.6`. That is how a glossary entry becomes unverifiable — a lookup
+    that genuinely exists in one corpus and genuinely does not in another, with both
+    sessions following the same instruction. Pin the version. §3.4.
 
 ## 12. Things I Could Not Establish
 
