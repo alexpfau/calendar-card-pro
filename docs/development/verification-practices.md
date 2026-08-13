@@ -408,6 +408,19 @@ printf 'a a\n' | grep -o -c 'a'         # 1 — wrong
 printf 'a a\n' | grep -o 'a' | wc -l    # 2 — right
 ```
 
+**Knowing this paragraph exists does not protect you from it.** Verifying a claim about
+these two files, I ran `grep -oc` over the flattened corpus and got `1` for each of six
+tokens — six confirmations, every one meaningless, because `-c` counts matching _lines_ and
+flattening had made the corpus one line. I was searching **this file**, in which the trap is
+documented with the exact command above, and `grep -o -c` was one of the very tokens I was
+searching for. Nothing about having written or read it helped.
+
+What caught it was the positive control in the same run: the word _verified_ also returned
+`1`, and it should return dozens. **The control is a mechanism; documentation is only
+knowledge, and knowledge does not fire.** That is the argument for pairing every count with
+a control that must exceed one, rather than for writing a better warning — a warning has to
+be recalled at the moment of use, and this one was not, by the person who had just read it.
+
 **And the exact inverse of that paragraph is the fourth failure mode: a probe whose own
 structure supplies the finding.** A pattern that matches nothing looks like absence; a
 pattern that matches can smuggle the answer into the question, and the result is worse,
