@@ -492,6 +492,23 @@ clean run over an empty set. **A probe that names its inputs beats a reader who 
 list**, and three participants have now demonstrated the remembering approach failing, twice
 by the person who had just written the warning down.
 
+**Shared mutable state makes a measurement void without making it look void.** The dev
+deploy slot and the live test dashboard are both shared across concurrent sessions, and
+three separate failures came from it in one evening: a capture that turned out to have
+measured *another session's* bundle; a mutation control confounded because a session
+rewrote the test tab mid-run, so 8 cards became 5 and a card's language changed, reading as
+a real difference; and — mine — replacing that view wholesale and destroying a fourth
+session's test cards without knowing they existed.
+
+None of the three is detectable afterwards. The guards belong **in the probe**: hash the
+deployed artefact before *and* after each capture, and key on the card's **title** rather
+than its index, so a rewritten tab exits non-zero instead of silently measuring someone
+else's cards. That second one is the denominator rule a level up — a denominator proves
+cards exist; a title proves they are *yours*.
+
+The general form: **an environment you do not exclusively own is an input to the
+measurement, and an unstated input is the one that changes.**
+
 **A passing test whose fixture you did not create is not yet evidence.** Building live test
 cards for the weekday-casing fix, I created three multi-day **all-day** events to exercise
 `fullDaysOfWeek`. They cannot exercise it: that array is read only by the **timed** multi-day
