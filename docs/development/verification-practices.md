@@ -351,6 +351,32 @@ true. So the guard that scales is cheaper than the list:
 > **Make the probe state which artefact it read, and cross that against something
 > independently known.**
 
+**A stale remote-tracking ref over-reports and can never under-report — so the fetch buys
+quiet, not safety.** This was asserted the other way round for most of an evening, including
+by me: _fetch first or the number lies_. It does lie, but only in the harmless direction.
+
+A remote-tracking ref advances only on fetch, so a stale tip is always an **ancestor** of the
+real one. Commits can therefore only be *added* to the range `origin/x..HEAD`, never removed.
+Measured against real history:
+
+```
+ref  0 behind -> ahead reads  0        (truth: 0)
+ref  1 behind -> ahead reads  1
+ref  3 behind -> ahead reads  3
+ref 10 behind -> ahead reads 10
+```
+
+So **`ahead: 0` is trustworthy even unfetched** — you cannot wrongly conclude that nothing is
+outstanding. What a stale ref produces is *phantom* outstanding work, which is exactly the
+seven false "needs merging" reports one session sent. The fetch prevents false alarms.
+
+Two boundaries, because the claim is only true inside them. It assumes the remote branch is
+**append-only**: a force-push or rewrite breaks the ancestor property and the direction
+guarantee with it. And it is about the *ahead* half only — the unpushed half,
+`git rev-list --count @{u}..HEAD`, needs no fetch at all, because your own pushes update
+`@{u}`. That half is fetch-independent by construction, which matters because unpushed work
+is the genuine risk and the ahead count is the noisy one.
+
 **And the sentinel that proves the probe works must be a phrase you have _read_, not one you
 expect to be there.** Checking which findings had landed in this file, a session's probe
 reported a passage absent. It was present. Its must-find sentinel was a phrase the author
