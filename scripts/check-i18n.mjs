@@ -1583,6 +1583,19 @@ function readGlossary() {
       for (const pair of line[1].split(';')) {
         const m = pair.match(/([a-z]{2}(?:-[a-z]{2})?)\s*`([^`]+)`/i);
         if (m) (rejected[m[1].toLowerCase()] ??= []).push(m[2]);
+        // The guard below counts LINES; this one counts ENTRIES, and a line survives that
+        // count while losing one of its own. `de \`Ereignis\`; pl \`Zdarzenia\`` with only
+        // the `de` backticks removed still holds a backtick, so the line is still counted,
+        // and its term still has one parsed rejection, so `parsedRejected` still counts it
+        // too -- measured: the German violation went from caught to silent with the guard
+        // reporting nothing. Line-level and entry-level loss are different failures and the
+        // count of lines cannot see the second.
+        else if (/^\s*[a-z]{2}(?:-[a-z]{2})?\s+\S/i.test(pair))
+          error(
+            'editor-glossary.md',
+            `${name}: rejected form \`${pair.trim()}\` names a language but has no ` +
+              'backticked term, so it is silently dropped — write it as ``lang `form```',
+          );
       }
     }
 
