@@ -636,6 +636,23 @@ clean run over an empty set. **A probe that names its inputs beats a reader who 
 list**, and three participants have now demonstrated the remembering approach failing, twice
 by the person who had just written the warning down.
 
+**"This cannot be checked" is itself a claim, and it is usually a claim about the wrong
+thing.** A session whose worktree I deleted reported an unclosable gap: its last
+`ahead 0 / unpushed 0` could no longer be re-derived, because *the check that would settle the
+question was the thing that was deleted*. Honest, and stated with the right humility.
+
+It was still falsifiable. `git fsck --lost-found` on the surviving common git dir showed **no
+dangling commits after their last measurement**, which settles the *committed* half outright —
+a different question, bearing on the same worry, reachable from a repository the deletion had
+not touched. Their caveat survived only for genuinely uncommitted work, a far smaller unknown
+than the one they had declared.
+
+The general form: **an unverifiability claim asserts that no instrument exists, over a space
+nobody has enumerated.** It is the one kind of claim that feels maximally epistemically
+cautious while actually being maximally strong — and it is the one most likely to stop a
+search that would have succeeded. Treat *"there is no way to know"* exactly like any other
+assertion: ask what a different question would have to look like to bear on it.
+
 **Containment answers _is this work safe_. Nothing about it answers _is a session live in
 that directory_.** Cleaning up after a parallel run, I deleted every branch whose tip was an
 ancestor of the integration branch — correct, and reversible even if it had not been — and
