@@ -86,6 +86,18 @@ an unqualified figure can manufacture a regression or hide one. **Raw size plus 
 comparison that cannot drift**; gzip is for reporting, and only against another figure taken
 the same way. Note also that equal raw sizes do not prove identity — hash them.
 
+**And the build variant is a second axis, which is easier to get wrong than the first.**
+The dev bundle is what a session has to hand; the production bundle is what users load.
+Same source, all nine languages, four legitimate answers for one chunk:
+
+|                 | `gzip -6` | `gzip -9` |
+| --------------- | --------: | --------: |
+| `editor-dev.js` |    82,772 |    81,979 |
+| `editor.js`     |    82,768 |    81,975 |
+
+Two sessions reported 81,979 and 82,768 for the same commit, and both were right. Say
+which build and which level, or the number is only comparable to itself.
+
 **Cache-busting is by query propagation, not by content hash.** `/hacsfiles/**` is served
 `max-age=2678400` — one month — and HACS appends `?hacstag=` to the _registered resource
 only_, so a sibling file gets no cache-buster of its own. `getConfigElement()` therefore
