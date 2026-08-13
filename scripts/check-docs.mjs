@@ -41,7 +41,7 @@
  * over an empty set, which is the one outcome worse than a false alarm.
  */
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { join, dirname, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -1163,6 +1163,63 @@ function checkColumnDefaults(columnDefaults, columnRows) {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * Nothing else in this repo validates `AGENTS.md`, and it is the file every session reads
+ * first. A mid-sentence splice in `1e91714` orphaned six lines that began mid-line at
+ * `absence. more than in most repos:`; they were live for a full day, on a file two
+ * sessions were quoting from closely, and no gate could see them — `check:docs` read the
+ * published `docs/` tree, `check:i18n` read `src/`, and nothing opened this file.
+ *
+ * 🚨 **The intuitive check does not work, and this is the load-bearing detail.** Measured
+ * against the real artefact at `f43697b^`, not a synthetic case:
+ *
+ *     exact duplicate *paragraph*   pre-fix 0   <- misses it entirely
+ *     duplicate *sentence*          pre-fix 2   post-fix 0
+ *
+ * Paragraph comparison finds nothing **because the splice landed mid-sentence**, so
+ * paragraph boundaries never align. Anyone reaching for it would conclude the file was
+ * clean and file the gap as unfixable.
+ *
+ * Advisory rather than fatal, matching how `check:i18n` reports translation coverage. A
+ * sentence quoted deliberately twice is legitimate and must not fail a build; the file
+ * currently has none at this threshold, so this starts green and only speaks up on drift.
+ */
+function checkAgentsDuplication() {
+  const file = join(ROOT, 'AGENTS.md');
+  if (!existsSync(file)) {
+    error('AGENTS.md is missing — the duplication check has nothing to read');
+    return;
+  }
+  const raw = readFileSync(file, 'utf8');
+
+  // Fenced code legitimately repeats lines; prose is what this is about.
+  const prose = raw.replace(/```[\s\S]*?```/g, ' ');
+  const flat = prose.replace(/\s+/g, ' ');
+
+  // 60 chars is the measured floor: below it, short legitimate phrases collide.
+  const sentences = flat
+    .split(/(?<=[.!?]) /)
+    .map((x) => x.trim())
+    .filter((x) => x.length > 60);
+
+  if (sentences.length === 0) {
+    error('AGENTS.md duplication check found no sentences to compare — the splitter broke');
+    return;
+  }
+
+  const seen = new Map();
+  for (const sentence of sentences) seen.set(sentence, (seen.get(sentence) ?? 0) + 1);
+
+  for (const [sentence, count] of seen) {
+    if (count > 1) {
+      warn(
+        `AGENTS.md repeats a sentence ${count}x — usually a splice that duplicated a passage. ` +
+          `If the repetition is deliberate, it is legitimate and this is advisory: "${sentence.slice(0, 90)}…"`,
+      );
+    }
+  }
+}
+
 function report(counts) {
   console.log(
     `${counts.defaults} defaults in code, ${counts.rows} rows in the reference, ` +
@@ -1285,6 +1342,7 @@ function main() {
   checkOptionTables(docs);
   checkOptionNoun(docs);
   checkCrossLinks(docs);
+  checkAgentsDuplication();
 
   process.exit(
     report({
