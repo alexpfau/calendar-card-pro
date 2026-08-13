@@ -1015,12 +1015,36 @@ async function checkEditorTranslations(languages) {
  * `Layout` is the word in German, Italian, Norwegian and Swedish. Home Assistant's own
  * tables leave it untranslated in German and Swedish for the same reason, which
  * corroborates it independently.
+ *
+ * **Three of these are not about language at all**, and the German session hit all three
+ * the moment it reached full coverage: `width_table.at_least` is `≥ {width} px`,
+ * `width_table.below` is `< {width} px`, and `week_number_mode.option.iso.label` is
+ * `ISO 8601`. A symbol with a placeholder and the name of an ISO standard are the same in
+ * every one of the nine, so **every remaining language session will need the same three
+ * entries** — the list grows by 27 where 3 would do. If that becomes tiresome, the fix is
+ * a key-level set checked before the `lang:key` one rather than nine more lines each; it
+ * is left as a judgement for whoever reaches it, because three entries is not yet worth a
+ * second mechanism.
+ *
+ * `view` is `Layout` for the same reason `panel.layout` is, and will recur for `it`, `nb`
+ * and `sv`: it is a key those languages had not translated when this list was written.
  */
 const IDENTICAL_TO_ENGLISH_OK = new Set([
   'de:panel.layout',
   'it:panel.layout',
   'nb:panel.layout',
   'sv:panel.layout',
+
+  // German, Stage 1. `Label` is a loanword HA German uses throughout with German
+  // inflection — `Label hinzufügen`, `Keine Labels verfügbar` — which is what
+  // distinguishes it from an untranslated string; see editor-glossary.md §5, `label`.
+  'de:entity.label',
+  'de:view',
+
+  // Language-independent: a comparison symbol with a placeholder, and a standard's name.
+  'de:width_table.at_least',
+  'de:width_table.below',
+  'de:week_number_mode.option.iso.label',
 ]);
 
 /**
