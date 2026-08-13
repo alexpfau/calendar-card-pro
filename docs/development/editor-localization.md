@@ -713,6 +713,61 @@ remembering before promising equivalence in one pass.
 
 ---
 
+### 8.4 Verifying a finished language — what 312/312 does and does not mean
+
+Added by the German session (Stage 1), because it is the first language to reach full
+coverage and every question below cost it a round trip.
+
+**312/312 is full coverage of `EDITOR_STRINGS`, and `EDITOR_STRINGS` is the whole painted
+surface.** That was checked rather than assumed: every label in the live German editor was
+read back and every one of the 162 was German, with zero console errors. There is no
+second string source feeding the rendered UI.
+
+> ⚠️ **`ha-test.mjs editor` reports three labels that look untranslated and are not.**
+> Before the harness was fixed it listed `Date`, `Event`, `Column` and `Weather` amid
+> otherwise-perfect German. None of them is on screen. The harness read `el.label` first,
+> which for a container is Home Assistant's `computeLabel(schema)` result computed from the
+> node's bare `name` — `date`, `event`, `column` — and then **discarded**, because
+> `ha-form-expandable` paints `schema.title` instead and `ha-form-grid` paints nothing at
+> all. The headers actually read `In der Tagesüberschrift`, `Neben jedem Termin` and
+> `Spaltendichte`.
+>
+> **Two sessions independently concluded these were real gaps**, and neither could find a
+> key for them — correctly, because no such key exists or should. The harness now prefers
+> `schema.title` and suppresses grid labels entirely. If you see a bare English noun that
+> matches a *group's config key* rather than any English string in the table, suspect the
+> reader before the translation.
+
+**What settled it was the screenshot, not the property.** Two DOM probes disagreed with each
+other and a third read of the same properties would not have broken the tie; the pixels did,
+immediately. This is the §"look at the artefact with the metric switched off" discipline in
+its narrowest useful form — when a label question turns on *which property the UI paints*,
+no property read can answer it.
+
+**Verify the deployed artefact before believing anything the live editor says.** A deploy
+that races a rebuild ships a stale editor chunk and prints success; one session read
+`Day Rule Width` from a bundle that predated the string being translated. Compare hashes,
+do not trust the word "Deployed":
+
+```bash
+for f in calendar-card-pro-dev.js editor-dev.js; do
+  diff -q "dist/$f" "/Volumes/config/www/community/calendar-card-pro-dev/$f" || echo "STALE: $f"
+done
+```
+
+**Three keys are byte-identical to their English in every language** and each session will
+have to exempt them: `width_table.at_least` (`≥ {width} px`), `width_table.below`
+(`< {width} px`) and `week_number_mode.option.iso.label` (`ISO 8601`). A comparison symbol
+with a placeholder and the name of an ISO standard do not translate. `view` (`Layout`) is a
+fourth for `it`, `nb` and `sv`. See `IDENTICAL_TO_ENGLISH_OK` in `check-i18n.mjs`.
+
+**One test moves when a language completes.** `tests/editor-translations.test.ts` proved
+per-key fallback using a key German lacked, so it failed the moment German finished. Its
+witness is now en-GB, which is partial *by construction*. Whichever language you own, that
+test is already fixed and needs no further change.
+
+---
+
 ## 9. Bundle Impact
 
 Four real builds. `npx rollup -c`, `gzip -9`.
