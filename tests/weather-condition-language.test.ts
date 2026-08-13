@@ -247,6 +247,26 @@ describe('weather conditions follow the card language', () => {
       expect(conditionLanguage(hass, 'en')).toBe('en');
       expect(conditionLanguage(undefined, 'en')).toBeUndefined();
     });
+
+    /**
+     * `toHaLanguage` maps any region correctly, including for languages the card does
+     * not ship — but nothing outside the card's own translation map can reach it, because
+     * `getEffectiveLanguage` resolves an unknown code away first. `pt-br` is the useful
+     * illustration: the casing rule handles it, and the card would still fetch German on
+     * a German instance, because `pt-br` is not one of its 35 languages.
+     *
+     * Both halves are worth pinning. The mapping generalises, and adding a language to
+     * the card is what makes the generalisation reachable — not a change here.
+     */
+    it('maps a region the card does not ship, but cannot route to it', () => {
+      expect(toHaLanguage('pt-br')).toBe('pt-BR');
+
+      const hass = germanHass();
+      expect(conditionLanguage(hass, 'pt-br')).toBeUndefined();
+
+      // `pt` is a card language, so this one does route.
+      expect(conditionLanguage(hass, 'pt')).toBe('pt');
+    });
   });
 
   /**
@@ -435,6 +455,49 @@ describe('weather conditions follow the card language', () => {
 
       const incomplete = debug.mock.calls.filter((call) => String(call[0]).includes('without'));
       expect(incomplete).toHaveLength(0);
+    });
+
+    /**
+     * The limit of both diagnostics, pinned as behaviour rather than left in a comment.
+     *
+     * Home Assistant fills gaps per **key**, so an untranslated condition arrives as a
+     * present key holding the English string. The structural check sees 15/15 and says
+     * nothing; the per-condition report sees a truthy value and says nothing. Measured
+     * on 2026.8.1 across eight card languages: all returned 15/15, and seven carried
+     * `windy-variant` in English — so a Portuguese card really does read
+     * `Windy, cloudy`, silently, and this is the shape it arrives in.
+     *
+     * Asserting the silence is the point. It is a gap in Home Assistant's translations,
+     * not in the card, and closing it would mean fetching English as a second payload
+     * purely to compare. If anyone ever decides that trade is worth making, this test
+     * fails and forces the decision to be deliberate.
+     */
+    it('cannot see an untranslated condition that arrives English-filled', async () => {
+      const debug = vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
+
+      // Dutch, whose real payload is Dutch throughout with `windy-variant` in English.
+      // A card language on purpose: `getEffectiveLanguage` rejects anything outside the
+      // card's own map before `toHaLanguage` ever sees it, so `pt-br` — the clearest
+      // illustration of the casing rule — cannot reach this path until the card ships
+      // that language.
+      const dutch: Record<string, string> = {};
+      for (const condition of knownConditions()) {
+        dutch[condition] = `nl-${condition}`;
+      }
+      dutch['windy-variant'] = 'Windy, cloudy';
+
+      const hass = germanHass({ nl: dutch });
+      ensureConditionTranslations(hass, 'nl', () => undefined);
+      await settle();
+
+      // It is returned, not reported — the value is HA's own fallback, not an error.
+      expect(formatCondition(hass, 'weather.home', 'windy-variant', 'nl')).toBe('Windy, cloudy');
+
+      const reports = debug.mock.calls.filter((call) => {
+        const text = String(call[0]);
+        return text.includes('has no') || text.includes('without');
+      });
+      expect(reports).toHaveLength(0);
     });
   });
 });
