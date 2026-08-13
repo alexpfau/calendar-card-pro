@@ -180,6 +180,25 @@ const reportedFailures = new Set<string>();
  * same shape of silent failure the raw-token case in `formatCondition` already guards,
  * one layer up.
  *
+ * **What that report can and cannot see**, which is worth stating because the two are
+ * easy to swap. Home Assistant fills every key server-side, so a key genuinely absent
+ * from a fetched payload means a *non-standard condition token* — a third-party weather
+ * integration emitting something outside the fifteen — and that is the case this catches.
+ *
+ * It cannot see the case that actually occurs. An untranslated condition comes back as a
+ * **present key holding the English string**, so `text` is truthy and nothing fires.
+ * Measured on 2026.8.1, sampling eight card languages: all returned 15/15 keys, and
+ * seven of them carried `windy-variant` in English (`is` carried `exceptional` too). A
+ * Portuguese card therefore reads `Windy, cloudy` with no report anywhere, and by
+ * construction there is nothing here to detect it with — the value is not wrong, it is
+ * Home Assistant's own fallback, and telling it apart would mean fetching English as a
+ * second payload to compare against. Deliberately not done: it is a gap in Home
+ * Assistant's translations rather than in the card, the card cannot close it, and the
+ * comparison would cost a request on a path built to avoid needless ones.
+ *
+ * `weather-condition-language.test.ts` pins that silence as behaviour, so this stays a
+ * decision someone has to revisit on purpose rather than a comment that quietly rots.
+ *
  * @param haLanguage Home Assistant language code, from `conditionLanguage`
  * @param condition Raw condition token, e.g. `partlycloudy`
  * @returns The translated text, or `undefined` when the language is not cached yet or
