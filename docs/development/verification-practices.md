@@ -331,6 +331,25 @@ trimming; instructions don't."_ That is the account of how a `git fetch` fell ou
 **a rule erodes into ceremony and gets deleted; an instance carries its own justification and
 resists that.**
 
+**A passing test whose fixture you did not create is not yet evidence.** Building live test
+cards for the weekday-casing fix, I created three multi-day **all-day** events to exercise
+`fullDaysOfWeek`. They cannot exercise it: that array is read only by the **timed** multi-day
+branch, and the all-day branch renders a bare date — `All day, until Aug 18` — with no
+weekday at all. The cards nevertheless showed `Do wtorku` and `Duminică` and looked correct
+for hours, because another session had left six *timed* fixtures on the same calendar and my
+cards were quietly reading those.
+
+Deleting those fixtures as routine cleanup made three assertions fail at once, which is the
+only reason it surfaced. Nothing was wrong with the assertions — they read real, correct
+output. **The defect was that the fixture and the assertion were about different things, and
+a green result cannot tell those apart.** The card text now records which fixture shape tests
+which claim, because the distinction is not visible in the rendered output.
+
+The general form is uncomfortable on a shared instance: **a test can be green because
+something else in the environment happens to satisfy it**, and every observable is identical
+to a test that works. It is the fixture equivalent of a control that cannot fail. Ask what
+supplies the input, not only what asserts on the output.
+
 **A mutation that changes no observable behaviour is evidence about the corpus, not the code.**
 Stage 0 wrote two falsifiers for a glossary-parser bug and both reported IMMUNE with the fix
 reverted — one mutated a term nothing currently violates, so there was nothing to lose; the
