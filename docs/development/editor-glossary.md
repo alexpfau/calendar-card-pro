@@ -533,15 +533,12 @@ evidence independently.
 
 ### day header — the date row heading each day's events
 
-**No evidence in any source.** Genuinely undecided in six languages, and one of the
+**No evidence in any source.** Genuinely undecided in three languages, and one of the
 highest-risk terms precisely because nothing external will arbitrate it.
 
-|             | de               | et  | it  | lt  | lv  | nb            | pl            | sk  | sv        |
-| ----------- | ---------------- | --- | --- | --- | --- | ------------- | ------------- | --- | --------- |
-| **Decided** | Tagesüberschrift | —   | —   | —   | —   | —             | Nagłówek dnia | —   | —         |
-|             | de               | et  | it  | lt  | lv  | nb            | pl            | sk  | sv        |
-| ----------- | ---------------- | --- | --- | --- | --- | ------------- | ---           | --- | --------- |
-| **Decided** | Tagesüberschrift | —   | —   | —   | —   | Dagoverskrift | —             | —   | Dagrubrik |
+|             | de               | et  | it                      | lt  | lv  | nb            | pl            | sk           | sv        |
+| ----------- | ---------------- | --- | ----------------------- | --- | --- | ------------- | ------------- | ------------ | --------- |
+| **Decided** | Tagesüberschrift | —   | Intestazione del giorno | —   | —   | Dagoverskrift | Nagłówek dnia | Hlavička dňa | Dagrubrik |
 
 Constraint for whoever decides it: it heads a _day_, not a column and not a card, and the
 same word must be used in `panel.day_header` and in every `day_header_*` key.
@@ -555,6 +552,7 @@ it is uniform across every key that has one: `Header` → `Nagłówek`
 qualifier is, and `dnia` is forced by the sense. It carries into the four dependent keys
 without strain — `Odstęp nagłówka dnia`, `Dzielnik nagłówka dnia` — which is the property
 the constraint above is really asking for.
+
 **Swedish and Norwegian decided by the `sv`/`nb` session (Stage 1), and they agree with
 German by construction rather than by imitation** — all three are Germanic and reach for
 the same compound, _day_ + _heading_.
@@ -566,6 +564,19 @@ decisions corroborate each other instead of conflicting.
 Norwegian `Dagoverskrift` uses `overskrift`, the ordinary Bokmål word for a heading, and
 compounds cleanly into the keys that need it — `Avstand under dagoverskrift`,
 `Strek under dagoverskrift`.
+
+**Italian and Slovak decided by the `it`/`sk` session (Stage 1).** Both take the ordinary
+word their language already uses for a table or page header — `intestazione`, `hlavička` —
+rather than inventing a calendar-specific one, because the object genuinely is a heading
+over a group of rows. That is the same route Polish took to `Nagłówek`, arrived at
+separately, which is worth more than either reaching it alone. Both compound cleanly into
+the sub-labels the term has to reach: Italian `Spazio sotto l'intestazione` and
+`Divisore intestazione giorno`, Slovak `Medzera pod hlavičkou` and
+`Čiara pod hlavičkou dňa`.
+
+Length decided Italian's shape rather than taste: `Intestazione del giorno` is 23
+characters against the English's 10, which sits just under the length check's ceiling, and
+the sub-labels drop `del giorno` where the panel already supplies it.
 
 ### progress bar — the bar showing how far through an event we are
 
@@ -661,6 +672,18 @@ replaced, and is a different thing from `IDENTICAL_TO_ENGLISH_OK`.
 **Estonian, Lithuanian, Latvian and Slovak are all article-less and will hit this same
 row.** Whether they need the exemption depends only on whether their word for `Icon`
 equals their word for `An Icon`, which it almost certainly does.
+
+> **Slovak hit it, exactly as predicted, and resolved it the same way before seeing this
+> note.** `today_indicator_icon` is `Ikona identifikátora`, against siblings
+> `Farba identifikátora`, `Veľkosť identifikátora`, `Poloha identifikátora` — the same
+> sibling-consistency argument Polish makes, reached independently. `sk:today_indicator_icon`
+> joins `GLOSSARY_QUALIFIED_OK`.
+>
+> That is worth more than either session's reasoning alone. The prediction above was
+> falsifiable — Slovak could have had two different words, or could have qualified the
+> options instead — and it survived. **Two of the four named languages remain untested**;
+> Estonian and Lithuanian still have to check, and a session that finds a genuine second
+> word for `An Icon` should say so here rather than adding an exemption it does not need.
 
 ### background — a background colour or fill
 
@@ -805,6 +828,18 @@ German and Estonian keep ours against HA, because ours is already used consisten
 every `show_*` key and both are idiomatic. **Slovak is inconsistent today** — `Zobraziť`
 in most keys but `Zobrazovať` in `show_time`; unify on `Zobraziť`.
 
+> **The scope of that was understated, and the reason is worth keeping.** It is not one key
+> but **six** — `show_time`, `show_end_time`, `show_month`, `show_location`,
+> `show_description` and `show_empty_days` — against nine already on `Zobraziť`. The
+> `it`/`sk` session unified them.
+>
+> The split is not random: every `Zobrazovať` key is a **toggle**, and Slovak's imperfective
+> is arguably the better aspect for a setting that describes continuous behaviour. It loses
+> anyway, because the other nine keys are toggles too and use the perfective, so the file
+> could not be made consistent by aspect — and because HA Slovak writes `Zobraziť` at every
+> `Show X` key sampled. The perfective is Slovak's ordinary citation form for a UI label
+> regardless of whether the behaviour it names is momentary.
+
 Word order is the language's own: German puts the verb last (`Zeit anzeigen`), the others
 put it first. Do not calque the English order.
 
@@ -835,6 +870,28 @@ what a formatting dropdown says. It also reads correctly in all three option lis
 **A language whose "none" word is invariant should say so here rather than deciding three
 times.** That is the transferable half of this entry.
 
+**Italian and Slovak decided by the `it`/`sk` session (Stage 1), and both genuinely needed
+all three.** Their cells stay `—` above so the check does not enforce one form across the
+three keys; the decisions are per key and are recorded here instead.
+
+| key                                      | the noun it answers to          | it          | sk          |
+| ---------------------------------------- | ------------------------------- | ----------- | ----------- |
+| `entity.label_type.option.none.label`    | `Tipo` m. / `Typ` m.            | **Nessuno** | **Žiadny**  |
+| `today_indicator_style.option.none.label` | `Stile` m. / `Štýl` m.          | **Nessuno** | **Žiadny**  |
+| `week_number_mode.option.none.label`     | `Numerazione` f. / `Číslovanie` n. | **Nessuna** | **Žiadne**  |
+
+The head noun is the **setting's** label, not the thing it configures, because that is what
+the user reads the option against: the field says `Typ štítka` and the value beneath it says
+`Žiadny`. For the first key both candidate nouns are masculine in both languages
+(`tipo`/`etichetta` is m./f. in Italian but the head is `tipo`; `typ`/`štítok` are both
+masculine), so nothing turns on that choice there.
+
+**Both files previously carried one feminine form across all three** — Italian `Nessuna`,
+Slovak `Žiadna` — which is right for exactly one of the three in Italian and none of the
+three in Slovak. That is the concrete instance of what the paragraph above predicts, and it
+is why HA's Slovak `Žiadny` could not simply be copied either: it is right for two keys and
+wrong for the third.
+
 **Polish confirmed by the Polish session (Stage 1): `Brak` is invariant and covers all
 three.** It is a noun meaning _absence_, not an adjective, so — like German's preposition —
 it agrees with nothing and the per-key question does not arise. It reads correctly against
@@ -846,6 +903,16 @@ control now labelled `Numeracja` (feminine), and was corrected to `Prosta`. So a
 that checks only the word `none`, finds it invariant and moves on will miss the agreement
 defect one row below it: **the axis is the option list, not the term.** Read every option
 in a picker against the noun its own control names.
+
+> **Checked against Italian and Slovak, deliberately, because the finding above is the kind
+> that only helps if the next session actually applies it.** Every picker in both files was
+> read back against the noun its own control names. Neither carries the Polish defect:
+> Italian's `Semplice` is invariable in gender, and Slovak's `Jednoduché` was already neuter
+> to match `Číslovanie`. The near-misses that *do* agree correctly are worth naming, since
+> they are what the check cannot see — it `Scegline una` against `Lingua`, it `Relativa a
+> oggi` and `Una data fissa` against `Data di inizio`, it `Altezza fissa` / `Altezza massima`
+> against `Altezza scheda`, it `Rimuovi quelli noti` against `Nomi dei paesi`, sk `Pevná
+> výška` against `Výška karty`, sk `Odstrániť tie známe` against `Názvy krajín`.
 
 ### default — the "leave it alone" option
 
@@ -898,6 +965,18 @@ count is corpus-dependent and the rejection is not.
 Slovak shipped HA's wrong sense: `weekday_font_size` read `Veľkosť písma pracovného dňa`.
 Fixed to `dňa v týždni`. Italian's `giorno settimana` is missing the article.
 
+> **Italian keeps the article-less form in its compound labels, and this is a layout
+> constraint rather than a change of mind.** `Giorno della settimana` stands where it fits —
+> `Primo giorno della settimana`, and every helper — but `Colore giorno della settimana` is
+> 29 characters against an English `Weekday Color` of 13, which trips the length check at
+> 28.6, and `Dimensione font giorno della settimana` is 38 against a ceiling of 37.4. Both
+> miss by under a character, and both are labels that would wrap in the editor.
+>
+> So `weekday_color`, `weekday_font_size`, `weekend_weekday_color` and `today_weekday_color`
+> use `giorno settimana`, consistently, and the standalone term keeps its article. Splitting
+> the difference per key would have been worse than either option: the four labels sit in
+> one panel and a reader compares them with each other.
+
 **Rejected:** sk `pracovný deň`; sk `pracovného dňa`; it `giorno feriale`; lv `darbdiena`; sv `vardag`; pl `dzień powszedni`
 
 ---
@@ -943,9 +1022,35 @@ in wheel `20250109.2` at all**. On that older corpus the only `Location` keys ar
 device and storage senses, so German returns `Standort`/`Speicherort` and Italian returns
 `Posizione`, and the decision below looks unfounded rather than merely older.
 
-On `20260128.6` there are **five** keys whose English is exactly `Location`. Four are the
-device, storage, backup and condition senses; exactly one is the calendar's. That is the
-whole of Rule 2 in a single term.
+On `20260128.6` there are **six** keys whose English is exactly `Location`. Five are the
+selector, storage-mount, backup (two of them) and condition senses; exactly one is the
+calendar's. That is the whole of Rule 2 in a single term.
+
+> **Corrected from "five" by the `it`/`sk` session (Stage 1), which re-derived the row.**
+> The conclusion is untouched — the calendar key is still exactly one of them, and Italian
+> still splits `Luogo` at that key against `Posizione` at the other five. The miscount is
+> the backup sense appearing twice, at `supervisor.backup.location` and
+> `ui.panel.config.backup.location.header`.
+
+> **And the corpus size in this file's header does not reproduce.** Merging every fragment
+> of wheel `20260128.6` — the core table plus its 15 subdirectories, `supervisor.*`
+> included — gives **8,045** English string leaves, not 7,341. The per-fragment counts sum
+> exactly to the merged total, so no key is counted twice and none is an array being
+> skipped; the difference is a method this file does not record, not a different corpus.
+>
+> **That matters more than a wrong number normally would**, because §7 tells the reader to
+> "compare corpus sizes before disputing a row" — so a session that follows the instruction
+> and sees 8,045 against 7,341 will conclude it has the wrong wheel when it has the right
+> one. **Verify the corpus by a key, not by a count**: the presence of
+> `ui.components.calendar.event.location` distinguishes `20260128.6` from `20250109.2`, and
+> every term row below re-derived cleanly against the 8,045-key merge — `it` `giorno
+> feriale`, `it` `Apertura`, `it` `Disposizione`, `sk` `pracovný deň`, `sk` `Štítok`, `de`
+> `Label` all reproduce byte-for-byte.
+>
+> One acquisition note, since §7's `pip download` is the step that fails: on a machine whose
+> index is the stale proxy, the pinned version can still be fetched straight from PyPI —
+> `curl -s https://pypi.org/pypi/home-assistant-frontend/20260128.6/json` gives the wheel URL
+> directly, and the proxy is bypassed.
 
 So: **pin the version when you reproduce this, and if a key is missing, check the version
 before concluding the glossary is wrong.**
