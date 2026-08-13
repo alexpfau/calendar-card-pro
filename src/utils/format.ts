@@ -452,6 +452,10 @@ function formatMultiDayTime(
     // Event ends beyond tomorrow
     const endDay = endDate.getDate();
     const endMonthName = translations.months[endDate.getMonth()];
+    // Running text, never sentence-initial: this branch is always prefixed by
+    // `multiDay` below, so the weekday holds the lower-case form in languages that
+    // do not capitalise weekdays. The leading capital comes from
+    // `capitalizeFirstLetter` in `formatEventTime`, which wraps the whole string.
     const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
     const endTimeStr = formatTimeStr(endDate);
     const formatStyle = Localize.getDateFormatStyle(language);
