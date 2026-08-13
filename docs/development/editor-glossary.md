@@ -78,10 +78,33 @@ upper-case, with all-caps acronyms (`UV`) excluded because they are correct. The
 in `check-i18n.mjs` recomputes this and warns above 15%, which cleanly separates the 0–5%
 languages from Polish and leaves room for proper nouns.
 
-**Norwegian and Swedish lowercase weekday names.** The editor writes `Mandag` / `Søndag`;
-the card's own native-contributed `nb.json` writes `mandag` / `søndag`, which is correct.
-Swedish says `Måndag` in _both_ files — they agree, so no cross-check can see it, and both
-are probably wrong. That one needs a native speaker and is recorded in §6.
+**Weekday casing is unresolved, and the third source makes it more open rather than less.**
+The editor writes `Mandag` / `Søndag`; the card's native-contributed `nb.json` writes
+`mandag` / `søndag`. Swedish says `Måndag` in _both_ files.
+
+Home Assistant capitalises the full weekday name at `ui.weekdays.*` in **all nine
+languages** — `Måndag`, `Mandag`, `Poniedziałek`, `Lunedì`, `Pirmadienis`, `Esmaspäev`,
+`Pondelok`, `Pirmdiena`, `Montag`. Polish and Italian certainly lowercase weekdays in
+running text, so HA is not making an orthographic claim: it is applying the ordinary
+**standalone-label** convention, where a UI label takes an initial capital regardless of
+how the word behaves inside a sentence. HA's corpus has no weekday in sentence context, so
+it cannot arbitrate the other reading.
+
+That changes what is and is not known:
+
+- **Swedish "both are probably wrong" is not supported.** Three independent sources — the
+  card's Swedish contributor, the editor's, and HA's — all write `Måndag`. Agreement
+  across three is weak evidence of correctness, but it is not evidence of error, and the
+  earlier wording asserted error.
+- **Norwegian is a genuine disagreement between two native sources**, not a settled
+  question with the card on the right side. HA's Norwegian contributors wrote `Mandag`;
+  the card's wrote `mandag`. Both are native choices about the same word.
+
+So the question to put to a native speaker is not "does this language capitalise weekdays"
+— it does not, in prose, and nobody disputes that — but **"does a standalone UI label take
+an initial capital here?"** Those have different answers and the first one was being asked.
+Recorded in §6, still unresolved; do not change either language's weekday casing on the
+strength of this note alone.
 
 ## 4. The Core Noun — `event`
 
