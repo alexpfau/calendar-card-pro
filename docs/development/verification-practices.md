@@ -403,6 +403,30 @@ that lacks the thing, and it arrives attached to a real finding, which lends it 
 The bidirectional self-test caught it only because the *other* sentinel — the must-not-find
 one — was genuinely absent, so the two disagreed.
 
+**And one more, which is about the shape of the evidence rather than the instrument:
+asserting something true and citing a measurement that could not have shown it false.**
+Every summary tonight — mine included — closed with _"`dev` and `main` untouched"_ beside
+their SHAs. The claim meant **"I never pushed to them"**. A SHA demonstrates **"they have not
+changed"**. Those are different propositions, and the second was *false* while the first
+stayed true: `dev` moved twice under us, from another session's work.
+
+Citing a SHA reads as more rigorous than writing "I didn't push", and it is **less** — it
+cannot distinguish the two claims, and it goes stale on top. The instrument that matches the
+claim is ancestry, with a control:
+
+```
+40 of my commits   in dev: 0   in main: 0
+control be4afc5    in dev: PRESENT   -> the test discriminates
+```
+
+The correction demonstrated itself on arrival: the session reporting it cited `dev` at
+`be4afc5`, which was **also** stale — `f9db5b1` by then, with `be4afc5` an ancestor. Three
+participants, one shape, and the last instance is inside the message identifying it.
+
+The general form is the one worth keeping, because it is not about git: **before citing a
+number as evidence, ask which proposition it could have falsified.** If the answer is "not
+the one I am making", the number is decoration however carefully it was measured.
+
 **The last variant is the sharpest, because the filter is correct and the number is true.**
 Asked whether any of its commits had reached `dev` or `main`, a session filtered the range
 with `git log --grep` on its session trailer and got **2**. Honest, and an answer to a
