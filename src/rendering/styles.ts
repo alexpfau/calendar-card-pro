@@ -930,24 +930,33 @@ export const cardStyles = css`
    * always a digit (UAX #14 class NU) or a Latin letter (AL), and LB23/LB28 forbid a break
    * between either and the middot (class AI, resolving to AL). Nothing here was doing it.
    *
-   * Force the time text and hold everything else fixed -- 96 rows per string across five
-   * viewport widths, counting rows where the dot leads a continuation line:
+   * An ideograph is class ID, and no rule welds ID to a following AL, so LB31 permits the
+   * break and the dot leads the next line -- which is exactly the defect the maintainer
+   * reported in the weather row. zh-CN and zh-TW are two of the 35 languages the card
+   * ships, and formatEventTime composes their all-day strings out of words that end in
+   * one. Measured by forcing the time text and holding everything else fixed, 96 rows per
+   * string across five viewport widths, counting rows where the dot leads a continuation
+   * line -- both arms injected, so a concurrent deploy could not silently swap them:
    *
-   *     0:00 - 20:00   NU       0        全天  / 終日      ID       0
-   *     Ganztägig      AL       0        하루 종일         Hangul  16
-   *     All day        AL       0        9:00～17:00時     ID      32
+   *     整天, 明天结束        format.ts:519   ID    16  ->  0
+   *     整天, 直到 17. 8月    format.ts:529   ID    36  ->  0
+   *     整天                  format.ts:66    ID     0  ->  0   (too short to force it)
+   *     all day, ends tomorrow                AL     0  ->  0
+   *     0:00 - 20:00                          NU     0  ->  0
    *
-   * Hangul and an ideograph carry no rule welding them to a following AL, so LB31 permits
-   * the break and the dot leads the next line -- which is exactly the defect the maintainer
-   * reported in the weather row, reachable here in three of the languages the card ships.
-   * U+2060 removes it unconditionally: all eight strings read 0 with it.
+   * Note the third row: the same script and the same class, and it never reproduces,
+   * because a two-character string never makes the browser look for a break at that
+   * junction. Picking 整天 as the representative Chinese case would have cleared the rule
+   * and shipped the bug. Japanese and Korean would both reproduce it too and are not
+   * currently shipped; a fifth CJK language being added must not have to rediscover this.
    *
    * The zero-width space is the other half, and it is what the maintainer meant by asking
    * for the two rows to match. Without a break opportunity behind the glyph, 20:00 · in is
    * a single unbreakable run: the whole junction moves down together rather than the line
    * ending at the dot, so a narrow column renders 0:00 - / 20:00 · in 4 / hours and wastes
-   * the first line. With it the line can end at the dot, as the weather row's now does --
-   * 116 rows gained that across the sweep, and none gained a dot alone on a line.
+   * the first line. With it the line can end at the dot, as the weather row's now does.
+   * Measured on the same sweep, rows where the dot ends a line: 0 -> 100. Rows where the
+   * dot is alone on a line: 0 in both arms.
    *
    * The gap before the dot is a margin on the *element* here and on the ::before in the
    * weather row. That asymmetry is deliberate and does no harm: the joiner sits at the head
