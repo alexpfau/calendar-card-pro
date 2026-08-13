@@ -730,3 +730,21 @@ run over an empty set — but a shell one-liner has no such thing. So the sharpe
 rule is **not "avoid regexes" but "do not run one where a zero match cannot announce
 itself"**: flatten continuations before matching prose, and when a check finds nothing,
 confirm the pattern can match something before believing the absence.
+
+**And once you have flattened, stop counting with `grep -c`.** The two halves of that
+advice destroy each other: `-c` reports *matching lines*, flattening produces exactly one
+line, so the count saturates at 1 and a duplicated phrase is indistinguishable from a
+unique one. This is not hypothetical — it is how the duplicated paragraph directly above
+was verified as removed. The count came back 1, which read as *exactly one occurrence,
+fix confirmed*, and would have read the same with the duplicate still in place. The fix
+happened to be correct; the proof of it was vacuous. Use `grep -o … | wc -l`, and prove
+the counter can exceed 1 before trusting that it returned 1:
+
+```bash
+printf 'x x\n' | grep -o 'x' | wc -l    # 2 — the counter works
+perl -0pe 's/\n\s*/ /g' AGENTS.md | grep -o 'some phrase' | wc -l
+```
+
+Note the shape, because it is the one this section is least able to warn you about: a
+*zero* is loud once you know to distrust it, and the paragraph above tells you to. A
+**one** looks like the answer you wanted.
