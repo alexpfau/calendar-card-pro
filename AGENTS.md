@@ -216,6 +216,26 @@ passing status checks; `dev` only blocks deletion.
 External contributors frequently open PRs against `main` by mistake. Retarget them to
 `dev` (`gh pr edit <n> --base dev`) rather than merging into `main`.
 
+**When several branches feed one integration branch, "merged" has to name which branch.**
+Merging the integration branch _into_ your own, or merging your work into a peer's, leaves
+a local state indistinguishable from being integrated: `git status` is clean, local equals
+remote, your commit is in your own history, and the log reads correctly. Across one evening
+of nine parallel branches feeding `feature/column-view-v4`, that produced **eight** reports
+of work as merged while it sat unintegrated — by three different sessions, each honestly.
+Only ancestry against the integration branch answers the question:
+
+```bash
+git fetch origin
+git merge-base --is-ancestor <sha> origin/feature/column-view-v4 && echo merged
+git rev-list --count origin/feature/column-view-v4..origin/<branch>   # 0 == nothing outstanding
+```
+
+And **check the content, not only the count**: the count going to zero proves the merge
+happened, while a grep for the thing you actually cared about proves it survived the
+conflict resolution. Those came apart twice here — once where a cell-wise union was needed
+because two branches had filled different columns of the same table, and once where a
+paragraph was restored that had been superseded in code.
+
 Because `main` is the default branch, `Fixes #123` in a PR merged to `dev` will **not**
 auto-close the issue — closing keywords only fire on the default branch. Issues close
 when the release PR merges, or close them manually.
