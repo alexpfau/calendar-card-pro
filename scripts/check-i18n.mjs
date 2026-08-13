@@ -1045,6 +1045,38 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'de:width_table.at_least',
   'de:width_table.below',
   'de:week_number_mode.option.iso.label',
+
+  'pl:width_table.at_least',
+  'pl:width_table.below',
+  'pl:week_number_mode.option.iso.label',
+]);
+
+/**
+ * Keys where the decided term is deliberately *qualified* rather than used bare.
+ *
+ * Distinct from `IDENTICAL_TO_ENGLISH_OK`: the term is still used, with a word added so
+ * two settings stay distinguishable. This exists because two checks here can genuinely
+ * pull in opposite directions, and the tie has to be broken per key rather than by
+ * weakening either one.
+ *
+ * The English table distinguishes a *field* from a *picker option* with an article —
+ * `Icon` names which icon, `An Icon` is an answer to "what kind?". **A language without
+ * articles cannot carry that distinction**, so both collapse onto the decided term and
+ * `checkCollapsedLabels` correctly reports settings the user cannot tell apart. German
+ * never hits it: `Symbol` against `Ein Symbol` keeps them separate for free.
+ *
+ * Qualifying the field is what gives way, because the option labels are answers in a
+ * list where an added word would read as invented, and because the field's own siblings
+ * are already qualified — `Kolor wskaźnika`, `Rozmiar wskaźnika`, `Pozycja wskaźnika`,
+ * so `Ikona wskaźnika` is the *more* consistent of the two, not a concession.
+ *
+ * Falsifier, thirty seconds: set `pl:today_indicator_icon` to the bare `Ikona` and run
+ * this script. The collapsed-label warning it raises is the defect this entry avoids.
+ */
+const GLOSSARY_QUALIFIED_OK = new Set([
+  // Polish, Stage 1. `Ikona` alone collides with `entity.label_type.option.icon.label`
+  // and `today_indicator_style.option.icon.label`, both `An Icon`.
+  'pl:today_indicator_icon',
 ]);
 
 /**
@@ -1289,6 +1321,7 @@ function checkGlossaryAdherence(where, code, data, strings, glossary) {
     if (!decided) continue;
     for (const key of Object.keys(strings)) {
       if (strings[key].trim().toLowerCase() !== term.name) continue;
+      if (GLOSSARY_QUALIFIED_OK.has(`${code}:${key}`)) continue;
       const value = data[key];
       if (typeof value === 'string' && value !== decided) {
         warn(

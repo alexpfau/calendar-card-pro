@@ -68,22 +68,32 @@ larger defect. So casing is decided once here, per language, and checked separat
 
 English uses Title Case for labels. Almost no other language does.
 
-| language | rule                                                         | mid-string capitals today | verdict                                              |
-| -------- | ------------------------------------------------------------ | ------------------------: | ---------------------------------------------------- |
-| de       | **Nouns are capitalised** — German orthography, not a calque |                       73% | correct, exempt from the check                       |
-| et       | Sentence case                                                |                        3% | correct                                              |
-| it       | Sentence case                                                |                        2% | correct                                              |
-| lt       | Sentence case                                                |                        0% | correct                                              |
-| lv       | Sentence case                                                |                        0% | correct                                              |
-| nb       | Sentence case                                                |                        5% | correct                                              |
-| **pl**   | Sentence case                                                |                   **80%** | **systematic calque — fix all 111 existing strings** |
-| sk       | Sentence case                                                |                        0% | correct                                              |
-| sv       | Sentence case                                                |                        5% | correct                                              |
+| language | rule                                                         | mid-string capitals today | verdict                                             |
+| -------- | ------------------------------------------------------------ | ------------------------: | --------------------------------------------------- |
+| de       | **Nouns are capitalised** — German orthography, not a calque |                       73% | correct, exempt from the check                      |
+| et       | Sentence case                                                |                        3% | correct                                             |
+| it       | Sentence case                                                |                        2% | correct                                             |
+| lt       | Sentence case                                                |                        0% | correct                                             |
+| lv       | Sentence case                                                |                        0% | correct                                             |
+| nb       | Sentence case                                                |                        5% | correct                                             |
+| **pl**   | Sentence case                                                |                    **3%** | **fixed in Stage 1 — was 80%, a systematic calque** |
+| sk       | Sentence case                                                |                        0% | correct                                             |
+| sv       | Sentence case                                                |                        5% | correct                                             |
 
 Measured over multi-word labels, counting non-initial words whose first character is
 upper-case, with all-caps acronyms (`UV`) excluded because they are correct. The check
 in `check-i18n.mjs` recomputes this and warns above 15%, which cleanly separates the 0–5%
 languages from Polish and leaves room for proper nouns.
+
+**Polish is done, and what the 65 turned out to be is worth recording.** All 111 existing
+strings were re-cased in Stage 1, taking the rate from 80% (65 of 81) to 3% (7 of 203).
+**Not one of the 65 was a proper noun** — every single one was a common noun given an
+English capital (`Kolor Wydarzeń`, `Rozmiar Czcionki Tytułu`, `Maksymalna Wysokość`),
+including `Weekend`, which looks like a candidate and is an ordinary Polish common noun.
+The 7 that remain are all correct: `Home Assistant` in three option labels, and four
+prose strings whose flagged word opens a **second sentence**. So the threshold's headroom
+for proper nouns was needed for the product's own name and nothing else, and a language
+that has genuinely finished this lands near 3% rather than at 0%.
 
 **Weekday casing is unresolved, and the third source makes it more open rather than less.**
 The editor writes `Mandag` / `Søndag`; the card's native-contributed `nb.json` writes
@@ -119,12 +129,12 @@ strength of this note alone.
 title-case defect.** German writes a noun-noun compound solid or with a hyphen; a space
 between the two is the well-known _Deppenleerzeichen_, and it is what the editor shipped:
 
-| shipped                     | English              | correct                    |
-| --------------------------- | -------------------- | -------------------------- |
-| `Wochentag Schriftgröße`    | Weekday Font Size    | `Wochentag-Schriftgröße`   |
-| `Zeit Symbol Größe`         | Time Icon Size       | `Uhrzeit-Symbolgröße`      |
-| `Wochenende Wochentag Farbe`| Weekend Weekday Color| `Wochentagsfarbe am Wochenende` |
-| `Abstand Tag`               | Day Spacing          | `Tagesabstand`             |
+| shipped                      | English               | correct                         |
+| ---------------------------- | --------------------- | ------------------------------- |
+| `Wochentag Schriftgröße`     | Weekday Font Size     | `Wochentag-Schriftgröße`        |
+| `Zeit Symbol Größe`          | Time Icon Size        | `Uhrzeit-Symbolgröße`           |
+| `Wochenende Wochentag Farbe` | Weekend Weekday Color | `Wochentagsfarbe am Wochenende` |
+| `Abstand Tag`                | Day Spacing           | `Tagesabstand`                  |
 
 **24 of German's 134 existing strings, ~18%.** It is a calque of English's noun-stacking,
 it came in from the pre-v4 archive rather than being introduced by the rebuild, and — the
@@ -242,7 +252,20 @@ See §4 for the evidence. HA row is the noun extracted from `ui.components.calen
 | **Decided** | Termin | sündmus | evento | įvykis | notikums | hendelse | wydarzenie | udalosť | händelse |
 | HA          | Termin | sündmus | evento | įvykis | notikums | hendelse | wydarzenie | udalosť | händelse |
 
-**Rejected:** de `Ereignis`
+**Rejected:** de `Ereignis`; pl `Zdarzenia`
+
+**Polish shipped the German defect in miniature, and nobody had looked.** `pl.json` read
+`Zdarzenia do wyświetlenia w trybie kompaktowym` at `entity.compact_events_to_show` while
+rendering `Wydarzeń` at `entity.color`, `event_color` and `event_font_size` — one file,
+two words for _event_, four keys apart. `Zdarzenie` is exactly HA's `event` **entity**
+sense (`ui.panel.config.devices.entities.event` → `Zdarzenia`, a button press), which is
+the Rule 2 mismatch that produced the German `Ereignis` recommendation; HA's own calendar
+key says `Dodaj wydarzenie`. Fixed to `Wydarzenia w trybie kompaktowym` and pinned above.
+
+Nothing mechanical could have caught it before the rejection existed: the adherence check
+only compares keys whose _entire_ English is the term, and this key's English is
+`Compact Events To Show`. The rejection closes it, and cannot misfire — the card never
+means HA's stateless-occurrence sense.
 
 ### calendar — a calendar entity supplying events
 
@@ -428,12 +451,22 @@ evidence independently.
 **No evidence in any source.** Genuinely undecided in eight languages, and one of the
 highest-risk terms precisely because nothing external will arbitrate it.
 
-|             | de               | et  | it  | lt  | lv  | nb  | pl  | sk  | sv  |
-| ----------- | ---------------- | --- | --- | --- | --- | --- | --- | --- | --- |
-| **Decided** | Tagesüberschrift | —   | —   | —   | —   | —   | —   | —   | —   |
+|             | de               | et  | it  | lt  | lv  | nb  | pl            | sk  | sv  |
+| ----------- | ---------------- | --- | --- | --- | --- | --- | ------------- | --- | --- |
+| **Decided** | Tagesüberschrift | —   | —   | —   | —   | —   | Nagłówek dnia | —   | —   |
 
 Constraint for whoever decides it: it heads a _day_, not a column and not a card, and the
 same word must be used in `panel.day_header` and in every `day_header_*` key.
+
+**Polish decided by the Polish session (Stage 1): `Nagłówek dnia`.** Not evidence-free after
+all — HA has no _day header_, but it does have a settled word for the head of a thing, and
+it is uniform across every key that has one: `Header` → `Nagłówek`
+(`ui.panel.lovelace.editor.header-footer.header`), `Heading` → `Nagłówek`
+(`…card.heading.name`, `…card.heading.heading`), `Header settings` → `Ustawienia nagłówka`,
+`Heading style` → `Styl nagłówka`. So the head noun is not a guess; only its genitive
+qualifier is, and `dnia` is forced by the sense. It carries into the four dependent keys
+without strain — `Odstęp nagłówka dnia`, `Dzielnik nagłówka dnia` — which is the property
+the constraint above is really asking for.
 
 ### progress bar — the bar showing how far through an event we are
 
@@ -499,6 +532,25 @@ Agrees nine ways across all three artefacts. The single most frequent term in th
 | HA          | Symbol | Ikoon | Icona | Piktograma | Ikona | Ikon | Ikona | Ikona | Ikon |
 
 German says `Symbol`, not `Icon`, and that is what HA says too.
+
+**An article-less language cannot keep this term bare everywhere, and Polish is the first
+to hit it.** The English table separates a field from a picker option with an article —
+`Icon` (which icon?) against `An Icon` (what kind?). German gets the distinction free as
+`Symbol` / `Ein Symbol`. Polish has no article, so `today_indicator_icon`,
+`entity.label_type.option.icon.label` and `today_indicator_style.option.icon.label` all
+collapse onto `Ikona`, and `checkCollapsedLabels` correctly reports three settings the
+user cannot tell apart.
+
+The **field** gives way, not the options: an added word in a list of answers reads as
+invented, whereas the field's own siblings are already qualified — `Kolor wskaźnika`,
+`Rozmiar wskaźnika`, `Pozycja wskaźnika` — so `Ikona wskaźnika` is the more consistent
+form rather than a concession. Recorded in `GLOSSARY_QUALIFIED_OK` in
+`scripts/check-i18n.mjs`, which is for a term deliberately **qualified** rather than
+replaced, and is a different thing from `IDENTICAL_TO_ENGLISH_OK`.
+
+**Estonian, Lithuanian, Latvian and Slovak are all article-less and will hit this same
+row.** Whether they need the exemption depends only on whether their word for `Icon`
+equals their word for `An Icon`, which it almost certainly does.
 
 ### background — a background colour or fill
 
@@ -583,12 +635,42 @@ both.
 (`Przezroczystość`) — the semantically inverted concept. A slider labelled _transparency_
 whose higher values make things more solid is a defect, so HA cannot be copied here.
 
-|             | de        | et  | it      | lt  | lv  | nb  | pl  | sk             | sv       |
-| ----------- | --------- | --- | ------- | --- | --- | --- | --- | -------------- | -------- |
-| **Decided** | Deckkraft | —   | Opacità | —   | —   | —   | —   | Nepriehľadnosť | Opacitet |
+|             | de        | et  | it      | lt  | lv  | nb  | pl     | sk             | sv       |
+| ----------- | --------- | --- | ------- | --- | --- | --- | ------ | -------------- | -------- |
+| **Decided** | Deckkraft | —   | Opacità | —   | —   | —   | Krycie | Nepriehľadnosť | Opacitet |
 
-The five blanks need a native decision: either the language's genuine opacity word, or a
-rephrasing of the label so the inversion cannot arise. Do not copy HA's.
+The four remaining blanks need a native decision: either the language's genuine opacity
+word, or a rephrasing of the label so the inversion cannot arise. Do not copy HA's.
+
+**Polish decided by the Polish session (Stage 1): `Krycie`. The trap is confirmed, and
+the obvious secondary source is wrong.** HA Polish renders `Background opacity` as
+`Przezroczystość` at `ui.panel.lovelace.editor.edit_view.background.opacity` — the
+inverted concept, and it drops _background_ as well. Rejected, as this entry instructs.
+
+Two _native_ sources then disagree, and both are primary:
+
+| project | Polish for `Opacity` | consistency                        |
+| ------- | -------------------- | ---------------------------------- |
+| GIMP    | **Krycie**           | uniform, dozens of strings         |
+| Krita   | `Nieprzezroczystość` | uniform, 42 strings, zero `Krycie` |
+
+This is the same shape as the Norwegian weekday row: two native choices about one word,
+not a settled question with one side in error. It is recorded rather than hidden.
+
+`Krycie` is taken on three grounds. GIMP's file distinguishes the two words _within a
+single string_ — `Tool Opacity: Make Completely Opaque` → `Krycie narzędzia: ustaw
+całkowitą nieprzezroczystość` — which shows `Krycie` naming the **control** and
+`nieprzezroczystość` naming the **state**, and ours is a control. It is 6 characters
+against 18, and this label is already the longest in its group (`Krycie tła wydarzeń`
+against `Nieprzezroczystość tła wydarzeń`). And it asks the reader to parse no negation:
+more _krycie_ is more cover, where more _nie-przezroczystość_ is less-see-through-ness.
+
+> **A web search returned the opposite answer, confidently, and it was wrong.** It
+> reported `Nieprzezroczystość` as GIMP's and Inkscape's term, citing a language-learning
+> blog. `curl` on GIMP's own `po/pl.po` settled it in one command. **Where a translation
+> question has a primary artefact, read the artefact** — this is the §"look at the
+> artefact with the metric switched off" discipline applied to an oracle rather than to a
+> measurement, and it cost thirty seconds.
 
 ### show / hide — the verbs on every toggle
 
@@ -631,6 +713,18 @@ what a formatting dropdown says. It also reads correctly in all three option lis
 
 **A language whose "none" word is invariant should say so here rather than deciding three
 times.** That is the transferable half of this entry.
+
+**Polish confirmed by the Polish session (Stage 1): `Brak` is invariant and covers all
+three.** It is a noun meaning _absence_, not an adjective, so — like German's preposition —
+it agrees with nothing and the per-key question does not arise. It reads correctly against
+`Typ etykiety`, `Styl` and `Numeracja` alike.
+
+**But Polish's gendered problem is real and simply sits on a different option.** The same
+dropdown's `week_number_mode.option.simple.label` shipped as `Proste` (neuter) under a
+control now labelled `Numeracja` (feminine), and was corrected to `Prosta`. So a session
+that checks only the word `none`, finds it invariant and moves on will miss the agreement
+defect one row below it: **the axis is the option list, not the term.** Read every option
+in a picker against the noun its own control names.
 
 ### default — the "leave it alone" option
 
@@ -706,6 +800,12 @@ Named rather than papered over.
 - **The four undecided cells** — German `label`, German and Norwegian `today indicator`,
   five languages' `opacity`, eight languages' `day header`. These are marked `—` rather
   than guessed, and the sessions that own those languages must decide and record them.
+  _(German's three and Polish's two are now decided; `opacity` has four blanks left and
+  `day header` seven.)_
+- **Polish `Krycie` against `Nieprzezroczystość`.** Decided on GIMP's usage, length and
+  the absence of a negation to parse — but Krita's Polish translators, equally native,
+  chose the other one uniformly. Two native sources disagreeing is not something a third
+  artefact settles; see the `opacity` entry. One Polish speaker resolves it in a sentence.
 
 ## 7. Evidence Index — Every Term's HA Key
 
