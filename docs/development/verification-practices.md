@@ -294,6 +294,43 @@ live, and the case that had been silent now fails. **Behaviour is the only repre
 with no normalisation problem** — which is the argument for reaching for it first when the
 question is "did this change arrive", rather than after two searches have failed.
 
+**And there is a third instrument for that question, better than both: provenance.**
+`git log -S"<distinctive string>" --all -- <path>` names the commit that introduced the text
+currently in the tree. It settled a disagreement where one session's ancestry check said a
+commit was merged and another's said it was not:
+
+```bash
+git log -S"names a language but has no" --all -- scripts/check-i18n.mjs
+#   cd0a7c7 fix(check-i18n): catch a rejected form dropped from inside a Rejected line
+```
+
+It answers a different question from `--is-ancestor` — not _is this hash reachable_ but
+_where did this content come from_ — so a merge, a squash, a rebase or a stale ref cannot
+confuse it. The disagreement turned out to be the **freshness of the ref being compared
+against**, not the commit: per-commit checking fixes generalising from one hash, and does
+nothing about comparing to a `origin/…` last fetched nine pushes ago.
+
+**Why the guard's own coverage keeps being the thing nobody checks.** Three times in one
+evening a documented trap was walked into by the person who had just written the
+documentation, twice having fixed the identical defect elsewhere minutes earlier. "Recall at
+the moment of use is not a mechanism" is true and incomplete. The better account came from
+the session that found the third: **writing a guard means holding the guarded thing in mind,
+and the guard's own coverage is a second-order property that never enters that frame.** That
+explains why it happens to exactly the people who should be immune, which _be careful_
+cannot.
+
+The habit that follows is mechanical and cheap: **after writing any matcher, ask what it
+matches a subset of.** Not "does it work" — it does — but "what is the superset it claims and
+does not cover". Two real fixes tonight came from that question and none from re-reading the
+code.
+
+**Finally, on the durability of everything in this file.** _"A command with no stated reason
+is indistinguishable from ceremony, and ceremony is what gets trimmed. Reasons survive
+trimming; instructions don't."_ That is the account of how a `git fetch` fell out of
+`AGENTS.md` between edits, and it is the reason this document is instances rather than rules:
+**a rule erodes into ceremony and gets deleted; an instance carries its own justification and
+resists that.**
+
 **A mutation that changes no observable behaviour is evidence about the corpus, not the code.**
 Stage 0 wrote two falsifiers for a glossary-parser bug and both reported IMMUNE with the fix
 reverted — one mutated a term nothing currently violates, so there was nothing to lose; the
