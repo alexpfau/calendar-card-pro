@@ -42,7 +42,7 @@
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { join, dirname, relative, basename } from 'node:path';
+import { join, dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -692,6 +692,16 @@ function checkInternalLinks(docs) {
  * every one of them resolves correctly in the tool that renders the file. That was the
  * first result this check produced, and believing it would have meant "fixing" 17
  * working links.
+ *
+ * Paths are resolved **relative to the linking file**, and the heading map is keyed by
+ * each document's path relative to `docs/development/` rather than by its basename
+ * (Y11). Keying by basename made the check dishonest in two directions once the
+ * directory nested: `./editor-glossary.md` written from inside a subdirectory resolved
+ * against the basename map and **passed while being broken on GitHub**, and a link
+ * written `../x.md` was not matched by the `./`-only pattern at all, so it was never
+ * checked in either direction. The corpus is flat today, so this changes no current
+ * result — it stops the check from silently going blind the first time someone nests a
+ * file, which is precisely when a link checker has to still work.
  */
 function githubSlug(text) {
   return text
@@ -708,6 +718,11 @@ function checkDesignDocLinks(docs) {
   const design = docs.filter((f) => relative(DOCS_DIR, f).startsWith('development/'));
   if (!design.length) return 0;
 
+  const DEV_DIR = join(DOCS_DIR, 'development');
+  // Key by path relative to docs/development/, so two same-named files in different
+  // subdirectories stay distinct. Flat today; `key()` is what keeps it correct if not.
+  const key = (file) => relative(DEV_DIR, file).split(sep).join('/');
+
   const headings = new Map();
   for (const file of design) {
     const seen = new Map();
@@ -718,27 +733,68 @@ function checkDesignDocLinks(docs) {
       seen.set(base, n + 1);
       slugs.add(n === 0 ? base : `${base}-${n}`);
     }
-    headings.set(basename(file), slugs);
+    headings.set(key(file), slugs);
   }
-  assertFound(headings, 'design documents', join(DOCS_DIR, 'development'));
+  assertFound(headings, 'design documents', DEV_DIR);
 
-  const LINK = /\[[^\]]*\]\((\.\/[^)\s]+|#[^)\s]+)\)/g;
+  // Matches ./x, ../x and bare #anchor. The `../` arm is the Y11 fix: the previous
+  // pattern accepted only `./`, so an up-directory link was invisible to the check
+  // rather than failing it.
+  const LINK = /\[[^\]]*\]\((\.\.?\/[^)\s]+|#[^)\s]+)\)/g;
   let checked = 0;
 
+  // A `../` link can leave the corpus entirely — `verification-practices.md` cites
+  // `../../AGENTS.md#reference`, which is a real file with real headings and was
+  // unchecked until the pattern above started matching it. Rather than skip those,
+  // resolve them on disk and validate the anchor too. Cached because several documents
+  // cite the same handful of outside files.
+  const outside = new Map();
+  const outsideHeadings = (abs) => {
+    if (!outside.has(abs)) {
+      let slugs = null;
+      if (existsSync(abs) && abs.endsWith('.md')) {
+        const seen = new Map();
+        slugs = new Set();
+        for (const h of readHeadings(abs)) {
+          const base = githubSlug(h.text);
+          const n = seen.get(base) ?? 0;
+          seen.set(base, n + 1);
+          slugs.add(n === 0 ? base : `${base}-${n}`);
+        }
+      } else if (existsSync(abs)) {
+        slugs = new Set(); // exists but not markdown: path is valid, no anchors to check
+      }
+      outside.set(abs, slugs);
+    }
+    return outside.get(abs);
+  };
+
   for (const file of design) {
-    const here = basename(file);
     for (const m of readFileSync(file, 'utf8').matchAll(LINK)) {
       const [rawPath, anchor] = m[1].split('#');
-      const target = rawPath ? basename(rawPath) : here;
+      const abs = rawPath ? resolve(dirname(file), rawPath) : file;
+      const target = key(abs);
       checked++;
 
-      if (!headings.has(target)) {
-        error(`${relative(ROOT, file)} links to ${m[1]}, but ${target} does not exist.`);
+      // Inside the corpus: the pre-built map answers both questions.
+      if (headings.has(target)) {
+        if (anchor && !headings.get(target).has(anchor)) {
+          error(
+            `${relative(ROOT, file)} links to ${m[1]}, but #${anchor} is not a heading in ${target}.`,
+          );
+        }
         continue;
       }
-      if (anchor && !headings.get(target).has(anchor)) {
+
+      // Outside it: fall back to the filesystem.
+      const slugs = outsideHeadings(abs);
+      if (slugs === null) {
+        error(`${relative(ROOT, file)} links to ${m[1]}, but ${relative(ROOT, abs)} does not exist.`);
+        continue;
+      }
+      if (anchor && slugs.size && !slugs.has(anchor)) {
         error(
-          `${relative(ROOT, file)} links to ${m[1]}, but #${anchor} is not a heading in ${target}.`,
+          `${relative(ROOT, file)} links to ${m[1]}, but #${anchor} is not a heading in ${relative(ROOT, abs)}.`,
         );
       }
     }
