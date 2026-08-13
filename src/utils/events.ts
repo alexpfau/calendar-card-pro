@@ -302,6 +302,7 @@ export function groupEventsByDay(
         _matchedConfig: event._matchedConfig,
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
+        _isMultiDaySegment: event._isMultiDaySegment,
       });
     });
   }
@@ -843,6 +844,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         ...event,
         start: { date: currentDateStr },
         end: { date: nextDateStr },
+        _isMultiDaySegment: true,
       };
 
       segments.push(segment);
@@ -863,6 +865,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         ...event,
         start: { dateTime: startDateTime.toISOString() },
         end: { dateTime: firstDayEnd.toISOString() },
+        _isMultiDaySegment: true,
       };
       segments.push(firstDaySegment);
 
@@ -890,6 +893,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
           // Create all-day event for middle days
           start: { date: currentDateStr },
           end: { date: nextDateStr },
+          _isMultiDaySegment: true,
         };
 
         segments.push(middleDaySegment);
@@ -900,6 +904,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         ...event,
         start: { dateTime: lastDayStart.toISOString() },
         end: { dateTime: endDateTime.toISOString() },
+        _isMultiDaySegment: true,
       };
       segments.push(lastDaySegment);
     } else {
