@@ -1553,13 +1553,21 @@ function readGlossary() {
       const cells = row[2].split('|').map((c) => c.trim());
       const forThisTerm = (decided[which] ??= {});
       langs.forEach((lang, i) => {
-        // Bold is stripped, single-asterisk italic is not, and the order matters: a cell
-        // written `**Termin**` is a decided value someone emphasised, while `*rejected*`
-        // and `*!EN*` are markers meaning *there is no decision here*. Testing for italic
+        // Bold is stripped, italic is not, and the order matters: a cell written
+        // `**Termin**` is a decided value someone emphasised, while `*rejected*` and
+        // `*!EN*` are markers meaning *there is no decision here*. Testing for italic
         // before removing bold treats the first as the second and silently drops the term
         // from enforcement — the failure being emphasis on a decision you care about.
+        //
+        // 🚨 Both italic spellings must be tested, and the underscore one is the spelling
+        // that actually occurs. Prettier normalises `*x*` to `_x_`, so a marker typed the
+        // natural way is `_!EN_` by the time it reaches this parser — measured, the file
+        // holds 0 asterisk-italics against 158 underscore ones. An asterisk-only guard is
+        // therefore inert against every marker anyone can actually write, and fails in the
+        // permissive direction: `_!EN_` was read as a *decided term*, making the check
+        // demand every language render `location` as the literal string `_!EN_`.
         const cell = (cells[i] ?? '').replace(/^`|`$/g, '').replace(/\*\*/g, '').trim();
-        if (cell && cell !== '—' && !/^\*.*\*$/.test(cell)) forThisTerm[lang] = cell;
+        if (cell && cell !== '—' && !/^([*_]).*\1$/.test(cell)) forThisTerm[lang] = cell;
       });
     }
 
