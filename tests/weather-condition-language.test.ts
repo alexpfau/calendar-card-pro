@@ -2,10 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as Types from '../src/config/types';
 import * as Logger from '../src/utils/logger';
-import { formatCondition, resetUntranslatedConditions } from '../src/utils/weather';
+import {
+  CONDITION_ICON_MAP,
+  formatCondition,
+  resetUntranslatedConditions,
+} from '../src/utils/weather';
 import {
   conditionLanguage,
   ensureConditionTranslations,
+  knownConditions,
   resetConditionTranslations,
   toHaLanguage,
 } from '../src/utils/weather-i18n';
@@ -294,6 +299,56 @@ describe('weather conditions follow the card language', () => {
       expect(formatCondition(hass, 'weather.home', 'partlycloudy', 'en')).toBe('Teilweise bewölkt');
     });
 
+    /**
+     * The second copy of the trap `formatCondition` already guards one layer up. A
+     * fetched language missing one condition falls back to `formatEntityState`, which
+     * *succeeds* — in the instance's language — so the row shows a German word inside an
+     * English card with nothing raised anywhere. Indistinguishable from working, exactly
+     * like the raw-token case, unless it is said out loud.
+     */
+    it('reports a condition the fetched language does not carry', async () => {
+      const debug = vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
+      const hass = germanHass({ en: { sunny: 'Sunny' } });
+
+      ensureConditionTranslations(hass, 'en', () => undefined);
+      await settle();
+      debug.mockClear();
+
+      expect(formatCondition(hass, 'weather.home', 'partlycloudy', 'en')).toBe('Teilweise bewölkt');
+
+      const misses = debug.mock.calls.filter((call) =>
+        String(call[0]).includes('has no "partlycloudy"'),
+      );
+      expect(misses).toHaveLength(1);
+    });
+
+    it('reports each missing condition once, not once per render', async () => {
+      const debug = vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
+      const hass = germanHass({ en: { sunny: 'Sunny' } });
+
+      ensureConditionTranslations(hass, 'en', () => undefined);
+      await settle();
+      debug.mockClear();
+
+      for (let i = 0; i < 5; i++) {
+        formatCondition(hass, 'weather.home', 'partlycloudy', 'en');
+      }
+
+      const misses = debug.mock.calls.filter((call) => String(call[0]).includes('has no'));
+      expect(misses).toHaveLength(1);
+    });
+
+    it('says nothing about a cold cache, which is not a miss', () => {
+      const debug = vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
+      const hass = germanHass({ en: ENGLISH_CONDITIONS });
+
+      // Before the fetch resolves, falling back is the design — not a gap to report.
+      expect(formatCondition(hass, 'weather.home', 'sunny', 'en')).toBe('Sonnig');
+
+      const misses = debug.mock.calls.filter((call) => String(call[0]).includes('has no'));
+      expect(misses).toHaveLength(0);
+    });
+
     it('reports an unfetchable language once, not once per render', async () => {
       const debug = vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
       const hass = germanHass({ en: {} });
@@ -327,5 +382,59 @@ describe('weather conditions follow the card language', () => {
 
     expect(calls).toHaveLength(1);
     expect(formatCondition(hass, 'weather.home', 'sunny', 'en')).toBe('Sunny');
+  });
+
+  /**
+   * The condition set is closed, and the card writes it out twice — once as
+   * `CONDITION_ICON_MAP` in `weather.ts`, once as `KNOWN_CONDITIONS` in
+   * `weather-i18n.ts`, because the import can only run one way. This is what stops the
+   * two drifting, and it is the falsifier for the claim that the set is closed at
+   * fifteen: adding a sixteenth icon without a sixteenth known condition fails here.
+   */
+  describe('the closed condition set', () => {
+    it('matches the icon map exactly, in both directions', () => {
+      expect([...knownConditions()].sort()).toEqual(Object.keys(CONDITION_ICON_MAP).sort());
+    });
+
+    it('is the fifteen Home Assistant defines', () => {
+      // Verified against a live instance (2026.8.1): `frontend/get_translations` returns
+      // exactly these for every language, English-filled where untranslated.
+      expect(knownConditions()).toHaveLength(15);
+      expect(knownConditions()).toContain('windy-variant');
+      expect(knownConditions()).toContain('clear-night');
+    });
+
+    /**
+     * Home Assistant fills per-key gaps server-side, so a short payload means something
+     * changed — a new condition, or a different response shape. Worth saying once, when
+     * the data lands, rather than discovering it whenever the weather turns.
+     */
+    it('reports a payload that arrives incomplete', async () => {
+      const debug = vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
+      const hass = germanHass({ en: { sunny: 'Sunny' } });
+
+      ensureConditionTranslations(hass, 'en', () => undefined);
+      await settle();
+
+      const incomplete = debug.mock.calls.filter((call) =>
+        String(call[0]).includes('without clear-night'),
+      );
+      expect(incomplete).toHaveLength(1);
+    });
+
+    it('says nothing when the payload is complete', async () => {
+      const debug = vi.spyOn(Logger, 'debug').mockImplementation(() => undefined);
+      const complete: Record<string, string> = {};
+      for (const condition of knownConditions()) {
+        complete[condition] = `x-${condition}`;
+      }
+      const hass = germanHass({ en: complete });
+
+      ensureConditionTranslations(hass, 'en', () => undefined);
+      await settle();
+
+      const incomplete = debug.mock.calls.filter((call) => String(call[0]).includes('without'));
+      expect(incomplete).toHaveLength(0);
+    });
   });
 });

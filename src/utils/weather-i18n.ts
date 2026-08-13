@@ -53,6 +53,40 @@ const HA_LANGUAGE_OVERRIDES: Record<string, string> = {
 const CONDITION_KEY_PREFIX = 'component.weather.entity_component._.state.';
 
 /**
+ * The conditions Home Assistant defines, as a closed set.
+ *
+ * Verified two ways rather than recalled: `frontend/get_translations` returns exactly
+ * these fifteen for every language tried, and `CONDITION_ICON_MAP` in `weather.ts`
+ * independently maps the same fifteen. `weather-condition-language.test.ts` pins the two
+ * lists to each other, so a sixteenth icon without a sixteenth entry here fails a test
+ * rather than going unnoticed — which is the only reason it is safe to write the set out
+ * twice instead of importing it (`weather.ts` imports *this* module, so the dependency
+ * cannot run the other way).
+ *
+ * Worth having as a list at all because Home Assistant fills per-key gaps server-side:
+ * a language it has not translated comes back complete, in English, rather than short.
+ * A payload that is *not* complete therefore means something changed — a new condition,
+ * or a different response shape — and that is worth saying out loud once.
+ */
+const KNOWN_CONDITIONS = [
+  'clear-night',
+  'cloudy',
+  'exceptional',
+  'fog',
+  'hail',
+  'lightning',
+  'lightning-rainy',
+  'partlycloudy',
+  'pouring',
+  'rainy',
+  'snowy',
+  'snowy-rainy',
+  'sunny',
+  'windy',
+  'windy-variant',
+];
+
+/**
  * Convert a card language code to the spelling Home Assistant expects.
  *
  * The card lowercases its codes (`getEffectiveLanguage` returns `'en-gb'`), Home
@@ -132,13 +166,53 @@ const reportedFailures = new Set<string>();
 /**
  * Look up a condition in a language already fetched.
  *
+ * A miss is reported once per language and condition. It has to be, because the caller's
+ * fallback is `formatEntityState` — which succeeds, in the *instance's* language, and so
+ * puts a German word inside an English card with nothing raised anywhere. That is the
+ * same shape of silent failure the raw-token case in `formatCondition` already guards,
+ * one layer up.
+ *
  * @param haLanguage Home Assistant language code, from `conditionLanguage`
  * @param condition Raw condition token, e.g. `partlycloudy`
  * @returns The translated text, or `undefined` when the language is not cached yet or
  *   Home Assistant has no string for that condition
  */
 export function lookupCondition(haLanguage: string, condition: string): string | undefined {
-  return conditionsByLanguage.get(haLanguage)?.[condition];
+  const conditions = conditionsByLanguage.get(haLanguage);
+
+  // Not fetched yet is not a miss — it is the first paint, and the caller is about to
+  // fall back on purpose.
+  if (!conditions) {
+    return undefined;
+  }
+
+  const text = conditions[condition];
+
+  if (!text) {
+    reportMissingCondition(haLanguage, condition);
+  }
+
+  return text;
+}
+
+/** Languages and conditions already reported missing, as `<language>:<condition>`. */
+const reportedMisses = new Set<string>();
+
+/**
+ * Report a condition the fetched language does not carry, once per pair.
+ */
+function reportMissingCondition(haLanguage: string, condition: string): void {
+  const key = `${haLanguage}:${condition}`;
+
+  if (reportedMisses.has(key)) {
+    return;
+  }
+
+  reportedMisses.add(key);
+  Logger.debug(
+    `Home Assistant has no "${condition}" for ${haLanguage}; that condition will follow ` +
+      "the instance's language instead",
+  );
 }
 
 //-----------------------------------------------------------------------------
@@ -249,6 +323,7 @@ export function ensureConditionTranslations(
       }
 
       conditionsByLanguage.set(haLanguage, conditions);
+      reportIncompletePayload(haLanguage, conditions);
       Logger.debug(`Loaded ${Object.keys(conditions).length} weather conditions in ${haLanguage}`);
       onLoaded();
     })
@@ -258,6 +333,29 @@ export function ensureConditionTranslations(
     .finally(() => {
       inFlight.delete(haLanguage);
     });
+}
+
+/**
+ * Say once, at the moment a payload arrives, which conditions it does not carry.
+ *
+ * Checking here rather than at render time is the point: Home Assistant fills per-key
+ * gaps server-side, so a complete-looking payload is the norm and a short one means
+ * something changed — a condition added to Home Assistant, or a changed response shape.
+ * Finding that out when the data lands beats discovering it one condition at a time, on
+ * whichever day the weather happens to turn.
+ */
+function reportIncompletePayload(haLanguage: string, conditions: Record<string, string>): void {
+  const missing = KNOWN_CONDITIONS.filter((condition) => !conditions[condition]);
+
+  if (missing.length === 0) {
+    return;
+  }
+
+  Logger.debug(
+    `Home Assistant returned ${Object.keys(conditions).length} weather conditions for ` +
+      `${haLanguage}, without ${missing.join(', ')}; ` +
+      "those will follow the instance's language instead",
+  );
 }
 
 /**
@@ -280,6 +378,14 @@ function reportFailure(haLanguage: string, reason: string): void {
 }
 
 /**
+ * The fifteen conditions Home Assistant defines, exposed so the icon map can be pinned
+ * against it. Kept in sync by test, not by import — see `KNOWN_CONDITIONS`.
+ */
+export function knownConditions(): string[] {
+  return [...KNOWN_CONDITIONS];
+}
+
+/**
  * Forget every cached language.
  *
  * Exists for the tests, which would otherwise leak a cache entry from one case into
@@ -289,4 +395,5 @@ export function resetConditionTranslations(): void {
   conditionsByLanguage.clear();
   inFlight.clear();
   reportedFailures.clear();
+  reportedMisses.clear();
 }

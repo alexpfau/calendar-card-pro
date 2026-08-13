@@ -219,8 +219,15 @@ export function findForecastForEvent(
 // WEATHER DATA FORMATTING
 //-----------------------------------------------------------------------------
 
-// Map of weather condition codes to MDI icons
-const CONDITION_ICON_MAP: Record<string, string> = {
+/**
+ * Map of weather condition codes to MDI icons.
+ *
+ * Exported so `weather-condition-language.test.ts` can pin its keys against
+ * `KNOWN_CONDITIONS` in `weather-i18n.ts`. That module cannot import this one — the
+ * dependency runs the other way — so the set is written out twice, and the test is what
+ * stops the two drifting.
+ */
+export const CONDITION_ICON_MAP: Record<string, string> = {
   'clear-night': 'mdi:weather-night',
   cloudy: 'mdi:weather-cloudy',
   fog: 'mdi:weather-fog',
