@@ -22,7 +22,7 @@ reads as sloppiness far more than an imperfect single string does.
 parses the `**Decided**` and `**Rejected:**` lines out of it, so an edit here changes what
 CI enforces — which is the point.
 
-> **Only the `**Decided**` and `**Rejected:**` rows are live. Every other row is a
+> **Only the `**Decided**`and`**Rejected:**` rows are live. Every other row is a
 > snapshot.** The `HA` rows record one pinned wheel, and the rows now labelled
 > `editor, then` record what the translation files held **at the moment the decision was
 > taken** — which is why they are past tense.
@@ -386,25 +386,32 @@ directions_ — it is more specific than us in German and less specific in Eston
 Italian. Since the sense is a clock time, HA is right for German and wrong for the other
 two.
 
-|             | de      | et       | it     | lt     | lv    | nb  | pl   | sk  | sv  |
-| ----------- | ------- | -------- | ------ | ------ | ----- | --- | ---- | --- | --- |
-| **Decided** | Uhrzeit | Kellaaeg | Orario | Laikas | Laiks | Tid | Czas | Čas | Tid |
-| HA          | Uhrzeit | Aeg      | Ora    | Laikas | _!EN_ | Tid | Czas | Čas | Tid |
+|              | de      | et       | it     | lt     | lv    | nb  | pl   | sk  | sv  |
+| ------------ | ------- | -------- | ------ | ------ | ----- | --- | ---- | --- | --- |
+| **Decided**  | Uhrzeit | Kellaaeg | Orario | Laikas | Laiks | Tid | Czas | Čas | Tid |
+| HA           | Uhrzeit | Aeg      | Ora    | Laikas | _!EN_ | Tid | Czas | Čas | Tid |
 | editor, then | _Zeit_  | Kellaaeg | Orario | Laikas | Laiks | Tid | Czas | Čas | Tid |
 
 German changes. The five languages whose single word covers both senses keep it — `Tid`,
 `Czas`, `Čas`, `Laikas`, `Laiks` are what a clock time is called in those languages, and
 there is no more specific alternative that a UI would use.
 
+**`de` `Zeit` cannot be added as a rejected form, and this is why it is absent rather than
+overlooked.** The matcher anchors at a word start, and `panel.content` — English `Time
+Range & Content`, so the term governs it — renders in German as `Zeitraum & Inhalt`.
+Rejecting `Zeit` would fire on `Zeitraum`, which is the correct word. So the
+`Zeit`/`Uhrzeit` distinction is carried by the decided value alone and by nothing
+mechanical; a file that regresses to `Zeit` for the clock sense will not be caught.
+
 ### start date — the day the card's window begins
 
 Disputed in four of nine languages, which is what promoted it here. It is a term nobody
 ever decided rather than four separate slips.
 
-|             | de             | et               | it             | lt            | lv            | nb        | pl                | sk               | sv         |
-| ----------- | -------------- | ---------------- | -------------- | ------------- | ------------- | --------- | ----------------- | ---------------- | ---------- |
-| **Decided** | Startdatum     | Alguskuupäev     | Data di inizio | Pradžios data | Sākuma datums | Startdato | Data początkowa   | Počiatočný dátum | Startdatum |
-| HA          | _Anfangsdatum_ | _Alguse kuupäev_ | Data di inizio | Pradžios data | Sākuma datums | Startdato | Data początkowa   | _Dátum začiatku_ | Startdatum |
+|              | de             | et               | it             | lt            | lv            | nb        | pl                | sk               | sv         |
+| ------------ | -------------- | ---------------- | -------------- | ------------- | ------------- | --------- | ----------------- | ---------------- | ---------- |
+| **Decided**  | Startdatum     | Alguskuupäev     | Data di inizio | Pradžios data | Sākuma datums | Startdato | Data początkowa   | Počiatočný dátum | Startdatum |
+| HA           | _Anfangsdatum_ | _Alguse kuupäev_ | Data di inizio | Pradžios data | Sākuma datums | Startdato | Data początkowa   | _Dátum začiatku_ | Startdatum |
 | editor, then | Startdatum     | Alguskuupäev     | Data di inizio | Pradžios data | Sākuma datums | Startdato | _Data Początkowa_ | Počiatočný dátum | Startdatum |
 
 Only Polish changes, and only in capitalisation — `Data Początkowa` to `Data początkowa`.
@@ -472,10 +479,10 @@ decided against our own file: `Posizione` is the _position_ sense and collides w
 `position` term below, where Italian needs the same word for a different thing. HA's
 calendar-domain key says `Luogo`.
 
-|             | de  | et      | it          | lt    | lv              | nb    | pl          | sk          | sv    |
-| ----------- | --- | ------- | ----------- | ----- | --------------- | ----- | ----------- | ----------- | ----- |
-| **Decided** | Ort | Asukoht | Luogo       | Vieta | Atrašanās vieta | Sted  | Lokalizacja | Miesto      | Plats |
-| HA          | Ort | Asukoht | Luogo       | Vieta | Notikuma vieta  | _!EN_ | Lokalizacja | Umiestnenie | Plats |
+|              | de  | et      | it          | lt    | lv              | nb    | pl          | sk          | sv    |
+| ------------ | --- | ------- | ----------- | ----- | --------------- | ----- | ----------- | ----------- | ----- |
+| **Decided**  | Ort | Asukoht | Luogo       | Vieta | Atrašanās vieta | Sted  | Lokalizacja | Miesto      | Plats |
+| HA           | Ort | Asukoht | Luogo       | Vieta | Notikuma vieta  | _!EN_ | Lokalizacja | Umiestnenie | Plats |
 | editor, then | Ort | Asukoht | _Posizione_ | Vieta | Atrašanās vieta | Sted  | Lokalizacja | Miesto      | Plats |
 
 **Rejected:** it `Posizione`
@@ -505,10 +512,10 @@ Agrees nine ways with Home Assistant and with our own files. Nothing to decide.
 
 ### label — the small text tag drawn beside an event
 
-|             | de    | et   | it        | lt      | lv      | nb      | pl       | sk        | sv      |
-| ----------- | ----- | ---- | --------- | ------- | ------- | ------- | -------- | --------- | ------- |
-| **Decided** | Label | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | Štítok    | Etikett |
-| HA          | _!EN_ | Silt | Etichetta | Etiketė | _!EN_   | Etikett | Etykieta | Štítok    | Etikett |
+|              | de    | et   | it        | lt      | lv      | nb      | pl       | sk        | sv      |
+| ------------ | ----- | ---- | --------- | ------- | ------- | ------- | -------- | --------- | ------- |
+| **Decided**  | Label | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | Štítok    | Etikett |
+| HA           | _!EN_ | Silt | Etichetta | Etiketė | _!EN_   | Etikett | Etykieta | Štítok    | Etikett |
 | editor, then | Label | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | _Menovka_ | Etikett |
 
 **Rejected:** sk `Menovka`
@@ -590,7 +597,7 @@ Latvian `Saraksts` is judgement — HA has no translation and we have no string 
 | -------------- | ------------ | ------------- | ------------------- | -------------------- | ----------------- | ------------- | ----------------- | --------------- | ------------ |
 | **Decided**    | Kompaktmodus | Kompaktrežiim | Modalità compatta   | Suglaudintas režimas | Kompaktais režīms | Kompakt modus | Tryb kompaktowy   | Kompaktný režim | Kompakt läge |
 | HA (_compact_) | Kompakt      | Kompaktne     | Compatto            | Kompaktiškas         | _!EN_             | Kompakt       | Kompaktowy        | Kompaktný       | Kompakt      |
-| editor, then    | Kompaktmodus | Kompaktrežiim | _Modalità Compatta_ | Suglaudintas režimas | Kompaktais režīms | Kompakt modus | _Tryb Kompaktowy_ | Kompaktný režim | Kompakt läge |
+| editor, then   | Kompaktmodus | Kompaktrežiim | _Modalità Compatta_ | Suglaudintas režimas | Kompaktais režīms | Kompakt modus | _Tryb Kompaktowy_ | Kompaktný režim | Kompakt läge |
 
 Italian and Polish change in capitalisation only, per §3.
 
@@ -614,7 +621,7 @@ same object under a different English name, so it is used as evidence and labell
 | -------------- | ----------- | -------- | -------- | --------- | ---------- | ----- | -------- | ---------- | -------- |
 | **Decided**    | Trennlinie  | Eraldaja | Divisore | Skirtukas | Atdalītājs | Deler | Dzielnik | Rozdeľovač | Avdelare |
 | HA (_divider_) | Trennlinie  | Eraldaja | Divisore | Skirtukas | Atdalītājs | Deler | Dzielnik | Rozdeľovač | Avdelare |
-| editor, then    | Trennlinien | —        | —        | —         | —          | —     | —        | —          | —        |
+| editor, then   | Trennlinien | —        | —        | —         | —          | —     | —        | —          | —        |
 
 German already says `Trennlinien` for the panel title, which corroborates the borrowed
 evidence independently.
