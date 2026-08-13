@@ -530,13 +530,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'than shorten the card.',
   // Stated on the group rather than on each of its three fields, which all share this
   // scope — see GROUP_SCOPE in localize.ts. The per-field notes the group replaces are
-  // deliberately absent: written, they would never be looked up. Read as the second half
-  // of `compact_mode.helper`, which is why it starts with *That* rather than repeating
-  // what compact mode is.
+  // deliberately absent: written, they would never be looked up.
+  //
+  // Leads with the fact and gives the reason second. An earlier version opened with
+  // "That shortening is the list layout…", which explained *why* the limits do not apply
+  // without ever saying *that* they do not — a reader could finish the paragraph still
+  // expecting compact mode to shorten their column card. Reported from the live editor.
+  // The reason is kept, because "has no effect" alone invites someone to file it as a bug.
   'scope.list_only.compact_mode':
-    'That shortening is the list layout, which this card also uses on narrow screens — ' +
-    'a column grows sideways, so a limit would delete columns rather than shorten the ' +
-    'card.',
+    '⚠️ These have no effect in column view. They shorten the list layout, which this ' +
+    'card also uses on narrow screens, so they still apply there — but a column grows ' +
+    'sideways, so a limit would delete whole days rather than shorten the card.',
 };
 
 /**
