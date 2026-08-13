@@ -20,7 +20,6 @@
  */
 
 import * as Types from '../config/types';
-import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 import * as EventUtils from '../utils/events';
 import type { EventContentParts } from './leaves';
@@ -125,13 +124,12 @@ export function buildEventPresentation(
   // Check if this is an all-day event
   const isAllDayEvent = !event.start.dateTime;
 
-  // Check if this is a multi-day all-day event
-  const isMultiDayAllDayEvent =
-    isAllDayEvent &&
-    event.time &&
-    (event.time.includes(Localize.getTranslations(language).multiDay) ||
-      event.time.includes(Localize.getTranslations(language).endsTomorrow) ||
-      event.time.includes(Localize.getTranslations(language).endsToday));
+  // Check if this is a multi-day all-day event.
+  // Asked of the event's dates via the same predicate `formatEventTime` branches on, so
+  // the decision and the string it pairs with cannot drift. This deliberately does not
+  // inspect the rendered text: it used to, by substring-matching the localized
+  // multi-day tokens, which made a rendering decision depend on translation wording.
+  const isMultiDayAllDayEvent = isAllDayEvent && FormatUtils.isMultiDayAllDayEvent(event);
 
   // Determine if we should show time for this specific event
   // Hide if:

@@ -284,7 +284,6 @@ export function groupEventsByDay(
 
       eventsByDay[eventDateKey].events.push({
         summary: event.summary || '',
-        time: FormatUtils.formatEventTime(event, config, language),
         location:
           (getEntitySetting(event._entityId, 'show_location', config, event) ??
           config.show_location)

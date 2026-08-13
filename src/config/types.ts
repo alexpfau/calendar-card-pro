@@ -240,7 +240,6 @@ export interface CalendarEventData {
    */
   _isMultiDaySegment?: boolean;
   _matchedConfig?: EntityConfig;
-  time?: string;
 }
 
 /**
