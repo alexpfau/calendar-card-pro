@@ -496,9 +496,16 @@ function checkLanguageParity(languages) {
  *      tree-shake it — one section reintroduced is ~12 KB added to what every user
  *      downloads and parses on every dashboard load, to label a surface most of them
  *      never open. Nothing breaks, so nothing reports it.
- *   2. A file in `editor-languages/` that `index.ts` never imports or registers. It is
- *      simply never loaded and the editor renders English — the same silent shape as a
- *      language file missing from `TRANSLATIONS`.
+ *   2. A file in `editor-languages/` that `index.ts` never imports or registers.
+ *
+ *      🚨 Read this before acting on that error. `editor-languages/` is the **v3
+ *      archive**, kept only as mining material for backlog E10. Nothing under `src/`
+ *      imports it — `check:i18n` fails if anything does. The live editor reads
+ *      `src/rendering/editor/translations/`, and `lookup()` consults
+ *      `EDITOR_LANGUAGE_STRINGS` then `EDITOR_STRINGS`, never this archive's
+ *      `EDITOR_TRANSLATIONS`. So registering a file here **cannot** make the editor
+ *      render anything. This check verifies the archive's internal consistency and
+ *      nothing more; it is not a route to shipping a translation.
  *   3. An editor section for a language the card has no strings for.
  *      `addEditorTranslations` refuses it at runtime, which is a log line nobody reads;
  *      here it is a build failure.
@@ -513,11 +520,18 @@ function checkEditorLanguageWiring(languages, { files, imports, entries }) {
         file,
         'carries an `editor` section again — it is on the eager path, where every user ' +
           'downloads and parses it on every dashboard load. Move it to ' +
-          `editor-languages/${file} and register it there (${code})`,
+          `src/rendering/editor/translations/${file} (${code})`,
       );
     }
   }
 
+  // Everything below concerns the v3 archive, which is inert. The messages say so,
+  // because the previous wording ("the editor renders English for that language")
+  // described the v3 editor and survived the v4 move: it reads as an instruction to
+  // register a translation here, and a contributor who follows it produces a file that
+  // is correctly wired, passes this check, and still renders English — because the live
+  // editor never looks here. That is the exact shape of failure this script exists to
+  // prevent, so it should not be this script committing it.
   const importedEditorFiles = new Set([...imports.values()].map((f) => f.toLowerCase()));
   const registered = new Set([...entries.values()]);
 
@@ -525,7 +539,9 @@ function checkEditorLanguageWiring(languages, { files, imports, entries }) {
     if (!importedEditorFiles.has(file.toLowerCase())) {
       error(
         'editor-languages/index.ts',
-        `${file} exists but is never imported — the editor renders English for that language`,
+        `${file} exists but is never imported. Note this is the inert v3 archive — ` +
+          'to ship an editor translation add src/rendering/editor/translations/' +
+          `${file} instead`,
       );
     }
   }
@@ -539,8 +555,8 @@ function checkEditorLanguageWiring(languages, { files, imports, entries }) {
     if (!registered.has(identifier)) {
       error(
         'editor-languages/index.ts',
-        `${file} is imported as \`${identifier}\` but never added to EDITOR_TRANSLATIONS — ` +
-          'nothing registers it, so the editor renders English for that language',
+        `${file} is imported as \`${identifier}\` but never added to EDITOR_TRANSLATIONS. ` +
+          'This is the inert v3 archive; registering here ships nothing',
       );
     }
   }

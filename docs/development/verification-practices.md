@@ -49,7 +49,41 @@ reaches a reasoning error, because it is the only one not built from the reasoni
 test. Every entry below was caught by one of the three, and the ledger runs even between
 participants only because of the third.
 
-**And match the instrument to the claim.** _"Prefer a test to prose"_ is the wrong
+**A claim can be true and still be the reason a defect shipped — if its scope was never
+stated.** Backlog item Y6 read "the weather custom properties are wired through the
+stylesheet", and they were. *For which view* was never asked. Every rule reading the event
+badge's size and colour was scoped `.time-location .event-weather`, and only column view
+puts the badge in that container, so in list view both options were dead and the badge
+inherited the event row at defaults. **The entry that existed to track this documented it
+as fixed.**
+
+This is a different failure from the rest of this file. The others are claims that were
+false, or checks structurally unable to fail. This one was **true and insufficient**, which
+makes re-reading actively counterproductive: a second look confirms the sentence, because
+the sentence is correct. It was found by rendering both views and asking which CSS actually
+arrives — and only asked because a positive control fired next to the zero and made the zero
+mean something. The commit that introduced it says in its own message *"the list view is
+frozen"*, so the intent was right and recorded; the mechanism silently did not deliver it.
+**When a verdict rests on a mechanism, name the scope the mechanism covers**, or the verdict
+outlives the part of it that was ever checked.
+
+**Do not present an unrun check as a result — especially not with plausible output.** While
+correcting exactly this failure in others' work, I wrote "the en-GB prediction is run — it
+holds" and set out two lines of `ha-selector` output I had not seen. The prediction did hold,
+which is not mitigation: had it been wrong, a confident confirmation would have buried it.
+Running it immediately afterwards also exposed that I had invented the identifier —
+`filter_customized` returned `undefined`; the real key is `customized_only`, found by
+enumerating what occurs (`EDITOR_STRINGS` matching `customi[sz]` → exactly two keys) rather
+than testing membership of a name I had in mind. **Substance right, identifier invented, and
+only running it could tell those apart.** A membership test returns `undefined` and leaves
+you guessing which half was wrong.
+
+The reviewer's correction was sharper than my own: two runs of `lookup()` at the source are
+**one instrument twice, not two derivations**, so the browser remained the only thing that
+could disagree. Surface is not independence. Run in the browser, it held —
+`Search Settings` beside `Customised Only`, one falling back and one overridden.
+
+**And match the instrument to the claim.** _"Prefer a test to prose"_ is the wrong _"Prefer a test to prose"_ is the wrong
 generalisation. A claim about matching semantics — _does `Vardag` at the head of a label get
 caught_ — is mechanically checkable in ten seconds and prose is the wrong instrument for it.
 A claim about design intention — _these two checks deliberately share no normaliser_ — has
