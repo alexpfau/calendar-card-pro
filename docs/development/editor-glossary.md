@@ -1211,14 +1211,27 @@ HA_FRONTEND_TRANSLATIONS=/tmp/hafe/hass_frontend/static/translations \
   header row. `—` means undecided and is skipped rather than enforced.
 - a line beginning `**Rejected:**` — `lang \`form\``pairs separated by`;`.
 
-**Rejected forms are matched case-sensitively, as substrings, and only within the keys the
-term governs** — the keys whose English contains the term. That scoping is what makes the
+**Rejected forms are matched at a word start, case-insensitively, and only within the keys
+the term governs** — the keys whose English contains the term. That scoping is what makes the
 check precise: Italian `Posizione` is wrong for _location_ and right for _position_, so a
 whole-file scan would be unable to tell them apart and would fire on correct strings.
 
-Case-sensitivity is deliberate and load-bearing in both directions. It is what lets
-`Ereignis` be rejected without also matching the legitimate lower-case `ereignis` inside a
-compound, and it is what stopped Polish's capitalisation-only defect from being invisible.
+**Word start**, not whole word and not bare substring: the match anchors at the start of the
+value or after any non-letter. That is what makes case-insensitivity safe — rejecting German
+`Zeit` cannot fire on the legitimate `Uhrzeit`, because `zeit` sits mid-word there — while
+still catching German compounds like `Ereignisfarbe`, which begin with the term.
+
+**Case-insensitivity was arrived at by mutation, not by design, and this paragraph twice said
+the opposite.** A case-sensitive matcher catches lower-case `vardag` and silently misses
+`Vardag` at the head of a label — the likelier form, and the one escaping the check that
+exists to find it. Falsifier, ten seconds: set `sv` `weekday_color` to `Vardag färg` and run
+`check:i18n`; it is rejected, naming `vardag`. Under the case-sensitive rule this text
+described, it passes.
+
+Separately, the _vocabulary_ and _casing_ checks share no normaliser, so a divergence that is
+purely one of capitalisation — Polish `Data Początkowa` against `Data początkowa` — is
+reported by the casing check rather than folded away. That is the property the earlier text
+was reaching for; it belongs to the casing check, not to this matcher.
 
 **Rejected forms are matched at a word start, case-insensitively, and only within the keys
 the term governs** — the keys whose English contains the term. All three clauses earn their
