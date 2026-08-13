@@ -22,6 +22,14 @@ right. That is why running something worked, why a second look never did, and wh
 _person_ is a third instrument distinct from both — they bring a different model, which is
 the only thing that can disagree.
 
+**Three instruments worked across this whole file; nothing else did.** **Run it** — execute
+the claim rather than inspecting the thing that makes it. **Derive it a second way** — a
+different route to the same number, where agreement is evidence and disagreement is a
+finding either way. **Hand it to someone whose model differs** — the only instrument that
+reaches a reasoning error, because it is the only one not built from the reasoning under
+test. Every entry below was caught by one of the three, and the ledger runs even between
+participants only because of the third.
+
 **And match the instrument to the claim.** _"Prefer a test to prose"_ is the wrong
 generalisation. A claim about matching semantics — _does `Vardag` at the head of a label get
 caught_ — is mechanically checkable in ten seconds and prose is the wrong instrument for it.
