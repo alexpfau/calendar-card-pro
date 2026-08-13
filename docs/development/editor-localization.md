@@ -68,7 +68,8 @@ the half most likely to be done badly under time pressure.
 Structural content that must survive translation:
 
 - **7 keys carry placeholders**: `{band}`, `{count}`, `{query}`, `{width}`.
-- **8 keys carry special glyphs**: `≥`, `→`, `—`, non-breaking space.
+- **8 keys carry special glyphs**: `—` (U+2014, 7 keys) and `≥` (U+2265, 1 key).
+  There is no `→` and no non-breaking space anywhere in the table.
 - **2 keys carry typographic quotes**: `filter.no_matches`, `entity.compact_events_to_show.helper`.
 
 ### 2.2 Current coverage, and the shape of the gap

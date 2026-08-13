@@ -214,6 +214,13 @@ German agrees three ways — HA's calendar key, our editor and the natural Germa
 all `Ort`. The plan recorded this as a term where we _override_ HA; that came from reading
 HA's generic selector key, which is the device sense. There is no disagreement.
 
+> **This row is the version-sensitive one.** The deciding key,
+> `ui.components.calendar.event.location`, exists in wheel `20260128.6` and **not** in
+> `20250109.2`. On the older corpus the only `Location` keys are the device, storage,
+> backup and condition senses, all of which give German `Standort`/`Speicherort` and
+> Italian `Posizione` — so the Italian change above looks unfounded rather than merely
+> newer. Pin the version before concluding this row is wrong; §7.
+
 Latvian is internally inconsistent today: `location` is `Atrašanās vieta` but
 `location_font_size` says `Adreses ...` (_address_). One of them is wrong.
 
@@ -556,18 +563,24 @@ Gendered languages inflect to the noun; the citation form is masculine.
 
 **Home Assistant's term is rejected outright, in every language.** HA's only `weekday` key
 is `ui.components.calendar.event.rrule.weekday`, which means a _working day_ as opposed to
-a weekend — `giorno feriale`, `darbdiena`, `pracovný deň`. Our sense is any of the seven
-days. Copying HA here would be confidently wrong in at least three languages.
+a weekend. Our sense is any of the seven days, so copying HA here is not a near-miss but
+the wrong concept.
+
+**It is wrong in four of the nine** on wheel `20260128.6` — it `giorno feriale`, lv
+`darbdiena`, sk `pracovný deň`, sv `vardag` — and the other five happen to coincide with
+our sense rather than confirm it. On the older `20250109.2` it was wrong in five, Polish
+rendering `dzień powszedni` where this corpus has the correct `dzień tygodnia`; so the
+count is corpus-dependent and the rejection is not.
 
 |             | de         | et         | it                     | lt             | lv            | nb         | pl             | sk           | sv         |
 | ----------- | ---------- | ---------- | ---------------------- | -------------- | ------------- | ---------- | -------------- | ------------ | ---------- |
 | **Decided** | Wochentag  | Nädalapäev | Giorno della settimana | Savaitės diena | Nedēļas diena | Ukedag     | Dzień tygodnia | Deň v týždni | Veckodag   |
 | HA          | _rejected_ | _rejected_ | _rejected_             | _rejected_     | _rejected_    | _rejected_ | _rejected_     | _rejected_   | _rejected_ |
 
-Slovak's current `pracovného dňa` in `weekday_font_size` is HA's wrong sense already in our
-files; it must become `dňa v týždni`. Italian's `giorno settimana` is missing the article.
+Slovak shipped HA's wrong sense: `weekday_font_size` read `Veľkosť písma pracovného dňa`.
+Fixed to `dňa v týždni`. Italian's `giorno settimana` is missing the article.
 
-**Rejected:** sk `pracovný deň`; it `giorno feriale`; lv `darbdiena`
+**Rejected:** sk `pracovný deň`; sk `pracovného dňa`; it `giorno feriale`; lv `darbdiena`; sv `vardag`; pl `dzień powszedni`
 
 ---
 
@@ -587,7 +600,77 @@ Named rather than papered over.
   five languages' `opacity`, eight languages' `day header`. These are marked `—` rather
   than guessed, and the sessions that own those languages must decide and record them.
 
-## 7. How The Checks Read This File
+## 7. Evidence Index — Every Term's HA Key
+
+**Cite the key, not the conclusion.** A glossary row nobody can re-derive is a guess with
+a footnote, and the corpus moves: `ui.components.calendar.event.location` — the key that
+decides `location`, and the one that reversed the plan's reading of it — **does not exist
+in wheel `20250109.2` at all**. On that older corpus the only `Location` keys are the
+device and storage senses, so German returns `Standort`/`Speicherort` and Italian returns
+`Posizione`, and the decision below looks unfounded rather than merely older.
+
+On `20260128.6` there are **five** keys whose English is exactly `Location`. Four are the
+device, storage, backup and condition senses; exactly one is the calendar's. That is the
+whole of Rule 2 in a single term.
+
+So: **pin the version when you reproduce this, and if a key is missing, check the version
+before concluding the glossary is wrong.**
+
+```bash
+pip download home-assistant-frontend==20260128.6 --no-deps
+unzip -q home_assistant_frontend-*.whl -d /tmp/hafe
+HA_FRONTEND_TRANSLATIONS=/tmp/hafe/hass_frontend/static/translations \
+  node scripts/l10n-oracle.mjs
+```
+
+| term            | HA key                                                                              | English at that key   |
+| --------------- | ----------------------------------------------------------------------------------- | --------------------- |
+| time            | `ui.components.selectors.selector.types.time`                                       | "Time"                |
+| start date      | `ui.components.date-range-picker.start_date`                                        | "Start date"          |
+| event           | `ui.components.calendar.event.add`                                                  | "Add event"           |
+| calendar        | `ui.components.calendar.label`                                                      | "Calendar"            |
+| entity          | `ui.panel.lovelace.editor.card.generic.entity`                                      | "Entity"              |
+| weather         | `ui.panel.lovelace.strategy.home.summary_list.weather`                              | "Weather"             |
+| location        | `ui.components.calendar.event.location`                                             | "Location"            |
+| description     | `ui.components.calendar.event.description`                                          | "Description"         |
+| label           | `ui.components.label-picker.label`                                                  | "Label"               |
+| all day         | `ui.components.calendar.event.all_day`                                              | "All day"             |
+| today           | `ui.components.calendar.today`                                                      | "Today"               |
+| layout          | `ui.panel.lovelace.editor.edit_view.type`                                           | "Layout"              |
+| columns         | `ui.panel.lovelace.editor.card.grid.columns`                                        | "Columns"             |
+| list            | `ui.components.media-browser.list`                                                  | "List"                |
+| compact         | `ui.panel.lovelace.editor.card.area.display_type_options.compact`                   | "Compact"             |
+| position        | `ui.card.cover.position`                                                            | "Position"            |
+| separator       | _none_                                                                              | —                     |
+| day header      | _none_                                                                              | —                     |
+| progress bar    | _none_                                                                              | —                     |
+| countdown       | _none_                                                                              | —                     |
+| week number     | _none_                                                                              | —                     |
+| today indicator | _none_                                                                              | —                     |
+| color           | `ui.panel.lovelace.editor.card.tile.color`                                          | "Color"               |
+| icon            | `ui.panel.lovelace.editor.card.generic.icon`                                        | "Icon"                |
+| background      | `ui.panel.lovelace.editor.edit_view.tab_background`                                 | "Background"          |
+| title           | `ui.panel.lovelace.editor.edit_lovelace.title`                                      | "Title"               |
+| width           | `ui.panel.lovelace.editor.edit_section.settings.column_span`                        | "Width"               |
+| size            | `ui.panel.config.backup.size`                                                       | "Size"                |
+| accent          | `ui.components.color-picker.colors.accent`                                          | "Accent"              |
+| font            | _none_                                                                              | —                     |
+| height          | _none_                                                                              | —                     |
+| opacity         | _none_                                                                              | —                     |
+| spacing         | _none_                                                                              | —                     |
+| show            | `ui.components.data-table.settings.show`                                            | "Show column {title}" |
+| hide            | `ui.components.data-table.settings.hide`                                            | "Hide column {title}" |
+| none            | `ui.components.calendar.event.repeat.freq.none`                                     | "No repeat"           |
+| default         | `ui.common.default`                                                                 | "Default"             |
+| never           | `ui.components.calendar.event.repeat.end.never`                                     | "Never"               |
+| top             | `ui.panel.lovelace.editor.edit_view_header.settings.badges_position_options.top`    | "Top"                 |
+| bottom          | `ui.panel.lovelace.editor.edit_view_header.settings.badges_position_options.bottom` | "Bottom"              |
+| date            | `ui.components.selectors.selector.types.date`                                       | "Date"                |
+| month           | `ui.components.calendar.event.repeat.freq.monthly`                                  | "Monthly"             |
+| weekday         | `ui.components.calendar.event.rrule.weekday`                                        | "weekday"             |
+| week            | `ui.components.date-range-picker.ranges.this_week`                                  | "This week"           |
+
+## 8. How The Checks Read This File
 
 `scripts/check-i18n.mjs` parses:
 
@@ -596,11 +679,28 @@ Named rather than papered over.
   header row. `—` means undecided and is skipped rather than enforced.
 - a line beginning `**Rejected:**` — `lang \`form\``pairs separated by`;`.
 
-**Rejected forms are matched case-sensitively, as substrings, and only within the keys the
-term governs** — the keys whose English contains the term. That scoping is what makes the
-check precise: Italian `Posizione` is wrong for _location_ and right for _position_, so a
-whole-file scan would be unable to tell them apart and would fire on correct strings.
+**Rejected forms are matched at a word start, case-insensitively, and only within the keys
+the term governs** — the keys whose English contains the term. All three clauses earn their
+place:
 
-Case-sensitivity is deliberate and load-bearing in both directions. It is what lets
-`Ereignis` be rejected without also matching the legitimate lower-case `ereignis` inside a
-compound, and it is what stopped Polish's capitalisation-only defect from being invisible.
+- **Word start** means the start of the value or any position after a non-letter. This is
+  what makes case-insensitivity safe: rejecting German `Zeit` cannot fire on the legitimate
+  `Uhrzeit`, because `zeit` sits mid-word there.
+- **Case-insensitive** was arrived at by mutation, not by design. The first version matched
+  case-sensitively and silently missed Swedish `Vardag` at the head of a label while
+  catching the lower-case `vardag` — the form most likely to appear escaping the check that
+  exists to find it.
+- **Scoped to governed keys** is what keeps it precise: Italian `Posizione` is wrong for
+  _location_ and right for _position_, so a whole-file scan could not tell them apart and
+  would fire on correct strings.
+
+Compounds are caught because they begin with the term — German `Ereignisfarbe` matches at
+position zero, where any whole-word test would miss it. Inflected forms in the middle of a
+phrase are **not** caught unless listed explicitly, which is why `weekday` rejects both
+`pracovný deň` and the genitive `pracovného dňa` that our Slovak file actually shipped.
+
+Separately, the _vocabulary_ and _casing_ checks share no normaliser. Both are
+case-sensitive, so a divergence that is purely one of capitalisation — Polish
+`Data Początkowa` against `Data początkowa` — is reported rather than folded away. That is
+not a hypothetical: it is the defect a case-folding comparison hid, in the one language
+whose capitalisation is most wrong.
