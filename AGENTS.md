@@ -618,6 +618,29 @@ falsifier. _"Delete `leaves.ts:122` and run `npm test`"_ cannot go quietly stale
 _"prettier does not reformat templates"_ did, because anyone who doubts it can settle it in
 thirty seconds.
 
+There is a sharper trap inside that, because a measurement can be precise, honest, and
+still incapable of contradicting you. **A metric derived from the fix's own hypothesis
+cannot falsify that hypothesis.** The weather-overflow fix is the worked example: the bug
+was believed to be _overhang_, so overhang was what got measured, and three successive
+versions each drove it down — 113.3px, then 26.6px, then −0.8px — while the row was still
+visibly broken. At −0.8px nothing overflowed at all and the browser was severing every chip
+mid-token (`30°` / `UV` / `7 · Sonni` / `g`), which is the _same_ defect the maintainer
+originally reported. The number confirmed the belief by construction, and only an
+observation from outside that frame — a screenshot taken after the number already looked
+finished — broke it.
+
+The safeguard is not "measure more carefully", it is **look at the artefact once with the
+metric switched off**, and then encode the outside-the-frame observation so it cannot be
+lost. `tests/stylesheet.test.ts` does that at the level it can reach — it is a unit test
+over the stylesheet source, so it pins the declaration (`content: '\200B'`) rather than the
+rendered line boxes, under the name _"gives the browser somewhere legal to break between
+chips"_, with the measured failure it prevents written above it. Deleting that declaration
+turns it red. Two independent instances landed the same day: the same review then wrote a
+chip-integrity probe that reported a confident `FAIL` twice — once counting a zero-width
+space's own client rect as a line break, once counting _correct_ word-boundary wrapping as
+damage. A probe that cannot tell the good case from the bad one is not evidence in either
+direction.
+
 And when the check reads a source file, note which question you are asking. **Regex a file
 for its _shape_ — which identifier is imported, how a map key is spelled — and import it for
 its _values_.** `scripts/check-i18n.mjs` already works this way and says so: the wiring in
