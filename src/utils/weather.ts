@@ -8,6 +8,7 @@
 import * as Types from '../config/types';
 import * as Logger from './logger';
 import * as FormatUtils from './format';
+import * as WeatherI18n from './weather-i18n';
 
 //-----------------------------------------------------------------------------
 // CORE WEATHER DATA PROCESSING
@@ -218,8 +219,15 @@ export function findForecastForEvent(
 // WEATHER DATA FORMATTING
 //-----------------------------------------------------------------------------
 
-// Map of weather condition codes to MDI icons
-const CONDITION_ICON_MAP: Record<string, string> = {
+/**
+ * Map of weather condition codes to MDI icons.
+ *
+ * Exported so `weather-condition-language.test.ts` can pin its keys against
+ * `KNOWN_CONDITIONS` in `weather-i18n.ts`. That module cannot import this one — the
+ * dependency runs the other way — so the set is written out twice, and the test is what
+ * stops the two drifting.
+ */
+export const CONDITION_ICON_MAP: Record<string, string> = {
   'clear-night': 'mdi:weather-night',
   cloudy: 'mdi:weather-cloudy',
   fog: 'mdi:weather-fog',
@@ -271,17 +279,29 @@ function getWeatherIcon(condition: string, hour?: number): string {
 const untranslatedConditions = new Set<string>();
 
 /**
- * Localize a forecast condition into the words Home Assistant would use for it.
+ * Localize a forecast condition into the words Home Assistant would use for it, in the
+ * language the **card** was configured with.
  *
  * The card ships **no** condition strings of its own. Home Assistant translates all
  * fifteen under `component.weather.entity_component._.state.<condition>` for every
- * language it supports, and `formatEntityState`'s second parameter is a state
- * *override* — so handing it the weather entity's own state object plus an arbitrary
- * forecast condition returns that condition's text rather than the entity's current
- * one.
+ * language it supports, and this function reaches that vocabulary two ways.
+ *
+ * The fast path is `formatEntityState`, whose second parameter is a state *override* —
+ * so handing it the weather entity's own state object plus an arbitrary forecast
+ * condition returns that condition's text rather than the entity's current one. It
+ * resolves against the translations Home Assistant loaded for the **signed-in user**,
+ * which is exactly right whenever the card's `language` agrees with the instance's,
+ * and is the whole answer for the large majority of cards.
+ *
+ * When they disagree it is wrong, and silently so: every other string in a
+ * `language: en` card obeyed that option while the condition came back `Sonnig`.
+ * `weather-i18n.ts` fetches the same vocabulary in the card's language and caches it;
+ * this function prefers that cache when it holds the requested language. Until it does
+ * — the first paint, and any instance that cannot answer — the fast path still runs,
+ * because the right weather in the wrong language beats an empty row.
  *
  * The state object has to be the real one from `hass.states`, not a literal built
- * here, and the reason is the whole risk of this function: `computeStateDisplay`
+ * here, and the reason is the whole risk of the fast path: `computeStateDisplay`
  * derives its lookup key from `computeDomain(stateObj.entity_id)`, so an object
  * without an `entity_id` resolves nothing and falls through to *return the raw
  * state*. That failure is invisible — the row still renders, in English, for a
@@ -295,15 +315,28 @@ const untranslatedConditions = new Set<string>();
  * @param hass Home Assistant instance, if one is available
  * @param entityId Weather entity the forecast came from
  * @param condition Raw condition token, e.g. `partlycloudy`
+ * @param configLanguage The card's configured `language`, if any
  * @returns The localized condition, or `undefined` when it cannot be resolved
  */
 export function formatCondition(
   hass: Types.Hass | null | undefined,
   entityId: string | undefined,
   condition: string | undefined,
+  configLanguage?: string,
 ): string | undefined {
   if (!hass || !entityId || !condition) {
     return undefined;
+  }
+
+  // Prefer the card's own language when it differs from the instance's and has already
+  // been fetched. `conditionLanguage` returns undefined when the two agree, which is
+  // what keeps the common case on the synchronous path below with no lookup at all.
+  const haLanguage = WeatherI18n.conditionLanguage(hass, configLanguage);
+  if (haLanguage) {
+    const translated = WeatherI18n.lookupCondition(haLanguage, condition);
+    if (translated) {
+      return translated;
+    }
   }
 
   const stateObj = hass.states?.[entityId];

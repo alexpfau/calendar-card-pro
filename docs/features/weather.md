@@ -143,9 +143,30 @@ separators apart from the one inside the translated condition. It is also why th
 condition keeps the capital letter Home Assistant gave it — each piece reads as a label
 of its own rather than as a sentence.
 
-The words come from Home Assistant, in whatever language it is set to, so a German
-instance reads `21° · Teilweise bewölkt` with no extra configuration. An instance too
-old to provide them simply shows the icon and the temperature.
+The words come from Home Assistant, which translates all fifteen conditions itself, so
+the card ships no condition wording of its own and a German instance reads
+`21° · Teilweise bewölkt` with no extra configuration. An instance too old to provide
+them simply shows the icon and the temperature.
+
+They follow the card's `language` option rather than the language of the Home Assistant
+user viewing them, so a card set to `language: en` on a German instance reads
+`21° · Partly cloudy` — the same rule every other string in the card obeys. Two caveats
+are worth knowing, and neither is something the card can fix:
+
+- The wording is Home Assistant's, so a condition it has not translated into your
+  language falls back to English. Coverage is uneven — Thai has none of the fifteen, and
+  several languages are missing `windy-variant`.
+- The condition is fetched once per language when the card loads. Until it arrives, the
+  row shows the condition in the instance's language rather than an empty space, so on a
+  card whose language differs the very first paint may show the previous wording for a
+  moment.
+
+::: tip Weather Conditions Before v3.6
+Conditions used to follow the Home Assistant user's own language whatever the card's
+`language` said, which left a single translated word inside an otherwise English card.
+If you were relying on that — a card deliberately left in the instance's language — it
+still happens by default, because a card with no `language` of its own inherits it.
+:::
 
 The row also takes its color from the time and location rows above it rather than from
 the event title, so it reads as one of the event's detail rows. Set

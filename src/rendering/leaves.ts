@@ -481,7 +481,7 @@ export function renderEventWeather(
   const showIcon = ownRow || showConditions;
   const conditionText =
     ownRow && showConditions
-      ? Weather.formatCondition(hass, config.weather?.entity, forecast.condition)
+      ? Weather.formatCondition(hass, config.weather?.entity, forecast.condition, config.language)
       : undefined;
 
   // Render weather with position-specific options.

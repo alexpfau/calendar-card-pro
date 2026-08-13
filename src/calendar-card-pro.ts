@@ -40,6 +40,7 @@ import * as Styles from './rendering/styles';
 import * as Feedback from './interaction/feedback';
 import * as Render from './rendering/render';
 import * as Weather from './utils/weather';
+import * as WeatherI18n from './utils/weather-i18n';
 import * as Templates from './utils/templates';
 import { editorModuleUrl } from './utils/editor-url';
 // Type-only, so the editor is not on the card's import graph — and cannot be, because it
@@ -692,6 +693,18 @@ class CalendarCardPro extends LitElement {
 
     if (hassJustAvailable || weatherConfigChanged) {
       this._scheduleWeatherSetup();
+    }
+
+    // Condition text follows the card's `language`, which the instance's own
+    // translations cannot supply when the two differ. Guarded internally — it returns
+    // without doing anything when the languages agree, when the vocabulary is already
+    // cached, or when a request is already outstanding — so calling it on every update
+    // is how it notices a language or entity that arrived late, at the cost of a Map
+    // lookup.
+    if (this.config?.weather?.entity) {
+      WeatherI18n.ensureConditionTranslations(this.hass, this.config.language, () =>
+        this.requestUpdate(),
+      );
     }
 
     // Keep the title template subscription in step with hass and config
