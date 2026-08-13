@@ -552,6 +552,17 @@ was inside the deleted directory. *The check that would settle the question is t
 was deleted* — which is a worse position than a lost commit, because a lost commit is at
 least knowable.
 
+**A harness failure is legible as a finding about the subject.** A session whose working
+directory had been deleted ran `ls -d …/calendar-card-pro`, saw it fail, and briefly read
+that as *the repository is gone*. It never ran — the shell could not establish a cwd. Same
+shape as `timeout` returning 127: **the error was about the instrument, not about the thing
+asked.** Both times the output was indistinguishable from a real negative finding.
+
+Worth knowing concretely, since it is survivable: with the cwd gone, `bash`, `glob` and
+`grep` all fail (ripgrep inherits the cwd), while `view` and `edit` keep working because they
+take absolute paths. A session in that state can still read and write, and can verify from
+the remote API — which is how two of them closed out.
+
 **And the follow-up failure was worse than the original: I verified the reported instance
 and not the class.** When the first session told me its worktree was gone, I confirmed *its*
 work was safe, wrote the lesson above, and stopped. A **second** session then told me the
