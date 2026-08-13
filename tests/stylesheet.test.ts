@@ -527,7 +527,21 @@ describe('card stylesheet', () => {
       expect(
         declared('.time-location .event-weather .event-weather-text > span::after', 'content'),
       ).toBe('');
-      expect(RULES.filter((rule) => rule.body.includes('\\200B'))).toHaveLength(1);
+
+      // Stated over the whole stylesheet rather than over this one rule, because the
+      // defect was a zero-width space in the wrong *place*, not a missing one. Exactly two
+      // rules may carry one — this separator and the folded countdown's — and in both it
+      // must be the last character, behind the glyph. A third rule, or either of these two
+      // growing a leading one, fails here.
+      const zwsp = RULES.filter((rule) => rule.body.includes('\\200B'));
+
+      expect(zwsp.flatMap((rule) => rule.selectors).sort()).toEqual([
+        '.time .time-actual .time-text > .time-countdown::before',
+        '.time-location .event-weather .event-weather-text > span + span::before',
+      ]);
+      for (const rule of zwsp) {
+        expect(rule.body).toMatch(/content:\s*'\\2060·\\200B'/);
+      }
     });
 
     it('resets the two properties the UV index sets for the title row', () => {
@@ -715,9 +729,11 @@ describe('card stylesheet', () => {
       // hours` needed 68.7px against 56px of room and overflowed the column by 10.7px.
       //
       // The nowrap existed to stop the separator being orphaned at the end of a line,
-      // and that reason does not survive the move to a `::before`: there is no
-      // whitespace between the middot and the first word, so the only break
-      // opportunities are the spaces inside the phrase.
+      // and that job now belongs to the word joiner in the folded separator's own
+      // content. The argument this comment used to make -- that there is no whitespace
+      // between the middot and the first word, so the only break opportunities are the
+      // spaces inside the phrase -- was true only for Latin scripts; see the separator
+      // rule for the per-script measurements.
       expect(declared('.column-events .time-countdown', 'white-space')).toBe('normal');
     });
 
@@ -835,11 +851,68 @@ describe('card stylesheet', () => {
 
       expect(declared(countdown, 'margin-inline-start')).toBe('4px');
       expect(declared(`${countdown}::before`, 'margin-inline-end')).toBe('4px');
-      expect(declared(`${countdown}::before`, 'content')).toBe("'·'");
+      expect(declared(`${countdown}::before`, 'content')).toContain('·');
 
       // And no trailing margin: the base rule's 12px is for a box that ends a row, and
       // inside a phrase it would open a gap before whatever follows.
       expect(declared(countdown, 'margin-inline-end')).toBe('0');
+    });
+
+    it('welds the folded separator to the time in every script, not just Latin ones', () => {
+      // The countdown's middot was believed to be unbreakable from the time text already,
+      // and the comment here said so: "there is no white space between the generated glyph
+      // and the first word -- the gap is margin, and a margin is not a break opportunity".
+      // Measured across 53 wrapped rows in English and German, that held: 0 cases of the
+      // dot leading a continuation line.
+      //
+      // 🚨 It held because of the *script*, not because of the CSS. The character before
+      // the dot was always a digit (UAX #14 class NU) or a Latin letter (AL), and LB23 and
+      // LB28 forbid a break between either and the middot (class AI, resolving to AL).
+      // Nothing in this rule was doing it. Change the script and the glue lets go: Hangul
+      // and an ideograph carry no such rule, and LB31 then permits the break.
+      //
+      // Measured by forcing the time text and holding everything else fixed, 96 rows per
+      // string across five viewport widths -- dot leading a continuation line:
+      //
+      //   0:00 - 20:00   NU      0        하루 종일        Hangul   16
+      //   Ganztägig      AL      0        9:00～17:00時    ID       32
+      //
+      // U+2060 WORD JOINER makes it unconditional; with it, all four read 0. This is the
+      // same character the weather separator carries, where it is belt and braces because
+      // a dot there is only ever preceded by a degree sign or a digit. Here it is
+      // load-bearing, and the card ships Chinese, Japanese and Korean.
+      const dot = '.time .time-actual .time-text > .time-countdown::before';
+
+      expect(declared(dot, 'content')).toContain('\\2060·');
+    });
+
+    it('lets the folded countdown break after its dot, as the weather row does', () => {
+      // The other half, and the reason the maintainer asked for the two rows to match.
+      //
+      // Without a break opportunity behind the glyph, `20:00 · in` is one unbreakable run:
+      // the whole junction moves to the next line together rather than the line ending at
+      // the dot, so a narrow column renders `0:00 -` / `20:00 · in 4` / `hours` and wastes
+      // the first line. U+200B is class ZW and provides a break *after* itself, so it goes
+      // last and the line can end at the dot -- 116 rows gained that across the sweep, and
+      // 0 gained a dot alone on a line.
+      //
+      // Falsifier: delete the trailing `\200B` and the junction welds shut again.
+      const dot = '.time .time-actual .time-text > .time-countdown::before';
+
+      expect(declared(dot, 'content')).toMatch(/·\\200B'$/);
+    });
+
+    it('does not give the trailing placement the same break opportunity', () => {
+      // Deliberately not applied to `.column-events .time-countdown::before`, and this is
+      // the difference between the two placements rather than an oversight.
+      //
+      // Folded, the dot sits at a junction *between* two text runs, so a break after it
+      // ends a line that already has the time on it. Trailing, the countdown is its own
+      // flex item and the dot is the first thing in it -- a break straight after the glyph
+      // would leave it alone at the top of that box, which is the orphan every version of
+      // this rule has been trying to avoid. The word joiner would be inert there too:
+      // there is no preceding text run in the same inline formatting context to weld to.
+      expect(declared('.column-events .time-countdown::before', 'content')).toBe("'·'");
     });
   });
 

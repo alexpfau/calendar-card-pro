@@ -916,15 +916,54 @@ export const cardStyles = css`
    *
    * 4px on the inline-end here against the wrapper's 4px margin-inline-start above, so the
    * middot is spaced equally on both sides and matches the weather row's separator gutter.
+   * Measured live between the two text runs: 11.14px at 12px text, which is 4 + 3.14 + 4.
    *
-   * It cannot be orphaned at the end of a line. There is no white space between the
-   * generated glyph and the first word -- the gap is margin, and a margin is not a break
-   * opportunity -- so the middot always travels with the word it introduces. That is the
-   * property the old white-space: nowrap was really protecting, and it holds without it,
-   * which is what lets the phrase wrap.
+   * The three characters are the weather row's, for the same reasons, and that rule's
+   * comment carries the long version. The differences worth stating here:
+   *
+   * 🚨 The word joiner is load-bearing in this row, where in the weather row it is belt
+   * and braces. An earlier version of this comment said the middot "cannot be orphaned at
+   * the end of a line -- there is no white space between the generated glyph and the first
+   * word, the gap is margin, and a margin is not a break opportunity". Measured over 53
+   * wrapped rows, that held: 0 cases of the dot leading a continuation line. It held
+   * because of the *script*, not because of this rule. The character before the dot was
+   * always a digit (UAX #14 class NU) or a Latin letter (AL), and LB23/LB28 forbid a break
+   * between either and the middot (class AI, resolving to AL). Nothing here was doing it.
+   *
+   * Force the time text and hold everything else fixed -- 96 rows per string across five
+   * viewport widths, counting rows where the dot leads a continuation line:
+   *
+   *     0:00 - 20:00   NU       0        全天  / 終日      ID       0
+   *     Ganztägig      AL       0        하루 종일         Hangul  16
+   *     All day        AL       0        9:00～17:00時     ID      32
+   *
+   * Hangul and an ideograph carry no rule welding them to a following AL, so LB31 permits
+   * the break and the dot leads the next line -- which is exactly the defect the maintainer
+   * reported in the weather row, reachable here in three of the languages the card ships.
+   * U+2060 removes it unconditionally: all eight strings read 0 with it.
+   *
+   * The zero-width space is the other half, and it is what the maintainer meant by asking
+   * for the two rows to match. Without a break opportunity behind the glyph, 20:00 · in is
+   * a single unbreakable run: the whole junction moves down together rather than the line
+   * ending at the dot, so a narrow column renders 0:00 - / 20:00 · in 4 / hours and wastes
+   * the first line. With it the line can end at the dot, as the weather row's now does --
+   * 116 rows gained that across the sweep, and none gained a dot alone on a line.
+   *
+   * The gap before the dot is a margin on the *element* here and on the ::before in the
+   * weather row. That asymmetry is deliberate and does no harm: the joiner sits at the head
+   * of the element's own content, so a break before the element is the same position as a
+   * break before the joiner and is forbidden either way. Leaving it where it is keeps the
+   * reset of the trailing placement's auto margin intact -- see the rule above.
+   *
+   * 🚨 None of this transfers to .column-events .time-countdown::before, the trailing
+   * placement. There the countdown is its own flex item and the dot is the first thing in
+   * it, so a break straight after the glyph would strand it at the top of that box -- the
+   * orphan every version of this rule has been avoiding. The joiner would be inert there
+   * as well: there is no preceding text run in the same inline formatting context for it to
+   * weld to. stylesheet.test.ts asserts that rule still carries a bare middot.
    */
   .time .time-actual .time-text > .time-countdown::before {
-    content: '·';
+    content: '\\2060·\\200B';
     margin-inline-end: 4px;
   }
 
@@ -1660,11 +1699,11 @@ export const cardStyles = css`
      line it lands on, and a nowrap box cannot give that back: measured at a 90px track,
      'in 10 hours' is 68.7px against 56px of room and overflowed the column by 10.7px --
      which it did not before the indent. Wrapping absorbs it. The nowrap was there to
-     stop the separator being orphaned at the end of a line, and that reason does not
-     survive here: the middot is a ::before with no whitespace between it and the first
-     word, so the only break opportunities are the spaces *inside* the phrase and it
-     always travels with the word it introduces. Scoped to the column, so the list view
-     keeps its single line. */
+     stop the separator being orphaned at the end of a line, and that job is now done
+     properly, by the word joiner in the folded separator's own content rather than by
+     forbidding the whole phrase to wrap -- see that rule for why the margin-and-no-space
+     argument this comment used to make was true only for Latin scripts. Scoped to the
+     column, so the list view keeps its single line. */
   .column-events .time {
     justify-content: flex-start;
     box-sizing: border-box;
