@@ -460,6 +460,33 @@ link to exist. Its docblock says outright that the invariant is vacuous on today
 and needs a planted violation to discriminate, which is the honest form of a check that
 cannot currently fail.
 
+**And a null has a third failure mode, below the pattern: the run may never have happened.**
+A zero can mean the thing is genuinely absent, or that the pattern went stale — both are
+above. The third is that nothing executed at all, and it is the quietest, because every
+observable is identical to a clean run.
+
+Verifying a probe's usage guard, another session ran
+`TITLE=… timeout 90 node probe-word-wrap.mjs` and asserted on the **absence** of the usage
+message. It printed `guard is transparent ✓`. **`timeout` does not exist on macOS** —
+confirmed on this machine, along with `gtimeout`; the shell returns **127** and the command
+never runs. The absence being read as evidence was the absence of any execution.
+
+```bash
+command -v timeout           # nothing on macOS
+timeout 5 echo hi; echo $?   # 127 -- 'hi' never printed
+```
+
+The assertion would have passed identically had the probe file been deleted. Their fix was
+to assert on **positive markers** that differ per outcome: `::error::TITLE is required` with
+exit 2, versus `net::ERR_UNSAFE_PORT` with exit 1 — the latter proving chromium actually
+launched and navigated, which no absence could show.
+
+The transferable form is narrower and more useful than _"prefer positive markers"_: **an
+assertion on absence is evidence only if the run is independently known to have happened.**
+A missing binary is precisely the failure that removes that witness silently. Before
+believing a null, ask what would prove the code ran at all — an exit code you predicted, a
+line only that path emits, a side effect you can see.
+
 **And the exact inverse of that paragraph is the fourth failure mode: a probe whose own
 structure supplies the finding.** A pattern that matches nothing looks like absence; a
 pattern that matches can smuggle the answer into the question, and the result is worse,
