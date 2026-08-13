@@ -51,7 +51,7 @@ check:bundle` enforces all three.
 
 **Why two builds and not one build with code-splitting.** Rollup, given one entry and a
 dynamic `import()`, puts the modules the card and editor share into a chunk that the
-editor imports *back from the card*. That is the one thing which cannot work here: the
+editor imports _back from the card_. That is the one thing which cannot work here: the
 import would read `./calendar-card-pro.js` while HACS had loaded that very file as
 `./calendar-card-pro.js?hacstag=…`, and a browser treats those as two different modules.
 The card evaluates twice, the second `customElements.define` throws, and the editor is
@@ -62,7 +62,7 @@ be dropped from. The card names the editor through a URL it computes at runtime
 
 The cost is that the shared modules are **duplicated into the editor** — measured at
 +16.8 KB gzip, paid only by people who open it. Two things make that acceptable rather
-than merely tolerable. The eager path got *smaller*: a split entry has to export its
+than merely tolerable. The eager path got _smaller_: a split entry has to export its
 shared modules, and exported symbols resist mangling and inlining, so collapsing the card
 into one self-contained file saved 1.1 KB gzip on the file everyone loads. And the
 duplicated module state is inert — the card never reads a string the editor registered,
@@ -71,8 +71,8 @@ both; and the once-per-session banner flag is only ever touched card-side. Check
 this still holds before moving anything shared and mutable across the boundary.
 
 **Cache-busting is by query propagation, not by content hash.** `/hacsfiles/**` is served
-`max-age=2678400` — one month — and HACS appends `?hacstag=` to the *registered resource
-only*, so a sibling file gets no cache-buster of its own. `getConfigElement()` therefore
+`max-age=2678400` — one month — and HACS appends `?hacstag=` to the _registered resource
+only_, so a sibling file gets no cache-buster of its own. `getConfigElement()` therefore
 copies the card's own query onto the editor's URL, making the editor bust exactly when the
 card busts. It is strictly better than the content hashes it replaced, which never
 responded to the dev deploy's `?v=` bump at all: a hash only changes when the editor
@@ -97,7 +97,7 @@ there is a dead editor that builds perfectly and 404s only when someone opens it
 automation, use `npx rollup -c` (same config, no watcher). Either way the build first
 removes anything in `dist/` it will not itself write — not the whole directory, because
 the watcher rebuilds only the config whose inputs moved and a wipe would delete the editor
-on every card-only edit. What it is guarding against is the *other* variant's output: dev
+on every card-only edit. What it is guarding against is the _other_ variant's output: dev
 and production files have different names, so without it a `npm run build` after a
 `npm run dev` would leave the dev pair behind for `release.yml`'s `dist/*.js` glob to
 publish.
@@ -133,19 +133,19 @@ branches were missed that way, including two the suite existed to protect. When 
 config option, add a test that turns it on.
 
 **A snapshot diff you did not intend is usually a whitespace error, not a rendering
-change.** The serializer normalises whitespace *between tags only*; whitespace adjacent to
+change.** The serializer normalises whitespace _between tags only_; whitespace adjacent to
 a text node survives verbatim, so the literal source indentation inside an `html` template
 is part of the oracle. Moving a template therefore means **preserving its original absolute
 indentation**, even where that looks wrong at the new nesting depth — which is why
 `leaves.ts` carries function bodies indented as though they were still nested.
 
-**Prettier *does* reformat inside `html` tagged templates, and it will fight you here.**
+**Prettier _does_ reformat inside `html` tagged templates, and it will fight you here.**
 An earlier version of this file claimed the opposite, and that claim was wrong: run
 `npm run format` on a single-line template and it reflows the embedded HTML, re-indenting
 and breaking lines. The reason the claim survived so long is an asymmetry worth knowing —
 **Prettier preserves significant whitespace it already finds, so existing templates
 round-trip unchanged**, and it breaks as `</span\n><span` so no new text node appears
-between inline elements. But a template deliberately written to have *none* gets the
+between inline elements. But a template deliberately written to have _none_ gets the
 indentation put back. **Deliberate whitespace needs `// prettier-ignore`**; `leaves.ts`
 uses it at `leaves.ts:122` on the weather badge, added after `npm run format`
 reintroduced the exact spaces a fix had just removed and turned five tests red. If you
@@ -158,7 +158,7 @@ does not get to edit. Fix the indentation, or — if the markup genuinely change
 diff line by line and commit it deliberately.
 
 **If you believe a snapshot diff is whitespace-only, prove it in one line rather than by
-eye.** The serializer touches whitespace *between tags only*, which makes the claim
+eye.** The serializer touches whitespace _between tags only_, which makes the claim
 falsifiable:
 
 ```js
@@ -169,7 +169,7 @@ norm(before) === norm(after); // true  =>  inter-tag whitespace and nothing else
 Because that collapses only what the serializer already normalises, a `true` proves there
 is no text change, **no text-adjacent indentation change**, and no attribute, class or
 element change — across the whole file, not just the hunks you looked at. Do **not**
-substitute `replace(/\s+/g, '')`: stripping *all* whitespace also discards the significant
+substitute `replace(/\s+/g, '')`: stripping _all_ whitespace also discards the significant
 kind, so it will call a real text-adjacent regression clean. Check the entry count too
 (`^exports\[`), since `-u` prunes as well as rewrites and a silently dropped case looks
 like nothing at all.
@@ -554,8 +554,8 @@ Three things are easy to get wrong:
   defaults into the user's YAML — the bug the nearest comparable card shipped twice, the
   second time introduced by its own move to `ha-form`.
 - **`ha-form` fires one event for the whole form and never says which field moved**, so
-  there is no place for a per-field `event.type` guard. Values that are invalid *while
-  being typed* — `start_date_offset` passing through `-` — are held in `synthetic.ts` and
+  there is no place for a per-field `event.type` guard. Values that are invalid _while
+  being typed_ — `start_date_offset` passing through `-` — are held in `synthetic.ts` and
   committed only once they parse. Do not "simplify" that into a direct write.
 - **Colours are `text`, not `ui_color`.** HA's colour selector emits a theme token that
   cards pass through `computeCssColor()`; this card writes colours straight into CSS
@@ -602,7 +602,7 @@ explanation. It does not ship.
   stage and add to it when review turns something up**; it exists because findings kept
   living only in a chat thread, which is not a place work survives.
 
-These documents lean hard on the word *verified* — it appears over a hundred times across
+These documents lean hard on the word _verified_ — it appears over a hundred times across
 them — so it is worth saying what it has to mean. **A claim that no available case could
 have falsified has not been verified; it has been untested**, and "verified, not assumed" is
 the label most likely to end up attached to exactly that. The worked example is the Prettier
@@ -612,6 +612,16 @@ that breaks it did not exist until v4 work created it. The author was not carele
 claim was unfalsifiable.
 
 So when writing one: say **how** you checked, and prefer a claim that ships with its own
-falsifier. *"Delete `leaves.ts:122` and run `npm test`"* cannot go quietly stale the way
-*"prettier does not reformat templates"* did, because anyone who doubts it can settle it in
+falsifier. _"Delete `leaves.ts:122` and run `npm test`"_ cannot go quietly stale the way
+_"prettier does not reformat templates"_ did, because anyone who doubts it can settle it in
 thirty seconds.
+
+And when the check reads a source file, note which question you are asking. **Regex a file
+for its _shape_ — which identifier is imported, how a map key is spelled — and import it for
+its _values_.** `scripts/check-i18n.mjs` already works this way and says so: the wiring in
+`localize.ts` and `dayjs.ts` is matched with patterns because importing them would evaluate
+the shape away, while the editor's strings are imported outright "so there is no pattern to
+go stale". Counting the keys in `EDITOR_STRINGS` is a question about values, and I answered
+it with a regex and reported a number that was wrong by six. The rule existed and did not
+fire, because the measurement happened in a shell one-liner rather than in the script that
+states it — which is the more useful half of the lesson.
