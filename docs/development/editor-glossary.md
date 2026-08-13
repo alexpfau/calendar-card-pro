@@ -1,7 +1,9 @@
 # Editor Glossary — Decided Terminology
 
 **Corpus:** `home-assistant-frontend` **20260128.6** (PyPI wheel, every translation
-fragment merged — 7,341 English keys).
+fragment merged). **Identify it by a key, not a count** — merged leaf counts of 7,341
+and 8,045 have both been reported for this wheel by correct method; the presence of
+`ui.components.calendar.event.location` is what distinguishes it from `20250109.2`.
 **Editor table read:** `EDITOR_STRINGS`, 312 keys, imported rather than parsed.
 **Comparisons that bear on capitalisation are case-sensitive** — the oracle comparison in §5
 and the casing check of §3. A comparison that case-folds cannot report on capitalisation,
@@ -804,7 +806,7 @@ say. Latvian, Norwegian and Polish come from our files, HA having no translation
 
 ### font — the typeface, as it appears in `Font Size`
 
-**No HA evidence at all** — the word does not occur anywhere in 7,341 English keys. Taken
+**No HA evidence at all** — the word does not occur anywhere in the merged corpus. Taken
 from our own files, where all nine already render it.
 
 |             | de      | et   | it   | lt      | lv    | nb     | pl       | sk    | sv   |
@@ -1149,8 +1151,11 @@ second machine, because a corporate proxy's index for this package stopped at
 `20250109.2` — `pip index versions` there lists nothing newer and the explicit pin fails
 outright with _No matching distribution found_. Two sessions followed the same instruction
 faithfully and got corpora a year apart, neither able to see why the other's evidence would
-not resolve. **Compare corpus sizes before disputing a row**: 5,884 English keys means the
-older wheel, 7,341 means this one.
+not resolve. **Verify the corpus by a key, not by a count** — superseded instruction, see the
+correction above. A count depends on how the fragments are merged, and two sessions
+merging the same wheel correctly reported 7,341 and 8,045; only the wheel version is
+shared, so a count cannot identify it. The presence of
+`ui.components.calendar.event.location` distinguishes `20260128.6` from `20250109.2`.
 
 ```bash
 pip download home-assistant-frontend==20260128.6 --no-deps
