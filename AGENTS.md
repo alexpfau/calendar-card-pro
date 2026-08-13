@@ -669,7 +669,7 @@ different way** — which is why a figure worth relying on should say which corp
 method produced it, and why two routes agreeing is worth more than one route being careful.
 
 **But a second person is not always required, and assuming so is expensive.** Where two of
-your own measures have a *known relationship*, check that first — it needs no oracle, no
+your own measures have a _known relationship_, check that first — it needs no oracle, no
 second derivation, and no idea what the right answer is. Measuring how many labels are
 Title Case under two strengths of one rule, `EVERY non-initial word capitalised` must be a
 subset of `ANY non-initial word capitalised`, so `EVERY ≤ ANY` always. A run reporting
@@ -687,7 +687,7 @@ contradict each other**, and when a run produces several, spend the ten seconds 
 must be true between them before asking whether any of them matches the world.
 
 **Its domain is narrow, though, and this paragraph is the wrong lesson if that goes
-unsaid.** It fires only when you already hold two numbers that *must* relate. Of the day's
+unsaid.** It fires only when you already hold two numbers that _must_ relate. Of the day's
 defects it would have caught exactly one: the character class that named two absent glyphs
 produced a plausible count, the case-folded oracle produced a plausible agreement rate, the
 core-only corpus produced a plausible yield, and the mutation harness produced a plausible
@@ -732,11 +732,11 @@ itself"**: flatten continuations before matching prose, and when a check finds n
 confirm the pattern can match something before believing the absence.
 
 **And once you have flattened, stop counting with `grep -c`.** The two halves of that
-advice destroy each other: `-c` reports *matching lines*, flattening produces exactly one
+advice destroy each other: `-c` reports _matching lines_, flattening produces exactly one
 line, so the count saturates at 1 and a duplicated phrase is indistinguishable from a
 unique one. This is not hypothetical — it is how the duplicated paragraph directly above
-was verified as removed. The count came back 1, which read as *exactly one occurrence,
-fix confirmed*, and would have read the same with the duplicate still in place. The fix
+was verified as removed. The count came back 1, which read as _exactly one occurrence,
+fix confirmed_, and would have read the same with the duplicate still in place. The fix
 happened to be correct; the proof of it was vacuous.
 
 The saturation is total rather than marginal, and `-c` is the wrong tool for counting
@@ -752,7 +752,7 @@ grep -o 'the' AGENTS.md | wc -l                           # the same real number
 ```
 
 Deliberately no exact figures there: writing them down changes them, since the sentence
-recording the count is itself more text to match. The falsifier that *cannot* drift is the
+recording the count is itself more text to match. The falsifier that _cannot_ drift is the
 one on fixed input, and it is the one to reach for —
 
 ```bash
@@ -760,9 +760,33 @@ printf 'a a\n' | grep -o -c 'a'         # 1 — wrong
 printf 'a a\n' | grep -o 'a' | wc -l    # 2 — right
 ```
 
+**And the exact inverse of that paragraph is the fourth failure mode: a probe whose own
+structure supplies the finding.** A pattern that matches nothing looks like absence; a
+pattern that matches can smuggle the answer into the question, and the result is worse,
+because it arrives as a _positive claim that looks like evidence_ rather than a null that
+looks like a fact. Two instances, from opposite ends of the same day:
+
+- The editor plan's structural-glyph inventory was produced by a regex character class,
+  `/[\u00a0\u2265\u2264\u2192\u2014]/`, run over the string table. That asks _which keys
+  match any member_. The class's **contents** were then written up as the finding — "the
+  table uses these characters" — and two of them occur nowhere in it. Stage 0 nearly
+  hardcoded the list into a check that would have guarded two characters that do not exist
+  while passing forever.
+- A chip-integrity probe reported **73 severed chips**, with `30°` and `15°` among the
+  examples, on a row where nothing was severed at all. It counted client rects, and the
+  zero-width space added to fix an unrelated bug gives every chip a second rect. The
+  instrument guaranteed the answer.
+
+Both were run honestly, both reported a number, and in both the number was a property of
+the tool rather than of the code. The guard is the same one the paragraphs above ask for
+from the other direction: **before believing a positive result, establish that the probe
+could have returned the opposite one.** For a character class, that means enumerating what
+actually occurs rather than testing membership of a list you wrote; for a geometric
+measurement, it means checking a case you know to be clean and confirming it reads clean.
+
 So: `grep -o … | wc -l`, and prove the counter can exceed 1 before trusting that it
 returned 1.
 
 Note the shape, because it is the one this section is least able to warn you about: a
-*zero* is loud once you know to distrust it, and the paragraph above tells you to. A
+_zero_ is loud once you know to distrust it, and the paragraph above tells you to. A
 **one** looks like the answer you wanted.
