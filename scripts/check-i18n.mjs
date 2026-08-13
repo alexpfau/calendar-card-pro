@@ -1012,10 +1012,11 @@ async function checkEditorTranslations(languages) {
  * are exempt by **key**, so a language reaching full coverage needs no entry for them.
  *
  * **This is the second mechanism the `lang:key` list below anticipated**, added by the
- * Baltic session (Stage 1) at the point that list predicted: German alone needed three
- * entries, and `et`, `lt` and `lv` arriving together would have made it twelve where three
- * would do. Splitting it here retires those twelve and the twelve still to come from `it`,
- * `nb`, `pl` and `sk`, which is the whole of the growth the note was worried about.
+ * Baltic session (Stage 1) at the point that list predicted. The note it replaces put the
+ * threshold at "three entries is not yet worth a second mechanism" and expected the list to
+ * grow by 27; by the time `et`, `lt` and `lv` merged, `de`, `pl`, `sv` and `nb` had already
+ * contributed **twelve** such entries and `it` and `sk` owed six more. All twelve are
+ * retired here, and the six are never written.
  *
  * The bar for adding a key here is higher than for the list below, and deliberately so: a
  * `lang:key` entry claims *this language* keeps the English word, which is a claim about
@@ -1023,6 +1024,10 @@ async function checkEditorTranslations(languages) {
  * translate it, which is unfalsifiable from inside any single session. Keep it to symbols,
  * numerals and proper names of standards — anything that is a *word*, however
  * international it looks, belongs below where one language owns it.
+ *
+ * Falsifier, thirty seconds: delete any line from this set and run the script. It errors
+ * once per language at full coverage — six of them today, not one, which is the whole
+ * argument for the set existing.
  */
 const IDENTICAL_TO_ENGLISH_OK_ANY_LANGUAGE = new Set([
   'width_table.at_least',
@@ -1056,6 +1061,57 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   // distinguishes it from an untranslated string; see editor-glossary.md §5, `label`.
   'de:entity.label',
   'de:view',
+
+  // Swedish and Norwegian, Stage 1. `Layout` is the ordinary word in both — the glossary's
+  // `layout` row records it as the Rule 1 false-positive case, where HA leaves the English
+  // because the loanword *is* the target word rather than because it has no translation.
+  'sv:view',
+  'nb:view',
+]);
+
+/**
+ * Keys where the decided term is deliberately *qualified* rather than used bare.
+ *
+ * Distinct from `IDENTICAL_TO_ENGLISH_OK`: the term is still used, with a word added so
+ * two settings stay distinguishable. This exists because two checks here can genuinely
+ * pull in opposite directions, and the tie has to be broken per key rather than by
+ * weakening either one.
+ *
+ * The English table distinguishes a *field* from a *picker option* with an article —
+ * `Icon` names which icon, `An Icon` is an answer to "what kind?". **A language without
+ * articles cannot carry that distinction**, so both collapse onto the decided term and
+ * `checkCollapsedLabels` correctly reports settings the user cannot tell apart. German
+ * never hits it: `Symbol` against `Ein Symbol` keeps them separate for free.
+ *
+ * Qualifying the field is what gives way, because the option labels are answers in a
+ * list where an added word would read as invented, and because the field's own siblings
+ * are already qualified — `Kolor wskaźnika`, `Rozmiar wskaźnika`, `Pozycja wskaźnika`,
+ * so `Ikona wskaźnika` is the *more* consistent of the two, not a concession.
+ *
+ * Falsifier, thirty seconds: set `pl:today_indicator_icon` to the bare `Ikona` and run
+ * this script. The collapsed-label warning it raises is the defect this entry avoids.
+ *
+ * **Five languages now, and that is the finding rather than a coincidence.** Polish,
+ * Estonian, Lithuanian and Latvian have no articles, so every one of them hits this key;
+ * German is the only one of the five so far that escapes, and only because German has an
+ * article to spend. Italian and Slovak should expect it too — Italian can spell the
+ * distinction (`Un'icona`), Slovak cannot. The Baltic session arrived at the opposite fix
+ * first — naming what the picker offers, `MDI ikoon` — and dropped it on merge: it adds
+ * information the English does not carry, and one repo-wide answer to a repo-wide problem
+ * is worth more than a locally defensible second one.
+ */
+const GLOSSARY_QUALIFIED_OK = new Set([
+  // Polish, Stage 1. `Ikona` alone collides with `entity.label_type.option.icon.label`
+  // and `today_indicator_style.option.icon.label`, both `An Icon`.
+  'pl:today_indicator_icon',
+
+  // Estonian, Lithuanian and Latvian, Stage 1 — the same collision, the same fix. Each
+  // language's three sibling fields are already qualified (`Indikaatori värv`,
+  // `Indikatoriaus spalva`, `Indikatora krāsa`), so the qualified form is the consistent
+  // one here as well.
+  'et:today_indicator_icon',
+  'lt:today_indicator_icon',
+  'lv:today_indicator_icon',
 ]);
 
 /**
@@ -1304,6 +1360,7 @@ function checkGlossaryAdherence(where, code, data, strings, glossary) {
     if (!decided) continue;
     for (const key of Object.keys(strings)) {
       if (strings[key].trim().toLowerCase() !== term.name) continue;
+      if (GLOSSARY_QUALIFIED_OK.has(`${code}:${key}`)) continue;
       const value = data[key];
       if (typeof value === 'string' && value !== decided) {
         warn(
@@ -1336,7 +1393,13 @@ function readGlossary() {
   const nounCapsLanguages = new Set();
   let sawAnyCasingRow = false;
   for (const line of casingTable[0].split('\n')) {
-    const cells = line.split('|').map((c) => c.trim());
+    // Emphasis is stripped before the code is matched. The `pl` row is written `| **pl** |`
+    // to mark it as the problem language, and a bare `^[a-z]{2}$` test silently skipped it
+    // — `sawAnyCasingRow` still passed on the other eight, so the guard that exists to
+    // catch a shape change could not see one row losing its shape. Harmless today, because
+    // Polish is not exempt and the cell says `Sentence case` either way; it would not have
+    // been the day someone edited that row expecting it to count.
+    const cells = line.split('|').map((c) => c.trim().replace(/\*\*|_/g, ''));
     if (cells.length < 4 || !/^[a-z]{2}(-[a-z]{2})?$/.test(cells[1])) continue;
     sawAnyCasingRow = true;
     if (/nouns are capitalised/i.test(cells[2])) nounCapsLanguages.add(cells[1]);
