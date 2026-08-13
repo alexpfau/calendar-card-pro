@@ -542,8 +542,26 @@ The correction demonstrated itself on arrival: the session reporting it cited `d
 participants, one shape, and the last instance is inside the message identifying it.
 
 The general form is the one worth keeping, because it is not about git: **before citing a
-number as evidence, ask which proposition it could have falsified.** If the answer is "not
-the one I am making", the number is decoration however carefully it was measured.
+number as evidence, ask which proposition it could have falsified — and whether it will still
+be able to falsify it when someone reads it.** If the answer is "not the one I am making",
+the number is decoration however carefully it was measured.
+
+**The second clause is not a refinement of the first; it rules out the comfortable fix.** The
+session whose stale citation closed the loop above pointed out that its two instances had
+*different mechanisms with identical output*: one SHA was genuinely cached for hours, the
+other was read from the ref with `ls-remote` **at the moment of sending** and was overtaken
+minutes later. So *"read it fresher"* cannot be the remedy — **no measurement of a moving ref
+is current by the time anyone reads the sentence containing it.** Their formulation:
+
+> A measurement of something that moves is a timestamp, not a fact.
+
+Which is why the instrument both of us independently landed on is the one that survives:
+*"none of my commits are reachable from `dev` or `main`"* does not go stale, because it is a
+claim **about my commits**, not about `dev`'s position — `dev` may move however it likes and
+the sentence stays true. Same shape as `git log -S` beating ancestry: **choose the phrasing
+whose subject is the thing that does not move.** That covers byte-sizes-as-identity, SHAs-as-
+non-interference and stale corrections as one defect, and it explains why the fix is a
+different instrument rather than more diligence.
 
 **The last variant is the sharpest, because the filter is correct and the number is true.**
 Asked whether any of its commits had reached `dev` or `main`, a session filtered the range
