@@ -572,6 +572,20 @@ was inside the deleted directory. *The check that would settle the question is t
 was deleted* — which is a worse position than a lost commit, because a lost commit is at
 least knowable.
 
+**The artefact-naming rule earns its keep only when the probe _succeeds_.** A session whose
+directory had been deleted found that *every* command failed, including `echo` — and that is
+the **easy** case, because it fails loudly and cannot be mistaken for a result. The dangerous
+version is the probe that starts, reads something, and reports honestly about the wrong
+thing: the same session, an hour earlier, had searched `AGENTS.md` for a passage a commit had
+put in this file, and got a clean, confident, wrong answer.
+
+So *"make the probe state which artefact it read"* is aimed at the successful run. **A failed
+probe needs no help.** Which also means a session that has lost its shell entirely is in a
+*better* epistemic position than one whose probe merely pointed somewhere unexpected — four
+sessions verified their own work through the GitHub API tonight, and that route was strictly
+more reliable for the question they were asking, because comparing content at a public ref
+does not depend on any local tree being in a particular state.
+
 **A harness failure is legible as a finding about the subject.** A session whose working
 directory had been deleted ran `ls -d …/calendar-card-pro`, saw it fail, and briefly read
 that as *the repository is gone*. It never ran — the shell could not establish a cwd. Same
