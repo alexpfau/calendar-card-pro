@@ -729,10 +729,4 @@ carries `assertFound()` for exactly this — it would rather fail loudly than re
 run over an empty set — but a shell one-liner has no such thing. So the sharper form of the
 rule is **not "avoid regexes" but "do not run one where a zero match cannot announce
 itself"**: flatten continuations before matching prose, and when a check finds nothing,
-confirm the pattern can match something before believing the absence. more than in most repos: the files worth quoting are largely block-comment
-prose, and a wrapped phrase is the common case rather than the exception. `check-i18n.mjs`
-carries `assertFound()` for exactly this — it would rather fail loudly than report a clean
-run over an empty set — but a shell one-liner has no such thing. So the sharper form of the
-rule is **not "avoid regexes" but "do not run one where a zero match cannot announce
-itself"**: flatten continuations before matching prose, and when a check finds nothing,
 confirm the pattern can match something before believing the absence.
