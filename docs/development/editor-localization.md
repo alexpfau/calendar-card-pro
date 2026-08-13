@@ -189,7 +189,7 @@ unzip -q *.whl -d x && ls x/hass_frontend/static/translations/
 
 **As a bulk mine it fails**, consistently across all nine languages:
 
-| lang      | missing   | core-only fills | **+ fragments** | fill rate |
+| lang      |   missing | core-only fills | **+ fragments** | fill rate |
 | --------- | --------: | --------------: | --------------: | --------: |
 | de        |       178 |               4 |           **7** |      3.9% |
 | et        |       201 |               3 |           **9** |      4.5% |
@@ -809,13 +809,13 @@ second string source feeding the rendered UI.
 > **Two sessions independently concluded these were real gaps**, and neither could find a
 > key for them — correctly, because no such key exists or should. The harness now prefers
 > `schema.title` and suppresses grid labels entirely. If you see a bare English noun that
-> matches a *group's config key* rather than any English string in the table, suspect the
+> matches a _group's config key_ rather than any English string in the table, suspect the
 > reader before the translation.
 
 **What settled it was the screenshot, not the property.** Two DOM probes disagreed with each
 other and a third read of the same properties would not have broken the tie; the pixels did,
 immediately. This is the §"look at the artefact with the metric switched off" discipline in
-its narrowest useful form — when a label question turns on *which property the UI paints*,
+its narrowest useful form — when a label question turns on _which property the UI paints_,
 no property read can answer it.
 
 **Verify the deployed artefact before believing anything the live editor says.** A deploy
@@ -824,10 +824,19 @@ that races a rebuild ships a stale editor chunk and prints success; one session 
 do not trust the word "Deployed":
 
 ```bash
-for f in calendar-card-pro-dev.js editor-dev.js; do
-  diff -q "dist/$f" "/Volumes/config/www/community/calendar-card-pro-dev/$f" || echo "STALE: $f"
-done
+# Only editor-dev.js is informative for translation work. A translation-only change
+# leaves calendar-card-pro-dev.js byte-identical *by design*, so it matches whoever
+# deployed last — including another session that overwrote yours. Checking both and
+# reading a green card row as confirmation is a false pass, measured 2026-08-13.
+diff -q dist/editor-dev.js \
+        /Volumes/config/www/community/calendar-card-pro-dev/editor-dev.js || echo "STALE"
 ```
+
+**When it renders as English anyway, check a string you _changed_, not one you added.** A
+missing key and a stale bundle both render English, so an untranslated key distinguishes
+nothing. A key whose **old** translated form appears has no other explanation. Pair it with
+a language you did not touch: if that one renders fully and yours does not, the bundle is
+yours and the defect is in your file; if neither does, the bundle is stale.
 
 **Three keys are byte-identical to their English in every language** and each session will
 have to exempt them: `width_table.at_least` (`≥ {width} px`), `width_table.below`
@@ -835,10 +844,29 @@ have to exempt them: `width_table.at_least` (`≥ {width} px`), `width_table.bel
 with a placeholder and the name of an ISO standard do not translate. `view` (`Layout`) is a
 fourth for `it`, `nb` and `sv`. See `IDENTICAL_TO_ENGLISH_OK` in `check-i18n.mjs`.
 
-**One test moves when a language completes.** `tests/editor-translations.test.ts` proved
-per-key fallback using a key German lacked, so it failed the moment German finished. Its
-witness is now en-GB, which is partial *by construction*. Whichever language you own, that
-test is already fixed and needs no further change.
+**Two tests move when a language completes, and this section named only one.** Both in
+`tests/editor-translations.test.ts`, both proving per-key fallback by naming a language
+that lacked a key — so each fails the moment that language finishes.
+
+The first was re-pointed at en-GB when German completed. The second,
+`keeps partial languages readable…`, asserted `EDITOR_LANGUAGE_STRINGS.sv` lacked
+`panel.weather.helper` and went red when Swedish did; the sv/nb session re-pointed it at
+en-GB using `weekend_colors` / `weekend_colors.helper`.
+
+**The lasting fix is the witness, not the language.** en-GB is partial _by construction_ —
+its generator overrides a key only when the English value contains a word in
+`SUBSTITUTIONS` (`scripts/en-gb.mjs`). `Weekend Colors` contains `colors` and is
+overridden; its helper, _"Each of these falls back to its weekday equivalent when left
+empty."_, contains no substitutable word and is not. That pairing is guaranteed by the
+generator's rule rather than by the current state of a file, so it cannot rot the way a
+hand-picked missing key does. **If you add a third fallback test, pick its witness the
+same way**: from a rule that produces the gap, never from a language that merely happens
+to have one.
+
+Note the rule is _the value contains a substitutable word_, not _the label contains
+"Color"_ — `customize`, `behavior` and `favorite` are in the table too, which is why two
+of the 36 en-GB keys have nothing to do with colour. The `weekend_colors` pair holds
+either way, but a witness chosen against the narrower reading might not.
 
 ---
 
@@ -1051,7 +1079,7 @@ Recorded because the brief asked for them explicitly.
 12. **Two more corrections to this document, both found by Stage 0 reading it as a
     specification.** The glyph inventory in §2.1 named `→` and a non-breaking space,
     **neither of which exists** in the table — the probe was a regex character class, so it
-    reported which keys matched *any* member and the class contents were written up as
+    reported which keys matched _any_ member and the class contents were written up as
     findings. And the HA mine was measured against the **core** table only, missing the 14
     fragments where dashboard vocabulary lives; 27 fills became **74**. §2.1, §3.4, §3.8.
 13. **A reproducibility defect in this document's own method.** It tells the reader to
