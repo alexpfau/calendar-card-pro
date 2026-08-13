@@ -647,8 +647,13 @@ language mapping caught a real error — that `toHaLanguage` is correct but unre
 codes outside the card's 35, because `getEffectiveLanguage` resolves them away first — only
 because it used `pt-br`. The representative choice, `nl`, would have passed on the spot and
 shipped the untested claim. Both of that day's genuine catches were credited by their own
-authors to luck rather than method, and in both cases the luck was the _choice of case_.
-That part is not luck and can be done deliberately.
+authors to luck rather than method, and neither was — but they are **two disciplines, and
+they want applying separately**. This one is about _which case you pick before you look_;
+the paragraph above is about _whether you look again once the result already reads as
+correct_. Neither substitutes for the other: input selection would not have caught the
+overflow, because the number looked finished whatever the input, and a second look would not
+have caught the mapping error, because the representative input passes cleanly every time.
+All they share is that both feel like luck afterwards, and neither is.
 
 And when the check reads a source file, note which question you are asking. **Regex a file
 for its _shape_ — which identifier is imported, how a map key is spelled — and import it for
