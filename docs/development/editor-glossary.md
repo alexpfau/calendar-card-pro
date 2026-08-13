@@ -22,6 +22,24 @@ reads as sloppiness far more than an imperfect single string does.
 parses the `**Decided**` and `**Rejected:**` lines out of it, so an edit here changes what
 CI enforces — which is the point.
 
+> **Only the `**Decided**` and `**Rejected:**` rows are live. Every other row is a
+> snapshot.** The `HA` rows record one pinned wheel, and the rows now labelled
+> `editor, then` record what the translation files held **at the moment the decision was
+> taken** — which is why they are past tense.
+>
+> They were labelled `editor now` until Stage 1 finished, and by then **every one of the
+> six cells that recorded a disagreement was wrong**: `de` _Zeit_, `pl` _Data Początkowa_,
+> `it` _Posizione_, `sk` _Menovka_, `it` _Modalità Compatta_, `pl` _Tryb Kompaktowy_ — all
+> six fixed by the session that owned the language, none of them returning to update a row
+> that then read as a live to-do. That is not carelessness six times over; **the row's
+> purpose is to record a disagreement the work is about to resolve**, so a present-tense
+> label is guaranteed to be false exactly where it carried information.
+>
+> Nothing is lost by the relabel, because the historical record has a better home: each
+> superseded form is already on that term's `**Rejected:**` line, where it is
+> machine-enforced and cannot silently drift. **To ask what a file holds now, read the
+> file** — `node scripts/check-i18n.mjs` compares all nine against every decided term.
+
 ---
 
 ## 1. How To Use This
@@ -372,7 +390,7 @@ two.
 | ----------- | ------- | -------- | ------ | ------ | ----- | --- | ---- | --- | --- |
 | **Decided** | Uhrzeit | Kellaaeg | Orario | Laikas | Laiks | Tid | Czas | Čas | Tid |
 | HA          | Uhrzeit | Aeg      | Ora    | Laikas | _!EN_ | Tid | Czas | Čas | Tid |
-| editor now  | _Zeit_  | Kellaaeg | Orario | Laikas | Laiks | Tid | Czas | Čas | Tid |
+| editor, then | _Zeit_  | Kellaaeg | Orario | Laikas | Laiks | Tid | Czas | Čas | Tid |
 
 German changes. The five languages whose single word covers both senses keep it — `Tid`,
 `Czas`, `Čas`, `Laikas`, `Laiks` are what a clock time is called in those languages, and
@@ -387,7 +405,7 @@ ever decided rather than four separate slips.
 | ----------- | -------------- | ---------------- | -------------- | ------------- | ------------- | --------- | ----------------- | ---------------- | ---------- |
 | **Decided** | Startdatum     | Alguskuupäev     | Data di inizio | Pradžios data | Sākuma datums | Startdato | Data początkowa   | Počiatočný dátum | Startdatum |
 | HA          | _Anfangsdatum_ | _Alguse kuupäev_ | Data di inizio | Pradžios data | Sākuma datums | Startdato | Data początkowa   | _Dátum začiatku_ | Startdatum |
-| editor now  | Startdatum     | Alguskuupäev     | Data di inizio | Pradžios data | Sākuma datums | Startdato | _Data Początkowa_ | Počiatočný dátum | Startdatum |
+| editor, then | Startdatum     | Alguskuupäev     | Data di inizio | Pradžios data | Sākuma datums | Startdato | _Data Początkowa_ | Počiatočný dátum | Startdatum |
 
 Only Polish changes, and only in capitalisation — `Data Początkowa` to `Data początkowa`.
 That single difference was invisible to the earlier analysis because it case-folded before
@@ -458,7 +476,7 @@ calendar-domain key says `Luogo`.
 | ----------- | --- | ------- | ----------- | ----- | --------------- | ----- | ----------- | ----------- | ----- |
 | **Decided** | Ort | Asukoht | Luogo       | Vieta | Atrašanās vieta | Sted  | Lokalizacja | Miesto      | Plats |
 | HA          | Ort | Asukoht | Luogo       | Vieta | Notikuma vieta  | _!EN_ | Lokalizacja | Umiestnenie | Plats |
-| editor now  | Ort | Asukoht | _Posizione_ | Vieta | Atrašanās vieta | Sted  | Lokalizacja | Miesto      | Plats |
+| editor, then | Ort | Asukoht | _Posizione_ | Vieta | Atrašanās vieta | Sted  | Lokalizacja | Miesto      | Plats |
 
 **Rejected:** it `Posizione`
 
@@ -491,7 +509,7 @@ Agrees nine ways with Home Assistant and with our own files. Nothing to decide.
 | ----------- | ----- | ---- | --------- | ------- | ------- | ------- | -------- | --------- | ------- |
 | **Decided** | Label | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | Štítok    | Etikett |
 | HA          | _!EN_ | Silt | Etichetta | Etiketė | _!EN_   | Etikett | Etykieta | Štítok    | Etikett |
-| editor now  | Label | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | _Menovka_ | Etikett |
+| editor, then | Label | Silt | Etichetta | Etiketė | Etiķete | Etikett | Etykieta | _Menovka_ | Etikett |
 
 **Rejected:** sk `Menovka`
 
@@ -572,7 +590,7 @@ Latvian `Saraksts` is judgement — HA has no translation and we have no string 
 | -------------- | ------------ | ------------- | ------------------- | -------------------- | ----------------- | ------------- | ----------------- | --------------- | ------------ |
 | **Decided**    | Kompaktmodus | Kompaktrežiim | Modalità compatta   | Suglaudintas režimas | Kompaktais režīms | Kompakt modus | Tryb kompaktowy   | Kompaktný režim | Kompakt läge |
 | HA (_compact_) | Kompakt      | Kompaktne     | Compatto            | Kompaktiškas         | _!EN_             | Kompakt       | Kompaktowy        | Kompaktný       | Kompakt      |
-| editor now     | Kompaktmodus | Kompaktrežiim | _Modalità Compatta_ | Suglaudintas režimas | Kompaktais režīms | Kompakt modus | _Tryb Kompaktowy_ | Kompaktný režim | Kompakt läge |
+| editor, then    | Kompaktmodus | Kompaktrežiim | _Modalità Compatta_ | Suglaudintas režimas | Kompaktais režīms | Kompakt modus | _Tryb Kompaktowy_ | Kompaktný režim | Kompakt läge |
 
 Italian and Polish change in capitalisation only, per §3.
 
@@ -596,7 +614,7 @@ same object under a different English name, so it is used as evidence and labell
 | -------------- | ----------- | -------- | -------- | --------- | ---------- | ----- | -------- | ---------- | -------- |
 | **Decided**    | Trennlinie  | Eraldaja | Divisore | Skirtukas | Atdalītājs | Deler | Dzielnik | Rozdeľovač | Avdelare |
 | HA (_divider_) | Trennlinie  | Eraldaja | Divisore | Skirtukas | Atdalītājs | Deler | Dzielnik | Rozdeľovač | Avdelare |
-| editor now     | Trennlinien | —        | —        | —         | —          | —     | —        | —          | —        |
+| editor, then    | Trennlinien | —        | —        | —         | —          | —     | —        | —          | —        |
 
 German already says `Trennlinien` for the panel title, which corroborates the borrowed
 evidence independently.
@@ -917,20 +935,17 @@ correct in our file and is the one that showed the other two were not.
 | HA (show)          | einblenden | Kuva  | Mostra   | Rodyti | Parādīt | Vis   | Pokaż | Zobraziť | Visa |
 
 German and Estonian keep ours against HA, because ours is already used consistently across
-every `show_*` key and both are idiomatic. **Slovak is inconsistent today** — `Zobraziť`
-in most keys but `Zobrazovať` in `show_time`; unify on `Zobraziť`.
+every `show_*` key and both are idiomatic. **Slovak was inconsistent across six keys** —
+`Zobraziť` in nine, `Zobrazovať` in `show_time`, `show_end_time`, `show_month`,
+`show_location`, `show_description` and `show_empty_days`. Unified on `Zobraziť`.
 
-> **The scope of that was understated, and the reason is worth keeping.** It is not one key
-> but **six** — `show_time`, `show_end_time`, `show_month`, `show_location`,
-> `show_description` and `show_empty_days` — against nine already on `Zobraziť`. The
-> `it`/`sk` session unified them.
->
-> The split is not random: every `Zobrazovať` key is a **toggle**, and Slovak's imperfective
-> is arguably the better aspect for a setting that describes continuous behaviour. It loses
-> anyway, because the other nine keys are toggles too and use the perfective, so the file
-> could not be made consistent by aspect — and because HA Slovak writes `Zobraziť` at every
-> `Show X` key sampled. The perfective is Slovak's ordinary citation form for a UI label
-> regardless of whether the behaviour it names is momentary.
+> **Why the imperfective loses, since it is the more arguable half.** Every `Zobrazovať` key
+> is a **toggle**, and Slovak's imperfective is arguably the better aspect for a setting that
+> describes continuous behaviour. It loses anyway, because the other nine keys are toggles
+> too and use the perfective, so the file could not be made consistent by aspect — and
+> because HA Slovak writes `Zobraziť` at every `Show X` key sampled. The perfective is
+> Slovak's ordinary citation form for a UI label regardless of whether the behaviour it
+> names is momentary.
 
 Word order is the language's own: German puts the verb last (`Zeit anzeigen`), the others
 put it first. Do not calque the English order.
@@ -1055,7 +1070,16 @@ count is corpus-dependent and the rejection is not.
 | HA          | _rejected_ | _rejected_ | _rejected_             | _rejected_     | _rejected_    | _rejected_ | _rejected_     | _rejected_   | _rejected_ |
 
 Slovak shipped HA's wrong sense: `weekday_font_size` read `Veľkosť písma pracovného dňa`.
-Fixed to `dňa v týždni`. Italian's `giorno settimana` is missing the article.
+Fixed to `dňa v týždni`. **Italian uses `giorno della settimana` standalone and the
+article-less `giorno settimana` in four compound labels** — deliberately, on a measured
+layout constraint; see the note below before "fixing" either.
+
+> **This sentence read `Italian's giorno settimana is missing the article` until the
+> `it`/`sk` session finished, with the correction ten lines below it in a blockquote.** That
+> is the wrong way round: the flat statement reads as a defect to repair, and repairing it
+> is a regression — the four labels it names are the ones that do not fit. A reader who
+> stops at the first sentence does the damage; the correction only helps a reader who
+> already doubted it.
 
 > **Italian keeps the article-less form in its compound labels, and this is a layout
 > constraint rather than a change of mind.** `Giorno della settimana` stands where it fits —
