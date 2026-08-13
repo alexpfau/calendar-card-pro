@@ -572,6 +572,17 @@ was inside the deleted directory. *The check that would settle the question is t
 was deleted* — which is a worse position than a lost commit, because a lost commit is at
 least knowable.
 
+**`cmd && { ...; } || echo "not a repo"` reports the failure of the _last_ command in the
+block, not the first.** Checking a directory with `cd X && { git status; grep -n "six rules" f; } ||
+echo "X is not a repo"` printed **`X is not a repo`** — while `git status` in the same block had
+just printed a clean working tree. The `grep` found nothing, exited 1, and `||` attached to the
+whole chain. The message named the wrong subject entirely, and it named it *confidently*.
+
+This is the same family as `grep -oc` saturating, but the mechanism is different and worth
+separating: there the count discarded a signal, here the **`||` branch attributes one
+command's failure to another**. Ask the question directly — `git rev-parse
+--is-inside-work-tree` — rather than inferring it from whether a chain survived.
+
 **The artefact-naming rule earns its keep only when the probe _succeeds_.** A session whose
 directory had been deleted found that *every* command failed, including `echo` — and that is
 the **easy** case, because it fails loudly and cannot be mistaken for a result. The dangerous
