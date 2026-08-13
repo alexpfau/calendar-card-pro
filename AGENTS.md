@@ -641,6 +641,15 @@ space's own client rect as a line break, once counting _correct_ word-boundary w
 damage. A probe that cannot tell the good case from the bad one is not evidence in either
 direction.
 
+The same day produced the companion rule, from the other direction: **pick the example most
+likely to break the claim, not the one most likely to represent it.** A test of the weather
+language mapping caught a real error — that `toHaLanguage` is correct but unreachable for
+codes outside the card's 35, because `getEffectiveLanguage` resolves them away first — only
+because it used `pt-br`. The representative choice, `nl`, would have passed on the spot and
+shipped the untested claim. Both of that day's genuine catches were credited by their own
+authors to luck rather than method, and in both cases the luck was the _choice of case_.
+That part is not luck and can be done deliberately.
+
 And when the check reads a source file, note which question you are asking. **Regex a file
 for its _shape_ — which identifier is imported, how a map key is spelled — and import it for
 its _values_.** `scripts/check-i18n.mjs` already works this way and says so: the wiring in
