@@ -253,6 +253,37 @@ const norm = (s) =>
     .replace(/\s+/g, ' ');
 ```
 
+🚨 **Case is a fourth dimension, and it is the one you must not fold blindly.** It is
+deliberately absent from the block above. A fragment quoted mid-sentence will not match the
+same words at a sentence start, and whether a phrase is capitalised depends on where in a
+sentence it lands — which changes when the prose around it is edited. Measured on
+`editor-localization.md`, same normaliser, case-folding the only variable:
+
+| fragment                                                                     | as-is       | folded |
+| ---------------------------------------------------------------------------- | ----------- | ------ |
+| `suspect the reader before the translation` (wrapped, spans a `>` marker)    | found       | found  |
+| `none of them is on screen` (source: `… perfect German. **None** of them …`) | **missing** | found  |
+| `verify the deployed artefact` (source: `**Verify** the deployed artefact`)  | **missing** | found  |
+
+Note which cases failed: **the hard one passed and the two trivial ones failed.** The
+marker-spanning phrase the normaliser was written for matched; two single-line
+markup-free fragments did not, purely because they were quoted lower-cased from a commit
+message.
+
+**But it must stay a caveat rather than a fifth `.replace()`, because the right answer
+depends on the question:**
+
+| question                         | case                                                   |
+| -------------------------------- | ------------------------------------------------------ |
+| _did this text survive a merge?_ | **fold** — a sentence-initial capital is noise         |
+| _is this capitalised correctly?_ | **preserve** — capitalisation is the property measured |
+
+This repo has been bitten in both directions: case-folding hid Polish `Data Początkowa` from
+the term check, and case-_sensitivity_ silently missed Swedish `Vardag` at the head of a
+label. §7 of the glossary is emphatic that a comparison which normalises away the property
+it measures cannot report on it — and putting `.toLowerCase()` into the shared block is
+exactly how it would be copied into a terminology check where it is wrong.
+
 **And a self-test that only checks one direction covers only the failure you thought of.**
 The probe that found this carried a sentinel that must _not_ match — good against false
 positives, blind to false negatives, which is the direction that actually bit. A search
