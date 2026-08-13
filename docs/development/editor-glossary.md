@@ -1216,6 +1216,27 @@ HA_FRONTEND_TRANSLATIONS=/tmp/hafe/hass_frontend/static/translations \
   header row. `—` means undecided and is skipped rather than enforced.
 - a line beginning `**Rejected:**` — `lang \`form\``pairs separated by`;`.
 
+**Which edits here change what CI enforces, and which do not.** `readGlossary()` parses
+exactly three things: the §3 casing table, the `**Decided**` rows, and the `**Rejected:**`
+lines. Surrounding prose is never parsed, so rewriting an entry's reasoning cannot move a
+gate — verified by mutation, not inferred: altering a prose sentence leaves the run at
+0 errors / 17 warnings unchanged.
+
+🚨 **But "parsed" is not "enforced", and the gap is larger than it looks.** A `**Decided**`
+value is only ever compared against keys whose English string equals the term name
+_exactly_. Measured: **18 of the 41 terms have such a key** — `time`, `start date`,
+`weather`, `location`, `description`, `label`, `today`, `layout`, `columns`, `list`,
+`day header`, `today indicator`, `color`, `icon`, `title`, `height`, `none`, `date`. For
+the other 23, including `event`, the decided value is read into memory and no key can ever
+match it, so changing the cell changes nothing at all.
+
+Both halves were mutation-tested rather than read off the source. Rewriting the German cell
+of `event` from `Termin` to `Ereignis` leaves the run **byte-identical**; blanking a cell of
+`location` takes it from 17 warnings to 18 and raises a `glossary decided` warning. So the
+question to ask before trusting a gate is not "does the checker read this table" but
+**"can this field's consumer ever match anything?"** — three of us inferred behaviour from
+this file's parse today without running it, and were wrong each time.
+
 **Rejected forms are matched at a word start, case-insensitively, and only within the keys
 the term governs** — the keys whose English contains the term. That scoping is what makes the
 check precise: Italian `Posizione` is wrong for _location_ and right for _position_, so a
