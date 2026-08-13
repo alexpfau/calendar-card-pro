@@ -655,6 +655,30 @@ overflow, because the number looked finished whatever the input, and a second lo
 have caught the mapping error, because the representative input passes cleanly every time.
 All they share is that both feel like luck afterwards, and neither is.
 
+**The sharpest instance of input selection so far is `整天`, and it is worth holding because
+the representative case was picked from the right category.** The countdown's word-joiner
+rule was justified against Korean and Japanese strings, which the card does not ship — no
+`ko.json`, no `ja.json`, so the stated evidence was unreproducible by anyone who read it.
+The languages that _do_ ship and _do_ reproduce it are `zh-CN` / `zh-TW`, whose all-day
+strings `formatEventTime` composes out of words ending in an ideograph (UAX #14 class ID,
+which no rule welds to a following AL, so LB31 permits the break). Measured across 96 rows
+at five widths:
+
+|                                        | class | before | after |
+| -------------------------------------- | ----- | ------ | ----- |
+| `整天, 明天结束` (`format.ts:519`)     | ID    | 16     | 0     |
+| `整天, 直到 17. 8月` (`format.ts:529`) | ID    | 36     | 0     |
+| `整天` (`format.ts:66`)                | ID    | **0**  | 0     |
+| `all day, ends tomorrow`               | AL    | 0      | 0     |
+
+The third row is the lesson. **Same language, same script, same line-break class — and it
+never reproduces**, because two characters never make the browser look for a break at that
+junction. `整天` is the obvious "representative Chinese case"; picking it would have cleared
+the rule and shipped the bug. So "pick the case most likely to break the claim" is not
+satisfied by picking the right _language_ or the right _script_ — the property that matters
+here is length, and it is one the categories do not expose. When a claim is about layout,
+the input has to be long enough to force the layout to make the decision.
+
 There is a **third** failure mode neither discipline reaches, and it is the one that needs
 another person. A probe can be correct, correctly configured, honestly reported — and
 measuring the wrong thing. Two instances, both from the editor-localization work: a
