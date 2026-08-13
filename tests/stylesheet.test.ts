@@ -44,8 +44,30 @@ import { cardStyles } from '../src/rendering/styles';
  * gets updated reflexively and stops being a gate.
  */
 
-/** The stylesheet with comments stripped, so a selector named in prose never matches. */
-const CSS = cardStyles.cssText.replace(/\/\*[\s\S]*?\*\//g, '');
+/**
+ * The stylesheet with comments stripped, so a selector named in prose never matches.
+ *
+ * 🚨 `cssText` comes back `undefined` — not empty, not throwing — when the `css` tagged
+ * template contains an invalid escape sequence *anywhere in its text, comments included*.
+ * A tagged template's cooked value is `undefined` in that case (ES2018 template literal
+ * revision), so one `\200B` written as prose inside a CSS comment silently deletes the
+ * entire stylesheet and ships a completely unstyled card. Nothing else catches it: it
+ * typechecks, builds, lints and passes every other suite. Named here because the raw
+ * symptom is `Cannot read properties of undefined (reading 'replace')` on the next line,
+ * which points at this file rather than at the one with the typo. Double the backslash.
+ */
+const RAW_CSS = cardStyles.cssText;
+
+if (typeof RAW_CSS !== 'string') {
+  throw new Error(
+    'cardStyles.cssText is not a string, so the whole stylesheet is missing. A `css` ' +
+      'tagged template cooks to undefined when its text carries an invalid escape ' +
+      'sequence — including inside a CSS comment. Look for a single-backslash `\\200B` ' +
+      'or similar in src/rendering/styles.ts and double it.',
+  );
+}
+
+const CSS = RAW_CSS.replace(/\/\*[\s\S]*?\*\//g, '');
 
 /**
  * Every top-level rule as a `{ selectors, body }` pair.
@@ -305,57 +327,62 @@ describe('card stylesheet', () => {
     });
 
     /*
-     * The separators — C6, corrected. `.event-weather` is a flex container, so the
-     * whitespace *between* its items is dropped and every gap between one chip and the
-     * next is CSS's to supply. The whitespace *inside* an item is a different matter and
-     * was the bug: `UV${...}` fuses the template's indent into the same text node as the
-     * letters, and an in-flow `::before` in front of it stops that run being
-     * line-leading, so it collapsed to a real 3.34px space on one side of one middot.
-     * Taking the separator out of the chip's inline flow is what fixes it.
+     * The separators — C6, corrected twice. The row is one composed string that breaks
+     * like running text: the middot ends a line and the words that follow it start the
+     * next one. Getting that means the separator has to be *in* the text, which is the
+     * opposite of what the previous version did, so the three tests below pin the three
+     * halves of the mechanism separately: what the glyph is, that it is in flow and
+     * spaced by margins, and where the one break opportunity sits relative to it.
      */
     it('separates the text pieces with a middot', () => {
       const selector = '.time-location .event-weather .event-weather-text > span + span::before';
 
       // A middot, not a comma: Home Assistant's own condition vocabulary contains
       // "Clear, night", and a comma separator would be indistinguishable from it.
-      expect(declared(selector, 'content')).toBe("'·'");
+      // Two invisible characters travel with it — asserted on their own below, because
+      // each one carries a distinct guarantee and a reader should not have to decode a
+      // string of escapes to find out which.
+      expect(declared(selector, 'content')).toContain('·');
     });
 
-    it('takes the separator out of the chip it is attached to', () => {
-      // Absolute positioning is doing three jobs at once, and losing any one of them
-      // reintroduces a defect the maintainer reported:
-      //   - the chip's leading whitespace goes back to being line-leading and collapses,
-      //     which is what makes the gaps either side of the middot equal;
-      //   - the middot can no longer be broken onto a line of its own by
-      //     `overflow-wrap: break-word`, which is what put a stray `·` above the row;
-      //   - the middot stops counting towards the chip's intrinsic width.
+    it('keeps the separator in the text, spaced by margins rather than positioned', () => {
+      // The maintainer's report: `29° · UV0` / `· Teilweise bewölkt` — the dot
+      // travelling down with the words it introduces. It did that because it was an
+      // absolutely positioned `::before` painted at its chip's origin, so when the chip
+      // wrapped the dot wrapped with it, and the break opportunity (a `::after` on the
+      // *previous* chip) sat in front of the dot rather than behind it.
+      //
+      // In flow it is ordinary inline content and the row breaks as one string. The
+      // gaps are margins because a margin is not a break opportunity: that is what keeps
+      // the dot attached to the chip before it. See the block comment in styles.ts.
       const dot = '.time-location .event-weather .event-weather-text > span + span::before';
       const chip = '.time-location .event-weather .event-weather-text > span + span';
 
-      expect(declared(dot, 'position')).toBe('absolute');
-      expect(declared(dot, 'inset-inline-start')).toBe('0');
+      expect(declared(dot, 'position')).toBe('');
+      expect(declared(dot, 'margin-inline-start')).toBe('4px');
+      expect(declared(dot, 'margin-inline-end')).toBe('4px');
 
-      // Centred in a gutter the chip reserves as padding, so the leftover splits evenly
-      // whatever width the font gives the glyph. The two must agree or the dot is off
-      // centre, which is the asymmetry this replaced.
-      expect(declared(dot, 'text-align')).toBe('center');
-      expect(declared(dot, 'width')).toBe(declared(chip, 'padding-inline-start'));
-      expect(declared(chip, 'position')).toBe('relative');
+      // And the machinery the absolute version needed is gone rather than left behind:
+      // a surviving gutter would sit on top of the margins and double one gap.
+      expect(declared(chip, 'padding-inline-start')).toBe('');
+      expect(declared(chip, 'position')).toBe('');
+      expect(declared(dot, 'width')).toBe('');
+      expect(declared(dot, 'text-align')).toBe('');
     });
 
     it('spaces the weather separator exactly as the countdown separator', () => {
       // The maintainer's ruling: one spacing for both rows, so a countdown and a
-      // weather condition in the same event punctuate identically. The countdown states
-      // it as a plain margin; the weather row states it as half of what is left over
-      // once the glyph is centred, which is why the gutter is written as `2 * <gap>`.
+      // weather condition in the same event punctuate identically. Both now state it the
+      // same way, as a plain 4px margin — which is also what makes it exact. The gutter
+      // this replaced centred the glyph inside `2 * 4px + 0.28em`, and 0.28em is only an
+      // estimate of a middot: measured live at 20px text the glyph is 5.21px against the
+      // 5.6px reserved, so each gap came out at 4.195px rather than 4px.
       const gap = declared('.column-events .time-countdown::before', 'margin-inline-end');
-      const gutter = declared(
-        '.time-location .event-weather .event-weather-text > span + span',
-        'padding-inline-start',
-      );
+      const dot = '.time-location .event-weather .event-weather-text > span + span::before';
 
       expect(gap).toBe('4px');
-      expect(gutter).toContain(`2 * ${gap}`);
+      expect(declared(dot, 'margin-inline-start')).toBe(gap);
+      expect(declared(dot, 'margin-inline-end')).toBe(gap);
       expect(declared('.column-events .time', 'column-gap')).toBe(gap);
     });
 
@@ -439,44 +466,68 @@ describe('card stylesheet', () => {
       );
     });
 
-    it('pairs break-word with a separator that is out of flow', () => {
-      // These two declarations are a pair, and this test is the pairing.
+    it('pairs break-word with a separator glued to the chip before it', () => {
+      // These declarations are a pair, and this test is the pairing. The previous
+      // version of it paired `break-word` with `position: absolute`, on the grounds
+      // that a dot out of flow "is not part of any character sequence a break can land
+      // inside". That was true, and it also produced the defect the maintainer then
+      // reported: the dot travelled to the next line with its chip.
       //
-      // `break-word` genuinely was dangerous once: while the middot was ordinary in-flow
-      // content it could break *after* the dot and strand it alone on a line, floated
-      // above the row by `align-items: center`. That is a bug the maintainer reported and
-      // saw fixed. What fixed it was moving the separator out of flow, not turning
-      // `break-word` off -- and turning it off afterwards, one commit later, protected
-      // against nothing while costing the row its only defence against a long word.
+      // In flow, the guarantee comes instead from the *absence of a legal break
+      // opportunity* in front of the dot. The gaps are margins, and a margin is not a
+      // break opportunity; the word joiner U+2060 forbids one at the character level as
+      // well. Measured live: the dot leads a line of words 0 times across 539 rows at
+      // seven viewport widths and every weather font size from 8px to 26px, against 444
+      // for the mechanism this replaced, on the same rows at the same widths.
       //
-      // Out of flow, the dot is not part of any character sequence a break can land
-      // inside, so the hazard is structurally absent rather than merely unobserved. If
-      // anyone ever puts it back in flow, this fails and `break-word` has to be
-      // reconsidered in the same edit.
+      // 🚨 It is *not* an absolute guarantee, and the comment here said it was until the
+      // sweep found the counter-example. `break-word` still takes an emergency break at
+      // an arbitrary point when the run between two legal opportunities cannot fit a line
+      // by itself, so below roughly 30px of column at 12px text the glyph can be pushed
+      // onto a line of its own. See the block comment in styles.ts for the measurements
+      // in that regime and why the trade is the right way round.
       const dot = '.time-location .event-weather .event-weather-text > span + span::before';
+      const content = declared(dot, 'content');
 
-      expect(declared(dot, 'position')).toBe('absolute');
+      // U+2060 WORD JOINER, immediately before the glyph.
+      expect(content).toContain('\\2060·');
+      expect(declared(dot, 'margin-inline-start')).toBe('4px');
       expect(declared('.time-location .event-weather .event-weather-text', 'overflow-wrap')).toBe(
         'break-word',
       );
     });
 
-    it('gives the browser somewhere legal to break between chips', () => {
-      // The row's template emits no white space between the three spans, and the
-      // separator that stands in for it is absolutely positioned — so neither is in the
-      // text, and for line-breaking purposes the row is one unbreakable run. Without a
-      // break opportunity, `overflow-wrap: break-word` has only emergency breaks to work
-      // with and they land wherever the line runs out: measured at a 98px row and 20px
-      // text, `30°` / `UV` `7 · Sonni` / `g`, every chip severed mid-token. That is the
-      // same thing the maintainer objected to when he reported a condition reading
-      // `Regner`. With this, `30°` / `UV7` / `Sonnig`.
+    it('puts the one break opportunity after the dot, not in front of it', () => {
+      // This is the fix, stated as narrowly as it can be. The row's template emits no
+      // white space between the three spans, so every break opportunity in it is
+      // generated — which means the *order of the characters in this one string* decides
+      // which side of the middot a line ends on.
       //
-      // A zero-width space and nothing else: line-break class ZW, so it is a break
-      // opportunity with no width, no ink and no character. Generated, so it never
-      // reaches `textContent` and cannot move a DOM golden.
-      const selector = '.time-location .event-weather .event-weather-text > span::after';
+      //   `\2060·\200B`   ->  `29° · UV0 ·` / `Teilweise bewölkt`   (wanted)
+      //   `\200B·`        ->  `29° · UV0`   / `· Teilweise bewölkt` (the reported bug)
+      //
+      // U+200B is line-break class ZW, which provides an opportunity *after* itself, so
+      // putting it last keeps the whole `::before` — glyph and trailing margin — on the
+      // line it started, and the next chip's text begins the next line flush with the
+      // row's hanging indent. A `::before` split across the break would put its 4px end
+      // margin at the start of the continuation line instead, indenting that one line
+      // and no other.
+      //
+      // Falsifier: delete the trailing `\200B` and the row has no legal break between
+      // chips at all, so `overflow-wrap: break-word` falls back to emergency breaks and
+      // severs chips mid-token — measured at a 98px row and 20px text as
+      // `30°` / `UV` `7 · Sonni` / `g`.
+      const dot = '.time-location .event-weather .event-weather-text > span + span::before';
 
-      expect(declared(selector, 'content')).toBe("'\\200B'");
+      expect(declared(dot, 'content')).toMatch(/·\\200B'$/);
+
+      // And nothing puts one back in front of the dot. The previous mechanism carried a
+      // zero-width space on `span::after`, which sits *before* the following chip's
+      // separator — exactly the ordering the bug report describes.
+      expect(
+        declared('.time-location .event-weather .event-weather-text > span::after', 'content'),
+      ).toBe('');
+      expect(RULES.filter((rule) => rule.body.includes('\\200B'))).toHaveLength(1);
     });
 
     it('resets the two properties the UV index sets for the title row', () => {

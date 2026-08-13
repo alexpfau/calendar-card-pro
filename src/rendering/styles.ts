@@ -1078,14 +1078,13 @@ export const cardStyles = css`
    *   - With overflow-wrap: normal a word wider than its container cannot break at all,
    *     and simply overhangs.
    *
-   * The reason normal looked safe is a real hazard that had already been fixed one commit
-   * earlier, and the two got read as one. break-word *was* able to orphan the separator:
-   * while the middot was ordinary in-flow content it could break after the dot and leave
-   * it alone on a line, floated above the row by align-items: center. Making the ::before
-   * absolutely positioned removed that, and removed it structurally -- out of flow, the
-   * dot is not part of any character sequence a break can land inside. Turning break-word
-   * off afterwards protected against nothing and cost the row its only defence against a
-   * long word.
+   * The reason normal looked safe is a real hazard, which had already been fixed one
+   * commit earlier by a different means, and the two got read as one. break-word *was*
+   * able to orphan the separator: while the middot was ordinary in-flow content with a
+   * break opportunity on either side of it, a break could land after the dot and leave it
+   * alone on a line, floated above the row by align-items: center. Turning break-word off
+   * afterwards protected against nothing and cost the row its only defence against a long
+   * word.
    *
    * 🚨 And putting it back *here* fixes only three quarters of it, which is the part that
    * had to be measured rather than reasoned about. Restoring break-word on this element
@@ -1099,9 +1098,16 @@ export const cardStyles = css`
    * with break-word on .event-weather-text. So it is declared on the wrapper and inherited
    * by all three chips, rather than on the one that happens to hold the long word.
    *
-   * Those two are a pair: break-word on the wrapper is safe *because* the separator below
-   * is absolute. If anyone ever puts the dot back in flow, it has to go back to normal in
-   * the same edit. stylesheet.test.ts asserts both together for that reason.
+   * 🚨 That overhang number is also the worked example of a metric that cannot falsify the
+   * hypothesis it came from, and it is recorded in AGENTS.md as such. The bug was believed
+   * to be overhang, so overhang was measured, and three versions drove it 113.3 -> 26.6 ->
+   * -0.8 while the row was still visibly broken: at -0.8px nothing overflowed and every
+   * chip was being severed mid-token instead. Only a screenshot taken after the number
+   * already read as finished broke the frame. Do not judge this row by one number.
+   *
+   * break-word and the separator below are a pair, and the pairing survives the separator
+   * going back into flow -- but the argument for it changed completely, so read it there
+   * rather than assuming this paragraph still says what it used to.
    */
   .time-location .event-weather .weather-condition {
     display: var(--calendar-card-weather-event-condition-display);
@@ -1114,96 +1120,99 @@ export const cardStyles = css`
   /*
    * The separators.
    *
-   * The text pieces are inline children of .event-weather-text, and the template keeps
-   * them adjacent so no source whitespace participates in the gaps. Every gap between
-   * one piece and the next is therefore CSS's to supply.
+   * The row is one composed string that breaks like running text. A line ends *after* a
+   * middot and the words it introduces start the next line:
    *
-   * 🚨 That is true of the whitespace *between* the spans and false of the whitespace
-   * *inside* them, which an earlier version of this comment did not distinguish. Each
-   * span's template puts a newline and an indent either side of its text. Where lit
-   * emits that as a whitespace-only text node it is discarded too, but a span whose
-   * template writes the literal letters UV immediately before its binding fuses the
-   * indent into the same text node as those letters, and a ::before in front of
-   * it means that run is no longer at the start of the line -- so it collapses to a real
-   * rendered space instead of to nothing. Measured: 3.34px at the default 12px text,
-   * landing on the *inline-end* side of the first middot only. That is precisely the
-   * asymmetry the maintainer reported, 4px before against 7.34px after, and it is why
-   * the two separators in a row reading 30 deg / UV2 / Sunny did not match each other.
+   *     29° · UV0 ·
+   *     Teilweise bewölkt
    *
-   * Fixing it in the template would mean deleting whitespace that sits next to a text
-   * node, which is the one kind AGENTS.md's inter-tag snapshot predicate cannot certify
-   * as inert -- and this template is shared with the list view. So it is fixed here, by
-   * taking the separator out of the chip's inline flow altogether: an absolutely
-   * positioned ::before is not on the line, the span's leading whitespace goes back to
-   * being line-leading, and it collapses away as it always should have.
+   * That is the maintainer's ruling, and it is the fourth iteration of this rule, so the
+   * reasoning behind each part is written out rather than left to be rediscovered.
    *
-   * Two further defects fall out of the same move, which is why it is a fix and not a
-   * workaround:
+   * The text pieces are inline children of .event-weather-text and the template keeps them
+   * adjacent, so no source whitespace participates in the gaps and no break opportunity
+   * exists anywhere in the row except the ones generated here. That makes the *order of
+   * the characters in this one content string* the whole of the line-breaking behaviour:
    *
-   *   - the middot can no longer be orphaned. In flow it was ordinary inline content, so
-   *     overflow-wrap: break-word was free to break the row's narrowest chip *after* the
-   *     dot and leave it alone on a line -- with align-items: center then floating that
-   *     line above the temperature, which is the stray middot the maintainer saw sitting
-   *     above the row while the temperature and the condition ran together beneath it.
-   *     Out of flow, there is nothing left to break.
-   *   - the dot no longer contributes to the chip's intrinsic width, so it cannot push a
-   *     condition that would otherwise have fitted onto a second line.
+   *     '\\2060·\\200B'   ->  29° · UV0 ·  /  Teilweise bewölkt      (wanted)
+   *     '\\200B·'         ->  29° · UV0    /  · Teilweise bewölkt    (the reported bug)
    *
-   * The gutter is one middot plus 4px either side, and centring the glyph in it is what
-   * keeps the two gaps equal without CSS having to know how wide a middot is: whatever
-   * the font makes it, the leftover is split in half. 0.28em is that width in the faces
-   * Home Assistant ships, and it is in em rather than px so the gutter tracks
-   * weather.event.font_size. 4px matches .column-events .time's countdown separator, so
-   * the two rows punctuate identically.
+   * Three characters, three separate jobs:
+   *
+   *   - U+2060 WORD JOINER forbids a break *before* the glyph. Together with the margins
+   *     -- a margin is not a break opportunity -- that removes every *legal* break in
+   *     front of the dot, which is what makes the reported bug structurally impossible
+   *     rather than merely unobserved. Measured: 0 occurrences across 539 rows at seven
+   *     viewport widths and every weather font size from 8px to 26px, against 444 for the
+   *     mechanism this replaced, on the same rows at the same widths.
+   *
+   *     🚨 What it does *not* do is stop overflow-wrap: break-word taking an *emergency*
+   *     break there, and an earlier draft of this comment claimed otherwise -- "the dot
+   *     can never begin a line, and a glyph that cannot begin a line cannot be alone on
+   *     one". That is false, and it is false in the one direction that matters: break-word
+   *     breaks at an arbitrary point when the run between two legal opportunities does not
+   *     fit on a line by itself, and [chip text][WJ][dot] is exactly such a run. So when a
+   *     column is narrower than one chip plus its separator -- about 30px at 12px text --
+   *     the glyph can be pushed onto a line of its own.
+   *
+   *     Measured on the 25.8px columns that a 12-day card with min_days_fallback: cramp
+   *     produces at a 1300px viewport: 0 to 22 occurrences depending on font size. The old
+   *     mechanism scored 0 there, because an out-of-flow dot cannot be broken at all --
+   *     but it put the dot at the head of a line of words on all 22, which is the bug this
+   *     rule exists to fix, on every row. In the same regime the new one also severs fewer
+   *     words (14 against 25) and stays inside its column at 26px text, where the old one
+   *     escapes by 6.3px. The trade is deliberate and the regime is one where every token
+   *     in the row is already being severed.
+   *
+   *     overflow-wrap: normal on this pseudo-element was tried as a way to forbid the
+   *     emergency break. It changes nothing, at any size. Do not re-derive it.
+   *   - the middot itself. Not a comma: Home Assistant's own condition vocabulary contains
+   *     "Clear, night", and a comma would be indistinguishable from the one inside it.
+   *   - U+200B ZERO WIDTH SPACE is the row's only break opportunity between chips. Class
+   *     ZW, so it is a break with no width, no ink and no rendered character, and it
+   *     provides that break *after* itself -- which is why it goes last. Without it the row
+   *     is the single unbreakable run 30degUV7Sonnig and overflow-wrap: break-word has
+   *     nothing but emergency breaks to work with: measured at a 98px row and 20px text,
+   *     30deg / UV | 7 . Sonni | g, every chip severed mid-token. It also lowers the
+   *     wrapper's min-content width from the whole run to one chip plus its separator.
+   *
+   * 🚨 The trailing margin is on this pseudo-element and not on the chip, and that is not
+   * interchangeable. A margin on the chip would sit at the start of the continuation line
+   * and indent it 4px past the row's hanging indent -- one line indented and no other,
+   * which reads as a rendering fault. Here the break falls after the ZWSP, which is the
+   * last thing in the content, so the ::before never splits across the two lines and both
+   * its margins stay on the line it started. If a future edit moves the ZWSP off the end,
+   * the box splits at the break, CSS 2.1 §9.2.2 puts the end margin on the *last* fragment,
+   * and the indent comes back.
+   *
+   * 🚨 Margins, not spaces, and that is not interchangeable either. A rendered space is a
+   * break opportunity, so a space before the glyph would let a line end between the chip
+   * and its dot -- putting the dot back at the head of the next line, which is the bug
+   * this rule exists to fix. Margins are also exact: the gutter this replaced centred the
+   * glyph inside calc(2 * 4px + 0.28em), and 0.28em is an estimate of a middot rather than
+   * a measurement of one. Measured live at 20px text the glyph is 5.21px against the 5.6px
+   * reserved, so both gaps came out at 4.195px. 4px matches .column-events .time's
+   * countdown separator exactly, at any font size, without CSS having to know how wide a
+   * middot is.
+   *
+   * An earlier version of this comment recorded a 3.34px phantom space on the inline-end
+   * side of the first middot, caused by a chip template that wrote its letters after a
+   * newline and an indent, and cited it as a reason the separator had to leave the flow.
+   * That template no longer exists: renderEventWeather writes each chip's own template on
+   * one line, so the rendered chips carry the text nodes 29 / ° / UV / 0 and no whitespace
+   * at all. Verified by dumping the rendered DOM rather than by reading the template, and
+   * again live -- both gaps measure 4.00px. The hazard is gone with its cause, which is
+   * what makes going back into flow safe.
    *
    * Scoped under .time-location so it reaches the row placement only -- the list view's
-   * title-row badge keeps rendering 30° UV4 run together, which is the deliberate
-   * status quo of a layout that has been stable for years. See renderEventWeather for
-   * why the separator is a middot and why the condition keeps its capital.
+   * title-row badge keeps rendering 30° UV4 run together, which is the deliberate status
+   * quo of a layout that has been stable for years. See renderEventWeather for why the
+   * condition keeps its capital.
    */
-  .time-location .event-weather .event-weather-text > span + span {
-    position: relative;
-    padding-inline-start: calc(2 * 4px + 0.28em);
-  }
-
   .time-location .event-weather .event-weather-text > span + span::before {
-    content: '·';
-    position: absolute;
-    inset-inline-start: 0;
-    inset-block-start: 0;
-    width: calc(2 * 4px + 0.28em);
-    text-align: center;
-  }
-
-  /*
-   * A break opportunity between one chip and the next, and nothing else.
-   *
-   * The row's own template emits no white space between the three spans -- deliberately,
-   * because a rendered space there would land on one side of a middot and not the other --
-   * and the separator that replaces it is absolutely positioned, so it is not in the text
-   * either. The consequence is easy to miss: for line-breaking purposes the row is the
-   * single unbreakable run 30degUV7Sonnig, with no position in it where a break is
-   * *allowed*. overflow-wrap: break-word then has nothing to work with except emergency
-   * breaks, and emergency breaks land wherever the line happens to run out.
-   *
-   * Measured at a 98px row and 20px text, that rendered as 30deg / UV | 7 . Sonni | g --
-   * every chip severed mid-token, which is the same thing the maintainer objected to when
-   * he reported a condition reading Regner. With a break opportunity here it is
-   * 30deg | UV7 | Sonnig, each chip whole on its own line, and the separator leads the
-   * continuation exactly as the countdown's middot does.
-   *
-   * A zero-width space is the whole mechanism: line-break class ZW, so it is a break
-   * opportunity and contributes no width, no ink and no rendered character. It is
-   * generated content, so it does not reach textContent and cannot move a DOM golden. It
-   * also lowers the wrapper's min-content width from the whole run to the widest single
-   * chip, which is a second, quieter improvement -- the row can now shrink to something
-   * it can actually lay out.
-   *
-   * Scoped to the row placement like everything else here, so the list view's title badge
-   * keeps rendering 30degUV4Sunny run together.
-   */
-  .time-location .event-weather .event-weather-text > span::after {
-    content: '\\200B';
+    content: '\\2060·\\200B';
+    margin-inline-start: 4px;
+    margin-inline-end: 4px;
   }
 
   /*
