@@ -22,6 +22,25 @@ right. That is why running something worked, why a second look never did, and wh
 _person_ is a third instrument distinct from both — they bring a different model, which is
 the only thing that can disagree.
 
+**But count discriminating power, not agreeing checks.** The eager path being unchanged by
+nine languages was reported as _"measured four independent ways"_. It was not: one
+counterfactual — empty every translation file, rebuild, compare hashes — plus three
+consistency checks that share its mechanism. The ordering is strict:
+
+|                              | catches _the card contains those strings_ | catches _the card contains a derivative_             |
+| ---------------------------- | ----------------------------------------- | ---------------------------------------------------- |
+| empty-and-rebuild            | yes                                       | **yes**                                              |
+| string-presence + control    | yes                                       | no                                                   |
+| stability across nine merges | yes                                       | no — observational, confounded by nine other changes |
+
+Anything failing the lower rows fails the top one; the converse is false. So the evidence
+was **one dominant measurement**, and the three agreeing checks added confidence without
+adding discrimination. **This is the same error as three confident figures on identical
+data, in the flattering direction** — and it is harder to notice, because a pile of
+agreeing results feels like corroboration rather than like the single result it actually
+is. Ask which check could have come back different; that one is the evidence, and the rest
+are its consequences.
+
 **Three instruments worked across this whole file; nothing else did.** **Run it** — execute
 the claim rather than inspecting the thing that makes it. **Derive it a second way** — a
 different route to the same number, where agreement is evidence and disagreement is a
