@@ -104,5 +104,10 @@
   "event.font_size": "Veľkosť písma",
   "event.color": "Farba",
   "tap_action": "Akcia kliknutia",
-  "hold_action": "Akcia podržania"
+  "hold_action": "Akcia podržania",
+  "panel.calendars": "Kalendáre",
+  "calendars": "Kalendáre",
+  "panel.layout": "Rozloženie",
+  "panel.events": "Udalosti",
+  "panel.weather": "Počasie"
 }

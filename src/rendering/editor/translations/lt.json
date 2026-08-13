@@ -104,5 +104,10 @@
   "event.font_size": "Šrifto dydis",
   "event.color": "Spalva",
   "tap_action": "Paliesti veiksmas",
-  "hold_action": "Laikyti veiksmas"
+  "hold_action": "Laikyti veiksmas",
+  "panel.calendars": "Kalendoriai",
+  "calendars": "Kalendoriai",
+  "panel.layout": "Išdėstymas",
+  "panel.events": "Įvykiai",
+  "panel.weather": "Orai"
 }

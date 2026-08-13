@@ -15,6 +15,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { computeHelper, computeLabel, lookup } from '../src/rendering/editor/localize';
+import { PANELS } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import deEditor from '../src/rendering/editor/translations/de.json';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations/index';
@@ -37,8 +38,28 @@ describe('editor strings resolve in the requested language', () => {
       'Anzahl Tage anzeigen',
     );
     expect(computeHelper('de', 'list', { name: 'compact_mode', selector: { boolean: {} } })).toBe(
-      EDITOR_STRINGS['compact_mode.helper'],
+      deEditor['compact_mode.helper'],
     );
+  });
+
+  it('translates the first-screen German editor chrome', () => {
+    const chromeKeys = [
+      'search',
+      'customized_only',
+      'customized_only.helper',
+      ...PANELS.flatMap((panel) => [panel.titleKey, `${panel.titleKey}.helper`]),
+      'calendars',
+      'calendars.helper',
+      'entity.customised',
+      'entity.unconfigured',
+      'entity.copy',
+      'entity.paste',
+    ];
+
+    for (const key of chromeKeys) {
+      expect(deEditor, `German should translate ${key}`).toHaveProperty(key);
+      expect(lookup('de', key), key).toBe(deEditor[key as keyof typeof deEditor]);
+    }
   });
 
   it('falls back to English per key, not per language', () => {
@@ -65,6 +86,27 @@ describe('editor strings resolve in the requested language', () => {
     // silently renders English.
     expect(lookup('DE', 'days_to_show')).toBe('Anzahl Tage anzeigen');
     expect(lookup('en-GB', 'title_color')).toBe('Title colour');
+  });
+
+  it('keeps partial languages readable when a panel helper is untranslated', () => {
+    expect(lookup('sv', 'panel.weather')).toBe('Väder');
+    expect(EDITOR_LANGUAGE_STRINGS.sv).not.toHaveProperty('panel.weather.helper');
+    expect(lookup('sv', 'panel.weather.helper')).toBe(EDITOR_STRINGS['panel.weather.helper']);
+  });
+
+  it('states compact-mode scope only when the active view needs it', () => {
+    const compactGroup = {
+      type: 'expandable' as const,
+      name: 'compact_mode',
+      titleKey: 'compact_mode',
+      schema: [],
+    };
+
+    expect(computeHelper('en', 'list', compactGroup)).toBe(EDITOR_STRINGS['compact_mode.helper']);
+    expect(computeHelper('en', 'column', compactGroup)).toBe(
+      `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
+    );
+    expect(computeHelper('en', 'column', compactGroup)).not.toContain('⚠️');
   });
 
   it('returns undefined for a key nothing defines', () => {

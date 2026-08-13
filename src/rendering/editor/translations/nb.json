@@ -104,5 +104,10 @@
   "event.font_size": "Skriftstørrelse",
   "event.color": "Farge",
   "tap_action": "Trykkehandling",
-  "hold_action": "Holdehandling"
+  "hold_action": "Holdehandling",
+  "panel.calendars": "Kalendere",
+  "calendars": "Kalendere",
+  "panel.layout": "Layout",
+  "panel.events": "Hendelser",
+  "panel.weather": "Vær"
 }

@@ -104,5 +104,10 @@
   "event.font_size": "Fontstorlek",
   "event.color": "Färg",
   "tap_action": "Tryckåtgärd",
-  "hold_action": "Hållåtgärd"
+  "hold_action": "Hållåtgärd",
+  "panel.calendars": "Kalendrar",
+  "calendars": "Kalendrar",
+  "panel.layout": "Layout",
+  "panel.events": "Händelser",
+  "panel.weather": "Väder"
 }

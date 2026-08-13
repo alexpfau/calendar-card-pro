@@ -104,5 +104,10 @@
   "event.font_size": "Fonta izmērs",
   "event.color": "Krāsa",
   "tap_action": "Pieskāriena darbība",
-  "hold_action": "Turēšanas darbība"
+  "hold_action": "Turēšanas darbība",
+  "panel.calendars": "Kalendāri",
+  "calendars": "Kalendāri",
+  "panel.layout": "Izkārtojums",
+  "panel.events": "Notikumi",
+  "panel.weather": "Laikapstākļi"
 }

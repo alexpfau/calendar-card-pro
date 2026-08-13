@@ -104,5 +104,10 @@
   "event.font_size": "Rozmiar Czcionki",
   "event.color": "Kolor",
   "tap_action": "Akcja Dotknięcia",
-  "hold_action": "Akcja Przytrzymania"
+  "hold_action": "Akcja Przytrzymania",
+  "panel.calendars": "Kalendarze",
+  "calendars": "Kalendarze",
+  "panel.layout": "Układ",
+  "panel.events": "Wydarzenia",
+  "panel.weather": "Pogoda"
 }

@@ -543,9 +543,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // expecting compact mode to shorten their column card. Reported from the live editor.
   // The reason is kept, because "has no effect" alone invites someone to file it as a bug.
   'scope.list_only.compact_mode':
-    '⚠️ These have no effect in column view. They shorten the list layout, which this ' +
-    'card also uses on narrow screens, so they still apply there — but a column grows ' +
-    'sideways, so a limit would delete whole days rather than shorten the card.',
+    'No effect in column view. These only shorten the list layout, which also appears ' +
+    'on narrow screens; in columns, limits would remove whole days instead.',
 };
 
 /**

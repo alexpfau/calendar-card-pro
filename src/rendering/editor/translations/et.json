@@ -104,5 +104,10 @@
   "event.font_size": "Fondi suurus",
   "event.color": "Värv",
   "tap_action": "Puudutuse tegevus",
-  "hold_action": "Hoidmise tegevus"
+  "hold_action": "Hoidmise tegevus",
+  "panel.calendars": "Kalendrid",
+  "calendars": "Kalendrid",
+  "panel.layout": "Paigutus",
+  "panel.events": "Sündmused",
+  "panel.weather": "Ilm"
 }

@@ -104,5 +104,10 @@
   "event.font_size": "Dimensione font",
   "event.color": "Colore",
   "tap_action": "Azione tap",
-  "hold_action": "Azione pressione prolungata"
+  "hold_action": "Azione pressione prolungata",
+  "panel.calendars": "Calendari",
+  "calendars": "Calendari",
+  "panel.layout": "Layout",
+  "panel.events": "Eventi",
+  "panel.weather": "Meteo"
 }
