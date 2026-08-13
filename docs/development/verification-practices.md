@@ -753,6 +753,20 @@ the extent of the problem. The instance is evidence that the class exists; it is
 evidence of the class's size. After finding one, the next step is to enumerate the
 population, not to record the lesson and move on.
 
+**And the mechanism is not carelessness — it is diligence pointed one level too low.** One of
+the affected sessions put it exactly: *a report is a sample, and the instinct to verify a
+report is precisely what stops you enumerating the population.* Confirming the reported case
+is the responsible move, it succeeds, it consumes the attention, and it returns a reassuring
+answer — after which nothing in the situation asks the second question, **because an incident
+presents itself as an incident.** In the end six sessions were affected and I learned the
+count only by being told five more times.
+
+`git worktree list` would have cost nothing and was available throughout. So the failure was
+not a missing capability but **a missing prompt** — which is the shape shared by every
+integration and coverage gap recorded here. It is also the strongest evidence in this file
+for its own thesis: the lesson from the first report was **already written down, by me, in
+this document**, and it did not fire. Knowledge does not fire. Mechanisms do.
+
 **Shared mutable state makes a measurement void without making it look void.** The dev
 deploy slot and the live test dashboard are both shared across concurrent sessions, and
 three separate failures came from it in one evening: a capture that turned out to have
