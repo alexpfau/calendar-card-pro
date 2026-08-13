@@ -42,9 +42,14 @@ Home Assistant's own translations are the register an HA card editor should be w
 and they are the only per-language oracle available. They are not authoritative.
 
 > **Rule 1 — reject any HA value byte-identical to its English.** That is HA's own
-> translation gap, not evidence. Latvian's table is ~20% English, so without this guard
-> the oracle degrades the language it is least able to help. Applied across the terms
-> below it fires **17 times**, eight of them Latvian.
+> translation gap, not evidence. Without this guard the oracle degrades the language it
+> is least able to help.
+>
+> ⚠️ **Both figures this rule originally cited are stale — see the correction below
+> before quoting either.** It said Latvian's table is ~20% English and that Rule 1
+> fires 17 times, eight of them Latvian. On the current corpus Latvian is **43.7%**
+> and it fires **16 times, nine of them Latvian** — and Norwegian and Polish have
+> since joined Latvian as weak oracles, so Rule 1 applies to them too.
 
 > **Both those figures are stale, and the direction of the error matters.** They reproduce
 > **exactly** — all nine languages, to the decimal — on wheel `20250109.2`'s **root table
