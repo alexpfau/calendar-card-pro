@@ -1005,6 +1005,37 @@ async function checkEditorTranslations(languages) {
 // ---------------------------------------------------------------------------
 
 /**
+ * Keys whose value is the same in every language, because it is not language at all.
+ *
+ * A comparison symbol with a placeholder (`≥ {width} px`, `< {width} px`) and the name of
+ * an ISO standard (`ISO 8601`) do not translate into anything, in any of the nine. They
+ * are exempt by **key**, so a language reaching full coverage needs no entry for them.
+ *
+ * **This is the second mechanism the `lang:key` list below anticipated**, added by the
+ * Baltic session (Stage 1) at the point that list predicted. The note it replaces put the
+ * threshold at "three entries is not yet worth a second mechanism" and expected the list to
+ * grow by 27; by the time `et`, `lt` and `lv` merged, `de`, `pl`, `sv` and `nb` had already
+ * contributed **twelve** such entries and `it` and `sk` owed six more. All twelve are
+ * retired here, and the six are never written.
+ *
+ * The bar for adding a key here is higher than for the list below, and deliberately so: a
+ * `lang:key` entry claims *this language* keeps the English word, which is a claim about
+ * one language and is reviewed as such. An entry **here** claims no language will ever
+ * translate it, which is unfalsifiable from inside any single session. Keep it to symbols,
+ * numerals and proper names of standards — anything that is a *word*, however
+ * international it looks, belongs below where one language owns it.
+ *
+ * Falsifier, thirty seconds: delete any line from this set and run the script. It errors
+ * once per language at full coverage — six of them today, not one, which is the whole
+ * argument for the set existing.
+ */
+const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
+  'width_table.at_least',
+  'width_table.below',
+  'week_number_mode.option.iso.label',
+]);
+
+/**
  * Values that are legitimately byte-identical to their English.
  *
  * Keyed `lang:key`, and deliberately tiny. Every entry is a loanword the language
@@ -1068,11 +1099,6 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
  * is keyed by bare key and consulted first, so it already covers the five languages still
  * to come.
  */
-const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
-  'width_table.at_least',
-  'width_table.below',
-  'week_number_mode.option.iso.label',
-]);
 
 /**
  * Keys where the decided term is deliberately *qualified* rather than used bare.
@@ -1096,10 +1122,14 @@ const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
  * Falsifier, thirty seconds: set `pl:today_indicator_icon` to the bare `Ikona` and run
  * this script. The collapsed-label warning it raises is the defect this entry avoids.
  *
- * **Polish and Slovak reached this independently, which is the strongest evidence in this
- * file that it is the right shape.** Both sessions found the same collision, rejected the
- * same alternative for the same reason, and landed on the same sibling-consistency
- * argument before either had seen the other's work.
+ * **Five languages now, and that is the finding rather than a coincidence.** Polish,
+ * Estonian, Lithuanian and Latvian have no articles, so every one of them hits this key;
+ * German is the only one of the five so far that escapes, and only because German has an
+ * article to spend. Italian and Slovak should expect it too — Italian can spell the
+ * distinction (`Un'icona`), Slovak cannot. The Baltic session arrived at the opposite fix
+ * first — naming what the picker offers, `MDI ikoon` — and dropped it on merge: it adds
+ * information the English does not carry, and one repo-wide answer to a repo-wide problem
+ * is worth more than a locally defensible second one.
  */
 const GLOSSARY_QUALIFIED_OK = new Set([
   // Polish, Stage 1. `Ikona` alone collides with `entity.label_type.option.icon.label`
@@ -1109,6 +1139,13 @@ const GLOSSARY_QUALIFIED_OK = new Set([
   // Slovak, Stage 1. Identical collision, identical resolution: the siblings read
   // `Farba identifikátora`, `Veľkosť identifikátora`, `Poloha identifikátora`.
   'sk:today_indicator_icon',
+  // Estonian, Lithuanian and Latvian, Stage 1 — the same collision, the same fix. Each
+  // language's three sibling fields are already qualified (`Indikaatori värv`,
+  // `Indikatoriaus spalva`, `Indikatora krāsa`), so the qualified form is the consistent
+  // one here as well.
+  'et:today_indicator_icon',
+  'lt:today_indicator_icon',
+  'lv:today_indicator_icon',
 ]);
 
 /**

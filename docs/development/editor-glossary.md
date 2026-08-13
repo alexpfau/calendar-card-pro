@@ -44,6 +44,38 @@ and they are the only per-language oracle available. They are not authoritative.
 > the oracle degrades the language it is least able to help. Applied across the terms
 > below it fires **17 times**, eight of them Latvian.
 
+> **Both those figures are stale, and the direction of the error matters.** They reproduce
+> **exactly** — all nine languages, to the decimal — on wheel `20250109.2`'s **root table
+> only** (1,462 English keys): `lv 300 (20.5%)`, `de 86 (5.9%)`, `nb 55 (3.8%)`,
+> `it 50 (3.4%)`, `sv 47 (3.2%)`, `et 36 (2.5%)`, `sk 32 (2.2%)`, `pl 25 (1.7%)`,
+> `lt 14 (1.0%)`. That is the corpus this document's own header says was superseded, read
+> the narrow way §3.4 of the plan corrected. Re-measured on a live HA **2026.8.1** frontend
+> (8,474 English keys, every fragment):
+>
+> |        | glossary says | root table, current | **all fragments, current** |
+> | ------ | ------------: | ------------------: | -------------------------: |
+> | lv     |         20.5% |               39.8% |                  **43.7%** |
+> | **nb** |          3.8% |               27.0% |                  **35.0%** |
+> | **pl** |          1.7% |               11.5% |                  **14.6%** |
+> | de     |          5.9% |                5.7% |                       5.4% |
+> | it     |          3.4% |                6.1% |                       4.6% |
+> | sv     |          3.2% |                3.5% |                       3.2% |
+> | sk     |          2.2% |                2.5% |                       3.0% |
+> | et     |          2.5% |                2.6% |                   **2.0%** |
+> | lt     |          1.0% |                1.7% |                   **1.8%** |
+>
+> Not a rounding drift: **Norwegian and Polish have joined Latvian as weak oracles** while
+> this table still calls them strong, because HA kept adding keys and those two stopped
+> keeping up. The identical values are genuine untranslated English, not proper nouns —
+> 1,401 of Latvian's and 1,147 of Norwegian's are English sentences of four words or more.
+> **The `nb` and `pl` sessions should read Rule 1 as applying to them**, not only to `lv`.
+> Estonian and Lithuanian remain the two strongest tables in the nine.
+>
+> Rule 1's firing count across the terms below is **16 on the current corpus, nine of them
+> Latvian** — was 17/8. Re-derive with `scripts/l10n-oracle.mjs`; §7 has the corpus pin,
+> and the count moves with the corpus, so treat the ratio rather than the integer as the
+> finding.
+
 > **Rule 1 has a false-positive class, and it matters.** `Position` in German and Swedish,
 > and `Layout` in German and Swedish, are byte-identical to the English _because the word
 > is the same in those languages_. Rule 1 correctly refuses them **as evidence** — it
@@ -56,6 +88,32 @@ and they are the only per-language oracle available. They are not authoritative.
 > `Keine Labels verfügbar`, `Label konnte nicht erstellt werden` — where a genuine gap
 > reads `Add label`. The test is mechanical, it costs one extra lookup, and it is what
 > decided the German `label` entry below. Use it before concluding a term has no evidence.
+
+> **Rule 1 also has a false-_negative_ class, and for Latvian it is the larger problem.**
+> The rule is applied at **one key per term** — the highest-ranked key carrying that
+> English. When Latvian's gap happens to land on _that_ key, the term reads as "HA has no
+> Latvian" while HA translates it perfectly at a sibling key with the same English.
+> Measured over the 29 `EDITOR_STRINGS` English strings that occur in HA at all:
+>
+> |     | translated at every key | **gap at one key, translated at another** | untranslated everywhere |
+> | --- | ----------------------: | ----------------------------------------: | ----------------------: |
+> | lv  |                      11 |                                    **16** |                       2 |
+> | et  |                      29 |                                         0 |                       0 |
+> | lt  |                      29 |                                         0 |                       0 |
+>
+> So for Latvian the single-key reading discards usable evidence in **16 of 29** cases —
+> more than half — and it is why the `lv` handoff mined 5 strings where `et` and `lt` mined 9. `List` is the worked example: `ui.components.media-browser.list` is untranslated, and
+> `ui.panel.config.automation.editor.triggers.type.list.label` says **`Saraksts`** — which
+> is what the `list` entry below had already reached by judgement, with HA recorded as
+> silent. It was not silent; it was asked at one key.
+>
+> Falsifier, thirty seconds:
+> `EXACT=1 LOOKUP_LANGS=lv node ha-lookup.mjs List` over the corpus prints both keys.
+>
+> **Recovery is evidence, not an answer.** A sibling key sharing an English string may be a
+> different domain sense, so Rule 2 still applies to whatever comes back — `None` recovers
+> as `Nenorādīts` from a _period selector_ and `Label` as `Birka` from the _target_ picker,
+> and neither is right here. Widen the lookup, then judge.
 
 > **Rule 2 — the domain sense wins.** Look a term up at a _calendar_ key wherever one
 > exists. This is not a nicety; it reverses conclusions. Reading `event` at HA's `event`
@@ -538,12 +596,12 @@ evidence independently.
 
 ### day header — the date row heading each day's events
 
-**No evidence in any source.** Genuinely undecided in three languages, and one of the
+**No evidence in any source.** All nine now decided — the two halves of this row were filled by different sessions and neither side of the merge had them all. Still one of the
 highest-risk terms precisely because nothing external will arbitrate it.
 
-|             | de               | et  | it                      | lt  | lv  | nb            | pl            | sk           | sv        |
-| ----------- | ---------------- | --- | ----------------------- | --- | --- | ------------- | ------------- | ------------ | --------- |
-| **Decided** | Tagesüberschrift | —   | Intestazione del giorno | —   | —   | Dagoverskrift | Nagłówek dnia | Hlavička dňa | Dagrubrik |
+|             | de               | et        | it                      | lt              | lv             | nb            | pl            | sk           | sv        |
+| ----------- | ---------------- | --------- | ----------------------- | --------------- | -------------- | ------------- | ------------- | ------------ | --------- |
+| **Decided** | Tagesüberschrift | Päevapäis | Intestazione del giorno | Dienos antraštė | Dienas galvene | Dagoverskrift | Nagłówek dnia | Hlavička dňa | Dagrubrik |
 
 Constraint for whoever decides it: it heads a _day_, not a column and not a card, and the
 same word must be used in `panel.day_header` and in every `day_header_*` key.
@@ -773,15 +831,31 @@ both.
 (`Przezroczystość`) — the semantically inverted concept. A slider labelled _transparency_
 whose higher values make things more solid is a defect, so HA cannot be copied here.
 
-|             | de        | et  | it      | lt  | lv  | nb       | pl     | sk             | sv       |
-| ----------- | --------- | --- | ------- | --- | --- | -------- | ------ | -------------- | -------- |
-| **Decided** | Deckkraft | —   | Opacità | —   | —   | —        | Krycie | Nepriehľadnosť | Opacitet |
-|             | de        | et  | it      | lt  | lv  | nb       | pl     | sk             | sv       |
-| ----------- | --------- | --- | ------- | --- | --- | -------- | ---    | -------------- | -------- |
-| **Decided** | Deckkraft | —   | Opacità | —   | —   | Opasitet | —      | Nepriehľadnosť | Opacitet |
+**It is worse than that: HA inverts it in Estonian and Latvian too, and both of our files
+had already copied the inversion.** Measured at HA's only _Opacity_ key,
+`ui.panel.lovelace.editor.edit_section.settings.background_opacity`: et `Läbipaistvus`,
+lv `Caurrspīdīgums` — the latter also misspelt, with a doubled `r`. Our editor shipped
+`Sündmuse tausta läbipaistvus` and `Notikuma fona caurspīdīgums` at
+`event_background_opacity`, so **five of the nine had HA's inversion and two of them were
+already shipping it**. Lithuanian was the one that had it right (`Nepermatomumas`) and is
+the reason the decided forms below are the plain negated-transparency nouns the three
+languages' graphics tools use.
 
-The four remaining blanks need a native decision: either the language's genuine opacity
-word, or a rephrasing of the label so the inversion cannot arise. Do not copy HA's.
+|             | de        | et     | it      | lt             | lv              | nb       | pl     | sk             | sv       |
+| ----------- | --------- | ------ | ------- | -------------- | --------------- | -------- | ------ | -------------- | -------- |
+| **Decided** | Deckkraft | Katvus | Opacità | Nepermatomumas | Necaurspīdīgums | Opasitet | Krycie | Nepriehľadnosť | Opacitet |
+
+**Rejected:** et `Läbipaistvus`; lt `Skaidrumas`; lv `Caurspīdīgums`
+
+The rejections are safe against the decided Latvian form, and deliberately so: the check
+matches a rejected form at a **word start**, so `Caurspīdīgums` cannot fire inside
+`Necaurspīdīgums`, where it is preceded by a letter. That is the same property that lets
+German reject `Zeit` without breaking `Uhrzeit`.
+
+**All nine are now decided, and not one of them could copy Home Assistant.** That is the
+strongest single result in this document: five languages found HA's term inverted
+outright, and the other four had no HA term at all. An entry that began as one language's
+observation about Lithuanian turned out to describe the whole table.
 
 **Polish decided by the Polish session (Stage 1): `Krycie`. The trap is confirmed, and
 the obvious secondary source is wrong.** HA Polish renders `Background opacity` as
@@ -812,14 +886,20 @@ more _krycie_ is more cover, where more _nie-przezroczystość_ is less-see-thro
 > question has a primary artefact, read the artefact** — this is the §"look at the
 > artefact with the metric switched off" discipline applied to an oracle rather than to a
 > measurement, and it cost thirty seconds.
-> **Norwegian decided by the `sv`/`nb` session (Stage 1): `Opasitet`**, and the trap this
-> entry warns about is exactly why. HA Norwegian's `gjennomsiktighet` is _transparency_, the
-> inverted concept, so it is unusable. The two native alternatives both fail on other grounds:
-> `ugjennomsiktighet` is the correct antonym and unusably clumsy for a slider label, and
-> `dekkevne` — the word Norwegian graphics software uses — is a paint metaphor that reads
-> oddly against a background tint. `Opasitet` is in Bokmålsordboka, and it is what the file
-> **already used** in `Hendelse bakgrunnsopasitet`, so the term was in effect chosen by the
-> original contributor; this entry records it rather than introducing it.
+
+**Norwegian decided by the `sv`/`nb` session (Stage 1): `Opasitet`**, and the trap this
+entry warns about is exactly why. HA Norwegian's `gjennomsiktighet` is _transparency_, the
+inverted concept, so it is unusable. The two native alternatives both fail on other grounds:
+`ugjennomsiktighet` is the correct antonym and unusably clumsy for a slider label, and
+`dekkevne` — the word Norwegian graphics software uses — is a paint metaphor that reads
+oddly against a background tint. `Opasitet` is in Bokmålsordboka, and it is what the file
+**already used** in `Hendelse bakgrunnsopasitet`, so the term was in effect chosen by the
+original contributor; this entry records it rather than introducing it.
+
+**Estonian, Lithuanian and Latvian decided by the Baltic session (Stage 1)**, on the same
+primary-artefact grounds Polish used: `Katvus`, `Nepermatomumas` and `Necaurspīdīgums` are
+what each language's graphics tools put on an opacity control. Lithuanian's was already
+correct in our file and is the one that showed the other two were not.
 
 ### show / hide — the verbs on every toggle
 
@@ -858,9 +938,9 @@ all three.
 
 |             | de   | et     | it  | lt   | lv  | nb    | pl   | sk  | sv    |
 | ----------- | ---- | ------ | --- | ---- | --- | ----- | ---- | --- | ----- |
-| **Decided** | Ohne | Puudub | —   | Nėra | —   | Ingen | Brak | —   | Ingen |
+| **Decided** | Ohne | Puudub | —   | Nėra | Nav | Ingen | Brak | —   | Ingen |
 
-Italian, Latvian and Slovak must decide **per key**. Slovak's `Žiadna` is feminine and HA's
+Italian and Slovak must decide **per key**. Slovak's `Žiadna` is feminine and HA's
 is `Žiadny`; which is right depends on the noun, and may differ between the three.
 
 **German decided by the German session (Stage 1): `Ohne`, and one form does cover all
@@ -1003,20 +1083,24 @@ Named rather than papered over.
   card-versus-editor disagreement was two different contexts being compared.
 - **Slovak `Žiadna` versus `Žiadny`,** per key. It depends on the gender of the noun each
   option modifies and may differ between the three keys.
-- **The four undecided cells** — German `label`, German and Norwegian `today indicator`,
-  five languages' `opacity`, eight languages' `day header`. These are marked `—` rather
-  than guessed, and the sessions that own those languages must decide and record them.
-  _(German's three and Polish's two are now decided; `opacity` has four blanks left and
-  `day header` seven.)_
 - **Polish `Krycie` against `Nieprzezroczystość`.** Decided on GIMP's usage, length and
   the absence of a negation to parse — but Krita's Polish translators, equally native,
   chose the other one uniformly. Two native sources disagreeing is not something a third
   artefact settles; see the `opacity` entry. One Polish speaker resolves it in a sentence.
-- **The remaining undecided cells** — four languages' `opacity`, six languages'
-  `day header`. These are marked `—` rather than guessed, and the sessions that own those
-  languages must decide and record them. German `label`, German and Norwegian
-  `today indicator`, Norwegian `opacity` and Swedish and Norwegian `day header` have since
-  been decided by their Stage 1 sessions.
+- **The remaining undecided cells** — `day header` and `none`, in `it` and `sk` only.
+  These are marked `—` rather than guessed, and the two sessions that own those languages
+  must decide and record them. Everything else this section once listed has since been
+  decided by a Stage 1 session: `label`, `today indicator` and `opacity` are now complete
+  across all nine, and `opacity` is the notable one — **not one of the nine could copy
+  Home Assistant**, five because HA's term is inverted and four because HA has none.
+- **Whether the seven completed languages read as native.** Reaching 312/312 with zero
+  mechanical warnings is a statement about structure, not about quality — §8.3 of the plan
+  is explicit that no check here can catch a fluent, well-formed, wrong sentence, and the
+  62 prose helpers are where such an error would be least visible because nothing
+  cross-checks a sentence. **Latvian carries the most residue**: it has no in-repo second
+  opinion, and its HA table is now measured at **43.7%** untranslated English rather than
+  the 20.5% this document recorded, so its oracle was thinnest exactly where the risk is
+  highest.
 
 ## 7. Evidence Index — Every Term's HA Key
 
