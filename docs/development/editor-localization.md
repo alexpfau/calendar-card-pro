@@ -909,6 +909,40 @@ by each simulation's ratio gives **+43,000 to +57,000 gzip**.
 > **Best estimate: the editor chunk goes from 45,486 to ~79,000–93,000 gzip — roughly
 > double, +34 to +47 KB.**
 
+#### 9.2.1 Measured at real full coverage — the estimate held
+
+§12 listed this as unresolvable until a language was genuinely complete and said to
+re-measure rather than trust the projection. All nine are now at **312 / 312**, so it is
+resolved. Two real builds, same method as above (`npx rollup -c`, `gzip -9`):
+
+| build                                  |  editor raw | editor gzip |
+| -------------------------------------- | ----------: | ----------: |
+| translations emptied to `{}`           |     110,734 |      36,000 |
+| **real full coverage, nine languages** | **292,653** |  **81,979** |
+
+**81,979 falls inside the predicted 79,000–93,000, near the lower end.** The rise from the
+45,486 measured mid-way is **+36,493 gzip**, inside the projected +34 to +47 KB.
+
+The emptied row reproduces §9.2's emptied row to the byte — 110,734 / 36,000 — which is
+worth stating because it establishes the two measurements are commensurable rather than
+merely similar-looking.
+
+**Both simulations overestimated, including the one argued to be the more realistic.**
+Simulation C predicted 85,862 gzip against a real 81,979, high by 3,883 (4.5%); A predicted
+95,227, high by 16%. So the bracketing worked, and the honest reading is that synthetic text
+built from real vocabulary still compresses worse than the real thing — C preserved
+word-level repetition but not the phrase-level repetition that real UI strings carry, where
+the same handful of patterns recur across a hundred labels.
+
+**And §9.1's zero-cost claim now holds against real data rather than synthetic.** The card
+chunk is **byte-identical at 187,554 raw / 56,792 gzip** whether every editor translation
+file contains `{}` or all 2,808 real strings. Verified by emptying them, building, restoring,
+and building again in one pass. (It differs from §9.1's 187,849 / 56,845 because unrelated
+`styles.ts` work landed in between; the invariant being tested is that _translations_ do not
+move it, and they do not.)
+
+Full localization costs every dashboard load **zero**, measured, at full coverage.
+
 ### 9.3 The earlier decision does not flip — and the brief's figure is wrong
 
 **There is no ~8.4 KB measurement in the repo.** The brief appears to merge two separate
@@ -1107,6 +1141,10 @@ Recorded because the brief asked for them explicitly.
   synthetic text and is honest about that. It resolves exactly when the first language is
   genuinely complete — **re-measure after Stage 1's first session** rather than trusting
   the estimate.
+
+  > **Resolved.** All nine reached 312/312 and it was measured: **81,979 gzip**, inside the
+  > predicted 79,000–93,000. Both simulations ran high, C by 4.5%. §9.2.1.
+
 - **The wheel is `20250109.2`.** A newer HA frontend would shift the oracle's coverage
   slightly. Nothing in the plan depends on the exact version, but the terminology decisions
   should record the version they were taken against.
