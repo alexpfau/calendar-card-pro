@@ -118,8 +118,6 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       config.weather?.date?.color || 'var(--primary-text-color)',
     '--calendar-card-weather-event-icon-size': config.weather?.event?.icon_size || '14px',
     '--calendar-card-weather-event-font-size': config.weather?.event?.font_size || '12px',
-    '--calendar-card-weather-event-color':
-      config.weather?.event?.color || 'var(--secondary-text-color)',
     // Read with a fallback rather than from the merged default, because `setConfig`
     // merges shallowly: a user's `weather:` block replaces DEFAULT_CONFIG's whole
     // sub-tree, so `weather.event.max_lines` is absent from any config that configures
@@ -151,6 +149,24 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
 
   if (config.title_color) {
     props['--calendar-card-color-title'] = config.title_color;
+  }
+
+  // The event weather colour is emitted only when the user set one, for exactly the
+  // reason the progress bar's width is: the two placements want different defaults, and
+  // an unconditionally-emitted value is indistinguishable from a deliberate choice.
+  //
+  // The badge sits beside different text in each view. In the list it is inside
+  // `summary-row`, next to the primary-coloured event title; in column view it is a row
+  // inside `.time-location`, next to the secondary-coloured time and location. Baking
+  // `var(--secondary-text-color)` in here made the column's answer the only answer — and
+  // because the only CSS reading it was scoped to `.time-location`, the list got neither
+  // the colour nor the font size. It had lost its inline styles in the same move, so
+  // `weather.event.color` and `weather.event.font_size` were dead there: at defaults the
+  // badge silently inherited the event row instead of rendering at 12px.
+  //
+  // Left absent, each placement's `var()` reaches its own fallback.
+  if (config.weather?.event?.color) {
+    props['--calendar-card-weather-event-color'] = config.weather.event.color;
   }
 
   return props;
@@ -712,6 +728,39 @@ export const cardStyles = css`
   .event-weather ha-icon {
     margin-right: 2px;
     --mdc-icon-size: var(--calendar-card-weather-event-icon-size, 14px);
+    color: var(--calendar-card-weather-event-color, var(--primary-text-color));
+  }
+
+  /*
+   * Size and colour for the summary-row placement -- i.e. list view.
+   *
+   * Unscoped on purpose. The column view's equivalents live under
+   * .time-location .event-weather and win on specificity, so this pair is what the list
+   * actually gets. Both selectors are needed because the badge is only ever in one of
+   * two containers and nothing else in the card carries .event-weather.
+   *
+   * These existed only in the .time-location form for a while, which meant the list view
+   * consumed neither: it had already lost the inline font-size / color the renderer used
+   * to write, so weather.event.font_size and weather.event.color did nothing there and
+   * the badge inherited the event row at defaults. The scoped rules looked complete
+   * because column view -- the view being worked on -- was correct.
+   *
+   * The fallback is --primary-text-color, not the column's --secondary-text-color. That
+   * is not an inconsistency: here the badge sits beside the primary-coloured event
+   * title, and in column view beside the secondary-coloured time and location rows. The
+   * fallback follows what the badge sits next to, which is why the host property is
+   * emitted only when the user sets one.
+   *
+   * NOTE: no backticks in this file's comments -- the stylesheet is a css tagged
+   * template, so a backtick terminates it. That is a syntax error rather than a subtle
+   * one, but it costs a build.
+   */
+  .event-weather .event-weather-text {
+    color: var(--calendar-card-weather-event-color, var(--primary-text-color));
+  }
+
+  .event-weather .event-weather-text > span {
+    font-size: var(--calendar-card-weather-event-font-size, 12px);
   }
 
   /* ===== TIME, LOCATION & DESCRIPTION STYLES ===== */
