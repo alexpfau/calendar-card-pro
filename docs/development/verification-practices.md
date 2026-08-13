@@ -403,6 +403,31 @@ that lacks the thing, and it arrives attached to a real finding, which lends it 
 The bidirectional self-test caught it only because the *other* sentinel — the must-not-find
 one — was genuinely absent, so the two disagreed.
 
+**The last variant is the sharpest, because the filter is correct and the number is true.**
+Asked whether any of its commits had reached `dev` or `main`, a session filtered the range
+with `git log --grep` on its session trailer and got **2**. Honest, and an answer to a
+narrower question than the one asked: only two of its commits carried the trailer, so the
+rest of the range was invisible to the filter. Reproduced here on the v4 range:
+
+```
+commits in origin/dev..HEAD                     326
+of those carrying a Copilot-Session trailer     215
+```
+
+**A third of the work is outside the filter**, and a `0` computed over the 215 would look
+exactly as reassuring as a `0` over all 326. Nothing is broken: the predicate is right, the
+count is right, and the corpus was silently narrowed by the tool used to select it.
+
+That is the whole evening in one shape. **Not wrong answers — correct answers to adjacent
+questions**, which is precisely why re-reading never caught one: re-reading checks whether
+the answer is right, and it always was. `grep -oc` returning `1` is correct *about lines*. A
+card reading another session's fixtures shows *real* output. `ahead: 0` against a stale ref is
+zero commits *against that ref*. Each is true, and none answers what was asked.
+
+What settled this one was naming the commits and using no pattern at all — the second
+derivation, which is the instrument that keeps working after ten variants have exhausted the
+first.
+
 **A measurement recorded in the present tense will be wrong; label it as a moment instead.**
 A table in the glossary carried a per-language casing percentage under a heading reading
 _"mid-string capitals today"_. Every figure in it was stale within a day, and the fix that
