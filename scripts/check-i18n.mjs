@@ -1041,6 +1041,12 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'de:entity.label',
   'de:view',
 
+  // Swedish and Norwegian, Stage 1. `Layout` is the ordinary word in both — the glossary's
+  // `layout` row records it as the Rule 1 false-positive case, where HA leaves the English
+  // because the loanword *is* the target word rather than because it has no translation.
+  'sv:view',
+  'nb:view',
+
   // Language-independent: a comparison symbol with a placeholder, and a standard's name.
   'de:width_table.at_least',
   'de:width_table.below',
@@ -1049,6 +1055,12 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'pl:width_table.at_least',
   'pl:width_table.below',
   'pl:week_number_mode.option.iso.label',
+  'sv:width_table.at_least',
+  'sv:width_table.below',
+  'sv:week_number_mode.option.iso.label',
+  'nb:width_table.at_least',
+  'nb:width_table.below',
+  'nb:week_number_mode.option.iso.label',
 ]);
 
 /**
@@ -1354,7 +1366,13 @@ function readGlossary() {
   const nounCapsLanguages = new Set();
   let sawAnyCasingRow = false;
   for (const line of casingTable[0].split('\n')) {
-    const cells = line.split('|').map((c) => c.trim());
+    // Emphasis is stripped before the code is matched. The `pl` row is written `| **pl** |`
+    // to mark it as the problem language, and a bare `^[a-z]{2}$` test silently skipped it
+    // — `sawAnyCasingRow` still passed on the other eight, so the guard that exists to
+    // catch a shape change could not see one row losing its shape. Harmless today, because
+    // Polish is not exempt and the cell says `Sentence case` either way; it would not have
+    // been the day someone edited that row expecting it to count.
+    const cells = line.split('|').map((c) => c.trim().replace(/\*\*|_/g, ''));
     if (cells.length < 4 || !/^[a-z]{2}(-[a-z]{2})?$/.test(cells[1])) continue;
     sawAnyCasingRow = true;
     if (/nouns are capitalised/i.test(cells[2])) nounCapsLanguages.add(cells[1]);

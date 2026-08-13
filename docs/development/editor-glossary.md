@@ -98,30 +98,66 @@ that has genuinely finished this lands near 3% rather than at 0%.
 **Weekday casing is unresolved, and the third source makes it more open rather than less.**
 The editor writes `Mandag` / `Søndag`; the card's native-contributed `nb.json` writes
 `mandag` / `søndag`. Swedish says `Måndag` in _both_ files.
+**Weekday casing — resolved by the `sv`/`nb` session (Stage 1). Both editor files were
+already right, and the apparent Norwegian disagreement was an artefact of comparing two
+different contexts.**
 
-Home Assistant capitalises the full weekday name at `ui.weekdays.*` in **all nine
-languages** — `Måndag`, `Mandag`, `Poniedziałek`, `Lunedì`, `Pirmadienis`, `Esmaspäev`,
-`Pondelok`, `Pirmdiena`, `Montag`. Polish and Italian certainly lowercase weekdays in
-running text, so HA is not making an orthographic claim: it is applying the ordinary
-**standalone-label** convention, where a UI label takes an initial capital regardless of
-how the word behaves inside a sentence. HA's corpus has no weekday in sentence context, so
-it cannot arbitrate the other reading.
+The question was correctly reframed as **"does a standalone UI label take an initial
+capital here?"** rather than "does this language capitalise weekdays". Two pieces of
+evidence settle it, and neither was available while the question was still being asked as
+an orthography question.
 
-That changes what is and is not known:
+**1. Home Assistant answers it in the identical control.** The strings at issue are the
+option labels of `first_day_of_week`, a `select` whose values are `system` / `monday` /
+`sunday`. Home Assistant ships that same control on its profile page, and its option
+labels are `ui.panel.profile.first_weekday.values.*` — **`Måndag` (sv), `Mandag` (nb)**.
+Not the generic `ui.weekdays.*` cited earlier but the same widget for the same purpose, so
+it needs no argument from analogy.
 
-- **Swedish "both are probably wrong" is not supported.** Three independent sources — the
-  card's Swedish contributor, the editor's, and HA's — all write `Måndag`. Agreement
-  across three is weak evidence of correctness, but it is not evidence of error, and the
-  earlier wording asserted error.
-- **Norwegian is a genuine disagreement between two native sources**, not a settled
-  question with the card on the right side. HA's Norwegian contributors wrote `Mandag`;
-  the card's wrote `mandag`. Both are native choices about the same word.
+**And HA Swedish demonstrates the standalone/prose split inside its own language**, which
+is what makes it a convention rather than carelessness. Same corpus, same contributors:
 
-So the question to put to a native speaker is not "does this language capitalise weekdays"
-— it does not, in prose, and nobody disputes that — but **"does a standalone UI label take
-an initial capital here?"** Those have different answers and the first one was being asked.
-Recorded in §6, still unresolved; do not change either language's weekday casing on the
-strength of this note alone.
+| context                                                 | HA `sv`                       |
+| ------------------------------------------------------- | ----------------------------- |
+| standalone option (`first_weekday.values.monday`)       | `Måndag`                      |
+| string-initial (`backup…schedule_options.mon`)          | `Måndag kl {time}`            |
+| **mid-sentence** (`backup…next_backup_description.mon`) | `nästa **m**åndag kl. {time}` |
+
+So HA Swedish lowercases the weekday in running prose — correct Swedish — and capitalises
+it as a standalone label. That is the standalone-label convention shown, not assumed.
+(HA's Norwegian has no prose evidence: both `backup` strings are untranslated English
+there, so Rule 1 excludes them.)
+
+**2. The Norwegian "disagreement between two native sources" does not exist.** The card's
+`nb.json` carries _two_ weekday arrays, and its contributor applied exactly the same split:
+
+|                  | used at                                     | context          | `nb`     | `sv`     |
+| ---------------- | ------------------------------------------- | ---------------- | -------- | -------- |
+| `daysOfWeek`     | `leaves.ts` — the day header's weekday cell | standalone label | `Man`    | `Mån`    |
+| `fullDaysOfWeek` | `format.ts` — `«{weekday}, 3 mars kl …»`    | running text     | `mandag` | `Måndag` |
+
+The `mandag` that was read as contradicting the editor is the **running-text** form. Its
+actual counterpart — the standalone one — is `Man`, **capitalised, agreeing with the editor
+and with HA**. Two artefacts were compared at different keys and the mismatch was attributed
+to the language.
+
+**Decision: leave both. `Måndag`/`Söndag` (sv) and `Mandag`/`Søndag` (nb) are correct**, and
+this is no longer an open question for a native speaker.
+
+> **Corpus caveat, per §7.** The HA evidence above was read from wheel **`20250109.2`**, not
+> the `20260128.6` this document is otherwise pinned to — `pip` on this machine resolves
+> through the proxy §7 describes, whose index for this package stops there, and the explicit
+> pin fails outright. The corpus reports 5,884 English keys, which is the older-wheel
+> signature §7 gives. Both keys used here (`ui.panel.profile.first_weekday.values.*` and the
+> `backup` schedule strings) are present in it. This row is unlikely to be
+> version-sensitive in the way `location` was — the profile control predates both wheels —
+> but it has **not** been re-read on the newer corpus, and that is the honest state of it.
+
+> **One residual, in the card and therefore out of this document's scope.** Swedish's
+> `fullDaysOfWeek` is `Måndag` — capitalised in a running phrase, where HA Swedish writes
+> `nästa måndag` and where Norwegian's `fullDaysOfWeek` is correctly lowercase. That is a
+> plausible defect in `src/translations/languages/sv.json`, which is native-contributed and
+> on the eager path. Recorded, not touched.
 
 ### 3.1 Casing is not the only orthographic calque — compounding is the other
 
@@ -166,6 +202,55 @@ Lesbarkeit_) where it does not. In practice the simple heads — `Farbe`, `Höhe
 `Wochennummer-Hintergrundfarbe`). Where the qualifier is a whole phrase rather than a noun,
 German prefers the prepositional form to a three-element compound: `Wochentagsfarbe am
 Wochenende`, not `Wochenend-Wochentagsfarbe`.
+
+#### 3.1.1 Measured for `sv` and `nb` — the prediction held
+
+**Both languages carried it, and the calque test is even cleaner than German's.** Measured
+by the `sv`/`nb` session (Stage 1) over the 111 pre-existing strings in each:
+
+| language | wrongly split | of 111 | German's rate for comparison |
+| -------- | ------------: | -----: | ---------------------------: |
+| `nb`     |        **17** |    15% |              24 of 134 (18%) |
+| `sv`     |        **11** |    10% |                            — |
+
+German's test was that the same contributor also wrote compounds correctly, so it is
+rendering rather than ignorance. Here the **same qualifier** appears both ways within a few
+lines of one file, which is the same argument without the inference:
+
+| language | correct, solid                                 | split, adjacent key                    |
+| -------- | ---------------------------------------------- | -------------------------------------- |
+| `nb`     | `Ukenummerfarge` (Week Number Color)           | `Ukenummer bakgrunnsfarge`             |
+| `nb`     | `Fremdriftslinjefarge`, `Fremdriftslinjehøyde` | `Fremdriftslinje bredde`               |
+| `nb`     | `Ukedagsfarge` (Weekday Color)                 | `Helg ukedagsfarge`                    |
+| `sv`     | `Veckodagsfärg` (Weekday Color)                | `Veckonummer färg` (Week Number Color) |
+| `sv`     | `Månadsfärg`                                   | `Helg månadsfärg`                      |
+
+**And the two languages split the _same English string_ differently**, which no knowledge
+gap explains: `UV Index Threshold` is `UV-indextröskel` in Swedish, correctly, and
+`UV-indeks terskel` in Norwegian, wrongly.
+
+The pattern across all 28 is that **the longer the English, the likelier it was rendered
+word by word** — `Week Number Color` survives as a compound where the three-word
+`Week Number Background Color` does not. That is the signature of translating in order
+rather than naming the thing.
+
+**No mechanical check was added, and the German session's reasoning for that is confirmed
+rather than merely inherited.** The candidate enumeration is easy — multi-word labels whose
+non-initial words are lower-case — but it returns 37 candidates for `sv` of which only 11
+are defects, because `Visa tid`, `Dagar att visa`, `Vertikal justering` and `Fast höjd` are
+all correct multi-word phrases. Separating them needs a noun lexicon, which is the
+translator's judgement. Note also that the casing check cannot help even in principle:
+särskrivning leaves the second word **lower-case**, and that check counts capitals, so the
+two defects are invisible to each other by construction.
+
+**The rule for both languages**, so it is not re-derived: noun-noun compounds are written
+solid, with the linking `-s` where the first element takes one (`hendelsesavstand`,
+`beskrivelsesfarge`). A hyphen appears only where an acronym or a phrase forces it
+(`UV-indeksterskel`, `Idag-indikator`, `I dag-markør`). Bokmål additionally reduces three
+identical consonants to two — `etikett` + `type` = `etikettype`, which is why the shipped
+`Etiketttype` was wrong and Swedish's `Etikettyp` was right. Where a three-element compound
+stops being readable, both languages prefer the prepositional form to a longer solid one:
+`Bakgrunnsfarge for ukenummer`, not `Ukenummerbakgrunnsfarge`.
 
 ## 4. The Core Noun — `event`
 
@@ -448,12 +533,15 @@ evidence independently.
 
 ### day header — the date row heading each day's events
 
-**No evidence in any source.** Genuinely undecided in eight languages, and one of the
+**No evidence in any source.** Genuinely undecided in six languages, and one of the
 highest-risk terms precisely because nothing external will arbitrate it.
 
-|             | de               | et  | it  | lt  | lv  | nb  | pl            | sk  | sv  |
-| ----------- | ---------------- | --- | --- | --- | --- | --- | ------------- | --- | --- |
-| **Decided** | Tagesüberschrift | —   | —   | —   | —   | —   | Nagłówek dnia | —   | —   |
+|             | de               | et  | it  | lt  | lv  | nb            | pl            | sk  | sv        |
+| ----------- | ---------------- | --- | --- | --- | --- | ------------- | ------------- | --- | --------- |
+| **Decided** | Tagesüberschrift | —   | —   | —   | —   | —             | Nagłówek dnia | —   | —         |
+|             | de               | et  | it  | lt  | lv  | nb            | pl            | sk  | sv        |
+| ----------- | ---------------- | --- | --- | --- | --- | ------------- | ---           | --- | --------- |
+| **Decided** | Tagesüberschrift | —   | —   | —   | —   | Dagoverskrift | —             | —   | Dagrubrik |
 
 Constraint for whoever decides it: it heads a _day_, not a column and not a card, and the
 same word must be used in `panel.day_header` and in every `day_header_*` key.
@@ -467,6 +555,17 @@ it is uniform across every key that has one: `Header` → `Nagłówek`
 qualifier is, and `dnia` is forced by the sense. It carries into the four dependent keys
 without strain — `Odstęp nagłówka dnia`, `Dzielnik nagłówka dnia` — which is the property
 the constraint above is really asking for.
+**Swedish and Norwegian decided by the `sv`/`nb` session (Stage 1), and they agree with
+German by construction rather than by imitation** — all three are Germanic and reach for
+the same compound, _day_ + _heading_.
+Swedish `Dagrubrik` has a second argument behind it. HA Swedish renders `Title` as
+`Rubrik`, which the `title` entry below **rejects** for an event's title precisely because
+`Rubrik` means a section heading rather than a headline. A day header _is_ a section
+heading, so the word this glossary turns down in one place is the right one here — the two
+decisions corroborate each other instead of conflicting.
+Norwegian `Dagoverskrift` uses `overskrift`, the ordinary Bokmål word for a heading, and
+compounds cleanly into the keys that need it — `Avstand under dagoverskrift`,
+`Strek under dagoverskrift`.
 
 ### progress bar — the bar showing how far through an event we are
 
@@ -498,9 +597,9 @@ decapitalised per §3.
 
 ### today indicator — the marker showing the current day or time
 
-|             | de               | et                      | it              | lt                      | lv                  | nb  | pl               | sk                   | sv             |
-| ----------- | ---------------- | ----------------------- | --------------- | ----------------------- | ------------------- | --- | ---------------- | -------------------- | -------------- |
-| **Decided** | Heute-Markierung | Tänase päeva indikaator | Indicatore oggi | Šiandienos indikatorius | Šodienas indikators | —   | Wskaźnik dzisiaj | Identifikátor dneška | Idag-indikator |
+|             | de               | et                      | it              | lt                      | lv                  | nb           | pl               | sk                   | sv             |
+| ----------- | ---------------- | ----------------------- | --------------- | ----------------------- | ------------------- | ------------ | ---------------- | -------------------- | -------------- |
+| **Decided** | Heute-Markierung | Tänase päeva indikaator | Indicatore oggi | Šiandienos indikatorius | Šodienas indikators | I dag-markør | Wskaźnik dzisiaj | Identifikátor dneška | Idag-indikator |
 
 **German and Norwegian were undecided because their current strings are ungrammatical.**
 `Heute Indikator` is not a German compound — German needs `Heute-Indikator` or a
@@ -512,7 +611,18 @@ sessions rather than guessed here. The current strings must not simply be kept.
 makes the compound legal, and `Markierung` is chosen over `Indikator` because it is the
 plainer word and because it compounds cleanly into the three sub-labels the group needs —
 `Markierungsfarbe`, `Markierungsgröße`, `Markierungsposition` — where `Indikator` would give
-`Indikatorfarbe`, readable but stiff. Norwegian remains open.
+`Indikatorfarbe`, readable but stiff.
+
+**Norwegian decided by the `sv`/`nb` session (Stage 1): `I dag-markør`**, on the same two
+grounds, which is convergence rather than copying — the shipped `I dag indikator` is
+særskriving, and the hyphen is what makes an attributive phrase legal in Bokmål. `i dag` is
+two words in Bokmål, so the hyphen also stops `dag` binding to `markør` and being read as
+_day marker_. `Markør` compounds into the sub-labels the group needs — `Markørfarge`,
+`Markørstørrelse`, `Markørposisjon`.
+
+**Swedish keeps `Idag-indikator` and needs no change**, and the difference from Norwegian is
+real rather than inconsistency: Swedish writes `idag` solid, so the compound needs no space
+resolving and `-indikator` attaches directly.
 
 ### color — any colour setting
 
@@ -635,9 +745,12 @@ both.
 (`Przezroczystość`) — the semantically inverted concept. A slider labelled _transparency_
 whose higher values make things more solid is a defect, so HA cannot be copied here.
 
-|             | de        | et  | it      | lt  | lv  | nb  | pl     | sk             | sv       |
-| ----------- | --------- | --- | ------- | --- | --- | --- | ------ | -------------- | -------- |
-| **Decided** | Deckkraft | —   | Opacità | —   | —   | —   | Krycie | Nepriehľadnosť | Opacitet |
+|             | de        | et  | it      | lt  | lv  | nb       | pl     | sk             | sv       |
+| ----------- | --------- | --- | ------- | --- | --- | -------- | ------ | -------------- | -------- |
+| **Decided** | Deckkraft | —   | Opacità | —   | —   | —        | Krycie | Nepriehľadnosť | Opacitet |
+|             | de        | et  | it      | lt  | lv  | nb       | pl     | sk             | sv       |
+| ----------- | --------- | --- | ------- | --- | --- | -------- | ---    | -------------- | -------- |
+| **Decided** | Deckkraft | —   | Opacità | —   | —   | Opasitet | —      | Nepriehľadnosť | Opacitet |
 
 The four remaining blanks need a native decision: either the language's genuine opacity
 word, or a rephrasing of the label so the inversion cannot arise. Do not copy HA's.
@@ -671,6 +784,14 @@ more _krycie_ is more cover, where more _nie-przezroczystość_ is less-see-thro
 > question has a primary artefact, read the artefact** — this is the §"look at the
 > artefact with the metric switched off" discipline applied to an oracle rather than to a
 > measurement, and it cost thirty seconds.
+> **Norwegian decided by the `sv`/`nb` session (Stage 1): `Opasitet`**, and the trap this
+> entry warns about is exactly why. HA Norwegian's `gjennomsiktighet` is _transparency_, the
+> inverted concept, so it is unusable. The two native alternatives both fail on other grounds:
+> `ugjennomsiktighet` is the correct antonym and unusably clumsy for a slider label, and
+> `dekkevne` — the word Norwegian graphics software uses — is a paint metaphor that reads
+> oddly against a background tint. `Opasitet` is in Bokmålsordboka, and it is what the file
+> **already used** in `Hendelse bakgrunnsopasitet`, so the term was in effect chosen by the
+> original contributor; this entry records it rather than introducing it.
 
 ### show / hide — the verbs on every toggle
 
@@ -788,13 +909,14 @@ Named rather than papered over.
 - **Whether any individual decision is correct.** Everything above is decided from
   cross-artefact evidence and from sense. That catches divergence and domain mismatch. It
   cannot tell you whether `Kellaaeg` is the word an Estonian would actually reach for.
-- **Norwegian and Swedish weekday casing.** Three sources, and they do not settle it: the
-  card writes `mandag`, the editor writes `Mandag`, and Home Assistant capitalises
-  `ui.weekdays.*` in all nine languages — including Polish and Italian, which lowercase
-  weekdays in prose, so HA is applying a standalone-label convention rather than making an
-  orthographic claim. The question is whether a standalone UI label takes an initial
-  capital in these languages, and no source in reach answers it. **Do not change either
-  language's weekday casing** until a native speaker does. See §3.
+- **~~Norwegian and Swedish weekday casing.~~ Resolved by the `sv`/`nb` session (Stage 1);
+  see §3.** Kept here as a pointer because two earlier documents sent sessions the wrong
+  way on it. The reframing to "does a standalone UI label take an initial capital" was what
+  made it answerable: Home Assistant ships the _identical_ control at
+  `ui.panel.profile.first_weekday.values.*` and capitalises there while lowercasing
+  `nästa måndag` mid-sentence, and the card's Norwegian file makes the same split between
+  its `daysOfWeek` (`Man`) and `fullDaysOfWeek` (`mandag`). The apparent
+  card-versus-editor disagreement was two different contexts being compared.
 - **Slovak `Žiadna` versus `Žiadny`,** per key. It depends on the gender of the noun each
   option modifies and may differ between the three keys.
 - **The four undecided cells** — German `label`, German and Norwegian `today indicator`,
@@ -806,6 +928,11 @@ Named rather than papered over.
   the absence of a negation to parse — but Krita's Polish translators, equally native,
   chose the other one uniformly. Two native sources disagreeing is not something a third
   artefact settles; see the `opacity` entry. One Polish speaker resolves it in a sentence.
+- **The remaining undecided cells** — four languages' `opacity`, six languages'
+  `day header`. These are marked `—` rather than guessed, and the sessions that own those
+  languages must decide and record them. German `label`, German and Norwegian
+  `today indicator`, Norwegian `opacity` and Swedish and Norwegian `day header` have since
+  been decided by their Stage 1 sessions.
 
 ## 7. Evidence Index — Every Term's HA Key
 
@@ -883,6 +1010,7 @@ HA_FRONTEND_TRANSLATIONS=/tmp/hafe/hass_frontend/static/translations \
 | date            | `ui.components.selectors.selector.types.date`                                       | "Date"                |
 | month           | `ui.components.calendar.event.repeat.freq.monthly`                                  | "Monthly"             |
 | weekday         | `ui.components.calendar.event.rrule.weekday`                                        | "weekday"             |
+| weekday casing  | `ui.panel.profile.first_weekday.values.monday`                                      | "Monday"              |
 | week            | `ui.components.date-range-picker.ranges.this_week`                                  | "This week"           |
 
 ## 8. How The Checks Read This File

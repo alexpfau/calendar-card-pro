@@ -114,10 +114,20 @@ describe('editor strings resolve in the requested language', () => {
     }
   });
 
-  it('keeps partial languages readable when a panel helper is untranslated', () => {
-    expect(lookup('sv', 'panel.weather')).toBe('Väder');
-    expect(EDITOR_LANGUAGE_STRINGS.sv).not.toHaveProperty('panel.weather.helper');
-    expect(lookup('sv', 'panel.weather.helper')).toBe(EDITOR_STRINGS['panel.weather.helper']);
+  it('keeps a partial language readable when a group label is overridden and its helper is not', () => {
+    // The witness must be a language that is partial *by construction*, or this test dies
+    // the moment its language reaches full coverage. It was written against `sv` and did
+    // exactly that when Swedish completed — the same failure the German session hit and
+    // recorded, whose note said the witness "is now en-GB". That was true of a different
+    // test; this one still pointed at a Stage 1 target.
+    //
+    // en-GB cannot complete: it is derived from strings.ts by substituting Color→Colour,
+    // so a label containing "Color" is always overridden and a helper that does not
+    // contain it never is. That makes this exact label/helper pair a structural property
+    // of the generator rather than a fact about how far some session got.
+    expect(lookup('en-GB', 'weekend_colors')).toBe('Weekend Colours');
+    expect(EDITOR_LANGUAGE_STRINGS['en-gb']).not.toHaveProperty('weekend_colors.helper');
+    expect(lookup('en-GB', 'weekend_colors.helper')).toBe(EDITOR_STRINGS['weekend_colors.helper']);
   });
 
   it('states compact-mode scope only when the active view needs it', () => {
