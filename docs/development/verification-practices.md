@@ -22,6 +22,29 @@ right. That is why running something worked, why a second look never did, and wh
 _person_ is a third instrument distinct from both — they bring a different model, which is
 the only thing that can disagree.
 
+**A correct, validated, positive-controlled probe can still be the wrong _kind_ of
+instrument — and no hardening fixes that.** Every mechanism below is a probe that lied:
+saturated, matched a literal pipe, read the wrong artefact, exited 127. This one is
+different and sits above all of them.
+
+Two sessions searched a file for a set of phrases, agreed they were absent, and validated
+the probe on both sides. The absence was **real**. But the decision resting on it was
+whether the *concepts* were already present under different wording — and **a string probe
+never addressed that question at all**. Two validated probes agreeing on a string tell you
+nothing about a paraphrase.
+
+Note what does *not* rescue it. A better regex finds more strings. `assertFound()` proves
+the pattern can match. A positive control proves the probe fires. **All three make a
+string probe more reliable at answering a question about strings**, and the question was
+about meaning. The instrument was categorically wrong, and every technique in this file
+would have hardened it in place.
+
+So before hardening a probe, ask what *kind* of question the decision needs — presence of a
+token, presence of a meaning, provenance, behaviour — and check the instrument answers that
+kind. When the answer is *meaning*, there may be no mechanical instrument at all, and
+editorial judgement is not a weaker substitute for one; it is the only thing in the right
+category. Say so, rather than reaching for the probe that can run.
+
 **But count discriminating power, not agreeing checks.** The eager path being unchanged by
 nine languages was reported as _"measured four independent ways"_. It was not: one
 counterfactual — empty every translation file, rebuild, compare hashes — plus three
