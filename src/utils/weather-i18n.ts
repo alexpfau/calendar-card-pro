@@ -67,6 +67,14 @@ const CONDITION_KEY_PREFIX = 'component.weather.entity_component._.state.';
  * a language it has not translated comes back complete, in English, rather than short.
  * A payload that is *not* complete therefore means something changed — a new condition,
  * or a different response shape — and that is worth saying out loud once.
+ *
+ * The filling is per **key**, not per language, and that is the part worth being exact
+ * about: a *translated* language can still carry individual English values. Measured on
+ * a live instance (2026.8.1), `pt-BR` returns fourteen Portuguese conditions and
+ * `windy-variant` as "Windy, cloudy". So the check below detects a change in the
+ * response *shape* and can never detect a translation gap — every language is complete
+ * by construction. Read it as a structural-change detector, which is what it is; the
+ * name "completeness" invites the other reading.
  */
 const KNOWN_CONDITIONS = [
   'clear-night',
