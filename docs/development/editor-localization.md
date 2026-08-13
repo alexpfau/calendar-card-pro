@@ -928,8 +928,9 @@ worth stating because it establishes the two measurements are commensurable rath
 merely similar-looking.
 
 **Both simulations overestimated, including the one argued to be the more realistic.**
-Simulation C predicted 85,862 gzip against a real 81,979, high by 3,883 (4.5%); A predicted
-95,227, high by 16%. So the bracketing worked, and the honest reading is that synthetic text
+Simulation C predicted 85,862 gzip against a real 81,979, high by 3,883 — **+4.7% of the
+real figure**, or 4.5% of C's own, and the two are quoted here together so nobody later
+reads them as a discrepancy. A predicted 95,227, high by 16% of real. So the bracketing worked, and the honest reading is that synthetic text
 built from real vocabulary still compresses worse than the real thing — C preserved
 word-level repetition but not the phrase-level repetition that real UI strings carry, where
 the same handful of patterns recur across a hundred labels.
@@ -937,7 +938,10 @@ the same handful of patterns recur across a hundred labels.
 **And §9.1's zero-cost claim now holds against real data rather than synthetic.** The card
 chunk is **byte-identical at 187,554 raw / 56,792 gzip** whether every editor translation
 file contains `{}` or all 2,808 real strings. Verified by emptying them, building, restoring,
-and building again in one pass. (It differs from §9.1's 187,849 / 56,845 because unrelated
+and building again in one pass — and compared with `cmp` and SHA-256 rather than by size,
+which matters here specifically: on a change that only adds strings to a lazily-loaded
+sibling chunk, equal _sizes_ are exactly what you would expect even if the contents had
+moved, so a size comparison cannot distinguish the claim from its negation. (It differs from §9.1's 187,849 / 56,845 because unrelated
 `styles.ts` work landed in between; the invariant being tested is that _translations_ do not
 move it, and they do not.)
 
