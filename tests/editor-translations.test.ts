@@ -85,7 +85,20 @@ describe('editor strings resolve in the requested language', () => {
     // lowercases before matching. A capital reaching this map is how a language
     // silently renders English.
     expect(lookup('DE', 'days_to_show')).toBe('Anzahl Tage anzeigen');
-    expect(lookup('en-GB', 'title_color')).toBe('Title colour');
+    expect(lookup('en-GB', 'title_color')).toBe('Title Colour');
+  });
+
+  it('keeps Title Case when en-GB overrides a spelling', () => {
+    // en-GB is derived from strings.ts by substitution, so it changes the *spelling* and
+    // nothing else. The hand-written file it replaced dropped Title Case on 17 of its 18
+    // real entries — `Event Color` was overridden as `Event colour` — so switching an
+    // editor to British English silently re-cased seventeen labels. Asserted here as well
+    // as in check-i18n.mjs because this is the behaviour a user sees.
+    for (const key of ['entity.color', 'title_color', 'weekday_color'] as const) {
+      const british = lookup('en-GB', key);
+      expect(british).toContain('Colour');
+      expect(british).toBe(EDITOR_STRINGS[key].replace('Color', 'Colour'));
+    }
   });
 
   it('keeps partial languages readable when a panel helper is untranslated', () => {

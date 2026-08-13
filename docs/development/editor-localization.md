@@ -515,6 +515,23 @@ The oracle resolves it with evidence rather than taste: **HA German uses `Ereign
 to change the card is the maintainer's call and out of scope here, but the **editor keeps
 `Ereignis`**, and the glossary records why.
 
+> **Superseded — this conclusion is backwards, and so is its framing.** Stage 0 resolved
+> it the other way on stronger evidence; see
+> [`editor-glossary.md`](./editor-glossary.md) §4.
+>
+> `component.event.title` belongs to Home Assistant's `event` **entity** domain — a
+> stateless occurrence such as a button press — not to calendars. It is a different
+> concept that happens to share an English name, so reading the term there is exactly the
+> Rule 2 domain mismatch §3.5 warns about. At HA's _calendar_ keys German says
+> `Termin hinzufügen`, `Termin löschen`, `Termin bearbeiten`.
+>
+> **The card and Home Assistant agree with each other, against the editor.** So the editor
+> changed to `Termin` and the card was not touched — which also disposes of the
+> maintainer's call, since no card string moves and nothing on the eager path changes.
+>
+> The framing was wrong too: this is **not** a general card/editor split. Measured across
+> all nine languages, eight already agree three ways. German was the only disagreement.
+
 ### 6.4 Slovak carries four disagreements, including grammatical ones
 
 `None` is `Žiadna` (feminine) in our file and `Žiadny` (masculine) in HA's, across three
@@ -579,16 +596,16 @@ entry nobody ever made.
 
 The mining scripts emit this per language. A sample of what it looks like decided:
 
-| term        | evidence                                               | de               | notes                                                                |
-| ----------- | ------------------------------------------------------ | ---------------- | -------------------------------------------------------------------- |
-| event       | HA `Ereignis`; card `Termin`; editor `Ereignis`        | **Ereignis**     | editor already aligned with HA; card is the outlier                  |
-| entity      | HA `Entität`; editor `Wetter-Entität`                  | **Entität**      | agrees                                                               |
-| colour      | HA `Farbe`; editor `-farbe`                            | **Farbe**        | agrees 9/9                                                           |
-| description | HA `Beschreibung`; editor `Beschreibung`               | **Beschreibung** | agrees 9/9                                                           |
-| location    | HA `Standort`/`Speicherort`; editor `Ort`              | **Ort**          | **overrides HA** — calendar sense, not device sense                  |
-| time        | HA `Uhrzeit`; editor `Zeit`; et/it use the clock sense | **Uhrzeit**      | **de is our own outlier** — §6.5; the label is an event's start time |
-| calendar    | HA `Kalender`                                          | **Kalender**     | no editor key yet; net-new                                           |
-| column      | _no HA evidence_                                       | _decide_         | net-new, and the term the whole v4 view is named for                 |
+| term        | evidence                                               | de               | notes                                                                                                   |
+| ----------- | ------------------------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------- |
+| event       | HA `Ereignis`; card `Termin`; editor `Ereignis`        | **Ereignis**     | editor already aligned with HA; card is the outlier                                                     |
+| entity      | HA `Entität`; editor `Wetter-Entität`                  | **Entität**      | agrees                                                                                                  |
+| colour      | HA `Farbe`; editor `-farbe`                            | **Farbe**        | agrees 9/9                                                                                              |
+| description | HA `Beschreibung`; editor `Beschreibung`               | **Beschreibung** | agrees 9/9                                                                                              |
+| location    | HA `Standort`/`Speicherort`; editor `Ort`              | **Ort**          | _(see note)_ — read at a **device** key; HA's calendar key also says `Ort`, so there is no disagreement |
+| time        | HA `Uhrzeit`; editor `Zeit`; et/it use the clock sense | **Uhrzeit**      | **de is our own outlier** — §6.5; the label is an event's start time                                    |
+| calendar    | HA `Kalender`                                          | **Kalender**     | no editor key yet; net-new                                                                              |
+| column      | _no HA evidence_                                       | _decide_         | net-new, and the term the whole v4 view is named for                                                    |
 
 `column`, `separator` and `weather` have **no HA evidence in any of the nine languages**.
 They are genuine decisions and are the highest-risk terms for divergence precisely because
@@ -936,3 +953,6 @@ Recorded because the brief asked for them explicitly.
   chunk, and the `?hacstag=` trap that §9.4 declines to re-enter.
 - [`editor-rebuild.md`](./editor-rebuild.md) — the schema-driven editor these strings
   label.
+- [`editor-glossary.md`](./editor-glossary.md) — the termbase this plan called for,
+  decided across all nine languages. It supersedes §6.3 and corrects the `location` row
+  in §7.4.
