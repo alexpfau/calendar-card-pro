@@ -70,6 +70,22 @@ the editor resolves its own; `CURRENT_LOG_LEVEL` is a build-time constant and id
 both; and the once-per-session banner flag is only ever touched card-side. Check that
 this still holds before moving anything shared and mutable across the boundary.
 
+🚨 **Quote the compression level with any gzip figure, or the number is not comparable.**
+Two sessions reported the eager chunk at 56,792 and 56,932 bytes gzip and both were right —
+the file was byte-identical, `sha256:9d5724202bbb…` in both cases. The same bundle measures
+three ways:
+
+| tool                             | bytes  |
+| -------------------------------- | ------ |
+| `gzip -9 -c`                     | 56,792 |
+| `node zlib.gzipSync` (default)   | 56,907 |
+| `gzip -c` (level 6, the default) | 56,932 |
+
+A 140-byte spread is the same order as several real optimisations recorded in this file, so
+an unqualified figure can manufacture a regression or hide one. **Raw size plus a hash is the
+comparison that cannot drift**; gzip is for reporting, and only against another figure taken
+the same way. Note also that equal raw sizes do not prove identity — hash them.
+
 **Cache-busting is by query propagation, not by content hash.** `/hacsfiles/**` is served
 `max-age=2678400` — one month — and HACS appends `?hacstag=` to the _registered resource
 only_, so a sibling file gets no cache-buster of its own. `getConfigElement()` therefore
