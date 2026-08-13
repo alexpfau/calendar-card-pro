@@ -1149,28 +1149,7 @@ purely one of capitalisation — Polish `Data Początkowa` against `Data począt
 reported by the casing check rather than folded away. That is the property the earlier text
 was reaching for; it belongs to the casing check, not to this matcher.
 
-**Rejected forms are matched at a word start, case-insensitively, and only within the keys
-the term governs** — the keys whose English contains the term. All three clauses earn their
-place:
-
-- **Word start** means the start of the value or any position after a non-letter. This is
-  what makes case-insensitivity safe: rejecting German `Zeit` cannot fire on the legitimate
-  `Uhrzeit`, because `zeit` sits mid-word there.
-- **Case-insensitive** was arrived at by mutation, not by design. The first version matched
-  case-sensitively and silently missed Swedish `Vardag` at the head of a label while
-  catching the lower-case `vardag` — the form most likely to appear escaping the check that
-  exists to find it.
-- **Scoped to governed keys** is what keeps it precise: Italian `Posizione` is wrong for
-  _location_ and right for _position_, so a whole-file scan could not tell them apart and
-  would fire on correct strings.
-
 Compounds are caught because they begin with the term — German `Ereignisfarbe` matches at
 position zero, where any whole-word test would miss it. Inflected forms in the middle of a
 phrase are **not** caught unless listed explicitly, which is why `weekday` rejects both
 `pracovný deň` and the genitive `pracovného dňa` that our Slovak file actually shipped.
-
-Separately, the _vocabulary_ and _casing_ checks share no normaliser. Both are
-case-sensitive, so a divergence that is purely one of capitalisation — Polish
-`Data Początkowa` against `Data początkowa` — is reported rather than folded away. That is
-not a hypothetical: it is the defect a case-folding comparison hid, in the one language
-whose capitalisation is most wrong.
