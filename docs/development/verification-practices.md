@@ -572,6 +572,28 @@ was inside the deleted directory. *The check that would settle the question is t
 was deleted* — which is a worse position than a lost commit, because a lost commit is at
 least knowable.
 
+**Ancestry, provenance and content are three different instruments, and none subsumes the
+others.** A session asking *is my work in `dev`* reached for content-existence; I had reached
+for `git log -S`; a third had used `--is-ancestor`. All three of us believed we were asking
+one question.
+
+| instrument | asks | blind to |
+|---|---|---|
+| `merge-base --is-ancestor` | is this **hash** reachable | squash-merge, rebase, stale ref |
+| `git log -S` | where did this **content** come from | nothing — history does not move |
+| `git ls-tree` | does the **artefact** exist here | who put it there, and whether it is current |
+
+**But pick by the repo's merge style, not by the table alone.** The session's stated reason for
+distrusting ancestry was that a squash-merge produces a new hash, so `--is-ancestor` answers
+*no* while the work sits in the tree. True in general, and **false here**: this repo merges
+with merge commits — 60 of the last 60 on `dev` — so ancestry is sound, and measured against
+`editor-glossary.md` the two instruments agreed in both directions, with a control on a file
+that *is* present.
+
+So the table is a guide to which question you are asking, not a licence to distrust the
+cheapest instrument. A true general caution applied where its precondition does not hold is
+the same defect as any other adjacent-question answer — it just happens to be conservative.
+
 **`cmd && { ...; } || echo "not a repo"` reports the failure of the _last_ command in the
 block, not the first.** Checking a directory with `cd X && { git status; grep -n "six rules" f; } ||
 echo "X is not a repo"` printed **`X is not a repo`** — while `git status` in the same block had
