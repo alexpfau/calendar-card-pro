@@ -874,11 +874,11 @@ times.** That is the transferable half of this entry.
 all three.** Their cells stay `—` above so the check does not enforce one form across the
 three keys; the decisions are per key and are recorded here instead.
 
-| key                                      | the noun it answers to          | it          | sk          |
-| ---------------------------------------- | ------------------------------- | ----------- | ----------- |
-| `entity.label_type.option.none.label`    | `Tipo` m. / `Typ` m.            | **Nessuno** | **Žiadny**  |
-| `today_indicator_style.option.none.label` | `Stile` m. / `Štýl` m.          | **Nessuno** | **Žiadny**  |
-| `week_number_mode.option.none.label`     | `Numerazione` f. / `Číslovanie` n. | **Nessuna** | **Žiadne**  |
+| key                                       | the noun it answers to             | it          | sk         |
+| ----------------------------------------- | ---------------------------------- | ----------- | ---------- |
+| `entity.label_type.option.none.label`     | `Tipo` m. / `Typ` m.               | **Nessuno** | **Žiadny** |
+| `today_indicator_style.option.none.label` | `Stile` m. / `Štýl` m.             | **Nessuno** | **Žiadny** |
+| `week_number_mode.option.none.label`      | `Numerazione` f. / `Číslovanie` n. | **Nessuna** | **Žiadne** |
 
 The head noun is the **setting's** label, not the thing it configures, because that is what
 the user reads the option against: the field says `Typ štítka` and the value beneath it says
@@ -908,11 +908,11 @@ in a picker against the noun its own control names.
 > that only helps if the next session actually applies it.** Every picker in both files was
 > read back against the noun its own control names. Neither carries the Polish defect:
 > Italian's `Semplice` is invariable in gender, and Slovak's `Jednoduché` was already neuter
-> to match `Číslovanie`. The near-misses that *do* agree correctly are worth naming, since
+> to match `Číslovanie`. The near-misses that _do_ agree correctly are worth naming, since
 > they are what the check cannot see — it `Scegline una` against `Lingua`, it `Relativa a
-> oggi` and `Una data fissa` against `Data di inizio`, it `Altezza fissa` / `Altezza massima`
+oggi` and `Una data fissa` against `Data di inizio`, it `Altezza fissa` / `Altezza massima`
 > against `Altezza scheda`, it `Rimuovi quelli noti` against `Nomi dei paesi`, sk `Pevná
-> výška` against `Výška karty`, sk `Odstrániť tie známe` against `Názvy krajín`.
+výška` against `Výška karty`, sk `Odstrániť tie známe` against `Názvy krajín`.
 
 ### default — the "leave it alone" option
 
@@ -1044,7 +1044,7 @@ calendar's. That is the whole of Rule 2 in a single term.
 > one. **Verify the corpus by a key, not by a count**: the presence of
 > `ui.components.calendar.event.location` distinguishes `20260128.6` from `20250109.2`, and
 > every term row below re-derived cleanly against the 8,045-key merge — `it` `giorno
-> feriale`, `it` `Apertura`, `it` `Disposizione`, `sk` `pracovný deň`, `sk` `Štítok`, `de`
+feriale`, `it` `Apertura`, `it` `Disposizione`, `sk` `pracovný deň`, `sk` `Štítok`, `de`
 > `Label` all reproduce byte-for-byte.
 >
 > One acquisition note, since §7's `pip download` is the step that fails: on a machine whose
@@ -1126,6 +1126,15 @@ HA_FRONTEND_TRANSLATIONS=/tmp/hafe/hass_frontend/static/translations \
 - the table row beginning `| **Decided** |` — nine cells in the order of that table's
   header row. `—` means undecided and is skipped rather than enforced.
 - a line beginning `**Rejected:**` — `lang \`form\``pairs separated by`;`.
+
+**Rejected forms are matched case-sensitively, as substrings, and only within the keys the
+term governs** — the keys whose English contains the term. That scoping is what makes the
+check precise: Italian `Posizione` is wrong for _location_ and right for _position_, so a
+whole-file scan would be unable to tell them apart and would fire on correct strings.
+
+Case-sensitivity is deliberate and load-bearing in both directions. It is what lets
+`Ereignis` be rejected without also matching the legitimate lower-case `ereignis` inside a
+compound, and it is what stopped Polish's capitalisation-only defect from being invisible.
 
 **Rejected forms are matched at a word start, case-insensitively, and only within the keys
 the term governs** — the keys whose English contains the term. All three clauses earn their
