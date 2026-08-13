@@ -49,6 +49,19 @@ reaches a reasoning error, because it is the only one not built from the reasoni
 test. Every entry below was caught by one of the three, and the ledger runs even between
 participants only because of the third.
 
+**And the third instrument works for a reason worth stating, because it is not rigour.** A
+second reader is not more careful — several of this file's catches came from someone being
+*less* invested and therefore reaching for a different measurement. **They have no stake in
+the answer coming back the same, so the check that could disagree is the cheap one for them
+and the expensive one for the author.** That is why _"review it again yourself"_ and _"have
+someone review it"_ are not degrees of one intervention despite reading as though they are.
+
+The corollary is the practical one: **you do not need the person, you need their
+proposition.** Both times someone caught their own work here, a peer's rule was still in
+context doing the peer's job. Which is the argument for stating rules as claims with testable
+edges rather than as verdicts — a verdict can only be accepted or doubted; a claim with edges
+can be probed by the author later, when the author has become a different reader.
+
 **A claim can be true and still be the reason a defect shipped — if its scope was never
 stated.** Backlog item Y6 read "the weather custom properties are wired through the
 stylesheet", and they were. *For which view* was never asked. Every rule reading the event
