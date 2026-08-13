@@ -11,7 +11,7 @@ public release in January 2025 to today.
 - 🗓️ **Column View**: Lay the days [side by side, one column each](/features/column-view), instead of stacking them — the same agenda, rotated, with its own per-view overrides and a responsive fallback to the list layout
 - ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with [search, a customized-only filter](/features/editor#search-customized-only), per-calendar settings, and [per-view exceptions](/features/editor#column-view-exceptions)
 - 🌍 **Nine Fully Translated Editor Languages**: German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish, complete — with per-string fallback so a partial translation still renders
-- ⚡ **41% Smaller on Every Dashboard Load**: The editor moved into a file the card fetches only when you open it, taking it and all its translations off the path every dashboard pays for
+- ⚡ **41% Smaller to Download**: The editor moved into a file the card fetches only when you open it, taking it and all its translations off the path every dashboard pays for
 - 📏 **Per-Field Line Limits**: Cap the lines used by a title, time or location with [`title_max_lines`, `time_max_lines` and `location_max_lines`](/features/event-content#limiting-lines-per-field)
 - 🌦️ **Weather in Column View**: A row of its own beneath the time, optionally [stating the condition in words](/features/weather#weather-in-the-column-layout) in your language
 - 🩺 **Diagnosable Released Builds**: Turn the card's full logging back on from the browser console when [reporting a bug](/contributing#reporting-a-bug)
