@@ -655,6 +655,19 @@ overflow, because the number looked finished whatever the input, and a second lo
 have caught the mapping error, because the representative input passes cleanly every time.
 All they share is that both feel like luck afterwards, and neither is.
 
+There is a **third** failure mode neither discipline reaches, and it is the one that needs
+another person. A probe can be correct, correctly configured, honestly reported — and
+measuring the wrong thing. Two instances, both from the editor-localization work: a
+term-agreement check that case-folded both sides, so a disagreement that was _purely_
+capitalisation read as agreement, in the one language whose capitalisation was most wrong;
+and a translation-oracle probe that read Home Assistant's core string table while the
+vocabulary it needed sat in the lazily-loaded `lovelace` fragment, taking the corpus from
+1,889 keys to 7,341. Neither is caught by a self-test, because both reach a known string
+fine. Neither is caught by stating the configuration, because both configurations were
+stated. **The only thing that caught either was somebody deriving the same number a
+different way** — which is why a figure worth relying on should say which corpus and which
+method produced it, and why two routes agreeing is worth more than one route being careful.
+
 And when the check reads a source file, note which question you are asking. **Regex a file
 for its _shape_ — which identifier is imported, how a map key is spelled — and import it for
 its _values_.** `scripts/check-i18n.mjs` already works this way and says so: the wiring in
