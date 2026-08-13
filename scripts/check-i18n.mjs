@@ -22,17 +22,21 @@
  * of keys it will look up. That is checked against `src/rendering/editor/strings.ts` in
  * both directions — a field with no string, and a string no field uses.
  *
- * The `editor` sections that used to sit inside the language files are **dormant**. They
- * belong to the editor that was replaced, and are kept to be mined during the translation
- * pass rather than deleted. Nothing here validates their contents: they label nothing, so
- * completeness against them would be a report about a surface that no longer exists.
+ * **Editor translations.** `src/rendering/editor/translations/<code>.json` holds a
+ * subset of that table per language, and `lookup` falls back to English per key, so a
+ * partial file is safe by design and completeness is reported rather than enforced.
+ * What *is* enforced is that a translation can be reached — every key must exist in
+ * `strings.ts`, and `lookup` is called to prove it returns the translation rather than
+ * the English behind it. That check exists because its absence let a regression ship in
+ * silence: the resolution order was inverted, `strings.ts` defines every key, and so all
+ * eleven translated languages rendered in English with nothing raised anywhere.
  *
- * What *is* checked is where they live. They now sit in
- * `src/translations/editor-languages/`, imported only from `src/rendering/editor/`, so
- * they load with the editor's chunk instead of on every dashboard load — 88.4% of the
- * translation payload, moved off the eager path. That adds a fifth place to get a
- * language wrong, and it fails as quietly as the rest: a file nothing imports is never
- * registered, and one put back in `languages/` is silently shipped to everyone.
+ * The `editor` sections that used to sit inside the language files are an **archive**,
+ * in `src/translations/editor-languages/`. They belong to the editor that was replaced
+ * and are kept to be mined; 106 of the live keys came out of them. Nothing validates
+ * their contents — they label nothing — but nothing in `src/` may import them either,
+ * which is checked, because their keys overlap the live namespace by name without
+ * matching in meaning.
  *
  * This script's only dependency is esbuild, which is already a devDependency and never
  * reaches the bundle. Run it with:
@@ -60,6 +64,9 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANG_DIR = join(ROOT, 'src/translations/languages');
 const EDITOR_LANG_DIR = join(ROOT, 'src/translations/editor-languages');
 const EDITOR_LANG_INDEX_TS = join(ROOT, 'src/translations/editor-languages/index.ts');
+const EDITOR_T9N_DIR = join(ROOT, 'src/rendering/editor/translations');
+const EDITOR_T9N_INDEX_TS = join(ROOT, 'src/rendering/editor/translations/index.ts');
+const SRC_DIR = join(ROOT, 'src');
 const LOCALIZE_TS = join(ROOT, 'src/translations/localize.ts');
 const DAYJS_TS = join(ROOT, 'src/translations/dayjs.ts');
 const PANELS_TS = join(ROOT, 'src/rendering/editor/panels.ts');
@@ -71,10 +78,21 @@ const IN_CI = Boolean(process.env.GITHUB_ACTIONS);
 
 const errors = [];
 const warnings = [];
+const notes = [];
 const error = (where, msg) => errors.push({ where, msg });
 const warn = (where, msg) => warnings.push({ where, msg });
 
 const read = (path) => readFileSync(path, 'utf-8');
+
+/**
+ * The editor's modules, bundled once per run.
+ *
+ * Two checks need them — the string reconciliation and the translation-reachability
+ * gate — and bundling is the expensive part of this script. Cached rather than passed
+ * around, so adding a third consumer costs nothing.
+ */
+let editorModule;
+const loadEditor = async () => (editorModule ??= await loadEditorModule(ROOT));
 
 /**
  * Guard against a stale regex silently matching nothing.
@@ -221,7 +239,7 @@ function mapLocale(locale, specialCased) {
  * without the group name being repeated in the table.
  */
 async function readEditorSchemaKeys() {
-  const editor = await loadEditorModule(ROOT);
+  const editor = await loadEditor();
   const {
     PANELS,
     walkSchema,
@@ -765,6 +783,222 @@ async function checkEditorStrings() {
 }
 
 /**
+ * Editor translation files on disk, plus how `translations/index.ts` wires them up.
+ *
+ * @returns Files on disk, and the imports and map entries in the index module
+ */
+function readEditorTranslationWiring() {
+  const files = readdirSync(EDITOR_T9N_DIR).filter((f) => f.endsWith('.json'));
+  assertFound(files, 'any editor translation JSON files', EDITOR_T9N_DIR);
+
+  const src = read(EDITOR_T9N_INDEX_TS);
+
+  const imports = new Map(); // identifier -> filename
+  for (const m of src.matchAll(/import\s+(\w+)\s+from\s+'\.\/([^']+\.json)'/g)) {
+    imports.set(m[1], m[2]);
+  }
+  assertFound([...imports.keys()], 'editor translation JSON imports', EDITOR_T9N_INDEX_TS);
+
+  const block = src.match(/export const EDITOR_LANGUAGE_STRINGS[^=]*=\s*\{([\s\S]*?)\n\};/);
+  assertFound(block, 'the EDITOR_LANGUAGE_STRINGS map', EDITOR_T9N_INDEX_TS);
+
+  const entries = new Map(); // map key (as written) -> identifier
+  for (const m of block[1].matchAll(/^\s*'?([A-Za-z][A-Za-z-]*)'?\s*:\s*(\w+)\s*,/gm)) {
+    entries.set(m[1], m[2]);
+  }
+  assertFound([...entries.keys()], 'entries in EDITOR_LANGUAGE_STRINGS', EDITOR_T9N_INDEX_TS);
+
+  return { files, imports, entries };
+}
+
+/** Every `.ts` file under a directory, for the archive-import scan. */
+function walkTs(dir, out = []) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) walkTs(path, out);
+    else if (entry.name.endsWith('.ts')) out.push(path);
+  }
+  return out;
+}
+
+/**
+ * The live editor's translations: wired up, and — the point of this check — reachable.
+ *
+ * **This is the check whose absence let a silent regression ship.** The editor resolved
+ * `strings.ts` first and the translation files second, and because `strings.ts` defines
+ * every key the editor asks for, the second source was never reached: eleven translated
+ * languages all rendered in English, in every panel. Nothing failed, because every
+ * individual piece was correct — the files existed, were valid JSON, were imported,
+ * were registered under lowercase keys. What was wrong was that no key in them could
+ * ever be *returned*, and reachability is a property nothing here looked at.
+ *
+ * Four things are checked, each of which would have caught it alone:
+ *
+ *   1. **Every key must exist in `EDITOR_STRINGS`.** One that does not is unreachable by
+ *      construction: `lookup` is only ever asked for keys the schemas produce, and those
+ *      are already reconciled against `EDITOR_STRINGS` in both directions. A translation
+ *      outside that table is weight that labels nothing.
+ *   2. **`lookup` must actually return the translation.** Asserted by calling it, for
+ *      every key of every language, rather than by reasoning about resolution order —
+ *      which is exactly what was reasoned about, in a docstring, while the code did the
+ *      opposite of what the docstring said. A check that calls the function cannot go
+ *      stale the way that prose did.
+ *   3. **No `en.json`.** English lives in `strings.ts` alone. Two English tables can
+ *      disagree and the loser does so silently; the previous namespace kept both, and
+ *      they drifted apart on 41 of the 94 keys they shared — two of them, `language` and
+ *      `language_mode`, ending up with each other's meanings.
+ *   4. **Nothing in `src/` may import the archive.** `editor-languages/` is the previous
+ *      editor's namespace, kept for mining. Its keys overlap these by name without
+ *      matching in meaning, so importing it is not a fallback but a source of wrong
+ *      labels — and it cost 145 KB of `editor.js` while resolving nothing.
+ *
+ * Coverage is reported, never enforced. Per-key fallback is what makes a partial
+ * language safe, and the ruling is explicit: show the language, and fall back to English
+ * only for the individual strings it is missing.
+ *
+ * @param languages - Language files on disk, keyed by lowercased code
+ */
+async function checkEditorTranslations(languages) {
+  const { files, imports, entries } = readEditorTranslationWiring();
+  const { EDITOR_STRINGS, EDITOR_LANGUAGE_STRINGS, lookup } = await loadEditor();
+
+  assertFound(Object.keys(EDITOR_STRINGS), 'any editor strings', STRINGS_TS);
+
+  const imported = new Set(imports.values());
+  const total = Object.keys(EDITOR_STRINGS).length;
+
+  for (const file of files.sort()) {
+    const code = basename(file, '.json').toLowerCase();
+    const where = `editor/translations/${file}`;
+
+    if (code === 'en') {
+      error(
+        where,
+        'English belongs in strings.ts and nowhere else — two English tables can ' +
+          'disagree, and the one that loses does so silently',
+      );
+      continue;
+    }
+
+    if (!imported.has(file)) {
+      error(
+        where,
+        'exists but is never imported by translations/index.ts — the language renders ' +
+          'in English with nothing raised anywhere',
+      );
+      continue;
+    }
+
+    if (!languages.has(code)) {
+      error(
+        where,
+        `no card translations exist for '${code}' — add src/translations/languages/` +
+          `${file} and wire it into localize.ts`,
+      );
+    }
+
+    let data;
+    try {
+      data = JSON.parse(read(join(EDITOR_T9N_DIR, file)));
+    } catch (err) {
+      error(where, `is not valid JSON: ${err.message}`);
+      continue;
+    }
+
+    if (EDITOR_LANGUAGE_STRINGS[code] === undefined) {
+      error(
+        'editor/translations/index.ts',
+        `${file} is imported but '${code}' is not a key of EDITOR_LANGUAGE_STRINGS, or ` +
+          'is spelled with a capital — lookups lowercase before matching, so the ' +
+          'language renders English',
+      );
+      continue;
+    }
+
+    const keys = Object.keys(data);
+    let sound = true;
+
+    for (const key of keys) {
+      if (typeof data[key] !== 'string' || data[key].trim() === '') {
+        error(where, `\`${key}\` is not a non-empty string`);
+        sound = false;
+        continue;
+      }
+
+      if (!(key in EDITOR_STRINGS)) {
+        error(
+          where,
+          `\`${key}\` is not a key in strings.ts — nothing in the editor looks it up, ` +
+            'so this translation can never be shown',
+        );
+        sound = false;
+      }
+    }
+
+    // The end-to-end assertion. Everything above can pass while the resolution order
+    // still hands back English, which is precisely what shipped.
+    if (sound) {
+      for (const key of keys) {
+        const resolved = lookup(code, key);
+        if (resolved !== data[key]) {
+          error(
+            where,
+            `lookup('${code}', '${key}') returns ${JSON.stringify(resolved)} rather than ` +
+              `${JSON.stringify(data[key])} — the translation is unreachable at runtime`,
+          );
+          break;
+        }
+      }
+    }
+
+    notes.push(
+      `  ${code.padEnd(6)} ${String(keys.length).padStart(3)} / ${total} strings ` +
+        `(${String(Math.round((keys.length / total) * 100)).padStart(2)}%)`,
+    );
+  }
+
+  for (const [key, identifier] of entries) {
+    if (key !== key.toLowerCase()) {
+      error(
+        'editor/translations/index.ts',
+        `EDITOR_LANGUAGE_STRINGS key '${key}' is not lowercase — lookups lowercase ` +
+          'before matching, so it can never be found',
+      );
+    }
+    if (!imports.has(identifier)) {
+      error(
+        'editor/translations/index.ts',
+        `EDITOR_LANGUAGE_STRINGS entry '${key}' names \`${identifier}\`, which is not imported`,
+      );
+    }
+  }
+
+  for (const [identifier, file] of imports) {
+    if (![...entries.values()].includes(identifier)) {
+      error(
+        'editor/translations/index.ts',
+        `imports ${file} as \`${identifier}\` but never adds it to EDITOR_LANGUAGE_STRINGS`,
+      );
+    }
+  }
+
+  // The archive must stay inert. Scanned across all of `src/` rather than at the
+  // editor's entry alone, because the build graph reaches further than one file and an
+  // import anywhere in it puts 145 KB of unreachable JSON back into the bundle.
+  for (const path of walkTs(SRC_DIR)) {
+    if (path.startsWith(EDITOR_LANG_DIR)) continue;
+    if (/from\s+'[^']*editor-languages[^']*'/.test(read(path))) {
+      error(
+        path.slice(SRC_DIR.length + 1),
+        'imports src/translations/editor-languages/, which is an archive of the previous ' +
+          'editor\u2019s namespace — its keys overlap the live ones by name without ' +
+          'matching in meaning, and importing it costs 145 KB of editor.js',
+      );
+    }
+  }
+}
+
+/**
  * Whether a string key belongs to something the editor actually renders.
  *
  * A key is owned by the longest prefix of its dotted path that names a field, a panel
@@ -815,6 +1049,11 @@ function report(languageCount, fieldCount) {
     warnings.forEach((w) => line('warn', w));
   }
 
+  if (notes.length > 0) {
+    console.log('\nEditor translation coverage (English fills the rest, per key):');
+    notes.forEach((n) => console.log(n));
+  }
+
   const summary =
     `\n${languageCount} languages, ${fieldCount} editor fields — ` +
     `${errors.length} error(s), ${warnings.length} warning(s).`;
@@ -843,6 +1082,7 @@ async function main() {
   checkDayjsWiring(localize.entries, dayjsWiring);
 
   const fieldCount = await checkEditorStrings();
+  await checkEditorTranslations(languages);
 
   process.exit(report(languages.size, fieldCount));
 }

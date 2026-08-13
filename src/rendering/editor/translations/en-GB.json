@@ -1,0 +1,19 @@
+{
+  "entity.color": "Event colour",
+  "entity.accent_color": "Accent colour",
+  "entity.label_icon_color": "Label icon colour",
+  "empty_day_color": "Empty day colour",
+  "title_color": "Title colour",
+  "background_color": "Background colour",
+  "weekday_color": "Weekday colour",
+  "month_color": "Month colour",
+  "weekend_weekday_color": "Weekend weekday colour",
+  "weekend_month_color": "Weekend month colour",
+  "week_number_color": "Week number colour",
+  "week_number_background_color": "Week number background colour",
+  "event_color": "Event colour",
+  "accent_color": "Accent colour",
+  "time_color": "Time colour",
+  "location_color": "Location colour",
+  "description_color": "Description colour"
+}

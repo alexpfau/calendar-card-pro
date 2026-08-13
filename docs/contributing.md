@@ -145,7 +145,7 @@ To add a new language:
 ### Translating the Editor
 
 The visual editor's strings are optional and live separately, in
-`src/translations/editor-languages/[lang-code].json`. Eleven of the 35 languages translate
+`src/rendering/editor/translations/[lang-code].json`. Ten of the 35 languages translate
 them today; the rest render the editor in English, which is fully supported.
 
 They are kept apart because they are the larger half of the translations by some margin,
@@ -153,10 +153,20 @@ and the editor is loaded only when someone opens it — so a dashboard never dow
 at all. Putting them back in `languages/` would undo that, and `npm run check:i18n` fails
 if you do.
 
+English is not among them. It lives in `src/rendering/editor/strings.ts` and nowhere else,
+so there is no second English table to disagree with it. Each file below holds the subset
+of those keys its language translates, keyed identically.
+
 A partial translation is safe to ship. Each key falls back on its own, so anything you
 leave out simply renders in English rather than looking broken. Register a new file with an
-`import` and an `EDITOR_TRANSLATIONS` entry in `editor-languages/index.ts`, using the same
+`import` and an `EDITOR_LANGUAGE_STRINGS` entry in `translations/index.ts`, using the same
 lowercase key as the language itself.
+
+::: warning Not `src/translations/editor-languages/`
+That directory is an archive of the editor Calendar Card Pro used before v4. Its keys
+overlap the live ones by name without matching them in meaning, so a string added there
+labels nothing. `npm run check:i18n` fails if anything imports it.
+:::
 
 ## 🏆 Acknowledgements
 
