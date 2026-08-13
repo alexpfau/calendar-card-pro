@@ -256,8 +256,8 @@ Everything else moved to `docs/`.
   three hardcoded counts**. Derive them rather than incrementing by hand — they are prose,
   so nothing fails when they drift, and they were wrong for three consecutive releases:
   ```bash
-  ls src/translations/languages/*.json | wc -l        # total languages
-  ls src/translations/editor-languages/*.json | wc -l # editor languages
+  ls src/translations/languages/*.json | wc -l          # total languages
+  ls src/rendering/editor/translations/*.json | wc -l   # editor languages
   ```
 
 Run `npm run docs:build` before pushing. `ignoreDeadLinks` is deliberately **off**, so an
@@ -468,29 +468,37 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    here is now a `check:i18n` error, because these files are imported statically for all
    35 languages and land on every dashboard load.
 
-2. `src/translations/editor-languages/<code>.json` — the editor's strings, **optional and
-   may be partial**. Only 11 of the 35 languages translate the editor; the other 24 have
-   no file here at all and the editor renders in English. Both are supported —
-   `translateEditorKey()` in `localize.ts` resolves each editor key on its own, falling
-   back **requested language → English → raw key name**.
+2. `src/rendering/editor/translations/<code>.json` — the editor's strings, **optional and
+   may be partial**. Ten of the 35 languages translate the editor; the other 25 have no
+   file here at all and the editor renders in English. Both are supported — `lookup()` in
+   `src/rendering/editor/localize.ts` resolves each key on its own, falling back
+   **requested language → English**, where English is `strings.ts`.
 
-   That per-key chain is deliberate, and replaced an earlier all-or-nothing swap that made a
-   half-finished translation worse than none at all: any key the translator had not reached
-   rendered as its own **raw key name** (`show_end_time`) in the UI rather than as English.
-   A partial section is now safe to ship — untranslated keys simply appear in
-   English — so translate as much as you like and leave the rest. `check:i18n` reports the
-   gap as a **warning**, not an error.
+   **There is deliberately no `en.json` here.** English lives in `strings.ts` and nowhere
+   else, so the two can never disagree; `check:i18n` errors on an `en.json` in this
+   directory. Keys match `EDITOR_STRINGS` exactly, and a key that is not in that table is
+   an error too — nothing would ever look it up.
+
+   That per-key chain is deliberate and is the maintainer's stated preference: show the
+   language, and fall back to English only for the individual strings it is missing. A
+   partial file is safe to ship, so translate as much as you like and leave the rest.
+   `check:i18n` reports coverage as an informational line, not as a failure.
 
    These files are reachable **only** from `src/rendering/editor/`, so they are built into
-   `editor.js` rather than loaded on every dashboard load. That is 88.4% of the translation
-   payload moved off the eager path, and it is why they may not go back into `languages/`.
-   A new file also needs an `import` **and** an `EDITOR_TRANSLATIONS` entry in
-   `editor-languages/index.ts`, under a lowercase key naming a language that already
+   `editor.js` rather than loaded on every dashboard load, and they may not go back into
+   `languages/`. A new file also needs an `import` **and** an `EDITOR_LANGUAGE_STRINGS`
+   entry in `translations/index.ts`, under a lowercase key naming a language that already
    exists — a file nothing imports is silently never registered.
 
-   The sections here are **dormant**: they belong to the editor that was replaced, and the
-   schema-driven one resolves from `src/rendering/editor/strings.ts` first. They are kept
-   to be mined during the translation pass (backlog E10), not deleted.
+   🚨 **`src/translations/editor-languages/` is not this directory.** It is an archive of
+   the editor replaced in v4, kept as mining material for backlog E10. Its keys overlap
+   the live ones **by name without matching in meaning** — measured, 94 keys are spelled
+   the same and only 53 still carry the same English, with `language` and `language_mode`
+   holding each other's meanings. It was consulted at runtime until v4, behind the English
+   table that defines every key, so it resolved nothing while costing 145 KB of
+   `editor.js`; that is why the editor now reads exactly one namespace and `check:i18n`
+   fails if anything in `src/` imports the archive. Mine it by **English text**, never by
+   key name.
 
 3. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups
