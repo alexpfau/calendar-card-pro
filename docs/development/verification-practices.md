@@ -13,6 +13,23 @@ two ever disagree, the code decides and both are wrong.
 
 ## Why _verified_ needs saying
 
+**Why re-reading never finds these.** Not one defect recorded in this file was caught by
+looking again at the same text — and the reason is structural rather than a lapse in care.
+**Re-reading tests a claim against the same model that produced it**, so it can find a
+transcription error and never a reasoning one. Every failure below was a reasoning error
+wearing correct prose: the sentence was well-formed, the number was real, the command was
+right. That is why running something worked, why a second look never did, and why a second
+_person_ is a third instrument distinct from both — they bring a different model, which is
+the only thing that can disagree.
+
+**And match the instrument to the claim.** _"Prefer a test to prose"_ is the wrong
+generalisation. A claim about matching semantics — _does `Vardag` at the head of a label get
+caught_ — is mechanically checkable in ten seconds and prose is the wrong instrument for it.
+A claim about design intention — _these two checks deliberately share no normaliser_ — has
+no ten-second test, and prose is exactly right. The recurring failure is not using prose;
+it is **reaching for prose when a test existed**, which is the same error as reaching for a
+size comparison when a hash existed.
+
 These documents lean hard on the word _verified_ — it appears over a hundred times across
 them — so it is worth saying what it has to mean. **A claim that no available case could
 have falsified has not been verified; it has been untested**, and "verified, not assumed" is
