@@ -39,10 +39,18 @@
  * reports those terms as absent, which is a false negative rather than a finding: it
  * moved this probe from 1,889 English keys to 7,341.
  *
- *   pip download home-assistant-frontend --no-deps
+ *   pip download home-assistant-frontend==20260128.6 --no-deps
  *   unzip -q home_assistant_frontend-*.whl -d /tmp/hafe
  *   HA_FRONTEND_TRANSLATIONS=/tmp/hafe/hass_frontend/static/translations \
  *     node scripts/l10n-oracle.mjs
+ *
+ * **Pin the version.** An unpinned `pip download` is not reproducible across
+ * environments: behind a corporate proxy the index for this package can stop at an older
+ * release, and two people following the same instruction faithfully then get corpora a
+ * year apart — 5,884 English keys against 7,341. That is not hypothetical. It is why the
+ * key deciding `location` appeared not to exist, and why the glossary records the version
+ * beside the evidence. If a key named there does not resolve, compare corpus sizes before
+ * concluding the glossary is wrong.
  *
  * Every fragment directory found is loaded, deliberately rather than a hand-picked list:
  * a hand-picked list is how a term gets reported as having no evidence when the evidence

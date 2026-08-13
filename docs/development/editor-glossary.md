@@ -616,6 +616,14 @@ whole of Rule 2 in a single term.
 So: **pin the version when you reproduce this, and if a key is missing, check the version
 before concluding the glossary is wrong.**
 
+A pin is not paranoia here. An unpinned `pip download` resolved to a year-old wheel on a
+second machine, because a corporate proxy's index for this package stopped at
+`20250109.2` — `pip index versions` there lists nothing newer and the explicit pin fails
+outright with _No matching distribution found_. Two sessions followed the same instruction
+faithfully and got corpora a year apart, neither able to see why the other's evidence would
+not resolve. **Compare corpus sizes before disputing a row**: 5,884 English keys means the
+older wheel, 7,341 means this one.
+
 ```bash
 pip download home-assistant-frontend==20260128.6 --no-deps
 unzip -q home_assistant_frontend-*.whl -d /tmp/hafe
