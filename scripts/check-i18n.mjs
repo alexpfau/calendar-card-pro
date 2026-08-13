@@ -1555,7 +1555,7 @@ function readGlossary() {
 
     const decided = {};
     for (const row of section.matchAll(
-      /^\|\s*\*\*Decided\*\*(?:\s*\((\w+)\))?\s*\|([^\n]*)\|\s*$/gm,
+      /^\|\s*(?:\*\*|__)Decided(?:\*\*|__)(?:\s*\((\w+)\))?\s*\|([^\n]*)\|\s*$/gm,
     )) {
       const which = row[1] ? row[1].toLowerCase() : name;
       const cells = row[2].split('|').map((c) => c.trim());
@@ -1579,7 +1579,7 @@ function readGlossary() {
     }
 
     const rejected = {};
-    for (const line of section.matchAll(/^\*\*Rejected:\*\*([^\n]*)$/gm)) {
+    for (const line of section.matchAll(/^(?:\*\*|__)Rejected:(?:\*\*|__)([^\n]*)$/gm)) {
       for (const pair of line[1].split(';')) {
         const m = pair.match(/([a-z]{2}(?:-[a-z]{2})?)\s*`([^`]+)`/i);
         if (m) (rejected[m[1].toLowerCase()] ??= []).push(m[2]);
@@ -1589,6 +1589,22 @@ function readGlossary() {
     for (const [which, byLang] of Object.entries(decided)) {
       terms.push({ name: which, decided: byLang, rejected: which === name ? rejected : {} });
     }
+  }
+
+  // A `**Rejected:**` line that the header pattern misses disables that term's rejections
+  // with no error at all -- measured: respelling the header `__Rejected:__` took the file
+  // from 9 rejection errors to 0, silently. Both bold spellings are matched above; this
+  // counts anything that LOOKS like one -- any emphasis, colon or not -- and fails if the
+  // parser saw fewer. The first version of this guard required the colon and so missed
+  // `**Rejected**`, reproducing the defect it exists to catch one level up.
+  const rawRejected = (read(GLOSSARY_MD).match(/^\s*[*_]{0,2}Rejected\b[^\n]*`/gim) ?? []).length;
+  const parsedRejected = terms.filter((t) => Object.keys(t.rejected).length > 0).length;
+  if (parsedRejected < rawRejected) {
+    error(
+      'editor-glossary.md',
+      `${rawRejected} \`**Rejected:**\` lines are written but only ${parsedRejected} parsed — ` +
+        `a header spelling the parser does not recognise silently disables every rejection on that line`,
+    );
   }
 
   assertFound(terms, 'any decided glossary terms', GLOSSARY_MD);
