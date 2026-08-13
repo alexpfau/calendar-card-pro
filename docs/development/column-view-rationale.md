@@ -183,11 +183,11 @@ marked **[v6]**; changes from v6 are marked **[v7]**; changes from v7 are marked
 
 ### A2. Previously open — now resolved **[v3]**
 
-| #       | Resolution                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 11 + 12 | **Merged into one design: the view itself falls back to list below a width threshold.** Not column-count clamping. See A3-C.                                                                                                                                                                                                                                                                                                                                                                                                         | You flagged that 11 and 12 described the same issue. They did.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| 13      | **[v4] Approved in principle, but re-scoped** — a DOM snapshot cannot gate the Phase 1 refactor, because the DOM is now _allowed_ to change. See A3-A and the new section C0. **[v5] Corrected:** this row was missed by the v4 pass and read as though the gate had become manual. It has not. The automated gate is **retained and tightened**, and it is the _list_ DOM that must be byte-identical across Phase 1 — see **Phase 0 Stage 2**, which owns it. **[v7] Shipped (PR #390) and mutation-tested — the gate now exists** | **[v5]** The _visual_ check in Home Assistant covers the **column** view, which has no baseline to be identical to. It does **not** replace the automated list-DOM gate; the two cover different things and both are required before Phase 1 merges                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| 14      | **Approved:** "fully flexible here, let's try out once we have a first implementation." Measure `min_day_width` in Phase 4.                                                                                                                                                                                                                                                                                                                                                                                                | **[v5] A provisional value is now fixed so Phase 4 is buildable: `min_day_width = 160`.** This is a **starting point, not a result** — it is to be measured and revised in Phase 4, and the plan is not "correct" until it has been. It is not a free choice, however: (a) **128 is disproven**, not neutral — the narrow-column analysis below showed titles wrapping badly at that width, so the inherited #339 default must not ship unchanged; (b) `atomic-calendar-revive` ships `min-width: 150px` on its Planner columns, which is the only real-world number available and brackets the answer from below; (c) 160 leaves the decision-4 date-header arithmetic at ≈ 34–39% of column width rather than 43–50%, which is the margin the header band needs for weather (D2). **[v4] Two facts still bank before measuring:** the number does **double duty** — usable column-width floor _and_ the multiplier in A3-C's view-switch threshold — so a wrong value produces two _aligned_ bad outcomes (cramped columns that also fail to trigger the list fallback) |
+| #       | Resolution                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 11 + 12 | **Merged into one design: the view itself falls back to list below a width threshold.** Not column-count clamping. See A3-C.                                                                                                                                                                                                                                                                                                                                                                                                         | You flagged that 11 and 12 described the same issue. They did.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 13      | **[v4] Approved in principle, but re-scoped** — a DOM snapshot cannot gate the Phase 1 refactor, because the DOM is now _allowed_ to change. See A3-A and the new section C0. **[v5] Corrected:** this row was missed by the v4 pass and read as though the gate had become manual. It has not. The automated gate is **retained and tightened**, and it is the _list_ DOM that must be byte-identical across Phase 1 — see **Phase 0 Stage 2**, which owns it. **[v7] Shipped (PR #390) and mutation-tested — the gate now exists** | **[v5]** The _visual_ check in Home Assistant covers the **column** view, which has no baseline to be identical to. It does **not** replace the automated list-DOM gate; the two cover different things and both are required before Phase 1 merges                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 14      | **Approved:** "fully flexible here, let's try out once we have a first implementation." Measure `min_day_width` in Phase 4.                                                                                                                                                                                                                                                                                                                                                                                                          | **[v5] A provisional value is now fixed so Phase 4 is buildable: `min_day_width = 160`.** This is a **starting point, not a result** — it is to be measured and revised in Phase 4, and the plan is not "correct" until it has been. It is not a free choice, however: (a) **128 is disproven**, not neutral — the narrow-column analysis below showed titles wrapping badly at that width, so the inherited #339 default must not ship unchanged; (b) `atomic-calendar-revive` ships `min-width: 150px` on its Planner columns, which is the only real-world number available and brackets the answer from below; (c) 160 leaves the decision-4 date-header arithmetic at ≈ 34–39% of column width rather than 43–50%, which is the margin the header band needs for weather (D2). **[v4] Two facts still bank before measuring:** the number does **double duty** — usable column-width floor _and_ the multiplier in A3-C's view-switch threshold — so a wrong value produces two _aligned_ bad outcomes (cramped columns that also fail to trigger the list fallback) |
 
 ---
 
@@ -1849,11 +1849,11 @@ and the per-entity render flags (`entities[].label`, `.show_time`, `.show_locati
 >
 > The classification reasoning still holds in the abstract: these keys really are pure
 > presentation, and a narrow column really would want different ones. What it missed is
-> that eligibility is decided per *top-level key*, and `weather` is claimed whole by the
+> that eligibility is decided per _top-level key_, and `weather` is claimed whole by the
 > fetch boundary before its sub-keys are ever considered. Splitting the object so its
 > presentation half could be overridden is possible but has never been specified, and is
 > not required by anything currently planned — the column-view weather design reuses
-> `show_conditions` with view-dependent *meaning* rather than a per-view value.
+> `show_conditions` with view-dependent _meaning_ rather than a per-view value.
 
 **C — axis-rotated.** Covered by the table in the spec.
 
@@ -2142,7 +2142,6 @@ Overlap lanes, time axis, now-line (time-grid's, phase 5); paging and date-range
 (#185); per-person lanes (#203); `date_horizontal_alignment` and its naming harmonisation;
 line-style keys for any separator; interactive expand on the "+N more" pill.
 
-
 ---
 
 ## Archived Y2 Pre-Split Spec Snapshot
@@ -2157,14 +2156,14 @@ the current spec remains the authority when this snapshot disagrees with code or
 view itself — is substantially implemented** on `feature/column-view-v4` and is being
 live-tested. Phase 5 (time grid) has not started. **Target release:** v4.0.0.
 
-| Phase | What it covers | State |
-| --- | --- | --- |
-| 0 | DOM golden gate, i18n integrity script | Shipped in 3.x (PR #390) |
-| 1 | Shared leaf renderers (`leaves.ts`) | Shipped in 3.x |
-| 2 | Presentation models | Shipped in 3.x |
-| 2b | Cache correctness | Shipped in 3.x |
-| 4 | Column view + `ViewAdapter` | **In progress** — renders, with density, week numbers, separators, progress bar and per-event weather |
-| 5 | Time grid | Not started; commits preserved on the frozen `alexpfau-review-339-time-grid` |
+| Phase | What it covers                         | State                                                                                                 |
+| ----- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 0     | DOM golden gate, i18n integrity script | Shipped in 3.x (PR #390)                                                                              |
+| 1     | Shared leaf renderers (`leaves.ts`)    | Shipped in 3.x                                                                                        |
+| 2     | Presentation models                    | Shipped in 3.x                                                                                        |
+| 2b    | Cache correctness                      | Shipped in 3.x                                                                                        |
+| 4     | Column view + `ViewAdapter`            | **In progress** — renders, with density, week numbers, separators, progress bar and per-event weather |
+| 5     | Time grid                              | Not started; commits preserved on the frozen `alexpfau-review-339-time-grid`                          |
 
 **Scope:** a second view (`view: 'column'`) that renders the existing agenda list rotated —
 days side by side as columns rather than stacked — without changing how the list view looks
@@ -2186,20 +2185,20 @@ failure mode. See [§F.8](#f-constraints-that-bind-implementation).
 
 #### A1. Approved and settled decisions
 
-| #       | Decision                                                                               | Note                                                                                                                                                                                                                   |
-| ------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1       | View name is **`column`**                                                              | `view: 'list' \| 'column'`.                                                                                                                                                                                            |
-| 2       | **`navigation_days` is deleted**, folded into `days_to_show`                           | Removed, not renamed.                                                                                                                                                                                                  |
-| 3       | Column-view MVP excludes overlap lanes, time axis, now-line                            | Those belong to time-grid.                                                                                                                                                                                             |
-| 4       | **Date at the top** of each column                                                     | The original 128px comparator is superseded by decision 14's 160px provisional, itself now corrected to the shipped 140px **[v12]**; the date header remains sound and has more room.                                                                               |
-| 5       | **Header rule is fully configurable** — width, colour                                  | Start visible by default.                                                                                                                                                                                              |
-| 6       | Between-day chrome rotates 90°; within-day chrome stays untouched                      | The organising thesis.                                                                                                                                                                                                 |
-| 7       | `date_vertical_alignment` is **ignored** in column view                                | Naming harmonisation with a future `date_horizontal_alignment` is out of scope.                                                                                                                                        |
-| 8       | Phase 1 is **shared leaf extraction**; list keeps its `<table>`                        | The drift lives in leaves, not containers. See A3-A and Phase 1.                                                                                                                                                       |
-| 9       | #339 branch is **frozen**, not rebased                                                 | lenaxia's four commits are preserved as ancestors for attribution.                                                                                                                                                     |
-| 10      | Feature milestone is **v4.0.0**                                                        | This is a choice, not a semver requirement.                                                                                                                                                                            |
-| 11 + 12 | Below a width threshold, the **view falls back to list**                               | Do not clamp the number of columns. See A3-C.                                                                                                                                                                          |
-| 13      | The list DOM equality gate is retained, tightened, shipped, and mutation-tested        | Phase 0 PR #390 delivered `tests/list-dom.test.ts`; Phase 1 must keep it green.                                                                                                                                        |
+| #       | Decision                                                                           | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1       | View name is **`column`**                                                          | `view: 'list' \| 'column'`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 2       | **`navigation_days` is deleted**, folded into `days_to_show`                       | Removed, not renamed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 3       | Column-view MVP excludes overlap lanes, time axis, now-line                        | Those belong to time-grid.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 4       | **Date at the top** of each column                                                 | The original 128px comparator is superseded by decision 14's 160px provisional, itself now corrected to the shipped 140px **[v12]**; the date header remains sound and has more room.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 5       | **Header rule is fully configurable** — width, colour                              | Start visible by default.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 6       | Between-day chrome rotates 90°; within-day chrome stays untouched                  | The organising thesis.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| 7       | `date_vertical_alignment` is **ignored** in column view                            | Naming harmonisation with a future `date_horizontal_alignment` is out of scope.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 8       | Phase 1 is **shared leaf extraction**; list keeps its `<table>`                    | The drift lives in leaves, not containers. See A3-A and Phase 1.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 9       | #339 branch is **frozen**, not rebased                                             | lenaxia's four commits are preserved as ancestors for attribution.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 10      | Feature milestone is **v4.0.0**                                                    | This is a choice, not a semver requirement.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 11 + 12 | Below a width threshold, the **view falls back to list**                           | Do not clamp the number of columns. See A3-C.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 13      | The list DOM equality gate is retained, tightened, shipped, and mutation-tested    | Phase 0 PR #390 delivered `tests/list-dom.test.ts`; Phase 1 must keep it green.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | 14      | `column.min_day_width` ships at **140**, is **measured**, and is **public config** | **[v12] The shipped default is 140, not the 160 G13 reported.** G13 measured the floor a column survives at correctly, but computed the fit as `160 × 3 + 20 = 500` against a measured 500px section — arithmetic carrying no term for the card's own horizontal padding, which is real. Restoring the full formula leaves 140 as the largest floor that still fits three columns in a default section, which is the constraint that sets the number. 128 remains disproven. G14 makes it a user-facing key — the escape hatch that keeps decision 11+12 ("do not clamp the number of columns") viable. **[v12] It lives inside `column:`**, not at the top level: it is Category C, meaningless in list view. |
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#a-decisions-ledger)
@@ -2336,7 +2335,7 @@ Carry-overs that still apply, to the **column** container only:
 >
 > This is the same move [v8] already made against kind 4 in D5 — the override block turned
 > out to be the general solution that a per-key special case was approximating. The
-> argument is recorded at `view.ts:404-431`, including why the rule is deliberately *not*
+> argument is recorded at `view.ts:404-431`, including why the rule is deliberately _not_
 > "inherit unless the user said otherwise": that variant needs a record of which keys were
 > typed by hand, and makes two cards with identical effective list behaviour render
 > differently in column view depending on whether a value was typed or defaulted.
@@ -2403,7 +2402,7 @@ polish for `Never show`, not required for the MVP default.
 **Verified against:** `origin/dev` @ `29b8226`. The modal-width figures still need live HA
 verification.
 
-> **[v16] Partly superseded by A3-G.** The wholesale flip described here is now the *default*
+> **[v16] Partly superseded by A3-G.** The wholesale flip described here is now the _default_
 > case rather than the only one: width first reduces the column count down to
 > `min_days_to_show`, and this fallback fires below that floor. Since `min_days_to_show`
 > defaults to `days_to_show`, everything below still describes default behaviour exactly. The
@@ -2452,7 +2451,7 @@ Design against these risks:
 > `action: 'expand'` that drives it is a measured flat no-op. The G12 split was a scoping
 > decision made before it was clear that in a grid these keys remove columns rather than
 > reduce height. What replaces compact mode in column view is the density framework
-> (`min_days_to_show` + the width-fallback rule), which degrades column *count* against
+> (`min_days_to_show` + the width-fallback rule), which degrades column _count_ against
 > available width instead of trading it for width. See D8 and the density section.
 
 The user-level meaning of `compact_events_to_show` is _how tall the card is when collapsed_.
@@ -2471,7 +2470,7 @@ Limits and related keys:
 
 > **[v14] Two rows below were overtaken by implementation and are corrected in place.**
 > The compact family was ruled inert in column view wholesale (commit `376bdcc`), for a
-> reason this section did not anticipate: it analysed each key as a *height* control and
+> reason this section did not anticipate: it analysed each key as a _height_ control and
 > asked how the height budget rotates, but in a grid every one of them removes **content
 > or columns** while the card occupies identical width. A collapsed column card is not
 > shorter — it is emptier. The struck rows are kept rather than deleted because the
@@ -2484,7 +2483,7 @@ Limits and related keys:
 - ~~**`compact_days_to_show` maps to fewer columns when collapsed — in MVP.** The unit is "days"
   in both views, so it needs neither an override nor a new key; it is simply N.~~
   **[v14] Reversed — it is inert in column view.** The unit does map cleanly, which is why
-  this looked safe; the problem is what the mapping *means*. Capping the day slice deletes
+  this looked safe; the problem is what the mapping _means_. Capping the day slice deletes
   trailing columns from a grid whose width does not shrink, so "compact" renders three wide
   columns where seven narrow ones were configured. That is not a compact card, it is a
   different card. The user's framing settles it: a compact toggle that trades column count
@@ -2493,7 +2492,7 @@ Limits and related keys:
   is a temporal cap — e.g. next one birthday — not a height cap; rebasing it per column would
   multiply the cap by `days_to_show`.~~
   **[v14] The rebasing argument stands; the conclusion drawn from it does not.** Rebasing
-  per column would indeed multiply the cap, so it was not done — but *leaving it global* in
+  per column would indeed multiply the cap, so it was not done — but _leaving it global_ in
   column view is not the safe fallback this row assumed. The bucket at `events.ts:419` is
   keyed `${entityId}__${configIdx}`, i.e. **one budget per entity per card**, so a cap of 1
   on a single-entity card yields exactly one event in the entire grid and collapses every
@@ -2542,17 +2541,17 @@ comment when nearby.
 Two Category C keys were renamed before shipping. Nothing had been released, so no migration
 is needed and `DEPRECATED_CONFIG_MAP` is deliberately not involved:
 
-| Old name              | New name           | Why                                                                     |
-| --------------------- | ------------------ | ----------------------------------------------------------------------- |
-| `min_column_width_px` | `min_day_width`    | `column` appears in zero of the 93 shipped keys; `day` appears in 14. In a time grid the time axis is itself a column, so `min_column_width_px` would be genuinely ambiguous there. No shipped key carries a `_px` suffix. |
-| `min_width_fallback`  | `min_days_fallback` | It named the wrong gate. The fallback fires when `min_days_to_show` will not fit — a *days* floor, not a width. Raising `min_days_to_show` triggers it at a **wider** card with the width key untouched. |
+| Old name              | New name            | Why                                                                                                                                                                                                                        |
+| --------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `min_column_width_px` | `min_day_width`     | `column` appears in zero of the 93 shipped keys; `day` appears in 14. In a time grid the time axis is itself a column, so `min_column_width_px` would be genuinely ambiguous there. No shipped key carries a `_px` suffix. |
+| `min_width_fallback`  | `min_days_fallback` | It named the wrong gate. The fallback fires when `min_days_to_show` will not fit — a _days_ floor, not a width. Raising `min_days_to_show` triggers it at a **wider** card with the width key untouched.                   |
 
 The identifiers moved with them: `ColumnMinWidthFallback` → `ColumnMinDaysFallback`,
 `resolveMinWidthFallback` → `resolveMinDaysFallback`.
 
 **Both names were substituted throughout this document and the rationale log, including inside
 historical entries.** That is a deliberate departure from the rule that archived rulings are
-never rewritten. The rule exists so a superseded *decision* is not falsified; a rename alters
+never rewritten. The rule exists so a superseded _decision_ is not falsified; a rename alters
 no decision, only a spelling. Leaving the old spelling in place would make
 `grep min_day_width` miss half the discussion and invite a reader to conclude two distinct
 keys once existed. This table is the record of the old names.
@@ -2574,19 +2573,19 @@ between the list layout and holding the floor with narrower columns.
 
 Three Category C keys, all inside `column:`:
 
-| Key                 | Type               | Default        | Role                                                |
-| ------------------- | ------------------ | -------------- | --------------------------------------------------- |
-| `min_day_width`     | number (px)        | `140`          | Width one column needs before another one is added  |
-| `min_days_to_show`  | number             | `days_to_show` | Floor — the card never renders fewer columns        |
-| `min_days_fallback` | `'list' \| 'cramp'` | `'list'`       | What happens when even the floor will not fit       |
+| Key                 | Type                | Default        | Role                                               |
+| ------------------- | ------------------- | -------------- | -------------------------------------------------- |
+| `min_day_width`     | number (px)         | `140`          | Width one column needs before another one is added |
+| `min_days_to_show`  | number              | `days_to_show` | Floor — the card never renders fewer columns       |
+| `min_days_fallback` | `'list' \| 'cramp'` | `'list'`       | What happens when even the floor will not fit      |
 
 **This supersedes two earlier rulings**, both of which forbade exactly what now ships:
 
 1. **A3-C's** "above the threshold you get the columns you asked for; below it you get list. Do
-   not silently drop days." The wholesale flip is now the *default* case rather than the only
+   not silently drop days." The wholesale flip is now the _default_ case rather than the only
    case — see the collapse property below.
 2. **G13's** "the rendered column count is determined by grouping, never by available width",
-   which recorded auto-fit as the *rejected* alternative. The objection there was honesty, not
+   which recorded auto-fit as the _rejected_ alternative. The objection there was honesty, not
    mechanism: a user who asks for 7 days and is shown 3 has no signal explaining the difference.
    That objection stands and is answered by keeping the **default floor at `days_to_show`**, so
    no user sees a silent drop until they ask for one.
@@ -2612,12 +2611,12 @@ The mechanism is specified in D6-B.
 **Ruled by the maintainer, 2026-08-12.** The `view` key takes exactly these three values.
 `list` and `column` ship in v4.0.0; `grid` is reserved now and built later (Phase 5).
 
-Nothing is added to the code for `grid` — this ruling reserves the *name*, nothing else.
+Nothing is added to the code for `grid` — this ruling reserves the _name_, nothing else.
 `validateView` continues to reject it until the view exists.
 
 **Why decide it before building it.** `view: column` becomes user-authored YAML at v4.0.0,
 and after that the value is effectively unrenameable. The runtime gained a deprecation
-*notice* in `dev` (PR #408) but still has no migration path: a renamed key is reported on
+_notice_ in `dev` (PR #408) but still has no migration path: a renamed key is reported on
 the console and then ignored, and `DEPRECATED_CONFIG_MAP` is consulted only by the editor's
 upgrader. So a later rename of a shipped `view` value would silently revert affected cards
 to `list`. Naming the third value now costs nothing and prevents an inconsistent trio.
@@ -2848,9 +2847,9 @@ body is indented to column 8 in a top-level function because that is where it sa
 `renderEvent`. `leaves.ts` carries a header comment saying so, so nobody "tidies" it.
 
 **[v20] Correction — this was wrong, and it was wrong while claiming to be verified.**
-**Prettier *does* reformat inside `html` tagged templates.** Run `npm run format` on a
+**Prettier _does_ reformat inside `html` tagged templates.** Run `npm run format` on a
 single-line template and it reflows the embedded HTML, re-indenting and breaking lines.
-What it preserves is whitespace it *already finds*, so every pre-existing template
+What it preserves is whitespace it _already finds_, so every pre-existing template
 round-trips unchanged — which is almost certainly how the claim passed verification in the
 first place, since nothing then in the tree could have falsified it. A template deliberately
 written to carry **none** is the case that breaks, and it gets the indentation put straight
@@ -3092,25 +3091,25 @@ is the implementation spec.
 
 > **[v14] The `ViewAdapter` half of this phase was never built, and this is now a known,
 > accepted deviation rather than an oversight to be silently carried.** `git grep -i viewadapter
-> src/` returns zero hits on the v4 branch. Column view shipped as **ten hard-coded binary view
+src/` returns zero hits on the v4 branch. Column view shipped as **ten hard-coded binary view
 > gates** — `effectiveView === 'column'` or `!== 'column'` — instead of an abstraction.
 >
 > This is not, in itself, wrong. The rationale log's own argument for cancelling Phase 3
-> ([rationale :719-731](./column-view-rationale.md)) — *"you cannot see the seam with one
+> ([rationale :719-731](./column-view-rationale.md)) — _"you cannot see the seam with one
 > implementation; an adapter designed against list alone encodes list's shape as though it were
-> the general shape"* — applies with almost equal force to an adapter designed against list and
+> the general shape"_ — applies with almost equal force to an adapter designed against list and
 > column, which are both day-partitioned. The independent grid-view feasibility review reached
 > the same conclusion and explicitly recommended **not** generalising now.
 >
-> What *is* wrong is the consequence nobody recorded: the **pre-Phase-5 conformance gate at
-> :716-736 has therefore never run**, even though it is specified to run *before `view` ships*.
+> What _is_ wrong is the consequence nobody recorded: the **pre-Phase-5 conformance gate at
+> :716-736 has therefore never run**, even though it is specified to run _before `view` ships_.
 > Two of the ten gates are semantic rather than cosmetic, and both are written in the negative
 > form that silently mis-answers for a third view:
 >
-> | Site | Gate | Why the negative form is a trap |
-> | --- | --- | --- |
-> | `events.ts:207` | `compactLimitsApply = !isExpanded && effectiveView !== 'column'` | Sits under a 30-line comment arguing compact caps are meaningless **in grid layouts** — reasoning that applies verbatim to a time grid. A third view inherits list's answer against the comment's own logic. |
-> | `events.ts:229` | `ignorePerEntityOverride` keyed on `=== 'column'` | Column force-splits multi-day events; the frozen prototype force-splits them *off* because the list splitter emits synthetic middle segments that land in the wrong band. A third view needs a **third** answer, not either existing one. |
+> | Site            | Gate                                                             | Why the negative form is a trap                                                                                                                                                                                                           |
+> | --------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | `events.ts:207` | `compactLimitsApply = !isExpanded && effectiveView !== 'column'` | Sits under a 30-line comment arguing compact caps are meaningless **in grid layouts** — reasoning that applies verbatim to a time grid. A third view inherits list's answer against the comment's own logic.                              |
+> | `events.ts:229` | `ignorePerEntityOverride` keyed on `=== 'column'`                | Column force-splits multi-day events; the frozen prototype force-splits them _off_ because the list splitter emits synthetic middle segments that land in the wrong band. A third view needs a **third** answer, not either existing one. |
 >
 > Neither is visible to the test suite: both branches are reachable only under non-default
 > config, and `compact_days_to_show` defaults `undefined`. This is exactly the failure mode
@@ -3144,7 +3143,7 @@ present only in `en.json`; and `time_grid_interval_minutes` being a zoom control
 >
 > - It renamed `time_grid_breakpoint_{three,seven}_day_px` → **`min_day_column_width_px`** and
 >   `time_grid_max_days` (a `1|3|7` enum) → **`max_day_columns`** (`1..31`), on the stated
->   grounds that keys solving the *day-column* problem "which a future column view shares" must
+>   grounds that keys solving the _day-column_ problem "which a future column view shares" must
 >   lose the view prefix, "since renaming after release would be a breaking change". That is the
 >   same conclusion D6 reached for Category C, arrived at eight months earlier from the other
 >   side. It also means the column-count-versus-width lever was invented twice independently.
@@ -3381,7 +3380,7 @@ The adapter must express three per-view behaviour kinds without leaving inert ed
 > `column:` block, not by a `null` value in the flat key. See the [v17] banner on A3-B.
 > This is the second time the override block has absorbed a kind from this table — [v8]
 > removed kind 4 for the same reason, recorded in the note directly below. The taxonomy is
-> therefore now **two** kinds, not three: *forced* and *inert*. A per-view default is no
+> therefore now **two** kinds, not three: _forced_ and _inert_. A per-view default is no
 > longer a kind at all, because it is no longer an editor problem — it is a config
 > resolution problem, solved before the editor sees a value.
 >
@@ -3435,7 +3434,7 @@ round-trips as a truthy string. If a key cannot take a sentinel, it is not kind 
 > **idempotent** (a segment no longer spans days, so `isMultiDayEvent` rejects it on a second
 > pass), so it does not matter how the stored array was processed; the `days_to_show` filter has
 > **already** run on that array, so re-splitting cannot change which events survive; and
-> `groupEventsByDay` sorts within and across days *after* grouping, so insertion order is
+> `groupEventsByDay` sorts within and across days _after_ grouping, so insertion order is
 > irrelevant. Moving the split itself into the grouping function — the obvious alternative —
 > would have reordered it against that filter and changed list-view output.
 >
@@ -3467,7 +3466,7 @@ round-trips as a truthy string. If a key cannot take a sentinel, it is not kind 
 >
 > **[v10] Deferred to the grid view.** A grid conventionally lifts multi-day events out of the
 > per-day columns into a dedicated band between the date header and the grid body. For all-day
-> events that is near-universal; for *timed* multi-day events the field splits — Apple Calendar
+> events that is near-universal; for _timed_ multi-day events the field splits — Apple Calendar
 > draws them across the grid body (**the maintainer's preference**), Google pins them to the
 > top band, which leaves the grid looking empty for hours that are in fact busy. Revisit when
 > the grid view is designed; column view's force-split is not a commitment either way.
@@ -3520,7 +3519,7 @@ premise does not survive reading the code.** `hasWeekSeparator` (`render.ts:385-
 exactly one consumer, at `:391`, where it **suppresses the day separator**. With week numbers
 on and `week_separator_width: '0px'`, `renderWeekRow` sets `--separator-display: none` and
 nothing is drawn — no week rule appears. So the flag is not a coupling that turns a separator
-*on*; it is day-separator *suppression*, and it exists only because the list's week-number pill
+_on_; it is day-separator _suppression_, and it exists only because the list's week-number pill
 is a full-width row that physically occupies the slot a day separator would otherwise take.
 
 Column view has no such collision: the week pill lives inside the column header, and the
@@ -3620,20 +3619,20 @@ an override of it — it needs a render-only key.
 Where the same value means a rotated thing, reusing the name inside `column:` still forces the
 user to hold two meanings for one word. These get distinct keys:
 
-| List-view key              | Column-view meaning                | Resolution                          |
-| -------------------------- | ---------------------------------- | ----------------------------------- |
-| `day_spacing`              | vertical gap → horizontal gutter   | reuse — "gap between days" in both  |
-| `day_separator_*`          | horizontal rule → vertical rule    | new `column.day_header_separator_*` |
-| `week_separator_*`         | horizontal rule → vertical rule    | reuse — full-height vertical rule   |
-| `month_separator_*`        | horizontal rule → vertical rule    | reuse — full-height vertical rule   |
+| List-view key              | Column-view meaning                | Resolution                                             |
+| -------------------------- | ---------------------------------- | ------------------------------------------------------ |
+| `day_spacing`              | vertical gap → horizontal gutter   | reuse — "gap between days" in both                     |
+| `day_separator_*`          | horizontal rule → vertical rule    | new `column.day_header_separator_*`                    |
+| `week_separator_*`         | horizontal rule → vertical rule    | reuse — full-height vertical rule                      |
+| `month_separator_*`        | horizontal rule → vertical rule    | reuse — full-height vertical rule                      |
 | `compact_days_to_show`     | day rows → columns                 | ~~reuse — the unit is "days" in both~~ **inert [v14]** |
-| `compact_events_to_show`   | total budget → per-column budget   | **out of MVP** (G12)                |
-| `today_indicator_position` | tall date cell → short header band | needs a real dashboard (G13)        |
+| `compact_events_to_show`   | total budget → per-column budget   | **out of MVP** (G12)                                   |
+| `today_indicator_position` | tall date cell → short header band | needs a real dashboard (G13)                           |
 
 > **[v14] The `compact_days_to_show` row is corrected in place** rather than cross-referenced,
 > because the table is a lookup and a reader who consults one row will not read D8. "The unit is
 > days in both" is true and was still the wrong conclusion: the unit surviving translation does
-> not mean the *effect* does. Dropping day rows shortens a list; dropping columns widens the
+> not mean the _effect_ does. Dropping day rows shortens a list; dropping columns widens the
 > survivors into the freed space, so the card is the same size and merely holds less. The whole
 > compact family is inert — see D8 for the verified set.
 
@@ -3706,6 +3705,7 @@ block`), inheriting from the merged top-level value, never from `DEFAULT_CONFIG`
   unconditional; a test enforces that. The cost is that column view can no longer return the
   configuration by identity, which is why `effectiveConfig` memoizes on configuration **and**
   view.
+
 - **`split_multiday_events` joined that table — the block is lifted (amended v10).** A column
   _is_ a day, so an unsplit multi-day event makes the card lie: it renders in its start column
   only, and every later column it spans asserts "no upcoming events" while a tracked event is
@@ -3783,7 +3783,7 @@ rather than the list layout, for the reason documented on `resolveEffectiveView`
 and then swapping flashes the wrong thing on every load of a card that is wide enough. As with
 the view switch, that optimism is a bet rather than an observation and must not seed the
 trigger, which is why `resolveColumnFitOnMeasurement` refuses the band when
-`previousMeasuredWidthPx` is `null`. A `null` previous layout deliberately lands in the *growing*
+`previousMeasuredWidthPx` is `null`. A `null` previous layout deliberately lands in the _growing_
 branch via a previous count of zero, so a card must qualify at the enter threshold for a column
 it has never been wide enough for.
 
@@ -3801,16 +3801,16 @@ for v4.0.0** and none may be dropped silently. This section exists so that the d
 survives — a deferral recorded only in the section that deferred it is a deferral that gets
 forgotten.
 
-| Deferred                                | Deferred in | Why deferred                               | Release requirement                                |
-| --------------------------------------- | ----------- | ------------------------------------------ | -------------------------------------------------- |
-| **Editor controls for `column:`**       | D6          | Spec still moving; would be built twice    | Full editor support, strings in all 11 languages   |
-| **`column.entities[]` overrides**       | D6          | Addressing scheme unresolved (index vs id) | Ruled and implemented, or documented as N/A        |
-| **`compact_events_to_show` overrides**  | G12         | Per-column budget is a different algorithm | Ruled in or documented as N/A (E1 forbids silence) |
-| **Week / month separator overrides**    | D6          | Axis-rotated; needs its own visual design  | Ruled in or documented as N/A                      |
-| **View-scoped keys flagged in editor**  | D8          | Ships with editor support as a whole       | Must ship — E1 is otherwise carried by docs alone  |
-| **Editor too-narrow warning**           | G14         | Editor support as a whole is post-MVP      | Must ship — it is what makes G14's ruling honest   |
-| **Feedback for a bad key in `column:`** | 4a / D-1    | `Logger.warn` is silent in prod builds     | Editor prevents it at source; docs list valid keys |
-| **Honesty affordance for auto-fit**     | A3-G        | A truncated card looks like a complete one | Ship before any change to the A3-G defaults        |
+| Deferred                                | Deferred in | Why deferred                                                                                                                | Release requirement                                                                                                                |
+| --------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Editor controls for `column:`**       | D6          | Spec still moving; would be built twice                                                                                     | Full editor support, strings in all 11 languages                                                                                   |
+| **`column.entities[]` overrides**       | D6          | Addressing scheme unresolved (index vs id)                                                                                  | Ruled and implemented, or documented as N/A                                                                                        |
+| **`compact_events_to_show` overrides**  | G12         | Per-column budget is a different algorithm                                                                                  | Ruled in or documented as N/A (E1 forbids silence)                                                                                 |
+| **Week / month separator overrides**    | D6          | Axis-rotated; needs its own visual design                                                                                   | Ruled in or documented as N/A                                                                                                      |
+| **View-scoped keys flagged in editor**  | D8          | Ships with editor support as a whole                                                                                        | Must ship — E1 is otherwise carried by docs alone                                                                                  |
+| **Editor too-narrow warning**           | G14         | Editor support as a whole is post-MVP                                                                                       | Must ship — it is what makes G14's ruling honest                                                                                   |
+| **Feedback for a bad key in `column:`** | 4a / D-1    | `Logger.warn` is silent in prod builds                                                                                      | Editor prevents it at source; docs list valid keys                                                                                 |
+| **Honesty affordance for auto-fit**     | A3-G        | A truncated card looks like a complete one                                                                                  | Ship before any change to the A3-G defaults                                                                                        |
 | **Progress bar in column view**         | —           | Renders via the shared leaf but is never exercised: it defaults off, so the suite (built from default config) cannot see it | Verified live at adequate width **[v18]**; narrow-column geometry is backlog C5, and a test that turns the option on is still owed |
 
 The E1 acceptance criterion is what enforces this: _no silent config no-ops_. Anything still
@@ -3858,16 +3858,16 @@ was first written — once when the compact-mode family was ruled inert wholesal
 when live measurement settled two cases that code reading had gotten wrong. Every row
 below is verified against the running card, not inferred from source:
 
-| Option                                       | Why it is inert in column view                                                                     |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `date_vertical_alignment`                    | Nothing to align against — the header is its own row (A3-A)                                          |
-| `today_indicator_position`                   | The percentage model does not survive the axis flip (D8-A)                                           |
-| `compact_events_to_show`                     | Caps events per *card*; in a grid that deletes content from columns rather than shortening the card  |
+| Option                                       | Why it is inert in column view                                                                        |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `date_vertical_alignment`                    | Nothing to align against — the header is its own row (A3-A)                                           |
+| `today_indicator_position`                   | The percentage model does not survive the axis flip (D8-A)                                            |
+| `compact_events_to_show`                     | Caps events per _card_; in a grid that deletes content from columns rather than shortening the card   |
 | `compact_events_to_show` (per-entity)        | **Same, and worse** — the bucket is keyed per entity per card, so one cap collapses every column      |
 | `compact_days_to_show`                       | Caps the day slice, which deletes trailing **columns** — the card occupies identical width either way |
-| `compact_events_complete_days`               | The height budget rotates per column, not per card (A3-D)                                            |
-| `action: 'expand'` (tap / hold / double-tap) | Nothing to expand once the caps above are inert — the gesture is a flat no-op                        |
-| `split_multiday_events` (per-entity)         | Overridden by the column force-default; the `column:`-level key is the escape hatch                  |
+| `compact_events_complete_days`               | The height budget rotates per column, not per card (A3-D)                                             |
+| `action: 'expand'` (tap / hold / double-tap) | Nothing to expand once the caps above are inert — the gesture is a flat no-op                         |
+| `split_multiday_events` (per-entity)         | Overridden by the column force-default; the `column:`-level key is the escape hatch                   |
 
 Three of these need their provenance stated, because each contradicts something written
 earlier in this document and the earlier text is the more intuitive reading:
@@ -3891,7 +3891,7 @@ earlier in this document and the earlier text is the more intuitive reading:
   misleadingly, and the table needs no conditional caveat.
 - **Per-entity `split_multiday_events` loses to the column force-default.** Measured: a
   card setting it `false` per entity is byte-identical to the control that sets nothing —
-  the event still splits across three columns. Setting it inside `column:` *is* honoured
+  the event still splits across three columns. Setting it inside `column:` _is_ honoured
   (the same fixture renders once). The precedence chain is therefore
   `column:` explicit > `COLUMN_DEFAULT_OVERRIDES` > per-entity > top-level, which is
   coherent — a per-view force-default must outrank a per-entity preference or it is not a
@@ -3966,7 +3966,7 @@ flush left, so the same 15% resolves **into** the day number. No percentage fixe
 - **Re-anchoring does not help.** `.column-date-content` is full-width too, so there is no
   box in the header whose width tracks the date text.
 - **Right-anchored values are worse than wrong.** At 95% the dot sits in the gutter,
-  nearer the *next* day's content than the day it marks. With a 10px gutter the ambiguity
+  nearer the _next_ day's content than the day it marks. With a 10px gutter the ambiguity
   is unavoidable, not merely tight.
 - **A width-dependent default is not a default.** Any percentage correct at 176px is wrong
   at 300px, and the column width is set by the dashboard, not by config.
@@ -3977,7 +3977,7 @@ an unambiguous `● Tue` at any column width. It shares the weekday's grid cell 
 taking a track of its own, because a leading track would indent today's day number
 relative to every other column and break the alignment of the number row. The weekday is
 padded aside by exactly `today_indicator_size + 4px`, driven by a class the renderer sets
-from the *rendered* result rather than from `isToday`, so a value resolving to no
+from the _rendered_ result rather than from `isToday`, so a value resolving to no
 indicator does not reserve space for a dot that is not there.
 
 `today_indicator`, `today_indicator_size` and `today_indicator_color` all apply normally
@@ -4011,17 +4011,17 @@ much cleaner, because the three kinds then differ only in width and colour rathe
 dimensions at once.
 
 **Technique: an overlaid grid item with a negative inline-start margin.** The rule is an
-*additional* item placed in the same cell as the column it precedes, `align-self: stretch`,
+_additional_ item placed in the same cell as the column it precedes, `align-self: stretch`,
 `justify-self: start`, offset by `calc(-0.5 * (gap + width))` so it centres in the gutter.
 Tracks stay `repeat(N, minmax(0, 1fr))` and `column-gap` is untouched.
 
 Three alternatives were tried and rejected, each for a concrete reason worth keeping:
 
-| Rejected                              | Why                                                                                     |
-| ------------------------------------- | --------------------------------------------------------------------------------------- |
-| Extra `auto` tracks for the gutters   | `column-gap` applies on **both** sides of the new track, so every gutter doubles          |
-| `border-inline-start` on `.day-column` | The grid sets `align-items: start`, so the border stops at that column's own content      |
-| Absolute positioning                  | The x-offset is unknowable without subgrid                                                |
+| Rejected                               | Why                                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------ |
+| Extra `auto` tracks for the gutters    | `column-gap` applies on **both** sides of the new track, so every gutter doubles     |
+| `border-inline-start` on `.day-column` | The grid sets `align-items: start`, so the border stops at that column's own content |
+| Absolute positioning                   | The x-offset is unknowable without subgrid                                           |
 
 **Explicit grid placement is mandatory on both the columns and the separators.** Explicitly
 placed items lay out before auto-placed ones, so mixing the two pushes auto-placed day columns
@@ -4037,7 +4037,7 @@ per-track sizing and buys nothing once the rules differ by width and colour.
 
 **Live verification** — 8 purpose-built cards on `ccp-current-testing`, all passing: default
 (no rules), day-only (14 identical full-height rules, none leading), full precedence across a
-window straddling both a week and a month boundary (month rule *replaces* the week rule, never
+window straddling both a week and a month boundary (month rule _replaces_ the week rule, never
 doubles), week numbers + day rules coexisting (the D5 proof), centring inside a 24 px gap,
 `day_spacing: 0` straddle, and a `column:` override producing rules where the top level says
 `0px`.
@@ -4124,9 +4124,9 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    nesting depth.** If a snapshot diff appears, it is a whitespace error — fix the indentation.
    **Never run `vitest -u`** to make it go away; that launders the change past review, and the
    gate's whole value is that it is the one artefact the refactorer does not get to edit.
-   Verified by running it, which the claim this replaces was not: **prettier *does* reformat
+   Verified by running it, which the claim this replaces was not: **prettier _does_ reformat
    inside `html` tagged templates** and will put deliberate whitespace straight back. It is
-   careful about whitespace it *already finds* — existing templates round-trip unchanged,
+   careful about whitespace it _already finds_ — existing templates round-trip unchanged,
    and it breaks as `</span\n><span` so no new text node appears between inline elements.
    That asymmetry is why the false claim survived: a template deliberately written to have
    **no** whitespace is the one case that breaks, and it gets the indentation put straight
@@ -4136,10 +4136,10 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    **Proving a snapshot diff is whitespace-only:** collapse only what the serializer
    already normalises — `norm = (s) => s.replace(/>\s+</g, '><')` — and compare. A match
    proves no text, text-adjacent-indentation, attribute or element change anywhere in the
-   file. Stripping *all* whitespace is weaker and will pass a real text-adjacent
+   file. Stripping _all_ whitespace is weaker and will pass a real text-adjacent
    regression.
    **🚨 The trap has a second face, and it bites the renderer rather than the gate. [v20]**
-   Template whitespace inside a flex item is *usually* invisible — a flex container drops the
+   Template whitespace inside a flex item is _usually_ invisible — a flex container drops the
    whitespace between its items, and an item's own leading run collapses because it is
    line-leading. Both halves of `renderEventWeather` relied on that, and the stylesheet said so
    outright. It is only true while nothing precedes that run on the line. Add a `::before` and
@@ -4157,7 +4157,7 @@ entity label, and change an allow/block pattern. Confirm the view updates.
    **Promoted here from Phase 1 in [v19].** It was written during Phase 1 and lived under a
    heading marked ✅ complete, where a reader checking the live constraints before touching a
    template would never see it — while the text itself says it "governs every later extraction".
-   The full derivation stays in [§C Phase 1](#phase-1--shared-leaf-renderers--ships-3x--risk-low--complete).
+   The full derivation stays in [§C Phase 1](#phase-1--shared-leaf-renderers--ships-3x--risk-low---complete).
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#f-constraints-that-bind-implementation)
 
@@ -4187,16 +4187,16 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 >     no view argument is a bug, catchable by inspection.
 >   - **Transition rule** — cheapest sufficient action, keyed on which resolved value changed:
 >
->     | Resolved value that changed | Action        | Why                                    |
->     | --------------------------- | ------------- | -------------------------------------- |
->     | `split_multiday_events`     | **regroup**   | [v10] splitting moved into grouping    |
->     | `show_empty_days`           | **regroup**   | affects grouping only                  |
->     | compaction only             | **re-render** | presentation only                      |
->     | —                           | re-render     | default                                |
+>     | Resolved value that changed | Action        | Why                                 |
+>     | --------------------------- | ------------- | ----------------------------------- |
+>     | `split_multiday_events`     | **regroup**   | [v10] splitting moved into grouping |
+>     | `show_empty_days`           | **regroup**   | affects grouping only               |
+>     | compaction only             | **re-render** | presentation only                   |
+>     | —                           | re-render     | default                             |
 >
 >     **[v10] the first row was amended, and the ruling is unaffected.** It said
 >     **reprocess**, because splitting ran in `processEvents` upstream of grouping. As
->     implemented it runs *inside* `groupEventsByDay` as an idempotent top-up, so the two
+>     implemented it runs _inside_ `groupEventsByDay` as an idempotent top-up, so the two
 >     divergent defaults now need the same, cheaper action. Nothing above depends on this —
 >     "never refetch" was always the load-bearing clause, and reprocess was merely the most
 >     expensive rung still permitted by it. §D5 [v10] carries the reasoning.
@@ -4232,7 +4232,7 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 >
 >   **[v14] The split has since been superseded by a wholesale exclusion: `compact_days_to_show`
 >   is now OUT too, and with it the rest of the family.** Kept here as the log of what was ruled
->   at the time — the reasoning above is sound about the *unit* and wrong about the *effect*.
+>   at the time — the reasoning above is sound about the _unit_ and wrong about the _effect_.
 >   See D3 and D8 for the current position, and the D8 warning against re-deriving the
 >   `action: 'expand'` row from source.
 >
@@ -4338,14 +4338,14 @@ number 26px, time 12px):
 
 **`min_day_width: 160` survives measurement.** **[v12 — superseded as the shipped
 value; the measurement below stands, the conclusion drawn from it did not.** 160 is a valid
-*header* floor, but the constant is also the multiplier in A3-C's view-switch threshold, and the
+_header_ floor, but the constant is also the multiplier in A3-C's view-switch threshold, and the
 fit arithmetic that accepted 160 omitted the card's horizontal padding. The shipped default is
 **140**; see decision 14 and the derivation comment on `COLUMN_DEFAULTS`.**] A single-line D2 header carrying date
 plus weather needs 76 + 73 + gap ≈ **157px**, and the longest common localised date form
 (`Mittwoch 24. Sept.`, 117px) still needs padding around it. 128px cannot fit date and weather
-on one line — **confirming it is disproven, not merely superseded**. If weather is _dropped_
+on one line — **confirming it is disproven, not merely superseded**. If weather is *dropped*
 from the header rather than truncated, the floor falls to roughly 130px, so **the D2
-truncate-or-drop decision sets the minimum** and must be made before the constant is frozen.
+truncate-or-drop decision sets the minimum\*\* and must be made before the constant is frozen.
 
 **Resulting column counts** at 160px + 8px gutter:
 
@@ -4393,10 +4393,10 @@ example did.
 **Ruled: the rendered column count is determined by grouping, never by available width. The
 card never silently drops columns because they do not fit.**
 
-> **[v16] Superseded by A3-G.** Width *does* now reduce the column count, down to a floor the
+> **[v16] Superseded by A3-G.** Width _does_ now reduce the column count, down to a floor the
 > user sets (`min_days_to_show`). The honesty objection below was not overruled — it was
 > answered by defaulting that floor to `days_to_show`, so the reduction range is empty unless a
-> user opens it deliberately. Everything below remains the reason the *default* is what it is,
+> user opens it deliberately. Everything below remains the reason the _default_ is what it is,
 > and mechanisms 1 and 3 shipped as described.
 
 Precisely: N is `days_to_show`, minus any days suppressed by an explicit `show_empty_days:

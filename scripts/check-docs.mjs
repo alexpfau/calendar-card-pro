@@ -42,7 +42,7 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { join, dirname, relative, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -67,10 +67,13 @@ const warn = (msg) => warnings.push(msg);
  * the source was restructured and this script has gone blind — not that all is well.
  */
 function assertFound(collection, what, where) {
-  const size = collection instanceof Map || collection instanceof Set ? collection.size : collection.length;
+  const size =
+    collection instanceof Map || collection instanceof Set ? collection.size : collection.length;
   if (size === 0) {
     console.error(`\n✗ FATAL: found no ${what} in ${relative(ROOT, where)}.`);
-    console.error('  The file was probably restructured. This check cannot run blind — fix the parser.\n');
+    console.error(
+      '  The file was probably restructured. This check cannot run blind — fix the parser.\n',
+    );
     process.exit(2);
   }
 }
@@ -106,7 +109,13 @@ function readDefaults() {
  * internal render state, which are not configuration and must not be required to appear
  * in the docs.
  */
-const USER_FACING_INTERFACES = ['Config', 'EntityConfig', 'WeatherPositionConfig', 'WeatherConfig', 'ActionConfig'];
+const USER_FACING_INTERFACES = [
+  'Config',
+  'EntityConfig',
+  'WeatherPositionConfig',
+  'WeatherConfig',
+  'ActionConfig',
+];
 
 function readConfigFields() {
   const src = readFileSync(TYPES_TS, 'utf8');
@@ -232,7 +241,9 @@ function checkDefaults(defaults, rows, resolveConstant) {
     // happens at runtime. That is correct and must not be "fixed" to say `undefined`.
     if (raw === 'undefined') {
       if (!/inherit/i.test(def)) {
-        warn(`${key}: code default is \`undefined\` but docs say "${def}" — verify the runtime fallback is what is described`);
+        warn(
+          `${key}: code default is \`undefined\` but docs say "${def}" — verify the runtime fallback is what is described`,
+        );
       }
       continue;
     }
@@ -241,7 +252,9 @@ function checkDefaults(defaults, rows, resolveConstant) {
     if (/^[A-Z]/.test(raw) && raw.includes('.')) {
       const resolved = resolveConstant(raw);
       if (resolved === null) {
-        warn(`${key}: default is the constant \`${raw}\`, which could not be resolved — verify by hand`);
+        warn(
+          `${key}: default is the constant \`${raw}\`, which could not be resolved — verify by hand`,
+        );
         continue;
       }
       codeValue = resolved;
@@ -249,14 +262,17 @@ function checkDefaults(defaults, rows, resolveConstant) {
 
     if (normalise(codeValue) !== normalise(def)) {
       error(
-        `${key}: docs say ${def} but DEFAULT_CONFIG has \`${raw}\`` + (comment ? `  (code comment: ${comment})` : ''),
+        `${key}: docs say ${def} but DEFAULT_CONFIG has \`${raw}\`` +
+          (comment ? `  (code comment: ${comment})` : ''),
       );
     }
   }
 
   for (const key of rows.keys()) {
     if (!defaults.has(key)) {
-      warn(`${key}: documented in the reference but not in DEFAULT_CONFIG — stale row, or an optional field with no default`);
+      warn(
+        `${key}: documented in the reference but not in DEFAULT_CONFIG — stale row, or an optional field with no default`,
+      );
     }
   }
 }
@@ -303,7 +319,12 @@ function isDocumented(field, text, fencedContent) {
  */
 function checkCoverage(fields, docs) {
   const corpus = docs
-    .filter((f) => !COVERAGE_EXCLUDES.some((ex) => relative(DOCS_DIR, f).startsWith(ex) || relative(DOCS_DIR, f) === ex))
+    .filter(
+      (f) =>
+        !COVERAGE_EXCLUDES.some(
+          (ex) => relative(DOCS_DIR, f).startsWith(ex) || relative(DOCS_DIR, f) === ex,
+        ),
+    )
     .map((f) => {
       const text = readFileSync(f, 'utf8');
       return {
@@ -317,7 +338,9 @@ function checkCoverage(fields, docs) {
 
   for (const [field, owners] of fields) {
     if (!corpus.some((c) => isDocumented(field, c.text, c.fenced))) {
-      error(`${field}: declared in ${[...owners].join(', ')} but documented on no user-facing page`);
+      error(
+        `${field}: declared in ${[...owners].join(', ')} but documented on no user-facing page`,
+      );
     }
   }
 }
@@ -333,7 +356,9 @@ function checkFences(docs) {
       .split('\n')
       .filter((l) => /^```/.test(l)).length;
     if (opens % 2 !== 0) {
-      error(`${rel}: odd number of \`\`\` fences (${opens}) — a block is unterminated and will swallow the rest of the page`);
+      error(
+        `${rel}: odd number of \`\`\` fences (${opens}) — a block is unterminated and will swallow the rest of the page`,
+      );
     }
   }
 }
@@ -400,16 +425,20 @@ function checkReadmeExample() {
 
   // Neither side may quietly lose its example: that would make the check vacuous.
   if (!a) {
-    error('README.md: no complete card example found — the landing page must show one working config');
+    error(
+      'README.md: no complete card example found — the landing page must show one working config',
+    );
     return;
   }
   if (!b) {
-    error('docs/guide/usage.md: no complete card example found — the README example is pinned to it');
+    error(
+      'docs/guide/usage.md: no complete card example found — the README example is pinned to it',
+    );
     return;
   }
   if (a.trim() !== b.trim()) {
     error(
-      "README.md and docs/guide/usage.md show different first examples. They are meant to be the same config — update both, or they will teach two different things.",
+      'README.md and docs/guide/usage.md show different first examples. They are meant to be the same config — update both, or they will teach two different things.',
     );
   }
 }
@@ -512,7 +541,6 @@ function checkWhatsNewAnchors(documented) {
   }
 }
 
-
 // ---------------------------------------------------------------------------
 // Shared helpers for the style checks
 // ---------------------------------------------------------------------------
@@ -588,7 +616,11 @@ function checkInternalLinks(docs) {
   // route -> set of anchors, e.g. "/features/weather" -> { "weather-integration", ... }
   const anchors = new Map();
   for (const file of published) {
-    const route = '/' + relative(DOCS_DIR, file).replace(/\.md$/, '').replace(/\/index$/, '');
+    const route =
+      '/' +
+      relative(DOCS_DIR, file)
+        .replace(/\.md$/, '')
+        .replace(/\/index$/, '');
     const seen = new Map();
     const slugs = new Set();
     for (const h of readHeadings(file)) {
@@ -628,6 +660,93 @@ function checkInternalLinks(docs) {
   // A regex that silently stops matching would turn this check into a no-op.
   if (!checked) {
     console.error(`Found no internal links under ${DOCS_DIR}. The link pattern is stale.`);
+    process.exit(2);
+  }
+  return checked;
+}
+
+// ---------------------------------------------------------------------------
+// Check 7b — relative links between the design docs resolve
+// ---------------------------------------------------------------------------
+
+/**
+ * `docs/development/` is excluded from the VitePress site and from check 7, which
+ * together left it checked by nothing at all. That was not a theoretical hole: a
+ * probe of the tree found **17 broken anchors**, every one of them created when the
+ * column-view plan was split into a spec plus an archive and the archive's internal
+ * links kept pointing at headings the split had moved or reworded.
+ *
+ * The exclusion in check 7 is right and stays. These files are not published, so a
+ * root-absolute `/features/x` in them is not a site link and resolving it against
+ * published routes would be meaningless. What they actually use is **relative** —
+ * `./v4-backlog.md#some-heading` and bare `#some-heading` — so that is what this
+ * resolves, against the real files and their real headings.
+ *
+ * Slugs here are **GitHub's**, not VitePress's, and that distinction is the whole
+ * reason this check needed writing carefully. These files are never published to the
+ * site — they are read on GitHub — and GitHub does *not* collapse runs of hyphens,
+ * where VitePress does. Every heading in this corpus uses an em-dash, which both
+ * slugifiers drop while leaving the spaces either side, so a real anchor reads
+ * `…show_empty_days--my-force-it-on-was-wrong` with a double hyphen. Running the
+ * site's `slugifyHeading` over them reports **all 17 cross-references as broken** when
+ * every one of them resolves correctly in the tool that renders the file. That was the
+ * first result this check produced, and believing it would have meant "fixing" 17
+ * working links.
+ */
+function githubSlug(text) {
+  return text
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036F]/g, '')
+    .replace(/\p{Extended_Pictographic}/gu, '')
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+    .trim()
+    .replace(/\s/g, '-')
+    .toLowerCase();
+}
+
+function checkDesignDocLinks(docs) {
+  const design = docs.filter((f) => relative(DOCS_DIR, f).startsWith('development/'));
+  if (!design.length) return 0;
+
+  const headings = new Map();
+  for (const file of design) {
+    const seen = new Map();
+    const slugs = new Set();
+    for (const h of readHeadings(file)) {
+      const base = githubSlug(h.text);
+      const n = seen.get(base) ?? 0;
+      seen.set(base, n + 1);
+      slugs.add(n === 0 ? base : `${base}-${n}`);
+    }
+    headings.set(basename(file), slugs);
+  }
+  assertFound(headings, 'design documents', join(DOCS_DIR, 'development'));
+
+  const LINK = /\[[^\]]*\]\((\.\/[^)\s]+|#[^)\s]+)\)/g;
+  let checked = 0;
+
+  for (const file of design) {
+    const here = basename(file);
+    for (const m of readFileSync(file, 'utf8').matchAll(LINK)) {
+      const [rawPath, anchor] = m[1].split('#');
+      const target = rawPath ? basename(rawPath) : here;
+      checked++;
+
+      if (!headings.has(target)) {
+        error(`${relative(ROOT, file)} links to ${m[1]}, but ${target} does not exist.`);
+        continue;
+      }
+      if (anchor && !headings.get(target).has(anchor)) {
+        error(
+          `${relative(ROOT, file)} links to ${m[1]}, but #${anchor} is not a heading in ${target}.`,
+        );
+      }
+    }
+  }
+
+  // Same guard as check 7: a pattern that stops matching must not read as a clean run.
+  if (!checked) {
+    console.error(`Found no relative links under ${join(DOCS_DIR, 'development')}.`);
     process.exit(2);
   }
   return checked;
@@ -735,7 +854,8 @@ function checkHeadingStyle(docs) {
       if (h.level === 1 && emoji)
         error(`${rel}:${h.line} h1 starts with an emoji; it would leak into the page <title>.`);
       if (h.level === 2 && !emoji) error(`${rel}:${h.line} h2 should start with an emoji.`);
-      if (h.level >= 3 && emoji) error(`${rel}:${h.line} h${h.level} should not start with an emoji.`);
+      if (h.level >= 3 && emoji)
+        error(`${rel}:${h.line} h${h.level} should not start with an emoji.`);
       if (/\band\b/i.test(h.text)) error(`${rel}:${h.line} heading uses "and"; use "&".`);
       if (h.text.endsWith(':')) error(`${rel}:${h.line} heading ends with a colon.`);
     }
@@ -833,7 +953,8 @@ function checkSpelling(docs) {
  * `whats-new.md` and the release notes are exempt: they record what was
  * announced at the time and are not rewritten.
  */
-const OPTION_NOUN = /(`[a-z0-9_*]+`\*{0,2}\s+)(parameters|parameter|settings|setting|variables|variable|properties|property)\b/;
+const OPTION_NOUN =
+  /(`[a-z0-9_*]+`\*{0,2}\s+)(parameters|parameter|settings|setting|variables|variable|properties|property)\b/;
 
 function checkOptionNoun(docs) {
   for (const file of docs) {
@@ -1022,7 +1143,9 @@ function checkColumnDefaults(columnDefaults, columnRows) {
 
   for (const [key, raw] of columnDefaults) {
     if (!columnRows.has(key)) {
-      error(`column → ${key}: in COLUMN_DEFAULTS but has no row in docs/reference/configuration.md`);
+      error(
+        `column → ${key}: in COLUMN_DEFAULTS but has no row in docs/reference/configuration.md`,
+      );
       continue;
     }
     const { def } = columnRows.get(key);
@@ -1153,6 +1276,7 @@ function main() {
   checkReadmeExample();
   const releases = checkWhatsNewCoverage();
   const links = checkInternalLinks(docs);
+  checkDesignDocLinks(docs);
   checkNoRawHtml(docs);
   checkAdmonitions(docs);
   checkHeadingStyle(docs);
