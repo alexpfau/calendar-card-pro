@@ -780,14 +780,17 @@ lines missing (prettier had re-wrapped them), flattening whitespace still report
 omitted normalisation produced a _false positive_ that read as lost work, which is the
 direction that provokes an unnecessary "restore", so it is worth being exact:
 
-```js
-const norm = (s) => s.replace(/\s+/g, ' ').replace(/_/g, '*');
-```
+The general rule is to **normalise every dimension the writer does not control** — and
+whitespace plus emphasis is not all of them. Use the three-dimension normaliser below
+rather than a two-dimension one; **the order in it is load-bearing**, because flattening
+first destroys the line boundary the prefix rule needs.
 
-The general rule is to **normalise every dimension the writer does not control**. Run the
-formatter over a phrase before searching for it, or search for the shortest fragment that
-contains no markup at all — `suspect the reader before the translation` is unambiguous and
-survives any reflow, where the same sentence with its emphasis markers does not.
+🚨 **A markup-free fragment does not survive reflow either**, which is the tempting
+shortcut and is wrong. `suspect the reader before the translation` contains no markup at
+all, and a raw search for it in `editor-localization.md` returns **false** — it is present,
+wrapped, with the blockquote's `> ` landing between _the_ and _reader_. Measured on that
+exact phrase: raw ✗, whitespace+emphasis ✗, prefix→emphasis→flatten ✓, flatten→prefix ✗.
+Three of the four ways to ask return the wrong answer.
 
 **A mutation that changes no observable behaviour is evidence about the corpus, not the code.**
 Stage 0 wrote two falsifiers for a glossary-parser bug and both reported IMMUNE with the fix
@@ -847,6 +850,17 @@ const norm = (s) =>
     .replace(/[`*_]/g, '') // code spans and emphasis
     .replace(/\s+/g, ' ');
 ```
+
+**And a self-test that only checks one direction covers only the failure you thought of.**
+The probe that found this carried a sentinel that must _not_ match — good against false
+positives, blind to false negatives, which is the direction that actually bit. A search
+harness needs both: a phrase known present that must be found, and one known absent that
+must not be. Cheapest form is to run it against a phrase you have just read with your own
+eyes; if that comes back missing, the normaliser is wrong, not the corpus.
+
+**Three sessions hit this on the same document in one evening**, which makes it a property
+of the corpus rather than of any reader — this repo's design docs are largely blockquoted
+prose, so a quoted phrase spanning a marker is the common case.
 
 Note which way it failed: two **false positives**, reading as another session's work lost in
 a conflict resolution — the direction that provokes an unnecessary "restore", which is the
