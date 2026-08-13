@@ -341,8 +341,9 @@ are one apiece.
 
 **The most useful thing in this table is what it separates.** Polish's only terminology
 disagreement is _purely casing_ — `Data Początkowa` against `Data początkowa` — while it
-title-cases **85%** of its labels (§6.1). Swedish agrees 14/14 while probably capitalising
-weekdays wrongly (§6.2). **Terminology quality and orthographic quality are independent
+title-cases **85%** of its labels (§6.1). Swedish agrees 14/14 and the oracle says nothing
+at all about its orthography, which is the same blindness from the other side. **Terminology
+quality and orthographic quality are independent
 axes**, and a session that checks only one will report a language as good when half of it
 is wrong. The bug noted at the head of this section is what happens when a check confuses
 them.
@@ -533,7 +534,34 @@ ours differs is `Start Date` — ours `Data Początkowa`, HA `Data początkowa`.
 identical; only the capital is wrong. A second artefact, reached by a different route,
 pointing at the same defect on the one string where it could.
 
-### 6.2 Norwegian capitalises weekdays; Norwegian does not
+### 6.2 Weekday casing — the question here was the wrong one
+
+> **Superseded by the maintainer at `27ab357`, and the correction is to the _question_, not
+> just the answer.** Home Assistant capitalises the full weekday name at `ui.weekdays.*` in
+> **all nine languages** — including Polish and Italian, which certainly lowercase weekdays
+> in running text. So HA is not making an orthographic claim; it is applying the ordinary
+> **standalone-label** convention, where a UI label takes an initial capital regardless of
+> how the word behaves inside a sentence. Two consequences, both against what is written
+> below:
+>
+> - **"Swedish is probably wrong" is withdrawn as unsupported.** Three independent native
+>   sources — the card's Swedish contributor, the editor's, and HA's — all write `Måndag`.
+>   Agreement across three is weak evidence of correctness; it is not evidence of error,
+>   and the paragraph below asserted error.
+> - **Norwegian is a disagreement between two native sources, not a settled defect.** HA's
+>   Norwegian contributors wrote `Mandag`; the card's wrote `mandag`. Both are native
+>   choices about the same word, so "the editor is calquing English" is one reading rather
+>   than the finding.
+>
+> The question for a native speaker is **not** "does this language capitalise weekdays" —
+> it does not, in prose, and nobody disputes that — but **"does a standalone UI label take
+> an initial capital here?"** Those have different answers and only the first was asked.
+> **Do not change either language's weekday casing on the strength of this section.** The
+> live discussion is in `editor-glossary.md` §3; it remains unresolved.
+>
+> Kept below unedited because the reasoning it illustrates — a cross-check between two
+> artefacts finds only disagreements — is still correct, and because it is a clean example
+> of a real defect being inferred from a two-key sample.
 
 The editor has `Mandag` / `Søndag`. The card's own native-contributed `nb.json` has
 `mandag` / `søndag`, which is correct Norwegian. The editor is calquing English.
@@ -670,8 +698,12 @@ reviewed and will not be met.
 1. **Match HA's term for the same concept** where the glossary records one, subject to
    Rules 1 and 2 of §3.6.
 2. **Follow the language's own capitalisation convention**, not English's. Sentence case
-   for Polish, Italian, Slovak, Estonian, Lithuanian, Latvian; lowercase weekdays for
-   Norwegian and Swedish; German capitalises nouns natively.
+   for Polish, Italian, Slovak, Estonian, Lithuanian, Latvian; German capitalises nouns
+   natively. **Weekday labels are excluded from this rule** — whether a standalone UI label
+   takes an initial capital is a separate convention from prose orthography, it is
+   unresolved for Norwegian and Swedish, and an earlier version of this rule told sessions
+   to lowercase them on the strength of a claim since withdrawn. Leave weekday casing as
+   you find it; see §6.2 and `editor-glossary.md` §3.
 3. **Do not calque English word order.** A label is named for the thing it labels in that
    language's natural order.
 4. **Prose is written as sentences, not translated word by word.** The 62 helpers explain
@@ -1035,8 +1067,12 @@ Recorded because the brief asked for them explicitly.
 - **Whether any individual existing translation is correct.** Everything in §6 is a
   _systematic_ defect visible from structure or cross-artefact disagreement. Establishing
   correctness needs native speakers, and nothing in this repo can substitute.
-- **Whether Swedish weekday capitalisation is wrong.** Both artefacts say `Måndag` and
-  agree, so the oracle is blind (§6.2). One native speaker resolves it in a sentence.
+- **Whether a standalone weekday label takes an initial capital in Norwegian and Swedish.**
+  Not the question this document originally asked — it asked whether those languages
+  capitalise weekdays, which they do not in prose and which nobody disputes. The maintainer
+  reframed it at `27ab357` after a third source (HA's `ui.weekdays.*`, capitalised 9/9)
+  showed the convention at issue is standalone-label capitalisation, not orthography. Still
+  unresolved, and now asking the right thing. §6.2.
 - **Whether `Žiadna` or `Žiadny` is right per key in Slovak.** It depends on the modified
   noun's gender and may differ between the three keys. Needs a native speaker.
 - **The true bundle figure at real full coverage.** §9.2 is a bracketed simulation from
