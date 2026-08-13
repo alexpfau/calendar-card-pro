@@ -17,7 +17,32 @@ import { getRelativeTimeString } from '../translations/dayjs';
 
 /**
  * Format an event's time string based on its start and end times
+ * Whether an event is an all-day event spanning more than one day.
  *
+ * This is the single source of truth for that question. It is derived from the
+ * event's own dates, never from its formatted `time` string: the formatter builds
+ * that string as `${allDay}, ${multiDay} …`, so recovering the answer by searching
+ * the sentence for the `multiDay` token asks the renderer to parse back something
+ * the formatter already knew. That coupling is also fragile — eight languages
+ * translate one of these tokens to two characters, and any summary or location text
+ * containing those characters would be a false positive.
+ *
+ * The iCal end date is exclusive, so it is decremented before comparison.
+ *
+ * @param event Calendar event
+ * @returns True when the event is all-day and spans two or more days
+ */
+export function isMultiDayAllDayEvent(event: Types.CalendarEventData): boolean {
+  if (event.start.dateTime) return false;
+
+  const startDate = parseAllDayDate(event.start.date || '');
+  const endDate = parseAllDayDate(event.end.date || '');
+  endDate.setDate(endDate.getDate() - 1);
+
+  return startDate.toDateString() !== endDate.toDateString();
+}
+
+/**
  * Generates a human-readable time string for calendar events
  * handling all-day events, multi-day events, and regular events
  *
@@ -55,7 +80,14 @@ export function formatEventTime(
     // For all-day events, the end date is exclusive in iCal format
     adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
 
-    // Check if it's a multi-day event
+    // Check if it's a multi-day event.
+    //
+    // Deliberately kept as its own date comparison rather than delegating to
+    // `isMultiDayAllDayEvent`. The two are independent implementations of one question,
+    // and `tests/multiday-allday-predicate.test.ts` asserts they agree across every
+    // shipped language. Routing this through the predicate would make that test
+    // self-referential — it would compare the predicate against itself and pass for a
+    // broken predicate, which is exactly what it did until a deliberate break exposed it.
     if (startDate.toDateString() !== adjustedEndDate.toDateString()) {
       return capitalizeFirstLetter(
         formatMultiDayAllDayTime(adjustedEndDate, language, translations),
