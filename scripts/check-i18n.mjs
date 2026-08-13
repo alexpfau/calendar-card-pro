@@ -1547,6 +1547,83 @@ function report(languageCount, fieldCount) {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * `fullDaysOfWeek` has exactly one consumer -- `format.ts:455`, and every path reaching it
+ * prefixes `translations.multiDay`; the sentence-initial branches use `endsToday` /
+ * `endsTomorrow` and never touch the array. So it is *always* running text, where a
+ * language that lowercases weekdays should render `till mandag`, not `till Mandag`.
+ *
+ * dayjs's locale data is the oracle: native-curated, already a dependency, and needs no
+ * corpus to fetch. Five of the card's own files already encode the split deliberately --
+ * lowercase `fullDaysOfWeek` against a capitalised standalone `daysOfWeek` (`nb`, `nl`,
+ * `nn`, `ru`, `uk`). Russian is the corroboration worth keeping: `ponedelnika` is
+ * genitive, only grammatical after `do`, so that contributor understood the array as
+ * running text and inflected it accordingly.
+ *
+ * Deliberately does NOT check `months`, and must not be extended to. That array has five
+ * consumers spanning two casing contexts -- running text in `format.ts`, but also the
+ * standalone day header in `leaves.ts` and `events.ts`, where a capital is right. One
+ * array cannot serve both, so a mismatch there is a design tension needing a separate
+ * `fullMonths`, not a casing defect; lowercasing it on this evidence would break the most
+ * visible string on every card in 16 languages. See Y13 in the v4 backlog.
+ *
+ * A warning rather than an error: these are native-contributed files in the eager path,
+ * so the fix wants the contributor, not CI.
+ */
+async function checkRunningTextWeekdayCase(languages) {
+  const { createRequire } = await import('node:module');
+  const require = createRequire(import.meta.url);
+  const upper = (v) =>
+    typeof v === 'string' &&
+    v.length > 0 &&
+    v[0] === v[0].toUpperCase() &&
+    v[0] !== v[0].toLowerCase();
+
+  let compared = 0;
+  const mismatched = [];
+
+  for (const [code, { file, data }] of languages) {
+    let locale;
+    for (const candidate of [code, code.split('-')[0]]) {
+      try {
+        locale = require(`dayjs/locale/${candidate}`);
+        break;
+      } catch {
+        /* not shipped under that spelling -- try the base code */
+      }
+    }
+    if (!locale) continue;
+
+    const oracle = Array.isArray(locale.weekdays) ? locale.weekdays : locale.weekdays?.standalone;
+    if (!Array.isArray(oracle) || oracle.length !== 7) continue;
+    if (!Array.isArray(data.fullDaysOfWeek) || data.fullDaysOfWeek.length !== 7) continue;
+
+    compared += 1;
+    const differing = data.fullDaysOfWeek
+      .map((value, i) => [value, oracle[i]])
+      .filter(([value, want]) => upper(value) !== upper(want));
+    if (differing.length) mismatched.push([file, differing[0]]);
+  }
+
+  // A zero must mean "all agree", never "nothing was examined".
+  if (compared === 0) {
+    error(
+      'languages/',
+      'weekday-case check compared no languages -- the dayjs oracle never resolved',
+    );
+    return;
+  }
+
+  for (const [file, [got, want]] of mismatched) {
+    warn(
+      `languages/${file}`,
+      `fullDaysOfWeek is capitalised (${got}) where dayjs has ${want} -- that array is only ever ` +
+        `rendered mid-sentence after multiDay, so it wants the running-text form. See Y13; the ` +
+        `months array is deliberately not checked and must not be "fixed" alongside it`,
+    );
+  }
+}
+
 async function main() {
   const languages = readLanguageFiles();
   const localize = readLocalizeWiring();
@@ -1562,6 +1639,7 @@ async function main() {
   await checkEditorTranslations(languages);
   await checkEnGbDerivation();
   await checkTranslationQuality(languages, readGlossary());
+  await checkRunningTextWeekdayCase(languages);
 
   process.exit(report(languages.size, fieldCount));
 }
