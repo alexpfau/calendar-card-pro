@@ -377,6 +377,22 @@ something else in the environment happens to satisfy it**, and every observable 
 to a test that works. It is the fixture equivalent of a control that cannot fail. Ask what
 supplies the input, not only what asserts on the output.
 
+**A mutation whose effect is _supposed_ to be invisible is a different trap, and a planted
+violation cannot save you from it.** Testing a glossary guard, I mutated a rejected form by
+**deleting** it when the guard exists to catch **malformation** — an entry the parser drops
+because its backticks are gone. The two produce nearly identical diffs and mean opposite
+things: deletion is the author changing their mind, which the guard is *correct* to pass in
+silence; malformation is the author's intent surviving in a form nothing can read, which it
+must catch. **Silence is the right output for one of them, and nothing in the output says
+which one you ran.**
+
+That is distinct from the vacuous-mutation family below. Those are mutations with *no*
+effect, and a planted violation fixes them. Here the planting is fine — the mutation lands,
+the harness's abort-on-no-match confirms the edit happened. What is wrong is that the edit
+encodes a **decision** rather than a **malformation**, and no amount of confirming it landed
+can tell you that. The check is one level further up: before believing a mutation's silence,
+confirm the mutation expresses the failure the guard is *for*.
+
 **A mutation that changes no observable behaviour is evidence about the corpus, not the code.**
 Stage 0 wrote two falsifiers for a glossary-parser bug and both reported IMMUNE with the fix
 reverted — one mutated a term nothing currently violates, so there was nothing to lose; the
