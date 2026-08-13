@@ -16,6 +16,7 @@
  * | `synthetic.ts` | UI-only fields, and the values that are invalid while typed |
  * | `localize.ts` | the three string hooks `ha-form` calls |
  * | `strings.ts` | English strings, in a fresh namespace |
+ * | `translations/*.json` | the same keys, per language, partial by design |
  *
  * `check:i18n` imports the schema half directly and reconciles `strings.ts` against
  * the fields that use it, in both directions. That is the payoff of being
@@ -28,19 +29,17 @@
  *
  * This module is also the editor's **build entry**. `rollup.config.mjs` names it as the
  * input of a second, separate build, so everything in its graph — the panels, the
- * schemas, `strings.ts` and the dormant translations registered below — is emitted into
- * `editor.js`, which a browser fetches only when the editor is opened. Two builds rather
- * than one with code-splitting, so that neither emitted file imports the other; the
- * reasoning is in `rollup.config.mjs`.
+ * schemas, `strings.ts` and `translations/` — is emitted into `editor.js`, which a
+ * browser fetches only when the editor is opened. Two builds rather than one with
+ * code-splitting, so that neither emitted file imports the other; the reasoning is in
+ * `rollup.config.mjs`.
+ *
+ * What this graph deliberately does **not** reach is
+ * `src/translations/editor-languages/`, the previous editor's namespace. It was
+ * imported here and registered at module scope until it was found to be unreachable at
+ * runtime *and* 145 KB of the editor chunk. It is an archive now; `check:i18n` fails if
+ * this graph imports it again.
  */
-
-import { registerEditorTranslations } from '../../translations/editor-languages/index';
-
-// Registered here rather than inside the element, so it has happened before anything
-// can resolve a string: awaiting this module's import evaluates it, and the card only
-// creates the editor element afterwards. Idempotent, and it costs nothing for the
-// users who never open the editor — the module holding it is in this build's output.
-registerEditorTranslations();
 
 export { CalendarCardProEditor } from './element';
 export { PANELS, walkSchema } from './panels';

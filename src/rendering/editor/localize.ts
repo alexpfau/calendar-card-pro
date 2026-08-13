@@ -5,16 +5,15 @@
  * labels the whole form — so this module is the entirety of the editor's i18n surface.
  * The editor it replaced fetched 239 keys at 122 hand-written call sites.
  *
- * Resolution order for any key is: our own string table, then the user's language,
- * then English, then a humanised form of the key. See `lookup` for why our table is
- * consulted first and why that will stop mattering once the namespace migrates.
+ * Resolution order for any key is: the user's language, then English, then a humanised
+ * form of the key. Per key, not per language — see `lookup`.
  */
 
 import type { HaFormSchema } from './ha-form';
 import { EDITOR_STRINGS } from './strings';
+import { EDITOR_LANGUAGE_STRINGS } from './translations/index';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
-import * as Localize from '../../translations/localize';
 
 /**
  * Turns a config key into readable text, as a last resort.
@@ -35,40 +34,38 @@ export function humanize(key: string): string {
 /**
  * Resolves one string key for a language.
  *
- * Our own table is consulted **first**, and that order outlived the reason it was
- * introduced. It was written while the previous editor still shipped and still owned
- * the `editor.*` namespace; that editor is gone, but its sections in the language files
- * are deliberately kept to be mined during the translation pass, and several of its
- * keys are spelled the same as ours while being worded for a surface that no longer
- * exists. Reaching the translation files second means a key we have not defined still
- * resolves — which is what will carry the strings once the namespace migrates, at which
- * point the entries in `strings.ts` are deleted and this order stops mattering.
+ * The language's own file is consulted **first** and `strings.ts` second, which is the
+ * order that makes a translation visible at all. It was the other way round for the
+ * duration of the rebuild, and because `strings.ts` defines every key the editor asks
+ * for, the second source was never reached: the editor rendered in English in all 35
+ * languages, including the eleven that had been translated. That is the regression this
+ * order exists to prevent, and `check:i18n` now fails on an unreachable translation so
+ * it cannot return quietly.
  *
- * `check:i18n` reconciles against `EDITOR_STRINGS` alone rather than through this
- * function, so a string we have failed to write is reported instead of being filled in
- * from the old copy behind it.
+ * Falling back **per key** rather than per language is deliberate and is the
+ * maintainer's stated preference: show the language, and fall back to English only for
+ * the individual strings it is missing. A language may therefore be translated to any
+ * degree, and shipping a partial file is safe rather than being worse than shipping
+ * none.
+ *
+ * The two sources are keyed identically — `translations/<code>.json` holds a subset of
+ * `EDITOR_STRINGS`'s keys — so this is a genuine per-key fallback and not a match
+ * across two namespaces. The previous editor's `editor.*` namespace is **not**
+ * consulted here at all: it shares key names with this one without sharing meanings, so
+ * reaching it as a third source is how old copy written for a deleted surface would end
+ * up labelling a live control.
  *
  * @param language - Effective language code
  * @param key - String key, qualified with its group path where it has one
  * @returns The resolved string, or `undefined` when no source defines the key
  */
 export function lookup(language: string, key: string): string | undefined {
-  const own = EDITOR_STRINGS[key];
-  if (own !== undefined) {
-    return own;
+  const translated = EDITOR_LANGUAGE_STRINGS[language.toLowerCase()]?.[key];
+  if (translated !== undefined) {
+    return translated;
   }
 
-  // Prefixed here rather than left to `translateEditorKey`, which only adds `editor.`
-  // to keys that contain no dot and treats a dotted key as already fully qualified.
-  // A group-qualified key such as `column.min_day_width` would otherwise be looked up
-  // at the root of the translation file, miss, and skip the English fallback chain
-  // entirely — so it could never resolve once its entry here is removed.
-  const qualified = `editor.${key}`;
-  const translated = Localize.translateEditorKey(language, qualified);
-
-  // `translateEditorKey` returns the key it was given when nothing defines it, which
-  // is its documented "raw key name" fallback and the signal that there is no string.
-  return translated === qualified ? undefined : translated;
+  return EDITOR_STRINGS[key];
 }
 
 /**

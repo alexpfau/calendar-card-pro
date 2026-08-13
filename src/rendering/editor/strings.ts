@@ -1,21 +1,26 @@
 /**
  * English strings for the schema-driven editor.
  *
- * A **fresh namespace**, held here rather than in `src/translations/languages/*.json`
- * for the duration of the rebuild. The editor it replaced owned `editor.*` and is
- * gone, but its sections in the thirty-five language files are kept rather than
- * deleted: they are the raw material for the translation pass, and several of their
- * strings will survive it verbatim. Keeping the new namespace separate is what stops
- * that old copy from standing in for a string nobody has written yet — `check:i18n`
- * reconciles against this table alone, so a missing label is reported rather than
- * quietly filled from a sentence written for a different surface.
+ * **The only English source there is.** There is deliberately no `en.json` beside the
+ * per-language files in `./translations/`, because two English tables can disagree and
+ * one of them then wins silently. The namespace this replaced demonstrated exactly
+ * that: `src/translations/editor-languages/en.json` and this table spell 94 keys the
+ * same, and only 53 of them still carry the same English text.
  *
- * Per-key fallback in `translateEditorKey` means a partially translated editor
- * degrades to English rather than to raw key names, so shipping English-only is safe
- * at every intermediate step — the property that makes this affordable.
+ * A **fresh namespace**, deliberately not the `editor.*` one the previous editor owned.
+ * That namespace is now an archive — see `src/translations/editor-languages/index.ts`
+ * — and the live editor does not read it, because its keys overlap these by name
+ * without matching them in meaning.
  *
- * `resolveString` already consults the translation files second, so migrating a key is
- * adding it to `en.json` and deleting the line below. Nothing else has to move.
+ * `check:i18n` reconciles this table against the schemas in both directions, so a field
+ * with no string and a string no field uses are both errors. Keeping English here is
+ * what lets that check say "nobody wrote this string" rather than filling the gap from
+ * a translation and reporting a clean run.
+ *
+ * Translations live in `./translations/<code>.json`, keyed identically and **partial by
+ * design**: `lookup` consults the language first and falls back here per key, so a
+ * language translated to any degree renders that far and no further. Shipping English
+ * only, for a key or for a whole language, is safe at every step.
  *
  * **Naming.** Keys are the config key they label. A key inside a group that draws a
  * heading is qualified with that group's path (`column.min_day_width`), because Home

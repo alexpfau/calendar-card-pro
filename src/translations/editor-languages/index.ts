@@ -1,25 +1,29 @@
 /* eslint-disable import/order */
 /**
- * The editor's translations, off the eager path.
+ * The previous editor's namespace. **An archive — nothing ships from here.**
  *
- * These sections used to sit inside `../languages/<code>.json`, which `../localize.ts`
- * imports statically for all 35 languages. They are **88.4% of the translation
- * payload** — 131,302 B of minified JSON across eleven languages — and `translate()`
- * looks keys up dynamically, so Rollup cannot tree-shake them. Every user downloaded
- * and parsed all of it on every dashboard load to label an editor that ~99% of them
- * never open.
+ * These sections labelled the hand-rolled editor that the schema-driven one replaced.
+ * They are kept, rather than deleted, because they are the raw material for the
+ * translation pass (backlog E10): 106 of the live editor's keys were mined out of them,
+ * and the remainder is the pool the next pass draws from.
  *
- * Nothing here is reachable from the card. The only import of this module is in
- * `src/rendering/editor/index.ts`, which is the entry of a separate build — so these
- * files land in `editor.js`, which the card fetches by URL when someone opens the
- * editor. HACS still downloads that file to disk (it fetches every release asset), but
- * a browser only fetches and parses it when someone opens the editor.
+ * **They are no longer reachable at runtime, and that is deliberate.** The live editor
+ * reads `src/rendering/editor/translations/`, whose files are keyed exactly as
+ * `strings.ts` is. This namespace is keyed differently and, worse, *overlappingly*:
+ * measured against the live table, 94 keys are spelled the same and only 53 still carry
+ * the same English, with `language` and `language_mode` having swapped meanings
+ * outright. Consulting both by key name is therefore not a fallback, it is a coin toss,
+ * which is why the live editor consults exactly one of them.
  *
- * **These sections are dormant and are deliberately kept.** They belong to the editor
- * that was replaced; the schema-driven one resolves its own strings from
- * `src/rendering/editor/strings.ts` first and reaches these second. They are the
- * material to be mined during the translation pass (backlog E10), which is why the
- * move is a move and not a deletion.
+ * Until this was found, `src/rendering/editor/index.ts` imported the registration below
+ * and called it at module scope. It cost 145 KB of `editor.js` — roughly 60% of that
+ * chunk — and resolved nothing, because the English table was consulted first and
+ * defines every key. `check:i18n` now fails if the editor's build graph imports this
+ * module again.
+ *
+ * The registration machinery is left intact and tested rather than deleted, so the
+ * mining pass can re-enter it deliberately if that turns out to be useful. Nothing in
+ * `src/` calls it, so Rollup includes none of it in either bundle.
  *
  * Adding a language here needs no `TRANSLATIONS` entry of its own — the language must
  * already be registered by `../localize.ts`, and `npm run check:i18n` fails on a file
