@@ -403,6 +403,19 @@ that lacks the thing, and it arrives attached to a real finding, which lends it 
 The bidirectional self-test caught it only because the *other* sentinel — the must-not-find
 one — was genuinely absent, so the two disagreed.
 
+**A measurement recorded in the present tense will be wrong; label it as a moment instead.**
+A table in the glossary carried a per-language casing percentage under a heading reading
+_"mid-string capitals today"_. Every figure in it was stale within a day, and the fix that
+suggests itself — re-measure — makes it correct today and wrong again next week. Relabelling
+does not.
+
+The same applies to every byte figure in these files. The eager chunk was
+`187,554 B / sha256:9d5724…` across all nine editor languages, correctly, and is now
+`188,158 B / sha256:4917ba…` because the weather fix, a view-gating fix and the version bump
+all touched it. **Neither number is wrong; the first was never a present-tense fact.** State
+the commit a figure was taken at, and a reader who needs today's value knows to rebuild
+rather than trusting a sentence.
+
 **A byte figure is worth a density figure beside it.** When a size changes, _more content_ is
 the reflexive explanation and is often wrong: dividing by character count separates volume
 from encoding. Restoring Romanian diacritics moved the card chunk **187,554 → 187,572 B, +18
