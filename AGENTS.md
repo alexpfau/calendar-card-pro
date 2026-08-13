@@ -239,13 +239,16 @@ the load-bearing line, not boilerplate**. `origin/feature/column-view-v4` is a _
 remote-tracking ref that moves only when you fetch, so the right command against a stale ref
 returns an honest count of a reference from an hour ago, and nothing in the output says
 which. That was the mechanism behind all eight reports: the command was correct every time.
-Check `git status` for unpushed commits in the same breath — "merged locally" is a ninth way
-for the answer to be yes and the state to be no.
+**`ahead` and `pushed` are different questions**, and a report that answers only the first
+reads as finished either way: a merge commit sitting unpushed gives `ahead: 0` with the work
+nowhere anyone else can see it. That surfaced twice in three checks once the fetch was added,
+so it belongs in the command rather than in the habit.
 
 ```bash
 git fetch origin
 git merge-base --is-ancestor <sha> origin/feature/column-view-v4 && echo merged
 git rev-list --count origin/feature/column-view-v4..origin/<branch>   # 0 == nothing outstanding
+git rev-list --count @{u}..HEAD                                      # 0 == nothing unpushed
 ```
 
 And **check the content, not only the count**: the count going to zero proves the merge
