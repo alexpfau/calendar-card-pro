@@ -7,14 +7,14 @@ rejected alternatives, stale plan text and source-verification history live in
 
 **Target release:** v4.0.0. **Current branch:** `feature/column-view-v4`.
 
-| Phase | What it covers | State |
-| --- | --- | --- |
-| 0 | DOM golden gate, i18n integrity script | Shipped in 3.x (PR #390) |
-| 1 | Shared leaf renderers (`leaves.ts`) | Shipped in 3.x |
-| 2 | Presentation models | Shipped in 3.x |
-| 2b | Cache correctness | Shipped in 3.x |
-| 4 | Column view + `ViewAdapter` | In progress on `feature/column-view-v4` |
-| 5 | Grid view / time grid | Not started; the name `grid` is reserved |
+| Phase | What it covers                         | State                                    |
+| ----- | -------------------------------------- | ---------------------------------------- |
+| 0     | DOM golden gate, i18n integrity script | Shipped in 3.x (PR #390)                 |
+| 1     | Shared leaf renderers (`leaves.ts`)    | Shipped in 3.x                           |
+| 2     | Presentation models                    | Shipped in 3.x                           |
+| 2b    | Cache correctness                      | Shipped in 3.x                           |
+| 4     | Column view + `ViewAdapter`            | In progress on `feature/column-view-v4`  |
+| 5     | Grid view / time grid                  | Not started; the name `grid` is reserved |
 
 Open work that is not owned by a section here is indexed in
 [v4-backlog.md](./v4-backlog.md). Read that before starting a stage.
@@ -28,22 +28,22 @@ failure mode. See [§F.8](#f-constraints-that-bind-implementation).
 
 ## A. Decisions Ledger
 
-| # | Decision | Current rule |
-| - | -------- | ------------ |
-| 1 | View names | `view: 'list' \| 'column'`; `grid` is reserved for Phase 5 and not accepted until built. |
-| 2 | `navigation_days` | Deleted and folded into `days_to_show`; not renamed. |
-| 3 | MVP scope | Column view excludes overlap lanes, time axis and now-line. Those belong to `grid`. |
-| 4 | Column header | Date content appears at the top of each column, not as a left cell. |
-| 5 | Header rule | `column.day_header_separator_width` / `_color` are configurable and default off. |
-| 6 | Between-day chrome | Day/week/month separators rotate into vertical gutter rules; within-event chrome is unchanged. |
-| 7 | `date_vertical_alignment` | List-only; ignored in column view. The `align-self` proof is in A3-A. |
-| 8 | List safety | List keeps its `<table>` and `rowspan`; column uses its own grid container over shared leaves. |
-| 9 | Attribution | lenaxia's frozen #339 commits stay as ancestors; never squash them out. |
-| 10 | Release | Column view targets v4.0.0. |
-| 11 | Responsive behavior | Width reduces columns only within the explicit density framework; below the floor the card falls back to list or cramps, per `min_days_fallback`. |
-| 12 | List DOM gate | Phase 1 and later shared-template work must keep the list DOM golden gate green. |
-| 13 | Column floor | `column.min_day_width` defaults to `140` px and is public configuration. |
-| 14 | Divergent defaults | In column view, `show_empty_days` and `split_multiday_events` default to `true` unless overridden inside `column:`. |
+| #   | Decision                  | Current rule                                                                                                                                      |
+| --- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | View names                | `view: 'list' \| 'column'`; `grid` is reserved for Phase 5 and not accepted until built.                                                          |
+| 2   | `navigation_days`         | Deleted and folded into `days_to_show`; not renamed.                                                                                              |
+| 3   | MVP scope                 | Column view excludes overlap lanes, time axis and now-line. Those belong to `grid`.                                                               |
+| 4   | Column header             | Date content appears at the top of each column, not as a left cell.                                                                               |
+| 5   | Header rule               | `column.day_header_separator_width` / `_color` are configurable and default off.                                                                  |
+| 6   | Between-day chrome        | Day/week/month separators rotate into vertical gutter rules; within-event chrome is unchanged.                                                    |
+| 7   | `date_vertical_alignment` | List-only; ignored in column view. The `align-self` proof is in A3-A.                                                                             |
+| 8   | List safety               | List keeps its `<table>` and `rowspan`; column uses its own grid container over shared leaves.                                                    |
+| 9   | Attribution               | lenaxia's frozen #339 commits stay as ancestors; never squash them out.                                                                           |
+| 10  | Release                   | Column view targets v4.0.0.                                                                                                                       |
+| 11  | Responsive behavior       | Width reduces columns only within the explicit density framework; below the floor the card falls back to list or cramps, per `min_days_fallback`. |
+| 12  | List DOM gate             | Phase 1 and later shared-template work must keep the list DOM golden gate green.                                                                  |
+| 13  | Column floor              | `column.min_day_width` defaults to `140` px and is public configuration.                                                                          |
+| 14  | Divergent defaults        | In column view, `show_empty_days` and `split_multiday_events` default to `true` unless overridden inside `column:`.                               |
 
 > Rationale and superseded alternatives: [column-view-rationale.md](./column-view-rationale.md#a-decisions-ledger)
 
@@ -61,19 +61,19 @@ behind the hard DOM gate and prevents grid/list leaf drift.
 `date_vertical_alignment`'s `vertical-align` maps to `align-self`, "equivalent". **It does
 not,** and the failure is invisible to a template diff:
 
-- `.date-column` is `position: relative` (`styles.ts:317`, reinforced by an inline
-  `style="position: relative;"` on the `<td>` itself at `render.ts:931`);
-  `.today-indicator-container` is `position: absolute; height: 100%` (`styles.ts:332-340`).
-  Under `rowspan` (`render.ts:926-937`) that `100%` resolves against the **full stacked height
-  of the day**, so with the default `today_indicator_position: '15% 50%'` the indicator centres
-  over the whole day block.
+- The `.date-column` rule in `styles.ts` sets `position: relative`, reinforced by an inline
+  `style="position: relative;"` on the `<td>` itself — the same `<td>` that carries the
+  `rowspan` attribute in `render.ts`. `.today-indicator-container:not(.inline)` is
+  `position: absolute; height: 100%`. Under that `rowspan` the `100%` resolves against the
+  **full stacked height of the day**, so with the default `today_indicator_position: '15% 50%'`
+  the indicator centres over the whole day block.
 - In flex, `align-self: center` overrides `align-items: stretch` and **shrinks the item to
   content height** — collapsing `height: 100%` to roughly one line of date text. The indicator
   would snap from the full day to the ~50px date band.
 - The correct mapping is two-part: keep the date column `align-self: stretch` and move its
   _content_ with `justify-content` on an inner flex column. v3's one-line mapping was wrong.
 
-Blast radius is bounded (`today_indicator` defaults `false`, `config.ts:61`), so this would
+Blast radius is bounded (`today_indicator` defaults `false` in `config.ts`), so this would
 have hit only opted-in users on multi-event days — which is precisely the kind of defect that
 survives a screenshot pass. It is retained here as the worked example of why the list
 container is not worth touching. **[v5] This analysis is load-bearing and must survive any
@@ -117,10 +117,10 @@ fallback and holding the floor with narrower columns.
 
 Column-only density keys:
 
-| Key | Type | Default | Role |
-| --- | ---- | ------- | ---- |
-| `min_day_width` | number, pixels | `140` | Width one column needs before another is added |
-| `min_days_to_show` | number | `days_to_show` | Floor below which the card must not reduce columns |
+| Key                 | Type                | Default                                | Role                                               |
+| ------------------- | ------------------- | -------------------------------------- | -------------------------------------------------- |
+| `min_day_width`     | number, pixels      | `140`                                  | Width one column needs before another is added     |
+| `min_days_to_show`  | number              | `days_to_show`                         | Floor below which the card must not reduce columns |
 | `min_days_fallback` | `'list' \| 'cramp'` | What to do when the floor will not fit |
 
 The defaults collapse to the old all-or-list behavior: because `min_days_to_show` defaults to
@@ -222,13 +222,13 @@ The editor must annotate, not hide, options that apply only to list layout. A co
 render as list below its threshold, so hiding a list-only control would remove the control for
 the layout that same card may use on a phone.
 
-| Option | Scope |
-| ------ | ----- |
-| `date_vertical_alignment` | list only |
-| `today_indicator_position` | list only |
-| `compact_events_to_show` | list only |
-| `compact_days_to_show` | list only |
-| `compact_events_complete_days` | list only |
+| Option                             | Scope     |
+| ---------------------------------- | --------- |
+| `date_vertical_alignment`          | list only |
+| `today_indicator_position`         | list only |
+| `compact_events_to_show`           | list only |
+| `compact_days_to_show`             | list only |
+| `compact_events_complete_days`     | list only |
 | Per-entity `split_multiday_events` | list only |
 
 Card-level `split_multiday_events` is not list-only: `column.split_multiday_events: false` is
@@ -242,21 +242,21 @@ the explicit escape hatch from the divergent column default.
 
 ### D1. Element Mapping
 
-| Element | List | Column | Keys |
-| ------- | ---- | ------ | ---- |
-| Per-event accent | vertical, left of event | unchanged | `vertical_line_width` |
-| Day separator | horizontal between days | vertical gutter rule | `day_separator_*` |
-| Week separator | horizontal at boundary | vertical gutter rule | `week_separator_*` |
-| Month separator | horizontal at boundary | vertical gutter rule | `month_separator_*` |
-| Header rule | none | horizontal rule under header | `day_header_separator_*` |
-| Week number badge | full-width row | per-column header row | `show_week_numbers`, `week_number_*` |
-| Day spacing | vertical gap | column gutter | `day_spacing` |
-| Event spacing | vertical gap | unchanged | `event_spacing` |
-| Today indicator | absolute in date cell | leading inline item on weekday row | `today_indicator*`, not `_position` |
-| Weekday/day/month | stack in date cell | header grid | `weekday_*`, `day_*`, `month_*` |
-| Weather | date column | header badge, truncated not dropped | existing weather keys |
-| Event content | shared leaves | shared leaves | all event-content keys |
-| `date_vertical_alignment` | positions date in tall cell | ignored | — |
+| Element                   | List                        | Column                              | Keys                                 |
+| ------------------------- | --------------------------- | ----------------------------------- | ------------------------------------ |
+| Per-event accent          | vertical, left of event     | unchanged                           | `vertical_line_width`                |
+| Day separator             | horizontal between days     | vertical gutter rule                | `day_separator_*`                    |
+| Week separator            | horizontal at boundary      | vertical gutter rule                | `week_separator_*`                   |
+| Month separator           | horizontal at boundary      | vertical gutter rule                | `month_separator_*`                  |
+| Header rule               | none                        | horizontal rule under header        | `day_header_separator_*`             |
+| Week number badge         | full-width row              | per-column header row               | `show_week_numbers`, `week_number_*` |
+| Day spacing               | vertical gap                | column gutter                       | `day_spacing`                        |
+| Event spacing             | vertical gap                | unchanged                           | `event_spacing`                      |
+| Today indicator           | absolute in date cell       | leading inline item on weekday row  | `today_indicator*`, not `_position`  |
+| Weekday/day/month         | stack in date cell          | header grid                         | `weekday_*`, `day_*`, `month_*`      |
+| Weather                   | date column                 | header badge, truncated not dropped | existing weather keys                |
+| Event content             | shared leaves               | shared leaves                       | all event-content keys               |
+| `date_vertical_alignment` | positions date in tall cell | ignored                             | —                                    |
 
 ### D2. Header
 
@@ -311,15 +311,15 @@ A measured width then settles it; the optimistic pre-measurement answer must not
 
 ### D7. Release Blockers & Follow-Ups
 
-| Item | Requirement |
-| ---- | ----------- |
-| `column.entities[]` overrides | Rule and implement, or document as unsupported. |
-| Per-column compact budget | Rule in and implement, or document as not applicable. |
-| Week/month separator override design | Rule in, or document as not applicable. |
-| View-scoped editor notes | Ship annotations from the same scope table the docs use. |
-| Too-narrow affordance | Keep the layout-band warning/table honest before changing A3-G defaults. |
-| Progress bar coverage | Add a test that enables it; default-config tests cannot see it. |
-| Bad `column:` key feedback | Editor should prevent invalid keys; YAML-only warnings stay silent in production. |
+| Item                                 | Requirement                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------- |
+| `column.entities[]` overrides        | Rule and implement, or document as unsupported.                                   |
+| Per-column compact budget            | Rule in and implement, or document as not applicable.                             |
+| Week/month separator override design | Rule in, or document as not applicable.                                           |
+| View-scoped editor notes             | Ship annotations from the same scope table the docs use.                          |
+| Too-narrow affordance                | Keep the layout-band warning/table honest before changing A3-G defaults.          |
+| Progress bar coverage                | Add a test that enables it; default-config tests cannot see it.                   |
+| Bad `column:` key feedback           | Editor should prevent invalid keys; YAML-only warnings stay silent in production. |
 
 ### D8. Editor Requirements
 
@@ -379,7 +379,7 @@ must stay inside the column render branch or shared leaves without changing list
    nesting depth.** If a snapshot diff appears, it is a whitespace error — fix the indentation.
    **Never run `vitest -u`** to make it go away; that launders the change past review, and the
    gate's whole value is that it is the one artefact the refactorer does not get to edit.
-   Verified by running it: **prettier *does* reformat inside `html` tagged templates** and will
+   Verified by running it: **prettier _does_ reformat inside `html` tagged templates** and will
    put deliberate whitespace straight back. Deliberate whitespace needs `// prettier-ignore`.
    To prove a snapshot diff is whitespace-only, collapse only what the serializer already
    normalises: `norm = (s) => s.replace(/>\s+</g, '><')`.
