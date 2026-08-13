@@ -1197,21 +1197,64 @@ function checkColumnDefaults(columnDefaults, columnRows) {
  *
  * Fatal rather than advisory, unlike the duplication check beside it. A duplicated sentence
  * is a wart; a link into nothing is a reader sent to a file that is not there.
+ *
+ * Two controls, because they fail differently and the second is the one that bit us. A
+ * zero-match guard catches the pattern going stale *entirely*; it cannot catch it going
+ * stale *partially*, because the surviving matches keep the count non-zero. The first
+ * version of this check required a leading `./`, so `[x](docs/development/gone.md)` was
+ * unguarded while seven `./` links kept the zero-guard quiet — verified by appending
+ * exactly that link and watching `check:docs` report "Documentation is consistent".
+ *
+ * The partial case is caught by an invariant instead of a threshold: every relative
+ * markdown link the file contains must be one this check resolved, so `matched` and
+ * `relative` are two measures of one quantity and drift between them is a coverage hole
+ * by construction.
+ *
+ * That invariant is **vacuous on today's corpus**, and saying so is the point. Every
+ * relative link in `AGENTS.md` currently carries a `./`, so narrowing the matcher back
+ * loses nothing and the counts still agree — I asserted otherwise in the first draft of
+ * this comment, ran it, and got a green from both halves of a mutation that was applied.
+ * The falsifier needs a planted violation to discriminate, exactly like the glossary
+ * mutations:
+ *
+ *   append `[probe](docs/architecture.md)` to AGENTS.md   (relative, no `./`, resolves)
+ *   narrow `all`'s matcher back to /\]\((\.\/[^)#\s]+)…/
+ *   -> "resolved 7 of 8 relative links — the matcher covers only part of the file"
+ *
+ * Without that appended line both states are green, which is evidence about the corpus
+ * and not about the code.
  */
 function checkAgentsLinks() {
   const file = join(ROOT, 'AGENTS.md');
   if (!existsSync(file)) return; // the duplication check already errors on this
 
   const raw = readFileSync(file, 'utf8');
-  const links = [...raw.matchAll(/\]\((\.\/[^)#\s]+)(#[^)\s]*)?\)/g)];
+
+  // Root-absolute (`/features/…`) is the docs-site convention and does not resolve against
+  // the repo root; external and pure-fragment targets are out of scope by the same logic.
+  const RELATIVE = (t) => !/^(?:https?:|mailto:|#|\/)/.test(t);
+
+  const all = [...raw.matchAll(/\]\(([^)\s]+?)(#[^)\s]*)?\)/g)].map((m) => m[1]);
+  const links = all.filter(RELATIVE);
 
   // A zero here must mean "no links", never "the pattern stopped matching".
-  if (links.length === 0) {
-    error('AGENTS.md link check found no relative links — the pattern went stale');
+  if (all.length === 0) {
+    error('AGENTS.md link check found no markdown links at all — the pattern went stale');
     return;
   }
 
-  for (const [, target] of links) {
+  // Partial staleness: a narrower matcher would resolve some links and skip others silently.
+  const relativeInFile = [...raw.matchAll(/\]\(([^)\s]+)\)/g)]
+    .map((m) => m[1].replace(/#.*$/, ''))
+    .filter((t) => t !== '' && RELATIVE(t));
+  if (relativeInFile.length !== links.length) {
+    error(
+      `AGENTS.md link check resolved ${links.length} of ${relativeInFile.length} relative ` +
+        `links — the matcher covers only part of the file`,
+    );
+  }
+
+  for (const target of links) {
     if (!existsSync(join(ROOT, target))) {
       error(`AGENTS.md links to ${target}, which does not exist`);
     }
