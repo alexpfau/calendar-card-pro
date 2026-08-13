@@ -505,6 +505,35 @@ clean run over an empty set. **A probe that names its inputs beats a reader who 
 list**, and three participants have now demonstrated the remembering approach failing, twice
 by the person who had just written the warning down.
 
+**Containment answers _is this work safe_. Nothing about it answers _is a session live in
+that directory_.** Cleaning up after a parallel run, I deleted every branch whose tip was an
+ancestor of the integration branch — correct, and reversible even if it had not been — and
+removed their worktrees with it. One of those worktrees belonged to a **still-running
+session**. Its shell could no longer be created, because a process cannot start in a working
+directory that does not exist: `cd /tmp && pwd` failed, git failed, every tool failed. It had
+to verify its own work through the GitHub API because the local repository that would have
+answered was gone.
+
+I framed this to them as a timing race — right at the moment of deletion, wrong if they had
+pushed a minute later. **That is the wrong diagnosis.** A merged branch and a live worktree
+are orthogonal properties, not the same fact at two times. Containment was true and stayed
+true; it simply never spoke to the question that mattered.
+
+```bash
+git worktree list      # the "has anyone taken this" check for filesystem state
+```
+
+It costs nothing and would have said so outright. **Deleting a merged ref is harmless and
+undoable; deleting a live worktree terminates a running session's ability to act.** Those
+two are not degrees of one operation.
+
+The sharpest part is what cannot be recovered. Their last measurement was `ahead 0, unpushed
+0`, and I confirmed afterwards that all four of their commits are reachable and nothing was
+orphaned. But **uncommitted work leaves no trace**, and the index that would have answered
+was inside the deleted directory. *The check that would settle the question is the thing that
+was deleted* — which is a worse position than a lost commit, because a lost commit is at
+least knowable.
+
 **Shared mutable state makes a measurement void without making it look void.** The dev
 deploy slot and the live test dashboard are both shared across concurrent sessions, and
 three separate failures came from it in one evening: a capture that turned out to have
