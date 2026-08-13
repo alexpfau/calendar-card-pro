@@ -185,14 +185,35 @@ table has an opinion on **43 (57%)** — `entity → Entität`, `icon → Symbol
 the register an HA card editor should be written in, and it is per-language, so the same
 probe gives nine oracles.
 
-### 3.5 The oracle is not uniformly trustworthy
+### 3.5 The control, and why "zero disagreements" was an artefact
 
-The parent session reported 8 agreements and 0 disagreements for German and read zero
-disagreement as a strong signal. **Loosening the match breaks it**: at sample 9 there is
-one disagreement, `Start Date` — ours *Startdatum*, HA *Anfangsdatum*.
+A null result proves nothing unless the probe can be shown to find something. The control
+is to run the oracle against the strings each language **already has**: if it finds matches
+there and none in the gap, the gap is genuinely out of the corpus's reach.
 
-Extending to all nine languages gives 99 comparisons and **13 disagreements**, and two
-findings that must be encoded as rules before anyone uses the oracle:
+It does. Of German's 134 existing strings, **14 appear in HA's table**. The probe works;
+the gap is simply domain vocabulary that a generic UI table does not contain.
+
+**But the "zero disagreements" reported alongside that 14 does not survive.** The two
+numbers come from different matching strengths, and reconciling them across both corpora
+— a live-instance scrape and the PyPI wheel — puts the zero in exactly one of four cells:
+
+| corpus | matching | appear | unique | agree | **differ** |
+|---|---|---:|---:|---:|---:|
+| live scrape | strict | 13 | 8 | 8 | **0** |
+| live scrape | loose | 14 | 9 | 8 | **1** — `Start Date` |
+| PyPI wheel | strict | 13 | 9 | 8 | **1** — `Time` |
+| PyPI wheel | loose | 14 | 9 | 8 | **1** — `Start Date` |
+
+The `14` is the loose figure; the `0` is the strict one. Loosen the match **or** change the
+corpus and a disagreement appears — and not the same one, since the wheel at strict
+surfaces `Time` where the live corpus does not. Zero disagreements was true only at the
+intersection of the strictest matching and one corpus, which is also the cell with the
+smallest sample.
+
+Across all nine languages: **112 comparisons, 12 disagreements** — §3.7.
+
+### 3.6 Two rules the disagreements force
 
 **Latvian's HA table is 20.5% untranslated English** — 300 of 1,462 values are byte-identical
 to the English. It is why the oracle returns `Label` and `Location` for Latvian, where our
@@ -213,6 +234,11 @@ existing `Etiķete` and `Atrašanās vieta` are plainly better.
 > **Rule 1 — reject any oracle value byte-identical to its English.** It is HA's gap, not
 > evidence. Without this guard the oracle actively degrades Latvian.
 
+**Rule 1 is validated by the numbers it changes.** Re-running the nine-language control
+with the guard applied drops Latvian from **2 disagreements to 0** — its only two were
+HA's untranslated `Label` and `Location`, now correctly excluded. The guard removes exactly
+the false disagreements and leaves every real one standing.
+
 **And the oracle does not know our domain.** `Location` in our editor is an event's place;
 in HA it is frequently a device's or a file's. HA German offers *Standort* and
 *Speicherort*; ours is *Ort*, which is what a German calendar says. Ours is better.
@@ -220,7 +246,73 @@ in HA it is frequently a device's or a file's. HA German offers *Standort* and
 > **Rule 2 — the oracle informs, it does not decide.** Where HA's term comes from a
 > different domain sense, the calendar sense wins, and the glossary records the reason.
 
-### 3.6 Combined yield
+### 3.7 The twelve disagreements, and what they are worth
+
+Guard applied, all nine languages: **112 comparisons, 12 disagreements.** They are not
+noise, and they fall into three kinds.
+
+> **One of the twelve was hidden by a bug in this analysis, and the bug is instructive.**
+> The comparison originally case-folded both sides before testing equality, so a
+> disagreement that is *purely* one of capitalisation read as agreement. That concealed
+> exactly one: Polish `start_date_mode`, ours `Data Początkowa` against HA's
+> `Data początkowa`.
+>
+> The irony is the point. §3.7 below argues that terminology and orthography are
+> independent axes — and the check written to measure the first had silently folded in the
+> second, in the one language whose orthography is most wrong (§6.1). **A comparison that
+> normalises away the property you are also trying to measure cannot report on it.** The
+> corrected comparison is case-sensitive.
+
+| lang | comparisons | agree | differ |
+|---|---:|---:|---:|
+| sv | 14 | 14 | **0** |
+| lv | 11 | 11 | **0** |
+| de | 9 | 8 | 1 |
+| et | 12 | 11 | 1 |
+| it | 11 | 10 | 1 |
+| nb | 14 | 13 | 1 |
+| **pl** | 14 | 13 | **1** — casing only |
+| lt | 14 | 11 | **3** |
+| sk | 13 | 9 | **4** |
+
+**`Time` — and our own languages disagree with each other.** Three languages differ from
+HA on it, in *opposite directions*:
+
+| | ours | HA | which is the clock-time sense |
+|---|---|---|---|
+| de | Zeit *(general)* | **Uhrzeit** *(clock)* | HA |
+| et | **Kellaaeg** *(clock)* | Aeg *(general)* | ours |
+| it | **Orario** *(clock)* | Ora *(hour)* | ours |
+
+The label sits on an event's start time, so the clock sense is the right one — which makes
+HA correct for German and wrong for Estonian and Italian. **The finding is not that HA is
+better; it is that our own three languages do not agree among themselves.** German reaches
+for the general word where Estonian and Italian reach for the specific one. That is
+precisely the divergence a glossary exists to end, and it is invisible from inside any one
+language's file.
+
+**`None` — grammar, not vocabulary.** Lithuanian (`Nėra` vs `Nė vienas`) and Slovak
+(`Žiadna` vs `Žiadny`) each differ on the same three option keys, consistently. Slovak's is
+a gender agreement that may legitimately differ *per key* depending on the noun each option
+modifies. Neither is resolvable without a native speaker, and a find-and-replace to HA's
+term would produce confidently wrong Slovak.
+
+**`Start Date` — the single most disputed key, and therefore a term, not a slip.** Four of
+the twelve disagreements are this one key, in de, et, pl and sk. A term disputed in four of
+nine languages is a glossary entry that was never decided, not four independent mistakes —
+and it is the strongest argument in this document for building the glossary by checking
+each domain term against HA's table rather than by decree. `Location` (nb) and `Label` (sk)
+are one apiece.
+
+**The most useful thing in this table is what it separates.** Polish's only terminology
+disagreement is *purely casing* — `Data Początkowa` against `Data początkowa` — while it
+title-cases **85%** of its labels (§6.1). Swedish agrees 14/14 while probably capitalising
+weekdays wrongly (§6.2). **Terminology quality and orthographic quality are independent
+axes**, and a session that checks only one will report a language as good when half of it
+is wrong. The bug noted at the head of this section is what happens when a check confuses
+them.
+
+### 3.8 Combined yield
 
 | source | fills | share of 1,786 |
 |---|---:|---:|
@@ -232,7 +324,7 @@ in HA it is frequently a device's or a file's. HA German offers *Standort* and
 Even taken at its most generous the three sources overlap slightly and land near 30.
 **Round it to 2%. The remaining 98% is genuine translation work.**
 
-### 3.7 Sources assessed and rejected
+### 3.9 Sources assessed and rejected
 
 - **`home-assistant/frontend` GitHub `src/translations/*.json`** — English only; the rest
   is Lokalise-injected at build time. Use the wheel.
@@ -275,6 +367,9 @@ so it should override only where British English genuinely differs. Filling it w
 266 strings identical to the American ones, inflate the editor chunk for no benefit, and
 guarantee silent divergence the next time an English string is edited.
 
+**The target is 36 keys**, and three independent derivations agree on it — §5.2. It is
+also the one file that should be *generated* rather than translated — §5.5.
+
 ### 5.1 The defensible method
 
 Scan the English table for words with a genuine US/UK divergence, using a fixed, reviewable
@@ -293,15 +388,51 @@ every key that does not is out.
 No other divergence fires anywhere in the table. The card's own US spelling is deliberate
 and stays; this concerns the *editor's* British variant only.
 
-### 5.2 The method cross-checks against an independent artefact
+### 5.2 Two independent artefacts confirm the same 36
 
-The old editor's `en-GB.json` was written by hand years earlier and overrode **29 keys**,
-using `color → colour` (×31) and `colors → colours` (×1) — and nothing else. That is a
-strict subset of the 36 derived here, which additionally catch `customised`. Two
-independent routes to the same divergence surface, one of them not consulted while deriving
-it.
+**The old editor's own file.** Written by hand years earlier, it overrode **29 keys**, using
+`color → colour` (×31) and `colors → colours` (×1) — and nothing else. A strict subset of
+the 36, which additionally catch `customised`.
 
-### 5.3 The current file is wrong in three ways
+**Home Assistant's own `en-GB` table.** HA ships one, and it is the natural place to look
+for a divergence set that is not somebody's invention. Extracting every word-level
+substitution it actually performs and applying that vocabulary to our 312 strings returns
+**exactly the same 36 keys — zero extra, zero missed**.
+
+Three routes, two of them external, converging on one set. That is as settled as this gets.
+
+### 5.3 But HA's en-GB is an input, not an authority
+
+It is tempting to go further and take HA's *rate* as the target. **That does not survive
+inspection, in two separate ways.**
+
+**The rate does not transfer between corpora.** HA's en-GB differs on **61 of 1,462 keys
+(4.2%)**. Applying that rate to our 312 gives 13–15 keys. The measured answer is 36
+(**11.5%**) — because our corpus is *colour-dense*: it configures a card's appearance, and
+32 of its 312 keys contain the word `Color`. HA's general UI table is not shaped that way.
+**Use HA's vocabulary, never HA's percentage**; the one transfers between corpora and the
+other cannot.
+
+**And the table is not purely British English.** Classified:
+
+| | keys |
+|---|---:|
+| genuine spelling divergence | **24** |
+| **casing only** | **23** |
+| word choice, grammar and other | 14 |
+
+The 23 casing entries are arbitrary Title-Casing — `Nothing playing → Nothing Playing`,
+`Add event → Add Event`, `All day → All Day`. That is not a British convention, it is
+contributor drift. The remainder mixes real word choice (`Movie → Film`,
+`Neighbors → Neighbours`) with grammar edits (`Loads → Load`), style rewrites
+(`shows quicker → shows more quickly`) and **one entry whose en-GB value is French**
+(`ui.dialogs.voice_command.conversation_no_control`).
+
+So roughly **40% of HA's en-GB is British English** and the rest is noise and at least one
+outright bug. Mine it for vocabulary — which is what §5.2 does, successfully — and do not
+inherit its rate, its casing habits or its errors.
+
+### 5.4 The current file is wrong in three ways
 
 | | count |
 |---|---:|
@@ -316,7 +447,7 @@ English currently changes the *capitalisation* of seventeen labels as a side eff
 single correct entry is `customized_only → Customised Only`, which preserves it — so the
 file is not even internally consistent.
 
-### 5.4 Recommendation: generate it, do not translate it
+### 5.5 Recommendation: generate it, do not translate it
 
 en-GB is the one file that is fully mechanically derivable: apply the substitution list to
 `strings.ts` and emit every key that changed. That makes it **generated output and a
@@ -355,6 +486,11 @@ clearest instance in the repo of exactly the "cheap translation" the maintainer 
 excluded, and it is already shipping. Italian has ~4 genuine instances (`Tipo di Etichetta`,
 `Modalità Compatta`).
 
+**Home Assistant independently agrees.** The one Polish string where HA has an opinion and
+ours differs is `Start Date` — ours `Data Początkowa`, HA `Data początkowa`. The *words* are
+identical; only the capital is wrong. A second artefact, reached by a different route,
+pointing at the same defect on the one string where it could.
+
 ### 6.2 Norwegian capitalises weekdays; Norwegian does not
 
 The editor has `Mandag` / `Søndag`. The card's own native-contributed `nb.json` has
@@ -379,15 +515,25 @@ The oracle resolves it with evidence rather than taste: **HA German uses `Ereign
 to change the card is the maintainer's call and out of scope here, but the **editor keeps
 `Ereignis`**, and the glossary records why.
 
-### 6.4 Slovak carries five disagreements, including grammatical ones
+### 6.4 Slovak carries four disagreements, including grammatical ones
 
-`None` is `Žiadna` (feminine) in our file and `Žiadny` (masculine) in HA's. Which is right
-depends on the gender of the noun each option modifies, and it may differ *per key*.
-`Label` is `Menovka` for us and `Štítok` for HA.
+`None` is `Žiadna` (feminine) in our file and `Žiadny` (masculine) in HA's, across three
+option keys. Which is right depends on the gender of the noun each option modifies, and it
+may differ *per key*. `Label` is `Menovka` for us and `Štítok` for HA.
 
-This is the concrete demonstration that the oracle cannot be applied mechanically: a
-find-and-replace to HA's term would produce confidently wrong Slovak. Flag for the native
-pass.
+Slovak is the worst-agreeing language in the control — 9 of 13 (§3.7) — and this is the
+concrete demonstration that the oracle cannot be applied mechanically: a find-and-replace
+to HA's term would produce confidently wrong Slovak. Flag for the native pass.
+
+### 6.5 Our own languages disagree with each other about "Time"
+
+Not a divergence from HA but a divergence *among ourselves*, and the more serious of the
+two: German renders `Time` as the general `Zeit` while Estonian and Italian reach for the
+clock-time sense (`Kellaaeg`, `Orario`). The label sits on an event's start time, so the
+clock sense is right and **German is the outlier**.
+
+Invisible from inside any single language's file, which is exactly why the glossary has to
+be decided across all nine at once rather than per session. Full analysis in §3.7.
 
 ---
 
@@ -412,6 +558,12 @@ separator, countdown, progress bar, compact mode, column view, list view, entity
 label, icon, colour, location, description, week number, today indicator, accent, spacing,
 offset, threshold, show/hide, none, default, custom, position, height, width, opacity**.
 
+Add **start date** and **time** to the front of that list. They are not the most frequent
+terms, but they are the *measured* trouble spots: `Start Date` accounts for four of the
+twelve oracle disagreements (de, et, pl, sk) and `Time` is rendered in two different senses
+across our own languages (§6.5). A term disputed in four of nine languages is a glossary
+entry nobody ever made.
+
 ### 7.3 How each entry is decided
 
 1. **Do we already use it consistently?** Then keep it — the existing strings were
@@ -434,12 +586,18 @@ The mining scripts emit this per language. A sample of what it looks like decide
 | colour | HA `Farbe`; editor `-farbe` | **Farbe** | agrees 9/9 |
 | description | HA `Beschreibung`; editor `Beschreibung` | **Beschreibung** | agrees 9/9 |
 | location | HA `Standort`/`Speicherort`; editor `Ort` | **Ort** | **overrides HA** — calendar sense, not device sense |
+| time | HA `Uhrzeit`; editor `Zeit`; et/it use the clock sense | **Uhrzeit** | **de is our own outlier** — §6.5; the label is an event's start time |
 | calendar | HA `Kalender` | **Kalender** | no editor key yet; net-new |
 | column | *no HA evidence* | *decide* | net-new, and the term the whole v4 view is named for |
 
 `column`, `separator` and `weather` have **no HA evidence in any of the nine languages**.
 They are genuine decisions and are the highest-risk terms for divergence precisely because
 nothing external will arbitrate them.
+
+**A term already used in all nine files is not thereby settled.** `Time` is used
+everywhere and is rendered inconsistently (§6.5). Stage 0 must therefore compare the nine
+languages against **each other**, not only each against HA — the German `Zeit` outlier
+agrees with nothing external and would survive any per-language review.
 
 ---
 
@@ -451,7 +609,7 @@ reviewed and will not be met.
 ### 8.1 Rules a session must follow
 
 1. **Match HA's term for the same concept** where the glossary records one, subject to
-   Rules 1 and 2 of §3.5.
+   Rules 1 and 2 of §3.6.
 2. **Follow the language's own capitalisation convention**, not English's. Sentence case
    for Polish, Italian, Slovak, Estonian, Lithuanian, Latvian; lowercase weekdays for
    Norwegian and Swedish; German capitalises nouns natively.
@@ -475,12 +633,13 @@ cheap and cannot go stale:
 |---|---|
 | **key coverage / unknown keys** | *already implemented* |
 | **placeholder integrity** | a lost or renamed `{count}` — 7 keys at risk, and a silent runtime defect today |
-| **untranslated English left behind** | a value byte-identical to `strings.ts` — the `en.json` failure mode, and how §3.5 detects HA's own gaps |
+| **untranslated English left behind** | a value byte-identical to `strings.ts` — the `en.json` failure mode, and how §3.6 detects HA's own gaps |
 | **glyph integrity** | `≥`, `→`, `—`, nbsp dropped or ASCII-ified — 8 keys |
 | **title-case calque** | the Polish defect, as a per-language ratio against a threshold, with German exempted |
+| **cross-language term consistency** | the `Time` defect (§6.5) — one language rendering a glossary term in a sense the other eight do not. Needs all nine files compared against each other, which no per-language review can do |
 | **length ceiling** | a label far longer than its English risking layout breakage; warn, do not fail |
 | **glossary adherence** | a decided term rendered a second way — the divergence the glossary exists to prevent |
-| **en-GB derivation** | the whole file, recomputed and compared (§5.4) |
+| **en-GB derivation** | the whole file, recomputed and compared (§5.5) |
 
 Every one of these is a **shape or integrity** question, which is what a mechanical check
 can answer.
@@ -498,7 +657,9 @@ explicit about this and it does not change here.
 - The glossary reduces *inconsistency*, not *incorrectness*.
 - The mechanical checks catch structural damage and systematic calques. They cannot catch
   a fluent, well-formed, wrong translation.
-- Latvian carries the most risk: weakest oracle (§3.5) and no in-repo second opinion.
+- Latvian carries the most risk: weakest oracle (§3.6) and no in-repo second opinion.
+  Note the control is *not* evidence against this — Latvian agrees 11/11, but only because
+  the guard excluded the keys where HA had nothing to say.
 
 **Recommended mitigation, in order of value:** ship the checks; put a
 `docs/contributing.md` call-out inviting native corrections per language; and treat the
@@ -615,8 +776,13 @@ shows editor opens are common. Neither holds now.
 
 Produces `editor-glossary.md` with every term decided across all nine languages; the
 mechanical checks of §8.2 in `check-i18n.mjs`; the generated en-GB file and its assertion
-(§5.4); and the mining output as a per-language starting file (~30 strings, but more
+(§5.5); and the mining output as a per-language starting file (~30 strings, but more
 usefully the oracle evidence each session will need).
+
+**It must compare the nine languages against each other, not just each against HA.** The
+`Time` inconsistency (§6.5) shows up only in that comparison — German's `Zeit` disagrees
+with no external source, so every per-language review would pass it. This is work only
+Stage 0 can do, because it is the only point at which all nine files are in one context.
 
 Everything downstream depends on this. It is also the session that should be reviewed most
 carefully, because a wrong glossary entry is copied nine times.
@@ -627,8 +793,11 @@ One session per language: `de`, `et`, `it`, `lt`, `lv`, `nb`, `pl`, `sk`, `sv`.
 
 Each session owns its file end to end and, within it, works in this order:
 
-1. **Fix the pre-existing defects** in the 111–134 strings already there (§6). Polish and
-   Norwegian have known ones; every session re-checks its own against the glossary.
+1. **Fix the pre-existing defects** in the 111–134 strings already there (§6). Polish
+   (casing), Norwegian (weekdays), Slovak (four term/grammar disagreements) and German
+   (`Zeit`) have known ones; every session re-checks its own against the glossary. Note
+   that a language agreeing 14/14 with HA is **not** thereby clean — Polish and Swedish
+   both do, and both have orthographic defects (§3.7).
 2. **Labels and panel chrome** — the first screen first, per §2.3, so the language is
    visibly correct early even if the session is interrupted.
 3. **Remaining labels** — 139 strings.
@@ -688,11 +857,24 @@ Recorded because the brief asked for them explicitly.
    different and smaller claim.
 5. **"250 are labels, median 16 chars"** — measured median is **15**.
 6. **"106 of 312 keys matched by English text"** (archive) — importing gives **104**.
-7. **The parent session's "0 disagreements"** for the German oracle — an artefact of an
-   exact-match probe on a sample of 8. At looser matching the sample is 9 with **1**
-   disagreement, and across nine languages it is 99 with **13**. §3.5.
+7. **The parent session's "0 disagreements"** for the German oracle — true in exactly one
+   of four corpus × matching-strength combinations, and that one has the smallest sample.
+   Loosen the match or change the corpus and a disagreement appears; the two figures quoted
+   together (`14 appear`, `0 differ`) come from different matching strengths. With the
+   English guard applied across nine languages: **112 comparisons, 12 disagreements**. §3.5, §3.7.
 8. **Unstated in the brief, and material:** eight of the nine languages have **zero** prose
    translated, so the residual is 62 sentences per language, not 201 labels. §2.2.
+9. **Also unstated, and it changes how sessions are reviewed:** terminology quality and
+   orthographic quality are **independent**. Polish's *only* terminology disagreement is
+   pure casing while it title-cases 85% of its labels. Checking one axis says nothing about
+   the other. §3.7.
+10. **A later suggestion that en-GB should carry ~15–20 keys**, extrapolated from HA's own
+    en-GB differing on 4.8% of its table — **the rate does not transfer**. Our corpus is
+    colour-dense (32 of 312 keys contain `Color`), so the measured answer is 36 (11.5%).
+    Applying HA's *vocabulary* rather than its *percentage* returns exactly those 36. §5.3.
+11. **And a correction to this document.** Its own oracle comparison case-folded both sides,
+    so a purely-capitalisation disagreement read as agreement — concealing one, in the
+    language whose capitalisation is most wrong. Count corrected from 11 to **12**. §3.7.
 
 ## 12. Things I Could Not Establish
 
