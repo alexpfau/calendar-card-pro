@@ -319,9 +319,23 @@ git log -S"names a language but has no" --all -- scripts/check-i18n.mjs
 
 It answers a different question from `--is-ancestor` — not _is this hash reachable_ but
 _where did this content come from_ — so a merge, a squash, a rebase or a stale ref cannot
-confuse it. The disagreement turned out to be the **freshness of the ref being compared
-against**, not the commit: per-commit checking fixes generalising from one hash, and does
-nothing about comparing to a `origin/…` last fetched nine pushes ago.
+confuse it. Per-commit checking fixes generalising from one hash, and does
+nothing about comparing to a `origin/…` last fetched nine pushes ago — but **that was not
+what the disagreement turned out to be**, and an earlier version of this sentence said it
+was. The commit had been authored *seconds* before the session measured, and a commit cannot
+be contained in a branch tip that predates its own existence. No fetch, however current,
+could have returned yes. Ref freshness matters when the answer *could* have changed; it
+cannot manufacture one for a commit that did not yet exist.
+
+**And that is why provenance is categorically different from the other two instruments,
+rather than merely stronger.** Ancestry and behaviour both ask about *current state*, so both
+inherit whatever ref or working tree they are read against. `-S` asks where content came
+from — a property of **history**, and history does not move. It cannot be confused by a
+merge, a rebase or a stale ref not because it is more careful but because **the question has
+no time-varying term in it.**
+
+Which is the general answer to most of this file: **prefer a question whose answer cannot
+change while you are asking it.**
 
 **But it searches the lines that changed, so the pattern must name the thing that changed —
 not the structure around it.** Checking which commit set the Polish weekdays to their
