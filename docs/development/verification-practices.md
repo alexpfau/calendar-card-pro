@@ -349,7 +349,27 @@ the commit was on the branch, and its content was not in the file searched. Both
 true. So the guard that scales is cheaper than the list:
 
 > **Make the probe state which artefact it read, and cross that against something
-> independently known.** A probe printing `searched AGENTS.md` beside
+> independently known.**
+
+**And the sentinel that proves the probe works must be a phrase you have _read_, not one you
+expect to be there.** Checking which findings had landed in this file, a session's probe
+reported a passage absent. It was present. Its must-find sentinel was a phrase the author
+*assumed* the file contained — so the sentinel failed, and by the rule above that means the
+probe is wrong rather than the corpus. Re-run with a heading they had actually seen, both
+directions passed and the reading inverted.
+
+**An assumed sentinel is not a control; it is a second untested claim wearing one.** The
+failure is quiet in the worst way: a control that returns zero looks exactly like a corpus
+that lacks the thing, and it arrives attached to a real finding, which lends it credibility.
+The bidirectional self-test caught it only because the *other* sentinel — the must-not-find
+one — was genuinely absent, so the two disagreed.
+
+**A byte figure is worth a density figure beside it.** When a size changes, _more content_ is
+the reflexive explanation and is often wrong: dividing by character count separates volume
+from encoding. Restoring Romanian diacritics moved the card chunk **187,554 → 187,572 B, +18
+bytes, with the character count unchanged at 581** — so it was 18 characters each gaining one
+UTF-8 byte, a pure substitution, and not a single character of new text. Reported as bytes
+alone, +18 invites a content explanation that the density figure refutes in one line. A probe printing `searched AGENTS.md` beside
 > `9b57481 touched verification-practices.md` surfaces the contradiction with nobody being
 > careful.
 
