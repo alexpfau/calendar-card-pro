@@ -59,6 +59,7 @@ import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadEditorModule } from './load-editor-schema.mjs';
+import { deriveEnGb } from './en-gb.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANG_DIR = join(ROOT, 'src/translations/languages');
@@ -71,6 +72,7 @@ const LOCALIZE_TS = join(ROOT, 'src/translations/localize.ts');
 const DAYJS_TS = join(ROOT, 'src/translations/dayjs.ts');
 const PANELS_TS = join(ROOT, 'src/rendering/editor/panels.ts');
 const STRINGS_TS = join(ROOT, 'src/rendering/editor/strings.ts');
+const GLOSSARY_MD = join(ROOT, 'docs/development/editor-glossary.md');
 const REFERENCE_LANG = 'en.json';
 
 const STRICT = process.argv.includes('--strict');
@@ -998,6 +1000,353 @@ async function checkEditorTranslations(languages) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Translation quality — structure, orthography and terminology
+// ---------------------------------------------------------------------------
+
+/**
+ * Values that are legitimately byte-identical to their English.
+ *
+ * Keyed `lang:key`, and deliberately tiny. Every entry is a loanword the language
+ * genuinely uses, not a gap — the whole point of the check above it is that an untranslated
+ * string and a correctly-identical one are indistinguishable by machine, so each one is
+ * reviewed once, here, in a diff.
+ *
+ * `Layout` is the word in German, Italian, Norwegian and Swedish. Home Assistant's own
+ * tables leave it untranslated in German and Swedish for the same reason, which
+ * corroborates it independently.
+ */
+const IDENTICAL_TO_ENGLISH_OK = new Set([
+  'de:panel.layout',
+  'it:panel.layout',
+  'nb:panel.layout',
+  'sv:panel.layout',
+]);
+
+/**
+ * Characters whose loss changes what a string means, rather than how it looks.
+ *
+ * Derived from the English rather than hardcoded, because a hardcoded list goes stale in
+ * the direction that cannot be seen: an earlier reading of this table named `→` and a
+ * non-breaking space among the glyphs at risk, and **neither occurs anywhere in it**. A
+ * check guarding those would have guarded nothing while reporting success.
+ *
+ * A character counts as structural when it is non-ASCII and is neither a letter nor a
+ * combining mark — so `—` and `≥` qualify, and every accented letter a translation
+ * legitimately introduces does not. Quotation marks are excluded and handled separately,
+ * because German `„…“`, Polish `„…”` and Swedish `”…”` are all correct and a check that
+ * demanded the English `“…”` would be enforcing a calque.
+ */
+const structuralGlyphs = (text) =>
+  [...text].filter(
+    (ch) => ch.codePointAt(0) > 127 && !/[\p{L}\p{M}]/u.test(ch) && !/["'“”‘’„«»]/u.test(ch),
+  );
+
+const placeholders = (text) => (text.match(/\{[a-z_]+\}/g) ?? []).sort();
+
+/**
+ * Structural integrity, orthography and terminology, per language.
+ *
+ * These are separate axes and are checked separately, which is not a stylistic preference
+ * but a correction: Polish agrees with Home Assistant on essentially every term while
+ * title-casing 80% of its multi-word labels, so a vocabulary check that reported Polish
+ * clean would be right and useless. Worse, the analysis that first measured the
+ * terminology case-folded both sides, which hid the one disagreement that *was* purely
+ * capitalisation — in Polish. **A comparison that normalises away the property you are
+ * also trying to measure cannot report on it**, so nothing below shares a normaliser and
+ * every comparison here is case-sensitive.
+ *
+ * @param languages - Language files on disk, keyed by lowercased code
+ * @param glossary - The parsed termbase
+ */
+async function checkTranslationQuality(languages, glossary) {
+  const { EDITOR_STRINGS } = await loadEditor();
+
+  for (const file of readdirSync(EDITOR_T9N_DIR)
+    .filter((f) => f.endsWith('.json'))
+    .sort()) {
+    const code = basename(file, '.json').toLowerCase();
+    if (code === 'en' || code === 'en-gb') continue; // en-GB is generated and asserted whole
+    if (!languages.has(code)) continue;
+
+    const where = `editor/translations/${file}`;
+    let data;
+    try {
+      data = JSON.parse(read(join(EDITOR_T9N_DIR, file)));
+    } catch {
+      continue; // already reported by checkEditorTranslations
+    }
+
+    const multiWordLabels = [];
+    let calques = 0;
+
+    for (const [key, value] of Object.entries(data)) {
+      const english = EDITOR_STRINGS[key];
+      if (typeof english !== 'string' || typeof value !== 'string') continue;
+
+      // --- placeholders ---------------------------------------------------
+      const want = placeholders(english);
+      const got = placeholders(value);
+      if (want.join('|') !== got.join('|')) {
+        error(
+          where,
+          `\`${key}\` has placeholders ${JSON.stringify(got)} but the English has ` +
+            `${JSON.stringify(want)} — a renamed or dropped placeholder renders as ` +
+            'literal text to the user',
+        );
+      }
+
+      // --- structural glyphs ----------------------------------------------
+      for (const glyph of new Set(structuralGlyphs(english))) {
+        if (!value.includes(glyph)) {
+          error(
+            where,
+            `\`${key}\` drops ${JSON.stringify(glyph)}, which the English uses ` +
+              'structurally — an ASCII substitute changes what the string says',
+          );
+        }
+      }
+
+      // --- typographic quotes ASCII-ified ---------------------------------
+      if (/[“”‘’]/u.test(english) && /["']/.test(value)) {
+        warn(
+          where,
+          `\`${key}\` uses an ASCII quote where the English is typographic — use the ` +
+            "target language's own quotation marks rather than \" or '",
+        );
+      }
+
+      // --- untranslated English -------------------------------------------
+      if (value === english && !IDENTICAL_TO_ENGLISH_OK.has(`${code}:${key}`)) {
+        error(
+          where,
+          `\`${key}\` is byte-identical to the English — either translate it, or add ` +
+            `'${code}:${key}' to IDENTICAL_TO_ENGLISH_OK with a reason if the word is ` +
+            'genuinely the same in this language',
+        );
+      }
+
+      // --- length ceiling (advisory) --------------------------------------
+      if (!key.endsWith('.helper') && value.length > 24 && value.length > english.length * 2.2) {
+        warn(
+          where,
+          `\`${key}\` is ${value.length} characters against the English's ` +
+            `${english.length} — long labels break the editor's layout before they ` +
+            'break anything else',
+        );
+      }
+
+      // --- orthography: the Title Case calque ------------------------------
+      if (!key.endsWith('.helper') && value.trim().split(/\s+/).length > 1) {
+        multiWordLabels.push(key);
+        const rest = value.trim().split(/\s+/).slice(1);
+        const capitalised = rest.filter((word) => {
+          const bare = word.replace(/^[(["'«„-]+/, '').replace(/[)\].,:;!?"'»“”-]+$/, '');
+          if (!bare) return false;
+          if (/^[A-Z0-9]{2,}$/.test(bare)) return false; // UV, CSS — correct as-is
+          return bare[0] === bare[0].toUpperCase() && bare[0] !== bare[0].toLowerCase();
+        });
+        if (capitalised.length > 0) calques += 1;
+      }
+    }
+
+    // Reported per language rather than per string: one string with a capital is noise,
+    // four in five is a systematic calque of English orthography.
+    if (!glossary.nounCapsLanguages.has(code) && multiWordLabels.length >= 20) {
+      const rate = Math.round((calques / multiWordLabels.length) * 100);
+      if (rate > 15) {
+        warn(
+          where,
+          `${rate}% of multi-word labels capitalise a non-initial word ` +
+            `(${calques} of ${multiWordLabels.length}). ${code} uses sentence case — ` +
+            'this is English orthography calqued onto it, not a translation choice',
+        );
+      }
+    }
+
+    checkGlossaryAdherence(where, code, data, EDITOR_STRINGS, glossary);
+  }
+}
+
+/**
+ * The decided termbase, enforced.
+ *
+ * **Rejected forms are matched case-sensitively, as substrings, and only inside the keys
+ * the term governs.** Each of those three is load-bearing:
+ *
+ *   - *Case-sensitively*, because `Zeit` must not match the legitimate lower-case `zeit`
+ *     inside `Uhrzeit`, and because a capitalisation-only divergence is exactly what a
+ *     case-folding comparison was found to hide.
+ *   - *As substrings*, because German, Swedish and Latvian compound: the rejected
+ *     `Ereignis` appears as `Ereignisfarbe`, which no word-boundary match would find.
+ *   - *Scoped to governed keys*, because the same word can be right and wrong in one
+ *     file. Italian `Posizione` is wrong for *location* and correct for *position*; a
+ *     whole-file scan cannot tell them apart and would fire on correct strings.
+ *
+ * The positive direction — a decided form that is simply absent — is a warning, not an
+ * error, because inflection makes exact equality the wrong test everywhere except the
+ * handful of keys whose entire English is the term.
+ */
+function checkGlossaryAdherence(where, code, data, strings, glossary) {
+  for (const term of glossary.terms) {
+    const governed = Object.keys(strings).filter((k) =>
+      new RegExp(`\\b${term.name.replace(/\s+/g, '\\s+')}`, 'i').test(strings[k]),
+    );
+
+    for (const form of term.rejected[code] ?? []) {
+      for (const key of governed) {
+        const value = data[key];
+        if (typeof value !== 'string') continue;
+        if (!value.includes(form)) continue;
+        error(
+          where,
+          `\`${key}\` uses ${JSON.stringify(form)}, which the glossary rejects for ` +
+            `'${term.name}' in ${code} — the decided term is ` +
+            `${JSON.stringify(term.decided[code] ?? '(undecided)')}. See ` +
+            'docs/development/editor-glossary.md',
+        );
+      }
+    }
+
+    const decided = term.decided[code];
+    if (!decided) continue;
+    for (const key of Object.keys(strings)) {
+      if (strings[key].trim().toLowerCase() !== term.name) continue;
+      const value = data[key];
+      if (typeof value === 'string' && value !== decided) {
+        warn(
+          where,
+          `\`${key}\` renders '${term.name}' as ${JSON.stringify(value)} where the ` +
+            `glossary decided ${JSON.stringify(decided)}`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Reads the termbase out of the glossary.
+ *
+ * The markdown *is* the source of truth — a second machine-readable copy would be one
+ * more pair of artefacts free to drift, and the whole point of the glossary is that one
+ * decision exists in one place. So this parses it, and fails loudly rather than quietly
+ * enforcing nothing if the shape it depends on changes.
+ *
+ * @returns Decided and rejected forms per term, plus the languages exempt from the
+ *   sentence-case rule
+ */
+function readGlossary() {
+  const src = read(GLOSSARY_MD);
+
+  // The casing ruling: a language is exempt when its own orthography capitalises nouns.
+  const casingTable = src.match(/\|\s*language\s*\|\s*rule\s*\|[\s\S]*?\n\n/i);
+  assertFound(casingTable, 'the per-language casing table', GLOSSARY_MD);
+  const nounCapsLanguages = new Set();
+  let sawAnyCasingRow = false;
+  for (const line of casingTable[0].split('\n')) {
+    const cells = line.split('|').map((c) => c.trim());
+    if (cells.length < 4 || !/^[a-z]{2}(-[a-z]{2})?$/.test(cells[1])) continue;
+    sawAnyCasingRow = true;
+    if (/nouns are capitalised/i.test(cells[2])) nounCapsLanguages.add(cells[1]);
+  }
+  assertFound(sawAnyCasingRow ? ['ok'] : [], 'any language row in the casing table', GLOSSARY_MD);
+
+  const terms = [];
+  // Sections are `### <term> — <sense>`; everything up to the next `###` belongs to it.
+  for (const section of src.split(/^### /m).slice(1)) {
+    const heading = section.slice(0, section.indexOf('\n'));
+    const name = heading.split('—')[0].trim().toLowerCase();
+    if (!name) continue;
+
+    // Column order comes from the table's own header rather than a constant, so a
+    // reordered table cannot silently shift every decision one language to the left.
+    const header = section.match(/^\|\s*\|([^\n]*)\|\s*$/m);
+    if (!header) continue;
+    const langs = header[1]
+      .split('|')
+      .map((c) => c.trim())
+      .filter(Boolean);
+
+    const decided = {};
+    for (const row of section.matchAll(
+      /^\|\s*\*\*Decided\*\*(?:\s*\((\w+)\))?\s*\|([^\n]*)\|\s*$/gm,
+    )) {
+      const which = row[1] ? row[1].toLowerCase() : name;
+      const cells = row[2].split('|').map((c) => c.trim());
+      const forThisTerm = (decided[which] ??= {});
+      langs.forEach((lang, i) => {
+        const cell = (cells[i] ?? '').replace(/^`|`$/g, '').trim();
+        if (cell && cell !== '—' && !/^\*.*\*$/.test(cell)) forThisTerm[lang] = cell;
+      });
+    }
+
+    const rejected = {};
+    for (const line of section.matchAll(/^\*\*Rejected:\*\*([^\n]*)$/gm)) {
+      for (const pair of line[1].split(';')) {
+        const m = pair.match(/([a-z]{2}(?:-[a-z]{2})?)\s*`([^`]+)`/i);
+        if (m) (rejected[m[1].toLowerCase()] ??= []).push(m[2]);
+      }
+    }
+
+    for (const [which, byLang] of Object.entries(decided)) {
+      terms.push({ name: which, decided: byLang, rejected: which === name ? rejected : {} });
+    }
+  }
+
+  assertFound(terms, 'any decided glossary terms', GLOSSARY_MD);
+  return { terms, nounCapsLanguages };
+}
+
+/**
+ * en-GB, recomputed and compared whole.
+ *
+ * The file is derived, so the only correct way to change it is to run the generator; a
+ * hand-edit is a defect by construction. That matters because the hand-written file this
+ * replaced had accumulated all three failure modes at once — 1 entry correct, 17 wrong
+ * (they silently dropped Title Case, so `Event Color` became `Event colour` and switching
+ * to British English re-cased seventeen labels as a side effect), 18 missing, and 28
+ * no-ops byte-identical to the English.
+ */
+async function checkEnGbDerivation() {
+  const { EDITOR_STRINGS } = await loadEditor();
+  const expected = deriveEnGb(EDITOR_STRINGS);
+  const where = 'editor/translations/en-GB.json';
+
+  let actual;
+  try {
+    actual = JSON.parse(read(join(EDITOR_T9N_DIR, 'en-GB.json')));
+  } catch (err) {
+    error(
+      where,
+      `is missing or not valid JSON (${err.message}) — run \`node scripts/generate-en-gb.mjs\``,
+    );
+    return;
+  }
+
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  const wrong = [];
+  for (const key of keys) {
+    if (expected[key] === actual[key]) continue;
+    if (actual[key] === undefined) wrong.push(`${key} is missing`);
+    else if (expected[key] === undefined)
+      wrong.push(`${key} is not a British spelling variant and must not be overridden`);
+    else
+      wrong.push(
+        `${key} is ${JSON.stringify(actual[key])}, derived ${JSON.stringify(expected[key])}`,
+      );
+  }
+
+  if (wrong.length > 0) {
+    error(
+      where,
+      `${wrong.length} entr${wrong.length === 1 ? 'y differs' : 'ies differ'} from the ` +
+        'derivation — run `node scripts/generate-en-gb.mjs`. ' +
+        wrong.slice(0, 4).join('; ') +
+        (wrong.length > 4 ? `; and ${wrong.length - 4} more` : ''),
+    );
+  }
+}
+
 /**
  * Whether a string key belongs to something the editor actually renders.
  *
@@ -1083,6 +1432,8 @@ async function main() {
 
   const fieldCount = await checkEditorStrings();
   await checkEditorTranslations(languages);
+  await checkEnGbDerivation();
+  await checkTranslationQuality(languages, readGlossary());
 
   process.exit(report(languages.size, fieldCount));
 }
