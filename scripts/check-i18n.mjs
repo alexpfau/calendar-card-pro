@@ -1020,13 +1020,15 @@ async function checkEditorTranslations(languages) {
  * the moment it reached full coverage: `width_table.at_least` is `≥ {width} px`,
  * `width_table.below` is `< {width} px`, and `week_number_mode.option.iso.label` is
  * `ISO 8601`. A symbol with a placeholder and the name of an ISO standard are the same in
- * every one of the nine, so **every remaining language session will need the same three
- * entries** — the list grows by 27 where 3 would do. If that becomes tiresome, the fix is
- * a key-level set checked before the `lang:key` one rather than nine more lines each; it
- * is left as a judgement for whoever reaches it, because three entries is not yet worth a
- * second mechanism.
+ * every one of the nine, so **every language session needs all three**. The German session
+ * left the choice of when to generalise them to whoever found it tiresome; the `it`/`sk`
+ * session did, because two languages at once turns three lines into six and the seven
+ * sessions still to come would have added twenty-one more to a list none of them can
+ * usefully review. They now live in `IDENTICAL_TO_ENGLISH_ANY_LANGUAGE` below, which is
+ * checked first, so `IDENTICAL_TO_ENGLISH_OK` holds only decisions that are genuinely
+ * about a language.
  *
- * `view` is `Layout` for the same reason `panel.layout` is, and will recur for `it`, `nb`
+ * `view` is `Layout` for the same reason `panel.layout` is, and recurs for `it`, `nb`
  * and `sv`: it is a key those languages had not translated when this list was written.
  */
 const IDENTICAL_TO_ENGLISH_OK = new Set([
@@ -1041,10 +1043,24 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'de:entity.label',
   'de:view',
 
-  // Language-independent: a comparison symbol with a placeholder, and a standard's name.
-  'de:width_table.at_least',
-  'de:width_table.below',
-  'de:week_number_mode.option.iso.label',
+  // Italian, Stage 1. `Layout` is the Italian word too — HA Italian's `Disposizione` is
+  // an arrangement and is rejected by the glossary; see editor-glossary.md §5, `layout`.
+  'it:view',
+]);
+
+/**
+ * Keys whose English is the same string in every language, for reasons that are not
+ * linguistic.
+ *
+ * A comparison symbol carrying a placeholder (`≥ {width} px`, `< {width} px`) and the name
+ * of an ISO standard (`ISO 8601`) do not translate into anything, in any of the nine. Held
+ * apart from `IDENTICAL_TO_ENGLISH_OK` so that list stays a record of per-language
+ * judgements a reviewer can actually check.
+ */
+const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
+  'width_table.at_least',
+  'width_table.below',
+  'week_number_mode.option.iso.label',
 ]);
 
 /**
@@ -1141,7 +1157,11 @@ async function checkTranslationQuality(languages, glossary) {
       }
 
       // --- untranslated English -------------------------------------------
-      if (value === english && !IDENTICAL_TO_ENGLISH_OK.has(`${code}:${key}`)) {
+      if (
+        value === english &&
+        !IDENTICAL_TO_ENGLISH_ANY_LANGUAGE.has(key) &&
+        !IDENTICAL_TO_ENGLISH_OK.has(`${code}:${key}`)
+      ) {
         error(
           where,
           `\`${key}\` is byte-identical to the English — either translate it, or add ` +
