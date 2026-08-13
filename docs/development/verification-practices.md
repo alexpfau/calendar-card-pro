@@ -323,6 +323,19 @@ confuse it. The disagreement turned out to be the **freshness of the ref being c
 against**, not the commit: per-commit checking fixes generalising from one hash, and does
 nothing about comparing to a `origin/…` last fetched nine pushes ago.
 
+**But it searches the lines that changed, so the pattern must name the thing that changed —
+not the structure around it.** Checking which commit set the Polish weekdays to their
+genitive forms, `-S "fullDaysOfWeek"` returned a commit from years earlier and
+`-G "fullDaysOfWeek"` returned three unrelated ones. **Neither found the commit that did
+it.** The key name sits on a line that never changed; the *values* changed.
+`-S "wtorku"` names it immediately, and a never-present control returns empty.
+
+(`-S` counts occurrences, `-G` matches any diff line; a value edit that alters neither the
+count nor the surrounding line is invisible to both.) So provenance is the same trap as
+everything else here the moment the pattern is chosen from what you are looking **at**
+rather than what you are looking **for** — and this instance is a boundary on advice given
+two hours earlier in this same file.
+
 **Why the guard's own coverage keeps being the thing nobody checks.** Three times in one
 evening a documented trap was walked into by the person who had just written the
 documentation, twice having fixed the identical defect elsewhere minutes earlier. "Recall at
