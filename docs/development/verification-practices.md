@@ -164,6 +164,15 @@ rule is **not "avoid regexes" but "do not run one where a zero match cannot anno
 itself"**: flatten continuations before matching prose, and when a check finds nothing,
 confirm the pattern can match something before believing the absence.
 
+**A zero-match guard sees total staleness, never partial.** The `AGENTS.md` link check shipped
+matching only `./`-prefixed links and carried a guard that errors when it finds none — which could
+not fire, because seven `./` links kept the count non-zero while a link written `docs/foo.md` went
+unresolved. Verified: appending a bad non-`./` link left `check:docs` green, and the same target
+with `./` errored either way, so that is the control rather than the test. **The stronger invariant
+is a reconciliation, not a count** — every relative link in the file must be one the check
+_resolved_, so a pattern that stops matching a subset fails as loudly as one that stops matching
+everything.
+
 **Flattening is necessary and not sufficient, because a formatter rewrites more than
 whitespace.** Verifying that a merge had preserved another session's paragraphs took three
 passes and the first two were confidently wrong: exact-line `grep -F` reported 8 of 39
