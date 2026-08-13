@@ -145,7 +145,17 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v3.5
+### Latest Release: v4.0
+
+- 🗓️ **Column View**: Lay the days [side by side, one column each](https://calendar-card-pro.alexpfau.com/features/column-view), instead of stacking them — the same agenda, rotated, with its own per-view overrides and a responsive fallback to the list layout
+- ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with [search, a customized-only filter](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only), per-calendar settings, and [per-view exceptions](https://calendar-card-pro.alexpfau.com/features/editor#column-view-exceptions)
+- 🌍 **Nine Fully Translated Editor Languages**: German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish, complete — with per-string fallback so a partial translation still renders
+- ⚡ **41% Smaller on Every Dashboard Load**: The editor moved into a file the card fetches only when you open it, taking it and all its translations off the path every dashboard pays for
+- 📏 **Per-Field Line Limits**: Cap the lines used by a title, time or location with [`title_max_lines`, `time_max_lines` and `location_max_lines`](https://calendar-card-pro.alexpfau.com/features/event-content#limiting-lines-per-field)
+- 🌦️ **Weather in Column View**: A row of its own beneath the time, optionally [stating the condition in words](https://calendar-card-pro.alexpfau.com/features/weather#weather-in-the-column-layout) in your language
+- ⚠️ **Breaking**: Manual installs now copy [two files](https://calendar-card-pro.alexpfau.com/guide/installation#manual-installation), `event_icon_vertical_alignment` defaults to `top`, and weather badges are styled through [custom properties](https://calendar-card-pro.alexpfau.com/features/theming#weather-custom-properties) instead of inline styles
+
+### v3.5
 
 - 🫥 **Empty State Control**: [Remove the card entirely](https://calendar-card-pro.alexpfau.com/features/event-content#calendar-events-display) when there are no upcoming events, or replace "No upcoming events" with [your own wording](https://calendar-card-pro.alexpfau.com/features/event-content#custom-empty-day-text)
 - 📅 **Flexible Start Dates**: [Anchor the view to the week or a weekday](https://calendar-card-pro.alexpfau.com/features/start-date-offset#start-date-configuration) with `start_of_week`, `saturday`, and composable offsets like `start_of_week+7`
@@ -166,28 +176,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🌍 **Two New Languages**: British English and Latvian (35 total), with editor translations for Italian, British English, and Latvian (11 total)
 - 🐛 **HA 2026.5+ Visual Editor**: Restored the text input fields, which vanished entirely after Home Assistant removed `ha-textfield`
 - 🐛 **`event_color` Fix**: No longer ignored when no per-entity color is configured
-
-### v3.2
-
-- 📝 **Event Description Display**: Show event descriptions with [configurable line clamping](https://calendar-card-pro.alexpfau.com/features/event-content#event-description-display), HTML stripping, and full styling control
-- 🌤️ **UV Index in Weather**: Display [UV index in weather forecasts](https://calendar-card-pro.alexpfau.com/features/weather#weather-configuration-options) with configurable visibility threshold
-- ↔️ **RTL Support**: Full right-to-left support for event borders and accent lines
-- 🔄 **Improved Loading UX**: Events stay visible during refresh; subtle spinner replaces full-screen loading
-- 🌍 **Three New Languages**: Estonian, Lithuanian, and Turkish (33 at the time), with editor translations for Polish, Estonian, and Lithuanian
-- 🐛 **HA 2026.3+ Compatibility**: Migrated editor dropdowns to the new WebAwesome API
-
-### v3.1
-
-- 🌍 **Four New Translations**: Bulgarian interface, plus Norwegian Bokmål, German, and Swedish editor translations
-- 🎨 **Tomorrow CSS Class**: New `tomorrow` HTML class for card-mod styling of tomorrow's events
-- 🐛 **Grid Layout Fix**: Resolved card overflow when `grid_options.rows` is set
-
-### v3.0
-
-- ⚙️ **Visual Configuration Editor**: New visual editor for easy, guided configuration, with smart validation and auto-upgrade of deprecated settings
-- 🌦️ **Weather Integration**: Display [weather forecasts](https://calendar-card-pro.alexpfau.com/features/weather#weather-integration) alongside your events
-- 🕒 **Improved Time Format Detection**: Automatically detects and respects all Home Assistant time format settings (12h, 24h, language-based, and system-based)
-- ⚠️ **Breaking Changes**: Parameter renames: `vertical_line_color` → `accent_color`, `max_events_to_show` → `compact_events_to_show`, `horizontal_line_width` → `day_separator_width`, `horizontal_line_color` → `day_separator_color`
 
 _Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
 
