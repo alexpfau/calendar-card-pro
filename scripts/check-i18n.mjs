@@ -1428,6 +1428,14 @@ function checkGlossaryAdherence(where, code, data, strings, glossary) {
  * therefore stripped everywhere, single-asterisk italic never is — it is load-bearing
  * syntax meaning the cell holds no decision.
  *
+ * **Both spellings of both, or the asymmetry becomes the bug.** Markdown writes bold as
+ * `**x**` *or* `__x__` and italic as `*x*` *or* `_x_`, and prettier normalises bold toward
+ * asterisks and italic toward underscores — so the spellings that actually reach this
+ * parser are `**bold**` and `_italic_`, one of each family. Handling only the asterisk of
+ * each is what produced two opposite silent failures in the same field: `_!EN_` read as a
+ * decided term (permissive), and `__Ort__` read as a marker (restrictive). This helper
+ * strips both bolds; the italic test uses a backreference to catch both italics.
+ *
  * **The italic guard is dead code against this file's own conventions, and that is worth
  * knowing before anyone relies on it.** It tests `^\*.*\*$` — *asterisk* italic — while the
  * glossary writes every italic with underscores (`_!EN_`, `_rejected_`, `_Zeit_`). More to
@@ -1559,14 +1567,13 @@ function readGlossary() {
         // before removing bold treats the first as the second and silently drops the term
         // from enforcement — the failure being emphasis on a decision you care about.
         //
-        // 🚨 Both italic spellings must be tested, and the underscore one is the spelling
-        // that actually occurs. Prettier normalises `*x*` to `_x_`, so a marker typed the
-        // natural way is `_!EN_` by the time it reaches this parser — measured, the file
-        // holds 0 asterisk-italics against 158 underscore ones. An asterisk-only guard is
-        // therefore inert against every marker anyone can actually write, and fails in the
-        // permissive direction: `_!EN_` was read as a *decided term*, making the check
-        // demand every language render `location` as the literal string `_!EN_`.
-        const cell = (cells[i] ?? '').replace(/^`|`$/g, '').replace(/\*\*/g, '').trim();
+        // Both bold spellings must be stripped and both italic spellings tested, or the
+        // parser is asymmetric in a way that fails silently in *both* directions. `**` was
+        // stripped while `__` was not, so `__Ort__` reached the italic test, matched it as
+        // a marker, and dropped the term from enforcement — bold entered through the door
+        // marked "no decision here". `unemphasise()` above already handled both; this path
+        // did not, and the two disagreeing is what made the gap invisible.
+        const cell = unemphasise((cells[i] ?? '').replace(/^`|`$/g, ''));
         if (cell && cell !== '—' && !/^([*_]).*\1$/.test(cell)) forThisTerm[lang] = cell;
       });
     }
