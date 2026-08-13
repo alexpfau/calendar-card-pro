@@ -30,11 +30,18 @@
  *
  * ## Why the label has a type, and where that type lives
  *
- * `label` holds four shapes in one key — nothing, text or an emoji, an icon, or a path
- * to an image — and `renderLabel` decides which by looking at the value. There is no
- * `label_type` in the configuration and there must not be one: the shape *is* the value.
- * So the dropdown is derived, exactly as `today_indicator_style` is at card level, and
- * choosing a shape rewrites the key rather than storing the choice.
+ * `label` holds four shapes in one value — nothing, text or an emoji, an icon, or a path
+ * to an image — and the value alone usually says which. Usually, but not always: an
+ * empty value reads as *nothing*, which is indistinguishable from a text label the user
+ * has cleared on the way to typing another one. That is not an editor problem to be
+ * plumbed around, it is a state the model could not represent, and the editor collapsed
+ * the control every time the user reached it.
+ *
+ * So the shape is **resolved** rather than inferred — `label_type` where the calendar
+ * names one, the value's own reading where it does not — and `resolveLabelType` is the
+ * single place that decides, asked by this dropdown and by `renderLabel` alike. The
+ * dropdown is a real config key now, and the key is written only where inference would
+ * give a different answer, so an ordinary label's YAML is untouched.
  *
  * It buys two things a lone text box could not. An icon gets Home Assistant's icon
  * picker instead of a field you have to know `mdi:` to use — the one thing the editor
@@ -117,18 +124,19 @@ export const LABEL_TYPES: ReadonlyArray<'none' | 'text' | 'icon' | 'image'> = [
 ];
 
 /**
- * The config key a per-calendar form field writes.
+ * The config keys a per-calendar form field answers for.
  *
- * All but one write the key they are named after. `label_type` is derived from the
- * shape of `label`, so it stands for that key everywhere a field has to be asked what it
- * configures — which is the filter, where a type dropdown that answered for itself would
- * be hidden by *Customized only* while the label it names was still on screen.
+ * All but one answer for the key they are named after. The shape dropdown answers for
+ * **both** `label_type` and `label`: it is stored only where the value would be read
+ * wrongly, so asked in its own name alone it would report *not customized* for every
+ * ordinary label and be hidden by *Customized only* while the label it names was still
+ * on screen.
  *
  * @param name - Per-calendar field name
- * @returns The config key it configures
+ * @returns The config keys it configures
  */
-export function entityConfigKey(name: string): string {
-  return name === LABEL_TYPE ? 'label' : name;
+export function entityConfigKeys(name: string): ReadonlyArray<string> {
+  return name === LABEL_TYPE ? [LABEL_TYPE, 'label'] : [name];
 }
 
 /**

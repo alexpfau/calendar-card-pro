@@ -313,26 +313,35 @@ function isGlyphLabel(label: string): boolean {
 /**
  * Render calendar label with support for text, emojis, images, and icons
  *
+ * The shape is **resolved**, not inferred: a calendar may name it with `label_type`,
+ * and where it does that naming wins. Inference remains the fallback and is what every
+ * configuration written before the key existed uses, so this renders those unchanged.
+ *
  * @param label - Label content from entity configuration
  * @param labelIconColor - Optional color for icon labels
+ * @param labelType - Shape the entity configuration names, if it names one
  * @returns TemplateResult for the appropriate label type
  */
 export function renderLabel(
   label: string | undefined,
   labelIconColor?: string,
+  labelType?: Helpers.LabelType,
 ): TemplateResult | typeof nothing {
   if (!label) return nothing;
+
+  const type = Helpers.resolveLabelType(label, labelType);
+  if (type === 'none') return nothing;
 
   // style attribute only if a color was provided
   const styleAttr = labelIconColor ? `color: ${labelIconColor};` : nothing;
 
   // Handle icons (mdi:, phu:, fas:, hass:, etc.)
-  if (Helpers.isIconValue(label)) {
+  if (type === 'icon') {
     return html`<ha-icon icon="${label}" class="label-icon" style=${styleAttr}></ha-icon>`;
   }
 
   // Handle image paths (either /local/ path or image file extension)
-  if (label.startsWith('/local/') || /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(label)) {
+  if (type === 'image') {
     return html`<img src="${label}" class="label-image"></img>`;
   }
 
@@ -361,13 +370,14 @@ export function renderEventTitle(
 
   const entityLabel = EventUtils.getEntityLabel(event._entityId, config, event);
 
-  // label_icon_color from the matched entity config
+  // label_icon_color and label_type from the matched entity config
   const labelIconColor = event._matchedConfig?.label_icon_color;
+  const labelType = event._matchedConfig?.label_type;
 
   return html`
     <div class="summary-row">
       <div class="summary">
-        ${entityLabel ? renderLabel(entityLabel, labelIconColor) : nothing}
+        ${entityLabel ? renderLabel(entityLabel, labelIconColor, labelType) : nothing}
         <span
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
           style="color: ${entityColor}"

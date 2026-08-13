@@ -4,6 +4,7 @@
 
 import * as Constants from './constants';
 import * as Types from './types';
+import * as Helpers from '../utils/helpers';
 import * as Logger from '../utils/logger';
 
 //-----------------------------------------------------------------------------
@@ -305,6 +306,7 @@ export function normalizeEntities(
     | {
         entity: string;
         label?: string;
+        label_type?: string;
         color?: string;
         accent_color?: string;
         label_icon_color?: string;
@@ -340,6 +342,11 @@ export function normalizeEntities(
         return {
           entity: item.entity,
           label: item.label,
+          // Dropped unless it names one of the four shapes, which is what makes an
+          // absent or misspelled type fall back to reading the value — the behaviour
+          // every configuration written before this key existed relies on. This list
+          // is an allowlist, so a key omitted here is silently discarded.
+          label_type: Helpers.isLabelType(item.label_type) ? item.label_type : undefined,
           color: item.color || undefined,
           accent_color: item.accent_color || undefined,
           label_icon_color: item.label_icon_color || undefined,

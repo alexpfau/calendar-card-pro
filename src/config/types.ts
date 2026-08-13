@@ -4,6 +4,13 @@
  * This file contains all type definitions used throughout the Calendar Card Pro application.
  */
 
+// Type-only, so it is erased at build time and this module keeps the zero runtime
+// dependencies it has always had. `LabelType` lives beside the classifier that answers
+// it rather than being restated here, because two declarations of the same four shapes
+// would eventually disagree — which is the failure the resolution function exists to
+// rule out.
+import type { LabelType } from '../utils/helpers';
+
 // -----------------------------------------------------------------------------
 // CORE CONFIGURATION
 // -----------------------------------------------------------------------------
@@ -293,6 +300,7 @@ export interface ColumnOverrides {
 export interface EntityConfig {
   entity: string;
   label?: string;
+  label_type?: LabelType;
   color?: string;
   accent_color?: string;
   label_icon_color?: string;

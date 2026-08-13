@@ -90,12 +90,9 @@ describe('renderLabel glyph classification', () => {
   /**
    * The editor offers a control per label shape, so it needs to know which shape a value
    * holds — and `renderLabel` is the authority on that, because it is what actually
-   * draws the thing. `getLabelType` mirrors its three tests in its order rather than
-   * being called by it, because the two files are owned by different work in flight;
-   * this is what makes that mirroring a failing test rather than a comment nobody reads.
-   *
-   * Asserted against what is **rendered**, not against a second reading of the source,
-   * so a change to either side that the other does not follow shows up here.
+   * draws the thing. It now *calls* `getLabelType` rather than mirroring its three tests,
+   * so the two can no longer drift; this keeps asserting against what is **rendered**, so
+   * a change to the classifier that the renderer does not want still shows up here.
    */
   it.each([
     ['mdi:briefcase', 'icon'],
@@ -127,5 +124,46 @@ describe('renderLabel glyph classification', () => {
     expect(Helpers.getLabelType(undefined)).toBe('none');
     expect(Helpers.getLabelType(null)).toBe('none');
     expect(Helpers.getLabelType(42)).toBe('none');
+  });
+
+  /**
+   * Reading the shape off the value cannot express two things a user can legitimately
+   * want, and one of them is not a corner case — it is the state every text label passes
+   * through while it is being typed. A calendar may therefore name its own shape, and
+   * where it does, that naming wins over the reading.
+   *
+   * The case with teeth is the first: `mdi:calendar` as **literal text**. There was no
+   * way to write it before, because the value would always have been read as an icon.
+   */
+  describe('an explicitly named shape', () => {
+    /** Renders with an explicit shape and reports what was drawn. */
+    function drawnWith(label: string, type: Helpers.LabelType): string {
+      litRender(Leaves.renderLabel(label, undefined, type), host);
+      const el = host.firstElementChild;
+      if (el === null) return 'none';
+      const tag = el.tagName.toLowerCase();
+      return tag === 'ha-icon' ? 'icon' : tag === 'img' ? 'image' : 'text';
+    }
+
+    it.each([
+      ['an icon name as text', 'mdi:calendar', 'text' as const, 'text'],
+      ['an image path as text', '/local/family.png', 'text' as const, 'text'],
+      ['text as an icon', 'briefcase', 'icon' as const, 'icon'],
+      ['an icon suppressed entirely', 'mdi:calendar', 'none' as const, 'none'],
+    ])('draws %s', (_name, label, type, expected) => {
+      expect(drawnWith(label, type)).toBe(expected);
+    });
+
+    it('renders the literal characters when text is named', () => {
+      litRender(Leaves.renderLabel('mdi:calendar', undefined, 'text'), host);
+      expect(host.firstElementChild?.textContent).toBe('mdi:calendar');
+    });
+
+    it('falls back to reading the value when no shape is named', () => {
+      expect(Helpers.resolveLabelType('mdi:calendar')).toBe('icon');
+      expect(Helpers.resolveLabelType('mdi:calendar', undefined)).toBe('icon');
+      // A value that is not one of the four shapes is not a shape.
+      expect(Helpers.resolveLabelType('mdi:calendar', 'banana')).toBe('icon');
+    });
   });
 });
