@@ -124,19 +124,22 @@ describe('getTranslations', () => {
   });
 });
 
-describe('editor translations are off the eager path', () => {
-  // The lazy-loading split, asserted where it can be seen at runtime. The editor's
-  // sections are 88.4% of the translation payload and used to sit in the files
-  // `localize.ts` imports statically for all 35 languages — so every user parsed all of
-  // it on every dashboard load to label an editor they mostly never open. They now live
-  // in `editor-languages/`, reachable only through the editor's own chunk.
+describe('the archived editor namespace still registers cleanly', () => {
+  // `editor-languages/` is the *previous* editor's namespace. It is no longer imported
+  // by anything in `src/` — the live editor reads `src/rendering/editor/translations/`,
+  // whose keys match `strings.ts` exactly — so none of it reaches either bundle. It is
+  // kept on disk as the material for the translation pass, and 106 of the live editor's
+  // keys were mined out of it.
   //
-  // The static half of that statement — that no `languages/*.json` carries an `editor`
-  // key — belongs to `check:i18n`, and cannot honestly be made here: registration merges
-  // into the objects `localize.ts` imported, so `en.json`'s module object *acquires* an
-  // `editor` property the moment the editor chunk loads. That mutation is the mechanism
-  // working, not a leak, but it means the imported module is no longer evidence about
-  // the file on disk.
+  // These tests are kept with it. They cover the registration machinery, which is left
+  // intact so the mining pass can re-enter it deliberately; keeping them green is what
+  // stops that machinery rotting into something that cannot be re-enabled. The static
+  // half — that no `languages/*.json` carries an `editor` key, and that nothing in
+  // `src/` imports this directory — belongs to `check:i18n`, and cannot honestly be
+  // asserted here: registration merges into the objects `localize.ts` imported, so
+  // `en.json`'s module object *acquires* an `editor` property the moment this suite
+  // calls the registrar. That mutation is the mechanism working, not a leak, but it
+  // means the imported module is no longer evidence about the file on disk.
   it('registers editor sections without discarding the card strings', () => {
     // The trap that makes this a merge rather than an assignment. `addTranslations`
     // replaces a language's whole entry, so registering an editor-only object through it
