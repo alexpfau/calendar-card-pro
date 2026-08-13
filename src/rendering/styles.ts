@@ -1023,6 +1023,7 @@ export const cardStyles = css`
     min-width: 0;
     flex: 1 1 auto;
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
+    overflow-wrap: break-word;
   }
 
   .time-location .event-weather .event-weather-text > span {
@@ -1060,42 +1061,53 @@ export const cardStyles = css`
    * typesetting. manual rather than none, so an explicit soft hyphen inside a translated
    * condition is still honoured -- this turns off automatic hyphenation, not the author's.
    *
-   * 🚨 overflow-wrap is break-word, and it was briefly normal, and that is the whole of
-   * a bug the maintainer reported: at a larger weather font the condition ran sideways out
-   * of its own column and into the next one, with a long single word appearing to be cut
-   * off mid-glyph. Worth spelling out, because every part of the diagnosis is a trap.
+   * 🚨 overflow-wrap lives on .event-weather-text, one level up, and it was briefly
+   * normal on this element -- which is the whole of a bug the maintainer reported: at a
+   * larger weather font the condition ran sideways out of its own column into the next
+   * one, with a long single word appearing to be cut off mid-glyph. Every part of the
+   * diagnosis is a trap, so all of it is worth spelling out.
    *
    *   - The track is not at fault. .day-column carries min-width: 0 and shrinks correctly.
-   *   - overflow: hidden above is not the backstop it looks like. At the default
-   *     max_lines: 0 the display property beside it resolves to inline, and overflow
-   *     does not apply to a non-replaced inline box -- so nothing was clipping. The text
+   *   - overflow: hidden below is not the backstop it looks like. At the default
+   *     max_lines: 0 the display property beside it resolves to inline, and overflow does
+   *     not apply to a non-replaced inline box -- so nothing was clipping. The text
    *     genuinely escaped the column, and what looked like clipping was the next column
    *     painting over it. Set max_lines and the element becomes a -webkit-box, overflow
    *     starts applying, and the symptom disappears -- which is exactly why a fix verified
    *     with a clamp set would have proved nothing about the default path.
    *   - With overflow-wrap: normal a word wider than its container cannot break at all,
-   *     and simply overhangs. break-word breaks it only when it would otherwise overflow,
-   *     which is precisely the wanted semantic and costs nothing when it fits.
+   *     and simply overhangs.
    *
-   * The reason normal looked safe is a real hazard that had already been fixed one
-   * commit earlier, and the two got read as one. break-word *was* able to orphan the
-   * separator: while the middot was ordinary in-flow content it could break after the dot
-   * and leave it alone on a line, floated above the row by align-items: center. Making the
-   * ::before absolutely positioned removed that, and removed it structurally -- out of
-   * flow, the dot is not part of any character sequence a break can land inside. Turning
-   * break-word off afterwards protected against nothing and cost the row its only defence
-   * against a long word.
+   * The reason normal looked safe is a real hazard that had already been fixed one commit
+   * earlier, and the two got read as one. break-word *was* able to orphan the separator:
+   * while the middot was ordinary in-flow content it could break after the dot and leave
+   * it alone on a line, floated above the row by align-items: center. Making the ::before
+   * absolutely positioned removed that, and removed it structurally -- out of flow, the
+   * dot is not part of any character sequence a break can land inside. Turning break-word
+   * off afterwards protected against nothing and cost the row its only defence against a
+   * long word.
    *
-   * So these two declarations are a pair: break-word here is safe *because* the separator
-   * below is absolute. If anyone ever puts the dot back in flow, this has to go back to
-   * normal in the same edit. stylesheet.test.ts asserts both together for that reason.
+   * 🚨 And putting it back *here* fixes only three quarters of it, which is the part that
+   * had to be measured rather than reasoned about. Restoring break-word on this element
+   * alone took the worst overhang from 113.3px to 26.6px and left it overflowing. The
+   * residue is not this chip's own text: the three chips carry no white space between
+   * them, so UV0Regnerisch is a single unbreakable run as far as line breaking is
+   * concerned, and the break the browser needs falls on characters belonging to the
+   * *previous* chip. overflow-wrap is consulted at the position a break is attempted, so
+   * it has to be in effect there too. Measured live at a 98px row and 20px text, worst
+   * overhang past the row box: 113.3px at normal, 26.6px with break-word here, and -0.8px
+   * with break-word on .event-weather-text. So it is declared on the wrapper and inherited
+   * by all three chips, rather than on the one that happens to hold the long word.
+   *
+   * Those two are a pair: break-word on the wrapper is safe *because* the separator below
+   * is absolute. If anyone ever puts the dot back in flow, it has to go back to normal in
+   * the same edit. stylesheet.test.ts asserts both together for that reason.
    */
   .time-location .event-weather .weather-condition {
     display: var(--calendar-card-weather-event-condition-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-weather-event-max-lines);
     overflow: hidden;
-    overflow-wrap: break-word;
     hyphens: manual;
   }
 
@@ -1161,6 +1173,37 @@ export const cardStyles = css`
     inset-block-start: 0;
     width: calc(2 * 4px + 0.28em);
     text-align: center;
+  }
+
+  /*
+   * A break opportunity between one chip and the next, and nothing else.
+   *
+   * The row's own template emits no white space between the three spans -- deliberately,
+   * because a rendered space there would land on one side of a middot and not the other --
+   * and the separator that replaces it is absolutely positioned, so it is not in the text
+   * either. The consequence is easy to miss: for line-breaking purposes the row is the
+   * single unbreakable run 30degUV7Sonnig, with no position in it where a break is
+   * *allowed*. overflow-wrap: break-word then has nothing to work with except emergency
+   * breaks, and emergency breaks land wherever the line happens to run out.
+   *
+   * Measured at a 98px row and 20px text, that rendered as 30deg / UV | 7 . Sonni | g --
+   * every chip severed mid-token, which is the same thing the maintainer objected to when
+   * he reported a condition reading Regner. With a break opportunity here it is
+   * 30deg | UV7 | Sonnig, each chip whole on its own line, and the separator leads the
+   * continuation exactly as the countdown's middot does.
+   *
+   * A zero-width space is the whole mechanism: line-break class ZW, so it is a break
+   * opportunity and contributes no width, no ink and no rendered character. It is
+   * generated content, so it does not reach textContent and cannot move a DOM golden. It
+   * also lowers the wrapper's min-content width from the whole run to the widest single
+   * chip, which is a second, quieter improvement -- the row can now shrink to something
+   * it can actually lay out.
+   *
+   * Scoped to the row placement like everything else here, so the list view's title badge
+   * keeps rendering 30degUV4Sunny run together.
+   */
+  .time-location .event-weather .event-weather-text > span::after {
+    content: '\\200B';
   }
 
   /*

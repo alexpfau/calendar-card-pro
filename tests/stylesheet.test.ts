@@ -412,17 +412,29 @@ describe('card stylesheet', () => {
       // own column and into the next one, with `Regnerisch` appearing to be cut off
       // mid-word. Nothing was clipping it: at the default `max_lines: 0` the display
       // property resolves to `inline`, and `overflow` does not apply to a non-replaced
-      // inline box, so the `overflow: hidden` two lines above is inert exactly when the
+      // inline box, so the `overflow: hidden` on the condition is inert exactly when the
       // bug appears. The text genuinely left the column and the neighbour painted over
       // it. Set `max_lines` and the element becomes a `-webkit-box`, `overflow` starts
       // applying and the symptom hides itself -- which is why this asserts the default.
       //
-      // `overflow-wrap: normal` was the cause: a word wider than its container cannot
-      // break at all under it, and simply overhangs.
-      const selector = '.time-location .event-weather .weather-condition';
+      // The declaration is on the *wrapper*, and that placement is the fix rather than an
+      // implementation detail. The three chips carry no white space between them, so
+      // `UV0Regnerisch` is one unbreakable run for line-breaking purposes and the break
+      // the browser needs falls on characters belonging to the previous chip;
+      // `overflow-wrap` is consulted where the break is attempted, so it has to be in
+      // effect there too. Measured live at a 98px row and 20px text, worst overhang past
+      // the row box: 113.3px with `normal`, 26.6px with `break-word` on the condition
+      // alone, -0.8px with it on the wrapper.
+      expect(declared('.time-location .event-weather .event-weather-text', 'overflow-wrap')).toBe(
+        'break-word',
+      );
 
-      expect(declared(selector, 'overflow-wrap')).toBe('break-word');
-      expect(declared(selector, 'display')).toBe(
+      // And nothing narrower may quietly override it back. `overflow-wrap` is inherited,
+      // so a `normal` on the condition would re-break exactly the case above.
+      expect(declared('.time-location .event-weather .weather-condition', 'overflow-wrap')).toBe(
+        '',
+      );
+      expect(declared('.time-location .event-weather .weather-condition', 'display')).toBe(
         'var(--calendar-card-weather-event-condition-display)',
       );
     });
@@ -444,9 +456,27 @@ describe('card stylesheet', () => {
       const dot = '.time-location .event-weather .event-weather-text > span + span::before';
 
       expect(declared(dot, 'position')).toBe('absolute');
-      expect(declared('.time-location .event-weather .weather-condition', 'overflow-wrap')).toBe(
+      expect(declared('.time-location .event-weather .event-weather-text', 'overflow-wrap')).toBe(
         'break-word',
       );
+    });
+
+    it('gives the browser somewhere legal to break between chips', () => {
+      // The row's template emits no white space between the three spans, and the
+      // separator that stands in for it is absolutely positioned — so neither is in the
+      // text, and for line-breaking purposes the row is one unbreakable run. Without a
+      // break opportunity, `overflow-wrap: break-word` has only emergency breaks to work
+      // with and they land wherever the line runs out: measured at a 98px row and 20px
+      // text, `30°` / `UV` `7 · Sonni` / `g`, every chip severed mid-token. That is the
+      // same thing the maintainer objected to when he reported a condition reading
+      // `Regner`. With this, `30°` / `UV7` / `Sonnig`.
+      //
+      // A zero-width space and nothing else: line-break class ZW, so it is a break
+      // opportunity with no width, no ink and no character. Generated, so it never
+      // reaches `textContent` and cannot move a DOM golden.
+      const selector = '.time-location .event-weather .event-weather-text > span::after';
+
+      expect(declared(selector, 'content')).toBe("'\\200B'");
     });
 
     it('resets the two properties the UV index sets for the title row', () => {
