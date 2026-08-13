@@ -731,6 +731,24 @@ rule is **not "avoid regexes" but "do not run one where a zero match cannot anno
 itself"**: flatten continuations before matching prose, and when a check finds nothing,
 confirm the pattern can match something before believing the absence.
 
+**Flattening is necessary and not sufficient, because a formatter rewrites more than
+whitespace.** Verifying that a merge had preserved another session's paragraphs took three
+passes and the first two were confidently wrong: exact-line `grep -F` reported 8 of 39
+lines missing (prettier had re-wrapped them), flattening whitespace still reported 8
+(prettier had also rewritten `*emphasis*` to `_emphasis_`), and normalising both reported
+6 — the true number, all six being text a later commit had deliberately superseded. Each
+omitted normalisation produced a _false positive_ that read as lost work, which is the
+direction that provokes an unnecessary "restore", so it is worth being exact:
+
+```js
+const norm = (s) => s.replace(/\s+/g, ' ').replace(/_/g, '*');
+```
+
+The general rule is to **normalise every dimension the writer does not control**. Run the
+formatter over a phrase before searching for it, or search for the shortest fragment that
+contains no markup at all — `suspect the reader before the translation` is unambiguous and
+survives any reflow, where the same sentence with its emphasis markers does not.
+
 **And once you have flattened, stop counting with `grep -c`.** The two halves of that
 advice destroy each other: `-c` reports _matching lines_, flattening produces exactly one
 line, so the count saturates at 1 and a duplicated phrase is indistinguishable from a
