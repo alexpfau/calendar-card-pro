@@ -749,6 +749,29 @@ formatter over a phrase before searching for it, or search for the shortest frag
 contains no markup at all — `suspect the reader before the translation` is unambiguous and
 survives any reflow, where the same sentence with its emphasis markers does not.
 
+**In Markdown the blockquote marker is a third dimension, and it is the same defect as the
+block-comment `*` above.** Verifying that a nine-session merge had preserved every session's
+glossary prose, the normaliser here — whitespace plus emphasis — still reported two of
+seventeen claims missing. Both were present. `> ` continuation markers sat inside the
+phrases, so `It is not one key but six` does not match a source reading
+`It is not one key\n> but **six**`. Markdown puts a marker at the head of every wrapped
+line of a blockquote exactly as a block comment does, and this file's own prose is largely
+inside `>` callouts, so it is the common case rather than the exception:
+
+```js
+const norm = (s) =>
+  s
+    .replace(/^\s*>\s?/gm, ' ') // blockquote continuation
+    .replace(/[`*_]/g, '') // code spans and emphasis
+    .replace(/\s+/g, ' ');
+```
+
+Note which way it failed: two **false positives**, reading as another session's work lost in
+a conflict resolution — the direction that provokes an unnecessary "restore", which is the
+same asymmetry recorded above. The cheap guard is the one that generalises: **before
+believing a phrase is absent, strip every marker a formatter or a container may have
+inserted, and prove the probe can still fail** on a phrase you know is not there.
+
 **And once you have flattened, stop counting with `grep -c`.** The two halves of that
 advice destroy each other: `-c` reports _matching lines_, flattening produces exactly one
 line, so the count saturates at 1 and a duplicated phrase is indistinguishable from a
