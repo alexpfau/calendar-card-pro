@@ -17,6 +17,14 @@ tap_action:
 
 When a `compact_events_to_show` limit is set, the card displays that number of events initially, adding a subtle indicator when more events are available. The `expand` action then allows users to toggle between this compact view and the full list of events.
 
+::: warning List View Only
+The whole compact family is inert in column view — `compact_events_to_show`, its per-calendar form, `compact_days_to_show`, `compact_events_complete_days`, and the `expand` action that drives them. A column card with `tap_action: expand` does nothing when tapped.
+
+This is deliberate rather than an omission. Compact mode caps events **across the card**, not per day, so a limit of three would truncate a seven-day grid after the third event and leave the remaining columns empty — the layout would stop corresponding to consecutive days, which is the one thing a column view has to get right.
+
+Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events.
+:::
+
 When using expansion with both global and per-calendar limits:
 
 - In compact view: Both global and per-calendar limits are enforced
