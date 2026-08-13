@@ -441,6 +441,25 @@ So the rule has a second half. _Pair every negative with a positive control_ —
 kind of thing from the check it guards. It is the same kind of thing, one level up, with
 the same failure mode and no third level watching it.
 
+**The strongest version of this is elsewhere in this file, and I wrote both halves.** It
+records that _a zero-match guard sees total staleness, never partial_. Minutes later I added
+`checkAgentsLinks()` to `check-docs.mjs` with a matcher requiring a leading `./`, guarded by
+a count that must be non-zero — so a link written `docs/development/x.md` escaped the check
+entirely while seven surviving `./` links held the count up and the guard reported a clean
+run. Exactly the failure the sentence above it describes, in code, by its author, in the
+same hour. A third session found it.
+
+Three instances in one evening, and the interval between stating a rule and violating it
+ranged from minutes to none. The conclusion is not that anyone was careless — it is that
+**recall at the moment of use is not a mechanism you can rely on, including your own.** What
+worked each time was something that ran: a control that had to exceed one, a planted
+violation, a second reader. The fix that session added is the right shape — an *invariant*
+beside the threshold, asserting every relative link in the file is one the check resolved,
+so a coverage hole surfaces as drift between two measures rather than waiting for a broken
+link to exist. Its docblock says outright that the invariant is vacuous on today's corpus
+and needs a planted violation to discriminate, which is the honest form of a check that
+cannot currently fail.
+
 **And the exact inverse of that paragraph is the fourth failure mode: a probe whose own
 structure supplies the finding.** A pattern that matches nothing looks like absence; a
 pattern that matches can smuggle the answer into the question, and the result is worse,
