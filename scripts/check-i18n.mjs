@@ -1366,6 +1366,17 @@ function checkGlossaryAdherence(where, code, data, strings, glossary) {
  * therefore stripped everywhere, single-asterisk italic never is — it is load-bearing
  * syntax meaning the cell holds no decision.
  *
+ * **The italic guard is dead code against this file's own conventions, and that is worth
+ * knowing before anyone relies on it.** It tests `^\*.*\*$` — *asterisk* italic — while the
+ * glossary writes every italic with underscores (`_!EN_`, `_rejected_`, `_Zeit_`). More to
+ * the point, no italic cell has ever appeared in a `**Decided**` row, which is the only row
+ * parsed: an undecided cell is written `—`. So the guard has never fired on real data, and
+ * a `_form_` written into a Decided row today is taken literally — the term is enforced
+ * *including* the underscores, which no translation can match. That fails loudly rather
+ * than silently, so it is the safe direction, but it is not the behaviour the paragraph
+ * above would lead you to expect. Verified by planting German `time` → `Zeit` and reading
+ * the message: `the glossary decided "_Uhrzeit_"`.
+ *
  * @param cell - Raw cell text
  * @returns The cell trimmed, with bold and underscore emphasis removed
  */
@@ -1391,12 +1402,6 @@ function readGlossary() {
   const nounCapsLanguages = new Set();
   let sawAnyCasingRow = false;
   for (const line of casingTable[0].split('\n')) {
-    // Emphasis is stripped before the code is matched. The `pl` row is written `| **pl** |`
-    // to mark it as the problem language, and a bare `^[a-z]{2}$` test silently skipped it
-    // — `sawAnyCasingRow` still passed on the other eight, so the guard that exists to
-    // catch a shape change could not see one row losing its shape. Harmless today, because
-    // Polish is not exempt and the cell says `Sentence case` either way; it would not have
-    // been the day someone edited that row expecting it to count.
     // Emphasis is stripped before the code is matched — see `unemphasise()`. The `pl` row
     // is written `| **pl** |` to mark it as the problem language, and a bare `^[a-z]{2}$`
     // test silently skipped it, while `sawAnyCasingRow` still passed on the other eight.
