@@ -303,25 +303,13 @@ export function getDateFormatStyle(language: string): 'day-dot-month' | 'month-d
   return 'day-month';
 }
 
-/**
- * Get day name from translations based on day index
- *
- * @param language - Language code
- * @param dayIndex - Day index (0 = Sunday, 6 = Saturday)
- * @param full - Whether to use full day names
- * @returns Translated day name
- */
-export function getDayName(language: string, dayIndex: number, full = false): string {
-  const translations = getTranslations(language);
-  const key = full ? 'fullDaysOfWeek' : 'daysOfWeek';
-
-  if (dayIndex < 0 || dayIndex > 6) {
-    Logger.warn(`Invalid day index ${dayIndex}. Using default.`);
-    dayIndex = 0; // Default to Sunday if invalid
-  }
-
-  return translations[key][dayIndex];
-}
+// `getDayName` used to live here: an accessor that returned either `daysOfWeek` or
+// `fullDaysOfWeek` depending on a `full` flag. It had no callers, and the flag asserted
+// that the two arrays are long and short spellings of one thing. They are not — they
+// occupy different grammatical positions. `daysOfWeek` is a standalone day-header label
+// and is capitalised; `fullDaysOfWeek` is only ever emitted mid-sentence after
+// `multiDay`, so it holds the running-text form. One accessor cannot honour both
+// contracts, and its first caller would have silently picked the wrong one.
 
 /**
  * Get month name from translations based on month index

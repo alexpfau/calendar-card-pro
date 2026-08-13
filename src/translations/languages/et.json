@@ -1,13 +1,13 @@
 {
   "daysOfWeek": ["P", "E", "T", "K", "N", "R", "L"],
   "fullDaysOfWeek": [
-    "Pühapäev",
-    "Esmaspäev",
-    "Teisipäev",
-    "Kolmapäev",
-    "Neljapäev",
-    "Reede",
-    "Laupäev"
+    "pühapäev",
+    "esmaspäev",
+    "teisipäev",
+    "kolmapäev",
+    "neljapäev",
+    "reede",
+    "laupäev"
   ],
   "months": [
     "Jaan",

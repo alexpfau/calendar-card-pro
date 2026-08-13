@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { buildConfig } from './fixtures';
 import { getRelativeTimeString } from '../src/translations/dayjs';
 import enEditor from '../src/translations/editor-languages/en.json';
 import {
@@ -13,6 +14,7 @@ import {
   getTranslations,
   translateEditorKey,
 } from '../src/translations/localize';
+import { formatEventTime } from '../src/utils/format';
 
 /**
  * Translation resolution, exercised through the public functions.
@@ -333,16 +335,34 @@ describe('the weekday casing split is intentional and stays that way', () => {
   // `till måndag, 5 jan`. Five contributors encoded exactly that — lower-case running
   // text against a capitalised label.
   //
-  // Backlog Y13 records that 17 of 35 languages get it wrong, and is deliberately not
-  // fixed yet. This suite guards the other direction: that the five which are *right*
-  // are not "corrected" into the majority while Y13 is open.
+  // Backlog Y13 recorded 17 of 35 languages getting it wrong. Ten are now fixed and are
+  // pinned here alongside the original five. The remaining seven are deliberately absent:
+  // `cs` `hr` `lt` `lv` `sk` need an oblique form their `multiDay` governs and no
+  // in-repo evidence supplies, and `fi` `hu` need a template change no edit to this array
+  // can reach. Lower-casing those seven would silence the `check:i18n` warning that is
+  // currently the only signal they are unfinished, so they are left loud on purpose.
   //
-  // Nothing else in the repo can catch that. `getDayName` — the only other reader — has
-  // no callers, the single live consumer renders without asserting, and no other test
-  // touches these arrays. Before this suite, normalising `понедельника` to the
-  // dictionary form failed nothing anywhere, and it is the sort of edit that looks like
-  // tidying.
-  const SPLIT_CORRECT = ['nb', 'nl', 'nn', 'ru', 'uk'] as const;
+  // Nothing else in the repo can catch a regression here. The single live consumer
+  // renders without asserting, and no other test touches these arrays. Before this suite,
+  // normalising `понедельника` to the dictionary form failed nothing anywhere, and it is
+  // the sort of edit that looks like tidying.
+  const SPLIT_CORRECT = [
+    'nb',
+    'nl',
+    'nn',
+    'ru',
+    'uk',
+    'da',
+    'es',
+    'et',
+    'fr',
+    'is',
+    'it',
+    'pl',
+    'pt',
+    'sv',
+    'vi',
+  ] as const;
 
   it.each(SPLIT_CORRECT)('%s keeps running-text lower-case against a capitalised label', (code) => {
     const { fullDaysOfWeek, daysOfWeek } = getTranslations(code);
@@ -364,14 +384,72 @@ describe('the weekday casing split is intentional and stays that way', () => {
 
   it('keeps the Slavic genitives, which no dictionary lookup would preserve', () => {
     // The reason this needs naming rather than leaving to the casing rule above. `до`
-    // governs the genitive, so these are inflected, not merely lower-cased — and they
-    // are the only executable record of what a complete fix looks like for the six
-    // languages that use the same preposition and still carry nominatives.
+    // and `do` govern the genitive, so these are inflected, not merely lower-cased —
+    // and they are the only executable record of what a complete fix looks like for the
+    // five languages that use the same preposition and still carry nominatives
+    // (`cs`, `hr`, `sk` with `do`; `lt` `iki`, `lv` `līdz`).
     //
     // dayjs is the tempting oracle and would destroy them: its `weekdays` are nominative
-    // by design, so "align with dayjs" turns the two correct languages into two more
-    // broken ones.
+    // by design, so "align with dayjs" turns three correct languages into three more
+    // broken ones. The casing rule above cannot catch it either — `poniedziałek` is
+    // lower-case and still wrong after `do`.
     expect(getTranslations('ru').fullDaysOfWeek[1]).toBe('понедельника');
     expect(getTranslations('uk').fullDaysOfWeek[1]).toBe('понеділка');
+    expect(getTranslations('pl').fullDaysOfWeek[1]).toBe('poniedziałku');
+  });
+
+  // The rule above is only safe because something else supplies the capital a sentence
+  // needs. That something is `capitalizeFirstLetter` in `formatEventTime`, which wraps
+  // the whole rendered string — so the array can hold running text without any sentence
+  // ever starting lower-case. Asserting the arrays alone would not show that, and the
+  // arrays are exactly what a future contributor would "fix" if a card ever rendered
+  // `till måndag` with no leading capital.
+  describe('the capital comes from the call site, not from the array', () => {
+    // The branch that matters is `${multiDay} ${endPart}`: an event that started before
+    // today and ends beyond tomorrow is the only case where a *translated word* leads
+    // the string. The other branches lead with a time, or never touch the weekday.
+    const startedBeforeToday = new Date();
+    startedBeforeToday.setDate(startedBeforeToday.getDate() - 2);
+    const endsBeyondTomorrow = new Date();
+    endsBeyondTomorrow.setDate(endsBeyondTomorrow.getDate() + 5);
+
+    const spanning = {
+      start: { dateTime: startedBeforeToday.toISOString() },
+      end: { dateTime: endsBeyondTomorrow.toISOString() },
+      summary: 'Spanning event',
+    };
+
+    it('capitalises the leading word in sv while leaving the weekday lower-case', () => {
+      const { multiDay, fullDaysOfWeek } = getTranslations('sv');
+      const weekday = fullDaysOfWeek[endsBeyondTomorrow.getDay()];
+      const rendered = formatEventTime(spanning, buildConfig(), 'sv');
+
+      // Non-vacuity, both halves. If `multiDay` were stored capitalised the first
+      // assertion would pass without `capitalizeFirstLetter` doing anything, and if the
+      // weekday were stored capitalised the last would pass for the wrong reason.
+      expect(multiDay).toBe(multiDay.toLocaleLowerCase('sv'));
+      expect(weekday).toBe(weekday.toLocaleLowerCase('sv'));
+
+      // Drop `capitalizeFirstLetter` from `formatEventTime` and this pair inverts.
+      expect(
+        rendered.startsWith(`${multiDay[0].toLocaleUpperCase('sv')}${multiDay.slice(1)}`),
+      ).toBe(true);
+      expect(rendered.startsWith(multiDay)).toBe(false);
+
+      // And the weekday, being mid-sentence, survives that pass untouched.
+      expect(rendered).toContain(` ${weekday},`);
+    });
+
+    it('leaves a language that genuinely capitalises weekdays alone', () => {
+      // German capitalises every noun, so `bis Montag` is correct and `de` was not
+      // among the languages changed. Without this the suite would still pass if the
+      // lower-casing had been applied indiscriminately to all 35 languages.
+      const { fullDaysOfWeek } = getTranslations('de');
+      const weekday = fullDaysOfWeek[endsBeyondTomorrow.getDay()];
+      const rendered = formatEventTime(spanning, buildConfig(), 'de');
+
+      expect(weekday[0]).toBe(weekday[0].toLocaleUpperCase('de'));
+      expect(rendered).toContain(` ${weekday},`);
+    });
   });
 });
