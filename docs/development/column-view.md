@@ -13,7 +13,7 @@ rejected alternatives, stale plan text and source-verification history live in
 | 1     | Shared leaf renderers (`leaves.ts`)    | Shipped in 3.x                           |
 | 2     | Presentation models                    | Shipped in 3.x                           |
 | 2b    | Cache correctness                      | Shipped in 3.x                           |
-| 4     | Column view + `ViewAdapter`            | In progress on `feature/column-view-v4`  |
+| 4     | Column view + `ViewAdapter`            | Complete on `feature/column-view-v4`     |
 | 5     | Grid view / time grid                  | Not started; the name `grid` is reserved |
 
 Open work that is not owned by a section here is indexed in
