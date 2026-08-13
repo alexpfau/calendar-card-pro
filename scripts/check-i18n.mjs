@@ -81,6 +81,7 @@ const IN_CI = Boolean(process.env.GITHUB_ACTIONS);
 const errors = [];
 const warnings = [];
 const notes = [];
+const glossaryNotes = [];
 const error = (where, msg) => errors.push({ where, msg });
 const warn = (where, msg) => warnings.push({ where, msg });
 
@@ -1448,6 +1449,57 @@ const unemphasise = (cell) =>
     .trim();
 
 /**
+ * Which glossary decisions the checker can actually enforce, reported every run.
+ *
+ * A `**Decided**` cell is only ever compared against keys whose English *is* the term —
+ * `strings[key] === term.name` — so a term with no such key has its decision parsed into
+ * memory where nothing can match it. That covers **more than half the table**, including
+ * `event`, the one decision in it that changed a user-visible string.
+ *
+ * Those rows are not useless: the glossary is a termbase for humans first, and a session
+ * reading `event → Termin` is the mechanism working. What is dangerous is the *impression*
+ * of enforcement — editing a Decided cell for one of those terms changes nothing, silently,
+ * and the table gives no clue which half a row is in.
+ *
+ * So the split is printed rather than inferred. `event` is in fact enforced, but by its
+ * `**Rejected:** de \`Ereignis\`` line, which fires on substrings and compounds; that is
+ * the mechanism to reach for when a decision must bite, and this report is what makes the
+ * difference visible instead of a thing you have to know.
+ *
+ * @param glossary - The parsed termbase
+ * @param strings - `EDITOR_STRINGS`
+ */
+function reportGlossaryReach(glossary, strings) {
+  const englishes = new Map();
+  for (const [key, value] of Object.entries(strings)) {
+    const normalised = value.trim().toLowerCase();
+    if (!englishes.has(normalised)) englishes.set(normalised, key);
+  }
+
+  const enforced = [];
+  const inert = [];
+  for (const term of glossary.terms) {
+    if (Object.keys(term.decided).length === 0) continue;
+    (englishes.has(term.name) ? enforced : inert).push(term.name);
+  }
+
+  const total = enforced.length + inert.length;
+  assertFound(total ? ['ok'] : [], 'any decided glossary terms to report on', GLOSSARY_MD);
+
+  glossaryNotes.push(
+    `  ${enforced.length} of ${total} decided terms are enforced by their **Decided** row ` +
+      '(a key exists whose English is exactly the term).',
+  );
+  if (inert.length > 0) {
+    glossaryNotes.push(
+      `  ${inert.length} are documentation only — no such key, so editing the cell changes ` +
+        'nothing. Use a **Rejected:** line for those, which matches compounds:',
+    );
+    glossaryNotes.push(`    ${inert.join(', ')}`);
+  }
+}
+
+/**
  * Reads the termbase out of the glossary.
  *
  * The markdown *is* the source of truth — a second machine-readable copy would be one
@@ -1634,6 +1686,11 @@ function report(languageCount, fieldCount) {
     notes.forEach((n) => console.log(n));
   }
 
+  if (glossaryNotes.length > 0) {
+    console.log('\nGlossary enforcement:');
+    glossaryNotes.forEach((n) => console.log(n));
+  }
+
   const summary =
     `\n${languageCount} languages, ${fieldCount} editor fields — ` +
     `${errors.length} error(s), ${warnings.length} warning(s).`;
@@ -1745,7 +1802,9 @@ async function main() {
   const fieldCount = await checkEditorStrings();
   await checkEditorTranslations(languages);
   await checkEnGbDerivation();
-  await checkTranslationQuality(languages, readGlossary());
+  const glossary = readGlossary();
+  await checkTranslationQuality(languages, glossary);
+  reportGlossaryReach(glossary, (await loadEditor()).EDITOR_STRINGS);
   await checkRunningTextWeekdayCase(languages);
 
   process.exit(report(languages.size, fieldCount));

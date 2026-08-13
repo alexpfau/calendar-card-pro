@@ -1214,6 +1214,23 @@ HA_FRONTEND_TRANSLATIONS=/tmp/hafe/hass_frontend/static/translations \
 - `### <term> — <sense>` — an h3 opens a term; the text before the em dash is the term.
 - the table row beginning `| **Decided** |` — nine cells in the order of that table's
   header row. `—` means undecided and is skipped rather than enforced.
+
+> **Roughly half the `**Decided**` rows are documentation, not enforcement, and the table
+> cannot show you which.** A decided cell is compared only against keys whose English _is_
+> the term — `Time`, `Location`, `Colour` — so a term with no such key has its value parsed
+> into memory where nothing can ever match it. `event` is one of them, and it is the
+> decision in this document that changed the most user-visible strings.
+>
+> Those rows still do their job: the glossary is a termbase for humans first, and a session
+> reading `event → Termin` is the mechanism working. The hazard is the _impression_ of a
+> gate. `check:i18n` therefore prints the split on every run — enforced, documentation-only,
+> and which terms fall where — so it is read off the tool rather than assumed from the
+> table.
+>
+> **When a decision must bite, give it a `**Rejected:**` line.** That is what actually holds
+> `Termin` in place: it matches at a word start across compounds, so it catches
+> `Ereignisfarbe`, which no exact-English comparison would reach.
+
 - a line beginning `**Rejected:**` — `lang \`form\``pairs separated by`;`.
 
 **Which edits here change what CI enforces, and which do not.** `readGlossary()` parses
