@@ -577,10 +577,10 @@ export function matchesEntity(entry: string | Types.EntityConfig, ctx: FilterCtx
  * mere presence is the honest test — the same test the collapsed summary already makes
  * when it says a calendar is configured.
  *
- * The label's shape dropdown answers for `label` as well as for itself. It is stored only
- * where the value would otherwise be read wrongly, so asked in its own name alone it would
- * report *not customized* for every ordinary label and be hidden here while the label it
- * names stayed on screen.
+ * The label's shape dropdown and the label itself each answer for both keys. The shape is
+ * stored only where the value would otherwise be read wrongly, and the value is absent for
+ * a shape not yet filled in — so either asked alone would hide half of a label that is
+ * plainly customized.
  *
  * @param entry - Entry as stored
  * @param node - Schema node

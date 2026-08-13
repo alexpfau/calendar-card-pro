@@ -2753,8 +2753,15 @@ describe('editor: per-calendar settings', () => {
 
   /**
    * The claim the whole design rests on, tested rather than asserted: **no migration is
-   * needed**, because a configuration written before `label_type` existed is already a
-   * valid instance of the model that has it — absent means *read the value*.
+   * needed for a configuration that does not already carry `label_type`**, because absent
+   * means *read the value*, so such a configuration is already a valid instance of the
+   * model that has the key.
+   *
+   * The scope of that sentence is the honest part. A configuration that already spells
+   * `label_type` — which no released version read, so it can only have been invented —
+   * *does* change: the key is live now and wins over the value. That is the intended
+   * behaviour of the key and there is no way to have both, so it is stated rather than
+   * papered over.
    *
    * Worth pinning against a list rather than an argument, because the failure it guards
    * is silent: a label that resolved one way in v3 and another way here would change what
@@ -2802,6 +2809,82 @@ describe('editor: per-calendar settings', () => {
     }
   });
 
+  /**
+   * Choosing a shape the current value cannot be must not leave the two glued together.
+   * Switching a `Work` label to *Icon* used to seed `mdi:calendar` over it; with the
+   * seeds gone the value was carried unchanged and marked an icon, which renders as
+   * `<ha-icon icon="Work">` — a blank space where the label was.
+   *
+   * So a **transition** drops a value the new shape cannot render. That is not the seed
+   * coming back: nothing is put in its place, and the control arrives empty. Only a real
+   * dropdown move does this, so typing is never interfered with.
+   */
+  it('drops a value the shape it was moved to cannot render', () => {
+    const previous = { entity: 'calendar.a', label: 'Work' };
+
+    for (const type of ['icon', 'image']) {
+      const moved = fromEntityFormData(
+        'calendar.a',
+        { ...toEntityFormData(previous), label_type: type },
+        previous,
+      ) as Types.EntityConfig;
+
+      expect(moved.label, type).toBeUndefined();
+      expect(moved.label_type, type).toBe(type);
+    }
+
+    // A value the new shape *can* render is kept, which is what makes switching away
+    // and back non-destructive.
+    const icon = { entity: 'calendar.a', label: 'mdi:home' };
+    expect(
+      fromEntityFormData('calendar.a', { ...toEntityFormData(icon), label_type: 'text' }, icon),
+    ).toEqual({ entity: 'calendar.a', label: 'mdi:home', label_type: 'text' });
+
+    // And any string is renderable as text, so nothing is ever lost moving to it.
+    const image = { entity: 'calendar.a', label: '/local/x.png' };
+    expect(
+      (
+        fromEntityFormData(
+          'calendar.a',
+          { ...toEntityFormData(image), label_type: 'text' },
+          image,
+        ) as Types.EntityConfig
+      ).label,
+    ).toBe('/local/x.png');
+  });
+
+  /**
+   * The icon colour is dropped when the label stops being an icon — but only then. It
+   * used to go on *any* edit to a calendar whose label was not an icon, so changing
+   * `show_time` on a calendar carrying a stray colour from hand-written YAML deleted it
+   * silently. An unrelated edit must not delete a setting the user cannot see.
+   */
+  it('drops the icon colour on the move away from an icon, and not before', () => {
+    const iconned = { entity: 'calendar.a', label: 'mdi:home', label_icon_color: '#f00' };
+
+    // The move away takes it.
+    expect(
+      fromEntityFormData(
+        'calendar.a',
+        { ...toEntityFormData(iconned), label_type: 'text' },
+        iconned,
+      ),
+    ).toEqual({ entity: 'calendar.a', label: 'mdi:home', label_type: 'text' });
+
+    // An unrelated edit does not.
+    const strayed = { entity: 'calendar.a', label: '📅', label_icon_color: '#f00' };
+    expect(
+      fromEntityFormData(
+        'calendar.a',
+        { ...toEntityFormData(strayed), show_time: 'hide' },
+        strayed,
+      ),
+    ).toEqual({ ...strayed, show_time: false });
+
+    // Nor does an edit that leaves the label an icon.
+    expect(fromEntityFormData('calendar.a', toEntityFormData(iconned), iconned)).toEqual(iconned);
+  });
+
   it('carries the shape through a copy and paste', () => {
     const source = { entity: 'calendar.a', label_type: 'text' as const };
     copySettings(source);
@@ -2809,29 +2892,6 @@ describe('editor: per-calendar settings', () => {
     const pasted = pasteSettings(['calendar.b'], 0)[0] as Types.EntityConfig;
     expect(pasted).toEqual({ entity: 'calendar.b', label_type: 'text' });
     expect(toEntityFormData(pasted).label_type).toBe('text');
-  });
-
-  /**
-   * The colour applies to an icon and to nothing else, so it does not survive a move to
-   * a shape that cannot use it. Left behind it would sit in the configuration doing
-   * nothing, and reappear the next time the label became an icon — long after whoever
-   * chose it had forgotten.
-   */
-  it('drops the icon colour when the label stops being an icon', () => {
-    const previous = { entity: 'calendar.a', label: 'mdi:home', label_icon_color: '#f00' };
-
-    expect(
-      fromEntityFormData(
-        'calendar.a',
-        { ...toEntityFormData(previous), label_type: 'text' },
-        previous,
-      ),
-    ).toEqual({ entity: 'calendar.a', label: 'mdi:home', label_type: 'text' });
-
-    // Still kept where it applies.
-    expect(fromEntityFormData('calendar.a', toEntityFormData(previous), previous)).toEqual(
-      previous,
-    );
   });
 
   it('removes a per-calendar key again when its field is emptied', () => {
