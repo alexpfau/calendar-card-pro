@@ -155,7 +155,7 @@ describe('card stylesheet', () => {
     it.each([
       ['.location span', '.location'],
       ['.description span', '.description'],
-      ['.time .time-actual span', '.time-actual'],
+      ['.time .time-actual > span:not(.time-text)', '.time-actual'],
     ])(
       '%s may clamp with a literal -webkit-box because %s is a flex container',
       (target, parent) => {
@@ -166,18 +166,36 @@ describe('card stylesheet', () => {
         expect(declared(parent, 'display')).toBe('flex');
       },
     );
+
+    it('does not hand the countdown wrapper a literal -webkit-box', () => {
+      // The exception that proves the rule above, and the reason its selector carries a
+      // child combinator and a :not(). `.time-text` IS a direct-child span of a flex
+      // container, so it satisfies the "safe to blockify" argument -- and blockifying it
+      // would still be wrong, because -webkit-box turns its two inline children into
+      // stacked box-flex items. The time and the countdown would then sit on separate
+      // lines always, and a configured `time_max_lines` would clip the countdown away
+      // entirely. The clamp belongs on the span that holds the time and nowhere else.
+      expect(declared('.time .time-actual .time-text', 'display')).toBe('');
+      expect(declared('.time .time-actual .time-text', '-webkit-line-clamp')).toBe('');
+    });
   });
 
   describe('per-field line clamping', () => {
     it.each([
       ['.event-title', '--calendar-card-title-max-lines'],
-      ['.time .time-actual span', '--calendar-card-time-max-lines'],
+      ['.time .time-actual > span:not(.time-text)', '--calendar-card-time-max-lines'],
+      ['.time .time-actual .time-text > span', '--calendar-card-time-max-lines'],
       ['.location span', '--calendar-card-location-max-lines'],
       ['.description span', '--calendar-card-description-max-lines'],
     ])('%s clamps on the element that holds the text', (selector, prop) => {
       // -webkit-line-clamp needs all three of these together, and the clamp has
       // to land on the innermost text-bearing element: clamping a wrapper would
       // clamp away the icon and countdown siblings instead of the text.
+      //
+      // The time appears twice because it has two placements. The two selectors are
+      // disjoint by construction rather than by specificity -- `> span:not(.time-text)`
+      // matches only where no wrapper exists, `.time-text > span` only where one does --
+      // so neither can start winning over the other because a rule moved in the file.
       expect(declared(selector, '-webkit-line-clamp')).toBe(`var(${prop})`);
       expect(declared(selector, '-webkit-box-orient')).toBe('vertical');
       expect(declared(selector, 'overflow')).toBe('hidden');
@@ -387,6 +405,50 @@ describe('card stylesheet', () => {
       ]);
     });
 
+    it('lets a long condition break rather than escape its column', () => {
+      // The reported bug, and every part of its diagnosis is a trap worth pinning.
+      //
+      // At a larger `weather.event.font_size` a German condition ran sideways out of its
+      // own column and into the next one, with `Regnerisch` appearing to be cut off
+      // mid-word. Nothing was clipping it: at the default `max_lines: 0` the display
+      // property resolves to `inline`, and `overflow` does not apply to a non-replaced
+      // inline box, so the `overflow: hidden` two lines above is inert exactly when the
+      // bug appears. The text genuinely left the column and the neighbour painted over
+      // it. Set `max_lines` and the element becomes a `-webkit-box`, `overflow` starts
+      // applying and the symptom hides itself -- which is why this asserts the default.
+      //
+      // `overflow-wrap: normal` was the cause: a word wider than its container cannot
+      // break at all under it, and simply overhangs.
+      const selector = '.time-location .event-weather .weather-condition';
+
+      expect(declared(selector, 'overflow-wrap')).toBe('break-word');
+      expect(declared(selector, 'display')).toBe(
+        'var(--calendar-card-weather-event-condition-display)',
+      );
+    });
+
+    it('pairs break-word with a separator that is out of flow', () => {
+      // These two declarations are a pair, and this test is the pairing.
+      //
+      // `break-word` genuinely was dangerous once: while the middot was ordinary in-flow
+      // content it could break *after* the dot and strand it alone on a line, floated
+      // above the row by `align-items: center`. That is a bug the maintainer reported and
+      // saw fixed. What fixed it was moving the separator out of flow, not turning
+      // `break-word` off -- and turning it off afterwards, one commit later, protected
+      // against nothing while costing the row its only defence against a long word.
+      //
+      // Out of flow, the dot is not part of any character sequence a break can land
+      // inside, so the hazard is structurally absent rather than merely unobserved. If
+      // anyone ever puts it back in flow, this fails and `break-word` has to be
+      // reconsidered in the same edit.
+      const dot = '.time-location .event-weather .event-weather-text > span + span::before';
+
+      expect(declared(dot, 'position')).toBe('absolute');
+      expect(declared('.time-location .event-weather .weather-condition', 'overflow-wrap')).toBe(
+        'break-word',
+      );
+    });
+
     it('resets the two properties the UV index sets for the title row', () => {
       // The margin is the title row's only separator and doubles up with the one
       // above. The weight is the same reset .time-location .event-weather already
@@ -535,16 +597,30 @@ describe('card stylesheet', () => {
       // Generated content rather than a character in the string, because the countdown
       // strings are translated -- 35 languages would each need the punctuation baking in,
       // and every one would then carry it in list view too.
+      //
+      // There are two such rules now, one per placement, and the invariant is about all
+      // of them: neither may be reachable from the list view. The column-scoped one
+      // serves the `show_time: false` case where the countdown is still a trailing div;
+      // the `.time-text` one serves the folded case. `.time-text` is emitted only by
+      // `countdownPlacement: 'text'`, so that rule is placement-scoped by construction
+      // rather than by a class anyone has to remember to keep in the selector.
       const selector = '.column-events .time-countdown::before';
 
       expect(declared(selector, 'content')).toBe("'·'");
       expect(declared(selector, 'margin-inline-end')).not.toBe('');
 
-      const unscoped = RULES.filter((rule) =>
+      const rules = RULES.filter((rule) =>
         rule.selectors.some((s) => s.includes('.time-countdown::before')),
       );
-      expect(unscoped).toHaveLength(1);
-      expect(unscoped[0].selectors).toEqual([selector]);
+      expect(rules).toHaveLength(2);
+      for (const rule of rules) {
+        for (const s of rule.selectors) {
+          expect(
+            s.includes('.column-events') || s.includes('.time-text'),
+            `${s} is reachable from the list view`,
+          ).toBe(true);
+        }
+      }
     });
 
     it('keeps the countdown from breaking mid-phrase in list view, and lets it wrap here', () => {
@@ -580,16 +656,23 @@ describe('card stylesheet', () => {
      * changing it would move the list view, which C5 may not do.
      *
      * The larger one: the icon is not a child of `.time` at all, it is nested inside
-     * `.time-actual`, which hardcodes `align-items: center` of its own. Nothing declared
-     * on `.time` has ever positioned the time icon against the time text. Where the
-     * property genuinely works is `.location` and `.description`, whose icon and text are
-     * direct flex children -- which is what the first assertion below pins.
+     * `.time-actual`. Nothing declared on `.time` has ever positioned the time icon
+     * against the time text. Where the property genuinely works is `.location`,
+     * `.description` and -- since Y5 -- `.time-actual`, whose icon and text are direct
+     * flex children. That is what the first assertion below pins, and the Y5 block further
+     * down pins the third.
      *
      * What dropping the flex would actually have broken is worse than the trap named:
      * `.time-actual` is a block-level flex container, so in inline flow it and the
      * countdown would have stacked vertically instead of sharing a line -- the exact
      * layout the design rejected. It was built as flex instead, which is why nothing here
      * needed re-expressing.
+     *
+     * The countdown reached the same destination by the other road. Rather than dissolve
+     * the flex, it moved *inside* `.time-actual` and into a `.time-text` wrapper, so the
+     * flex row survives with two items -- icon and text -- and the wrapping happens in the
+     * wrapper's own inline formatting context. `align-items` therefore keeps applying, and
+     * now applies to something worth aligning against: two lines rather than one.
      */
     it('leaves the configured icon alignment working where it actually applies', () => {
       expect(declared('.location', 'align-items')).toBe(
@@ -610,12 +693,72 @@ describe('card stylesheet', () => {
     });
 
     it('keeps .time-actual a flex container, which is what makes the row work at all', () => {
-      // Two things depend on it. `.time .time-actual span` clamps with a literal
-      // -webkit-box, which is only safe while its parent blockifies it (see the
+      // Two things depend on it. `.time .time-actual > span:not(.time-text)` clamps with a
+      // literal -webkit-box, which is only safe while its parent blockifies it (see the
       // blockification trap above). And in inline flow this box is block-level, so it
       // would take a line of its own and push the countdown off the row entirely.
       expect(declared('.time-actual', 'display')).toBe('flex');
       expect(declared('.column-events .time-actual', 'display')).toBe('');
+    });
+
+    /*
+     * The countdown as running text, and the three declarations that make it one.
+     *
+     * The layout proof is not here and cannot be: happy-dom has no layout engine, so
+     * nothing in this suite can observe a line break. These pin the *mechanism*, which is
+     * the part that regresses silently; the wrapping itself is measured in a browser
+     * against the real stylesheet.
+     */
+    it('gives the folded countdown one inline formatting context to break inside', () => {
+      // The wrapper is a shrinkable flex item, exactly as `.event-weather-text` is, and
+      // `min-width: 0` is the load-bearing half. A flex item's automatic minimum size is
+      // its min-content width, and CSS Text 3 exempts `overflow-wrap: break-word` from
+      // intrinsic sizing -- so without this a single long word refuses to shrink and
+      // pushes the row out of the column instead of breaking inside it.
+      expect(declared('.time .time-actual .time-text', 'min-width')).toBe('0');
+      expect(declared('.time .time-actual .time-text', 'flex')).toBe('1 1 auto');
+    });
+
+    it('puts both pieces back into inline flow inside that wrapper', () => {
+      // `.time span` blockifies every span in these rows to `inline-block`, which is
+      // atomic: it cannot break across lines, so a countdown left at that value could
+      // still only move as a whole -- the original defect, one level in. The time carries
+      // the custom property so a configured limit can still turn it into the `-webkit-box`
+      // its clamp requires; the countdown is never a clamp target and is literally inline.
+      expect(declared('.time .time-actual .time-text > span', 'display')).toBe(
+        'var(--calendar-card-time-display)',
+      );
+      expect(declared('.time .time-actual .time-text > .time-countdown', 'display')).toBe('inline');
+      expect(declared('.time .time-actual .time-text > .time-countdown', 'white-space')).toBe(
+        'normal',
+      );
+    });
+
+    it('never lets a time limit clamp the countdown away', () => {
+      // `time_max_lines` limits the time. The clamp rule above is this element's sibling
+      // selector, not its parent's, so it reaches the countdown too and has to be switched
+      // off again -- otherwise setting a limit would silently delete the countdown rather
+      // than shorten the time.
+      const selector = '.time .time-actual .time-text > .time-countdown';
+
+      expect(declared(selector, '-webkit-line-clamp')).toBe('none');
+      expect(declared(selector, 'overflow')).toBe('visible');
+    });
+
+    it('spaces the folded separator evenly on both sides', () => {
+      // The wrapper's leading margin against the pseudo-element's trailing one. In the
+      // trailing placement `.time`'s column-gap supplied the leading half; inline siblings
+      // have no gap to inherit, so the countdown states it itself. Both must match the
+      // weather row's 4px or the two rows punctuate differently in the same event.
+      const countdown = '.time .time-actual .time-text > .time-countdown';
+
+      expect(declared(countdown, 'margin-inline-start')).toBe('4px');
+      expect(declared(`${countdown}::before`, 'margin-inline-end')).toBe('4px');
+      expect(declared(`${countdown}::before`, 'content')).toBe("'·'");
+
+      // And no trailing margin: the base rule's 12px is for a box that ends a row, and
+      // inside a phrase it would open a gap before whatever follows.
+      expect(declared(countdown, 'margin-inline-end')).toBe('0');
     });
   });
 

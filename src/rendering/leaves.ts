@@ -610,8 +610,39 @@ export interface EventContentOptions {
    * inline-level box either way and the wrapping is identical. Inline flow would instead
    * have stacked the two vertically -- `.time-actual` is block-level -- and taken
    * `align-items` out of play. It was built as a flex row for that reason.
+   *
+   * That note is still correct about what CSS alone can do, and `countdownPlacement`
+   * below is the answer it was missing: the fix is a markup change, not a display change.
    */
   progressPlacement?: 'inline' | 'row';
+  /**
+   * Where the countdown goes. `'trailing'` (the default, and the list view's behaviour)
+   * makes it a sibling of `.time-actual` at the end of the time row; `'text'` folds it
+   * into the time text so the two read and break as one running phrase.
+   *
+   * The distinction is the same one the weather row learned: a flex item is placed as a
+   * unit, so `7:00 - 23:59` and `in 7 hours` as two items can only ever break *between*
+   * themselves. Chromium moves the whole countdown to a second flex line before it will
+   * consider the ordinary break opportunities inside either string, which is why a narrow
+   * column produced `7:00 - 23:59` over `· in 7 hours` and never `7:00 - 23:59 ·` over
+   * `in 7 hours`. Ruled "less broken" by the maintainer after live review, reversing the
+   * earlier decision to keep the countdown atomic.
+   *
+   * `'text'` therefore nests both inside a single `.time-text` span, exactly as
+   * `.event-weather-text` nests the temperature, UV index and condition. `.time-actual`
+   * stays a flex row of (icon, text), so the icon keeps aligning through
+   * `event_icon_vertical_alignment` -- and now aligns against the *whole* wrapped block
+   * rather than against the time alone, which is the second half of what was asked for.
+   *
+   * The list view keeps `'trailing'` and is untouched, markup included. Its countdown is
+   * not a continuation of the time at all: there is no separator between them, and
+   * `justify-content: space-between` parks it at the far right of a cell as wide as the
+   * card. Folding it into the text would have to reproduce that right-alignment from
+   * inside an inline formatting context, which needs a float, and would move a view whose
+   * DOM is deliberately frozen. Two placements, two right answers -- the same shape as
+   * `progressPlacement` above.
+   */
+  countdownPlacement?: 'trailing' | 'text';
   /**
    * Home Assistant instance, used only to localize the condition text the own-row
    * weather placement can carry. Absent for the title placement, which has no words.
@@ -662,6 +693,7 @@ export function renderEventContent(
     weatherForecasts,
     weatherPlacement = 'title',
     progressPlacement = 'inline',
+    countdownPlacement = 'trailing',
     hass,
   } = options;
   const {
@@ -711,6 +743,54 @@ export function renderEventContent(
       ? renderEventWeather(event, config, weatherForecasts, 'row', hass)
       : nothing;
 
+  // The countdown's placement, resolved once so the two halves cannot disagree.
+  //
+  // Folding is conditional on there actually *being* a countdown, not merely on the
+  // placement asking for one. A wrapper around a single piece of text has no job -- it
+  // exists to give two pieces one inline formatting context -- and emitting it anyway
+  // would cost the strictest gate in the suite: under default config nothing here fires,
+  // and column-dom.test.ts compares the two views byte for byte on exactly that basis.
+  const foldCountdown = countdownPlacement === 'text' && countdownStr !== null;
+
+  // The countdown in its own box at the end of the row -- the list view's placement, and
+  // the only one the show_time: false branches below know about. Narrowed from
+  // countdownStr rather than tested alongside it, so a folded countdown cannot also
+  // render here.
+  const trailingCountdown = foldCountdown ? null : countdownStr;
+
+  // The time text, and the whole of the countdown's placement decision.
+  //
+  // Written with no whitespace between the tags, which is load-bearing rather than
+  // stylistic: a newline between </span> and <span class="time-countdown"> is a real
+  // rendered space in an inline formatting context, and it would sit *before* the
+  // separator the stylesheet generates, making one side of the middot wider than the
+  // other. That is the same defect .event-weather-text hit, diagnosed at length in
+  // styles.ts beside the weather separators.
+  //
+  // The `// prettier-ignore` keeps that shape, and it is worth being exact about what it
+  // is doing, because the obvious claim is false and I checked rather than asserting it.
+  // Removing the directive and running `npm run format` *does* reflow the template — but
+  // Prettier breaks inside the opening tag, as `<span class="time-text"\n>`, which is the
+  // same trick it uses for `</span\n><span` and introduces no text node. So the tests
+  // stay green: measured, 95 passing across both DOM gates with the directive gone.
+  //
+  // It stays for two reasons that are true. The reflowed form is materially harder to
+  // read, and this is a template where reading it correctly is the whole safety argument.
+  // And it only survives reformatting by luck of Prettier finding a tag boundary to break
+  // at — add a third piece to the wrapper, or an attribute that changes where the line
+  // fits, and the break can land somewhere that does emit a space. Freezing the shape is
+  // cheaper than re-deriving that each time. Contrast leaves.ts:122, where the directive
+  // genuinely is load-bearing: that template puts its interpolations at tag boundaries
+  // across several lines, so reformatting moves indentation *adjacent to bindings*, and
+  // deleting it turns five tests red.
+  //
+  // Every other case emits the span it always emitted, byte for byte, so neither the list
+  // view's DOM golden nor the two views' byte-identity under defaults moves at all.
+  // prettier-ignore
+  const timeText = foldCountdown
+    ? html`<span class="time-text"><span>${eventTime}</span><span class="time-countdown">${countdownStr}</span></span>`
+    : html`<span>${eventTime}</span>`;
+
   return html`
     <div class="event-content">
       ${renderEventTitle(event, config, titleForecasts)}
@@ -721,10 +801,10 @@ export function renderEventContent(
               <div class="time">
                 <div class="time-actual">
                   <ha-icon icon="mdi:clock-outline"></ha-icon>
-                  <span>${eventTime}</span>
+                  ${timeText}
                 </div>
-                ${countdownStr
-                  ? html`<div class="time-countdown">${countdownStr}</div>`
+                ${trailingCountdown
+                  ? html`<div class="time-countdown">${trailingCountdown}</div>`
                   : showInlineProgress
                     ? html`
                         <div class="progress-bar">
@@ -737,7 +817,11 @@ export function renderEventContent(
                     : nothing}
               </div>
             `
-          : countdownStr
+          : // No text placement here: with `show_time: false` there is no time text to
+            // fold the countdown into, so both placements render the same trailing box.
+            // This is why the branch reads `countdownStr` and not `trailingCountdown` --
+            // narrowing it would delete the countdown outright in the column view.
+            countdownStr
             ? html`
                 <div class="time">
                   <div class="time-actual"></div>

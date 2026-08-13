@@ -76,7 +76,18 @@ A [countdown](/features/event-content#countdown-display) and a [progress bar](/f
 🕐 09:30 – 11:00 · in 2 days
 ```
 
-It reads as trailing text, which is what its wording assumes — countdown strings are lowercase (`in 2 days`) because they were written to follow something. On a column too narrow to hold both, the countdown moves under the time and keeps the middot with it, so it still reads as a continuation of the line above rather than as a stray fragment. It lands under the time _text_ rather than under the clock icon, so the middot sits directly below the first digit of the time.
+It reads as trailing text, which is what its wording assumes — countdown strings are lowercase (`in 2 days`) because they were written to follow something. The whole phrase is treated as running text, so a column too narrow to hold it breaks it at an ordinary word boundary rather than moving the countdown down as one block:
+
+```
+🕐 09:30 – 11:00 ·
+   in 2 days
+```
+
+Every wrapped line begins under the time _text_ rather than under the clock icon, and the middot always travels with the word it introduces, so it can never be stranded alone at the end of a line.
+
+::: tip Icon Alignment
+Because the time can now occupy two lines, `event_icon_vertical_alignment` decides where the clock sits against it. The default `top` lines the icon up with the first line; `middle` centers it against the whole wrapped block. See [Spacing & Alignment](/features/layout-appearance#spacing-alignment).
+:::
 
 **The progress bar takes a row of its own**, directly under the event title and above the time. A bar is a graphic rather than a line of text, so a row with no icon in front of it reads as deliberate — where a bare line of text on the same row would read as a row whose icon had gone missing.
 

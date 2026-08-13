@@ -93,12 +93,16 @@ event_spacing: '6px' # Internal padding within each event
 date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
 
 # Event icon alignment
-event_icon_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
+event_icon_vertical_alignment: 'middle' # Options: 'top', 'middle', 'bottom'
 ```
 
 The `date_vertical_alignment` option controls how dates align with their events, which is especially noticeable when a day has many events. The default `middle` option centers the date between its events, while `top` aligns it with the first event and `bottom` with the last event.
 
-`event_icon_vertical_alignment` does the same job one level down, for the small icons on an event's time, location and description rows. It only becomes visible when one of those wraps onto a second line: the default `middle` centers the icon against the whole block, while `top` lines it up with the first line of text.
+`event_icon_vertical_alignment` does the same job one level down, for the small icons on an event's time, location and description rows. It only becomes visible when one of those wraps onto a second line: the default `top` lines the icon up with the first line of text, while `middle` centers it against the whole block and `bottom` against the last line.
+
+::: warning Changed In v4
+This option defaulted to `middle` before v4. Rows wrap often enough — a long address, a description, or a time row carrying a [countdown](/features/column-view#progress-bar-countdown) in a narrow column — that centering left the icon level with neither line of text. Add `event_icon_vertical_alignment: 'middle'` to your card to keep the old behavior.
+:::
 
 ## 📅 Week Numbers & Visual Separators
 

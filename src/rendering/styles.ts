@@ -54,6 +54,22 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // actually asks for a limit. The other three targets sit inside flex parents
     // and are already blockified, so they need no such guard.
     '--calendar-card-title-display': config.title_max_lines > 0 ? '-webkit-box' : 'inline',
+    // The same conditional, for the time text, and for a second reason on top of the
+    // title's. `-webkit-box` is block-level, so a clamped time cannot share a line with
+    // anything -- which is fatal in the countdown's `text` placement, where the countdown
+    // is an inline sibling of the time inside `.time-text` and would be pushed onto a line
+    // of its own the moment a limit was set. Left at `inline` the two read as one phrase
+    // and break at any word boundary, which is the whole point of that placement.
+    //
+    // This property is read *only* by the text placement. The trailing placement keeps the
+    // unconditional `-webkit-box` it has always had, because there the time span is a flex
+    // item with no inline siblings, and its `overflow: hidden` is load-bearing for the
+    // shrink-below-min-content behaviour documented beside that rule.
+    //
+    // Setting `time_max_lines` in the text placement therefore trades the shared line for
+    // the limit that was asked for. That is the same trade `weather.event.max_lines`
+    // already makes for `.weather-condition`, via the property directly below this one.
+    '--calendar-card-time-display': config.time_max_lines > 0 ? '-webkit-box' : 'inline',
     '--calendar-card-date-column-width': `${parseFloat(config.day_font_size) * 1.75}px`,
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-icon-vertical-alignment':
@@ -748,13 +764,6 @@ export const cardStyles = css`
     vertical-align: middle;
     overflow-wrap: break-word;
   }
-  .time span,
-  .location span,
-  .description span {
-    display: inline-block;
-    vertical-align: middle;
-    overflow-wrap: break-word;
-  }
 
   /*
    * The time row holds the time itself plus, optionally, a countdown or a progress bar.
@@ -809,10 +818,114 @@ export const cardStyles = css`
    *
    * Safe to change: the option defaults to middle, which resolves to center, so a card
    * that never set it renders identically and the DOM goldens do not move.
+   *
+   * 🚨 That last paragraph was true when it was written and is not true now, on both
+   * halves. The default is top as of v4, so the resolved value is flex-start; and in
+   * the countdown's text placement this element's height is the *whole* wrapped block
+   * rather than one line, so the option finally has something to choose between. Aligning
+   * the clock icon against two lines of "7:00 - 23:59 · in 7 hours" is exactly what the
+   * maintainer asked for when the countdown stopped breaking atomically -- and it is also
+   * why the default moved, since centring an icon against a two-line block reads as a
+   * misalignment rather than as a choice.
    */
   .time-actual {
     display: flex;
     align-items: var(--calendar-card-event-icon-vertical-alignment);
+  }
+
+  /*
+   * The countdown's text placement -- see EventContentOptions.countdownPlacement.
+   *
+   * This wrapper is the whole mechanism, and it is the same one .event-weather-text is.
+   * .time-actual stays a two-item flex row of (icon, text) so the icon keeps aligning
+   * against the text through event_icon_vertical_alignment; everything that has to break
+   * as running text goes inside this one item, where it is ordinary inline content in an
+   * ordinary inline formatting context. A flex item is placed as a unit, so the time and
+   * the countdown as two items could only ever break *between* themselves -- Chromium
+   * takes the whole countdown to a second flex line before it will look at the spaces
+   * inside either string.
+   *
+   * Emitted only by that placement, so every rule keyed on it is placement-scoped by
+   * construction and reaches the list view nowhere. That is deliberate rather than
+   * incidental: the list view's DOM is frozen, and this way its golden does not move at
+   * all. .event-weather-text made the opposite call because both of *its* placements
+   * carry the same three chips and needed the same wrapper; here the trailing placement
+   * would carry an element with one child and no job.
+   *
+   * min-width: 0 is not optional. As a flex item this box's automatic minimum size is its
+   * min-content width, and CSS Text 3 exempts overflow-wrap: break-word from intrinsic
+   * sizing -- so a single long word would refuse to shrink and push the row out of the
+   * column instead of breaking. The same declaration is on .event-weather-text for the
+   * same reason.
+   */
+  .time .time-actual .time-text {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  /*
+   * The time text, rejoining the inline flow.
+   *
+   * .time span above blockifies every span in these rows to inline-block, which is
+   * atomic: it cannot break across lines, so the countdown beside it could still only move
+   * as a whole. Both pieces are put back to inline here, and the time's value is carried by
+   * a custom property so a configured time_max_lines can still turn it into the
+   * -webkit-box its clamp requires -- see that property in
+   * generateCustomPropertiesObject for what setting a limit costs in this placement.
+   *
+   * vertical-align: baseline undoes the same rule's middle. On a flex item that
+   * declaration was inert; on an inline box it is not, and middle would sit the countdown
+   * off the time's baseline by half an x-height, which reads as a typo in a phrase meant to
+   * scan as one line.
+   */
+  .time .time-actual .time-text > span {
+    display: var(--calendar-card-time-display);
+    vertical-align: baseline;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-time-max-lines);
+    overflow: hidden;
+  }
+
+  /*
+   * The countdown inside that wrapper.
+   *
+   * Always inline, and never the clamp target: time_max_lines limits the *time*, and a
+   * limit that silently ate the countdown would be data loss rather than a line limit. The
+   * clamp above reaches this span too -- it is the rule's sibling, not its child -- so the
+   * three declarations that would enforce one are switched off again here. On an inline
+   * box overflow and -webkit-line-clamp are no-ops anyway; they are written out because
+   * a future display change on this element would otherwise silently arm them.
+   *
+   * Both margins are reset because the trailing placement's rule below sets auto at the
+   * start and 12px at the end, neither of which means anything useful here -- auto
+   * computes to zero on an inline box, and the 12px would open a gap inside a phrase.
+   */
+  .time .time-actual .time-text > .time-countdown {
+    display: inline;
+    -webkit-line-clamp: none;
+    overflow: visible;
+    margin-inline-start: 4px;
+    margin-inline-end: 0;
+    white-space: normal;
+  }
+
+  /*
+   * The separator, generated rather than baked into the strings: the countdown is
+   * translated into 35 languages and every one of them would otherwise carry punctuation
+   * that only this placement wants.
+   *
+   * 4px on the inline-end here against the wrapper's 4px margin-inline-start above, so the
+   * middot is spaced equally on both sides and matches the weather row's separator gutter.
+   *
+   * It cannot be orphaned at the end of a line. There is no white space between the
+   * generated glyph and the first word -- the gap is margin, and a margin is not a break
+   * opportunity -- so the middot always travels with the word it introduces. That is the
+   * property the old white-space: nowrap was really protecting, and it holds without it,
+   * which is what lets the phrase wrap.
+   */
+  .time .time-actual .time-text > .time-countdown::before {
+    content: '·';
+    margin-inline-end: 4px;
   }
 
   /*
@@ -946,13 +1059,43 @@ export const cardStyles = css`
    * it only ever produced 'Sun-' / 'ny', which reads as a rendering fault rather than as
    * typesetting. manual rather than none, so an explicit soft hyphen inside a translated
    * condition is still honoured -- this turns off automatic hyphenation, not the author's.
+   *
+   * 🚨 overflow-wrap is break-word, and it was briefly normal, and that is the whole of
+   * a bug the maintainer reported: at a larger weather font the condition ran sideways out
+   * of its own column and into the next one, with a long single word appearing to be cut
+   * off mid-glyph. Worth spelling out, because every part of the diagnosis is a trap.
+   *
+   *   - The track is not at fault. .day-column carries min-width: 0 and shrinks correctly.
+   *   - overflow: hidden above is not the backstop it looks like. At the default
+   *     max_lines: 0 the display property beside it resolves to inline, and overflow
+   *     does not apply to a non-replaced inline box -- so nothing was clipping. The text
+   *     genuinely escaped the column, and what looked like clipping was the next column
+   *     painting over it. Set max_lines and the element becomes a -webkit-box, overflow
+   *     starts applying, and the symptom disappears -- which is exactly why a fix verified
+   *     with a clamp set would have proved nothing about the default path.
+   *   - With overflow-wrap: normal a word wider than its container cannot break at all,
+   *     and simply overhangs. break-word breaks it only when it would otherwise overflow,
+   *     which is precisely the wanted semantic and costs nothing when it fits.
+   *
+   * The reason normal looked safe is a real hazard that had already been fixed one
+   * commit earlier, and the two got read as one. break-word *was* able to orphan the
+   * separator: while the middot was ordinary in-flow content it could break after the dot
+   * and leave it alone on a line, floated above the row by align-items: center. Making the
+   * ::before absolutely positioned removed that, and removed it structurally -- out of
+   * flow, the dot is not part of any character sequence a break can land inside. Turning
+   * break-word off afterwards protected against nothing and cost the row its only defence
+   * against a long word.
+   *
+   * So these two declarations are a pair: break-word here is safe *because* the separator
+   * below is absolute. If anyone ever puts the dot back in flow, this has to go back to
+   * normal in the same edit. stylesheet.test.ts asserts both together for that reason.
    */
   .time-location .event-weather .weather-condition {
     display: var(--calendar-card-weather-event-condition-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-weather-event-max-lines);
     overflow: hidden;
-    overflow-wrap: normal;
+    overflow-wrap: break-word;
     hyphens: manual;
   }
 
@@ -1054,8 +1197,14 @@ export const cardStyles = css`
 
   /* Target the text span inside .time-actual only -- the .time row also holds a
      countdown and/or a progress bar as siblings, and clamping the .time or the
-     .time-actual wrapper itself would clamp those away too. */
-  .time .time-actual span {
+     .time-actual wrapper itself would clamp those away too.
+
+     The child combinator plus :not(.time-text) makes this the *trailing* placement's rule
+     and nothing else. In the countdown's text placement the only direct-child span is the
+     wrapper, which is excluded, and the pieces inside it are matched by their own rule up
+     beside .time-actual. The two selectors are disjoint by construction rather than by
+     specificity, so neither can start winning over the other because a rule moved. */
+  .time .time-actual > span:not(.time-text) {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-time-max-lines);
@@ -1422,6 +1571,20 @@ export const cardStyles = css`
      narrow, so both go. Stays a flex row -- inline flow would stack .time-actual and the
      countdown and drop align-items. Pinned in stylesheet.test.ts.
 
+     🚨 Two of the sentences below now describe only half of what this view renders, and
+     the half they describe is the smaller one. C5 left the countdown a *sibling* of
+     .time-actual, which is a flex item, which is placed as a unit -- so the phrase could
+     only ever break before the middot, and the icon centred against the time alone while
+     the countdown sat on a second flex line outside .time-actual's height. Both were
+     reported live. The countdown now moves *into* the time text in this view, through
+     countdownPlacement: 'text' and the .time-text wrapper up beside .time-actual, and
+     everything about how it wraps, where its separator sits and what it aligns against
+     lives there. Read that block first; these rules now serve only the leftover case.
+
+     That leftover case is show_time off with a countdown on, where there is no time text
+     to fold into and the countdown is still a trailing <div>. It is unmoved in shape: the
+     empty .time-actual collapses to nothing and the countdown sits one column-gap in.
+
      The padding and .time-actual's matching negative margin are a hanging indent, and
      they are the correction to where the countdown lands once it wraps. Left-aligning it
      was the C5 fix and it put the wrapped countdown under the *icon*; the maintainer
@@ -1432,12 +1595,13 @@ export const cardStyles = css`
      edge where the time text begins. .time-location .event-weather carries the same pair
      for the same reason.
 
+     The indent survives the move unchanged, and is in fact now structural rather than
+     emergent: .time-text begins at the padding edge because the icon it follows is
+     exactly as wide as the gutter, so every line it wraps to begins there too, without
+     the second line having to be the one that lands on it.
+
      box-sizing is not optional here: .time declares width: 100%, so with the inherited
      content-box the padding would be added *outside* that and overflow the column.
-
-     The empty-.time-actual case -- show_time off with a countdown on -- is unmoved in
-     shape: the wrapper collapses to nothing and the countdown sits one column-gap in,
-     6px rather than the 8px it was.
 
      white-space below releases the nowrap the list view sets, and it is the indent's
      own bill being paid. Reserving the gutter costs the wrapped countdown 18px of the

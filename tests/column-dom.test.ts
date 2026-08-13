@@ -112,6 +112,15 @@ function eventContents(container: ParentNode): string[] {
  * whitespace between two tags" and "some whitespace between two tags" also compare equal,
  * which is the precise artefact the fold creates. Whitespace *adjacent to text* still
  * survives verbatim, which is the half that is load-bearing.
+ *
+ * The countdown is the second placement folded here, and it is folded the other way
+ * round: the column view *adds* a `.time-text` wrapper the list view does not have, so
+ * normalizing means unwrapping rather than moving. Unwrapping is a wider operation than
+ * the bar's re-parenting and is worth being explicit about — what survives it is the
+ * countdown element itself, its class, its text and its position relative to `.time`, and
+ * what is discarded is the wrapper and the element's tag name. Both of those are asserted
+ * directly, and differentially against the list view, by the placement tests below; this
+ * helper is deliberately not the thing that proves the placement happened.
  */
 function eventContentsAtCommonPlacement(container: ParentNode): string[] {
   return Array.from(container.querySelectorAll('.event-content')).map((element) => {
@@ -125,6 +134,28 @@ function eventContentsAtCommonPlacement(container: ParentNode): string[] {
       if (time === null) continue;
       bar.classList.remove('progress-bar-row');
       time.append(bar);
+    }
+
+    for (const wrapper of Array.from(clone.querySelectorAll('.time-text'))) {
+      const time = wrapper.closest('.time');
+      // Same reasoning as the bar above: the wrapper only ever exists inside a `.time`,
+      // so its absence is a structural difference and not a case to skip past.
+      if (time === null) continue;
+
+      const countdown = wrapper.querySelector('.time-countdown');
+      if (countdown !== null) {
+        // Re-tagged to the trailing placement's element so the comparison is about where
+        // the countdown sits rather than about `span` versus `div`. The class and the
+        // text come across; nothing else on the element is dropped, because nothing else
+        // is set on it.
+        const trailing = clone.ownerDocument.createElement('div');
+        trailing.className = countdown.className;
+        trailing.textContent = countdown.textContent;
+        countdown.remove();
+        time.append(trailing);
+      }
+
+      wrapper.replaceWith(...Array.from(wrapper.childNodes));
     }
 
     return clone.innerHTML
@@ -1009,24 +1040,76 @@ describe('column view DOM', () => {
       expect(timeIndex).toBeGreaterThan(0);
     });
 
-    it('leaves the countdown inline with the time in both views', () => {
-      // The other half of C5 is CSS-only, and this is what pins that. The countdown must
-      // stay a child of `.time` in the column view: a row of its own was proposed and
+    it('folds the countdown into the time text in the column view, and only there', () => {
+      // The other half of C5 was CSS-only, and this test pinned that. It is now a markup
+      // decision, and this is the differential that states it — written against the list
+      // view rather than as a column-side assertion, for the same reason the weather-row
+      // and progress-bar tests are: a placement only means anything relative to the other
+      // view, and asserting one side alone would still pass if the other drifted to match.
+      //
+      // Column: inside `.time-actual`, nested in the `.time-text` wrapper alongside the
+      // time. That wrapper is the whole mechanism — two flex items can only break between
+      // themselves, two inline siblings can break anywhere — and it is the same one
+      // `.event-weather-text` is. Still not a row of its own: that was proposed and
       // rejected, because every other row here leads with an icon and a bare text row
-      // reads as one whose icon has gone missing. If a future change reaches for the
-      // markup instead of the stylesheet, it fails here.
+      // reads as one whose icon has gone missing.
+      //
+      // List: untouched, and deliberately. Its countdown is not a continuation of the
+      // time — no separator, and `space-between` parks it at the far right of a cell as
+      // wide as the card — so it stays a sibling of `.time-actual` with no wrapper at all.
       //
       // The separator and the alignment are stylesheet invariants and live in
       // `stylesheet.test.ts`; nothing in the DOM can see them.
       const config = buildConfig({ show_countdown: true, split_multiday_events: true });
 
-      for (const container of [
-        renderColumnContainer(EVENTS, config),
-        renderListContainer(EVENTS, config),
-      ]) {
-        const countdown = requireElement(container, '.time-countdown');
-        expect(countdown.parentElement?.classList.contains('time')).toBe(true);
-      }
+      const column = renderColumnContainer(EVENTS, config);
+      const list = renderListContainer(EVENTS, config);
+
+      const columnCountdown = requireElement(column, '.time-countdown');
+      expect(columnCountdown.parentElement?.classList.contains('time-text')).toBe(true);
+      expect(columnCountdown.closest('.time-actual')).not.toBeNull();
+      // A span, not a div: it has to be inline-level to share a line with the time.
+      expect(columnCountdown.tagName).toBe('SPAN');
+
+      const listCountdown = requireElement(list, '.time-countdown');
+      expect(listCountdown.parentElement?.classList.contains('time')).toBe(true);
+      expect(list.querySelector('.time-text')).toBeNull();
+    });
+
+    it('emits the wrapper only when there is a countdown to fold', () => {
+      // The wrapper exists to give two pieces one inline formatting context, so around a
+      // single piece it has no job. That is not tidiness: the byte-identity gate above
+      // runs under default config, where `show_countdown` is false, and an unconditional
+      // wrapper would have cost it. Pinned so the condition cannot quietly be dropped.
+      const off = renderColumnContainer(EVENTS, buildConfig({ split_multiday_events: true }));
+      expect(off.querySelector('.time-countdown')).toBeNull();
+      expect(off.querySelector('.time-text')).toBeNull();
+
+      const on = renderColumnContainer(
+        EVENTS,
+        buildConfig({ show_countdown: true, split_multiday_events: true }),
+      );
+      expect(on.querySelector('.time-text')).not.toBeNull();
+    });
+
+    it('keeps the countdown trailing when there is no time to fold it into', () => {
+      // `show_time: false` leaves no time text, so the text placement has nothing to fold
+      // into and both views render the same trailing box. The branch reads `countdownStr`
+      // rather than the narrowed `trailingCountdown` precisely so this case survives;
+      // narrowing it would have deleted the countdown outright in the column view, which
+      // is a silent data loss no other assertion here would have caught.
+      const config = buildConfig({
+        show_time: false,
+        show_countdown: true,
+        split_multiday_events: true,
+      });
+
+      const column = renderColumnContainer(EVENTS, config);
+      const countdown = requireElement(column, '.time-countdown');
+
+      expect(countdown.parentElement?.classList.contains('time')).toBe(true);
+      expect(countdown.tagName).toBe('DIV');
+      expect(column.querySelector('.time-text')).toBeNull();
     });
 
     it('reuses the list view event classes, so accent styling is shared', () => {

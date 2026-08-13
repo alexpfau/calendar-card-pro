@@ -245,6 +245,7 @@ function renderColumnEvent(
         weatherForecasts,
         weatherPlacement: 'row',
         progressPlacement: 'row',
+        countdownPlacement: 'text',
         hass,
       })}
     </div>
