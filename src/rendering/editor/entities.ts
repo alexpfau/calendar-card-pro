@@ -88,48 +88,48 @@ export function asEntityConfig(entry: string | Types.EntityConfig): Types.Entity
 /**
  * The shape one calendar's label holds.
  *
- * Asked of the renderer's own classifier rather than answered here, so the control the
- * editor offers and the thing the card draws can never disagree about what a value is.
+ * Asked of the shared resolver rather than answered here, so the control the editor
+ * offers and the thing the card draws can never disagree about what a value is. Where
+ * the entry names its shape that naming wins; otherwise the value is read, which is
+ * what every configuration written before `label_type` existed relies on.
  *
  * @param entry - Entry as stored
  * @returns The label's shape
  */
 export function labelTypeOf(entry: string | Types.EntityConfig): string {
-  return Helpers.getLabelType(asEntityConfig(entry).label);
+  const config = asEntityConfig(entry);
+  return Helpers.resolveLabelType(config.label, config.label_type);
 }
 
-/** What a shape is seeded with when it is chosen and the current value cannot serve. */
-const LABEL_SEEDS: Readonly<Record<string, string>> = {
-  text: '📅',
-  icon: 'mdi:calendar',
-  image: '/local/calendar.jpg',
-};
-
 /**
- * The label value after the shape dropdown has been moved.
+ * Whether the shape has to be written down, or can be read back off the value.
  *
- * Carried over when the value already has the shape that was chosen — switching away
- * and back must not lose an icon — and seeded otherwise, because a shape with no value
- * has no control to show and would derive straight back to *None*.
+ * The rule that keeps `label_type` out of almost every configuration: it is stored
+ * **exactly when reading the value would give a different answer**. So the ordinary
+ * cases — an emoji that reads as text, an `mdi:` name that reads as an icon — store
+ * nothing new and the YAML is byte-for-byte what it was before this key existed. It
+ * appears only in the two cases inference cannot express: a shape chosen but not yet
+ * filled in, and a text label that happens to look like an icon or an image.
  *
- * @param type - Shape the user chose
- * @param current - Label value as stored
- * @returns The value to store, or `undefined` to remove the label
+ * @param type - Shape the dropdown names
+ * @param label - Label value as it will be stored
+ * @returns `true` when the shape must be stored alongside the value
  */
-function reshapedLabel(type: string, current: unknown): string | undefined {
-  if (type === 'none') return undefined;
-  if (Helpers.getLabelType(current) === type) return String(current);
-
-  return LABEL_SEEDS[type];
+function needsExplicitType(type: string, label: unknown): boolean {
+  return Helpers.isLabelType(type) && type !== 'none' && Helpers.getLabelType(label) !== type;
 }
 
 /**
  * Projects one calendar's stored settings into the shape its form binds.
  *
  * Two transformations. The three inheritable switches are stored as `true`, `false` or
- * absent and offered as one of three named options. The label's *shape* is derived from
- * its value, because that is where the shape lives — there is no `label_type` key and
- * there must not be one.
+ * absent and offered as one of three named options. The label's *shape* is **resolved**
+ * — the stored `label_type` where there is one, the value's own reading where there is
+ * not — so the dropdown shows one answer whichever way the calendar was configured.
+ *
+ * The form field and the config key share a name, so the spread puts the stored shape
+ * in and this overwrites it with the resolved one. That is the intent: a calendar that
+ * stores no shape still binds the dropdown to something.
  *
  * @param entry - Entry as stored
  * @returns Form data for that calendar
@@ -153,18 +153,28 @@ export function toEntityFormData(entry: string | Types.EntityConfig): Record<str
 /**
  * Narrows a calendar's form data back to what should be stored.
  *
- * The label needs the previous entry, and it is the one field that does. `ha-form` says
- * only that the form changed, so *the user moved the shape dropdown* and *the user typed
- * something that happens to have a different shape* arrive identically — and they must
- * not be treated the same way. Comparing the chosen shape against the **stored** one
- * separates them: a shape that differs from what is stored is a dropdown move and seeds
- * a value; a shape that matches is a value edit and is stored as typed.
+ * **The shape dropdown is authoritative.** It used to be a reading of the value, which
+ * meant the write path had to guess whether a change was the user moving the dropdown
+ * or typing something that happened to read differently — and it guessed by comparing
+ * against the stored shape, which cannot tell *cleared the box* from *never had a
+ * label*. That is the bug this replaced: clearing the text removed the key, the shape
+ * read back as *None*, and the field the user was typing into disappeared.
  *
- * Typing `mdi:` into the text box therefore stores exactly that and re-derives the shape
- * as an icon on the next render, which swaps the box for the picker. That is deliberate,
- * and it is why there is no held-text mechanism here: the value the user is typing *is*
- * the value the card would render, at every keystroke, so there is nothing to hold it
- * back from.
+ * Now the dropdown says what the shape is and the value is stored as typed. The shape
+ * is written down only when reading the value back would disagree with it
+ * (`needsExplicitType`), so an ordinary label stores exactly what it always did.
+ *
+ * Two consequences worth stating, because both are deliberate:
+ *
+ * - **Nothing is seeded.** A shape used to arrive pre-filled — `📅`, `mdi:calendar` —
+ *   purely so that reading the value back would not answer *None* and collapse the
+ *   control. With the shape stored that prop is unnecessary, and it was actively in the
+ *   way: the emoji had to be deleted before a name could be typed, and deleting it was
+ *   the very act that broke the field.
+ * - **Typing `mdi:home` into the text box keeps it text.** It is stored verbatim with
+ *   `label_type: text` and renders as those nine characters. Swapping the box for an
+ *   icon picker mid-word is the same class of defect as the one above — the control
+ *   moving under the cursor — and the picker is one dropdown away.
  *
  * @param entityId - The calendar this configures
  * @param data - Form data as the form returned it
@@ -178,17 +188,25 @@ export function fromEntityFormData(
 ): string | Types.EntityConfig {
   const entry: Record<string, unknown> = { entity: entityId };
 
-  const chosenType = String(data[LABEL_TYPE] ?? '');
-  const reshaped = chosenType !== '' && chosenType !== labelTypeOf(previous);
+  // The form always carries the dropdown; `previous` answers for a caller that builds
+  // form data by another route, such as pasting one calendar's settings into another.
+  const chosenType = Helpers.isLabelType(data[LABEL_TYPE])
+    ? data[LABEL_TYPE]
+    : labelTypeOf(previous);
 
   for (const [key, value] of Object.entries(data)) {
+    // `LABEL_TYPE` names both the form field and the config key, so skipping it here
+    // covers the stored value too — the shape is rewritten below from `chosenType`
+    // rather than copied through.
     if (key === 'entity' || key === LABEL_TYPE) continue;
 
-    if (key === 'label' && reshaped) {
-      const next = reshapedLabel(chosenType, value);
-      if (next !== undefined) entry.label = next;
-      continue;
-    }
+    // *None* means no label, so the value does not survive it.
+    if (key === 'label' && chosenType === 'none') continue;
+
+    // The colour applies to an icon and to nothing else, so it is not carried into a
+    // shape that cannot use it — it would sit in the configuration doing nothing and
+    // reappear the next time the label became an icon, long after it was chosen.
+    if (key === 'label_icon_color' && chosenType !== 'icon') continue;
 
     if (key in ENTITY_TRISTATE_VALUES) {
       const stored = ENTITY_TRISTATE_STORED[String(value)];
@@ -209,11 +227,8 @@ export function fromEntityFormData(
     entry[key] = value;
   }
 
-  // A shape chosen while the form was showing none has no `label` field to carry it, so
-  // the seed is written here instead of being lost.
-  if (reshaped && entry.label === undefined) {
-    const seeded = reshapedLabel(chosenType, asEntityConfig(previous).label);
-    if (seeded !== undefined) entry.label = seeded;
+  if (needsExplicitType(chosenType, entry.label)) {
+    entry.label_type = chosenType;
   }
 
   return Object.keys(entry).length === 1 ? entityId : (entry as unknown as Types.EntityConfig);

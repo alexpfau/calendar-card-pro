@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { DEFAULT_CONFIG, DEPRECATED_CONFIG_MAP } from '../src/config/config';
+import { DEFAULT_CONFIG, DEPRECATED_CONFIG_MAP, normalizeEntities } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
@@ -52,6 +52,8 @@ import {
   deriveSyntheticData,
   isCommittableOffset,
   isSyntheticKey,
+  languageMode,
+  startDateMode,
 } from '../src/rendering/editor/synthetic';
 import {
   applyFormChange,
@@ -61,7 +63,8 @@ import {
   stripColumnDefaults,
   toStoredConfig,
 } from '../src/rendering/editor/value';
-import { memoizeLast } from '../src/utils/helpers';
+import { getEffectiveLanguage } from '../src/translations/localize';
+import { memoizeLast, resolveLabelType } from '../src/utils/helpers';
 
 /**
  * Tests for the schema-driven editor's foundation.
@@ -461,6 +464,100 @@ describe('editor: start_date_offset survives being typed', () => {
     const step = typeInto(config, {}, '-');
 
     expect(toStoredConfig(step.config).start_date).toBe('-7');
+  });
+});
+
+/**
+ * The same defect as the per-calendar label, found by looking for its shape rather than
+ * by waiting for it to be reported: a control whose *visibility* is derived from a value
+ * the user can transiently empty.
+ *
+ * Two of the six candidates were live. `today_indicator_icon`, `today_indicator_custom`,
+ * `card_height` and `card_max_height` were already held; `location_country_pattern`
+ * stores `''` deliberately so its mode still reads *custom*; and the empty-day fields are
+ * gated on a switch rather than on a value, so they cannot reach this state at all.
+ *
+ * Both fixes use a mechanism already in the file, one each: the date picker is held like
+ * the two measurements, and the language box takes the `location_country_pattern` route
+ * of letting `''` still count.
+ */
+describe('editor: a cleared field keeps its control', () => {
+  /** Applies one field's change through the real diff, as the chassis does. */
+  function clear(config: Types.Config, field: string, pending: Record<string, string> = {}) {
+    const before = { ...config, ...deriveSyntheticData(config, pending) } as Record<
+      string,
+      unknown
+    >;
+
+    return applyFormChange(config, before, { ...before, [field]: '' }, pending);
+  }
+
+  /**
+   * The mode reads whether `start_date` is set, so writing `undefined` on an emptied
+   * picker removed the key, re-derived the mode as *default* and took the picker away —
+   * which is the reported label bug with a date in it.
+   */
+  it('holds an emptied fixed start date instead of dropping the picker', () => {
+    const config = buildConfig({ start_date: '2026-01-01' });
+    expect(startDateMode(config)).toBe('fixed');
+
+    const step = clear(config, 'start_date_fixed');
+
+    expect(startDateMode(step.config), 'the picker survived').toBe('fixed');
+    expect(step.config.start_date, 'and the date it had is not lost').toBe('2026-01-01');
+    expect(step.pending.start_date_fixed, 'the empty box is what is shown').toBe('');
+
+    // And the next date typed commits and releases the held text.
+    const before = { ...step.config, ...deriveSyntheticData(step.config, step.pending) };
+    const retyped = applyFormChange(
+      step.config,
+      before,
+      { ...before, start_date_fixed: '2026-02-02' },
+      step.pending,
+    );
+
+    expect(retyped.config.start_date).toBe('2026-02-02');
+    expect(retyped.pending).not.toHaveProperty('start_date_fixed');
+  });
+
+  /**
+   * `language` is a real config key bound straight to a text box, so it cannot be held
+   * the way a synthetic field is — naming it in `SYNTHETIC_FIELDS` would have
+   * `toStoredConfig` delete it as UI state. The mode reads presence instead, so an empty
+   * box is still *custom*.
+   *
+   * Safe because the card already agrees: `getEffectiveLanguage` tests
+   * `configLanguage.trim() !== ''`, so an empty custom language follows Home Assistant
+   * exactly as *system* does. The preview does not change while the box is empty.
+   */
+  it('keeps the language box on screen while it is cleared and retyped', () => {
+    const config = buildConfig({ language: 'de' });
+    expect(languageMode(config)).toBe('custom');
+
+    const step = clear(config, 'language');
+
+    expect(languageMode(step.config), 'the box survived').toBe('custom');
+    expect(getEffectiveLanguage(step.config.language, { language: 'fr' })).toBe('fr');
+
+    const before = { ...step.config, ...deriveSyntheticData(step.config, step.pending) };
+    const retyped = applyFormChange(
+      step.config,
+      before,
+      { ...before, language: 'nl' },
+      step.pending,
+    );
+
+    expect(retyped.config.language).toBe('nl');
+    expect(languageMode(retyped.config)).toBe('custom');
+  });
+
+  it('still returns the language to the system when the mode says so', () => {
+    const config = buildConfig({ language: '' });
+    const before = { ...config, ...deriveSyntheticData(config) };
+    const switched = applyFormChange(config, before, { ...before, language_mode: 'system' }, {});
+
+    expect(languageMode(switched.config)).toBe('system');
+    expect(switched.config).not.toHaveProperty('language');
   });
 });
 
@@ -2219,12 +2316,106 @@ describe('editor: per-calendar settings', () => {
 
     await fire(element, 'ha-form.entity-form', { label_type: 'icon' });
 
-    expect(dispatched.at(-1)!.entities).toEqual([{ entity: 'calendar.a', label: 'mdi:calendar' }]);
+    // The shape is what is stored; nothing is seeded into the picker for the user to
+    // clear first. It has to be stored here, because an icon shape with no icon in it
+    // is exactly the state reading the value back cannot express.
+    expect(dispatched.at(-1)!.entities).toEqual([{ entity: 'calendar.a', label_type: 'icon' }]);
 
-    // The picker is now on screen, holding what was seeded.
+    // The picker is now on screen, empty, with the colour that only applies to it.
     const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
     expect(schemaOf(form).map((node) => node.name)).toContain('label_icon_color');
-    expect((form as unknown as { data: Record<string, unknown> }).data.label).toBe('mdi:calendar');
+
+    const data = (form as unknown as { data: Record<string, unknown> }).data;
+    expect(data.label_type).toBe('icon');
+    expect(data.label ?? '').toBe('');
+  });
+
+  /**
+   * The reported bug, as reported: pick *Text or Emoji*, type a label, clear it, and the
+   * field vanishes and the dropdown snaps back to *None* — so a custom label can never
+   * be typed at all.
+   *
+   * The cause is that the shape used to be read off the value, where an empty string and
+   * an absent label are the same thing. Clearing the box therefore removed the key, which
+   * re-derived the shape as *None* and took the box away mid-edit. Clearing a field is a
+   * legitimate step on the way to typing another value, so the model has to be able to
+   * hold "a text label, currently empty" — which is what `label_type` is for.
+   *
+   * Driven through the element rather than through `fromEntityFormData`, because the bug
+   * is in the round trip: each keystroke stores a config, the element re-derives the form
+   * from it, and it is that second half that dropped the field.
+   */
+  it('keeps the label field on screen while the text is cleared and retyped', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({ entities: ['calendar.a'] } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    element.addEventListener('config-changed', (event) => {
+      element.setConfig((event as CustomEvent).detail.config as Types.Config);
+    });
+
+    /** The names the one calendar's form is currently rendering. */
+    const rendered = () =>
+      schemaOf(element.shadowRoot!.querySelector('ha-form.entity-form')!).map((node) => node.name);
+    /** That form's data, as `ha-form` would read it. */
+    const formData = () =>
+      (
+        element.shadowRoot!.querySelector('ha-form.entity-form') as unknown as {
+          data: Record<string, unknown>;
+        }
+      ).data;
+
+    await fire(element, 'ha-form.entity-form', { label_type: 'text' });
+
+    // Choosing the shape is enough to put the field on screen. It arrives empty: a seeded
+    // value only ever existed to stop the shape deriving straight back to *None*, and an
+    // explicit shape does not need one.
+    expect(rendered()).toContain('label');
+    expect(formData().label_type).toBe('text');
+    expect(formData().label ?? '').toBe('');
+
+    await fire(element, 'ha-form.entity-form', { label: 'Fam' });
+    expect(formData().label).toBe('Fam');
+
+    // The step that used to break it.
+    await fire(element, 'ha-form.entity-form', { label: '' });
+
+    expect(rendered(), 'the field survived being cleared').toContain('label');
+    expect(formData().label_type, 'the shape did not snap back').toBe('text');
+
+    // And the user can now type the label they wanted all along.
+    await fire(element, 'ha-form.entity-form', { label: 'Familienkalender' });
+    expect(formData().label).toBe('Familienkalender');
+  });
+
+  /**
+   * The same failure one door along. An icon label's colour field is shown only while the
+   * label *is* an icon, so clearing the icon picker to choose another one used to remove
+   * the label, re-derive the shape as *None*, and take both controls away at once.
+   */
+  it('keeps the icon picker and its colour on screen while the icon is cleared', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({
+      entities: [{ entity: 'calendar.a', label: 'mdi:home' }],
+    } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    element.addEventListener('config-changed', (event) => {
+      element.setConfig((event as CustomEvent).detail.config as Types.Config);
+    });
+
+    await fire(element, 'ha-form.entity-form', { label: '' });
+
+    const form = element.shadowRoot!.querySelector('ha-form.entity-form')!;
+    const names = schemaOf(form).map((node) => node.name);
+
+    expect(names, 'the picker survived being cleared').toContain('label');
+    expect(names, 'so did the icon colour').toContain('label_icon_color');
+    expect((form as unknown as { data: Record<string, unknown> }).data.label_type).toBe('icon');
   });
 
   it('offers every per-calendar option the card reads', () => {
@@ -2397,18 +2588,73 @@ describe('editor: per-calendar settings', () => {
     }
   });
 
-  it('seeds a value when the shape is chosen and the current one cannot serve', () => {
-    const seeded = fromEntityFormData(
+  /**
+   * Choosing a shape used to seed a value — `📅`, `mdi:calendar` — for one reason only:
+   * the shape was read back off the value, so an unfilled shape read as *None* and the
+   * control vanished on the keystroke that opened it. With the shape stored there is
+   * nothing to prop up, and the prop was in the way: the seed had to be deleted before
+   * a real label could be typed, and deleting it was the act that broke the field.
+   *
+   * So a chosen shape arrives empty, and it is the shape that is stored rather than a
+   * value nobody asked for.
+   */
+  it('stores the chosen shape rather than seeding a value for it', () => {
+    const chosen = fromEntityFormData(
       'calendar.a',
-      { label_type: 'icon', label: 'Work' },
-      { entity: 'calendar.a', label: 'Work' },
+      { label_type: 'icon', label: '' },
+      { entity: 'calendar.a' },
     ) as Types.EntityConfig;
 
-    expect(seeded.label).toBe('mdi:calendar');
+    expect(chosen.label_type).toBe('icon');
+    expect(chosen.label).toBeUndefined();
 
     // Chosen from nothing at all, where the form was showing no value field to carry it.
-    const fromNone = fromEntityFormData('calendar.a', { label_type: 'text' }, 'calendar.a');
-    expect((fromNone as Types.EntityConfig).label).toBe('📅');
+    const fromNone = fromEntityFormData(
+      'calendar.a',
+      { label_type: 'text' },
+      'calendar.a',
+    ) as Types.EntityConfig;
+
+    expect(fromNone.label_type).toBe('text');
+    expect(fromNone.label).toBeUndefined();
+  });
+
+  /**
+   * The rule that keeps the new key out of almost every configuration: it is stored
+   * exactly when reading the value back would give a different answer. An emoji reads
+   * as text and an `mdi:` name reads as an icon, so neither stores anything new and
+   * those calendars' YAML is what it was before the key existed.
+   */
+  it('stores the shape only where reading the value would get it wrong', () => {
+    const ordinary = fromEntityFormData(
+      'calendar.a',
+      { label_type: 'text', label: '📅' },
+      'calendar.a',
+    ) as Types.EntityConfig;
+
+    expect(ordinary).toEqual({ entity: 'calendar.a', label: '📅' });
+
+    const icon = fromEntityFormData(
+      'calendar.a',
+      { label_type: 'icon', label: 'mdi:home' },
+      'calendar.a',
+    ) as Types.EntityConfig;
+
+    expect(icon).toEqual({ entity: 'calendar.a', label: 'mdi:home' });
+
+    // The two cases inference cannot express: a shape with nothing in it yet, and a
+    // text label that happens to look like an icon.
+    const looksLikeAnIcon = fromEntityFormData(
+      'calendar.a',
+      { label_type: 'text', label: 'mdi:home' },
+      'calendar.a',
+    ) as Types.EntityConfig;
+
+    expect(looksLikeAnIcon).toEqual({
+      entity: 'calendar.a',
+      label: 'mdi:home',
+      label_type: 'text',
+    });
   });
 
   it('carries a value across a shape change that can still hold it', () => {
@@ -2432,14 +2678,17 @@ describe('editor: per-calendar settings', () => {
   });
 
   /**
-   * The case the seeding rule must not swallow. Typing `mdi:` into the text box is a
-   * *value* edit whose result happens to be an icon — not a dropdown move — so it is
-   * stored verbatim and the shape re-derives on the next render. Comparing the chosen
-   * shape against the stored value instead of against the typed one is what tells the
-   * two apart; comparing against the typed one would replace the user's keystrokes with
-   * a seeded `mdi:calendar` mid-word.
+   * Typing `mdi:` into the text box is a *value* edit whose result happens to look like
+   * an icon. The box used to be swapped for the icon picker on the keystroke that
+   * completed the prefix — which is the same defect as the reported one, a control
+   * moving under the cursor, and it made a literal text label of `mdi:home` impossible
+   * to write at all.
+   *
+   * The shape the user chose now wins, so the value is stored verbatim, the box stays,
+   * and the shape is written down alongside it because reading the value back would
+   * disagree. The picker is still one dropdown away.
    */
-  it('stores what was typed even when it changes the shape', () => {
+  it('keeps a text label text even when it starts to look like an icon', () => {
     const previous = { entity: 'calendar.a', label: 'Work' };
 
     for (const typed of ['m', 'md', 'mdi', 'mdi:', 'mdi:c', 'mdi:calendar-check']) {
@@ -2450,11 +2699,139 @@ describe('editor: per-calendar settings', () => {
       ) as Types.EntityConfig;
 
       expect(written.label, typed).toBe(typed);
+      // The box the user is typing into is still the box the form shows next.
+      expect(toEntityFormData(written).label_type, typed).toBe('text');
     }
 
-    // And the shape the form shows next follows the value, so the picker appears for
-    // what is now an icon rather than the text box staying and lying about it.
+    // A calendar that never named a shape still reads it off the value, which is what
+    // every configuration written before the key existed relies on.
     expect(toEntityFormData({ entity: 'calendar.a', label: 'mdi:c' }).label_type).toBe('icon');
+  });
+
+  /**
+   * The whole back-compatibility claim in one place: a configuration written before
+   * `label_type` existed resolves to exactly the shape it always did, and an edit that
+   * does not change the label writes the same YAML back.
+   */
+  it('reads a shape off the value when the calendar names none', () => {
+    const cases: ReadonlyArray<[string, string]> = [
+      ['📅', 'text'],
+      ['Familienkalender:', 'text'],
+      ['mdi:home', 'icon'],
+      ['phu:octopusenergy', 'icon'],
+      ['/local/family.png', 'image'],
+      ['holiday.JPEG', 'image'],
+    ];
+
+    for (const [label, shape] of cases) {
+      const entry = { entity: 'calendar.a', label };
+      expect(toEntityFormData(entry).label_type, label).toBe(shape);
+
+      // Round-tripped untouched: no shape key appears, so the stored YAML is unchanged.
+      expect(fromEntityFormData('calendar.a', toEntityFormData(entry), entry), label).toEqual(
+        entry,
+      );
+    }
+
+    // And a calendar with no label at all still reads as *None*.
+    expect(toEntityFormData('calendar.a').label_type).toBe('none');
+  });
+
+  /**
+   * A shape the card does not know is not a shape. `normalizeEntities` drops it, so the
+   * value is read instead — a misspelling degrades to the pre-`label_type` behaviour
+   * rather than to a blank control.
+   */
+  it('ignores a shape it does not recognise', () => {
+    const [entry] = normalizeEntities([
+      { entity: 'calendar.a', label: 'mdi:home', label_type: 'banana' },
+    ] as unknown as Array<Types.EntityConfig>);
+
+    expect(entry.label_type).toBeUndefined();
+    expect(toEntityFormData(entry).label_type).toBe('icon');
+  });
+
+  /**
+   * The claim the whole design rests on, tested rather than asserted: **no migration is
+   * needed**, because a configuration written before `label_type` existed is already a
+   * valid instance of the model that has it — absent means *read the value*.
+   *
+   * Worth pinning against a list rather than an argument, because the failure it guards
+   * is silent: a label that resolved one way in v3 and another way here would change what
+   * a dashboard draws with no error anywhere. The list is deliberately adversarial —
+   * `label: ''`, no label at all, a stray icon colour on a text label.
+   */
+  it('leaves every configuration written before the shape key existed alone', () => {
+    const legacy: ReadonlyArray<Record<string, unknown>> = [
+      { entity: 'calendar.a', label: '📅' },
+      { entity: 'calendar.a', label: 'Familienkalender: ' },
+      { entity: 'calendar.a', label: 'mdi:home' },
+      { entity: 'calendar.a', label: 'phu:octopusenergy' },
+      { entity: 'calendar.a', label: '/local/x.png' },
+      { entity: 'calendar.a', label: 'x.JPEG' },
+      { entity: 'calendar.a', label: '' },
+      { entity: 'calendar.a' },
+      { entity: 'calendar.a', label: 'mdi:home', label_icon_color: '#f00' },
+      { entity: 'calendar.a', label: '2024', color: '#0f0', accent_color: '#00f' },
+      { entity: 'calendar.a', label: 'Work', show_time: false, compact_events_to_show: 3 },
+      { entity: 'calendar.a', label: 'mdi:home', blocklist: 'Private', allowlist: 'X' },
+    ];
+
+    for (const raw of legacy) {
+      const note = JSON.stringify(raw);
+      const [normalized] = normalizeEntities([raw] as never);
+
+      // What the card resolves is what the old code inferred, for every one of them.
+      expect(resolveLabelType(normalized.label, normalized.label_type), note).toBe(
+        resolveLabelType(normalized.label, undefined),
+      );
+
+      // And an edit that changes nothing writes the same entry back, with no shape key
+      // invented for it.
+      const entry = raw as unknown as Types.EntityConfig;
+      const written = fromEntityFormData('calendar.a', toEntityFormData(entry), entry);
+
+      const expected: Record<string, unknown> = { ...raw };
+      // The two things the editor legitimately normalises: an empty label is absent, and
+      // an icon colour on a label that is not an icon is inert and is not carried.
+      if (expected.label === '') delete expected.label;
+      if (resolveLabelType(expected.label, undefined) !== 'icon') delete expected.label_icon_color;
+
+      expect(written, note).toEqual(Object.keys(expected).length === 1 ? 'calendar.a' : expected);
+      expect(written, note).not.toHaveProperty('label_type');
+    }
+  });
+
+  it('carries the shape through a copy and paste', () => {
+    const source = { entity: 'calendar.a', label_type: 'text' as const };
+    copySettings(source);
+
+    const pasted = pasteSettings(['calendar.b'], 0)[0] as Types.EntityConfig;
+    expect(pasted).toEqual({ entity: 'calendar.b', label_type: 'text' });
+    expect(toEntityFormData(pasted).label_type).toBe('text');
+  });
+
+  /**
+   * The colour applies to an icon and to nothing else, so it does not survive a move to
+   * a shape that cannot use it. Left behind it would sit in the configuration doing
+   * nothing, and reappear the next time the label became an icon — long after whoever
+   * chose it had forgotten.
+   */
+  it('drops the icon colour when the label stops being an icon', () => {
+    const previous = { entity: 'calendar.a', label: 'mdi:home', label_icon_color: '#f00' };
+
+    expect(
+      fromEntityFormData(
+        'calendar.a',
+        { ...toEntityFormData(previous), label_type: 'text' },
+        previous,
+      ),
+    ).toEqual({ entity: 'calendar.a', label: 'mdi:home', label_type: 'text' });
+
+    // Still kept where it applies.
+    expect(fromEntityFormData('calendar.a', toEntityFormData(previous), previous)).toEqual(
+      previous,
+    );
   });
 
   it('removes a per-calendar key again when its field is emptied', () => {

@@ -175,7 +175,21 @@ export function getTodayIndicatorType(value: string | boolean): string {
 }
 
 /**
- * Determine which of the four shapes a calendar's label holds
+ * The four shapes a calendar's label can take.
+ *
+ * Named as a type because it is now a configuration value in its own right and not
+ * only a classifier's return: `label_type` may be stored to say what a label *is*
+ * when the value alone would be read as something else.
+ */
+export type LabelType = 'none' | 'icon' | 'image' | 'text';
+
+/** Whether a value is one of the four shapes, and so usable as an explicit type. */
+export function isLabelType(value: unknown): value is LabelType {
+  return value === 'none' || value === 'icon' || value === 'image' || value === 'text';
+}
+
+/**
+ * Determine which of the four shapes a calendar's label value looks like
  *
  * The counterpart to `getTodayIndicatorType` for the per-calendar label, and written
  * here beside it for the same reason: the editor has to offer a control per shape, and
@@ -184,10 +198,14 @@ export function getTodayIndicatorType(value: string | boolean): string {
  * exactly this order; `tests/label-glyph.test.ts` pins the two together, so a change to
  * one that is not made to the other fails rather than drifting silently.
  *
+ * **This reads the value alone.** It is the fallback half of `resolveLabelType`, which
+ * is what both the renderer and the editor should ask — a configuration may name its
+ * shape explicitly, and where it does, this function's answer is not the last word.
+ *
  * @param label Label value from a calendar's configuration
- * @returns Shape of the label ('none', 'icon', 'image' or 'text')
+ * @returns Shape the value looks like ('none', 'icon', 'image' or 'text')
  */
-export function getLabelType(label: unknown): 'none' | 'icon' | 'image' | 'text' {
+export function getLabelType(label: unknown): LabelType {
   if (typeof label !== 'string' || label === '') {
     return 'none';
   }
@@ -201,6 +219,35 @@ export function getLabelType(label: unknown): 'none' | 'icon' | 'image' | 'text'
   }
 
   return 'text';
+}
+
+/**
+ * The shape a calendar's label holds, preferring what the configuration says over what
+ * the value looks like.
+ *
+ * The single reading of the label's shape, asked by the renderer and by the editor so
+ * the two cannot disagree — the property `getLabelType` was written to guarantee, now
+ * that there are two inputs rather than one.
+ *
+ * **Why an explicit type exists at all.** Inferring the shape from the value makes the
+ * empty string mean two different things: *no label*, and *a text label the user is
+ * part-way through typing*. The editor could not tell them apart, so clearing the box
+ * to retype removed the key, reclassified the label as absent and took the box away
+ * mid-edit — the state was not representable, so no amount of editor plumbing could
+ * hold it. `label_type` makes it representable, and nothing more: it is stored only
+ * where inference would get the answer wrong, so a configuration that never needed it
+ * never grows it.
+ *
+ * The explicit type wins outright where it is set, which also buys a label that could
+ * not be written before — `label_type: text` with `label: mdi:calendar` renders the
+ * literal text rather than an icon.
+ *
+ * @param label Label value from a calendar's configuration
+ * @param labelType Shape the configuration names, if it names one
+ * @returns The shape to render and to offer in the editor
+ */
+export function resolveLabelType(label: unknown, labelType?: unknown): LabelType {
+  return isLabelType(labelType) ? labelType : getLabelType(label);
 }
 
 /**

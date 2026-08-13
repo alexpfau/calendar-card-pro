@@ -195,11 +195,22 @@ export function heightMode(config: Readonly<Types.Config>): 'auto' | 'fixed' | '
 /**
  * Derives whether the card follows Home Assistant's language or names its own.
  *
+ * Presence, not `isSet`, and for the reason `location_country_pattern` below reads the
+ * same way: an emptied text box is a step on the way to typing another value, not a
+ * request to go back to following Home Assistant. Reading `''` as *system* removed the
+ * field on the keystroke that cleared it and reset the dropdown — the same defect the
+ * per-calendar label had, one panel along.
+ *
+ * Nothing downstream has to change for `''` to be safe: `getEffectiveLanguage` already
+ * tests `configLanguage.trim() !== ''`, so an empty custom language falls through to
+ * Home Assistant's exactly as *system* would. The card therefore behaves the same while
+ * the box is empty, and the control stays where the user left it.
+ *
  * @param config - Current configuration
  * @returns Which language control applies
  */
 export function languageMode(config: Readonly<Types.Config>): 'system' | 'custom' {
-  return isSet(config.language) ? 'custom' : 'system';
+  return config.language !== undefined && config.language !== null ? 'custom' : 'system';
 }
 
 /**
@@ -336,23 +347,23 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   start_date_mode: {
     derive: (config) => startDateMode(config),
     apply: (value, config) => {
-      // Every branch discards text held for the offset field. Leaving it would show
+      // Every branch discards text held for both value fields. Leaving it would show
       // the abandoned keystrokes again the moment the user came back to this mode.
-      const discardOffset = { start_date_offset: null };
+      const discardDates = { start_date_offset: null, start_date_fixed: null };
 
       if (value === 'fixed') {
         const current = String(config.start_date ?? '');
         const match = FIXED_DATE_PATTERN.exec(current.trim());
-        return { changes: { start_date: match ? match[1] : todayIso() }, pending: discardOffset };
+        return { changes: { start_date: match ? match[1] : todayIso() }, pending: discardDates };
       }
 
       if (value === 'offset') {
         const current = String(config.start_date ?? '').trim();
         const carried = current !== '' && !FIXED_DATE_PATTERN.test(current) ? current : null;
-        return { changes: { start_date: carried ?? INITIAL_OFFSET }, pending: discardOffset };
+        return { changes: { start_date: carried ?? INITIAL_OFFSET }, pending: discardDates };
       }
 
-      return { changes: { start_date: undefined }, pending: discardOffset };
+      return { changes: { start_date: undefined }, pending: discardDates };
     },
   },
 
@@ -361,10 +372,19 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       const match = FIXED_DATE_PATTERN.exec(String(config.start_date ?? '').trim());
       return match ? match[1] : '';
     },
-    apply: (value) => ({
-      changes: { start_date: value === '' ? undefined : value },
-      pending: { start_date_offset: null },
-    }),
+    // Held while empty, like the two measurements above and for the same reason: the
+    // mode is derived from whether `start_date` is set, so clearing the picker to choose
+    // another date would remove the key, re-derive the mode as *default* and take the
+    // picker away mid-edit.
+    apply: (value) => {
+      const text = String(value ?? '');
+      return text === ''
+        ? { changes: {}, pending: { start_date_fixed: text, start_date_offset: null } }
+        : {
+            changes: { start_date: text },
+            pending: { start_date_fixed: null, start_date_offset: null },
+          };
+    },
   },
 
   start_date_offset: {
