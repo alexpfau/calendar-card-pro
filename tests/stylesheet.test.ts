@@ -868,19 +868,23 @@ describe('card stylesheet', () => {
       // 🚨 It held because of the *script*, not because of the CSS. The character before
       // the dot was always a digit (UAX #14 class NU) or a Latin letter (AL), and LB23 and
       // LB28 forbid a break between either and the middot (class AI, resolving to AL).
-      // Nothing in this rule was doing it. Change the script and the glue lets go: Hangul
-      // and an ideograph carry no such rule, and LB31 then permits the break.
+      // Nothing in this rule was doing it. An ideograph is class ID, welded to nothing,
+      // and LB31 then permits the break — so in zh-CN and zh-TW, whose all-day strings
+      // `formatEventTime` builds out of words ending in one, the dot leads the next line.
       //
       // Measured by forcing the time text and holding everything else fixed, 96 rows per
-      // string across five viewport widths -- dot leading a continuation line:
+      // string across five viewport widths, both arms injected so a concurrent deploy of
+      // the shared dev bundle could not silently swap them — rows where the dot leads a
+      // continuation line, bare middot against this rule:
       //
-      //   0:00 - 20:00   NU      0        하루 종일        Hangul   16
-      //   Ganztägig      AL      0        9:00～17:00時    ID       32
+      //   整天, 明天结束       format.ts:519  ID   16 -> 0
+      //   整天, 直到 17. 8月   format.ts:529  ID   36 -> 0
+      //   整天                 format.ts:66   ID    0 -> 0
+      //   all day, ends tomorrow              AL    0 -> 0
       //
-      // U+2060 WORD JOINER makes it unconditional; with it, all four read 0. This is the
-      // same character the weather separator carries, where it is belt and braces because
-      // a dot there is only ever preceded by a degree sign or a digit. Here it is
-      // load-bearing, and the card ships Chinese, Japanese and Korean.
+      // The third row is the trap: same script, same class, never reproduces, because two
+      // characters never force a break at that junction. Picking it as the representative
+      // Chinese case would have cleared the rule and shipped the bug.
       const dot = '.time .time-actual .time-text > .time-countdown::before';
 
       expect(declared(dot, 'content')).toContain('\\2060·');
@@ -893,8 +897,8 @@ describe('card stylesheet', () => {
       // the whole junction moves to the next line together rather than the line ending at
       // the dot, so a narrow column renders `0:00 -` / `20:00 · in 4` / `hours` and wastes
       // the first line. U+200B is class ZW and provides a break *after* itself, so it goes
-      // last and the line can end at the dot -- 116 rows gained that across the sweep, and
-      // 0 gained a dot alone on a line.
+      // last and the line can end at the dot — 0 rows to 100 across the same sweep, with 0
+      // rows in either arm putting the dot alone on a line.
       //
       // Falsifier: delete the trailing `\200B` and the junction welds shut again.
       const dot = '.time .time-actual .time-text > .time-countdown::before';
