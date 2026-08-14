@@ -914,6 +914,24 @@ testable** — *"content beats ancestry where the remote squashes"* is falsified
 by counting merge commits. Unqualified, it can only be believed or doubted. Same defect as Y6's
 _"wired through the stylesheet"_: true, unfalsifiable, and silently scoped.
 
+**Noticing that the _expected_ output is absent is a different reflex from noticing that the
+output is wrong — and it is the only one that works when a check produces nothing at all.**
+Every other catch in this file starts from something that looked odd: a count of `1` where `6`
+was expected, a `0` beside three `1`s, a byte figure that had moved. There was a number to be
+suspicious of.
+
+The third pipeline-swallowing instance had none. `git check-ignore … | sed … || echo "not
+ignored"` printed **neither branch** — `sed` exits 0 on empty input, so the `||` never fired and
+the whole result vanished. Nothing was wrong on screen; there was simply nothing on screen, in
+between two headings that had both printed. What caught it was noticing that **a line I had
+written the command to produce was missing**, which is not the same skill as reading a
+suspicious value.
+
+Practically, that argues for probes that print a line **per case rather than per finding** —
+`printf` inside the loop body, not only on the branch that has something to report. A probe that
+is silent when it has nothing to say is indistinguishable from a probe that did not run, and
+absence is the one output no amount of scrutiny of the *values* can catch.
+
 **`cmd && { ...; } || echo "not a repo"` reports the failure of the _last_ command in the
 block, not the first.** Checking a directory with `cd X && { git status; grep -n "six rules" f; } ||
 echo "X is not a repo"` printed **`X is not a repo`** — while `git status` in the same block had
