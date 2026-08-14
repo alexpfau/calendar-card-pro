@@ -45,6 +45,23 @@ kind. When the answer is *meaning*, there may be no mechanical instrument at all
 editorial judgement is not a weaker substitute for one; it is the only thing in the right
 category. Say so, rather than reaching for the probe that can run.
 
+**And the rule has a second half that is easier to break than the first: a wrong-category
+instrument cannot _veto_ a conclusion either.** The same session, one paragraph after stating
+the rule, withheld a correct editorial argument *because its string probe had found nothing* —
+treating the silence of an instrument with no standing as though it were a verdict. The
+argument was about whether two sentences do the same work, which is readable, arguable and
+settled by looking; it never needed a measurement, and it was right.
+
+That is the under-claiming direction, and it pairs exactly with the selection bias recorded
+further down. **Over-claiming from a probe that lied leaves a wrong artefact someone eventually
+trips on. Under-claiming from a probe that stayed silent leaves nothing at all** — and *a
+correct argument that was never made is indistinguishable from an argument nobody had*. One
+failure is eventually discovered by its consequences; the other has none, which is why the
+count of it in this file is zero and that zero means nothing.
+
+The compact form: **an instrument in the wrong category can neither license a conclusion nor
+forbid one.**
+
 **But count discriminating power, not agreeing checks.** The eager path being unchanged by
 nine languages was reported as _"measured four independent ways"_. It was not: one
 counterfactual — empty every translation file, rebuild, compare hashes — plus three
