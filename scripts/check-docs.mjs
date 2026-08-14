@@ -346,6 +346,76 @@ function checkCoverage(fields, docs) {
 }
 
 // ---------------------------------------------------------------------------
+// Check 18 — markdown that silently degrades to plain text
+// ---------------------------------------------------------------------------
+
+/**
+ * Three constructs that render as literal paragraph text instead of what was meant,
+ * with nothing anywhere else to notice.
+ *
+ * Every one of these was confirmed against the shipped renderer rather than assumed —
+ * a fixture page was built with `vitepress build` and the emitted HTML inspected. That
+ * matters, because the intuition here is unreliable: a heading, list, table, container,
+ * fence or blockquote written with **no blank line before it** all render perfectly
+ * well, so a "block needs a blank line" rule would be noise. These three do not.
+ *
+ *  - `##Heading` (no space after the hashes) emitted
+ *    `<p>##Heading …</p>`.
+ *  - A table whose separator row has a different column count from its header emitted
+ *    `<p>| Option | Type | Extra | | --- …</p>`, pipes and all.
+ *  - `[text] (url)` with a space between the brackets emitted
+ *    `<p>See [text] (/features/…)</p>`. This one is doubly invisible: it is not a
+ *    markdown link, so check 7 never resolves it either — a typo turns a link into
+ *    literal brackets *and* escapes link validation.
+ *
+ * An unclosed `:::` container is deliberately not checked: markdown-it closes it at end
+ * of file and the block renders correctly, so a rule would fire on working pages.
+ */
+function checkSilentMarkdown(docs) {
+  for (const file of docs) {
+    const rel = relative(ROOT, file);
+    let fenced = false;
+
+    const lines = readFileSync(file, 'utf8').split('\n');
+
+    lines.forEach((line, i) => {
+      if (line.startsWith('```')) {
+        fenced = !fenced;
+        return;
+      }
+      if (fenced) return;
+
+      // A letter, deliberately, not "any non-space". These documents open wrapped prose
+      // lines with GitHub issue references — `#339 exhibits ...` — which markdown also
+      // renders as text, correctly and on purpose. Requiring a letter catches `##Heading`
+      // and leaves `#339` alone; the first version of this rule flagged four such lines.
+      if (/^#{1,6}[A-Za-z]/.test(line)) {
+        error(`${rel}:${i + 1} heading needs a space after the hashes; renders as body text.`);
+      }
+
+      // `[text] (url)` — a space where markdown allows none.
+      const spaced = line.match(/\[[^\]]+\]\s+\((\/|https?:|#)[^)]*\)/);
+      if (spaced) {
+        error(
+          `${rel}:${i + 1} link has a space between ] and (; renders as literal brackets and escapes link checking.`,
+        );
+      }
+
+      // Table separator whose column count disagrees with the header above it.
+      if (/^\s*\|[\s:-]*-[\s:|-]*\|\s*$/.test(line) && i > 0) {
+        const cells = (row) => row.trim().replace(/^\||\|$/g, '').split('|').length;
+        const header = lines[i - 1];
+        if (/\|/.test(header) && cells(header) !== cells(line)) {
+          error(
+            `${rel}:${i + 1} table separator has ${cells(line)} columns but its header has ${cells(header)}; the whole table renders as text.`,
+          );
+        }
+      }
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Check 3 — code fences are balanced
 // ---------------------------------------------------------------------------
 
@@ -1462,6 +1532,7 @@ function main() {
   checkColumnDefaultOverrides(readColumnDefaultOverrides());
   checkCoverage(fields, docs);
   checkFences(docs);
+  checkSilentMarkdown(docs);
   const complete = checkCopyableExamples(docs);
   checkReadmeExample();
   const releases = checkWhatsNewCoverage();
