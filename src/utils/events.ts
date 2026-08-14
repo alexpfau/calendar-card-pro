@@ -33,15 +33,24 @@ export async function fetchEventData(
   instanceId: string,
   force = false,
 ): Promise<Types.EventFetchResult> {
-  // Generate cache key based on configuration
+  // The cache holds the *raw* API payload, so the key describes only what
+  // determines that payload: which calendars, over which window. Per-entity
+  // presentation (labels, colours, per-entity toggles) and processing options
+  // (filter_duplicates, allowlist/blocklist) are deliberately absent, because
+  // they are reapplied on every read below. A cache hit therefore reflects the
+  // live config rather than the config that happened to be active when the
+  // fetch ran.
   const cacheKey = getBaseCacheKey(
     instanceId,
     config.entities,
     config.days_to_show,
     config.show_past_events,
     config.start_date,
-    config.filter_duplicates, // Include filter_duplicates in cache key
   );
+
+  // Resolved before the cache check because both paths need them.
+  const language = Localize.getEffectiveLanguage(config.language, hass.locale);
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language);
 
   // Try cache first
   const isManualPageReload = isManualPageLoad();
@@ -49,7 +58,10 @@ export async function fetchEventData(
     const cachedEvents = getCachedEvents(cacheKey, config, isManualPageReload);
     if (cachedEvents) {
       Logger.info(`Using ${cachedEvents.length} events from cache`);
-      return { events: [...cachedEvents], failedEntities: [] };
+      return {
+        events: processRawEvents(cachedEvents, config, firstDayOfWeek),
+        failedEntities: [],
+      };
     }
   }
 
@@ -59,14 +71,56 @@ export async function fetchEventData(
     typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
   );
 
-  const language = Localize.getEffectiveLanguage(config.language, hass.locale);
-  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language);
-
   const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
   const { events: fetchedEvents, failedEntities } = await fetchEvents(hass, entities, timeWindow);
 
+  // Cache the raw payload. This branch keys on the raw count rather than the
+  // processed one: an empty *fetch* is what warrants a short retry TTL, whereas
+  // a fetch that returned events which the current config happens to filter
+  // away is a complete answer and caches normally.
+  if (fetchedEvents.length > 0) {
+    cacheEvents(cacheKey, fetchedEvents);
+  } else if (failedEntities.length > 0) {
+    // Every event we might have had could be sitting behind a failed request.
+    // Caching this empty result would make a transient outage look like a
+    // genuinely empty calendar for the whole TTL, so leave the cache alone and
+    // let the next refresh retry the API.
+    Logger.warn(
+      `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
+    );
+  } else {
+    const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
+    Logger.info(
+      `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
+    );
+    cacheEvents(cacheKey, fetchedEvents, emptyTtlMs);
+  }
+
+  return { events: processRawEvents(fetchedEvents, config, firstDayOfWeek), failedEntities };
+}
+
+/**
+ * Apply the current configuration to a raw calendar payload.
+ *
+ * Both the cache-hit path and the freshly-fetched path route through here, so
+ * the two provably agree: what the user sees after a refetch is what they see
+ * on the next cache hit. Keeping this in one place is the whole point — the
+ * previous shape cached *processed* events, which froze per-entity config into
+ * the cache and left edits to labels, colours and per-entity toggles with no
+ * visible effect until the entry expired.
+ *
+ * @param rawEvents Raw events, straight from the API or from the cache
+ * @param config Calendar card configuration
+ * @param firstDayOfWeek Resolved first day of week, used for the reference date
+ * @returns Processed events, limited to the days_to_show window
+ */
+function processRawEvents(
+  rawEvents: ReadonlyArray<Types.CalendarEventData>,
+  config: Types.Config,
+  firstDayOfWeek: number,
+): Types.CalendarEventData[] {
   // Process events according to configuration rules
-  let processedEvents = processEvents(fetchedEvents, config);
+  const processedEvents = processEvents(rawEvents, config);
 
   // Additional check to enforce days_to_show as a hard limit from reference date
   const referenceDate = getStartDateReference(config, firstDayOfWeek);
@@ -74,7 +128,7 @@ export async function fetchEventData(
   limitDate.setDate(limitDate.getDate() + config.days_to_show);
 
   // Filter events to only include those within the days_to_show range
-  processedEvents = processedEvents.filter((event) => {
+  return processedEvents.filter((event) => {
     // Skip if event has no start information
     if (!event.start) return false;
 
@@ -90,27 +144,6 @@ export async function fetchEventData(
     // Include event only if it starts before the limit date
     return eventDate < limitDate;
   });
-
-  // Cache and return the processed results
-  if (processedEvents.length > 0) {
-    cacheEvents(cacheKey, processedEvents);
-  } else if (failedEntities.length > 0) {
-    // Every event we might have had could be sitting behind a failed request.
-    // Caching this empty result would make a transient outage look like a
-    // genuinely empty calendar for the whole TTL, so leave the cache alone and
-    // let the next refresh retry the API.
-    Logger.warn(
-      `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
-    );
-  } else {
-    const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
-    Logger.info(
-      `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
-    );
-    cacheEvents(cacheKey, processedEvents, emptyTtlMs);
-  }
-
-  return { events: processedEvents, failedEntities };
 }
 
 /**
@@ -251,7 +284,6 @@ export function groupEventsByDay(
 
       eventsByDay[eventDateKey].events.push({
         summary: event.summary || '',
-        time: FormatUtils.formatEventTime(event, config, language),
         location:
           (getEntitySetting(event._entityId, 'show_location', config, event) ??
           config.show_location)
@@ -269,6 +301,7 @@ export function groupEventsByDay(
         _matchedConfig: event._matchedConfig,
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
+        _isMultiDaySegment: event._isMultiDaySegment,
       });
     });
   }
@@ -665,13 +698,29 @@ function processEvents(
       return true;
     });
 
-    // Assign matched config and label for rendering
-    matchedEvents.forEach((event) => {
-      event._matchedConfig = typeof entityConfig === 'object' ? entityConfig : undefined;
-      event._entityLabel = getEntityLabel(entityId, config, event);
+    // Assign matched config and label for rendering.
+    //
+    // Copied rather than mutated. The input may be the raw payload held in the
+    // cache, and writing to it would bake this render's config into the cached
+    // events — reintroducing exactly the staleness that processing-on-read
+    // exists to remove. The `ReadonlyArray` parameter already declares this
+    // function does not own its input; that only covers the array, so the
+    // elements are copied here to make it true of them too.
+    //
+    // `_matchedConfig` is set on the copy *before* the label is derived from
+    // it, because `getEntityLabel` reads `event._matchedConfig` first
+    // (`getEntityLabel`, below). Deriving the label from `event` instead would
+    // silently read the previous config.
+    const decoratedEvents = matchedEvents.map((event) => {
+      const decorated: Types.CalendarEventData = {
+        ...event,
+        _matchedConfig: typeof entityConfig === 'object' ? entityConfig : undefined,
+      };
+      decorated._entityLabel = getEntityLabel(entityId, config, decorated);
+      return decorated;
     });
 
-    processedEvents.push(...matchedEvents);
+    processedEvents.push(...decoratedEvents);
   });
 
   // Split multi-day events after all processing is complete
@@ -794,6 +843,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         ...event,
         start: { date: currentDateStr },
         end: { date: nextDateStr },
+        _isMultiDaySegment: true,
       };
 
       segments.push(segment);
@@ -814,6 +864,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         ...event,
         start: { dateTime: startDateTime.toISOString() },
         end: { dateTime: firstDayEnd.toISOString() },
+        _isMultiDaySegment: true,
       };
       segments.push(firstDaySegment);
 
@@ -841,6 +892,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
           // Create all-day event for middle days
           start: { date: currentDateStr },
           end: { date: nextDateStr },
+          _isMultiDaySegment: true,
         };
 
         segments.push(middleDaySegment);
@@ -851,6 +903,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         ...event,
         start: { dateTime: lastDayStart.toISOString() },
         end: { dateTime: endDateTime.toISOString() },
+        _isMultiDaySegment: true,
       };
       segments.push(lastDaySegment);
     } else {
@@ -1392,7 +1445,6 @@ export function getBaseCacheKey(
   daysToShow: number,
   showPastEvents: boolean,
   startDate?: string,
-  filterDuplicates: boolean = false,
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -1417,22 +1469,7 @@ export function getBaseCacheKey(
   // Include the normalized startDate in the cache key
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
 
-  // Include filter_duplicates state in the cache key
-  const filterPart = filterDuplicates ? '_filtered' : '';
-
-  // Include entity filter patterns in cache key
-  const filterPatterns: string[] = [];
-  entities.forEach((entity) => {
-    if (typeof entity !== 'string') {
-      if (entity.blocklist) filterPatterns.push(`b:${entity.entity}:${entity.blocklist}`);
-      if (entity.allowlist) filterPatterns.push(`a:${entity.entity}:${entity.allowlist}`);
-    }
-  });
-
-  const filterListPart =
-    filterPatterns.length > 0 ? `_filters:${encodeURIComponent(filterPatterns.join('|'))}` : '';
-
-  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}${filterPart}${filterListPart}${Constants.VERSION.CURRENT}`;
+  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}${Constants.VERSION.CURRENT}`;
 }
 
 /**

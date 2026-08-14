@@ -28,6 +28,8 @@ This feature is especially useful for:
 - Seeing all active events for a given day at a glance
 - Getting a clearer picture of on-call schedules, multi-day conferences, or travel
 
+Because each row stands for a day rather than for the event as a whole, a [countdown](/features/event-content#countdown-display) on a split row counts whole calendar days to that row's own date. A holiday starting Monday reads as "in 4 days" on its first row, "in 5 days" on the second, and so on, whether or not the original event had a start time.
+
 The setting can be applied globally to all calendars or controlled separately for each calendar entity.
 
 This is the `split_multiday_events` option — see [Event Column in the configuration reference](/reference/configuration#event-column).

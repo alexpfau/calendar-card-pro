@@ -63,17 +63,11 @@ function getInputTag(): ReturnType<typeof literal> {
   return haInputTag;
 }
 
-// Deprecated parameter mappings for config upgrade
-const DEPRECATED_CONFIG_MAP: Record<string, string> = {
-  max_events_to_show: 'compact_events_to_show',
-  vertical_line_color: 'accent_color',
-  horizontal_line_width: 'day_separator_width',
-  horizontal_line_color: 'day_separator_color',
-  row_spacing: 'day_spacing',
-};
-const DEPRECATED_ENTITY_CONFIG_MAP: Record<string, string> = {
-  max_events_to_show: 'compact_events_to_show',
-};
+// Deprecated parameter mappings for config upgrade.
+// Re-exported from config.ts so the editor's upgrade path and the runtime's
+// deprecation notice can never disagree about which keys are dead.
+const DEPRECATED_CONFIG_MAP = Config.DEPRECATED_CONFIG_MAP;
+const DEPRECATED_ENTITY_CONFIG_MAP = Config.DEPRECATED_ENTITY_CONFIG_MAP;
 
 /**
  * Matches an absolute start_date the date picker can represent: a plain
