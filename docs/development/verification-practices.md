@@ -62,6 +62,21 @@ count of it in this file is zero and that zero means nothing.
 The compact form: **an instrument in the wrong category can neither license a conclusion nor
 forbid one.**
 
+**And this is the one entry in the file that can only arrive by self-report — which is the
+honest limit of everything else in it.** Every other finding here was caught by one of three
+things: a probe, a control, or a second person reading an artefact. Under-claiming **produces no
+artefact**, so none of those three can ever reach it. It gets written down only if whoever did it
+volunteers it, unprompted, against their own interest.
+
+So the single entry below is not evidence that the failure is rare. It is evidence of **a
+reporting channel that was used once.** A count with a known bias should say which way it leans,
+and this one leans all the way: the over-claiming column is populated by instruments, the
+under-claiming column by candour alone.
+
+Which is the boundary of the method this file argues for. **Mechanisms replaced memory
+everywhere except the one place where nothing but self-report can reach** — and a mechanism
+cannot be built for it, because the defect's signature is the absence of any output at all.
+
 **But count discriminating power, not agreeing checks.** The eager path being unchanged by
 nine languages was reported as _"measured four independent ways"_. It was not: one
 counterfactual — empty every translation file, rebuild, compare hashes — plus three
