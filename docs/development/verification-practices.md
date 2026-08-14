@@ -636,6 +636,27 @@ clean run over an empty set. **A probe that names its inputs beats a reader who 
 list**, and three participants have now demonstrated the remembering approach failing, twice
 by the person who had just written the warning down.
 
+**A hedge does not survive restatement, and no new evidence is needed to lose it.** A session
+wrote to me *"the removal was **presumably** your release cleanup"* — honest, labelled as
+inference, and reasonable. Twenty minutes later its own task summary read *"my worktree was
+removed **during the release**"*. Same claim, qualifier gone, now asserted. **Nothing happened
+in between.** No probe ran, nothing was searched, no fact arrived; the claim simply firmed up
+by being restated in a more formal register. (It was also false — `package.json` on `main`
+read `3.5.0`, so nothing had shipped.)
+
+This is not a search failure and does not belong with the ways a pattern can mislead. It sits
+one step earlier, at the moment an **observation becomes an instruction**. The asymmetry is
+what makes it expensive: a withdrawn observation costs nothing, because the reader was still
+deciding — a withdrawn instruction costs whatever was built on it. And summaries are exactly
+where observations get promoted, because the register rewards confidence and a qualifier
+reads as noise.
+
+The guard is mechanical, like the artefact-naming one, and for the same reason — attention is
+not available at the moment of restatement:
+
+> **When restating a claim, carry the qualifier or carry the evidence. If you have neither,
+> it was inference, and it belongs in the message rather than the summary.**
+
 **The author supplies the missing piece for free, which is why they cannot see it is
 missing.** A session reviewing a shared skill file found the sentence *"A third session (this
 one) later replaced the whole view"*. Unambiguous to whoever wrote it; **`(this one)` has no
