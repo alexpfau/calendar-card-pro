@@ -840,6 +840,10 @@ export function validateColumnOverrides(config: Types.Config): void {
       continue;
     }
 
+    // Must stay above the `DEFAULT_CONFIG` check below: every key that belongs here is
+    // also a valid `DEFAULT_CONFIG` member, so reversing the two sends the user to the
+    // "set it at the top level instead" advice, which does not work for these. The set is
+    // normally empty, so no test can reach this branch and nothing will catch the swap.
     if (NOT_YET_IMPLEMENTED_KEYS.has(key)) {
       Logger.warn(
         `Ignoring "column.${key}": this option is planned for column view but is not implemented yet.`,
