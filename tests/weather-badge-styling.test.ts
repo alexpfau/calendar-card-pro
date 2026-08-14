@@ -80,12 +80,15 @@ describe('event weather badge styling', () => {
       expect(found.length).toBeGreaterThan(0);
     });
 
-    it('falls back to the primary text colour, matching what the badge sits beside', () => {
-      // In the list the badge sits next to the primary-coloured event title; in column
-      // view next to secondary-coloured time/location rows. The fallback differs on
-      // purpose, so pin it — otherwise "fixing" the inconsistency would regress one view.
+    it('falls back to the secondary text colour, as v3 shipped', () => {
+      // This previously pinned --primary-text-color, on the reasoning that the badge
+      // sits next to the primary-coloured event title. That reasoning was sound in
+      // isolation and wrong against the baseline: v3 rendered this badge with
+      // `eventConfig.color || 'var(--secondary-text-color)'` (v3.6.0 leaves.ts:324), and
+      // weather.event.color has no default, so every card using weather.position: event
+      // took the secondary value. Pinning primary here pinned the regression.
       const found = listReachableText('--calendar-card-weather-event-color');
-      expect(found.some(([, body]) => body.includes('var(--primary-text-color)'))).toBe(true);
+      expect(found.some(([, body]) => body.includes('var(--secondary-text-color)'))).toBe(true);
     });
 
     it('does not emit the colour property unconditionally from the host', () => {
@@ -131,6 +134,58 @@ describe('event weather badge styling', () => {
       );
       expect(scoped.length).toBeGreaterThan(0);
       expect(scoped.some(([, body]) => body.includes('var(--secondary-text-color)'))).toBe(true);
+    });
+  });
+
+  describe('the list fallback colour matches what v3 shipped', () => {
+    /**
+     * v3.5.0 and v3.6.0 rendered the event badge with two DIFFERENT fallbacks, chosen
+     * by position: `dateConfig.color || 'var(--primary-text-color)'` for the day header
+     * and `eventConfig.color || 'var(--secondary-text-color)'` for the per-event badge
+     * (v3.6.0 `leaves.ts:88` and `leaves.ts:324`).
+     *
+     * When the inline styles moved into the stylesheet, the list placement was given
+     * `--primary-text-color` on the reasoning that the badge sits beside the primary
+     * event title. That reversed shipped behaviour for every card using
+     * `weather.position: event` without an explicit `weather.event.color` -- which is
+     * every such card, because the key has no default -- and it also made the list
+     * disagree with this card's own column view, which kept secondary.
+     *
+     * Asserted as an equality between the two placements rather than as a literal, so
+     * a future change to one has to be a deliberate change to both.
+     */
+    it('uses the secondary text colour, as v3 did', () => {
+      const listColour = listReachableText('--calendar-card-weather-event-color');
+
+      expect(listColour.length).toBeGreaterThan(0);
+      expect(listColour.every(([, body]) => body.includes('var(--secondary-text-color)'))).toBe(
+        true,
+      );
+    });
+
+    it('agrees with the column placement, so the badge reads the same in both views', () => {
+      const fallbackOf = (pairs: Array<[string, string]>): Set<string> => {
+        const out = new Set<string>();
+        for (const [, body] of pairs) {
+          const m = body.match(/--calendar-card-weather-event-color,\s*(var\(--[a-z-]+\))/);
+          if (m) out.add(m[1]);
+        }
+        return out;
+      };
+
+      const list = fallbackOf(listReachableText('--calendar-card-weather-event-color'));
+      const column = fallbackOf(
+        rules().filter(
+          ([sel, body]) =>
+            sel.includes('.time-location') &&
+            sel.includes('.event-weather-text') &&
+            body.includes('--calendar-card-weather-event-color'),
+        ),
+      );
+
+      expect(list.size).toBe(1);
+      expect(column.size).toBe(1);
+      expect([...list]).toEqual([...column]);
     });
   });
 

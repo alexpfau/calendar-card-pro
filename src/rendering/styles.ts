@@ -152,19 +152,17 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
   }
 
   // The event weather colour is emitted only when the user set one, for exactly the
-  // reason the progress bar's width is: the two placements want different defaults, and
-  // an unconditionally-emitted value is indistinguishable from a deliberate choice.
+  // reason the progress bar's width is: an unconditionally-emitted value is
+  // indistinguishable from a deliberate choice, and the key has no default to emit.
   //
-  // The badge sits beside different text in each view. In the list it is inside
-  // `summary-row`, next to the primary-coloured event title; in column view it is a row
-  // inside `.time-location`, next to the secondary-coloured time and location. Baking
-  // `var(--secondary-text-color)` in here made the column's answer the only answer — and
-  // because the only CSS reading it was scoped to `.time-location`, the list got neither
-  // the colour nor the font size. It had lost its inline styles in the same move, so
-  // `weather.event.color` and `weather.event.font_size` were dead there: at defaults the
-  // badge silently inherited the event row instead of rendering at 12px.
+  // Both placements now fall back to var(--secondary-text-color) in the stylesheet,
+  // which is what v3 rendered for this badge: v3 chose the fallback per position in the
+  // renderer, primary for the day header and secondary for the per-event badge (v3.6.0
+  // leaves.ts:88 and leaves.ts:324). Because weather.event.color has no default, every
+  // card using weather.position: event took that secondary value, so anything else here
+  // is a visible change for all of them.
   //
-  // Left absent, each placement's `var()` reaches its own fallback.
+  // Left absent, each placement's var() reaches that shared fallback.
   if (config.weather?.event?.color) {
     props['--calendar-card-weather-event-color'] = config.weather.event.color;
   }
@@ -728,7 +726,7 @@ export const cardStyles = css`
   .event-weather ha-icon {
     margin-right: 2px;
     --mdc-icon-size: var(--calendar-card-weather-event-icon-size, 14px);
-    color: var(--calendar-card-weather-event-color, var(--primary-text-color));
+    color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
   }
 
   /*
@@ -745,18 +743,22 @@ export const cardStyles = css`
    * the badge inherited the event row at defaults. The scoped rules looked complete
    * because column view -- the view being worked on -- was correct.
    *
-   * The fallback is --primary-text-color, not the column's --secondary-text-color. That
-   * is not an inconsistency: here the badge sits beside the primary-coloured event
-   * title, and in column view beside the secondary-coloured time and location rows. The
-   * fallback follows what the badge sits next to, which is why the host property is
-   * emitted only when the user sets one.
+   * The fallback is --secondary-text-color, matching the column placement below and,
+   * more importantly, matching what v3 shipped. v3 chose the fallback per position in
+   * the renderer -- primary for the day header, secondary for the per-event badge
+   * (v3.6.0 leaves.ts:88 and leaves.ts:324) -- and weather.event.color has no default,
+   * so every card using weather.position: event took that secondary value. This briefly
+   * carried --primary-text-color on the reasoning that the badge sits beside the primary
+   * event title; that reversed shipped behaviour for every such card and made the list
+   * disagree with this card's own column view. Restored, and pinned by
+   * tests/weather-badge-styling.test.ts as an equality between the two placements.
    *
    * NOTE: no backticks in this file's comments -- the stylesheet is a css tagged
    * template, so a backtick terminates it. That is a syntax error rather than a subtle
    * one, but it costs a build.
    */
   .event-weather .event-weather-text {
-    color: var(--calendar-card-weather-event-color, var(--primary-text-color));
+    color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
   }
 
   .event-weather .event-weather-text > span {
