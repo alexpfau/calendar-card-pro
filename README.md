@@ -24,14 +24,14 @@ option, all features and worked examples — lives on the
 **[documentation site](https://calendar-card-pro.alexpfau.com)**, which is searchable and
 always matches the latest release.
 
-| | |
-| --- | --- |
-| 🚀 [Installation](https://calendar-card-pro.alexpfau.com/guide/installation) | Set the card up via HACS or manually |
-| 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) | Add the card and configure it visually |
-| ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor) | Weather, templates, layout, actions, and more |
-| 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option |
-| 💡 [Examples](https://calendar-card-pro.alexpfau.com/reference/examples) | Ready-made configurations to copy |
-| 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) | Full history of every release |
+|                                                                                            |                                               |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| 🚀 [Installation](https://calendar-card-pro.alexpfau.com/guide/installation)               | Set the card up via HACS or manually          |
+| 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage)                             | Add the card and configure it visually        |
+| ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor)      | Weather, templates, layout, actions, and more |
+| 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option           |
+| 💡 [Examples](https://calendar-card-pro.alexpfau.com/reference/examples)                   | Ready-made configurations to copy             |
+| 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)                   | Full history of every release                 |
 
 <p>&nbsp;</p>
 
@@ -155,6 +155,16 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🌦️ **Weather in Column View**: A row of its own beneath the time, optionally [stating the condition in words](https://calendar-card-pro.alexpfau.com/features/weather#weather-in-the-column-layout) in your language
 - ⚠️ **Breaking**: Manual installs now copy [two files](https://calendar-card-pro.alexpfau.com/guide/installation#manual-installation), `event_icon_vertical_alignment` defaults to `top`, and weather badges are styled through [custom properties](https://calendar-card-pro.alexpfau.com/features/theming#weather-custom-properties) instead of inline styles
 
+### v3.6
+
+- 📚 **A Documentation Site**: The full manual now lives at [calendar-card-pro.alexpfau.com](https://calendar-card-pro.alexpfau.com) — a page per feature, a [complete configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and [ready-made examples](https://calendar-card-pro.alexpfau.com/reference/examples)
+- 🐛 **One Stray Line of YAML Broke the Card**: A bare `-` left in the `entities:` list replaced the whole calendar with a red error box; malformed entries are now discarded
+- 🐛 **Per-Calendar Settings Applied Late**: Editing a per-calendar label, colour or toggle did nothing until the cache expired — edits now apply immediately
+- 🐛 **Disappearing and Ellipsised Text**: Titles gained a `…` when nothing had been truncated, and long words in descriptions and locations were clipped mid-character with no warning
+- 🐛 **Multi-Day Countdowns**: Each row of a [split multi-day event](https://calendar-card-pro.alexpfau.com/features/multi-day-events) counted differently; every row now counts whole calendar days to its own date
+- 🐛 **Silently Ignored Options**: Options removed back in v3.0.0 were dropped without comment for YAML users, and are now reported with their replacement
+
+
 ### v3.5
 
 - 🫥 **Empty State Control**: [Remove the card entirely](https://calendar-card-pro.alexpfau.com/features/event-content#calendar-events-display) when there are no upcoming events, or replace "No upcoming events" with [your own wording](https://calendar-card-pro.alexpfau.com/features/event-content#custom-empty-day-text)
@@ -170,16 +180,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🌤️ **Weather Across the Full Range**: Timed events beyond Home Assistant's hourly forecast horizon now [fall back to the daily forecast](https://calendar-card-pro.alexpfau.com/features/weather#weather-configuration-options) instead of showing nothing
 - 🐛 **All-Day Countdowns Off By One**: Now measured in whole calendar days instead of from the current instant
 - ⚡ **Faster Rendering**: Color resolution is cached, removing hundreds of forced layouts per refresh on large calendars
-
-### v3.3
-
-- 🌍 **Two New Languages**: British English and Latvian (35 total), with editor translations for Italian, British English, and Latvian (11 total)
-- 🐛 **HA 2026.5+ Visual Editor**: Restored the text input fields, which vanished entirely after Home Assistant removed `ha-textfield`
-- 🐛 **`event_color` Fix**: No longer ignored when no per-entity color is configured
-
-_Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
-
-<p align="right"><a href="#top">⬆️ back to top</a></p>
 
 ## 5️⃣ Contributing
 
