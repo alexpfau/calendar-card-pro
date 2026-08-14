@@ -217,6 +217,50 @@ function normalise(value) {
 
 const isStructural = (raw) => raw.startsWith('[') || raw.startsWith('{');
 
+/**
+ * Options whose static default is `undefined` because the real value is decided at
+ * runtime, each one traced to the code that decides it.
+ *
+ * Every entry here would otherwise warn on every single run. Nine permanent warnings is
+ * not a signal, it is a wall: a reader who has scrolled past the same nine lines a dozen
+ * times will scroll past the tenth without reading it, and the tenth is the one that
+ * matters. This table exists so that a warning from this check means "nobody has looked
+ * at this yet" rather than "here is the list again".
+ *
+ * The value is the documented default each trace was made against, so editing the docs
+ * re-opens the question instead of silently inheriting a sign-off given for different
+ * wording. The comment is the code that was read — re-read it before touching an entry,
+ * and delete the entry rather than updating it blind.
+ */
+const VERIFIED_RUNTIME_FALLBACKS = new Map([
+  // utils/events.ts — absent or unparseable resolves to today ("Falling back to today").
+  ['start_date', 'Today'],
+  // config/config.ts `toValidNumber(…, 1)` — the 1 is a floor, not a default. Absent
+  // means no limit, which is why an invalid value clears rather than collapses to zero.
+  ['compact_days_to_show', '-'],
+  ['compact_events_to_show', '-'],
+  // utils/events.ts — `customEmptyText || translations.noEvents`, so absence renders the
+  // translated string and no new language key is needed.
+  ['empty_day_text', '_translated default_'],
+  // translations/localize.ts `getEffectiveLanguage()` — config, then the HA locale, then
+  // its base tag, then `en`.
+  ['language', '`System`, fallback `en`'],
+  // Absent renders no title at all; there is nothing to fall back to.
+  ['title', '-'],
+  // rendering/styles.ts — the custom property is only written when the option is set, so
+  // absence leaves the stylesheet's own value in place. The documented default is that
+  // variable because that is literally what applies.
+  ['title_font_size', '`--calendar-card-font-size-title`'],
+  ['title_color', '`--calendar-card-color-title`'],
+  // Each placement supplies its own fallback; a shipped default cannot express "different
+  // per position" and would be indistinguishable from a deliberate choice. See the
+  // `weather.color` comment in config/config.ts, which documents the same mechanism.
+  ['progress_bar_width', '_per placement_'],
+]);
+
+/** Entries actually reached, so the table can be checked for rot. */
+const runtimeFallbacksSeen = new Set();
+
 function readReferenceRows() {
   const doc = readFileSync(REFERENCE_DOC, 'utf8');
   const out = new Map();
@@ -240,9 +284,21 @@ function checkDefaults(defaults, rows, resolveConstant) {
     // Documented inheritance: the code says undefined, the docs explain what actually
     // happens at runtime. That is correct and must not be "fixed" to say `undefined`.
     if (raw === 'undefined') {
-      if (!/inherit/i.test(def)) {
+      if (/inherit/i.test(def)) continue;
+      if (!VERIFIED_RUNTIME_FALLBACKS.has(key)) {
         warn(
-          `${key}: code default is \`undefined\` but docs say "${def}" — verify the runtime fallback is what is described`,
+          `${key}: code default is \`undefined\` but docs say "${def}" — trace the runtime fallback, ` +
+            'then record it in VERIFIED_RUNTIME_FALLBACKS so this stops warning',
+        );
+        continue;
+      }
+      runtimeFallbacksSeen.add(key);
+      const verifiedAgainst = VERIFIED_RUNTIME_FALLBACKS.get(key);
+      if (verifiedAgainst !== def) {
+        error(
+          `${key}: documented default is now "${def}", but the runtime fallback was verified ` +
+            `against "${verifiedAgainst}" — re-read the code path named in ` +
+            'VERIFIED_RUNTIME_FALLBACKS and update the entry',
         );
       }
       continue;
@@ -272,6 +328,19 @@ function checkDefaults(defaults, rows, resolveConstant) {
     if (!defaults.has(key)) {
       warn(
         `${key}: documented in the reference but not in DEFAULT_CONFIG — stale row, or an optional field with no default`,
+      );
+    }
+  }
+
+  // A suppression list that outlives the thing it suppresses is how a check goes quiet
+  // about something real. An entry stops being reached the moment the option gains a
+  // static default, is renamed, or is removed — in each case the recorded trace now
+  // describes code that no longer runs.
+  for (const key of VERIFIED_RUNTIME_FALLBACKS.keys()) {
+    if (!runtimeFallbacksSeen.has(key)) {
+      error(
+        `${key}: listed in VERIFIED_RUNTIME_FALLBACKS but no longer reaches that branch — ` +
+          'the option was renamed, removed, or given a static default. Drop the entry',
       );
     }
   }
