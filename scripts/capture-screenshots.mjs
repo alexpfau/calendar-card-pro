@@ -248,6 +248,20 @@ const SHOTS = [
     scale: LIST_SCALE,
     note: 'Weather integration',
   },
+  // The editor is not a dashboard card, so it needs its own path: enter the view's edit
+  // mode, click the card's edit wrapper, and photograph the dialog. `card` is the index
+  // among *all* cards in the section including headings, which is why it is not the same
+  // number as `index` elsewhere in this file.
+  {
+    id: 'editor',
+    view: 'ccp-release-advanced',
+    editorCard: 1,
+    out: 'example_editor.png',
+    width: 1400,
+    height: 1150,
+    dark: true,
+    note: 'The visual editor, nine panels and a live preview',
+  },
   {
     id: 'complete',
     view: 'ccp-release-complete',
@@ -358,6 +372,52 @@ async function settle(page, card) {
   }
 }
 
+/**
+ * Photograph the card-configuration dialog.
+ *
+ * Home Assistant renders the dialog into the top layer, and its surface carries no stable
+ * class or role that Playwright can resolve — `.mdc-dialog__surface`, `[role="dialog"]`
+ * and a geometry sweep of every shadow root all come back empty. What *is* stable is the
+ * dialog's own furniture, so the crop is derived from the title and the footer buttons
+ * plus the dialog's measured inset. That survives Home Assistant renaming its internals,
+ * which it does between releases.
+ *
+ * In edit mode each card is wrapped in `hui-card-edit-mode`, which intercepts pointer
+ * events — clicking the card itself times out. The wrapper is the click target, and it
+ * wraps *every* card including headings, so the index is not the calendar-card index.
+ */
+async function captureEditor(page, shot) {
+  await page.goto(`${HA_URL}/dashboard-admin/${shot.view}?edit=1`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await page.waitForTimeout(6000);
+
+  await page.locator('hui-card-edit-mode').nth(shot.editorCard).click();
+  await page.waitForTimeout(7000);
+
+  const title = await page.getByText('Calendar Card Pro card configuration').first().boundingBox();
+  const save = await page.getByText('Save', { exact: true }).first().boundingBox();
+  const code = await page.getByText('Show code editor', { exact: true }).first().boundingBox();
+  if (!title || !save || !code) throw new Error('editor dialog did not open');
+
+  const left = code.x - 16;
+  const clip = {
+    x: left,
+    y: title.y - 19,
+    width: save.x + save.width + 16 - left,
+    height: save.y + save.height + 12 - (title.y - 19),
+  };
+
+  const target = path.join(OUT_DIR, shot.out);
+  await page.screenshot({ path: target, clip });
+  console.log(
+    `  \u2713 ${shot.out.padEnd(34)} ${String(Math.round(clip.width)).padStart(4)}x${String(
+      Math.round(clip.height),
+    ).padStart(4)}         ${shot.note}`,
+  );
+  // Nothing is saved: the context is discarded without touching Save.
+}
+
 async function capture(page, shot) {
   const theme = shot.theme ?? HA_THEME;
   await page.setViewportSize({ width: shot.width, height: 1200 });
@@ -435,7 +495,8 @@ async function main() {
   const withPage = async (shot, fn) => {
     const context = await browser.newContext({
       deviceScaleFactor: shot.scale ?? 2,
-      viewport: { width: shot.width ?? 1600, height: 1200 },
+      viewport: { width: shot.width ?? 1600, height: shot.height ?? 1200 },
+      colorScheme: shot.dark ? 'dark' : undefined,
     });
     const page = await context.newPage();
     await authenticate(page);
@@ -463,7 +524,10 @@ async function main() {
     }
 
     console.log(`Capturing ${selected.length} screenshot(s) from ${HA_URL} into ${OUT_DIR}\n`);
-    for (const shot of selected) await withPage(shot, (page) => capture(page, shot));
+    for (const shot of selected)
+      await withPage(shot, (page) =>
+        (shot.editorCard === undefined ? capture : captureEditor)(page, shot),
+      );
     console.log('\nDone.');
   } finally {
     await browser.close();
