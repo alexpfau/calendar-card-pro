@@ -636,6 +636,24 @@ clean run over an empty set. **A probe that names its inputs beats a reader who 
 list**, and three participants have now demonstrated the remembering approach failing, twice
 by the person who had just written the warning down.
 
+**Seventh way a phrase search misleads: markdown emphasis markers sit _inside_ the phrase.**
+Verifying the entry below, one of four tokens returned `0` — `an observation becomes an
+instruction`. The text was present and correct; the source reads `an **observation becomes an
+instruction**`, and the literal pattern cannot match across the `**`. The other three tokens
+returned `1` and the negative control returned `0`, so **the run looked healthy and one true
+statement read as missing.**
+
+Two things make this worth its lines. It was hit **one minute after committing a finding about
+verification**, in the verification of that very finding — which is the standing demonstration
+that the dimension you are about to hit is never the one you just learned. And it fails in the
+*safe* direction only by luck: had the token been one I expected to be absent, the `0` would
+have confirmed a false belief.
+
+The remedy is the one already stated for continuations, widened: **normalise the content to
+match the question.** Flatten wraps when searching prose; strip `*`, `_` and backticks when
+searching a phrase that might carry emphasis; and if a token comes back `0` while its
+neighbours come back `1`, suspect the pattern before the text.
+
 **A hedge does not survive restatement, and no new evidence is needed to lose it.** A session
 wrote to me *"the removal was **presumably** your release cleanup"* — honest, labelled as
 inference, and reasonable. Twenty minutes later its own task summary read *"my worktree was
