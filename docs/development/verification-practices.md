@@ -671,6 +671,51 @@ match the question.** Flatten wraps when searching prose; strip `*`, `_` and bac
 searching a phrase that might carry emphasis; and if a token comes back `0` while its
 neighbours come back `1`, suspect the pattern before the text.
 
+**The normaliser is itself a check, and it needs its own control.** Verifying the entry below,
+two tokens returned `0`. The first diagnosis was right — em dash in the content, hyphen in the
+pattern — so a dash-normalising step went in, and the tokens **still** returned `0`. At that
+point the content looked wrong. It was not; the *fix* was broken.
+
+```
+printf 'a — b' | perl -0pe    's/[—–]/-/g'   ->  'a --- b'    three hyphens
+printf 'a — b' | perl -CSD -0pe 's/[—–]/-/g' ->  'a — b'      no conversion
+python3  s.replace('\u2014','-')             ->  'a - b'      correct
+```
+
+Without `-CSD`, perl treats the 3-byte UTF-8 em dash as three **bytes** and replaces each one,
+so a single dash becomes `---` and the pattern misses by two characters. With `-CSD` it stops
+matching altogether. **Both forms fail, in opposite directions, and both produce a plausible
+`0`** — indistinguishable from the `0` the previous, correctly-diagnosed cause had produced.
+
+That compounding is the point. A correct diagnosis, a fix that is itself defective, and an
+unchanged symptom reads as *the diagnosis was wrong*, which sends the next attempt somewhere
+worse. The only thing that separated them was **running the normaliser on a known input** —
+`printf 'a — b'` — which is the same `assertFound()` idea applied one level up, to the tool
+doing the checking rather than the thing being checked.
+
+Generalised: **every layer between the question and the answer is a check.** The probe, the
+normaliser, the control, and the control's control. This file has now recorded a failure at
+each of them, and the regress stops in exactly one place — at a layer you have watched fail on
+purpose.
+
+**Labelling a claim's evidential standard is not modesty — it is routing.** Two sessions
+arrived at the two halves of why it pays, and neither is the reason it is usually given.
+
+*It buys correctability, not correctness.* One session wrote an inference, labelled it, and it
+was wrong. The label did not improve the claim — it meant the premise could be corrected in one
+line instead of untangled from a conclusion presented as fact. **The label does not change the
+claim; it changes what happens to the claim next.**
+
+*And it tells the next person which claims are cheap to attack.* The other supplied a
+derivation it had no shell to run, said so, and named the command that would settle it. That
+ordering — claim labelled unmeasured, then measured by someone else — is why the confirmation
+was **informative rather than ceremonial**: there was no chance of mistaking it for something
+already checked, so spending ten seconds on it was obviously worth it. It ran backwards from
+every other check in this file, and it is the only one whose value was guaranteed in advance.
+
+Both halves point the same way: an unlabelled claim gets believed or doubted. A labelled one
+gets **routed** — to a correction, or to a shell.
+
 **A hedge does not survive restatement, and no new evidence is needed to lose it.** A session
 wrote to me *"the removal was **presumably** your release cleanup"* — honest, labelled as
 inference, and reasonable. Twenty minutes later its own task summary read *"my worktree was
