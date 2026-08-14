@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Shared leaf renderers for Calendar Card Pro
  *
@@ -29,6 +28,7 @@
 
 import { TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
+
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
 import * as EventUtils from '../utils/events';

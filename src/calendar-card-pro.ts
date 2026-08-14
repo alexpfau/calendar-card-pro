@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Calendar Card Pro
  *
@@ -31,23 +30,23 @@ import * as Config from './config/config';
 import * as Constants from './config/constants';
 import * as Types from './config/types';
 import * as ViewConfig from './config/view';
-import * as Localize from './translations/localize';
-import * as EventUtils from './utils/events';
 import * as Actions from './interaction/actions';
+import * as Feedback from './interaction/feedback';
+import type * as Editor from './rendering/editor/index';
+import * as Render from './rendering/render';
+import * as Styles from './rendering/styles';
+import * as Localize from './translations/localize';
+import { editorModuleUrl } from './utils/editor-url';
+import * as EventUtils from './utils/events';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
-import * as Styles from './rendering/styles';
-import * as Feedback from './interaction/feedback';
-import * as Render from './rendering/render';
+import * as Templates from './utils/templates';
 import * as Weather from './utils/weather';
 import * as WeatherI18n from './utils/weather-i18n';
-import * as Templates from './utils/templates';
-import { editorModuleUrl } from './utils/editor-url';
 // Type-only, so the editor is not on the card's import graph — and cannot be, because it
 // is built separately. It is reached at runtime through a dynamic import() in
 // getConfigElement(), which is what keeps it — and its translations — in a second file
 // that a browser fetches only when the editor is opened.
-import type * as Editor from './rendering/editor/index';
 
 //-----------------------------------------------------------------------------
 // GLOBAL TYPE DECLARATIONS

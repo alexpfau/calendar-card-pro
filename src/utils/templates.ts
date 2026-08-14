@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Template utilities for Calendar Card Pro
  *
@@ -12,8 +11,8 @@
  * without duplicating the subscription, debounce and teardown logic.
  */
 
-import * as Types from '../config/types';
 import * as Logger from './logger';
+import * as Types from '../config/types';
 
 //-----------------------------------------------------------------------------
 // CONSTANTS

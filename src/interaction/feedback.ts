@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Visual feedback for Calendar Card Pro interactions
  *
@@ -6,9 +5,9 @@
  * including hold indicators and related visual effects.
  */
 
+import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as Logger from '../utils/logger';
-import * as Constants from '../config/constants';
 
 //-----------------------------------------------------------------------------
 // VISUAL INDICATORS

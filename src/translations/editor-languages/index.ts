@@ -1,4 +1,4 @@
-/* eslint-disable import/order */
+/* eslint-disable import/order -- the annotated language list below is separated by a blank line on purpose; see the comment above it. */
 /**
  * The previous editor's namespace. **An archive — nothing ships from here.**
  *
@@ -41,8 +41,8 @@ import * as Localize from '../localize';
 
 // Import editor sections (sorted alphabetically by language code, mirroring localize.ts)
 import deEditor from './de.json';
-import enEditor from './en.json';
 import enGBEditor from './en-GB.json';
+import enEditor from './en.json';
 import etEditor from './et.json';
 import itEditor from './it.json';
 import ltEditor from './lt.json';

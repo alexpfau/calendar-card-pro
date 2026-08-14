@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Column view rendering for Calendar Card Pro
  *
@@ -25,12 +24,13 @@
 
 import { TemplateResult, html, nothing } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import { repeat } from 'lit/directives/repeat.js';
-import * as Types from '../config/types';
-import * as ViewConfig from '../config/view';
+import { styleMap } from 'lit/directives/style-map.js';
+
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
+import * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
 
 //-----------------------------------------------------------------------------
 // DAY BOUNDARIES

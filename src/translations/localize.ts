@@ -1,4 +1,4 @@
-/* eslint-disable import/order */
+/* eslint-disable import/order -- the annotated language list below is separated by a blank line on purpose; see the comment above it. */
 /**
  * Localization module for Calendar Card Pro
  *
@@ -11,13 +11,13 @@ import * as Logger from '../utils/logger';
 
 // Import language files (sorted alphabetically by language code)
 import bgTranslations from './languages/bg.json';
-import csTranslations from './languages/cs.json';
 import caTranslations from './languages/ca.json';
+import csTranslations from './languages/cs.json';
 import daTranslations from './languages/da.json';
 import deTranslations from './languages/de.json';
 import elTranslations from './languages/el.json';
-import enTranslations from './languages/en.json';
 import enGBTranslations from './languages/en-GB.json';
+import enTranslations from './languages/en.json';
 import esTranslations from './languages/es.json';
 import etTranslations from './languages/et.json';
 import fiTranslations from './languages/fi.json';
@@ -36,13 +36,13 @@ import plTranslations from './languages/pl.json';
 import ptTranslations from './languages/pt.json';
 import roTranslations from './languages/ro.json';
 import ruTranslations from './languages/ru.json';
-import slTranslations from './languages/sl.json';
 import skTranslations from './languages/sk.json';
+import slTranslations from './languages/sl.json';
 import svTranslations from './languages/sv.json';
-import ukTranslations from './languages/uk.json';
-import viTranslations from './languages/vi.json';
 import thTranslations from './languages/th.json';
 import trTranslations from './languages/tr.json';
+import ukTranslations from './languages/uk.json';
+import viTranslations from './languages/vi.json';
 import zhCNTranslations from './languages/zh-CN.json';
 import zhTWTranslations from './languages/zh-TW.json';
 

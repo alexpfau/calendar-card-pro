@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Presentation models for Calendar Card Pro
  *
@@ -19,10 +18,10 @@
  * could leak into the DOM.
  */
 
-import * as Types from '../config/types';
-import * as FormatUtils from '../utils/format';
-import * as EventUtils from '../utils/events';
 import type { EventContentParts } from './leaves';
+import * as Types from '../config/types';
+import * as EventUtils from '../utils/events';
+import * as FormatUtils from '../utils/format';
 
 /**
  * Everything about a single event that is independent of the view rendering it.

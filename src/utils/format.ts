@@ -1,15 +1,14 @@
-/* eslint-disable import/order */
 /**
  * Formatting utilities for Calendar Card Pro
  *
  * Handles formatting of dates, times, and locations for display.
  */
 
-import * as Types from '../config/types';
-import * as Localize from '../translations/localize';
-import * as Constants from '../config/constants';
 import * as Helpers from './helpers';
+import * as Constants from '../config/constants';
+import * as Types from '../config/types';
 import { getRelativeTimeString } from '../translations/dayjs';
+import * as Localize from '../translations/localize';
 
 //-----------------------------------------------------------------------------
 // HIGH-LEVEL PUBLIC APIs

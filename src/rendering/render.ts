@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Rendering module for Calendar Card Pro
  *
@@ -9,14 +8,15 @@
 
 import { TemplateResult, html, nothing } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import { repeat } from 'lit/directives/repeat.js';
+import { styleMap } from 'lit/directives/style-map.js';
+
+import * as Leaves from './leaves';
+import * as Presentation from './presentation';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
-import * as Leaves from './leaves';
-import * as Presentation from './presentation';
 
 /**
  * Re-exported so the card can dispatch between views through a single import
