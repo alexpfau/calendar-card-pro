@@ -586,10 +586,6 @@ export const cardStyles = css`
     border-start-start-radius: 0;
   }
 
-  .event-middle {
-    /* No additional styles needed */
-  }
-
   .event-last {
     border-end-end-radius: var(--calendar-card-event-border-radius);
     border-end-start-radius: 0;
@@ -824,7 +820,8 @@ export const cardStyles = css`
    * resort, when it does not fit on a line of its own.
    *
    * The list view has a wide event cell and effectively never reaches either point; the
-   * column view, whose narrowest track is 152px, reaches the first one routinely.
+   * column view, whose narrowest track is column.min_day_width at 140px, reaches the
+   * first one routinely.
    *
    * align-items: center below is deliberate and overrides the shared
    * .time, .location, .description rule at equal specificity by source order. It is
@@ -989,11 +986,11 @@ export const cardStyles = css`
    * string across five viewport widths, counting rows where the dot leads a continuation
    * line -- both arms injected, so a concurrent deploy could not silently swap them:
    *
-   *     整天, 明天结束        format.ts:519   ID    16  ->  0
-   *     整天, 直到 17. 8月    format.ts:529   ID    36  ->  0
-   *     整天                  format.ts:66    ID     0  ->  0   (too short to force it)
-   *     all day, ends tomorrow                AL     0  ->  0
-   *     0:00 - 20:00                          NU     0  ->  0
+   *     整天, 明天结束        formatMultiDayAllDayTime   ID    16  ->  0
+   *     整天, 直到 17. 8月    formatMultiDayAllDayTime   ID    36  ->  0
+   *     整天                  formatEventTime            ID     0  ->  0   (too short to force it)
+   *     all day, ends tomorrow                           AL     0  ->  0
+   *     0:00 - 20:00                                     NU     0  ->  0
    *
    * Note the third row: the same script and the same class, and it never reproduces,
    * because a two-character string never makes the browser look for a break at that
@@ -1134,8 +1131,8 @@ export const cardStyles = css`
    *
    * show_conditions states the condition verbally in this placement, which puts
    * variable-length prose into the narrowest layout the card has -- the column track
-   * bottoms out at 152px, and German is not kind: "Strömender Regen" is longer than the
-   * track it has to sit in.
+   * bottoms out at column.min_day_width, 140px, and German is not kind: "Strömender
+   * Regen" is longer than the track it has to sit in.
    *
    * The flex item is the .event-weather-text wrapper, not this span. That distinction is
    * load-bearing: as a direct flex item, the condition moved to a new line as one block.
@@ -1548,7 +1545,8 @@ export const cardStyles = css`
   /*
    * The axis flip, in two rows. The list view stacks weekday over day over month down
    * a narrow date column; a column header has the full track width but very little of
-   * it -- roughly 150px at the point the view engages.
+   * it -- about 149px for three columns in a 500px Home Assistant section, and 140px at
+   * the fit threshold, which is where column.min_day_width puts the floor.
    *
    * A single row spends about 98px of that on "Mon 10 AUG" alone, leaving the weather
    * badge some 43px, which truncates it to nothing useful. Splitting the weekday onto

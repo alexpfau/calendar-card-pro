@@ -32,11 +32,7 @@ import { humanize, lookup } from '../localize';
  * @param values - Option values, in the order they should appear
  * @returns Labelled options
  */
-export function options(
-  language: string,
-  name: string,
-  values: ReadonlyArray<string>,
-): SelectOption[] {
+function options(language: string, name: string, values: ReadonlyArray<string>): SelectOption[] {
   return values.map((value) => ({
     value,
     label: lookup(language, `${name}.option.${value}.label`) ?? humanize(value),

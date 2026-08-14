@@ -26,6 +26,8 @@ title: Release Notes
 - **A Header Per Column** - Week numbers render in each column's header rather than as a full-width row, with columns that do not start a week reserving the exact height without announcing anything to assistive technology. The today indicator becomes a leading item on the weekday row — an unambiguous marker at any column width — because the default `15% 50%` position is calibrated for the list view's narrow date cell and resolves *into* the day number on a full-width column header
 - **The Progress Bar Takes a Row of Its Own** - A countdown and a progress bar never appear on the same event, so each gets the treatment it needs rather than one compromise suiting neither. The countdown stays on the time row as trailing text after a middot, breaking at an ordinary word boundary when the column is too narrow; the bar moves to its own row under the title, spanning 80% of the column, where a row with no icon in front of it reads as deliberate
 
+- **Offered in the Card Picker** - Adding a card **by entity** and picking a `calendar.*` entity now offers two starting points under **Community**: *Calendar Card Pro* for the list layout and *Calendar Card Pro - Columns* for this one, each previewed with that calendar's real events. The two recipes differ by a single option, so the second is a one-click way to see the column layout rather than a different card
+
 Column view is the days-side-by-side half of #300. A time axis, overlap lanes and a now-line are a genuinely different layout — the two want opposite things from vertical space — and are reserved for a separate view under the name `grid`. They are **not** in this release.
 
 ### ⚙️ A Rebuilt Visual Editor
@@ -47,11 +49,11 @@ Translation resolves **per string**, requested language first and English second
 
 ### 📏 Per-Field Line Limits
 
-- **`title_max_lines`, `time_max_lines` and `location_max_lines`** - Cap how many lines each field may occupy, mirroring the existing `description_max_lines`. Type number, default `0` for unlimited, and truncated text ends in `...`. They work in both layouts and can be given a different value inside a `column:` block, which is where they earn their keep — a title that runs to four lines in a 152px track pushes every event below it off the screen (see [Limiting Lines Per Field](https://calendar-card-pro.alexpfau.com/features/event-content#limiting-lines-per-field))
+- **`title_max_lines`, `time_max_lines` and `location_max_lines`** - Cap how many lines each field may occupy, mirroring the existing `description_max_lines`. Type number, default `0` for unlimited, and truncated text ends in `...`. They work in both layouts and can be given a different value inside a `column:` block, which is where they earn their keep — a title that runs to four lines in a 140px track pushes every event below it off the screen (see [Limiting Lines Per Field](https://calendar-card-pro.alexpfau.com/features/event-content#limiting-lines-per-field))
 
 ### 🌦️ Weather in the Column Layout
 
-- **A Row of Its Own** - In column view an event's forecast takes a row beneath the time rather than sitting on the title row beside the summary, where at 152px a two-word title breaks into three lines around it. Because that row shares a leading icon edge with the time, location and description rows, the condition icon is always shown there
+- **A Row of Its Own** - In column view an event's forecast takes a row beneath the time rather than sitting on the title row beside the summary, where at 140px a two-word title breaks into three lines around it. Because that row shares a leading icon edge with the time, location and description rows, the condition icon is always shown there
 - **The Condition in Words** - `show_conditions` decides whether the condition is also stated in words alongside the icon — `21° · UV4 · Partly cloudy`. The words come from Home Assistant, which translates all fifteen conditions itself, so they follow the card's configured language and the card ships no condition wording of its own. A middot rather than a comma, because Home Assistant's own vocabulary contains `Clear, night`
 - **`weather.event.max_lines`** - Caps how many lines that row may use, `0` for unlimited (see [Weather In The Column Layout](https://calendar-card-pro.alexpfau.com/features/weather#weather-in-the-column-layout))
 
@@ -90,7 +92,7 @@ Translation resolves **per string**, requested language first and English second
 
 ## ⚡ Performance
 
-- **The Card File Is 42% Smaller to Download** - The visual editor and its translations are the larger half of the bundle, and most dashboard loads never open it. Splitting the editor into a file the card fetches on demand takes it, and every string it needs, off the path every dashboard pays for. Measured on the production build against v3.6.0, the release before this one: the file every dashboard downloads falls from **98,197 to 57,166 bytes** over the wire, which is 42%. That is at `gzip -9`, because that is what actually reaches a browser — HACS writes a `.gz` beside each file it installs and Home Assistant serves it in place of the original, and this release's zip now does the same for manual installs. Uncompressed on disk the reduction is larger, 351,905 to 188,866 raw, or 46%. The editor's own 82,102 bytes are paid only by someone who opens it
+- **The Card File Is 42% Smaller to Download** - The visual editor and its translations are the larger half of the bundle, and most dashboard loads never open it. Splitting the editor into a file the card fetches on demand takes it, and every string it needs, off the path every dashboard pays for. Measured on the production build against v3.6.0, the release before this one: the file every dashboard downloads falls from **98,197 to 57,115 bytes** over the wire, which is 42%. That is at `gzip -9`, because that is what actually reaches a browser — HACS writes a `.gz` beside each file it installs and Home Assistant serves it in place of the original, and this release's zip now does the same for manual installs. Uncompressed on disk the reduction is larger, 351,905 to 189,416 raw, or 46%. The editor's own 82,216 bytes are paid only by someone who opens it
 - **CSS Comments No Longer Ship** - A `css` tagged template's contents are a string literal, so no minifier looks inside one and every explanatory comment in the stylesheet was downloaded by every user. They are now stripped at build time instead of being kept terse in the source
 
 ## Related Issues
@@ -102,7 +104,7 @@ Translation resolves **per string**, requested language first and English second
 - [#344](https://github.com/alexpfau/calendar-card-pro/issues/344) - Countdown display appears one day short for all-day calendar events by @Scooshie
 - [#377](https://github.com/alexpfau/calendar-card-pro/issues/377) - [Epic] Column view — days side by side by @alexpfau
 
-**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.5.0...v4.0.0
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.6.0...v4.0.0
 
 # Calendar Card Pro v3.6.0
 
@@ -540,16 +542,6 @@ The visual editor now supports 5 languages total: English, Slovak, Norwegian, Ge
 ---
 
 # Calendar Card Pro v3.0.4
-
-## 🐛 Bug Fixes
-
-- **Fixed accent color backgrounds** - Resolved an issue where event background colors wouldn't display properly when using named colors like "blue" in the accent_color setting (RGB and hex values were unaffected)
-
-## Related Issues
-
-- [#219](https://github.com/alexpfau/calendar-card-pro/issues/219) - Shaded Accent Backgrounds fail after 3.0.x by @dml105
-
-**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.0.3...v3.0.4# Calendar Card Pro v3.0.4
 
 ## 🐛 Bug Fixes
 

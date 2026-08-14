@@ -109,18 +109,6 @@ export function isIconValue(value: string): boolean {
 }
 
 /**
- * Checks if a string is an emoji
- *
- * @param str String to check
- * @returns True if the string is an emoji
- */
-export function isEmoji(str: string): boolean {
-  // Basic emoji detection using Unicode ranges
-  const emojiRegex = /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
-  return str.length <= 2 && emojiRegex.test(str);
-}
-
-/**
  * Determine the type of today indicator based on the value
  *
  * @param value The today_indicator value from config

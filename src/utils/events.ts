@@ -1152,39 +1152,6 @@ function generateEventSignature(event: Types.CalendarEventData): string {
 //-----------------------------------------------------------------------------
 
 /**
- * Get entity color from configuration based on entity ID
- *
- * @param entityId - The entity ID to find color for
- * @param config - Current card configuration
- * @param event - Optional event data containing matched configuration
- * @returns Color string from entity config or default
- */
-export function getEntityColor(
-  entityId: string | undefined,
-  config: Types.Config,
-  event?: Types.CalendarEventData,
-): string {
-  if (!entityId) return 'var(--primary-text-color)';
-
-  // Check if we have a matched config stored directly on the event
-  if (event && event._matchedConfig) {
-    const matchedConfig = event._matchedConfig;
-    return matchedConfig.color || 'var(--primary-text-color)';
-  }
-
-  const entityConfig = config.entities.find(
-    (e) =>
-      (typeof e === 'string' && e === entityId) || (typeof e === 'object' && e.entity === entityId),
-  );
-
-  if (!entityConfig) return 'var(--primary-text-color)';
-
-  return typeof entityConfig === 'string'
-    ? 'var(--primary-text-color)'
-    : entityConfig.color || 'var(--primary-text-color)';
-}
-
-/**
  * Get entity accent color with applied opacity
  * Retrieves accent color from entity config and converts it to RGBA in one step
  *

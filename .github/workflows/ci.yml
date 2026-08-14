@@ -64,6 +64,16 @@ jobs:
             echo "::error::.nvmrc ($NVMRC) and .node-version ($NODEVER) disagree. CI pins from .nvmrc, the Cloudflare build image reads .node-version; drift between them reintroduces the #404 npm-version mismatch."
             exit 1
           fi
+          # The two pin files agreeing is only worth something if every workflow actually
+          # reads them. release.yml hardcoded `node-version: 24` against a .nvmrc of 22 and
+          # nothing noticed, because the check above compares the files to each other and
+          # never to the workflows — so the job that runs `npm ci` and publishes the release
+          # was the one job on an untested npm major.
+          HARDCODED=$(grep -rlE '^[[:space:]]*node-version:' .github/workflows/ || true)
+          if [ -n "$HARDCODED" ]; then
+            echo "::error::Workflow(s) hardcode a Node version instead of node-version-file: .nvmrc — $HARDCODED. Pin from .nvmrc so every job runs the npm major the lockfile is maintained under."
+            exit 1
+          fi
           echo "Consistent: v$PKG on Node $NVMRC"
 
       - name: Install dependencies

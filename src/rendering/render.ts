@@ -330,16 +330,6 @@ function renderWeekRow(
 //-----------------------------------------------------------------------------
 
 /**
- * Check if a given date is a weekend day (Saturday or Sunday)
- *
- * @param date - Date to check
- * @returns True if the date is a weekend day
- */
-function isWeekend(date: Date): boolean {
-  return Leaves.isWeekendDate(date);
-}
-
-/**
  * Render a date column for the given date with appropriate styling
  *
  * @param date Date to display
@@ -538,7 +528,7 @@ export function renderEvent(
 
   // Check if this is a weekend day
   const dayDate = new Date(day.timestamp);
-  const isWeekendDay = isWeekend(dayDate);
+  const isWeekendDay = Leaves.isWeekendDate(dayDate);
 
   // Determine event position for styling
   const isFirst = index === 0;

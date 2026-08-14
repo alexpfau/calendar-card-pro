@@ -212,7 +212,9 @@ export const PANELS: ReadonlyArray<PanelDef> = [
  * whether or not it is flattened, while its data is only nested when it is not — so a
  * flattened group keeps the configuration flat and still qualifies its children's
  * label keys. `ha-form-grid` passes the hooks straight through and contributes
- * nothing either way, which is also true of our grids because they are unnamed.
+ * nothing either way. That holds for our grids too — including the *named* one `scope()`
+ * builds — because a grid is not `expandable`, and it is `expandable` that nests a label
+ * path. A named grid nests its **data** under that name; it never nests labels.
  *
  * `computeLabel` resolves the qualified key first and the bare key second, so a
  * flattened group's children are labelled by their config key without repeating the

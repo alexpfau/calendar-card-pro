@@ -123,16 +123,6 @@ const UNION_OVERRIDES: Readonly<Record<string, UnionOverride>> = {
 export const UNION_OVERRIDE_KEYS: ReadonlyArray<string> = Object.keys(UNION_OVERRIDES);
 
 /**
- * Whether an option is edited through a mode dropdown rather than bound to a selector.
- *
- * @param key - Config key
- * @returns `true` when the key is one of the three
- */
-export function isUnionOverride(key: string): boolean {
-  return key in UNION_OVERRIDES;
-}
-
-/**
  * The field the picker offers for a union-typed option.
  *
  * Never rendered — `expandFields` is what the form draws — but it is what the search

@@ -1,10 +1,18 @@
 /**
  * Everything the editor renders as a form but not as *the* panel form.
  *
- * One place that answers "which schemas does this panel put on screen", so the chassis
- * and `check:i18n` can never disagree about it. They would otherwise: the chassis
- * renders whatever it draws, and the check walks whatever it is told about, and the two
- * are only the same list because this module is the only source of it.
+ * One place that answers "which schemas does this panel put on screen", so that
+ * `check:i18n` can reconcile the strings those schemas resolve without walking the DOM.
+ *
+ * **This is a description of the chassis, not the chassis's own source.** `element.ts`
+ * assembles the exception widget and the filter bar itself and takes only
+ * `EXCEPTION_PICKER` from here, so the two agree because they call the same helpers —
+ * `Exceptions.eligibleFields`, `Overrides.expandFields`, `FILTER_SCHEMA`, and each
+ * panel's own `subforms` — and not because one is derived from the other. An earlier
+ * version of this comment claimed the chassis read this module and therefore could never
+ * disagree with the check; it does not, and a schema added to `element.ts` alone would
+ * render with strings nothing reconciles. Add it in both places, or route the chassis
+ * through here.
  *
  * There are two kinds, and they exist for opposite reasons. The per-calendar settings
  * are declared by the panel that owns them, because only that panel knows they exist.
@@ -21,7 +29,7 @@ import * as Exceptions from './exceptions';
 import { FILTER_SCHEMA } from './filter';
 import type { HaFormSchema } from './ha-form';
 import * as Overrides from './overrides';
-import { PANELS, type PanelDef, type SchemaCtx, type SubformDef } from './panels';
+import { type PanelDef, type SchemaCtx, type SubformDef } from './panels';
 import * as ViewConfig from '../../config/view';
 
 /**
@@ -120,16 +128,4 @@ export function exceptionSubforms(panel: PanelDef, ctx: SchemaCtx): SubformDef[]
  */
 export function panelSubforms(panel: PanelDef, ctx: SchemaCtx): SubformDef[] {
   return [...(panel.subforms?.(ctx) ?? []), ...exceptionSubforms(panel, ctx)];
-}
-
-/**
- * Every sub-form the editor renders, for one configuration.
- *
- * @param ctx - Schema context
- * @returns Each panel with the sub-forms it renders
- */
-export function allSubforms(ctx: SchemaCtx): Array<{ panel: PanelDef; subforms: SubformDef[] }> {
-  return PANELS.map((panel) => ({ panel, subforms: panelSubforms(panel, ctx) })).filter(
-    (entry) => entry.subforms.length > 0,
-  );
 }

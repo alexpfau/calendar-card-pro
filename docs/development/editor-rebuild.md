@@ -59,6 +59,12 @@ frontend or our own runtime, not inferred:
    into the exceptions node. Seeded, every column card opens with two exception rows it
    never asked for, against the rule that an unused exceptions widget adds no chrome. The
    sentence now sits under the shared control, driven from `DEFAULT_OVERRIDES_BY_VIEW`.
+10. **Every "52 overrides" figure below is a snapshot, and the count is now 54.**
+    `show_past_events` and `filter_duplicates` became overridable in `d6e8381`, after this
+    document was written. The counts at §2, §5.3 and §9.3 are left as measured rather than
+    chased, because nothing depends on the number: `editor-schema.test.ts` asserts an empty
+    set of missing keys against `COLUMN_OVERRIDE_KEYS`, so coverage follows the array
+    wherever it goes. Read `view.ts`, not a figure in this file.
 
 **Where implementation stands:** Stages 1 to 3 have landed on `feature/column-view-v4` —
 foundation, value plumbing, the nine-panel taxonomy, the `check:i18n` rewrite, and the two
@@ -543,7 +549,7 @@ the one we would introduce:
 
 - **`column:` needs its own pass.** The block's defaults are not in `DEFAULT_CONFIG`; they are
   `COLUMN_DEFAULTS` for the six column-only keys (`view.ts:236-273`) and *the effective top-level
-  value* for the 52 override keys. So strip `column.min_day_width: 140` (equals the column default)
+  value* for the override keys (52 when this was written, 54 today). So strip `column.min_day_width: 140` (equals the column default)
   and `column.show_location: false` when top-level `show_location` is already `false` (a redundant
   override). Composed default = `{ ...COLUMN_DEFAULTS, ...pick(config, COLUMN_OVERRIDE_KEYS) }`.
 - **Prune the block when it empties**, or `column: {}` accumulates.
@@ -896,7 +902,7 @@ Already ruled out and the ruling is right. Worth recording the sharpened form of
 must survive. `view: column` hiding `today_indicator_position` is not, because that field is the
 live control for the layout the card uses on a phone.
 
-### 9.3 A single "Column Settings" panel holding all 52 overrides
+### 9.3 A single "Column Settings" panel holding all the overrides
 
 Rejected. It destroys adjacency, recreates the entire taxonomy inside itself so every future option
 must be filed twice, and does not survive a third view — "Column Settings" plus "Grid Settings" is

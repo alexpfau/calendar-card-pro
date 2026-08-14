@@ -14,22 +14,33 @@ src/
 ├── config/                       # Configuration-related code
 │   ├── config.ts                 # DEFAULT_CONFIG and config helpers
 │   ├── constants.ts              # Application constants and defaults
-│   └── types.ts                  # TypeScript interface definitions
+│   ├── types.ts                  # TypeScript interface definitions
+│   └── view.ts                   # View resolution: the `column:` block, density, fallback
 ├── interaction/                  # User interaction handling
 │   ├── actions.ts                # Action execution (tap, hold, etc.)
 │   └── feedback.ts               # Visual feedback (ripple, hold indicators)
 ├── rendering/                    # UI rendering code
-│   ├── editor/                   # Schema-driven configuration editor
+│   ├── editor/                   # Schema-driven configuration editor (its own bundle)
+│   │   ├── index.ts              # Build entry and public surface of the editor
 │   │   ├── element.ts            # The Lit element: lifecycle, panels, one handler
 │   │   ├── panels.ts             # Panel registry and schema context
 │   │   ├── schemas/              # One module per panel, plus their shared vocabulary
 │   │   ├── ha-form.ts            # Our declaration of Home Assistant's schema shape
 │   │   ├── value.ts              # Write path: default-stripping and pruning
+│   │   ├── entities.ts           # Write path for the per-calendar list
+│   │   ├── exceptions.ts         # Per-view exceptions, derived from each panel's schema
+│   │   ├── overrides.ts          # Exceptions for the three union-typed options
+│   │   ├── subforms.ts           # The schemas a panel renders outside its own form
+│   │   ├── filter.ts             # Search and "customized only"
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
 │   │   ├── localize.ts           # The string hooks `ha-form` calls
 │   │   ├── strings.ts            # English editor strings
+│   │   ├── translations/         # The same keys per language, partial by design
 │   │   └── styles.ts             # Editor chassis CSS
-│   ├── render.ts                 # Component rendering functions
+│   ├── render.ts                 # Card shell and the list view
+│   ├── column.ts                 # The column view
+│   ├── leaves.ts                 # Axis-agnostic leaf renderers shared by both views
+│   ├── presentation.ts           # Layout-independent per-event presentation models
 │   └── styles.ts                 # CSS styles and dynamic styling
 ├── translations/                 # Localization support
 │   ├── dayjs.ts                  # Day.js locale configuration
@@ -41,10 +52,50 @@ src/
 └── utils/                        # Utility functions
     ├── events.ts                 # Calendar event fetching and processing
     ├── format.ts                 # Date and text formatting
+    ├── start-date.ts             # The `start_date` relative-date grammar
     ├── helpers.ts                # Generic utilities (color, ID generation)
     ├── logger.ts                 # Logging system
-    └── weather.ts                # Weather data fetching and processing
+    ├── templates.ts              # Jinja2 title templates over the HA websocket
+    ├── editor-url.ts             # Where the editor file lives, relative to the card
+    ├── weather.ts                # Weather data fetching and processing
+    └── weather-i18n.ts           # Condition text in the card's language
 ```
+
+## Two Views, One Agenda
+
+The card renders the same agenda in one of two layouts, and this is the structural fact
+most worth holding on to before changing anything under `rendering/`:
+
+- **`view: list`** stacks days vertically, each day a row. This is what the card has
+  always done and remains the default.
+- **`view: column`** lays days side by side, one column each.
+
+They are not two implementations of the card. Every **leaf** — the date block, the event
+body, the weather badges, the today indicator — lives in `leaves.ts` and knows nothing
+about which container will place it; `presentation.ts` computes everything about an event
+that does not depend on layout. `render.ts` and `column.ts` are therefore just the two
+containers that arrange those shared pieces along different axes.
+
+Both layouts are live for the same card. A card configured for columns falls back to the
+list when it is too narrow to give every day `column.min_day_width`, so the view is
+resolved per render from the measured width rather than fixed by the configuration —
+which is why options are annotated as list-only rather than hidden. `config/view.ts` owns
+that resolution, along with the `column:` override block whose values apply only when the
+card renders as columns.
+
+## Two Files, One Card
+
+The build emits **two** self-contained bundles into a flat `dist/`:
+`calendar-card-pro.js` and `editor.js` (`-dev` suffixed in development builds). The card
+fetches the editor only when someone opens it, which keeps the editor and all of its
+translations off every dashboard load.
+
+Neither file imports the other. The card names the editor through a URL it computes at
+runtime (`utils/editor-url.ts`), which is invisible to both module graphs — a plain
+dynamic `import()` would make Rollup emit a shared chunk that the editor imports back
+from the card, and the query string HACS appends to the card's own URL would make the
+browser treat that as a second copy of the card. `npm run check:bundle` asserts the
+result after every build.
 
 ## Module Responsibilities
 
@@ -86,6 +137,16 @@ Manages all configuration aspects of the card:
   - Documents config properties and their purposes
   - Provides type safety throughout the application
 
+- **view.ts**:
+  - Resolves the effective value of an option for the view being rendered, merging the
+    `column:` override block over the top-level value
+  - Owns which options may be overridden per view, and which may not — anything deciding
+    *which* events are fetched has to hold one value in both layouts, because the card
+    switches between them as the dashboard resizes
+  - Computes the width threshold at which the column layout engages, and the hysteresis
+    that stops it oscillating at the boundary
+  - Validates the `column:` block and reports unusable keys
+
 ### Interaction (`interaction/`)
 
 Handles all user interaction with the card:
@@ -103,13 +164,28 @@ Handles all user interaction with the card:
 
 ### Rendering (`rendering/`)
 
-Generates the HTML and CSS for the card:
+Generates the HTML and CSS for the card. `render.ts` and `column.ts` are the two view
+containers; everything they place comes from `leaves.ts` and `presentation.ts`:
 
 - **render.ts**:
-  - Contains pure functions for rendering card elements
-  - Generates HTML templates for days, events, and states
-  - Uses the lit-html templating system
-  - Implements optimized rendering of event lists
+  - Renders the card shell — title, states, error and empty output
+  - Renders the **list** view: days stacked vertically, each event a table row
+  - Dispatches to the column view once `config/view.ts` resolves one
+
+- **column.ts**:
+  - Renders the **column** view: each day a vertical track, laid out side by side
+  - Arranges the same leaves as the list view along the other axis, and adds the
+    column-only furniture — per-column headers, vertical separators in the gutter
+
+- **leaves.ts**:
+  - The axis-agnostic pieces: the date block, the event body, the weather badges, the
+    today indicator
+  - None of them knows which container will place it, which is what keeps the two views
+    from drifting apart in what they draw
+
+- **presentation.ts**:
+  - Computes everything about an event that does not depend on layout: whether it has
+    already ended, its accent colors, and the pre-computed parts its body renders
 
 - **styles.ts**:
   - Defines CSS styles as LitElement templates
@@ -122,6 +198,7 @@ Generates the HTML and CSS for the card:
     cannot break it
   - Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM, which
     is what lets both the test suite and `check:i18n` import a schema and read it
+  - Built as a separate bundle and fetched on demand (see _Two Files, One Card_)
 
 ### Translations (`translations/`)
 
@@ -152,6 +229,10 @@ Provides core functionality across the card:
   - Processes location strings
   - Manages time formatting (12/24 hour)
 
+- **start-date.ts**:
+  - Parses the relative-date grammar accepted by `start_date`, such as `today+7`
+    and `start_of_week`
+
 - **helpers.ts**:
   - Provides color manipulation utilities
   - Generates deterministic IDs for caching
@@ -161,6 +242,23 @@ Provides core functionality across the card:
   - Provides tiered logging system
   - Handles error, warning, info, and debug messages
   - Includes version information in logs
+  - Lets a released build be raised above errors at runtime, so a bug report can carry
+    the output that explains it
+
+- **templates.ts**:
+  - Resolves Jinja2 card titles through Home Assistant's `render_template` websocket
+    subscription, which pushes a new value when a referenced entity changes
+
+- **editor-url.ts**:
+  - Computes where `editor.js` sits relative to the card, and carries the card's own
+    cache-busting query onto it (see _Two Files, One Card_)
+
+- **weather.ts**:
+  - Fetches and processes forecast data, and matches forecasts to events
+
+- **weather-i18n.ts**:
+  - Renders condition text in the **card's** configured language rather than the
+    signed-in user's profile language
 
 ## Module Interaction Flow
 
@@ -182,7 +280,12 @@ graph TD
     Events --> Format[Formatting]
 
     %% Rendering flow
-    Render --> DOM[DOM Operations]
+    Render --> ViewRes[View Resolution]
+    ViewRes --> List[List View]
+    ViewRes --> Column[Column View]
+    List --> Leaves[Shared Leaf Renderers]
+    Column --> Leaves
+    Leaves --> Present[Presentation Models]
     Render --> Styles[CSS Generation]
     Render --> Localize[Translations]
 

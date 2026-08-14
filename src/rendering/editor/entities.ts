@@ -29,7 +29,7 @@ import {
   INHERIT,
   LABEL_TYPE,
 } from './schemas/entity';
-import { entityIdOf } from './synthetic';
+import { entityIdOf, isSet } from './synthetic';
 import * as Types from '../../config/types';
 import * as Helpers from '../../utils/helpers';
 
@@ -60,11 +60,6 @@ const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set(['entity']);
  * user a nonsense card to add.
  */
 let clipboard: Types.EntityConfig | undefined;
-
-/** Whether a value counts as configured. */
-function isSet(value: unknown): boolean {
-  return value !== undefined && value !== null && value !== '';
-}
 
 /**
  * Reads one entry of the `entities` array as an object.

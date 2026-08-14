@@ -661,7 +661,7 @@ export interface EventContentOptions {
  * decision rather than a CSS one, which is why it is a parameter instead of a class.
  * In the list view the badge sits on the title row, to the right of the summary: there is
  * always slack there, because the event cell is as wide as the card. In the column view
- * there is none -- the narrowest track is 152px -- so a badge on the title row competes
+ * there is none -- the narrowest track is 140px -- so a badge on the title row competes
  * with the title for the same line and the title wraps *around* it, breaking a two-word
  * summary into three lines. Live-verified at 6 columns, where `Team Sync Meeting` rendered
  * as `Team` / `Sync 24 degrees` / `Meeting`.
@@ -779,7 +779,8 @@ export function renderEventContent(
   // And it only survives reformatting by luck of Prettier finding a tag boundary to break
   // at — add a third piece to the wrapper, or an attribute that changes where the line
   // fits, and the break can land somewhere that does emit a space. Freezing the shape is
-  // cheaper than re-deriving that each time. Contrast leaves.ts:122, where the directive
+  // cheaper than re-deriving that each time. Contrast the `renderDateWeather` template
+  // above, where the directive
   // genuinely is load-bearing: that template puts its interpolations at tag boundaries
   // across several lines, so reformatting moves indentation *adjacent to bindings*, and
   // deleting it turns five tests red.

@@ -17,12 +17,12 @@
  * | `localize.ts` | the three string hooks `ha-form` calls |
  * | `strings.ts` | English strings, in a fresh namespace |
  * | `translations/*.json` | the same keys, per language, partial by design |
+ * | `styles.ts` | the chassis, and nothing that names an input element |
  *
  * `check:i18n` imports the schema half directly and reconciles `strings.ts` against
  * the fields that use it, in both directions. That is the payoff of being
  * schema-driven: the schema is the field registry, so a missing label or a dead string
  * is a fact about data rather than something to be inferred from source text.
- * | `styles.ts` | the chassis, and nothing that names an input element |
  *
  * Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM, which
  * is what lets the test suite import a schema and assert on it directly.
