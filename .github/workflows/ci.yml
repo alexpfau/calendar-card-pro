@@ -26,6 +26,33 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      # Two release-infra drifts that every other check is blind to, guarded before the
+      # install so they fail in seconds. `npm ci` validates dependencies but never the root
+      # version, and exits 0 when package.json and package-lock.json disagree — so a release
+      # that bumps package.json alone passes lint, tsc, the tests and the build (8 of the 10
+      # releases from v3.0.1 through v3.4.0 shipped with a stale lock version that way, and
+      # 31 of 37 tags overall). And CI pins Node from .nvmrc while the Cloudflare build image
+      # reads .node-version: two files that must
+      # agree for the pin above to mean anything. When they drift, CI and the deploy run
+      # different npm majors and the #404 failure returns invisibly — CI green, docs site
+      # stale, the only log in the Cloudflare dashboard.
+      - name: Check version and Node pinning consistency
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          LOCK=$(node -p "require('./package-lock.json').version")
+          LOCK_ROOT=$(node -p "require('./package-lock.json').packages[''].version")
+          if [ "$PKG" != "$LOCK" ] || [ "$PKG" != "$LOCK_ROOT" ]; then
+            echo "::error::Version drift — package.json=$PKG, package-lock.json=$LOCK, packages['']=$LOCK_ROOT. Fix with: npx npm@10.9.2 install --package-lock-only"
+            exit 1
+          fi
+          NVMRC=$(tr -d ' \r\n' < .nvmrc)
+          NODEVER=$(tr -d ' \r\n' < .node-version)
+          if [ "$NVMRC" != "$NODEVER" ]; then
+            echo "::error::.nvmrc ($NVMRC) and .node-version ($NODEVER) disagree. CI pins from .nvmrc, the Cloudflare build image reads .node-version; drift between them reintroduces the #404 npm-version mismatch."
+            exit 1
+          fi
+          echo "Consistent: v$PKG on Node $NVMRC"
+
       - name: Install dependencies
         run: npm ci
 
