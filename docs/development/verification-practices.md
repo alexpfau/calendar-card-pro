@@ -740,9 +740,29 @@ printf 'a — b' | perl -CSD -0pe 's/[—–]/-/g' ->  'a — b'      no convers
 python3  s.replace('\u2014','-')             ->  'a - b'      correct
 ```
 
-Without `-CSD`, perl treats the 3-byte UTF-8 em dash as three **bytes** and replaces each one,
-so a single dash becomes `---` and the pattern misses by two characters. With `-CSD` it stops
-matching altogether. **Both forms fail, in opposite directions, and both produce a plausible
+The reason is not that one flag is wrong: there are **two** encoding decisions and they must
+agree. `-CSD` decodes STDIN, so the dash arrives as one character; `-Mutf8` decodes the *source*,
+so the dash in the pattern is one character. Fix one and the other still disagrees, and a
+character can never match a byte sequence. Predicted by the session that had no shell to test it,
+then measured here:
+
+| STDIN decoded | pattern decoded | `printf 'a — b'` |
+| --- | --- | --- |
+| no | no | `a --- b` — bytes match bytes, **each of three replaced** |
+| `-CSD` | no | `a — b` — silent no-op |
+| no | `-Mutf8` | `a — b` — silent no-op |
+| `-CSD` | `-Mutf8` | `a - b` ✅ |
+
+**Only the diagonal works, and the worst cell is the top one** — it is the only one that
+*visibly* transforms the input, so its output looks processed while being wrong by two
+characters. The two middle cells at least return the string unchanged.
+
+Which makes it the fifth appearance of a class already in this file: **two representations of one
+thing, drifting.** Two bold spellings, two italic spellings, two header styles, two units of
+measurement — and now the decoding of the pattern versus the decoding of the input, inside the
+tool doing the checking rather than the thing being checked.
+
+**Both single-flag forms fail, in opposite directions, and both produce a plausible
 `0`** — indistinguishable from the `0` the previous, correctly-diagnosed cause had produced.
 
 That compounding is the point. A correct diagnosis, a fix that is itself defective, and an
