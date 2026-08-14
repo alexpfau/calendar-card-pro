@@ -1,10 +1,23 @@
 name: Build & Lint Checks
 
+# `main` and `dev` are the two branches the model in AGENTS.md says receive PRs, and for
+# a long time they were the only two listed here. That left long-lived integration
+# branches — the ones a release's worth of work is assembled on before it reaches `dev` —
+# taking PRs with no checks at all. `feature/column-view-v4` took 390 commits that way;
+# merged PR #409 into it has `check-runs=0`. Nothing in the PR UI says a branch is
+# unchecked, so the gap is invisible from exactly the place you would look for it.
+#
+# `feature/**` matches on the PR's *base* branch, so this covers PRs into any such branch
+# without depending on what the head branch is called. Note the residual case: an
+# integration branch named outside that prefix is still unchecked, and if one is ever
+# created the fix is to add it here, or to drop the filter entirely — under the branch
+# model this list can only ever exclude PRs that should have been checked.
 on:
   pull_request:
     branches:
       - main
       - dev
+      - 'feature/**'
 
 jobs:
   lint-build:
