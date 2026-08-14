@@ -753,6 +753,35 @@ the extent of the problem. The instance is evidence that the class exists; it is
 evidence of the class's size. After finding one, the next step is to enumerate the
 population, not to record the lesson and move on.
 
+**The count I twice declared unknowable was recoverable, and it was 2.5x what I reported.**
+I wrote *"I still cannot enumerate which of the thirty-one had live sessions"* — in the same
+document as the rule that an unverifiability claim asserts no instrument exists over a space
+nobody has enumerated. An affected session, with no shell, pointed out that **session state
+does not live in the worktree**: `~/.copilot/session-state/<id>/workspace.yaml` records the
+`cwd`, and it survives the directory's deletion. The probe is one loop, and they shipped it
+with a positive control — **their own session**, a known live-session-with-deleted-worktree,
+which any correct run must flag.
+
+```
+workspace.yaml scanned                                   550
+cwd no longer exists (all time)                          203
+   ...restricted to tonight's window                      15   <- the answer
+control: the reporting session appears                   yes ✓
+```
+
+**Six told me. Fifteen were hit.** Nine sessions had their working directory removed and
+never said so, and I reported "six" to the maintainer as though it were the total — because
+six was the number that had *arrived*, and nothing distinguishes a complete count from the
+subset that happened to report. The `inuse.<pid>.lock` signal does not close the remaining
+gap: 8 of the 15 carry one, but so do 2 of 2 surviving recent sessions, so it does not
+discriminate live from finished at this sample size. **How many of the nine were live is
+still open — but it is open at 9, not at 31, and the number is bounded rather than absent.**
+
+Which makes this the file's own rule, applied to the file's own author, twice in one hour:
+the first unverifiability claim was closed by `git fsck`, this one by a directory the
+deletion could not reach. Both times the instrument was cheap, present, and simply never
+looked for — because *"I cannot know that"* ends a search, and that is what it is for.
+
 **And the mechanism is not carelessness — it is diligence pointed one level too low.** One of
 the affected sessions put it exactly: *a report is a sample, and the instinct to verify a
 report is precisely what stops you enumerating the population.* Confirming the reported case
