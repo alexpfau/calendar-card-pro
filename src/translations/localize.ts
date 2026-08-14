@@ -400,12 +400,15 @@ export function addTranslations(language: string, translations: Types.Translatio
 /**
  * Attach an `editor` section to a language that is already registered.
  *
- * The editor's strings are not shipped on the eager path. They live in
- * `./editor-languages/`, are reachable only from `src/rendering/editor/`, and land in
- * `editor.js` — the file the card fetches by URL when someone opens the editor — so for
- * the users who never do, they are downloaded to disk by HACS and never parsed by a
- * browser. This is the function that puts them back where `translate()` looks once
- * that file has loaded.
+ * **This is not how the live editor gets its strings.** It reads
+ * `src/rendering/editor/translations/` through its own `EDITOR_LANGUAGE_STRINGS` table
+ * and never calls this function. The only caller is
+ * `src/translations/editor-languages/index.ts` — the previous editor's namespace, which
+ * is an archive that nothing in `src/` imports, so Rollup includes neither it nor this
+ * registration in either bundle. See that file's header for why it is kept.
+ *
+ * It is retained, intact and tested, so the archive's registration path still works if
+ * the translation-mining pass re-enters it deliberately.
  *
  * Merging, not replacing, and that distinction is the whole reason this exists rather
  * than reusing `addTranslations`: the card's own strings for a language are already in
