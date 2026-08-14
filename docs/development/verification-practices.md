@@ -1242,8 +1242,16 @@ folding `—` to `-` was **correct** for verifying that a paragraph survived an 
 be a defect in `structuralGlyphs`, whose whole purpose is to notice exactly that substitution.
 Same character, same repo, opposite answers, an hour apart.
 
-The general form was already one line below and the special case was written first, which is
-its own small instance: **a comparison that normalises away the property it is also trying to
+The general form was already one line below and the special case was written first — **and that
+is not a lapse, which is the part that explains why this whole file argues for mechanisms over
+discipline.** The special case is what you *hit*; the principle is what you have to go looking
+for. **The instance arrives on its own, the principle never does.** So a reader who has just been
+bitten will always have the narrow fact in hand and the covering rule one deliberate step away,
+and "remember to generalise" asks for the step that the situation is actively not prompting.
+Which is the same shape as every other entry here: the guard that works is the one that runs
+without being remembered.
+
+Filed as its own small instance: **a comparison that normalises away the property it is also trying to
 measure cannot report on it.** Everything above is that sentence with the dimensions filled in,
 and a fourth will arrive.
 
