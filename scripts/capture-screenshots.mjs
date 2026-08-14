@@ -76,6 +76,17 @@ const TOKEN = process.env.HA_TOKEN;
 const CARD_TAG = 'calendar-card-pro-dev';
 
 /**
+ * Device scale factor for the list-view captures.
+ *
+ * The list release views are `max_columns: 1` sections, and Home Assistant caps a section
+ * column at 500 CSS px — the card cannot be made wider without changing the dashboard
+ * layout. Every published list screenshot is 1600px wide, and 500 × 3.2 is exactly that,
+ * so the retakes drop in beside the originals at the same resolution. Column-view cards
+ * are not capped (their section spans the full width) and stay at the default 2.
+ */
+const LIST_SCALE = 3.2;
+
+/**
  * One entry per published screenshot.
  *
  * `view` is the dashboard path, `index` the zero-based position among the calendar cards
@@ -152,39 +163,62 @@ const SHOTS = [
   },
 
   // --- Existing list-view screenshots, restaged for the v4 defaults --------
+  //
   // `event_icon_vertical_alignment` moved from `middle` to `top` in v4.0.0, which is
-  // visible on every wrapped location row — see backlog E13.
+  // invisible until a row wraps and then changes every wrapped location row — see backlog
+  // E13. Eight of the eleven published images were captured under the old default.
+  //
+  // The theme is a property of the *view*, not something to emulate: `ccp-release-basic`
+  // sets none and so renders stock, `ccp-release-advanced` sets the iOS dark theme and
+  // `ccp-release-complete` sets Bubble. That is why the same basic card appears twice
+  // below from two different views — it is how the native/iOS pair has always been made.
+  // `theme` here only picks the light or dark side of the *stock* theme, which matters
+  // for the one view that sets none.
   {
     id: 'basic-native',
     view: 'ccp-release-basic',
     index: 0,
     out: 'example_1_basic_native.png',
-    width: 700,
+    width: 840,
+    scale: LIST_SCALE,
     theme: 'light',
-    note: 'Basic configuration',
+    note: 'Basic configuration, stock theme',
   },
   {
     id: 'basic-ios',
-    view: 'ccp-release-basic',
+    view: 'ccp-release-advanced',
     index: 0,
     out: 'example_1_basic_ios.png',
-    width: 700,
-    note: 'Basic configuration, iOS theme',
+    width: 840,
+    scale: LIST_SCALE,
+    note: 'Basic configuration, iOS dark theme',
   },
   {
     id: 'advanced-compact',
-    view: 'ccp-release-basic',
+    view: 'ccp-release-advanced',
     index: 1,
     out: 'example_2_advanced_compact.png',
-    width: 700,
+    width: 840,
+    scale: LIST_SCALE,
     note: 'Multiple calendars, compact mode collapsed',
+  },
+  {
+    id: 'advanced-expanded',
+    view: 'ccp-release-advanced',
+    index: 1,
+    out: 'example_2_advanced_expanded.png',
+    width: 840,
+    scale: LIST_SCALE,
+    expand: true,
+    note: 'The same card after a tap — tap_action: expand',
   },
   {
     id: 'custom-styling',
     view: 'ccp-release-advanced',
     index: 2,
     out: 'example_3_custom_styling.png',
-    width: 700,
+    width: 840,
+    scale: LIST_SCALE,
     note: 'Multiple calendars with custom styling',
   },
   {
@@ -192,15 +226,26 @@ const SHOTS = [
     view: 'ccp-release-advanced',
     index: 3,
     out: 'example_4_week_numbers.png',
-    width: 700,
+    width: 840,
+    scale: LIST_SCALE,
     note: 'Week numbers and separators',
+  },
+  {
+    id: 'today-indicator',
+    view: 'ccp-release-advanced',
+    index: 4,
+    out: 'example_today_indicator.png',
+    width: 840,
+    scale: LIST_SCALE,
+    note: 'Today indicator, countdown and progress bar',
   },
   {
     id: 'weather',
     view: 'ccp-release-advanced',
-    index: 6,
+    index: 5,
     out: 'example_weather.png',
-    width: 700,
+    width: 840,
+    scale: LIST_SCALE,
     note: 'Weather integration',
   },
   {
@@ -208,8 +253,9 @@ const SHOTS = [
     view: 'ccp-release-complete',
     index: 0,
     out: 'example_5_complete.png',
-    width: 700,
-    note: 'Complete configuration',
+    width: 840,
+    scale: LIST_SCALE,
+    note: 'Complete configuration, Bubble theme',
   },
 ];
 
@@ -382,15 +428,23 @@ async function main() {
 
   const chromium = await loadChromium();
   const browser = await chromium.launch();
-  const context = await browser.newContext({
-    deviceScaleFactor: 2,
-    viewport: { width: 1600, height: 1200 },
-  });
-  const page = await context.newPage();
+
+  // A context per shot rather than one for the whole run. Two reasons: `deviceScaleFactor`
+  // is fixed at context creation and differs per shot, and a fresh context guarantees no
+  // state carries over — an expanded compact card must not leak into the next capture.
+  const withPage = async (shot, fn) => {
+    const context = await browser.newContext({
+      deviceScaleFactor: shot.scale ?? 2,
+      viewport: { width: shot.width ?? 1600, height: 1200 },
+    });
+    const page = await context.newPage();
+    await authenticate(page);
+    const result = await fn(page);
+    await context.close();
+    return result;
+  };
 
   try {
-    await authenticate(page);
-
     if (probeId) {
       const shot = SHOTS.find((s) => s.id === probeId);
       if (!shot) {
@@ -398,16 +452,18 @@ async function main() {
         process.exitCode = 1;
         return;
       }
-      await probe(
-        page,
-        shot,
-        [1800, 1600, 1400, 1200, 1100, 1000, 900, 800, 700, 600, 500, 440, 400, 380, 360, 340],
+      await withPage(shot, (page) =>
+        probe(
+          page,
+          shot,
+          [1800, 1600, 1400, 1200, 1100, 1000, 900, 800, 700, 600, 500, 440, 400, 380, 360, 340],
+        ),
       );
       return;
     }
 
     console.log(`Capturing ${selected.length} screenshot(s) from ${HA_URL} into ${OUT_DIR}\n`);
-    for (const shot of selected) await capture(page, shot);
+    for (const shot of selected) await withPage(shot, (page) => capture(page, shot));
     console.log('\nDone.');
   } finally {
     await browser.close();
