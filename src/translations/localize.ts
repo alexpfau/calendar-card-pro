@@ -185,35 +185,23 @@ export function translate(
 ): string | string[] {
   const translations = getTranslations(language);
 
-  // Handle editor translations which use dot notation (editor.some_key)
+  // Dotted keys never name anything in this file.
   //
-  // The `editor` section is exactly one level deep, so only a two-segment key can name
-  // an entry in it. Anything deeper is a group-qualified key from the schema-driven
-  // editor — `editor.time.show_end_time` — and belongs to a namespace this file does
-  // not hold.
+  // The card's strings are flat, so a key with a dot in it belongs to the editor's own
+  // namespace — `editor.time.show_end_time` — which lives in
+  // `src/rendering/editor/translations/` and is resolved by that chunk's `lookup()`.
+  // Nothing here can answer for it, so the caller's fallback is the correct answer.
   //
-  // Matching those on their two-segment prefix is not a near miss, it is a wrong answer
-  // that looks right: `editor.time` is the string "Time", so every field inside the
-  // `time` group resolved to its group's own label, and so did its helper text. The
-  // same collapse hit `location`, `description`, `event` and `date`. The caller's
-  // "no string here" fallback never ran, because a string was returned.
+  // Returning one used to be conditional on a two-segment prefix match against an
+  // `editor` section this file no longer holds, and that match was a wrong answer which
+  // looked right: `editor.time` is the string "Time", so every field inside the `time`
+  // group resolved to its group's own label, and so did its helper text. The same
+  // collapse hit `location`, `description`, `event` and `date`. The caller's "no string
+  // here" fallback never ran, because a string was returned.
   if (typeof key === 'string' && key.includes('.')) {
-    const [section, ...rest] = key.split('.');
+    const [, ...rest] = key.split('.');
     const subKey = rest.join('.');
 
-    if (
-      section === 'editor' &&
-      rest.length === 1 &&
-      translations.editor &&
-      subKey in translations.editor
-    ) {
-      const editorValue = translations.editor[subKey];
-      // Explicitly check and return only string or string[] values
-      if (typeof editorValue === 'string' || Array.isArray(editorValue)) {
-        return editorValue;
-      }
-    }
-    // If nested path doesn't exist or is wrong type, use fallback or subKey
     return fallback !== undefined ? fallback : subKey;
   }
 
@@ -228,52 +216,6 @@ export function translate(
 
   // Use fallback or key name if translation is missing
   return fallback !== undefined ? fallback : (key as string);
-}
-
-/**
- * Sentinel used to tell "this key is absent" apart from "this key is translated".
- *
- * `translate()` returns its `fallback` argument on a miss, so any ordinary fallback
- * string is ambiguous: a language that legitimately translates a key *to* that string
- * would be indistinguishable from one that omits it. A NUL character cannot occur in a
- * translation file, so it can only ever mean "missing".
- */
-const MISSING = '\u0000';
-
-/**
- * Resolve an editor translation key, falling back **per key** rather than per language.
- *
- * The `editor` section is optional: 24 of the 35 language files omit it entirely and the
- * editor renders in English. That much has always worked. What did not work was a
- * *partial* section — the previous implementation asked "does this language translate the
- * editor at all?" and, if so, resolved every editor key against it. One translated key was
- * enough to answer yes, so every key the translator had not reached rendered as its own raw
- * name (`show_end_time`) in the UI instead of as English.
- *
- * Resolving per key removes the cliff: requested language → English → raw key name. A
- * language may now be translated to any degree, and the untranslated remainder degrades to
- * English rather than to something that looks like a bug. The raw key name is still the
- * final fallback, but it is now reachable only when English itself lacks the key — which
- * `npm run check:i18n` treats as an error.
- *
- * @param language - Requested language code
- * @param key - Editor key, bare (`show_end_time`) or prefixed (`editor.show_end_time`)
- * @returns The translation, the English translation, or the key name
- */
-export function translateEditorKey(language: string, key: string): string {
-  const translationKey = key.includes('.') ? key : `editor.${key}`;
-
-  // Not an editor key after all — no fallback chain applies.
-  if (!translationKey.startsWith('editor.')) {
-    return translate(language, translationKey, key) as string;
-  }
-
-  const localized = translate(language, translationKey, MISSING) as string;
-  if (localized !== MISSING) {
-    return localized;
-  }
-
-  return translate(DEFAULT_LANGUAGE, translationKey, key) as string;
 }
 
 //-----------------------------------------------------------------------------
@@ -382,8 +324,7 @@ export function isLanguageSupported(language: string): boolean {
  *
  * **Replaces** the whole entry rather than merging into it, so the object passed must
  * be a complete `Translations`. Registering a partial one leaves the card resolving
- * `undefined` for whatever it omits — month and day names among them. To add only the
- * editor's section to a language that already exists, use `addEditorTranslations`.
+ * `undefined` for whatever it omits — month and day names among them.
  *
  * @param language - Language code
  * @param translations - Translations object
@@ -395,52 +336,4 @@ export function addTranslations(language: string, translations: Types.Translatio
   }
 
   TRANSLATIONS[language.toLowerCase()] = translations;
-}
-
-/**
- * Attach an `editor` section to a language that is already registered.
- *
- * **This is not how the live editor gets its strings.** It reads
- * `src/rendering/editor/translations/` through its own `EDITOR_LANGUAGE_STRINGS` table
- * and never calls this function. The only caller is
- * `src/translations/editor-languages/index.ts` — the previous editor's namespace, which
- * is an archive that nothing in `src/` imports, so Rollup includes neither it nor this
- * registration in either bundle. See that file's header for why it is kept.
- *
- * It is retained, intact and tested, so the archive's registration path still works if
- * the translation-mining pass re-enters it deliberately.
- *
- * Merging, not replacing, and that distinction is the whole reason this exists rather
- * than reusing `addTranslations`: the card's own strings for a language are already in
- * the map, and overwriting the entry with an editor-only object would take `months`,
- * `daysOfWeek` and the rest with it. The card would then render `undefined` for every
- * month name in that language, triggered by nothing more than opening the editor once.
- *
- * Unknown languages are refused rather than invented. A registration for a language
- * with no card strings could only produce that same half-populated entry;
- * `npm run check:i18n` fails on an editor-language file with no matching language, so
- * this branch is a runtime guard for something the build already rejects.
- *
- * @param language - Language code, matching a key already in `TRANSLATIONS`
- * @param editor - The language's editor section
- */
-export function addEditorTranslations(
-  language: string,
-  editor: NonNullable<Types.Translations['editor']>,
-): void {
-  if (!language) {
-    Logger.error('Cannot add editor translations without a language code');
-    return;
-  }
-
-  const existing = TRANSLATIONS[language.toLowerCase()];
-  if (!existing) {
-    Logger.error(
-      `Cannot add editor translations for unregistered language '${language}' — ` +
-        'the card strings for it are missing, so the entry would be incomplete',
-    );
-    return;
-  }
-
-  existing.editor = { ...existing.editor, ...editor };
 }

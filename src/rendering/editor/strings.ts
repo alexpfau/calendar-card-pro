@@ -4,13 +4,13 @@
  * **The only English source there is.** There is deliberately no `en.json` beside the
  * per-language files in `./translations/`, because two English tables can disagree and
  * one of them then wins silently. The namespace this replaced demonstrated exactly
- * that: `src/translations/editor-languages/en.json` and this table spell 94 keys the
- * same, and only 53 of them still carry the same English text.
+ * that: it spelled 94 of these keys the same way, and only 53 of them still carried the
+ * same English text by the time it was retired.
  *
  * A **fresh namespace**, deliberately not the `editor.*` one the previous editor owned.
- * That namespace is now an archive — see `src/translations/editor-languages/index.ts`
- * — and the live editor does not read it, because its keys overlap these by name
- * without matching them in meaning.
+ * That namespace was deleted once its strings had been mined, because its keys overlap
+ * these by name without matching them in meaning — a resemblance close enough to be
+ * misleading and never close enough to be useful.
  *
  * `check:i18n` reconciles this table against the schemas in both directions, so a field
  * with no string and a string no field uses are both errors. Keeping English here is

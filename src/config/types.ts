@@ -710,7 +710,4 @@ export interface Translations {
   fullDaysOfWeek: string[];
   endsToday: string;
   endsTomorrow: string;
-  editor?: {
-    [key: string]: string | string[];
-  };
 }

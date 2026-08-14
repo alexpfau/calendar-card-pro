@@ -131,6 +131,15 @@ files. Three German entries disagree with the archive; those are rewordings, not
 
 Residual after the archive: **1,785 of 1,786.**
 
+::: info The Archive Has Since Been Deleted
+This measurement is why. A source with one remaining fill in 1,786 is not a reference
+worth the 184 KB, the checker surface policing its internal consistency, or the standing
+risk that someone adds a translation to it and ships nothing — which had already happened
+once (backlog Y22). The strings it was worth keeping are in
+`src/rendering/editor/translations/`; the terminology decisions are in
+[`editor-glossary.md`](./editor-glossary.md).
+:::
+
 ### 3.3 Source 2 — the card's own 35 languages: 0 gaps, but a working oracle
 
 Assessed because it had not been tried. It nearly produced a false negative worth

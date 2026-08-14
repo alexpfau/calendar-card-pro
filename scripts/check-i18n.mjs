@@ -31,12 +31,10 @@
  * silence: the resolution order was inverted, `strings.ts` defines every key, and so all
  * eleven translated languages rendered in English with nothing raised anywhere.
  *
- * The `editor` sections that used to sit inside the language files are an **archive**,
- * in `src/translations/editor-languages/`. They belong to the editor that was replaced
- * and are kept to be mined; 106 of the live keys came out of them. Nothing validates
- * their contents — they label nothing — but nothing in `src/` may import them either,
- * which is checked, because their keys overlap the live namespace by name without
- * matching in meaning.
+ * The `editor` sections that used to sit inside the language files now live in
+ * `src/rendering/editor/translations/`, so they load with the editor's own chunk rather
+ * than on every dashboard load. A section reappearing in a language file is an error
+ * here, because nothing else would notice the weight.
  *
  * This script's only dependency is esbuild, which is already a devDependency and never
  * reaches the bundle. Run it with:
@@ -63,11 +61,8 @@ import { loadEditorModule } from './load-editor-schema.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANG_DIR = join(ROOT, 'src/translations/languages');
-const EDITOR_LANG_DIR = join(ROOT, 'src/translations/editor-languages');
-const EDITOR_LANG_INDEX_TS = join(ROOT, 'src/translations/editor-languages/index.ts');
 const EDITOR_T9N_DIR = join(ROOT, 'src/rendering/editor/translations');
 const EDITOR_T9N_INDEX_TS = join(ROOT, 'src/rendering/editor/translations/index.ts');
-const SRC_DIR = join(ROOT, 'src');
 const LOCALIZE_TS = join(ROOT, 'src/translations/localize.ts');
 const DAYJS_TS = join(ROOT, 'src/translations/dayjs.ts');
 const PANELS_TS = join(ROOT, 'src/rendering/editor/panels.ts');
@@ -160,41 +155,6 @@ function readLocalizeWiring() {
   assertFound([...entries.keys()], 'entries in the TRANSLATIONS map', LOCALIZE_TS);
 
   return { imports, entries };
-}
-
-/**
- * Editor-language files on disk, plus how `editor-languages/index.ts` wires them up.
- *
- * The editor's sections were moved out of the language files so they load with the
- * editor's chunk rather than on every dashboard load. That gained a fifth place to get
- * a language wrong, and it fails as quietly as the other four: a file that is never
- * imported is simply never registered, and the editor renders English with nothing
- * raised anywhere.
- *
- * @returns Files on disk, and the imports and map entries in the index module
- */
-function readEditorLanguageWiring() {
-  const files = readdirSync(EDITOR_LANG_DIR).filter((f) => f.endsWith('.json'));
-  assertFound(files, 'any editor-language JSON files', EDITOR_LANG_DIR);
-
-  const src = read(EDITOR_LANG_INDEX_TS);
-
-  const imports = new Map(); // identifier -> filename
-  for (const m of src.matchAll(/import\s+(\w+)\s+from\s+'\.\/([^']+\.json)'/g)) {
-    imports.set(m[1], m[2]);
-  }
-  assertFound([...imports.keys()], 'editor-language JSON imports', EDITOR_LANG_INDEX_TS);
-
-  const block = src.match(/export const EDITOR_TRANSLATIONS[^=]*=\s*\{([\s\S]*?)\n\};/);
-  assertFound(block, 'the EDITOR_TRANSLATIONS map', EDITOR_LANG_INDEX_TS);
-
-  const entries = new Map(); // map key (as written) -> identifier
-  for (const m of block[1].matchAll(/^\s*'?([A-Za-z][A-Za-z-]*)'?\s*:\s*(\w+)\s*,/gm)) {
-    entries.set(m[1], m[2]);
-  }
-  assertFound([...entries.keys()], 'entries in the EDITOR_TRANSLATIONS map', EDITOR_LANG_INDEX_TS);
-
-  return { files, imports, entries };
 }
 
 /** dayjs locale imports, the supportedLocales array, and mapLocale's special cases. */
@@ -487,33 +447,19 @@ function checkLanguageParity(languages) {
 }
 
 /**
- * The editor's translations must stay off the eager path, and stay wired up.
+ * No language file may carry an `editor` section.
  *
- * Three separate failures, none of which anything else can see:
+ * `localize.ts` imports all 35 statically and `translate()` looks keys up dynamically, so
+ * Rollup cannot tree-shake it — one section reintroduced is ~12 KB added to what every
+ * user downloads and parses on every dashboard load, to label a surface most of them
+ * never open. Nothing breaks, so nothing else reports it.
  *
- *   1. An `editor` section back in a language file. `localize.ts` imports all 35
- *      statically and `translate()` looks keys up dynamically, so Rollup cannot
- *      tree-shake it — one section reintroduced is ~12 KB added to what every user
- *      downloads and parses on every dashboard load, to label a surface most of them
- *      never open. Nothing breaks, so nothing reports it.
- *   2. A file in `editor-languages/` that `index.ts` never imports or registers.
- *
- *      🚨 Read this before acting on that error. `editor-languages/` is the **v3
- *      archive**, kept as translation reference now that its mining pass (backlog E10)
- *      is closed. Nothing under `src/` imports it — `check:i18n` fails if anything does.
- *      The live editor reads `src/rendering/editor/translations/`, and `lookup()` consults
- *      `EDITOR_LANGUAGE_STRINGS` then `EDITOR_STRINGS`, never this archive's
- *      `EDITOR_TRANSLATIONS`. So registering a file here **cannot** make the editor
- *      render anything. This check verifies the archive's internal consistency and
- *      nothing more; it is not a route to shipping a translation.
- *   3. An editor section for a language the card has no strings for.
- *      `addEditorTranslations` refuses it at runtime, which is a log line nobody reads;
- *      here it is a build failure.
+ * The editor's strings live in `src/rendering/editor/translations/`, which loads with the
+ * editor's own chunk.
  *
  * @param languages - Language files on disk, keyed by lowercased code
- * @param wiring - Editor-language files and the index module's imports and map entries
  */
-function checkEditorLanguageWiring(languages, { files, imports, entries }) {
+function checkNoEditorSectionsOnEagerPath(languages) {
   for (const [code, { file, data }] of languages) {
     if ('editor' in data) {
       error(
@@ -521,67 +467,6 @@ function checkEditorLanguageWiring(languages, { files, imports, entries }) {
         'carries an `editor` section again — it is on the eager path, where every user ' +
           'downloads and parses it on every dashboard load. Move it to ' +
           `src/rendering/editor/translations/${file} (${code})`,
-      );
-    }
-  }
-
-  // Everything below concerns the v3 archive, which is inert. The messages say so,
-  // because the previous wording ("the editor renders English for that language")
-  // described the v3 editor and survived the v4 move: it reads as an instruction to
-  // register a translation here, and a contributor who follows it produces a file that
-  // is correctly wired, passes this check, and still renders English — because the live
-  // editor never looks here. That is the exact shape of failure this script exists to
-  // prevent, so it should not be this script committing it.
-  const importedEditorFiles = new Set([...imports.values()].map((f) => f.toLowerCase()));
-  const registered = new Set([...entries.values()]);
-
-  for (const file of files) {
-    if (!importedEditorFiles.has(file.toLowerCase())) {
-      error(
-        'editor-languages/index.ts',
-        `${file} exists but is never imported. Note this is the inert v3 archive — ` +
-          'to ship an editor translation add src/rendering/editor/translations/' +
-          `${file} instead`,
-      );
-    }
-  }
-
-  for (const [identifier, file] of imports) {
-    if (!files.some((f) => f.toLowerCase() === file.toLowerCase())) {
-      error('editor-languages/index.ts', `imports ${file}, which does not exist`);
-      continue;
-    }
-
-    if (!registered.has(identifier)) {
-      error(
-        'editor-languages/index.ts',
-        `${file} is imported as \`${identifier}\` but never added to EDITOR_TRANSLATIONS. ` +
-          'This is the inert v3 archive; registering here ships nothing',
-      );
-    }
-  }
-
-  for (const [key, identifier] of entries) {
-    if (key !== key.toLowerCase()) {
-      error(
-        'editor-languages/index.ts',
-        `EDITOR_TRANSLATIONS key '${key}' is not lowercase — lookups lowercase before ` +
-          'matching, so it can never be found',
-      );
-    }
-
-    if (!languages.has(key.toLowerCase())) {
-      error(
-        'editor-languages/index.ts',
-        `EDITOR_TRANSLATIONS has '${key}' but no language file defines it — the card ` +
-          'strings for it are missing, so addEditorTranslations refuses the registration',
-      );
-    }
-
-    if (!imports.has(identifier)) {
-      error(
-        'editor-languages/index.ts',
-        `EDITOR_TRANSLATIONS entry '${key}' names \`${identifier}\`, which is not imported`,
       );
     }
   }
@@ -830,16 +715,6 @@ function readEditorTranslationWiring() {
   return { files, imports, entries };
 }
 
-/** Every `.ts` file under a directory, for the archive-import scan. */
-function walkTs(dir, out = []) {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) walkTs(path, out);
-    else if (entry.name.endsWith('.ts')) out.push(path);
-  }
-  return out;
-}
-
 /**
  * The live editor's translations: wired up, and — the point of this check — reachable.
  *
@@ -851,7 +726,7 @@ function walkTs(dir, out = []) {
  * were registered under lowercase keys. What was wrong was that no key in them could
  * ever be *returned*, and reachability is a property nothing here looked at.
  *
- * Four things are checked, each of which would have caught it alone:
+ * Three things are checked, each of which would have caught it alone:
  *
  *   1. **Every key must exist in `EDITOR_STRINGS`.** One that does not is unreachable by
  *      construction: `lookup` is only ever asked for keys the schemas produce, and those
@@ -866,10 +741,6 @@ function walkTs(dir, out = []) {
  *      disagree and the loser does so silently; the previous namespace kept both, and
  *      they drifted apart on 41 of the 94 keys they shared — two of them, `language` and
  *      `language_mode`, ending up with each other's meanings.
- *   4. **Nothing in `src/` may import the archive.** `editor-languages/` is the previous
- *      editor's namespace, kept as translation reference. Its keys overlap these by name
- *      without matching in meaning, so importing it is not a fallback but a source of
- *      wrong labels — and it cost 145 KB of `editor.js` while resolving nothing.
  *
  * Coverage is reported, never enforced. Per-key fallback is what makes a partial
  * language safe, and the ruling is explicit: show the language, and fall back to English
@@ -997,21 +868,6 @@ async function checkEditorTranslations(languages) {
       error(
         'editor/translations/index.ts',
         `imports ${file} as \`${identifier}\` but never adds it to EDITOR_LANGUAGE_STRINGS`,
-      );
-    }
-  }
-
-  // The archive must stay inert. Scanned across all of `src/` rather than at the
-  // editor's entry alone, because the build graph reaches further than one file and an
-  // import anywhere in it puts 145 KB of unreachable JSON back into the bundle.
-  for (const path of walkTs(SRC_DIR)) {
-    if (path.startsWith(EDITOR_LANG_DIR)) continue;
-    if (/from\s+'[^']*editor-languages[^']*'/.test(read(path))) {
-      error(
-        path.slice(SRC_DIR.length + 1),
-        'imports src/translations/editor-languages/, which is an archive of the previous ' +
-          'editor\u2019s namespace — its keys overlap the live ones by name without ' +
-          'matching in meaning, and importing it costs 145 KB of editor.js',
       );
     }
   }
@@ -1851,12 +1707,11 @@ async function checkRunningTextWeekdayCase(languages) {
 async function main() {
   const languages = readLanguageFiles();
   const localize = readLocalizeWiring();
-  const editorLanguages = readEditorLanguageWiring();
   const dayjsWiring = readDayjsWiring();
 
   checkLanguageParity(languages);
   checkLocalizeWiring(languages, localize);
-  checkEditorLanguageWiring(languages, editorLanguages);
+  checkNoEditorSectionsOnEagerPath(languages);
   checkDayjsWiring(localize.entries, dayjsWiring);
 
   const fieldCount = await checkEditorStrings();
