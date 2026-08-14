@@ -17,7 +17,21 @@ Want to improve **Calendar Card Pro**? I welcome contributions of all kinds—wh
    ```sh
    npm run dev
    ```
-4. **Open a Pull Request** with your changes.
+   This emits **two** files into `dist/` — `calendar-card-pro-dev.js` and `editor-dev.js`.
+   The card fetches the editor by URL the first time someone opens it, so both belong in
+   the same directory when you install a development build.
+4. **Verify before you push.** These are every gate CI runs, so a green local run should
+   mean a green pull request:
+   ```sh
+   npx tsc --noEmit      # typecheck — deliberately not an npm script
+   npm run lint
+   npm test
+   npm run check:i18n    # translation wiring
+   npm run check:docs    # docs and config parity — gates every PR, not only docs changes
+   npm run build
+   npm run check:bundle  # after the build; it reads dist/
+   ```
+5. **Open a Pull Request** against the `dev` branch.
 
 💡 For detailed contribution guidelines, see [CONTRIBUTING.md](https://github.com/alexpfau/calendar-card-pro/blob/dev/CONTRIBUTING.md).
 
@@ -145,8 +159,10 @@ To add a new language:
 ### Translating the Editor
 
 The visual editor's strings are optional and live separately, in
-`src/rendering/editor/translations/[lang-code].json`. Ten of the 35 languages translate
-them today; the rest render the editor in English, which is fully supported.
+`src/rendering/editor/translations/[lang-code].json`. The editor is available in 11 of the
+35 languages: English, which lives in code, and the ten with a file here — nine translated
+in full, plus British English, which carries only the strings where it differs from US
+English. The other 24 render the editor in English, which is fully supported.
 
 They are kept apart because they are the larger half of the translations by some margin,
 and the editor is loaded only when someone opens it — so a dashboard never downloads them

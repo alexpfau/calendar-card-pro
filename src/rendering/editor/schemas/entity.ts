@@ -18,8 +18,9 @@
  *
  * `show_time`, `show_location`, `show_description` and `split_multiday_events` are
  * declared optional on `EntityConfig`, and the card reads them **presence-first**:
- * `getEntitySetting(...) ?? config.show_time` (`presentation.ts:124`), and
- * `typeof … !== 'undefined'` for the split (`events.ts:898`). So each has three states,
+ * `getEntitySetting(...) ?? config.show_time` (in `presentation.ts`), and
+ * `typeof … !== 'undefined'` for the split (in `utils/events.ts`'s `shouldSplitEvent`).
+ * So each has three states,
  * not two — *inherit*, *on*, *off* — and a checkbox can only express the last two.
  *
  * The editor this replaces bound them to `addBooleanField`, which is a real defect
@@ -247,19 +248,3 @@ export function entitySchemaFor(schema: ReadonlyArray<HaFormSchema>, type: strin
     return labelFields(type);
   });
 }
-
-/** Every per-calendar option the form offers, in render order. */
-export const ENTITY_FIELD_NAMES: ReadonlyArray<string> = [
-  LABEL_TYPE,
-  'label',
-  'label_icon_color',
-  'color',
-  'accent_color',
-  'show_time',
-  'show_location',
-  'show_description',
-  'split_multiday_events',
-  'compact_events_to_show',
-  'blocklist',
-  'allowlist',
-];

@@ -104,7 +104,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   // one -- see docs/RELEASE_NOTES.md. The option only becomes visible when a row wraps,
   // and 'middle' then centres the icon against the whole block: a clock or map-marker
   // floating in the vertical middle of two lines of text, level with neither. The column
-  // view wraps routinely, because its narrowest track is 152px and the countdown now
+  // view wraps routinely, because its narrowest track is 140px and the countdown now
   // shares the time row as running text; the list view wraps less often but does wrap, on
   // a long address or a description.
   //
@@ -581,59 +581,6 @@ export function hasConfigChanged(
   }
 
   return dataChanged || refreshIntervalChanged;
-}
-
-/**
- * Check if entity colors have changed in the configuration
- * This is used to determine if a re-render (but not data refresh) is needed
- *
- * @param previous - Previous configuration
- * @param current - New configuration
- * @returns True if entity colors have changed
- */
-export function haveEntityColorsChanged(
-  previous: Partial<Types.Config> | undefined,
-  current: Types.Config,
-): boolean {
-  if (!previous || !previous.entities) return false;
-
-  const prevEntities = previous.entities;
-  const currEntities = current.entities;
-
-  // If entity count changed, let other functions handle it
-  if (prevEntities.length !== currEntities.length) return false;
-
-  // Create a map of entity IDs to colors for previous config
-  const prevColorMap = new Map<string, string>();
-  prevEntities.forEach((entity) => {
-    if (typeof entity === 'string') {
-      prevColorMap.set(entity, 'var(--primary-text-color)');
-    } else {
-      prevColorMap.set(entity.entity, entity.color || 'var(--primary-text-color)');
-    }
-  });
-
-  // Check if any entity colors changed in current config
-  for (const entity of currEntities) {
-    const entityId = typeof entity === 'string' ? entity : entity.entity;
-    const color =
-      typeof entity === 'string'
-        ? 'var(--primary-text-color)'
-        : entity.color || 'var(--primary-text-color)';
-
-    if (!prevColorMap.has(entityId)) {
-      // New entity, let other functions handle it
-      continue;
-    }
-
-    // If color changed for an existing entity, return true
-    if (prevColorMap.get(entityId) !== color) {
-      Logger.debug(`Entity color changed for ${entityId}, will re-render`);
-      return true;
-    }
-  }
-
-  return false;
 }
 
 //-----------------------------------------------------------------------------

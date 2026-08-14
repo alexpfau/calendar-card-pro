@@ -12,10 +12,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      # Read the Node version from .nvmrc, exactly as ci.yml does. This job is the one
+      # that runs `npm ci` against the lockfile and publishes what every user downloads,
+      # so it is the last place that should run a runtime nothing else tested on. It
+      # hardcoded Node 24 while .nvmrc pinned 22, which is the same npm-major drift
+      # recorded at ci.yml's pinning check (#404): npm 11 tolerates a package-lock.json
+      # that npm 10 rejects, so the mismatch stays invisible until the install it breaks
+      # is the one building the release.
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies

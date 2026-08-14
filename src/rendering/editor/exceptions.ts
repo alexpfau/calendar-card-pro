@@ -134,22 +134,6 @@ export function eligibleFields(
 }
 
 /**
- * The option names a panel offers an exception for.
- *
- * @param schema - The panel's schema, as built for the current configuration
- * @param panelId - Which panel it belongs to
- * @param language - Effective language code
- * @returns Eligible option names, in render order
- */
-export function eligibleKeys(
-  schema: ReadonlyArray<HaFormSchema>,
-  panelId: string,
-  language = 'en',
-): ReadonlyArray<string> {
-  return eligibleFields(schema, panelId, language).map((field) => field.name);
-}
-
-/**
  * The exceptions a configuration already implies, before the user touches anything.
  *
  * Exactly what a view's block actually sets, and nothing else. The design proposed

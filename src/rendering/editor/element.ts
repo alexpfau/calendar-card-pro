@@ -121,8 +121,9 @@ export class CalendarCardProEditor extends LitElement {
    * `entities` is guarded here for the same reason the card guards it in its own
    * `setConfig`: it is the option a user is most likely to mistype, because most cards
    * take a singular `entity:`. The card has always been defensive — `normalizeEntities`
-   * answers `[]` for anything that is not a list — but the editor was not, and eight
-   * separate places read `config.entities ?? []` expecting an array. So
+   * answers `[]` for anything that is not a list — but the editor was not, and several
+   * separate places across `element.ts` and `synthetic.ts` read `config.entities ?? []`
+   * expecting an array. So
    * `entities: calendar.family` threw out of `deriveSyntheticData` and the editor never
    * opened, which is the worst place for it to fail: the editor is what the user reaches
    * for *because* the configuration is wrong.

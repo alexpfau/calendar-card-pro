@@ -14,8 +14,9 @@
  * **Values that are invalid while being typed.** This is the harder one and it is the
  * reason this module exists at all. `start_date_offset` accepts expressions such as
  * `-7`, and a user typing one passes through `-`, which is not a valid expression. The
- * old editor guarded that with `event.type !== 'change'`, deferring the write until
- * blur (`editor.ts:575`). `<ha-form>` fires **one** `value-changed` for the whole form
+ * editor this replaced guarded that with `event.type !== 'change'`, deferring the write
+ * until blur — a guard that lived in the hand-written `editor.ts`, deleted in this
+ * rebuild. `<ha-form>` fires **one** `value-changed` for the whole form
  * and gives no access to the originating DOM event, so that guard has no equivalent
  * and a naive port would write `-` to the config, re-derive the mode as something else
  * and yank the field out from under the cursor mid-edit.
@@ -115,8 +116,17 @@ function todayIso(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
-/** Whether a configured value counts as set. */
-function isSet(value: unknown): boolean {
+/**
+ * Whether a configured value counts as set.
+ *
+ * Shared with `entities.ts`, which asks the same question of a per-calendar value, so
+ * that "configured" means one thing across the editor's write paths rather than two
+ * copies that can drift.
+ *
+ * @param value - Value to test
+ * @returns `true` when the value is neither absent nor empty
+ */
+export function isSet(value: unknown): boolean {
   return value !== undefined && value !== null && value !== '';
 }
 

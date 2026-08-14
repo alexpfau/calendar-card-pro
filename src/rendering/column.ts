@@ -40,8 +40,8 @@ import * as ViewConfig from '../config/view';
  * Where each day sits relative to the one before it.
  *
  * The list view derives the same two flags inline inside `renderGroupedEvents`
- * (render.ts:434-454). This is a separate, column-local copy on purpose: the list
- * view's copy is load-bearing for a DOM the snapshot gate pins byte-for-byte, and
+ * (search for `isNewWeek` there). This is a separate, column-local copy on purpose: the
+ * list view's copy is load-bearing for a DOM the snapshot gate pins byte-for-byte, and
  * nothing is gained by rewriting working code to share four lines of arithmetic.
  *
  * What it *is* shared by is everything on this side of the axis. Week numbers read
@@ -95,17 +95,19 @@ interface ColumnSeparator {
 /**
  * Decide which rule, if any, belongs in the gutter to the inline-start of a column.
  *
- * Precedence is month, then week, then day — the list view's order (`render.ts:463-488`
- * for the outer pair, `:375-400` for the day rule), so a user who has tuned the three
- * widths sees the same one win in both views.
+ * Precedence is month, then week, then day — the list view's order (`renderGroupedEvents`
+ * in `render.ts` for the outer pair, `renderDay` for the day rule), so a user
+ * who has tuned the three widths sees the same one win in both views.
  *
  * **This deliberately drops one piece of list-view behaviour, and the spec text saying
  * to keep it is amended rather than ignored.** D5 instructed column view to "carry the
- * coupling over": in list view `hasWeekSeparator` (`render.ts:385-386`) is true when
+ * coupling over": in list view `hasWeekSeparator` (in `render.ts`'s `renderDay`)
+ * is true when
  * `show_week_numbers !== null` *or* `week_separator_width` is non-zero, which D5 read as
  * "switching week numbers on implicitly switches a week separator on". It does not. The
  * flag suppresses the *day* rule at week boundaries and renders nothing itself
- * (`render.ts:282-296` sets `--separator-display: none` when the width is zero). It
+ * (`render.ts`'s `renderWeekRow` sets `--separator-display: none` when the width is
+ * zero). It
  * exists because the list view's week-number pill is a full-width table row sitting in
  * the exact slot a day separator would occupy — two horizontal rules in one gap.
  *
@@ -433,8 +435,8 @@ function buildWeekRows(
 
   // A column shows its pill when it starts a week. The first column always starts one
   // by construction, and `show_current_week_number: false` suppresses exactly that
-  // one, mirroring the list view (render.ts:476) where the flag skips the first week's
-  // pill and nothing else.
+  // one, mirroring the list view (`renderGroupedEvents` in `render.ts`) where the flag
+  // skips the first week's pill and nothing else.
   const visible = boundaries.map(
     (boundary, index) => boundary.isNewWeek && !(index === 0 && !config.show_current_week_number),
   );
@@ -502,7 +504,8 @@ export function renderColumnGroupedEvents(
 
   // A separator sits *before* the column it is resolved for, so index 0 is skipped:
   // there is no gutter to the left of the first column. This mirrors the list view's
-  // `isFirstWeek` guard (`render.ts:196`) -- `boundaries[0]` reports a new week and a
+  // `isFirstWeek` guard (in `render.ts`'s `renderHorizontalSeparator`) -- `boundaries[0]`
+  // reports a new week and a
   // new month by construction, and in both views that first boundary has no edge to
   // draw on.
   const separators = boundaries

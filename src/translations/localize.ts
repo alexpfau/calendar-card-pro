@@ -7,7 +7,6 @@
  */
 
 import * as Types from '../config/types';
-import * as Logger from '../utils/logger';
 
 // Import language files (sorted alphabetically by language code)
 import bgTranslations from './languages/bg.json';
@@ -253,87 +252,14 @@ export function getDateFormatStyle(language: string): 'day-dot-month' | 'month-d
 // `multiDay`, so it holds the running-text form. One accessor cannot honour both
 // contracts, and its first caller would have silently picked the wrong one.
 
-/**
- * Get month name from translations based on month index
- *
- * @param language - Language code
- * @param monthIndex - Month index (0 = January, 11 = December)
- * @returns Translated month name
- */
-export function getMonthName(language: string, monthIndex: number): string {
-  const translations = getTranslations(language);
+// `getMonthName` and `formatDateShort` used to live here, and went the same way for the
+// same reason: neither had a caller. Every site that needs a month name reads
+// `translations.months` directly, because it is already holding the translations object
+// for something else; `getDateFormatStyle` above is the part `formatDateShort` wrapped
+// that callers actually wanted, and `format.ts` calls it directly.
 
-  if (monthIndex < 0 || monthIndex > 11) {
-    Logger.warn(`Invalid month index ${monthIndex}. Using default.`);
-    monthIndex = 0; // Default to January if invalid
-  }
-
-  return translations.months[monthIndex];
-}
-
-/**
- * Format a date according to the locale
- * Shows just the day and month name in the selected language
- *
- * @param language - Language code
- * @param date - Date to format
- * @returns Formatted date string
- */
-export function formatDateShort(language: string, date: Date): string {
-  const day = date.getDate();
-  const month = getMonthName(language, date.getMonth());
-  const formatStyle = getDateFormatStyle(language);
-
-  switch (formatStyle) {
-    case 'day-dot-month':
-      return `${day}. ${month}`;
-    case 'month-day':
-      return `${month} ${day}`;
-    case 'day-month':
-    default:
-      return `${day} ${month}`;
-  }
-}
-
-//-----------------------------------------------------------------------------
-// LANGUAGE MANAGEMENT UTILITIES
-//-----------------------------------------------------------------------------
-
-/**
- * Get all supported languages
- *
- * @returns Array of supported language codes
- */
-export function getSupportedLanguages(): string[] {
-  return Object.keys(TRANSLATIONS);
-}
-
-/**
- * Check if a language is supported
- *
- * @param language - Language code to check
- * @returns True if language is supported, false otherwise
- */
-export function isLanguageSupported(language: string): boolean {
-  return language?.toLowerCase() in TRANSLATIONS;
-}
-
-/**
- * Add a new translation set for a language
- * This can be used for dynamic registration of new languages
- *
- * **Replaces** the whole entry rather than merging into it, so the object passed must
- * be a complete `Translations`. Registering a partial one leaves the card resolving
- * `undefined` for whatever it omits — month and day names among them.
- *
- * @param language - Language code
- * @param translations - Translations object
- */
-export function addTranslations(language: string, translations: Types.Translations): void {
-  if (!language) {
-    Logger.error('Cannot add translations without a language code');
-    return;
-  }
-
-  TRANSLATIONS[language.toLowerCase()] = translations;
-}
+// A `getSupportedLanguages` / `isLanguageSupported` / `addTranslations` trio used to
+// follow. Nothing called any of them. The first two are answerable from `TRANSLATIONS`
+// where it is needed, and the third registered a language at runtime — which this card
+// has no path to do, since every language is imported statically and `check:i18n`
+// reconciles that import list against the files on disk.

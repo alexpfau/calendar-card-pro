@@ -682,15 +682,6 @@ export interface CustomCard {
   getEntitySuggestion?: (hass: Hass, entityId: string) => EntitySuggestion[] | null;
 }
 
-/**
- * Home Assistant more-info event interface
- */
-export interface HassMoreInfoEvent extends CustomEvent {
-  detail: {
-    entityId: string;
-  };
-}
-
 // -----------------------------------------------------------------------------
 // UI SUPPORT
 // -----------------------------------------------------------------------------

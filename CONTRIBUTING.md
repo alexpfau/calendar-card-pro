@@ -17,7 +17,8 @@ Before contributing code, I strongly recommend reviewing my [architecture docume
 2. Clone your fork: `git clone https://github.com/[your-username]/calendar-card-pro.git`
 3. Install dependencies: `npm install`
 4. Start development mode: `npm run dev`
-5. The compiled card will be available in `dist/calendar-card-pro-dev.js`
+5. The build emits **two** files into `dist/`: `calendar-card-pro-dev.js` and
+   `editor-dev.js` — the card fetches the editor by URL when someone opens it
 6. For testing in Home Assistant, follow the [testing instructions](#testing-in-home-assistant)
 
 ## Branch Structure
@@ -121,18 +122,35 @@ one that leaves relative times quietly in English.
 - Use the established module structure - place new code in the appropriate module
 - Follow the existing patterns for similar functionality
 - Document all public functions with JSDoc comments
-- Run linting before submitting: `npm run lint --fix`
+- Run linting before submitting: `npm run lint` (the script already applies `--fix`)
+- Add a test when you add a config option. The Vitest suite in `tests/` is built from
+  default config, so an option defaulting to `false` renders nothing and stays invisible
+  to it unless a test turns the option on
 - Keep bundle size in mind - avoid large dependencies
 
 ## Pull Request Process
 
 1. Create a feature branch from `dev` (`feature/my-new-feature`)
 2. Make your changes following our code style guidelines
-3. Ensure all linting passes (`npm run lint`)
-4. Build and test your changes (`npm run build`)
-5. Submit a PR against the **`dev`** branch (not `main` — `main` only receives release
+3. Run every gate CI runs. A green local run should mean a green pull request:
+
+   ```bash
+   npx tsc --noEmit      # typecheck — deliberately not an npm script
+   npm run lint
+   npm test
+   npm run check:i18n    # translation wiring
+   npm run check:docs    # docs and config parity — gates every PR, not only docs changes
+   npm run build
+   npm run check:bundle  # after the build; it reads dist/
+   ```
+
+   `check:docs` is the one that surprises people: it reads like a docs-only concern but
+   gates every PR, and adding a config option without a reference-table row fails it —
+   which is the point.
+
+4. Submit a PR against the **`dev`** branch (not `main` — `main` only receives release
    PRs from `dev`)
-6. Respond to any feedback during code review
+5. Respond to any feedback during code review
 
 ## Bug Reports
 

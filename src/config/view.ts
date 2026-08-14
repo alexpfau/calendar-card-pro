@@ -184,7 +184,8 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
  * A separate table rather than an entry in `VIEW_SCOPE`, because the two genuinely
  * disagree for `split_multiday_events` and collapsing them would make one of the two
  * statements false. At card level the key is a real column override — `column:
- * { split_multiday_events: false }` skips the split entirely (`events.ts:225`). Per
+ * { split_multiday_events: false }` skips the split entirely (in `events.ts`'s
+ * `groupEventsByDay`). Per
  * entity it is ignored in column view, because `viewForcesMultidaySplit` passes
  * `ignorePerEntityOverride` and a column that silently omitted the later days of a
  * multi-day event would be a claim about a day that is not true.

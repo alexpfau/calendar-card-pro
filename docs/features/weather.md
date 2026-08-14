@@ -110,7 +110,7 @@ Each display position can be customized independently with different content and
 
 The column layout gives each event's forecast a row of its own, beneath the time and
 above the location, instead of putting it on the title row beside the summary. A column
-track is as narrow as 152px, and a badge on the title row competes with the summary for
+track is as narrow as 140px, and a badge on the title row competes with the summary for
 that width — a two-word title breaks into three lines around it.
 
 That row shares a leading icon edge with the time, location and description rows, so
