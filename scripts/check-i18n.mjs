@@ -499,9 +499,9 @@ function checkLanguageParity(languages) {
  *   2. A file in `editor-languages/` that `index.ts` never imports or registers.
  *
  *      🚨 Read this before acting on that error. `editor-languages/` is the **v3
- *      archive**, kept only as mining material for backlog E10. Nothing under `src/`
- *      imports it — `check:i18n` fails if anything does. The live editor reads
- *      `src/rendering/editor/translations/`, and `lookup()` consults
+ *      archive**, kept as translation reference now that its mining pass (backlog E10)
+ *      is closed. Nothing under `src/` imports it — `check:i18n` fails if anything does.
+ *      The live editor reads `src/rendering/editor/translations/`, and `lookup()` consults
  *      `EDITOR_LANGUAGE_STRINGS` then `EDITOR_STRINGS`, never this archive's
  *      `EDITOR_TRANSLATIONS`. So registering a file here **cannot** make the editor
  *      render anything. This check verifies the archive's internal consistency and
@@ -867,9 +867,9 @@ function walkTs(dir, out = []) {
  *      they drifted apart on 41 of the 94 keys they shared — two of them, `language` and
  *      `language_mode`, ending up with each other's meanings.
  *   4. **Nothing in `src/` may import the archive.** `editor-languages/` is the previous
- *      editor's namespace, kept for mining. Its keys overlap these by name without
- *      matching in meaning, so importing it is not a fallback but a source of wrong
- *      labels — and it cost 145 KB of `editor.js` while resolving nothing.
+ *      editor's namespace, kept as translation reference. Its keys overlap these by name
+ *      without matching in meaning, so importing it is not a fallback but a source of
+ *      wrong labels — and it cost 145 KB of `editor.js` while resolving nothing.
  *
  * Coverage is reported, never enforced. Per-key fallback is what makes a partial
  * language safe, and the ruling is explicit: show the language, and fall back to English

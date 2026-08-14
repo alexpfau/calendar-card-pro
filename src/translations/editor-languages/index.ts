@@ -3,9 +3,16 @@
  * The previous editor's namespace. **An archive — nothing ships from here.**
  *
  * These sections labelled the hand-rolled editor that the schema-driven one replaced.
- * They are kept, rather than deleted, because they are the raw material for the
- * translation pass (backlog E10): 106 of the live editor's keys were mined out of them,
- * and the remainder is the pool the next pass draws from.
+ * They are kept, rather than deleted, because they remain the only body of human
+ * translation for this card's editor vocabulary. The mining pass that drew on them is
+ * finished — backlog E10 is closed, 106 of the live editor's keys came out of here — and
+ * what is left for the live namespace is real translation work rather than more mining.
+ * These files stay as reference for that work: they hold English-to-target pairs in nine
+ * languages, which is worth consulting for terminology even though nothing can be lifted
+ * from them mechanically any more.
+ *
+ * **Consult them by English text, never by key name.** That is E10's rule and the reason
+ * it exists is below: the key spellings overlap the live table while the meanings do not.
  *
  * **They are no longer reachable at runtime, and that is deliberate.** The live editor
  * reads `src/rendering/editor/translations/`, whose files are keyed exactly as

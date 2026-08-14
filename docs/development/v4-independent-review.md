@@ -1,5 +1,12 @@
 # Calendar Card Pro v4.0.0 — Independent Review
 
+> **Closed record.** This is the report from one review session, kept for its reasoning and
+> its reproduction commands, not as live guidance. Every finding in it was fixed before
+> v4.0.0 and the wording is preserved as it was written, so nothing here should be read as
+> describing the current code. The one item deliberately left unfixed has been migrated to
+> [`v4-backlog.md`](./v4-backlog.md) as **Z3**, which is now its authoritative home — the
+> _Left open_ section below is retained only as the record of how it was reached.
+
 **Reviewer:** independent session, no authorship of the code under review.
 **Branch reviewed:** `feature/column-view-v4` @ `cfa62b3`, compared against `origin/dev` (v3.6.0) and tag `v3.5.0`.
 **Date:** 2026-08-14. **Status:** all seven findings fixed on `alexpfau-v4-independent-review`; see _Disposition_ below.
@@ -642,6 +649,10 @@ survived a screenshot pass.
 ---
 
 ## Left open
+
+> **Superseded.** This item now lives in [`v4-backlog.md`](./v4-backlog.md) as **Z3**, which
+> is where it will be picked up. The account below is kept because it records how the
+> deferral was reasoned and how to reproduce the measurement.
 
 **A 1px vertical shift in the list event-weather badge.** The same browser probe that
 caught the colour change also shows the badge box growing from 14px to 18px and its glyphs
