@@ -639,6 +639,25 @@ const SUGGESTION_GRID_OPTIONS = {
 };
 
 /**
+ * The label distinguishing the column-layout suggestion from the list one.
+ *
+ * Home Assistant renders a suggestion's heading as `${cardName} - ${label}`,
+ * taking `cardName` from our `window.customCards` entry, so this shows as
+ * *Calendar Card Pro - Columns*. The first suggestion carries no label and is the
+ * canonical recipe, which is the convention core's own providers follow.
+ *
+ * Deliberately untranslated. Home Assistant localizes its own suggestion labels
+ * through `hass.localize`, but a custom card's label is passed through verbatim —
+ * and the name beside it is already an untranslated product name. Translating it
+ * would mean a new string in `src/translations/languages/*.json`, which is the
+ * *eager* bundle: 35 files downloaded by every dashboard, to localize one word
+ * seen only while adding a card. The wording matches the editor's own
+ * `view.option.column.label`, which cannot be reused directly because it lives in
+ * the lazily-loaded editor bundle and this runs card-side.
+ */
+const SUGGESTION_COLUMN_LABEL = 'Columns';
+
+/**
  * Build the opinionated starting configuration for a set of calendar entities.
  *
  * Shared by the card picker preview (`getStubConfig`) and the entity suggestion so
@@ -679,25 +698,48 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * Offer this card for an entity picked in the Home Assistant card picker.
  *
  * Home Assistant (2026.6+) calls this synchronously for every entity a user
- * selects, and discards the entire community suggestion list — including entries
- * contributed by other custom cards — if any implementation throws. The body is
- * therefore deliberately trivial and total: every input is treated as untrusted,
- * nothing is assumed about the shape of `hass`, and anything unexpected returns
- * `null` (never an empty array).
+ * selects. The body is deliberately trivial and total: every input is treated as
+ * untrusted, nothing is assumed about the shape of `hass`, and anything
+ * unexpected returns `null` (never an empty array).
+ *
+ * A throw is contained rather than catastrophic — `generateCardSuggestions`
+ * wraps each custom card's hook in its own `try`/`catch`, logs it and drops that
+ * card's entries only. An earlier version of this comment claimed a throw
+ * discarded the whole community list including other cards' entries; that is not
+ * what the frontend does. The defensive style stays regardless, because the
+ * contained failure is still *our* suggestions vanishing with nothing on screen
+ * to say why.
  *
  * The domain check is the whole filter. A calendar entity carries no capability
  * signal worth testing: there is no meaningful device class, no relevant
  * `supported_features`, and its state only reports whether an event is currently
  * running, which says nothing about whether this card suits it.
  *
- * Exactly one suggestion is returned, unlabelled. The picker mounts every returned
- * suggestion as a live card without virtualization, and every live instance of
- * this card fetches calendar events on setup, so each extra variant would cost a
- * real calendar API request every time anyone picks a calendar entity.
+ * **Two suggestions are returned: the list layout, then the column layout.** This
+ * reverses an earlier ruling here that exactly one should be offered, on the
+ * grounds that the picker mounts every suggestion as a live card — true, it
+ * renders `<hui-card preview>` per entry with no virtualization — and that each
+ * extra variant would therefore cost a real calendar API request *every time*
+ * anyone picks a calendar entity. The mechanism is right and the cost was
+ * overstated: `generateDeterministicId` keys the event cache on entities,
+ * `days_to_show`, `show_past_events` and `start_date`, and on none of them do the
+ * two recipes differ. They share a cache key, so the second card is a cache read.
+ * Only a cold cache pays twice, once per TTL window rather than once per pick.
+ *
+ * The two configs differ by exactly one key, which is what keeps that true. Do
+ * not give the column variant its own `days_to_show` without re-reading
+ * `generateDeterministicId` — that key *is* in the hash, and changing it makes
+ * every pick two real fetches.
+ *
+ * The column preview renders as columns rather than falling back to a list,
+ * because `hui-card` sets `preview` on the element it mounts and `effectiveView`
+ * returns the *requested* view whenever that flag is set. Without it the
+ * suggestion would be pointless: a preview cell is 250-310px and three columns
+ * need 488px, so the second tile would render identically to the first.
  *
  * @param hass - Home Assistant instance, treated as possibly absent or malformed
  * @param entityId - Entity ID selected in the card picker
- * @returns A single-entry suggestion list, or `null` when nothing should be offered
+ * @returns A two-entry suggestion list, or `null` when nothing should be offered
  */
 export function getEntitySuggestion(
   hass: Types.Hass | null | undefined,
@@ -720,6 +762,14 @@ export function getEntitySuggestion(
     {
       config: {
         ...buildDefaultCardConfig([entityId]),
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+    {
+      label: SUGGESTION_COLUMN_LABEL,
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        view: 'column',
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },

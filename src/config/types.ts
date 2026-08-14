@@ -654,7 +654,9 @@ export interface HassEntity {
  * selects an entity.
  *
  * The first entry of a suggestion list is the canonical recipe and carries no
- * `label`; any further entry is a labelled variant.
+ * `label`; any further entry is a labelled variant. Home Assistant renders the
+ * tile heading as `${cardName} - ${label}` when a label is present and as
+ * `${cardName}` alone when it is not, so the label names only what differs.
  */
 export interface EntitySuggestion {
   label?: string;
@@ -672,9 +674,10 @@ export interface CustomCard {
   documentationURL?: string;
   /**
    * Optional hook (Home Assistant 2026.6+) that offers this card for a picked
-   * entity. Must be synchronous and must never throw: Home Assistant discards
-   * the whole community suggestion list — including entries contributed by other
-   * custom cards — when a single implementation raises. Returns `null`, never an
+   * entity. Must be synchronous. A throw is contained — the frontend wraps each
+   * custom card's hook in its own `try`/`catch` and drops only that card's
+   * entries — but it should still never throw, because the failure is silent to
+   * the user: our suggestions simply do not appear. Returns `null`, never an
    * empty array, when there is nothing to offer.
    *
    * Older Home Assistant versions ignore this key.
