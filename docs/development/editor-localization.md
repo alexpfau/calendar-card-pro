@@ -1030,6 +1030,15 @@ carefully, because a wrong glossary entry is copied nine times.
 
 One session per language: `de`, `et`, `it`, `lt`, `lv`, `nb`, `pl`, `sk`, `sv`.
 
+Each session was handed a generated `editor-l10n-<lang>.md` brief — coverage figures, the
+strings mined from Home Assistant's frontend, and the working order below. Those nine files
+are **not kept in the repository**. They were snapshots of a partial state, every one of
+them describing a language that is now at 312/312, and they said so themselves: the
+termbase in [`editor-glossary.md`](./editor-glossary.md) is the durable record, not the
+brief. `scripts/l10n-handoff.mjs` regenerates one for any language on demand, which is the
+right way to get a brief for a language that needs one — a stored copy would only ever
+describe the day it was written.
+
 Each session owns its file end to end and, within it, works in this order:
 
 1. **Fix the pre-existing defects** in the 111–134 strings already there (§6). Polish
