@@ -669,6 +669,33 @@ clean run over an empty set. **A probe that names its inputs beats a reader who 
 list**, and three participants have now demonstrated the remembering approach failing, twice
 by the person who had just written the warning down.
 
+**Not a seventh dimension — a routing failure, which is a different diagnosis with a different
+remedy.** The first version of this entry called emphasis-inside-a-phrase a new way for a search
+to mislead. It is not new: `AGENTS.md` already prescribes a `norm()` that strips `` ` ``, `*` and
+`_`, in a stated order, under **"normalise every dimension the writer does not control"** — and
+another session had used that very block, verbatim, earlier the same evening. The tool existed,
+was committed, and was not reached for.
+
+Why it was not reached for is the useful part: **the question was framed as _counting tokens_
+rather than as _searching prose_, and the framing chose the tooling.** Three tokens returned `1`
+and one returned `0` in the same command, so it was not ignorance of emphasis — that line had
+already been written down. A token count simply does not feel like a prose search.
+
+The two diagnoses point opposite ways, which is why it matters:
+
+- *open growing list* → learn more dimensions, keep a tally, stay alert — **the approach this
+  file already shows does not fire**, since the dimension you hit is never the one you just
+  learned.
+- *tool exists, was not routed through* → **route every prose question through `norm()`,
+  including the ones too small to look like searches.** Mechanical, needs no memory, and it
+  predicts the next instance: it will also be somewhere the search does not look like a search.
+
+One part **is** genuinely absent rather than unrouted — `norm()` does not normalise dashes, and
+an em dash in the content against a hyphen in the pattern is the same class one character over.
+And the ad-hoc replacement written for it got `norm()`'s stated **order** wrong too: flattening
+first destroys the line-leading boundary the prefix rule needs. Both are arguments for using the
+committed helper rather than improvising one per question.
+
 **Seventh way a phrase search misleads: markdown emphasis markers sit _inside_ the phrase.**
 Verifying the entry below, one of four tokens returned `0` — `an observation becomes an
 instruction`. The text was present and correct; the source reads `an **observation becomes an
