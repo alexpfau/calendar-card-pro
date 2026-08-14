@@ -11,6 +11,8 @@ view: column
 days_to_show: 5
 ```
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_basic.png" alt="Three days side by side in column view"><br>
+
 In the [visual editor](/features/editor) the layout is the first control in the **Layout**
 panel. Choosing **Columns** reveals the column-only options below it, and adds a
 **Column View Exceptions** row to the panels whose options can differ between the two
@@ -42,6 +44,10 @@ Raising it makes the card give up the column layout sooner, which is what you wa
 your events have long titles. Lowering it keeps columns on narrower cards, at the cost of
 more wrapping.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_list.png" alt="The same column card on a phone, rendered as a list"><br>
+
+That is the same card as the one at the top of [A Week Side by Side](/reference/examples#a-week-side-by-side-in-column-view), on a phone-width card. Three things change with the layout, and all three are defaults rather than anything the card was told to do: the locations reappear, because a `column:` override only applies while the card renders as columns; the empty day disappears, because `show_empty_days` is `false` outside column view; and the multi-day trip is no longer split across days.
+
 By default the number of columns follows `days_to_show` exactly, and a card too narrow for
 all of them switches to the list layout rather than quietly showing fewer days than you
 configured.
@@ -64,6 +70,11 @@ column:
 
 That card shows seven columns when there is room, then six, five, four and three as it
 narrows, and only falls back to the list layout once even three columns will not fit.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week_medium.png" alt="A seven-day column card narrowed to five columns"><br>
+
+Same card again, wide enough for five of its seven days. Nothing marks the two that were
+dropped, which is the point of the warning below.
 
 ::: warning Days You Configured Can Disappear
 A card showing four of seven days looks exactly like a card configured for four days — there
@@ -210,6 +221,12 @@ column:
 
 Left unset entirely, each layout keeps the width that suits it — which is usually the right answer, since a width tuned for the column's own row is often too wide for the list view's time row.
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_complete.png" alt="A column card showing countdowns, a progress bar and weather"><br>
+
+Both are visible above: the running event on the left carries the bar on its own row, and
+every later event carries a countdown after its time. No event has both, because no event
+can be running and still to come.
+
 ## ↔️ Spacing Between Days
 
 `day_spacing` is the space between one day and the next, and it applies in both layouts —
@@ -262,6 +279,12 @@ to it and the layout does not shift.
 Set `day_header_separator_width: 0px` rather than reaching for a transparent color — at
 `0px` the card omits the element entirely, while a transparent rule still takes up height.
 :::
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_styling.png" alt="A column card with a wider header rule, per-calendar accent colors and event backgrounds"><br>
+
+That card pairs the two options above — a 2px header rule in the primary color and a wider
+`day_header_gap` — with per-calendar `accent_color` and `event_background_opacity`, which
+are ordinary options that apply in both layouts.
 
 The `column:` block and every option inside it are listed under [Column-Only Options in the
 configuration reference](/reference/configuration#column-only-options).

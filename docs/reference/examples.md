@@ -99,13 +99,16 @@ The [column layout](/features/column-view) rotates the same agenda so each day g
 column. Two things are worth setting deliberately here. `show_empty_days` already defaults
 to `true` in this layout, which is what keeps the columns corresponding to consecutive days.
 And `min_day_width` decides how many columns actually fit — at the default `140`, seven
-columns need **1,072 px** of card, which a normal dashboard column does not have, so the card
-would render fewer or fall back to the list layout entirely. Lowering it to `110` brings that
-down to **878 px**. Below it the card steps down a column at a time, at 758, 638 and 518 px,
-and reaches the `min_days_to_show: 3` floor at **398 px**.
+columns need **1,088 px** of card. This example raises it to `150`, because the titles below
+would otherwise wrap in a narrower column, and seven columns then need **1,158 px** — a
+full-width dashboard view rather than a single dashboard column. Below that the card gives up
+one column at a time, at 998, 838 and 678 px, and reaches the `min_days_to_show: 3` floor at
+**518 px**.
 
 The `column:` block below tightens the type and hides the location, both of which cost more
 in a narrow column than they do in a full-width row.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week.png" alt="A Week Side by Side, in Column View"><br>
 
 ```yaml
 type: custom:calendar-card-pro
@@ -113,13 +116,14 @@ entities:
   - entity: calendar.family
     color: '#e67c73'
   - entity: calendar.work
-    color: '#4285f4'
+    color: '#03a9f4'
 view: column
 days_to_show: 7
 show_week_numbers: iso
 today_indicator: true
+empty_day_text: '✔ All done'
 column:
-  min_day_width: 110
+  min_day_width: 150
   min_days_to_show: 3
   min_days_fallback: list
   show_location: false
@@ -128,7 +132,7 @@ column:
 ```
 
 So that card shows seven columns on a wide dashboard, steps down to three as it narrows, and
-becomes an ordinary list below 398 px — see [Falling Back to the List
+becomes an ordinary list below 518 px — see [Falling Back to the List
 Layout](/features/column-view#falling-back-to-the-list-layout). The visual editor shows this
 same table for whatever you configure.
 
