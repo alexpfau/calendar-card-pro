@@ -1117,9 +1117,12 @@ measurement, and an unstated input is the one that changes.**
 
 **A passing test whose fixture you did not create is not yet evidence.** Building live test
 cards for the weekday-casing fix, I created three multi-day **all-day** events to exercise
-`fullDaysOfWeek`. They cannot exercise it: that array is read only by the **timed** multi-day
-branch, and the all-day branch renders a bare date — `All day, until Aug 18` — with no
-weekday at all. The cards nevertheless showed `Do wtorku` and `Duminică` and looked correct
+`fullDaysOfWeek`. They could not exercise it: **at the time**, that array was read only by the
+**timed** multi-day branch, and the all-day branch rendered a bare date — `All day, until Aug
+18` — with no weekday at all. (That asymmetry was itself a latent bug, found later by the
+maintainer reading a test card; both branches now name the weekday, so the fixture shapes are
+no longer distinguishable this way. The lesson below is unaffected — it is about the fixture
+and the assertion being about different things, which was true whatever the formatter did.) The cards nevertheless showed `Do wtorku` and `Duminică` and looked correct
 for hours, because another session had left six *timed* fixtures on the same calendar and my
 cards were quietly reading those.
 

@@ -137,7 +137,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -472,7 +472,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 <div class="time-countdown">in a day</div>
 </div>
@@ -748,7 +748,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>Ganztägig, bis 19. Jun</span>
+<span>Ganztägig, bis Freitag, 19. Jun</span>
 </div>
 </div>
 </div>
@@ -926,7 +926,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -1126,7 +1126,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -1504,7 +1504,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -1686,7 +1686,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -1866,7 +1866,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -2045,7 +2045,7 @@ exports[`list view DOM > renders weather on events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -2225,7 +2225,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -2415,7 +2415,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -2596,7 +2596,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>

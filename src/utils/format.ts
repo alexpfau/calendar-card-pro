@@ -595,16 +595,23 @@ function formatMultiDayAllDayTime(
 
   const endDay = endDate.getDate();
   const endMonthName = translations.months[endDate.getMonth()];
+  // Same running-text position as the timed branch above: always preceded by
+  // `multiDay`, so `fullDaysOfWeek` supplies the mid-sentence form — lower-case
+  // where the language does not capitalise weekdays, and inflected to whatever
+  // case that preposition governs (Polish `do poniedziałku`, Ukrainian `до
+  // понеділка`). The timed branch omitting the weekday here was an asymmetry
+  // rather than a decision; both now read the same.
+  const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
   const formatStyle = Localize.getDateFormatStyle(language);
 
   // Different date formats based on language style
   switch (formatStyle) {
     case 'day-dot-month':
-      return `${translations.allDay}, ${translations.multiDay} ${endDay}. ${endMonthName}`;
+      return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endDay}. ${endMonthName}`;
     case 'month-day':
-      return `${translations.allDay}, ${translations.multiDay} ${endMonthName} ${endDay}`;
+      return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endMonthName} ${endDay}`;
     case 'day-month':
     default:
-      return `${translations.allDay}, ${translations.multiDay} ${endDay} ${endMonthName}`;
+      return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endDay} ${endMonthName}`;
   }
 }
