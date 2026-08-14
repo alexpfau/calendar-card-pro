@@ -692,6 +692,12 @@ explanation. It does not ship.
   the worked instances behind the verification rules below. Read it when a check passes and you
   are not sure it proved anything; every entry is a real failure from this repo with its
   measurement.
+- [`docs/development/screenshots.md`](./docs/development/screenshots.md) — how the images
+  under `.github/img/` are captured, which dashboard tab feeds which, and the traps.
+  **Read it before retaking any screenshot.** A screenshot is a config _plus a date plus a
+  calendar_, and only the first is written down anywhere: derive the config from the image
+  rather than from the dashboard card, because the cards drift — no `start_date`, changed
+  `days_to_show`, and v3 key names the runtime now ignores silently.
 
 ## Verification
 

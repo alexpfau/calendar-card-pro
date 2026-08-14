@@ -108,6 +108,8 @@ Each display position can be customized independently with different content and
 
 ## 🧭 Weather In The Column Layout
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_weather.png" alt="Weather on both the day header and each event in column view"><br>
+
 The column layout gives each event's forecast a row of its own, beneath the time and
 above the location, instead of putting it on the title row beside the summary. A column
 track is as narrow as 140px, and a badge on the title row competes with the summary for

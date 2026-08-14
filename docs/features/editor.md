@@ -8,16 +8,16 @@ To open it, click the three dots (⋮) in the top-right corner of the card and s
 
 ## 🗂️ Editor Organization
 
-The editor is organized into nine panels, each named for what it configures rather than for where the option happens to live in YAML:
+The editor is organized into nine panels, each named for what it configures rather than for where the option happens to live in YAML. They are listed here in the order the editor shows them:
 
 | Panel | What it covers |
 | --- | --- |
 | **Calendars** | Which calendars the card shows, and how each one looks |
-| **Card & Title** | The card itself, and the heading above it |
-| **Time Range & Content** | Which days the card covers, and what it puts in them |
-| **Events** | The events themselves, and the lines each one can carry |
-| **Day Header** | How each day announces itself, whichever layout it is announced in |
 | **Layout** | How the card arranges days, and how much room it takes up |
+| **Time Range & Content** | Which days the card covers, and what it puts in them |
+| **Card & Title** | The card itself, and the heading above it |
+| **Day Header** | How each day announces itself, whichever layout it is announced in |
+| **Events** | The events themselves, and the lines each one can carry |
 | **Separators** | The rules the card draws between days, weeks and months |
 | **Weather** | A forecast beside the day, beside the event, or both |
 | **Actions & Refresh** | What a tap does, and how often the card re-reads its calendars |
