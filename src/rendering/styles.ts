@@ -1,9 +1,9 @@
-/* eslint-disable import/order */
 /**
  * Styles module for Calendar Card Pro
  */
 
 import { css } from 'lit';
+
 import * as Config from '../config/config';
 import type * as Types from '../config/types';
 

@@ -9,10 +9,14 @@ Every number below was produced by importing the modules or by a real build. Fou
 were run against modified translation files; **the working tree was restored after each**
 (`git checkout -- src/rendering/editor/translations/`) and is clean.
 
-> **Status: plan only. Nothing here is implemented.**
-> The deliverable is the scope, the mining verdict, the glossary method, the quality bar
-> and the session split. No string was translated in producing it, beyond the handful
-> quoted as evidence.
+> **Status: executed. All nine languages reached 312/312.**
+> This was written as a plan, and the body below still reads as one — present tense,
+> nothing yet done. What it planned has since been carried out: the nine languages it
+> scopes are fully translated, the glossary it proposes exists as
+> [`editor-glossary.md`](./editor-glossary.md) and is parsed by `check:i18n`, and the
+> per-language handoff briefs it describes were generated, used and discarded. It is kept
+> for §3 — the mining analysis, whose measurements are cited elsewhere and are the reason
+> the pre-v4 archive was ultimately deleted rather than kept.
 
 ---
 
@@ -130,6 +134,15 @@ normalisation. Matched against the live table by English text:
 files. Three German entries disagree with the archive; those are rewordings, not gaps.
 
 Residual after the archive: **1,785 of 1,786.**
+
+::: info The Archive Has Since Been Deleted
+This measurement is why. A source with one remaining fill in 1,786 is not a reference
+worth the 184 KB, the checker surface policing its internal consistency, or the standing
+risk that someone adds a translation to it and ships nothing — which had already happened
+once (backlog Y22). The strings it was worth keeping are in
+`src/rendering/editor/translations/`; the terminology decisions are in
+[`editor-glossary.md`](./editor-glossary.md).
+:::
 
 ### 3.3 Source 2 — the card's own 35 languages: 0 gaps, but a working oracle
 
@@ -1029,6 +1042,15 @@ carefully, because a wrong glossary entry is copied nine times.
 **Stage 1 — Nine language sessions. Fully parallel.**
 
 One session per language: `de`, `et`, `it`, `lt`, `lv`, `nb`, `pl`, `sk`, `sv`.
+
+Each session was handed a generated `editor-l10n-<lang>.md` brief — coverage figures, the
+strings mined from Home Assistant's frontend, and the working order below. Those nine files
+are **not kept in the repository**. They were snapshots of a partial state, every one of
+them describing a language that is now at 312/312, and they said so themselves: the
+termbase in [`editor-glossary.md`](./editor-glossary.md) is the durable record, not the
+brief. `scripts/l10n-handoff.mjs` regenerates one for any language on demand, which is the
+right way to get a brief for a language that needs one — a stored copy would only ever
+describe the day it was written.
 
 Each session owns its file end to end and, within it, works in this order:
 

@@ -18,12 +18,11 @@ disagree.**
 > G-section) warn that the `editor` translation section is **all-or-nothing** — that a
 > partially translated section defeats `hasEditorTranslations()` and renders every missing
 > key as its raw name in the UI, so new editor keys must go into all 11 editor languages or
-> none. That hazard has been removed: `hasEditorTranslations()` is deleted and
-> `translateEditorKey()` now resolves each editor key independently, falling back requested
-> language → English → key name. A partial `editor` section is safe to ship, and
-> `check:i18n` reports the gap as a warning rather than an error. The entries are left
-> unedited as a record of what was true when they were written; see _Adding or changing a
-> translation_ in `AGENTS.md` for current behaviour.
+> none. That hazard has been removed, and the mechanism it described is gone entirely: the
+> editor's strings moved to `src/rendering/editor/translations/`, where `lookup()` resolves
+> each key on its own, falling back requested language → English. A partial translation is
+> safe to ship. The entries are left unedited as a record of what was true when they were
+> written; see _Adding or changing a translation_ in `AGENTS.md` for current behaviour.
 
 The archived sections below mirror the pre-split document so a reader can jump directly to
 the rationale for a spec section without reading this file linearly.

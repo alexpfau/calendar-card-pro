@@ -1,18 +1,17 @@
-/* eslint-disable import/order */
 /**
  * Event utilities for Calendar Card Pro
  *
  * Functions for fetching, processing, caching, and organizing calendar events
  */
 
-import * as Types from '../config/types';
-import * as Localize from '../translations/localize';
 import * as FormatUtils from './format';
-import * as Logger from './logger';
-import * as Constants from '../config/constants';
-import * as ViewConfig from '../config/view';
 import * as Helpers from './helpers';
+import * as Logger from './logger';
 import { parseStartDateExpression } from './start-date';
+import * as Constants from '../config/constants';
+import * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
+import * as Localize from '../translations/localize';
 
 //-----------------------------------------------------------------------------
 // HIGH-LEVEL API FUNCTIONS

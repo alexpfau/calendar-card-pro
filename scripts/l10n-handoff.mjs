@@ -23,8 +23,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadEditorModule } from './load-editor-schema.mjs';
 import { loadHaLanguage, LANGS } from './l10n-oracle.mjs';
+import { loadEditorModule } from './load-editor-schema.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT_DIR = join(ROOT, 'docs/development');
@@ -94,7 +94,6 @@ for (const section of glossarySrc.split(/^### /m).slice(1)) {
     }
   }
 }
-
 
 const totals = [];
 for (const lang of LANGS) {

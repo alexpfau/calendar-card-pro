@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Weather condition text in the **card's** language
  *
@@ -20,9 +19,9 @@
  * rather than showing an empty row or a raw `partlycloudy`.
  */
 
+import * as Logger from './logger';
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
-import * as Logger from './logger';
 
 //-----------------------------------------------------------------------------
 // LANGUAGE CODES

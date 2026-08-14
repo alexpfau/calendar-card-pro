@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Presentation models for Calendar Card Pro
  *
@@ -8,7 +7,7 @@
  * and the column view stacks them inside a grid cell, but both ask exactly these
  * questions and must answer them identically.
  *
- * Phase 2 of the column view lifted this out of `renderEvent` in `render.ts`. It is not
+ * The column view work lifted this out of `renderEvent` in `render.ts`. It is not
  * abstraction ahead of need: `docs/development/column-view.md` §D1 requires the column
  * view's `.event-content` to be **byte-identical** to the list's, and that content is
  * driven by `EventContentParts`, which roughly a hundred lines of branching produce here.
@@ -19,10 +18,10 @@
  * could leak into the DOM.
  */
 
-import * as Types from '../config/types';
-import * as FormatUtils from '../utils/format';
-import * as EventUtils from '../utils/events';
 import type { EventContentParts } from './leaves';
+import * as Types from '../config/types';
+import * as EventUtils from '../utils/events';
+import * as FormatUtils from '../utils/format';
 
 /**
  * Everything about a single event that is independent of the view rendering it.

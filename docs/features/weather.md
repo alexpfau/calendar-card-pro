@@ -213,3 +213,5 @@ The feature automatically matches weather data to the correct time periods:
 
 - Daily forecasts for the date column
 - Hourly forecasts for specific event times
+
+Every option on this page lives under the card's weather settings — see [Weather in the configuration reference](/reference/configuration#weather).

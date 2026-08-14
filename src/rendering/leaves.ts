@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Shared leaf renderers for Calendar Card Pro
  *
@@ -7,9 +6,9 @@
  * into the list view's `<table>`, the column view's grid, or the time grid — the
  * container owns layout, these own content.
  *
- * Phase 1 of the column view moved them here out of `render.ts` unchanged, so the list
- * keeps consuming them through its existing table while the new views consume the same
- * functions from their own containers. See `docs/development/column-view.md` §Phase 1.
+ * The column view work moved them here out of `render.ts` unchanged, so the list keeps
+ * consuming them through its existing table while the new views consume the same
+ * functions from their own containers.
  *
  * ## Why the template indentation looks wrong
  *
@@ -21,7 +20,7 @@
  *
  * These blocks therefore keep the exact indentation they had at their old nesting depth
  * inside `render.ts`, which is why some of them sit further right than their new
- * function nesting would suggest. That is what makes the Phase 1 extraction provably
+ * function nesting would suggest. That is what makes the extraction provably
  * DOM-neutral rather than merely believed to be. Prettier does not reformat the inside
  * of tagged templates, so it will not fight you either way; the constraint is the
  * rendered output, not the formatter.
@@ -29,6 +28,7 @@
 
 import { TemplateResult, html, nothing } from 'lit';
 import { styleMap } from 'lit/directives/style-map.js';
+
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
 import * as EventUtils from '../utils/events';

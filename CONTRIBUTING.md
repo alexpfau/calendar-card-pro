@@ -39,8 +39,12 @@ The repository follows this branch structure:
 
 To test your changes in a real Home Assistant environment:
 
-1. Copy `dist/calendar-card-pro-dev.js` to your Home Assistant's `www/community/calendar-card-pro/` folder
-2. Add the resource to Home Assistant:
+1. Copy **both** build outputs into your Home Assistant's `www/community/calendar-card-pro/`
+   folder, keeping them side by side in the same directory:
+   - `dist/calendar-card-pro-dev.js`
+   - `dist/editor-dev.js`
+2. Add the resource to Home Assistant. Register **only the card** — the editor is never a
+   Lovelace resource, because the card loads it on demand:
    ```yaml
    url: /hacsfiles/calendar-card-pro/calendar-card-pro-dev.js
    type: module
@@ -48,6 +52,13 @@ To test your changes in a real Home Assistant environment:
 3. Add the card to your dashboard using type: `custom:calendar-card-pro-dev`
 4. Test with various calendar types and configurations
 5. Verify performance with both small and large event sets
+
+> **⚠️ Copy both files, not just the card**
+>
+> The card loads the visual editor on demand, resolving `./editor-dev.js` against its own
+> URL. Copy only `calendar-card-pro-dev.js` and the card renders perfectly — then the
+> editor 404s the moment you open it, which looks like a code bug rather than a missing
+> file. The two files must sit in the same directory.
 
 > **💡 Pro Tip: Defeating Home Assistant's Aggressive Caching**
 >
@@ -63,117 +74,46 @@ To test your changes in a real Home Assistant environment:
 >    url: /hacsfiles/calendar-card-pro/calendar-card-pro-dev.js?v=2
 >    type: module
 >    ```
-
-> **Note:** The build system automatically generates different filenames depending on the build mode:
 >
-> - Development build (`npm run dev`): Creates `calendar-card-pro-dev.js`
-> - Production build (`npm run build`): Creates `calendar-card-pro.js`
+> You only ever bump this on the card. The card copies its own query string onto the
+> editor URL it builds, so `?v=2` fetches `editor-dev.js?v=2` as well and the two can
+> never fall out of sync — provided you remembered to copy the new `editor-dev.js` across.
+
+> **Note:** The build system emits **two** files, and renames both depending on the build mode:
+>
+> - Development build (`npm run dev`): `calendar-card-pro-dev.js` + `editor-dev.js`
+> - Production build (`npm run build`): `calendar-card-pro.js` + `editor.js`
 >
 > This naming convention allows both development and production versions to coexist in the same Home Assistant directory, making it easier to test changes alongside the stable version installed via HACS. The Home Assistant card element name also includes the `-dev` suffix in development mode, ensuring there's no conflict between versions.
 
 ## Adding New Translations
 
-Calendar Card Pro supports multiple languages through JSON translation files. Here's how to add a new language:
+Calendar Card Pro ships translations for the card and, separately, for the visual editor.
+Wiring up a language touches several files across both, and missing one of them fails
+silently — so the full, current instructions live in a single place rather than being
+repeated here:
 
-### Method 1: Contributing a Language File to the Repository
+**→ [Adding Translations](https://calendar-card-pro.alexpfau.com/contributing#adding-translations)**
 
-1. **Create a new file** in `src/translations/languages/[lang-code].json`
-2. **Copy the structure** from an existing language file (e.g., `en.json`) — your file
-   must contain **every top-level** key present in `en.json`. The `editor` section is
-   optional and may be partial: each editor key falls back to English on its own, so
-   anything you leave out simply renders in English
-3. **Update the localize file** in `src/translations/localize.ts`: add the `import` **and**
-   an entry in the `TRANSLATIONS` map. The map key must be **lowercase** (e.g. `'en-gb'`)
-4. **Update the dayjs file** in `src/translations/dayjs.ts` — this needs **two** edits, and
-   both are required:
-   - add `import 'dayjs/locale/[lang-code]';`
-   - add the base language code to the `supportedLocales` array in `mapLocale()`
+That guide covers both namespaces:
 
-   > ⚠️ Forgetting the `supportedLocales` entry is a **silent failure**: the language will
-   > work everywhere except relative times, which quietly fall back to English.
-   >
-   > Regional variants normally need no dayjs entry at all, since `mapLocale()` reduces
-   > them to their base code (`en-gb` → `en`). Only add one if dayjs ships a distinct
-   > locale you actually need (as with `zh-cn` / `zh-tw`).
+- **Card translations** — `src/translations/languages/*.json`. Every language is loaded
+  eagerly, so each new one also needs wiring in `localize.ts` and `dayjs.ts`. These files
+  must **not** contain an `editor` section; `npm run check:i18n` rejects one.
+- **[Editor translations](https://calendar-card-pro.alexpfau.com/contributing#translating-the-editor)**
+  — `src/rendering/editor/translations/*.json`, loaded only when the editor is opened.
+  These are optional and may be partial: each key falls back to English on its own, so
+  anything you leave out simply renders in English.
 
-5. **Translate all strings** to your language (translate values, never keys)
-6. **Add your language** to the supported-languages list in `docs/contributing.md`
-7. **Submit a Pull Request** with your changes
+Whichever you are adding, verify it mechanically before opening a pull request:
 
-Example language file structure:
-
-```json
-{
-  "daysOfWeek": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-  "fullDaysOfWeek": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
-  "months": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
-  "allDay": "all-day",
-  "multiDay": "until",
-  "at": "at",
-  "endsToday": "ends today",
-  "endsTomorrow": "ends tomorrow",
-  "noEvents": "No upcoming events",
-  "loading": "Loading calendar events...",
-  "error": "Error: Calendar entity not found or improperly configured"
-}
+```bash
+npm run check:i18n
 ```
 
-### Method 2: Testing Translations During Development
-
-For quickly testing a language without modifying the source code, you can use the dynamic translation registration API:
-
-1. Create a script file in Home Assistant (e.g., `/config/www/calendar-translation-dev.js`):
-
-```javascript
-// Development helper for testing new translations
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    if (window.CalendarCardProLocalize) {
-      // Register test translation
-      window.CalendarCardProLocalize.addTranslations('test', {
-        daysOfWeek: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-        fullDaysOfWeek: [
-          'Sunday',
-          'Monday',
-          'Tuesday',
-          'Wednesday',
-          'Thursday',
-          'Friday',
-          'Saturday',
-        ],
-        months: [
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ],
-        allDay: 'TEST all-day',
-        multiDay: 'TEST until',
-        at: 'TEST at',
-        endsToday: 'TEST ends today',
-        endsTomorrow: 'TEST ends tomorrow',
-        noEvents: 'TEST No upcoming events',
-        loading: 'TEST Loading calendar events...',
-        error: 'TEST Error: Calendar entity not found or improperly configured',
-      });
-      console.log('Test language registered for Calendar Card Pro!');
-    }
-  }, 2000);
-});
-```
-
-2. Add this script as a resource in Home Assistant
-3. Set `language: 'test'` in your card configuration to test the translation
-
-> Note: This method is primarily intended for development and testing. For permanent language additions, please contribute directly to the repository via pull request.
+It checks the wiring, not the wording — it cannot tell you whether your Latvian reads well,
+but it catches every way a language can end up half-registered, including the silent dayjs
+one that leaves relative times quietly in English.
 
 ## Code Style and Quality Standards
 

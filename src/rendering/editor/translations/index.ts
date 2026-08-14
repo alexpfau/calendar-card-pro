@@ -15,12 +15,8 @@
  * English text. Two of them, `language` and `language_mode`, had swapped meanings
  * outright.
  *
- * **This is not `src/translations/editor-languages/`.** That directory holds the
- * *previous* editor's namespace, which is now an archive; see its docstring. The two
- * share key names without sharing meanings, which is exactly why the live editor reads
- * only from here. `check:i18n` enforces the separation from both ends: every key in a
- * file below must exist in `EDITOR_STRINGS`, and the editor's build entry may not
- * import the archive.
+ * `check:i18n` holds the line from both ends: every key in a file below must exist in
+ * `EDITOR_STRINGS`, and no language file on the eager path may carry an `editor` section.
  *
  * Adding a language needs no `TRANSLATIONS` entry of its own — the language must
  * already be registered by `src/translations/localize.ts`, and `npm run check:i18n`

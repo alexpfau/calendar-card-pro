@@ -23,8 +23,8 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const HEADING = /^#\s+Calendar Card Pro\s+v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\s*$/;
 

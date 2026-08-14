@@ -1,14 +1,13 @@
-/* eslint-disable import/order */
 /**
  * Weather utilities for Calendar Card Pro
  *
  * Processes and formats weather data from Home Assistant for use in the calendar card.
  */
 
-import * as Types from '../config/types';
-import * as Logger from './logger';
 import * as FormatUtils from './format';
+import * as Logger from './logger';
 import * as WeatherI18n from './weather-i18n';
+import * as Types from '../config/types';
 
 //-----------------------------------------------------------------------------
 // CORE WEATHER DATA PROCESSING

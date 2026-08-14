@@ -34,6 +34,15 @@ enough that people will otherwise get it wrong.
 | `npm run check:docs`   | — (docs/config parity check)    |                         |         |
 | `npm run check:bundle` | — (emitted-file check)          |                         |         |
 
+`lint` and `format` cover **`src/`, `tests/` and `scripts/`**. `scripts/` was outside both
+until v4 — 220 KB of logic that gates every PR, watched by nothing, which is how three of
+those files drifted out of prettier style unnoticed and how Y22 shipped. It is linted under
+a **second, weaker config block**, because these are plain Node ESM rather than TypeScript:
+prettier plus a handful of core correctness rules, no type-aware rules, and deliberately
+**no `no-undef`** — the scripts legitimately use Node globals, and declaring them would mean
+depending on a package that is not a direct devDependency. So a typo in a global reads as
+valid in `scripts/` where `tsc` would have caught it in `src/`.
+
 Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
 command Cloudflare runs), and `docs:preview` (serve the built output).
@@ -575,16 +584,6 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    `languages/`. A new file also needs an `import` **and** an `EDITOR_LANGUAGE_STRINGS`
    entry in `translations/index.ts`, under a lowercase key naming a language that already
    exists — a file nothing imports is silently never registered.
-
-   🚨 **`src/translations/editor-languages/` is not this directory.** It is an archive of
-   the editor replaced in v4, kept as mining material for backlog E10. Its keys overlap
-   the live ones **by name without matching in meaning** — measured, 94 keys are spelled
-   the same and only 53 still carry the same English, with `language` and `language_mode`
-   holding each other's meanings. It was consulted at runtime until v4, behind the English
-   table that defines every key, so it resolved nothing while costing 145 KB of
-   `editor.js`; that is why the editor now reads exactly one namespace and `check:i18n`
-   fails if anything in `src/` imports the archive. Mine it by **English text**, never by
-   key name.
 
 3. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups

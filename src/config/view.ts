@@ -257,10 +257,10 @@ const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
  * that does not work. Column view renders no day, week or month separators at all,
  * so setting these at the top level changes nothing there.
  *
- * The set was briefly empty after Phase 4b implemented the three keys that used to
- * live here, shrank again when week numbers landed, and is empty once more now that
- * the day, week and month separators render. It is kept rather than deleted because
- * the situation it describes recurs on every phase boundary: the design document is
+ * The set was briefly empty once the three keys that used to live here were implemented,
+ * shrank again when week numbers landed, and is empty once more now that the day, week
+ * and month separators render. It is kept rather than deleted because the situation it
+ * describes recurs whenever the design document runs ahead of the code: the document is
  * published, so a key can be public knowledge before it is public behaviour, and
  * "planned but not built" is a materially different message from "not a recognized
  * option".
@@ -586,10 +586,10 @@ export function hasDivergentDefault(key: string, view: Types.EffectiveView): boo
  * reduce columns only when the width genuinely cannot carry them (spec §D7).
  *
  * Written as a predicate over the view rather than an inline `!== 'column'` because the
- * reasoning is about *grid layouts*, not about column view specifically. A time grid
- * (Phase 5) will need its own answer here, and a negative-form comparison would have
- * silently given it the list answer. Prefer extending this function to adding a second
- * comparison at the call site.
+ * reasoning is about *grid layouts*, not about column view specifically. A time grid (the
+ * reserved `grid` view) will need its own answer here, and a negative-form comparison
+ * would have silently given it the list answer. Prefer extending this function to adding
+ * a second comparison at the call site.
  *
  * @param view - View currently being rendered
  * @returns `true` when `compact_*` keys should be honoured
@@ -611,10 +611,11 @@ export function viewAppliesCompactLimits(view: Types.EffectiveView): boolean {
  * List view returns `false`: the per-entity setting keeps its documented precedence
  * there, because a list shows a multi-day event once and reads correctly either way.
  *
- * A time grid (Phase 5) is a genuinely open third answer rather than a copy of either.
- * Grid conventions usually hoist all-day and multi-day events into a banner row above
- * the grid, spanning their real duration, which is neither "split per day" nor "leave
- * as one block in the first day". Extend this function when that view lands.
+ * A time grid (the reserved `grid` view) is a genuinely open third answer rather than a
+ * copy of either. Grid conventions usually hoist all-day and multi-day events into a
+ * banner row above the grid, spanning their real duration, which is neither "split per
+ * day" nor "leave as one block in the first day". Extend this function when that view
+ * lands.
  *
  * @param view - View currently being rendered
  * @returns `true` when the per-entity override must be ignored and the split forced
@@ -633,9 +634,10 @@ export function viewForcesMultidaySplit(view: Types.EffectiveView): boolean {
  *
  * A mapping rather than a predicate, because the answer is not a yes or no: a third view
  * needs a third class, and the alternative shape at the call site — a ternary on
- * `=== 'column'` — silently hands a time grid (Phase 5) the *list* class, which is the
- * one outcome that produces a broken layout rather than a visible error. Extend the
- * switch when that view lands and the compiler will require the new case.
+ * `=== 'column'` — silently hands a time grid (the reserved `grid` view) the *list*
+ * class, which is the one outcome that produces a broken layout rather than a visible
+ * error. Extend the switch when that view lands and the compiler will require the new
+ * case.
  *
  * @param view - View currently being rendered
  * @returns The layout class name, or `''` when the view uses the unclassed default
@@ -838,6 +840,10 @@ export function validateColumnOverrides(config: Types.Config): void {
       continue;
     }
 
+    // Must stay above the `DEFAULT_CONFIG` check below: every key that belongs here is
+    // also a valid `DEFAULT_CONFIG` member, so reversing the two sends the user to the
+    // "set it at the top level instead" advice, which does not work for these. The set is
+    // normally empty, so no test can reach this branch and nothing will catch the swap.
     if (NOT_YET_IMPLEMENTED_KEYS.has(key)) {
       Logger.warn(
         `Ignoring "column.${key}": this option is planned for column view but is not implemented yet.`,

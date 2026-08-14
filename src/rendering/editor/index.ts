@@ -34,11 +34,9 @@
  * code-splitting, so that neither emitted file imports the other; the reasoning is in
  * `rollup.config.mjs`.
  *
- * What this graph deliberately does **not** reach is
- * `src/translations/editor-languages/`, the previous editor's namespace. It was
- * imported here and registered at module scope until it was found to be unreachable at
- * runtime *and* 145 KB of the editor chunk. It is an archive now; `check:i18n` fails if
- * this graph imports it again.
+ * The previous editor's namespace was imported here and registered at module scope until
+ * it was found to be unreachable at runtime *and* 145 KB of the editor chunk. It has
+ * since been deleted; the strings worth keeping went into `translations/`.
  */
 
 export { CalendarCardProEditor } from './element';

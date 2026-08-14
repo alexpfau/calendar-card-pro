@@ -162,12 +162,6 @@ leave out simply renders in English rather than looking broken. Register a new f
 `import` and an `EDITOR_LANGUAGE_STRINGS` entry in `translations/index.ts`, using the same
 lowercase key as the language itself.
 
-::: warning Not `src/translations/editor-languages/`
-That directory is an archive of the editor Calendar Card Pro used before v4. Its keys
-overlap the live ones by name without matching them in meaning, so a string added there
-labels nothing. `npm run check:i18n` fails if anything imports it.
-:::
-
 ## 🏆 Acknowledgements
 
 - **Original design inspiration** from [Calendar Add-on & Calendar Designs](https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790) by **[@kdw2060](https://github.com/kdw2060)**.

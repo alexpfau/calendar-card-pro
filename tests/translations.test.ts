@@ -2,18 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import { getRelativeTimeString } from '../src/translations/dayjs';
-import enEditor from '../src/translations/editor-languages/en.json';
-import {
-  EDITOR_TRANSLATIONS,
-  registerEditorTranslations,
-} from '../src/translations/editor-languages/index';
 import en from '../src/translations/languages/en.json';
-import {
-  TRANSLATIONS,
-  getEffectiveLanguage,
-  getTranslations,
-  translateEditorKey,
-} from '../src/translations/localize';
+import { TRANSLATIONS, getEffectiveLanguage, getTranslations } from '../src/translations/localize';
 import { formatEventTime } from '../src/utils/format';
 
 /**
@@ -121,137 +111,6 @@ describe('getTranslations', () => {
         } else {
           expect(String(value).trim(), `${language}.${key} is empty`).not.toBe('');
         }
-      }
-    }
-  });
-});
-
-describe('the archived editor namespace still registers cleanly', () => {
-  // `editor-languages/` is the *previous* editor's namespace. It is no longer imported
-  // by anything in `src/` — the live editor reads `src/rendering/editor/translations/`,
-  // whose keys match `strings.ts` exactly — so none of it reaches either bundle. It is
-  // kept on disk as the material for the translation pass, and 106 of the live editor's
-  // keys were mined out of it.
-  //
-  // These tests are kept with it. They cover the registration machinery, which is left
-  // intact so the mining pass can re-enter it deliberately; keeping them green is what
-  // stops that machinery rotting into something that cannot be re-enabled. The static
-  // half — that no `languages/*.json` carries an `editor` key, and that nothing in
-  // `src/` imports this directory — belongs to `check:i18n`, and cannot honestly be
-  // asserted here: registration merges into the objects `localize.ts` imported, so
-  // `en.json`'s module object *acquires* an `editor` property the moment this suite
-  // calls the registrar. That mutation is the mechanism working, not a leak, but it
-  // means the imported module is no longer evidence about the file on disk.
-  it('registers editor sections without discarding the card strings', () => {
-    // The trap that makes this a merge rather than an assignment. `addTranslations`
-    // replaces a language's whole entry, so registering an editor-only object through it
-    // would drop `months`, `daysOfWeek` and the rest — and the card would render
-    // `undefined` for every month name in that language, triggered by nothing more than
-    // opening the editor once.
-    registerEditorTranslations();
-
-    for (const language of Object.keys(EDITOR_TRANSLATIONS)) {
-      const translations = getTranslations(language);
-
-      expect(
-        translations.editor,
-        `${language} has no editor section after registration`,
-      ).toBeDefined();
-      expect(translations.months, `${language} lost its month names`).toHaveLength(12);
-      expect(translations.daysOfWeek, `${language} lost its day names`).toHaveLength(7);
-      expect(String(translations.loading).trim(), `${language} lost its card strings`).not.toBe('');
-    }
-  });
-
-  it('registers only languages the card already knows', () => {
-    // An editor section for a language with no card strings could only produce a
-    // half-populated entry. check:i18n rejects one statically; this is the runtime half.
-    for (const language of Object.keys(EDITOR_TRANSLATIONS)) {
-      expect(LANGUAGES, `${language} has editor strings but no card strings`).toContain(language);
-    }
-  });
-
-  it('is idempotent, because getConfigElement can be called more than once', () => {
-    const before = getTranslations('de').editor?.calendar_entities;
-    registerEditorTranslations();
-    expect(getTranslations('de').editor?.calendar_entities).toBe(before);
-  });
-});
-
-describe('translateEditorKey', () => {
-  type EditorSection = { editor: Record<string, string> };
-
-  // The editor's sections are registered by its chunk, so this suite must do what that
-  // chunk does before asserting on anything they hold. Idempotent, so it costs nothing
-  // that the suite above already called it.
-  registerEditorTranslations();
-
-  const editorKeys = Object.keys(enEditor);
-
-  it('resolves a translated key in the requested language', () => {
-    // German translates the editor, so this must NOT come back in English.
-    const german = translateEditorKey('de', 'calendar_entities');
-    expect(german).toBe(
-      (getTranslations('de') as unknown as EditorSection).editor.calendar_entities,
-    );
-  });
-
-  it('falls back to English for a language with no editor section', () => {
-    // French omits `editor` entirely — the supported, documented case.
-    const french = getTranslations('fr') as unknown as Partial<EditorSection>;
-    expect(french.editor, 'fixture assumption: fr has no editor section').toBeUndefined();
-    expect(translateEditorKey('fr', 'calendar_entities')).toBe(enEditor.calendar_entities);
-  });
-
-  it('falls back per key, not per language', () => {
-    // The regression this function exists to prevent. The previous implementation asked
-    // "does this language translate the editor at all?" and one key was enough to answer
-    // yes, after which every *missing* key rendered as its own raw name in the UI.
-    //
-    // Simulating a half-finished translation directly: German with a single key deleted
-    // must still render that key in English, while its neighbours stay German.
-    const german = getTranslations('de') as unknown as EditorSection;
-    const english = enEditor as Record<string, string>;
-
-    // Pick a key German actually translates differently, so "fell back to English" and
-    // "stayed German" are distinguishable.
-    const victim = editorKeys.find(
-      (k) => k !== 'calendar_entities' && german.editor[k] !== english[k],
-    ) as string;
-    expect(victim, 'fixture assumption: de translates some key differently').toBeDefined();
-
-    const saved = german.editor[victim];
-    delete german.editor[victim];
-
-    try {
-      expect(translateEditorKey('de', victim)).toBe(english[victim]);
-      expect(translateEditorKey('de', victim)).not.toBe(victim);
-      expect(translateEditorKey('de', 'calendar_entities')).toBe(german.editor.calendar_entities);
-    } finally {
-      german.editor[victim] = saved;
-    }
-  });
-
-  it('accepts both bare and prefixed key forms', () => {
-    expect(translateEditorKey('en', 'calendar_entities')).toBe(
-      translateEditorKey('en', 'editor.calendar_entities'),
-    );
-  });
-
-  it('returns the key name only when English itself lacks the key', () => {
-    // The last resort. check:i18n treats a key referenced in editor.ts but absent from
-    // en.json as an error, so reaching this in production means that check was bypassed.
-    expect(translateEditorKey('de', 'no_such_editor_key')).toBe('no_such_editor_key');
-  });
-
-  it('resolves every editor key to a non-empty string in every language', () => {
-    for (const language of LANGUAGES) {
-      for (const key of editorKeys) {
-        const resolved = translateEditorKey(language, key);
-        expect(typeof resolved, `${language}.${key} is not a string`).toBe('string');
-        expect(resolved.trim(), `${language}.${key} resolved to empty`).not.toBe('');
-        // The sentinel is an implementation detail and must never reach the UI.
-        expect(resolved, `${language}.${key} leaked the sentinel`).not.toContain('\u0000');
       }
     }
   });
