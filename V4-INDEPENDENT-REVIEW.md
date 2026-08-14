@@ -543,6 +543,31 @@ rather than reporting *that* they did.
 
 ---
 
+## A second measurement that nearly became a false alarm
+
+After the fixes, the deploy harness reported the editor failing to open — `Editor dialog
+open: false, fields rendered: 0` — where the pre-fix build had reported 144 fields. The
+harness's own message said this is "usually edit mode or the click target, not a
+regression", which is exactly the kind of reassurance worth distrusting, so I deployed the
+pre-fix build back and re-ran: it passed, mine failed. That looked conclusive.
+
+It was not. Both readings depended on `--card N`, an *index into the live dashboard*, and
+the shared test tab is disposable and was being rebuilt by another session while I
+measured — so the two runs were not opening the same card. Removing the dashboard from the
+experiment settled it. Driving `getConfigElement()` directly in the browser returned
+`<calendar-card-pro-dev-editor>`, registered, with no page errors; and rendering the editor
+against two *fixed* configs gave byte-identical results on both builds:
+
+| | pre-fix `cfa62b3` | after the six fixes |
+| --- | --- | --- |
+| list config — panels / forms / HTML length | 10 / 11 / 3783 | 10 / 11 / 3783 |
+| column config — panels / forms / HTML length | 15 / 16 / 6076 | 15 / 16 / 6076 |
+
+The lesson is the same one as the `split_multiday_events` correction above, arriving from
+the opposite direction: there, a probe measured the wrong thing and manufactured a finding;
+here, a probe measured a varying input and manufactured a regression. Both were caught by
+asking what the probe could not distinguish, rather than by re-running it more carefully.
+
 ## Design decisions I would question rather than defects
 
 **A3-C's wholesale fallback is right; the default that makes it invisible is the risk.**
@@ -593,13 +618,13 @@ field       dev (v3.6.0)                      v4 (after the colour fix)
 ## Reproducing this review
 
 Scratch harnesses were written to `/tmp/harness/` and are not committed. The worktree is
-clean (`git status --short` → empty). Temporary comparison worktrees created:
+clean (`git status --short` → empty). Three temporary comparison worktrees were used and
+have been removed; recreate them with:
 
 ```bash
-git worktree list
-#  /private/tmp/ccp-dev   d460134 (origin/dev, v3.6.0)
-#  /private/tmp/ccp-350   b991a6c (v3.5.0)
-# remove with:  git worktree remove /tmp/ccp-dev && git worktree remove /tmp/ccp-350
+git worktree add /tmp/ccp-dev  origin/dev --detach   # v3.6.0, the previous release
+git worktree add /tmp/ccp-350  v3.5.0     --detach   # the baseline the notes used to cite
+git worktree add /tmp/ccp-base cfa62b3    --detach   # this branch before the six fixes
 ```
 
 No pull request was opened, no comment posted, and no branch other than this review
