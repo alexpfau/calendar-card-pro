@@ -66,10 +66,27 @@ jobs:
       #
       # HACS downloads it like any other asset but never registers it: `filename` in
       # hacs.json selects the Lovelace resource, and it names the .js.
+      #
+      # The .gz siblings are what make a manual install as cheap over the wire as a HACS
+      # one. Home Assistant's static handler serves a pre-compressed file when it finds
+      # one beside the original and does not compress on the fly, which is why a
+      # HACS-installed card arrives gzipped and a hand-copied one does not — HACS writes
+      # a .gz for every asset it downloads, and extracting a zip writes none. Verified
+      # against a running instance from /local/, not only /hacsfiles/: with a .gz present
+      # the response carries Content-Encoding: gzip and the compressed length. Without
+      # them a manual installer pays 188 KB for the card and 293 KB for the editor
+      # instead of 57 KB and 83 KB.
+      #
+      # Built in a staging directory rather than in dist/, so `check:bundle` above keeps
+      # asserting exactly what rollup emitted and the `dist/*.js` asset glob below cannot
+      # pick up a compressed copy.
       - name: Package dist for manual installation
         run: |
-          cd dist && zip -q -j ../calendar-card-pro.zip *.js
-          cd .. && unzip -l calendar-card-pro.zip
+          mkdir -p pkg
+          cp dist/*.js pkg/
+          gzip -9 -k pkg/*.js
+          zip -q -j calendar-card-pro.zip pkg/*
+          unzip -l calendar-card-pro.zip
 
       # dist/*.js deliberately, not dist/* — the glob does not match *.js.map, so the
       # sourcemap decision (still off, see rollup.config.mjs) is unaffected by this. It

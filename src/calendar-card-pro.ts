@@ -70,6 +70,52 @@ declare global {
 }
 
 //-----------------------------------------------------------------------------
+// EDITOR ADOPTION
+//-----------------------------------------------------------------------------
+
+/**
+ * Registers the editor component out of a freshly imported editor module.
+ *
+ * Split out of `getConfigElement` because the interesting case is not the one the
+ * import already reports. A `import()` that *rejects* is handled there and produces a
+ * written explanation. This handles an import that **resolves and returns the wrong
+ * module**, which the two-file split makes reachable in a way a single-file card never
+ * was: the card asks a sibling URL for `editor.js`, and on a manual install that URL is
+ * `/local/editor.js` — a maximally generic name in a flat directory shared with every
+ * other hand-installed card, theme and script.
+ *
+ * Without this check the wrong file reaches `customElements.define(name, undefined)`,
+ * which throws `TypeError: parameter 2 is not of type 'Function'` — naming an argument
+ * position, from outside the block holding the message written for this reader. The
+ * editor cannot open either way; the guard only decides whether the user is told why.
+ *
+ * Re-checks the registry immediately before defining, because two dashboards can open
+ * the editor at once and both pass the caller's earlier check while the first is still
+ * awaiting its import. A duplicate `define` throws `NotSupportedError`, which surfaces
+ * as a dead dialog rather than as anything legible.
+ *
+ * @param module - Whatever the dynamic import resolved to
+ * @param tagName - Element name to register the editor under
+ * @throws When the module does not carry a usable editor component
+ */
+export function adoptEditorComponent(module: unknown, tagName: string): void {
+  const component = (module as Partial<typeof Editor> | undefined | null)?.CalendarCardProEditor;
+
+  if (typeof component !== 'function') {
+    throw new Error(
+      'Calendar Card Pro: the editor file was found but is not the card’s editor. ' +
+        'This usually means another file of the same name is installed alongside it — ' +
+        'put the card’s files in a folder of their own, or reinstall through HACS, ' +
+        'which does that for you. The card itself is unaffected.',
+    );
+  }
+
+  if (!customElements.get(tagName)) {
+    customElements.define(tagName, component as CustomElementConstructor);
+  }
+}
+
+//-----------------------------------------------------------------------------
 // MAIN COMPONENT CLASS
 //-----------------------------------------------------------------------------
 
@@ -144,10 +190,13 @@ class CalendarCardPro extends LitElement {
    */
   static async getConfigElement(): Promise<HTMLElement> {
     if (!customElements.get('calendar-card-pro-dev-editor')) {
-      let editor: typeof Editor;
-
       try {
-        editor = (await import(editorModuleUrl(import.meta.url))) as typeof Editor;
+        const editor = (await import(editorModuleUrl(import.meta.url))) as typeof Editor;
+
+        // Inside the try on purpose. The import resolving does not mean the right file
+        // arrived — see `adoptEditorComponent` — and a raw TypeError thrown out here
+        // would escape the message written a few lines below for exactly this reader.
+        adoptEditorComponent(editor, 'calendar-card-pro-dev-editor');
       } catch (error) {
         // The failure mode the split introduces, and the only new one. A file that did
         // not arrive — an incomplete release, a hand-copied install of the card alone —
@@ -164,10 +213,6 @@ class CalendarCardPro extends LitElement {
             'files is missing. Reinstalling the card in HACS restores it. The card ' +
             `itself is unaffected. (${detail})`,
         );
-      }
-
-      if (!customElements.get('calendar-card-pro-dev-editor')) {
-        customElements.define('calendar-card-pro-dev-editor', editor.CalendarCardProEditor);
       }
     }
 
