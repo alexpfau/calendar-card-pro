@@ -2,6 +2,48 @@
 title: Release Notes
 ---
 
+# Calendar Card Pro v3.6.0
+
+**A documentation site of its own, and six fixes for defects that made the card look broken rather than merely wrong.** Everything that used to be buried in a very long README now lives at [calendar-card-pro.alexpfau.com](https://calendar-card-pro.alexpfau.com), with a page per feature and a complete configuration reference. Alongside it: a card that no longer disappears behind a red error box because of one stray line of YAML, per-calendar settings that take effect when you change them instead of whenever a cache happens to expire, and text that stops vanishing mid-word.
+
+## 🎉 New Features
+
+### 📚 A Documentation Site
+
+- **[calendar-card-pro.alexpfau.com](https://calendar-card-pro.alexpfau.com)** - The full manual is now a searchable site rather than a README you scroll through: a page per feature, a [complete configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration) listing every option with its type and default, a [usage guide](https://calendar-card-pro.alexpfau.com/guide/usage) that starts from a working card, and [ready-made examples](https://calendar-card-pro.alexpfau.com/reference/examples). The README is now a landing page that points at it, so installation and a first working card are the first things you see
+
+## 🐛 Bug Fixes
+
+### Reliability
+
+- **One Stray Line of YAML Took Down the Whole Card** - A bare `-` in the `entities:` list, left behind while editing or written as `entities: [~]`, parses to null. The config normalizer accepted it and then read a property off it, throwing before the card rendered — so Home Assistant replaced the entire calendar with a red error box. Malformed entries are now discarded, which is what the surrounding code always intended (#389)
+- **Per-Calendar Settings Ignored Until the Cache Expired** - Events were cached after processing, but the cache key described only what had been _fetched_ — the calendars and the time window. Every other option the processing step reads was invisible to it, so editing a per-calendar label, colour or toggle appeared to do nothing until the entry aged out. The cache now stores the raw calendar payload and reprocesses it on every read, so edits apply immediately; per-calendar event limits were also silently degrading on a cache hit and no longer do
+
+### Appearance
+
+- **Titles Ellipsised When Nothing Had Been Truncated** - Event titles showed a trailing `…` at certain card widths even though no characters had been dropped, and at slightly narrower widths the ellipsis ate one or two real characters before the title finally wrapped. The card offers no title-truncation option, so that ellipsis could only ever announce a truncation that had not happened
+- **Words Disappeared Mid-Character in Descriptions and Locations** - The description, location and time rows could shrink below the width of their own longest word and clip it mid-glyph, with no ellipsis to indicate anything was missing — measured on a 300px card, a 179px word in a 167px box painted 12 pixels of its last character and dropped the rest. Long words now wrap instead of being cut off
+
+### Countdown
+
+- **Multi-Day Countdowns Disagreed From Row to Row** - With `split_multiday_events` enabled a multi-day event renders one row per day, and each row was counted differently: the first measured wall-clock time and lost a day after midday, the middle rows counted calendar days, and the last counted to a midnight that exists only because of the split. A holiday four days out read `in 3 days / in 5 days / in 6 days / in 6 days`. Every row now counts whole calendar days to its own date, so the sequence reads consecutively; this also fixes countdowns vanishing from just the middle rows when `show_countdown_allday` was off (Thanks @Scooshie and @BalooDK, #344)
+
+### Configuration
+
+- **Options Removed in v3.0.0 Were Ignored in Silence** - Five options dropped in the v3.0.0 cleanup — `max_events_to_show`, `vertical_line_color`, `horizontal_line_width`, `horizontal_line_color` and `row_spacing` — were discarded without comment for anyone configuring the card in YAML: the value vanished, its replacement took the default, and nothing anywhere said so, which reads as "the update changed my styling". Each removed option is now reported in the browser console together with the option that replaces it. The visual editor already offered a one-click upgrade; this closes the gap for everyone who never opens it
+
+## 🔧 Under the Hood
+
+Groundwork for the [column view](https://github.com/alexpfau/calendar-card-pro/issues/377): the renderer's leaf elements and the event presentation model moved into modules of their own, and whether an all-day event shows a time row is now decided by the formatter instead of by substring-matching the string it had just produced — a test that had no margin in the eight languages whose "until" translation is two characters long. The list view's rendered DOM is byte-identical throughout, now pinned by a test suite so that stays true.
+
+## Related Issues
+
+- [#344](https://github.com/alexpfau/calendar-card-pro/issues/344) - Countdown display appears one day short for all-day calendar events by @Scooshie
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v3.5.0...v3.6.0
+
+---
+
 # Calendar Card Pro v3.5.0
 
 **Cards that hide themselves when there is nothing to show, start dates that follow the week, titles rendered from Home Assistant templates — and a fix that restores the card title to its intended size.** This release is mostly about fitting the card to the dashboard around it: disappearing when it is empty, saying something useful when a day has no events, anchoring to next Monday instead of a date you keep updating, and driving the title from Home Assistant itself. The card is also easier to find in the first place, now that Home Assistant offers it directly when you add a calendar entity.

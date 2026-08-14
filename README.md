@@ -24,14 +24,14 @@ option, all features and worked examples — lives on the
 **[documentation site](https://calendar-card-pro.alexpfau.com)**, which is searchable and
 always matches the latest release.
 
-| | |
-| --- | --- |
-| 🚀 [Installation](https://calendar-card-pro.alexpfau.com/guide/installation) | Set the card up via HACS or manually |
-| 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) | Add the card and configure it visually |
-| ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor) | Weather, templates, layout, actions, and more |
-| 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option |
-| 💡 [Examples](https://calendar-card-pro.alexpfau.com/reference/examples) | Ready-made configurations to copy |
-| 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) | Full history of every release |
+|                                                                                            |                                               |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------- |
+| 🚀 [Installation](https://calendar-card-pro.alexpfau.com/guide/installation)               | Set the card up via HACS or manually          |
+| 📌 [Usage](https://calendar-card-pro.alexpfau.com/guide/usage)                             | Add the card and configure it visually        |
+| ✨ [Features & Configuration](https://calendar-card-pro.alexpfau.com/features/editor)      | Weather, templates, layout, actions, and more |
+| 📚 [Configuration Options](https://calendar-card-pro.alexpfau.com/reference/configuration) | Complete reference for every option           |
+| 💡 [Examples](https://calendar-card-pro.alexpfau.com/reference/examples)                   | Ready-made configurations to copy             |
+| 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)                   | Full history of every release                 |
 
 <p>&nbsp;</p>
 
@@ -140,7 +140,16 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v3.5
+### Latest Release: v3.6
+
+- 📚 **A Documentation Site**: The full manual now lives at [calendar-card-pro.alexpfau.com](https://calendar-card-pro.alexpfau.com) — a page per feature, a [complete configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and [ready-made examples](https://calendar-card-pro.alexpfau.com/reference/examples)
+- 🐛 **One Stray Line of YAML Broke the Card**: A bare `-` left in the `entities:` list replaced the whole calendar with a red error box; malformed entries are now discarded
+- 🐛 **Per-Calendar Settings Applied Late**: Editing a per-calendar label, colour or toggle did nothing until the cache expired — edits now apply immediately
+- 🐛 **Disappearing and Ellipsised Text**: Titles gained a `…` when nothing had been truncated, and long words in descriptions and locations were clipped mid-character with no warning
+- 🐛 **Multi-Day Countdowns**: Each row of a [split multi-day event](https://calendar-card-pro.alexpfau.com/features/multi-day-events) counted differently; every row now counts whole calendar days to its own date
+- 🐛 **Silently Ignored Options**: Options removed back in v3.0.0 were dropped without comment for YAML users, and are now reported with their replacement
+
+### v3.5
 
 - 🫥 **Empty State Control**: [Remove the card entirely](https://calendar-card-pro.alexpfau.com/features/event-content#calendar-events-display) when there are no upcoming events, or replace "No upcoming events" with [your own wording](https://calendar-card-pro.alexpfau.com/features/event-content#custom-empty-day-text)
 - 📅 **Flexible Start Dates**: [Anchor the view to the week or a weekday](https://calendar-card-pro.alexpfau.com/features/start-date-offset#start-date-configuration) with `start_of_week`, `saturday`, and composable offsets like `start_of_week+7`

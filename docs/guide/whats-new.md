@@ -6,7 +6,17 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v3.5
+## Latest Release: v3.6
+
+- 📚 **A Documentation Site**: The full manual moved to its own searchable site — a page per feature, a [complete configuration reference](/reference/configuration) listing every option with its type and default, and [ready-made examples](/reference/examples). The README is now a landing page that points at it
+- 🐛 **One Stray Line of YAML Broke the Card**: A bare `-` left in the `entities:` list parses to null, which threw before the card rendered and replaced the whole calendar with a red error box; malformed entries are now discarded
+- 🐛 **Per-Calendar Settings Applied Late**: Editing a per-calendar label, colour or toggle did nothing until the cache expired, because the cache key described only what had been fetched. The raw calendar payload is now cached and reprocessed on every read
+- 🐛 **Titles Ellipsised When Nothing Was Truncated**: Event titles gained a trailing `…` at certain widths despite losing no characters, and ate real ones at narrower widths
+- 🐛 **Words Clipped Mid-Character**: Description, location and time rows could shrink below their own longest word and cut it mid-glyph with no ellipsis to signal it; long words now wrap
+- 🐛 **Multi-Day Countdowns Disagreed Row to Row**: Each row of a [split multi-day event](/features/multi-day-events) counted differently, reading `in 3 days / in 5 days / in 6 days / in 6 days`; every row now counts whole calendar days to its own date
+- 🐛 **Silently Ignored Options**: The five options removed in v3.0.0 were dropped without comment for anyone configuring in YAML, and are now reported in the console alongside the option that replaces them
+
+## v3.5
 
 - 🫥 **Empty State Control**: [Remove the card entirely](/features/event-content#calendar-events-display) when there are no upcoming events, or replace "No upcoming events" with [your own wording](/features/event-content#custom-empty-day-text)
 - 📅 **Flexible Start Dates**: [Anchor the view to the week or a weekday](/features/start-date-offset#start-date-configuration) with `start_of_week`, `saturday`, and composable offsets like `start_of_week+7`
