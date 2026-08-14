@@ -275,6 +275,19 @@ are and are not flagged:
 1. Bump `version` in `package.json` — it is the single source of truth. Rollup
    substitutes it into the bundle header and into `constants.ts` via `@version
 vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
+
+   Then regenerate the lockfile so its **two** version fields follow — `.version` and
+   `.packages[""].version`:
+
+   ```bash
+   npx npm@10.9.2 install --package-lock-only
+   ```
+
+   `npm ci` validates dependencies but never the root version, and exits 0 on a mismatch,
+   so bumping `package.json` alone passes lint, tsc, the tests and the build. That is how
+   8 of the 10 releases from v3.0.1 through v3.4.0 shipped with a stale lock version — 31
+   of 37 tags overall. `ci.yml` now checks all three, so skipping this fails the release PR
+   rather than shipping quietly.
 2. Update `docs/RELEASE_NOTES.md`, the README's `## 4️⃣ What's New` section, **and**
    `docs/guide/whats-new.md` — see _The two "What's New" surfaces_ for the differing rules.
 3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
@@ -290,7 +303,10 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 
 ## CI
 
-- `ci.yml` — lint + build on every PR to `main` or `dev`.
+- `ci.yml` — lint + build on every PR to `main` or `dev`. Also guards the two release-infra
+  drifts nothing else can see: `package.json` disagreeing with either version field in
+  `package-lock.json`, and `.nvmrc` disagreeing with `.node-version`. Both run before the
+  install, so they fail in seconds.
 - `hacs-validate.yml` — HACS validation on `main` and nightly.
 - `release.yml` — tag-triggered draft release.
 
@@ -308,10 +324,11 @@ and serves `docs/.vitepress/dist` as static assets.
   in version control.
 - The Node version is pinned by **both `.nvmrc` and `.node-version`** (kept in sync), and
   `ci.yml` reads `.nvmrc` via `node-version-file` so CI and the deploy run the same runtime.
-  Keep it that way. When they drifted — CI on Node 24, the build image on Node 22 — npm 11
-  in CI accepted a `package-lock.json` that npm 10 on the build image rejected with
-  `EUSAGE … Missing: esbuild@… from lock file`. CI was green on every PR while the deploy
-  failed and the site quietly served stale content.
+  Keep it that way — `ci.yml` now fails when the two files disagree, because their agreement
+  is the whole reason a green CI run predicts a successful deploy. When they drifted — CI on
+  Node 24, the build image on Node 22 — npm 11 in CI accepted a `package-lock.json` that npm
+  10 on the build image rejected with `EUSAGE … Missing: esbuild@… from lock file`. CI was
+  green on every PR while the deploy failed and the site quietly served stale content.
 - **A lockfile that installs locally is not a lockfile that installs on the build image.**
   Merging branches that each touched `package-lock.json` can produce a file that is
   internally inconsistent but still satisfies a newer npm. To check against the deploy's
