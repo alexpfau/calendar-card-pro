@@ -60,11 +60,27 @@ export function renderMainCardStructure(
   titlePending: boolean = false,
   effectiveView: Types.EffectiveView = 'list',
 ): TemplateResult {
+  // Built by filter-and-join rather than by interpolating ternaries into the attribute.
+  // Both conditional classes are empty for a default list card, and interpolation left
+  // their separators behind: `class="calendar-card-pro  "`, two spaces and a trailing
+  // one. Harmless to card-mod, which matches `ha-card.calendar-card-pro` rather than the
+  // literal attribute — which is exactly why nothing caught it for so long.
+  //
+  // Not lit's `classMap`: measured, it emits its own surrounding whitespace
+  // (`" calendar-card-pro "`) because it is built to concatenate with static classes in
+  // the same attribute. That trades one whitespace quirk for another, and this attribute
+  // is pinned by `tests/card-wrapper-dom.test.ts`, so it should say exactly what it means.
+  const cardClasses = [
+    'calendar-card-pro',
+    maxHeightSet ? 'max-height-set' : '',
+    ViewConfig.viewCssClass(effectiveView),
+  ]
+    .filter((cls) => cls !== '')
+    .join(' ');
+
   return html`
     <ha-card
-      class="calendar-card-pro ${maxHeightSet ? 'max-height-set' : ''} ${ViewConfig.viewCssClass(
-        effectiveView,
-      )}"
+      class=${cardClasses}
       style=${styleMap(customStyles)}
       tabindex="0"
       aria-busy=${isLoading ? 'true' : 'false'}
