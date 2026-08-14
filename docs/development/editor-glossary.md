@@ -502,7 +502,7 @@ key says `Dodaj wydarzenie`. Fixed to `Wydarzenia w trybie kompaktowym` and pinn
 
 Nothing mechanical could have caught it before the rejection existed: the adherence check
 only compares keys whose _entire_ English is the term, and this key's English is
-`Compact Events To Show`. The rejection closes it, and cannot misfire — the card never
+`Compact Events to Show`. The rejection closes it, and cannot misfire — the card never
 means HA's stateless-occurrence sense.
 
 ### calendar — a calendar entity supplying events

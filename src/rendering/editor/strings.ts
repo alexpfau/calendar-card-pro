@@ -151,7 +151,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Shown before every event from this calendar. An image label is a path the browser ' +
     'can reach, such as /local/work.png.',
   'entity.label_type.option.none.label': 'None',
-  'entity.label_type.option.text.label': 'Text Or Emoji',
+  'entity.label_type.option.text.label': 'Text or Emoji',
   'entity.label_type.option.icon.label': 'An Icon',
   'entity.label_type.option.image.label': 'An Image',
   'entity.label': 'Label',
@@ -182,7 +182,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.split_multiday_events.option.split.label': 'Split across each day',
   'entity.split_multiday_events.option.whole.label': 'Keep as one event',
 
-  'entity.compact_events_to_show': 'Compact Events To Show',
+  'entity.compact_events_to_show': 'Compact Events to Show',
   'entity.compact_events_to_show.helper':
     'How many of this calendar\u2019s events compact mode keeps. Left empty, the card ' +
     'limit applies.',
@@ -246,7 +246,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   start_date_mode: 'Start Date',
   'start_date_mode.option.default.label': 'Today',
   'start_date_mode.option.fixed.label': 'A Fixed Date',
-  'start_date_mode.option.offset.label': 'Relative To Today',
+  'start_date_mode.option.offset.label': 'Relative to Today',
   start_date_fixed: 'Date',
   start_date_offset: 'Expression',
   'start_date_offset.helper':
@@ -350,7 +350,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'today_indicator_style.option.pulse.label': 'Pulsing Dot',
   'today_indicator_style.option.glow.label': 'Glowing Dot',
   'today_indicator_style.option.icon.label': 'An Icon',
-  'today_indicator_style.option.custom.label': 'An Emoji Or Image',
+  'today_indicator_style.option.custom.label': 'An Emoji or Image',
   today_indicator_icon: 'Icon',
   today_indicator_custom: 'Emoji Or Image Path',
   today_indicator_color: 'Indicator Color',
@@ -463,11 +463,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.helper': 'Leave empty for no forecast at all.',
   position: 'Show The Forecast',
   'position.option.none.label': 'Nowhere',
-  'position.option.date.label': 'In The Day Header',
+  'position.option.date.label': 'In the Day Header',
   'position.option.event.label': 'Beside Each Event',
   'position.option.both.label': 'In Both Places',
 
-  'weather.date': 'In The Day Header',
+  'weather.date': 'In the Day Header',
   'weather.date.helper': "The day's forecast, shown once per day.",
   'date.show_conditions': 'Show Conditions',
   'date.show_high_temp': 'Show High Temperature',
@@ -500,7 +500,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event.show_uv_index': 'Show UV Index',
   'event.uv_index_threshold': 'UV Index Threshold',
   'event.uv_index_threshold.helper': 'Hide the index below this value. Zero always shows it.',
-  'event.daily_forecast_fallback': 'Fall Back To The Daily Forecast',
+  'event.daily_forecast_fallback': 'Fall Back to the Daily Forecast',
   'event.daily_forecast_fallback.helper':
     'For an all-day event, or one further ahead than the hourly forecast reaches.',
   'event.icon_size': 'Icon Size',

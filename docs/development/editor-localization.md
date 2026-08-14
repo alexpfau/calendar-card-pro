@@ -1130,6 +1130,18 @@ Recorded because the brief asked for them explicitly.
 
 ## 12. Things I Could Not Establish
 
+::: tip Read This as a Record, Not a To-Do List
+**Maintainer ruling, 2026-08-14: none of the open questions below gate the v4 release.**
+Native review happens *after* v4 ships, through the issues and pull requests a published
+translation attracts — which reaches actual speakers of each language, rather than whoever
+can be asked in advance. Nothing here is a pre-release checklist.
+
+What stays load-bearing is the *reasoning*: several of these look like one-line fixes and
+are not. Lowercasing a weekday is half the fix at most where the preposition governs case,
+and a find-and-replace to Home Assistant's term produces confidently wrong Slovak. Keep
+those warnings whatever happens to the questions.
+:::
+
 - **Whether any individual existing translation is correct.** Everything in §6 is a
   _systematic_ defect visible from structure or cross-artefact disagreement. Establishing
   correctness needs native speakers, and nothing in this repo can substitute.
