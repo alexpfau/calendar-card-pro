@@ -62,4 +62,42 @@ export default [
       },
     },
   },
+  {
+    // The build/CI tooling. These are plain Node ESM, not TypeScript, so they get the
+    // default parser and none of the type-aware rules — but they do gate every PR, and
+    // a bug here is invisible to `tsc` and to the test suite. Y22 shipped from this
+    // layer. Formatting is enforced for the same reason it is in src: three of these
+    // files had drifted out of prettier style while nothing was watching.
+    //
+    // Only core rules that need no `globals` declaration are enabled, so `no-undef` is
+    // deliberately absent — these files legitimately use Node globals, and declaring
+    // them would mean depending on a package that is not a direct devDependency.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+    },
+    plugins: {
+      prettier: prettierPlugin,
+      import: importPlugin,
+    },
+    rules: {
+      ...prettierConfig.rules,
+      'prettier/prettier': ['error'],
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-dupe-keys': 'error',
+      'no-dupe-args': 'error',
+      'no-unreachable': 'error',
+      'no-constant-condition': 'error',
+      'no-self-compare': 'error',
+      'import/order': [
+        'warn',
+        {
+          groups: ['builtin', 'external', 'internal', ['sibling', 'parent'], 'index', 'unknown'],
+          'newlines-between': 'always',
+          alphabetize: { order: 'asc', caseInsensitive: true },
+        },
+      ],
+    },
+  },
 ];

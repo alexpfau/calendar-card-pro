@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "rollup -c --watch",
     "build": "cross-env NODE_ENV=prod rollup -c",
-    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' --fix --format stylish",
-    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
+    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' 'scripts/**/*.mjs' --fix --format stylish",
+    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts' 'scripts/**/*.mjs'",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",

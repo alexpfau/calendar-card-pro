@@ -472,7 +472,11 @@ function checkSilentMarkdown(docs) {
 
       // Table separator whose column count disagrees with the header above it.
       if (/^\s*\|[\s:-]*-[\s:|-]*\|\s*$/.test(line) && i > 0) {
-        const cells = (row) => row.trim().replace(/^\||\|$/g, '').split('|').length;
+        const cells = (row) =>
+          row
+            .trim()
+            .replace(/^\||\|$/g, '')
+            .split('|').length;
         const header = lines[i - 1];
         if (/\|/.test(header) && cells(header) !== cells(line)) {
           error(
@@ -928,7 +932,9 @@ function checkDesignDocLinks(docs) {
       // Outside it: fall back to the filesystem.
       const slugs = outsideHeadings(abs);
       if (slugs === null) {
-        error(`${relative(ROOT, file)} links to ${m[1]}, but ${relative(ROOT, abs)} does not exist.`);
+        error(
+          `${relative(ROOT, file)} links to ${m[1]}, but ${relative(ROOT, abs)} does not exist.`,
+        );
         continue;
       }
       if (anchor && slugs.size && !slugs.has(anchor)) {

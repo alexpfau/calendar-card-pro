@@ -196,9 +196,7 @@ function isImportMeta(node) {
  * @returns True for a non-computed member access of that name
  */
 function isMemberNamed(node, name) {
-  return (
-    node?.type === 'MemberExpression' && !node.computed && node.property?.name === name
-  );
+  return node?.type === 'MemberExpression' && !node.computed && node.property?.name === name;
 }
 
 /**
@@ -208,7 +206,11 @@ function isMemberNamed(node, name) {
  * @returns True for a construction of the global URL
  */
 function isNewUrl(node) {
-  return node?.type === 'NewExpression' && node.callee?.type === 'Identifier' && node.callee.name === 'URL';
+  return (
+    node?.type === 'NewExpression' &&
+    node.callee?.type === 'Identifier' &&
+    node.callee.name === 'URL'
+  );
 }
 
 /**
@@ -458,7 +460,7 @@ function main() {
         `dist/${file}`,
         'does not copy its own query string onto the editor URL. HACS serves /hacsfiles/** with ' +
           'max-age=2678400 and appends ?hacstag= to the registered resource only, so without ' +
-          "propagation the editor is fetched at a URL that never changes — see editorModuleUrl() " +
+          'propagation the editor is fetched at a URL that never changes — see editorModuleUrl() ' +
           'in src/utils/editor-url.ts',
       );
     }

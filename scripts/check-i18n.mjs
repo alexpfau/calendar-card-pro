@@ -58,8 +58,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { loadEditorModule } from './load-editor-schema.mjs';
 import { deriveEnGb } from './en-gb.mjs';
+import { loadEditorModule } from './load-editor-schema.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANG_DIR = join(ROOT, 'src/translations/languages');

@@ -34,6 +34,15 @@ enough that people will otherwise get it wrong.
 | `npm run check:docs`   | — (docs/config parity check)    |                         |         |
 | `npm run check:bundle` | — (emitted-file check)          |                         |         |
 
+`lint` and `format` cover **`src/`, `tests/` and `scripts/`**. `scripts/` was outside both
+until v4 — 220 KB of logic that gates every PR, watched by nothing, which is how three of
+those files drifted out of prettier style unnoticed and how Y22 shipped. It is linted under
+a **second, weaker config block**, because these are plain Node ESM rather than TypeScript:
+prettier plus a handful of core correctness rules, no type-aware rules, and deliberately
+**no `no-undef`** — the scripts legitimately use Node globals, and declaring them would mean
+depending on a package that is not a direct devDependency. So a typo in a global reads as
+valid in `scripts/` where `tsc` would have caught it in `src/`.
+
 Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
 command Cloudflare runs), and `docs:preview` (serve the built output).
