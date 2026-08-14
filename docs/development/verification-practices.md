@@ -815,6 +815,26 @@ not available at the moment of restatement:
 > **When restating a claim, carry the qualifier or carry the evidence. If you have neither,
 > it was inference, and it belongs in the message rather than the summary.**
 
+**Three instances in one evening, and all three were in the artefacts written _about_ this
+failure mode.** A commit message described a change as *"removing the nested patterns that never
+fire"* — accurate for four of the five lines it deleted. The fifth, `/tmp-shots/*.png`, was
+anchored at the repo root rather than nested under an ignored directory, so **it was not inert**;
+it was merely unused. Dropping it was correct cleanup and changed no behaviour, but the change
+was real and the description did not cover it.
+
+That is the third: `(this one)` with no referent; a commit message covering a renumber but not
+the deixis fix that rode along in the same diff; and now a description whose category
+("patterns that never fire") did not fit everything it applied to. **All three were written by
+people actively cataloguing this exact failure**, which is the part worth keeping — *the shape
+does not announce itself even to someone looking for it*, because the missing piece is supplied
+silently at the moment of writing and there is nothing in the text to notice.
+
+Note the distinction the third instance turns on, since it is the sort that will recur: **inert
+and unused are different properties.** A rule shadowed by another rule can never fire and is
+safe to delete unexamined. A rule that has simply not matched anything yet is live, and deleting
+it is a behaviour change that happens to have no effect *today*. The same output — nothing
+matched — comes from both.
+
 **The author supplies the missing piece for free, which is why they cannot see it is
 missing.** A session reviewing a shared skill file found the sentence *"A third session (this
 one) later replaced the whole view"*. Unambiguous to whoever wrote it; **`(this one)` has no
