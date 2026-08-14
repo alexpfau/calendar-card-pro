@@ -314,6 +314,68 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
 }
 
 /**
+ * Coerces a bare number written against a length-valued option into pixels.
+ *
+ * Home Assistant's YAML parser types `day_spacing: 4` as a number, and a number is not a
+ * valid CSS length: it reaches `styleMap` or a custom property as `"4"`, the browser
+ * rejects the declaration, and the rule silently disappears. Nothing errors and nothing
+ * is logged — the option simply has no effect, which reads as the option being broken.
+ *
+ * Length-ness is inferred from the shape of the key's shipped default rather than from a
+ * hand-maintained list, because a hand-maintained list is what drifts. A default matching
+ * a plain pixel length is a length; `#03a9f4`, `15% 50%` and `en` are not, and a number
+ * written against one of those is meaningless either way, so misclassification cannot
+ * make anything worse than the raw number already was.
+ *
+ * Non-numeric values pass through untouched, including booleans and numbers written
+ * against genuinely numeric options such as `title_max_lines` and `days_to_show`.
+ *
+ * @param key - Option the value was written against
+ * @param value - Raw configured value, which YAML may have typed as a number
+ * @returns The value, with a bare number turned into a pixel length where appropriate
+ */
+export function coercePixelLength(key: string, value: unknown): unknown {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return value;
+  }
+
+  const shippedDefault = (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key];
+
+  return typeof shippedDefault === 'string' && /^-?\d+(?:\.\d+)?px$/.test(shippedDefault)
+    ? `${value}px`
+    : value;
+}
+
+/**
+ * Applies {@link coercePixelLength} across every top-level option.
+ *
+ * The column-view override path has coerced its own keys since `day_spacing` moved into
+ * the override list, so `column: {day_spacing: 4}` rendered a 4px gutter while a
+ * top-level `day_spacing: 4` rendered none — the same value in two places behaving
+ * differently, which is worse than either behaviour on its own. Routing both through one
+ * exported function is what stops them diverging again.
+ *
+ * Twenty-three shipped options take a pixel length, so this is not a `day_spacing` fix
+ * wearing a general name: every one of them silently lost its rule when written bare.
+ *
+ * Top-level keys only. Nested groups (`weather.date.font_size` and the like) carry their
+ * own defaults and are resolved on a separate path; sweeping them here would mean
+ * guessing at nesting the shipped-default lookup cannot see.
+ *
+ * @param config - Configuration to normalize in place
+ * @returns The same object, for chaining alongside `normalizeNumericOptions`
+ */
+export function normalizeLengthOptions(config: Types.Config): Types.Config {
+  const raw = config as unknown as Record<string, unknown>;
+
+  for (const key of Object.keys(raw)) {
+    raw[key] = coercePixelLength(key, raw[key]);
+  }
+
+  return config;
+}
+
+/**
  * Normalizes entity configuration to ensure consistent format
  */
 export function normalizeEntities(

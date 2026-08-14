@@ -1051,6 +1051,7 @@ class CalendarCardPro extends LitElement {
     this.config = mergedConfig;
     this.config.entities = Config.normalizeEntities(this.config.entities);
     Config.normalizeNumericOptions(this.config);
+    Config.normalizeLengthOptions(this.config);
     ViewConfig.validateView(this.config);
     ViewConfig.validateColumnOverrides(this.config);
 

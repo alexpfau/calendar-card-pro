@@ -9,7 +9,7 @@
  * row and a narrow column can be overridden per view inside `column:`.
  */
 
-import { DEFAULT_CONFIG } from './config';
+import { DEFAULT_CONFIG, coercePixelLength } from './config';
 import * as Types from './types';
 import * as Logger from '../utils/logger';
 
@@ -371,7 +371,7 @@ export const COLUMN_DEFAULTS = {
  * Value type a column-only option resolves to.
  *
  * Derived from the shape of the key's `COLUMN_DEFAULTS` entry rather than from a
- * second hand-maintained list, for the same reason `coerceOverrideLength` infers
+ * second hand-maintained list, for the same reason `coercePixelLength` infers
  * length-ness that way: a list that has to be edited in lockstep with the table
  * above is a list that will eventually disagree with it.
  *
@@ -391,7 +391,7 @@ type ColumnOptionValue<K extends keyof typeof COLUMN_DEFAULTS> =
  * declaration, and the rule silently disappears. Coercing here means the failure
  * cannot reach the renderer.
  *
- * Override keys get the same protection from `coerceOverrideLength`, which infers
+ * Override keys get the same protection from `coercePixelLength`, which infers
  * length-ness from the shape of the key's `DEFAULT_CONFIG` value rather than from a
  * second hand-maintained list.
  */
@@ -737,7 +737,7 @@ export function resolveEffectiveConfig(
   if (overrides) {
     for (const key of COLUMN_OVERRIDE_KEYS) {
       if (hasOverride(overrides, key)) {
-        applied[key] = coerceOverrideLength(key, overrides[key]);
+        applied[key] = coercePixelLength(key, overrides[key]);
       }
     }
   }
@@ -748,41 +748,6 @@ export function resolveEffectiveConfig(
 //-----------------------------------------------------------------------------
 // VALIDATION
 //-----------------------------------------------------------------------------
-
-/**
- * Coerces a bare number written against a length-valued override key into pixels.
- *
- * Home Assistant's YAML parser types `day_spacing: 4` as a number, and a number is not
- * a valid CSS length: it reaches `styleMap` or a custom property as `"4"`, the browser
- * rejects the declaration, and the rule silently disappears. `COLUMN_LENGTH_KEYS` has
- * always protected the column-only options from exactly this; overrides had no
- * equivalent, which only became load-bearing when `day_spacing` — the column gutter —
- * moved from the column-only list into the override list.
- *
- * Length-ness is inferred from the shape of the key's shipped default rather than from
- * a second hand-maintained list, because a hand-maintained list is what drifts. A
- * default matching a plain pixel length is a length; `#03a9f4`, `15% 50%` and `en` are
- * not, and a number written against one of those is meaningless either way, so
- * misclassification cannot make anything worse than the raw number already was.
- *
- * Non-numeric values pass through untouched, including booleans and numbers written
- * against genuinely numeric options such as `title_max_lines`.
- *
- * @param key - Override option being applied
- * @param value - Raw configured value, which YAML may have typed as a number
- * @returns The value, with a bare number turned into a pixel length where appropriate
- */
-function coerceOverrideLength(key: string, value: unknown): unknown {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return value;
-  }
-
-  const shippedDefault = (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key];
-
-  return typeof shippedDefault === 'string' && /^-?\d+(?:\.\d+)?px$/.test(shippedDefault)
-    ? `${value}px`
-    : value;
-}
 
 /**
  * Coerces `view` to a member of its declared union, warning when it was not one.
@@ -993,7 +958,7 @@ const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
  * view renders, so it necessarily runs before the view is known, whereas
  * `resolveEffectiveConfig` needs the view as an input. Resolving the two keys it
  * depends on directly is the way out of that ordering constraint — there is no
- * circularity, because neither `resolveColumnOption` nor `coerceOverrideLength`
+ * circularity, because neither `resolveColumnOption` nor `coercePixelLength`
  * consults the view.
  *
  * @param config - Merged configuration, defaults already applied
@@ -1036,7 +1001,7 @@ function columnGutterPx(config: Types.Config): number {
   const overrides = config.column;
   const configuredGap =
     overrides && hasOverride(overrides, 'day_spacing')
-      ? coerceOverrideLength('day_spacing', overrides.day_spacing)
+      ? coercePixelLength('day_spacing', overrides.day_spacing)
       : config.day_spacing;
 
   return parsePx(String(configuredGap), DEFAULT_DAY_GAP_PX);

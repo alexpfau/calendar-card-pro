@@ -294,7 +294,7 @@ export function matchesPanel(panel: PanelDef, ctx: FilterCtx): boolean {
  * every field asks this of the same configuration during one render.
  */
 const normalized = Helpers.memoizeLast((config: Readonly<Types.Config>) =>
-  Config.normalizeNumericOptions({ ...config }),
+  Config.normalizeLengthOptions(Config.normalizeNumericOptions({ ...config })),
 );
 
 /**
