@@ -1206,13 +1206,26 @@ marker-spanning phrase the normaliser was written for matched; two single-line
 markup-free fragments did not, purely because they were quoted lower-cased from a commit
 message.
 
-**But it must stay a caveat rather than a fifth `.replace()`, because the right answer
-depends on the question:**
+**But it must stay a caveat rather than a fifth `.replace()`, and case is not the only
+dimension it applies to — normalisation is _per question_, and at least three dimensions have
+opposite right answers:**
 
-| question                         | case                                                   |
-| -------------------------------- | ------------------------------------------------------ |
-| _did this text survive a merge?_ | **fold** — a sentence-initial capital is noise         |
-| _is this capitalised correctly?_ | **preserve** — capitalisation is the property measured |
+| dimension | _did this text survive?_ | _is this text correct?_ |
+| --- | --- | --- |
+| **case** | fold — a sentence-initial capital is noise | preserve — Polish `Data Początkowa`, Swedish `Vardag` |
+| **em dash** | fold — a translator's dash is noise | preserve — `structuralGlyphs` in `check-i18n.mjs`; an ASCII substitute changes what the string says |
+| **quotes** | fold | preserve — German `„…“`, Polish `„…”`, Swedish `”…”` are each correct; demanding `“…”` enforces a calque |
+
+Each row cites a check that the wrong choice would break, which is what makes the table a
+falsifier rather than a taxonomy. The dash row is the one that arrived last and by accident:
+folding `—` to `-` was **correct** for verifying that a paragraph survived an edit, and would
+be a defect in `structuralGlyphs`, whose whole purpose is to notice exactly that substitution.
+Same character, same repo, opposite answers, an hour apart.
+
+The general form was already one line below and the special case was written first, which is
+its own small instance: **a comparison that normalises away the property it is also trying to
+measure cannot report on it.** Everything above is that sentence with the dimensions filled in,
+and a fourth will arrive.
 
 This repo has been bitten in both directions: case-folding hid Polish `Data Początkowa` from
 the term check, and case-_sensitivity_ silently missed Swedish `Vardag` at the head of a
