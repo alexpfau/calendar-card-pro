@@ -9,7 +9,7 @@ something, I say so. Where I initially measured something wrong, that is recorde
 
 ## Disposition
 
-Every finding has been fixed on `alexpfau-v4-independent-review`, in six commits, each
+Every finding has been fixed on `alexpfau-v4-independent-review`, in eight commits, each
 with a test watched failing before it passed where the fix was in code. Findings are left
 in their original wording below, with the fix recorded under each, so the reasoning that
 produced them stays auditable.
@@ -17,7 +17,7 @@ produced them stays auditable.
 | # | Finding | Fix |
 | - | ------- | --- |
 | 1 | List event-weather badge changed colour | `139b0e5` — restored `--secondary-text-color`; release note corrected |
-| 2 | Nested weather lengths ignored bare numbers | `16d1f19` — `normalizeLengthOptions` now descends nested groups |
+| 2 | Nested weather lengths ignored bare numbers | `16d1f19` — `normalizeLengthOptions` now descends nested groups; **regressed and re-fixed in `92e5006`, see below** |
 | 3 | Editor threw on non-array `entities` | `cd3200e` — guarded at the boundary in the editor's `setConfig` |
 | 4 | Stale byte figures, wrong baseline | `1b09942` — re-measured against v3.6.0, level stated |
 | 5 | `editor.js` in a shared namespace | `492e7f3` — install docs use a subfolder; adoption is a checked step |
@@ -543,6 +543,59 @@ rather than reporting *that* they did.
 
 ---
 
+## The fix for finding 2 shipped a worse bug than the one it fixed
+
+Worth recording in full, because it is the most useful thing in this document.
+
+`16d1f19` made the length sweep descend into nested groups. It descended by **writing
+through them** — `target[key] = coerce(...)`, unconditionally, for every key at every
+level. Home Assistant hands a card its configuration **frozen**, and `setConfig` merges it
+shallowly, so `config.weather` and `config.tap_action` on the merged object are the user's
+own frozen objects rather than copies of them. In strict mode — every module here —
+assigning to a frozen object throws *even when the value is unchanged*:
+
+```
+TypeError: Cannot assign to read only property 'entity' of object '#<Object>'
+```
+
+The blast radius was every card carrying a `tap_action`, `hold_action` or `weather` block,
+which is most of them. It did not need a bare number anywhere: the config that reported it
+wrote every length correctly as `'14px'` and still threw, on `entity`.
+
+**Nothing caught it.** Not `tsc`, not lint, not 1029 tests, not `check:docs`, not
+`check:bundle`, not a live deploy, not a browser render of the test dashboard. It was found
+by the maintainer pasting a real card config into a real dashboard.
+
+The reason is a single property of the test suite: **every fixture in it is a plain mutable
+object literal.** `buildConfig()` builds one, and so does every hand-written case. Freezing
+is the property that decides this behaviour, and nothing froze anything, so the entire
+suite was blind to it by construction — the "representative input passes cleanly every
+time" failure, where the representative input differs from the real one in exactly the
+dimension that matters.
+
+The fix rebuilds a nested group into a fresh object and attaches it only if something
+changed, so a frozen input is never written through. Four cases now freeze, and all four
+were watched failing against the previous implementation:
+
+```bash
+# with the fix reverted:
+× does not throw for a weather block that needs no coercion
+× does not throw for a frozen tap_action or hold_action
+× still coerces a frozen nested value, by replacing the group rather than writing into it
+   "TypeError: Cannot assign to read only property 'entity' of object '#<Object>'"
+```
+
+The same change also closes a second hazard of the same shape that no one had noticed: a
+card with no `weather:` block receives `DEFAULT_CONFIG.weather` **by reference** out of the
+shallow merge, so an in-place coercion there would have edited the shipped defaults for
+every card in the process.
+
+**What I would take from it.** The review above ran a differential across 214 config
+permutations and a browser A/B across 40 render cases, and both were built on the same
+mutable fixtures, so neither could have seen this. Breadth of inputs does not help when
+every input shares the defect-hiding property. A single frozen fixture would have caught
+it, and there is now a `describe` block that supplies one.
+
 ## A second measurement that nearly became a false alarm
 
 After the fixes, the deploy harness reported the editor failing to open — `Editor dialog
@@ -637,9 +690,9 @@ All eight gates are green after the fixes:
 ```
 npx tsc --noEmit          # clean
 npm run lint              # clean
-npm test                  # 1029 passed, 34 files
+npm test                  # 1033 passed, 34 files
 npm run check:i18n        # 0 errors
 npm run check:docs        # 0 errors
 npm run build && npm run check:bundle
-                          # calendar-card-pro.js 188866 B, editor.js 292946 B
+                          # calendar-card-pro.js 188952 B, editor.js 293378 B
 ```
