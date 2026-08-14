@@ -47,6 +47,7 @@ export async function fetchEventData(
     config.days_to_show,
     config.show_past_events,
     config.start_date,
+    config.first_day_of_week,
   );
 
   // Resolved before the cache check because both paths need them.
@@ -1536,8 +1537,10 @@ export function cacheEvents(
  * @param entities - Calendar entities
  * @param daysToShow - Number of days to display
  * @param showPastEvents - Whether to show past events
- * @param startDate - Optional start date in YYYY-MM-DD format or ISO format
- * @param filterDuplicates - Whether duplicate filtering is enabled
+ * @param startDate - Optional start date in YYYY-MM-DD format, ISO format, or the
+ *   relative grammar (`start_of_week`, `monday+1w`, …)
+ * @param firstDayOfWeek - Resolved first day of week, which moves the window whenever
+ *   `startDate` uses a week-relative expression
  * @returns Base cache key
  */
 export function getBaseCacheKey(
@@ -1546,6 +1549,7 @@ export function getBaseCacheKey(
   daysToShow: number,
   showPastEvents: boolean,
   startDate?: string,
+  firstDayOfWeek?: string,
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -1570,7 +1574,17 @@ export function getBaseCacheKey(
   // Include the normalized startDate in the cache key
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
 
-  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}${Constants.VERSION.CURRENT}`;
+  // `first_day_of_week` only matters when the start date is expressed relative to a week
+  // — `start_of_week`, `monday+1w` and the rest of the grammar `parseStartDateExpression`
+  // resolves. Appended only in that case, so the overwhelmingly common configuration
+  // (no start date, or an absolute one) keeps the key it already had and does not lose
+  // its cache on upgrade for a setting that cannot move its window.
+  const weekRelative = /^(start_of_week|end_of_week|mon|tue|wed|thu|fri|sat|sun)/i.test(
+    normalizedStartDate,
+  );
+  const firstDayPart = weekRelative && firstDayOfWeek ? `_fdw${firstDayOfWeek}` : '';
+
+  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
 }
 
 /**

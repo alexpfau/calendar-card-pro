@@ -568,6 +568,11 @@ export function hasConfigChanged(
     previousEntityIds !== currentEntityIds ||
     previous.days_to_show !== current.days_to_show ||
     previous.start_date !== current.start_date ||
+    // Moves the fetch window whenever start_date is week-relative, because
+    // `parseStartDateExpression` resolves `start_of_week` and the weekday names against
+    // it. Listed in FETCH_TIME_KEYS for that reason, and previously absent from both
+    // this comparison and the cache key — so the window changed and nothing refetched.
+    previous.first_day_of_week !== current.first_day_of_week ||
     previous.show_past_events !== current.show_past_events ||
     previous.filter_duplicates !== current.filter_duplicates;
 
