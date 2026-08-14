@@ -335,11 +335,28 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
  * @returns The value, with a bare number turned into a pixel length where appropriate
  */
 export function coercePixelLength(key: string, value: unknown): unknown {
+  return coercePixelLengthAgainst(
+    (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key],
+    value,
+  );
+}
+
+/**
+ * {@link coercePixelLength} against a shipped default supplied directly.
+ *
+ * Split out so the nested walk can pass the default it has already descended to, rather
+ * than looking one up by a flat key that would not find it. The by-key form remains the
+ * entry point for callers that hold only a name — `resolveEffectiveConfig` and the
+ * column gutter resolution, both of which work on top-level option names.
+ *
+ * @param shippedDefault - The value this option ships with, at the same nesting level
+ * @param value - Raw configured value, which YAML may have typed as a number
+ * @returns The value, with a bare number turned into a pixel length where appropriate
+ */
+function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unknown {
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return value;
   }
-
-  const shippedDefault = (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key];
 
   return typeof shippedDefault === 'string' && /^-?\d+(?:\.\d+)?px$/.test(shippedDefault)
     ? `${value}px`
@@ -347,7 +364,7 @@ export function coercePixelLength(key: string, value: unknown): unknown {
 }
 
 /**
- * Applies {@link coercePixelLength} across every top-level option.
+ * Applies {@link coercePixelLength} across every option, including nested groups.
  *
  * The column-view override path has coerced its own keys since `day_spacing` moved into
  * the override list, so `column: {day_spacing: 4}` rendered a 4px gutter while a
@@ -358,21 +375,63 @@ export function coercePixelLength(key: string, value: unknown): unknown {
  * Twenty-three shipped options take a pixel length, so this is not a `day_spacing` fix
  * wearing a general name: every one of them silently lost its rule when written bare.
  *
- * Top-level keys only. Nested groups (`weather.date.font_size` and the like) carry their
- * own defaults and are resolved on a separate path; sweeping them here would mean
- * guessing at nesting the shipped-default lookup cannot see.
+ * The walk descends `config` and `DEFAULT_CONFIG` **together**, which is what lets it
+ * reach nested groups. An earlier version stopped at the top level, on the reasoning that
+ * a nested key's shipped default was not visible to the flat lookup — but it is, because
+ * the defaults carry the same nesting, so both structures can be descended in step. Four
+ * shipped options sat in that gap: `weather.date.icon_size`, `weather.date.font_size` and
+ * the two `weather.event` equivalents, each silently inert when written as a bare number.
+ *
+ * Descent requires a plain object on **both** sides. That excludes arrays — `entities` has
+ * no per-index shipped default to descend into, so walking it could only do harm — and it
+ * excludes any key the defaults do not describe, such as the `column:` block, whose own
+ * keys are coerced by `resolveEffectiveConfig` against `COLUMN_DEFAULTS` instead.
  *
  * @param config - Configuration to normalize in place
  * @returns The same object, for chaining alongside `normalizeNumericOptions`
  */
 export function normalizeLengthOptions(config: Types.Config): Types.Config {
-  const raw = config as unknown as Record<string, unknown>;
-
-  for (const key of Object.keys(raw)) {
-    raw[key] = coercePixelLength(key, raw[key]);
-  }
+  coerceLengthsAgainst(
+    config as unknown as Record<string, unknown>,
+    DEFAULT_CONFIG as unknown as Record<string, unknown>,
+  );
 
   return config;
+}
+
+/**
+ * Recursive half of {@link normalizeLengthOptions}.
+ *
+ * @param target - Configuration level to normalize in place
+ * @param defaults - The matching level of `DEFAULT_CONFIG`
+ */
+function coerceLengthsAgainst(
+  target: Record<string, unknown>,
+  defaults: Record<string, unknown>,
+): void {
+  for (const key of Object.keys(target)) {
+    const value = target[key];
+    const shipped = defaults[key];
+
+    if (isPlainObject(value) && isPlainObject(shipped)) {
+      coerceLengthsAgainst(value, shipped);
+      continue;
+    }
+
+    target[key] = coercePixelLengthAgainst(shipped, value);
+  }
+}
+
+/**
+ * Whether a value is a plain object, i.e. something with named keys to descend into.
+ *
+ * Arrays are excluded deliberately; see {@link normalizeLengthOptions}.
+ *
+ * @param value - Value to test
+ * @returns `true` for a non-null, non-array object
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**

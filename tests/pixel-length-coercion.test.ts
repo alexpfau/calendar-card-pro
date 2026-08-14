@@ -79,6 +79,70 @@ describe('Y21 — pixel-length coercion', () => {
     expect(raw.language).toBe('en');
   });
 
+  it('reaches nested groups, so weather lengths are coerced too', () => {
+    // The sweep was top-level only, on the reasoning that a nested key's shipped default
+    // is not visible to a flat lookup. It is — `DEFAULT_CONFIG` carries the same nesting,
+    // so the walk can descend both structures together. Four shipped options lived in
+    // that gap, and every one of them silently lost its rule when written bare:
+    // `weather.date.icon_size`, `weather.date.font_size`, and the two `weather.event`
+    // equivalents.
+    const config = {
+      weather: {
+        entity: 'weather.home',
+        position: 'date',
+        date: { icon_size: 20, font_size: 16, uv_index_threshold: 3 },
+        event: { icon_size: 22, font_size: 18, max_lines: 2 },
+      },
+    } as unknown as Types.Config;
+
+    Config.normalizeLengthOptions(config);
+
+    const weather = (config as unknown as Record<string, Record<string, Record<string, unknown>>>)
+      .weather;
+    expect(weather.date.icon_size).toBe('20px');
+    expect(weather.date.font_size).toBe('16px');
+    expect(weather.event.icon_size).toBe('22px');
+    expect(weather.event.font_size).toBe('18px');
+
+    // Numbers written against genuinely numeric nested options must survive as numbers.
+    expect(weather.date.uv_index_threshold).toBe(3);
+    expect(weather.event.max_lines).toBe(2);
+
+    // And the strings around them are untouched.
+    expect(weather.entity).toBe('weather.home');
+    expect(weather.position).toBe('date');
+  });
+
+  it('does not descend into arrays, so a per-entity list is left alone', () => {
+    // `entities` is an array of objects whose shipped default is an empty array, so
+    // there is no per-index default to descend into. Walking it anyway would compare
+    // entity objects against `undefined` and could only do harm.
+    const config = {
+      entities: [{ entity: 'calendar.x', label: '5' }],
+      day_spacing: 4,
+    } as unknown as Types.Config;
+
+    Config.normalizeLengthOptions(config);
+
+    const raw = config as unknown as Record<string, unknown>;
+    expect(raw.entities).toEqual([{ entity: 'calendar.x', label: '5' }]);
+    expect(raw.day_spacing).toBe('4px');
+  });
+
+  it('is idempotent through nested groups as well', () => {
+    const config = {
+      weather: { date: { font_size: 16 }, event: { icon_size: 22 } },
+    } as unknown as Types.Config;
+
+    Config.normalizeLengthOptions(config);
+    Config.normalizeLengthOptions(config);
+
+    const weather = (config as unknown as Record<string, Record<string, Record<string, unknown>>>)
+      .weather;
+    expect(weather.date.font_size).toBe('16px');
+    expect(weather.event.icon_size).toBe('22px');
+  });
+
   it('is idempotent — a normalized config survives a second pass', () => {
     // The card normalizes on every setConfig, and the editor asks the same question of a
     // copy. A coercion that appended twice would produce `4pxpx`, which is silently
