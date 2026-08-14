@@ -66,6 +66,38 @@ Only presentation options may appear in `column:`. Anything that decides _which_
 
 An unusable entry inside the block is ignored rather than treated as an error, so one stray line cannot break the rest of the card.
 
+## 💤 Options That Do Nothing in Column View
+
+A few options describe something the column layout does not have, so they are read in list
+view and ignored in column view. They are not errors and they are not removed — the same
+card renders as a list whenever it is too narrow for columns, and every one of these
+applies again the moment it does.
+
+**`date_vertical_alignment`** positions the date inside a tall date cell. A column header
+sits above its events rather than beside them, so there is no cell to move it in.
+
+**`today_indicator_position`** places the marker within that same date cell, as a
+percentage of it. In column view the indicator is a leading item on the weekday row
+instead — so `today_indicator`, `today_indicator_size` and `today_indicator_color` all
+still apply, and only the position does not.
+
+**`compact_events_to_show`, `compact_days_to_show` and `compact_events_complete_days`**
+belong to compact mode, which caps the whole card rather than each column. A cap of three
+would truncate the grid after the third event and leave the remaining columns blank.
+Column density is controlled by [`min_days_to_show` and
+`min_days_fallback`](#showing-fewer-columns-instead) instead.
+
+**Per-entity `split_multiday_events`** is ignored because a column _is_ a day: an unsplit
+event would leave every later column it spans silently blank, and a per-calendar opt-out
+would make one calendar honest and another not in the same card. The card-level
+`column: split_multiday_events: false` is the deliberate escape hatch, and it does work.
+
+::: tip These Are Annotated in the Visual Editor
+The editor marks each of these rather than hiding it, from the same table the card reads at
+runtime — so the control stays available for the list layout the card falls back to, and
+the note tells you when it is inert.
+:::
+
 ## 📊 Progress Bar & Countdown
 
 A [countdown](/features/event-content#countdown-display) and a [progress bar](/features/event-content#progress-bar-display) never appear on the same event — a countdown means the event has not started, a bar means it is running now. Column view uses that to give each one the treatment it needs, rather than a single compromise that suits neither.

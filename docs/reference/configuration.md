@@ -49,6 +49,17 @@ absent `column:` block a visual no-op.
 
 **→ [Column View](/features/column-view)** — worked examples.
 
+### Options With No Effect in Column View
+
+`date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
+`compact_days_to_show` · `compact_events_complete_days` · per-entity `split_multiday_events`
+
+These describe a date cell or a compact budget that the column layout does not have. They
+keep working in list view, including when a `view: column` card falls back to it on a
+narrow dashboard, so they are annotated rather than removed.
+
+**→ [Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view)** — why each one, and what to use instead.
+
 ### Per-Entity Options
 
 Each item in `entities` may be a plain entity ID string, or an object that overrides

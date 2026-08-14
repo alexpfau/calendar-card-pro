@@ -93,6 +93,45 @@ month_separator_width: 1.5px
 month_separator_color: var(--secondary-text-color)
 ```
 
+## 🗓️ A Week Side by Side, in Column View
+
+The [column layout](/features/column-view) rotates the same agenda so each day gets its own
+column. Two things are worth setting deliberately here. `show_empty_days` already defaults
+to `true` in this layout, which is what keeps the columns corresponding to consecutive days.
+And `min_day_width` decides how many columns actually fit — at the default `140`, seven
+columns need **1,072 px** of card, which a normal dashboard column does not have, so the card
+would render fewer or fall back to the list layout entirely. Lowering it to `110` brings that
+down to **878 px**. Below it the card steps down a column at a time, at 758, 638 and 518 px,
+and reaches the `min_days_to_show: 3` floor at **398 px**.
+
+The `column:` block below tightens the type and hides the location, both of which cost more
+in a narrow column than they do in a full-width row.
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.family
+    color: '#e67c73'
+  - entity: calendar.work
+    color: '#4285f4'
+view: column
+days_to_show: 7
+show_week_numbers: iso
+today_indicator: true
+column:
+  min_day_width: 110
+  min_days_to_show: 3
+  min_days_fallback: list
+  show_location: false
+  event_font_size: 12px
+  day_header_separator_width: 1px
+```
+
+So that card shows seven columns on a wide dashboard, steps down to three as it narrows, and
+becomes an ordinary list below 398 px — see [Falling Back to the List
+Layout](/features/column-view#falling-back-to-the-list-layout). The visual editor shows this
+same table for whatever you configure.
+
 ## 🎨 Full Configuration
 
 A heavily **customized** configuration covering **styling, layout, and interactions**. Though you could **go all out**—and I didn’t—and create a **completely different look** if you wanted. Screenshot using the beautiful **[Bubble Theme](https://github.com/Clooos/Bubble)**.
