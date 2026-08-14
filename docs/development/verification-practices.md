@@ -901,6 +901,40 @@ the extent of the problem. The instance is evidence that the class exists; it is
 evidence of the class's size. After finding one, the next step is to enumerate the
 population, not to record the lesson and move on.
 
+**And the question that mattered was not "how many sessions" but "was anything lost" — a
+different question with a different instrument and a better answer.** The session that supplied
+the enumeration probe then supplied its successor: `workspace.yaml` records `branch:` beside
+`cwd:`, so each affected session can be asked whether its branch reached the remote. They
+specified **two** controls, and insisted on the negative one — *run it against an invented
+branch name and confirm it reports AT RISK* — because "all safe" is otherwise
+indistinguishable from `ls-remote` failing for every input.
+
+Both controls passed. Seven branches were on origin, eight were not. **But eight was
+over-reported**, because ~40 merged branches had been deleted in the same sweep, and a branch
+that was pushed, merged and pruned looks identical to one never pushed. The follow-up probe —
+searching merge-commit messages for the branch name — then **failed its own control**: a
+branch known to be merged produced no match.
+
+So the name-based instruments were abandoned for one that asks about **objects**:
+
+```
+git fsck --unreachable            356 unreachable commits, 135 from today
+  copilot checkpoint: …            76   session infrastructure
+  WIP/index/untracked on <branch>  58   stash triples, ~19 stashes
+  other                             1   a throwaway probe commit
+spot-check: 3 of 3 readable, showing real diffs (8, 38 and 48 changed lines)
+```
+
+**Nothing was lost.** Unreachable is not deleted — every one of those objects is still readable
+today and will be until a `git gc` prunes them. The conclusion is therefore not *"9 sessions
+unknown"* but *"no work is gone, and there is an open recovery window"*, which is both a better
+answer and a **different question** from the one three successive probes were pointed at.
+
+Worth noting what got it there: two instruments were discarded **because their controls failed**,
+not because their answers looked wrong. The branch-name probe returned a plausible eight and the
+merge-message probe returned plausible blanks; only the controls distinguished those from
+findings.
+
 **The count I twice declared unknowable was recoverable, and it was 2.5x what I reported.**
 I wrote *"I still cannot enumerate which of the thirty-one had live sessions"* — in the same
 document as the rule that an unverifiability claim asserts no instrument exists over a space
