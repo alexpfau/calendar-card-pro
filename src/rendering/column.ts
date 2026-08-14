@@ -6,10 +6,10 @@
  * a vertical list. The two views share every leaf — date block, event body, today
  * indicator — and differ only in the container that arranges them.
  *
- * That sharing is the point of the module boundary. Phase 1 extracted the leaves into
- * `leaves.ts` and Phase 2 extracted the per-event derived values into
- * `presentation.ts`, both explicitly so this file could compose them rather than
- * reimplement them. Nothing here recomputes an event's time string, countdown,
+ * That sharing is the point of the module boundary. The leaves live in `leaves.ts` and
+ * the per-event derived values in `presentation.ts`, both lifted out of the list view's
+ * own renderer explicitly so this file could compose them rather than reimplement them.
+ * Nothing here recomputes an event's time string, countdown,
  * accent colour or past/future state: those come from `buildEventPresentation`, the
  * same function the list view calls, so the two views cannot drift.
  *
@@ -45,7 +45,7 @@ import * as Presentation from './presentation';
  * nothing is gained by rewriting working code to share four lines of arithmetic.
  *
  * What it *is* shared by is everything on this side of the axis. Week numbers read
- * `isNewWeek`; the day, week and month separators will read both. Computing them once
+ * `isNewWeek`; the day, week and month separators read both. Computing them once
  * per render for the whole run keeps the two features from disagreeing about where a
  * boundary is, which is the failure mode that matters — a week pill on one column and
  * a week rule between two others.

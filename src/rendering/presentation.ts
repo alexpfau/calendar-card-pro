@@ -8,7 +8,7 @@
  * and the column view stacks them inside a grid cell, but both ask exactly these
  * questions and must answer them identically.
  *
- * Phase 2 of the column view lifted this out of `renderEvent` in `render.ts`. It is not
+ * The column view work lifted this out of `renderEvent` in `render.ts`. It is not
  * abstraction ahead of need: `docs/development/column-view.md` §D1 requires the column
  * view's `.event-content` to be **byte-identical** to the list's, and that content is
  * driven by `EventContentParts`, which roughly a hundred lines of branching produce here.
