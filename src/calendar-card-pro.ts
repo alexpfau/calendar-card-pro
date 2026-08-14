@@ -293,6 +293,7 @@ class CalendarCardPro extends LitElement {
   private _visibleCountCache?: {
     events: Types.CalendarEventData[];
     config: Types.Config;
+    view: Types.EffectiveView;
     language: string;
     count: number;
   };
@@ -486,41 +487,44 @@ class CalendarCardPro extends LitElement {
    */
   get visibleEventCount(): number {
     const language = this.effectiveLanguage;
+    const view = this.effectiveView;
     const cache = this._visibleCountCache;
 
     if (
       cache &&
       cache.events === this.events &&
       cache.config === this.config &&
+      cache.view === view &&
       cache.language === language
     ) {
       return cache.count;
     }
 
-    // Deliberately not passed an `effectiveView`, so this always groups the list way.
+    // Grouped for the view actually on screen, and keyed on it.
     //
-    // `groupEventsByDay` resolves two per-view options. `show_empty_days` can only add
-    // or remove days whose events are all `_isEmptyDay`, which the reduce below filters
-    // out regardless. `split_multiday_events` changes the count — one spanning event
-    // becomes several — but never changes whether the count is zero, because splitting
-    // an event yields at least one segment and produces none out of nothing.
+    // This deliberately grouped the list way for as long as no per-view option could
+    // change whether the count was zero. `show_empty_days` cannot: it only adds or
+    // removes days whose events are all `_isEmptyDay`, which the reduce below filters
+    // out regardless. `split_multiday_events` cannot either: splitting one event yields
+    // at least one segment and makes none out of nothing.
     //
-    // Zero-ness is all that is asked of this: the sole consumer is the `hide_when_empty`
-    // test further down. So the answer is view-invariant, and keying the cache on the
-    // view would be dead weight.
+    // `show_past_events` can, and that is why this now takes the view. A card whose only
+    // events today are already over is empty under `show_past_events: false` and
+    // populated under `true`, so `column: {show_past_events: true}` against a top-level
+    // `false` gives two views that genuinely disagree — and counting the list way would
+    // hide a column card that has something to show.
     //
-    // A previous revision of this comment predicted that a second per-view option would
-    // force `this.effectiveView` into both the call and the cache key. That option has
-    // now arrived and it did not, for the reason above. Re-check the reasoning — not the
-    // count — if this value ever gains a consumer that reads more than zero-ness.
+    // Zero-ness is still all that is asked of this; the sole consumer is the
+    // `hide_when_empty` test further down. Re-check the reasoning — not the count — if
+    // that ever changes.
     const count = this.events.length
-      ? EventUtils.groupEventsByDay(this.events, this.config, true, language).reduce(
+      ? EventUtils.groupEventsByDay(this.events, this.effectiveConfig, true, language, view).reduce(
           (total, day) => total + day.events.filter((event) => !event._isEmptyDay).length,
           0,
         )
       : 0;
 
-    this._visibleCountCache = { events: this.events, config: this.config, language, count };
+    this._visibleCountCache = { events: this.events, config: this.config, view, language, count };
 
     return count;
   }

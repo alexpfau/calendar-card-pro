@@ -161,13 +161,80 @@ function processRawEvents(
  *   configured for columns but rendering as a list must group the list way.
  * @returns Array of day objects containing grouped events
  */
-export function groupEventsByDay(
+/**
+ * Removes events already shown by an earlier calendar, when `filter_duplicates` is on.
+ *
+ * This ran inside `processEvents` until `filter_duplicates` became a per-view override.
+ * That pass runs once per fetch, so whatever it dropped was gone from the card's own
+ * event list before the effective view was known — and a `column.filter_duplicates:
+ * false` against a top-level `true` could not have put a duplicate back. It would have
+ * been an option that silently did nothing, which is the failure this override exists to
+ * avoid rather than to add.
+ *
+ * Two properties of the original are preserved deliberately:
+ *
+ * - **Precedence follows `entities`, not the array.** The copy that survives is the one
+ *   from the calendar listed first in the configuration, which is what the per-entity
+ *   loop gave for free and what the documentation promises. Resolving it by array order
+ *   would agree only while the array happens to be in entity order — true of the real
+ *   pipeline, false of any caller handing over a raw payload.
+ * - **The array is filtered, never rebuilt.** Output order is input order minus the
+ *   dropped events, so nothing downstream sees a reordering it did not before.
+ *
+ * @param events - Events to consider, in whatever order the caller holds them
+ * @param config - Merged configuration, for the calendar order
+ * @param enabled - Resolved `filter_duplicates` for the view being rendered
+ * @returns The events to keep
+ */
+function deduplicateEvents(
   events: Types.CalendarEventData[],
+  config: Types.Config,
+  enabled: boolean,
+): Types.CalendarEventData[] {
+  if (!enabled || events.length < 2) {
+    return events;
+  }
+
+  const seen = new Set<string>();
+  const keep = new Set<Types.CalendarEventData>();
+
+  // Entity order first, array order within each entity: that is the order the per-entity
+  // loop visited them in, and precedence is the whole point of the pass.
+  for (const entityConfig of config.entities) {
+    const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
+
+    for (const event of events) {
+      if (event._entityId !== entityId) continue;
+
+      const signature = generateEventSignature(event);
+      if (seen.has(signature)) continue;
+
+      seen.add(signature);
+      keep.add(event);
+    }
+  }
+
+  // An event whose `_entityId` matches no configured calendar is kept rather than
+  // dropped: it was not considered by the loop above, and silently discarding it would
+  // turn a deduplication setting into an entity filter.
+  return events.filter((event) => keep.has(event) || !seen.has(generateEventSignature(event)));
+}
+
+export function groupEventsByDay(
+  rawEvents: Types.CalendarEventData[],
   config: Types.Config,
   isExpanded: boolean,
   language: string,
   effectiveView: Types.EffectiveView = 'list',
 ): Types.EventsByDay[] {
+  // Applied here rather than in the fetch-time pass, so `filter_duplicates` can differ
+  // per view. See `deduplicateEvents`.
+  const events = deduplicateEvents(
+    rawEvents,
+    config,
+    ViewConfig.resolveViewOption(config, 'filter_duplicates', effectiveView),
+  );
+
   // Resolved once, up front. `show_empty_days` is read at three points below and the
   // answer must be the same at all of them; resolving per site would let a future
   // edit update one and miss the others.
@@ -765,8 +832,6 @@ function processEvents(
   config: Types.Config,
 ): Types.CalendarEventData[] {
   const processedEvents: Types.CalendarEventData[] = [];
-  // Set to track already handled events when filter_duplicates is true
-  const handledEventSignatures = config.filter_duplicates ? new Set<string>() : undefined;
 
   // For each entity config (even if same entity), process independently
   config.entities.forEach((entityConfig) => {
@@ -776,16 +841,13 @@ function processEvents(
     if (entityEvents.length === 0) return;
 
     // Apply allowlist/blocklist for this config
-    let matchedEvents = filterEventsForEntity(entityEvents, entityConfig);
+    const matchedEvents = filterEventsForEntity(entityEvents, entityConfig);
 
-    // Remove events already handled by previous configs (if filter_duplicates)
-    matchedEvents = matchedEvents.filter((event) => {
-      if (!handledEventSignatures) return true;
-      const signature = generateEventSignature(event);
-      if (handledEventSignatures.has(signature)) return false;
-      handledEventSignatures.add(signature);
-      return true;
-    });
+    // Duplicate filtering used to happen here, between the allowlist and the label
+    // assignment. It moved to `deduplicateEvents`, called from `groupEventsByDay`, so
+    // that `filter_duplicates` can differ per view: this pass runs once per fetch, and
+    // anything it removes is gone before the effective view is even known. A column
+    // override asking to *keep* duplicates could never have brought them back.
 
     // Assign matched config and label for rendering.
     //

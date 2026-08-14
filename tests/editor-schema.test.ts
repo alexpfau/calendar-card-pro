@@ -3051,8 +3051,16 @@ describe('editor: the exceptions widget', () => {
       PANELS.flatMap((panel) => eligibleFor(panel.id).map((field) => field.name)),
     );
 
-    for (const key of ['entities', 'days_to_show', 'start_date', 'weather', 'show_past_events']) {
+    // `show_past_events` was in this list until it was traced to the API call and found
+    // not to reach it: the fetch window starts at midnight of the reference date whatever
+    // its value, so past events are always fetched and it only decides whether they
+    // render. It is an exception the editor now offers, asserted just below.
+    for (const key of ['entities', 'days_to_show', 'start_date', 'weather']) {
       expect(offered.has(key), key).toBe(false);
+    }
+
+    for (const key of ['show_past_events', 'filter_duplicates']) {
+      expect(offered.has(key), key).toBe(true);
     }
 
     // The weather panel is the one whose every option is claimed by the boundary, so

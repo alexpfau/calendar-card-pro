@@ -167,8 +167,14 @@ export type ColumnMinDaysFallback = 'list' | 'cramp';
  * appear here: an option that influences the Home Assistant fetch window would
  * trigger an API call every time the viewport crossed the column/list breakpoint.
  * That is why `days_to_show`, `start_date`, `first_day_of_week`, `entities`,
- * `show_past_events`, `filter_duplicates`, `weather.position`, `refresh_interval`
- * and `refresh_on_navigate` are absent and can never be added.
+ * `weather.position`, `refresh_interval` and `refresh_on_navigate` are absent and
+ * can never be added.
+ *
+ * Membership is decided by tracing an option to the API call rather than by whether
+ * it sounds like it selects events. `show_past_events` and `filter_duplicates` both
+ * sound like it and were excluded on that basis until they were traced; neither
+ * reaches `getTimeWindow` or the cache key, so both are content filters over a
+ * payload fetched identically either way.
  *
  * @see resolveViewOption in `src/config/view.ts`
  */
@@ -177,6 +183,11 @@ export interface ColumnOverrides {
   show_empty_days?: boolean;
   empty_day_text?: string;
   split_multiday_events?: boolean;
+
+  // Which of the fetched events are shown. Both are applied after the fetch, so a
+  // width transition changes what is rendered without asking Home Assistant again.
+  show_past_events?: boolean;
+  filter_duplicates?: boolean;
 
   // Layout and spacing
   vertical_line_width?: string;

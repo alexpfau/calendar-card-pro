@@ -523,8 +523,6 @@ describe('validateColumnOverrides', () => {
     'start_date',
     'days_to_show',
     'first_day_of_week',
-    'show_past_events',
-    'filter_duplicates',
     'weather',
     'refresh_interval',
     'refresh_on_navigate',
@@ -761,13 +759,16 @@ describe('column view config surface', () => {
   });
 
   it('excludes every fetch-time option from the override keys', () => {
+    // `show_past_events` and `filter_duplicates` were in this list until each was traced
+    // to the API call and found not to reach it. Membership is decided by that trace, not
+    // by whether an option sounds like it selects events — see the note on
+    // FETCH_TIME_KEYS. The two are now overridable and covered by
+    // tests/view-content-overrides.test.ts.
     for (const key of [
       'entities',
       'start_date',
       'days_to_show',
       'first_day_of_week',
-      'show_past_events',
-      'filter_duplicates',
       'weather',
       'refresh_interval',
       'refresh_on_navigate',

@@ -210,11 +210,27 @@ bar sizing, week-number styling, and day/week/month separator width and color.
 ### B3. Fetch-Time Keys
 
 These keys must not become view overrides: `entities`, `start_date`, `days_to_show`,
-`first_day_of_week`, `show_past_events`, `filter_duplicates`, `weather`, `refresh_interval`,
-and `refresh_on_navigate`.
+`first_day_of_week`, `weather`, `refresh_interval`, and `refresh_on_navigate`.
 
 Two edge cases are load-bearing. `first_day_of_week` can move the fetch window, and
 `weather.position` determines which forecast subscriptions are started.
+
+**Membership is decided by tracing an option to the API call, not by whether it sounds
+like it selects events.** `show_past_events` and `filter_duplicates` sat in this set on
+the second basis and left it on the first. `getTimeWindow` never receives
+`show_past_events`, and the window starts at midnight of the reference date whatever its
+value, so past events are always fetched; `filter_duplicates` is applied after the fetch
+and is deliberately absent from the cache key, which holds the raw payload and reprocesses
+it on read. Both are now in `COLUMN_OVERRIDE_KEYS`. `first_day_of_week` is the inverse
+case and the reason the rule is worth stating: it reads as a display preference and
+genuinely moves the window, through `parseStartDateExpression`.
+
+Two consequences of that move are recorded because they were not obvious:
+deduplication had to leave the fetch-time pass for grouping time, since anything it
+removed there was gone before the effective view was known — a `column:
+filter_duplicates: false` could not have restored it. And `visibleEventCount`, which
+feeds `hide_when_empty`, had to become view-aware: `show_past_events` is the first
+per-view option that can change whether the count is *zero*.
 
 ### B4. View-Scoped Options
 

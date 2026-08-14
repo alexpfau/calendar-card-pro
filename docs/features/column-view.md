@@ -62,7 +62,18 @@ Inheriting only when you had not set the value yourself would need the card to r
 
 ## 🚫 Options That Cannot Be Overridden
 
-Only presentation options may appear in `column:`. Anything that decides _which_ events the card loads from Home Assistant — `entities`, `start_date`, `days_to_show`, `first_day_of_week`, `show_past_events`, `filter_duplicates`, `weather`, `refresh_interval` and `refresh_on_navigate` — has to hold the same value in both views. The card switches between the two layouts as the dashboard resizes, and a per-view value here would mean reloading events every time it crossed that boundary.
+Anything that decides _which_ events the card loads from Home Assistant — `entities`, `start_date`, `days_to_show`, `first_day_of_week`, `weather`, `refresh_interval` and `refresh_on_navigate` — has to hold the same value in both views. The card switches between the two layouts as the dashboard resizes, and a per-view value here would mean reloading events every time it crossed that boundary.
+
+Note that `show_past_events` and `filter_duplicates` are **not** in that group, though they sound as though they should be. Neither changes what is requested from Home Assistant: the card always asks for the whole of each day and always asks each calendar separately, so both are filters applied to events already in hand. They can differ per view, and often want to — a column is a narrow space where a finished event or a second copy of the same meeting costs more than it does in a full-width row:
+
+```yaml
+view: column
+show_past_events: true
+filter_duplicates: false
+column:
+  show_past_events: false # a column is too narrow to spend on what is over
+  filter_duplicates: true # and too narrow to show the same meeting twice
+```
 
 An unusable entry inside the block is ignored rather than treated as an error, so one stray line cannot break the rest of the card.
 

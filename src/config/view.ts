@@ -35,6 +35,14 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & k
     'show_empty_days',
     'empty_day_text',
     'split_multiday_events',
+    // Content rather than density, and both were classified fetch-time until their
+    // pipelines were traced. Neither reaches Home Assistant: `getTimeWindow` never
+    // receives `show_past_events` and the window starts at midnight of the reference
+    // date regardless, so past events are always fetched and this only decides whether
+    // they render; `filter_duplicates` is applied after the fetch and is deliberately
+    // absent from the cache key, which holds the raw payload and reprocesses on read.
+    'show_past_events',
+    'filter_duplicates',
     'vertical_line_width',
     'event_spacing',
     'day_spacing',
@@ -216,14 +224,20 @@ export function entityScopeFor(key: string): ReadonlySet<Types.EffectiveView> | 
  * These can never become overrides. Switching between views must not refetch, so an
  * option in this set would fire a Home Assistant API call every time the viewport
  * crossed the breakpoint between the two views.
+ *
+ * Membership is decided by tracing the option to the API call, not by whether it sounds
+ * like it selects events. `show_past_events` and `filter_duplicates` both sound like it
+ * and both sat here until they were traced: neither reaches `getTimeWindow` or the cache
+ * key, so both are content filters applied to a payload that was fetched the same way
+ * either way, and both are now overridable. `first_day_of_week` is the reverse — it
+ * looks like a display preference and genuinely moves the window, because
+ * `parseStartDateExpression` resolves `start_of_week` against it.
  */
 const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
   'entities',
   'start_date',
   'days_to_show',
   'first_day_of_week',
-  'show_past_events',
-  'filter_duplicates',
   'weather',
   'refresh_interval',
   'refresh_on_navigate',
