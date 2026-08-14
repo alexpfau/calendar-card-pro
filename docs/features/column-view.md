@@ -111,8 +111,8 @@ A [countdown](/features/event-content#countdown-display) and a [progress bar](/f
 It reads as trailing text, which is what its wording assumes — countdown strings are lowercase (`in 2 days`) because they were written to follow something. The whole phrase is treated as running text, so a column too narrow to hold it breaks it at an ordinary word boundary rather than moving the countdown down as one block:
 
 ```
-🕐 09:30 – 11:00 ·
-   in 2 days
+🕐 09:30 – 11:00 · in
+   2 days
 ```
 
 Every wrapped line begins under the time _text_ rather than under the clock icon, and the middot always travels with the word it introduces, so it can never be stranded alone at the end of a line.

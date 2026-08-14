@@ -176,10 +176,18 @@ On a track too narrow to hold the whole row, the words move to a line of their o
 beneath the numbers rather than being squeezed into whatever space is left beside them,
 and that second line starts under the temperature — not under the icon — so the row
 still reads as one block of text. The temperature and the UV index are never truncated
-and never wrap; the condition is the only part that gives up room, and it gives up a
-whole line rather than a few characters at a time. `max_lines` caps how tall the row may
-grow — `0`, the default, lets it wrap as far as it needs, and `1` keeps it on a single
-line with an ellipsis.
+and never wrap; the condition is the only part that gives up room, and it gives up whole
+words. A condition of several words therefore breaks between them, at the ordinary
+boundaries, rather than moving down as one unbroken block. `max_lines` caps how tall the
+row may grow — `0`, the default, lets it wrap as far as it needs, and `1` keeps it on a
+single line with an ellipsis.
+
+A word wider than the space its own line can give it is the one exception: with nowhere to
+break, it is split mid-word rather than allowed to spill out of the column. That takes a
+column far narrower than the default — `Sunny` stays intact at the default `min_day_width`
+of `140` and only splits once the columns are down to roughly half that, which needs the
+floor lowered deliberately or `min_days_fallback: cramp` holding a floor the card is not
+really wide enough for.
 
 The words are also left unhyphenated, unlike the title and location. Those are text you
 wrote and may have no break opportunity in them at all, so hyphenating beats overflowing;
