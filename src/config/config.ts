@@ -387,6 +387,20 @@ function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unkn
  * excludes any key the defaults do not describe, such as the `column:` block, whose own
  * keys are coerced by `resolveEffectiveConfig` against `COLUMN_DEFAULTS` instead.
  *
+ * **Nested groups are copied, never written through.** Home Assistant hands cards a frozen
+ * configuration, and `setConfig` merges it shallowly — so `config.weather` and
+ * `config.tap_action` are the *user's own frozen objects*, not copies. Writing into one
+ * throws `TypeError: Cannot assign to read only property` in strict mode, which is every
+ * module here, and it throws even when the assignment would not have changed anything.
+ * A first version of this walk did exactly that and broke every card carrying a
+ * `tap_action`, `hold_action` or `weather` block.
+ *
+ * So a nested group is rebuilt into a fresh object and only attached when something in it
+ * actually changed. That also removes a second hazard the same shape creates: a card with
+ * no `weather:` block gets `DEFAULT_CONFIG.weather` by reference out of the shallow merge,
+ * and an in-place coercion there would edit the shipped defaults for every card in the
+ * process.
+ *
  * @param config - Configuration to normalize in place
  * @returns The same object, for chaining alongside `normalizeNumericOptions`
  */
@@ -402,24 +416,45 @@ export function normalizeLengthOptions(config: Types.Config): Types.Config {
 /**
  * Recursive half of {@link normalizeLengthOptions}.
  *
+ * Writes to `target` only where a value genuinely changed, which is what lets the caller
+ * hand it a frozen object safely. The return value is what makes that possible one level
+ * up: a nested group is rebuilt into a copy, and the copy is attached only if this
+ * reports that the rebuild was not a no-op.
+ *
  * @param target - Configuration level to normalize in place
  * @param defaults - The matching level of `DEFAULT_CONFIG`
+ * @returns Whether anything at or below this level changed
  */
 function coerceLengthsAgainst(
   target: Record<string, unknown>,
   defaults: Record<string, unknown>,
-): void {
+): boolean {
+  let changed = false;
+
   for (const key of Object.keys(target)) {
     const value = target[key];
     const shipped = defaults[key];
 
     if (isPlainObject(value) && isPlainObject(shipped)) {
-      coerceLengthsAgainst(value, shipped);
+      const rebuilt = { ...value };
+
+      if (coerceLengthsAgainst(rebuilt, shipped)) {
+        target[key] = rebuilt;
+        changed = true;
+      }
+
       continue;
     }
 
-    target[key] = coercePixelLengthAgainst(shipped, value);
+    const coerced = coercePixelLengthAgainst(shipped, value);
+
+    if (coerced !== value) {
+      target[key] = coerced;
+      changed = true;
+    }
   }
+
+  return changed;
 }
 
 /**

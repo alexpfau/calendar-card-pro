@@ -143,6 +143,97 @@ describe('Y21 — pixel-length coercion', () => {
     expect(weather.event.icon_size).toBe('22px');
   });
 
+  /**
+   * Home Assistant hands a card its configuration **frozen**, and `setConfig` merges it
+   * shallowly — so `config.weather` and `config.tap_action` on the merged object are the
+   * user's own frozen objects, not copies of them.
+   *
+   * Writing into one throws `TypeError: Cannot assign to read only property` in strict
+   * mode, which is every module here, and it throws even when the assignment would not
+   * have changed anything. The first version of the nested walk assigned unconditionally
+   * and so broke every card carrying a `tap_action`, `hold_action` or `weather` block —
+   * a card that rendered before and showed a red error box after.
+   *
+   * Nothing in the eight release gates caught it, because every fixture in the suite was
+   * a plain mutable object literal. Freezing is the property that matters here, so these
+   * freeze.
+   */
+  describe('a frozen configuration, as Home Assistant supplies it', () => {
+    /** Freezes an object and every plain object beneath it. */
+    function deepFreeze<T>(value: T): T {
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        for (const nested of Object.values(value as Record<string, unknown>)) deepFreeze(nested);
+        return Object.freeze(value);
+      }
+      return value;
+    }
+
+    it('does not throw for a weather block that needs no coercion', () => {
+      const config = {
+        ...Config.DEFAULT_CONFIG,
+        entities: ['calendar.family'],
+        weather: deepFreeze({
+          entity: 'weather.forecast_home',
+          position: 'date',
+          date: { show_conditions: true, icon_size: '14px', font_size: '12px' },
+          event: { show_temp: true, max_lines: 0, icon_size: '14px', font_size: '12px' },
+        }),
+      } as unknown as Types.Config;
+
+      expect(() => Config.normalizeLengthOptions(config)).not.toThrow();
+    });
+
+    it('does not throw for a frozen tap_action or hold_action', () => {
+      const config = {
+        ...Config.DEFAULT_CONFIG,
+        entities: ['calendar.family'],
+        tap_action: deepFreeze({ action: 'navigate', navigation_path: '/calendar' }),
+        hold_action: deepFreeze({ action: 'none' }),
+      } as unknown as Types.Config;
+
+      expect(() => Config.normalizeLengthOptions(config)).not.toThrow();
+    });
+
+    it('still coerces a frozen nested value, by replacing the group rather than writing into it', () => {
+      const weather = deepFreeze({
+        entity: 'weather.home',
+        position: 'date',
+        date: { icon_size: 20, font_size: 16 },
+      });
+      const config = {
+        ...Config.DEFAULT_CONFIG,
+        entities: ['calendar.family'],
+        weather,
+      } as unknown as Types.Config;
+
+      expect(() => Config.normalizeLengthOptions(config)).not.toThrow();
+
+      const result = (config as unknown as Record<string, Record<string, Record<string, unknown>>>)
+        .weather;
+      expect(result.date.icon_size).toBe('20px');
+      expect(result.date.font_size).toBe('16px');
+
+      // The user's object is untouched: the group was rebuilt, not written through.
+      expect(weather.date.icon_size).toBe(20);
+      expect(result).not.toBe(weather);
+    });
+
+    it('leaves the shipped defaults alone when no block is supplied', () => {
+      // The shallow merge hands back DEFAULT_CONFIG's own sub-objects by reference, so an
+      // in-place coercion here would edit the defaults for every card in the process.
+      const before = JSON.stringify(Config.DEFAULT_CONFIG.weather);
+      const config = {
+        ...Config.DEFAULT_CONFIG,
+        entities: ['calendar.family'],
+      } as unknown as Types.Config;
+
+      Config.normalizeLengthOptions(config);
+
+      expect(JSON.stringify(Config.DEFAULT_CONFIG.weather)).toBe(before);
+      expect(config.weather).toBe(Config.DEFAULT_CONFIG.weather);
+    });
+  });
+
   it('is idempotent — a normalized config survives a second pass', () => {
     // The card normalizes on every setConfig, and the editor asks the same question of a
     // copy. A coercion that appended twice would produce `4pxpx`, which is silently
