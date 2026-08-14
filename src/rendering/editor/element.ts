@@ -118,6 +118,23 @@ export class CalendarCardProEditor extends LitElement {
    * `config-changed` by feeding the configuration back in, so an unconditional reset
    * here would erase a held keystroke with the echo of the keystroke that produced it.
    *
+   * `entities` is guarded here for the same reason the card guards it in its own
+   * `setConfig`: it is the option a user is most likely to mistype, because most cards
+   * take a singular `entity:`. The card has always been defensive — `normalizeEntities`
+   * answers `[]` for anything that is not a list — but the editor was not, and eight
+   * separate places read `config.entities ?? []` expecting an array. So
+   * `entities: calendar.family` threw out of `deriveSyntheticData` and the editor never
+   * opened, which is the worst place for it to fail: the editor is what the user reaches
+   * for *because* the configuration is wrong.
+   *
+   * Deliberately only the array-ness, not `normalizeEntities` itself. That normalizer
+   * also expands a bare `calendar.family` into `{entity: 'calendar.family'}`, which is
+   * right for the card — it reads the objects and never writes them back — and wrong
+   * here, because whatever shape the editor holds is the shape it stores. Running it
+   * would rewrite every user's compact list into objects on the first unrelated edit.
+   * Entry *contents* are already handled: a list holding `null` or a number renders
+   * fine, and `Entities.writeEntity` owns the shape from there.
+   *
    * @param config - Card configuration as stored
    */
   setConfig(config: Types.Config): void {
@@ -126,6 +143,10 @@ export class CalendarCardProEditor extends LitElement {
       Value.equalConfigs(config as unknown as Record<string, unknown>, this._lastDispatched);
 
     this._config = { ...Config.DEFAULT_CONFIG, ...config };
+
+    if (!Array.isArray(this._config.entities)) {
+      this._config.entities = [];
+    }
 
     if (!isEcho) {
       this._pending = {};
