@@ -760,6 +760,20 @@ So the table is a guide to which question you are asking, not a licence to distr
 cheapest instrument. A true general caution applied where its precondition does not hold is
 the same defect as any other adjacent-question answer — it just happens to be conservative.
 
+**And a conservative one is not merely invisible; it is selected for.** The session that made
+this error put the sharper version: reaching for the stronger instrument **reads as rigour**,
+so review rewards it, and nobody asks whether the precondition held. The careless version gets
+caught and recorded. The over-careful version gets praised. So the ledger of these defects does
+not just undercount — **it undercounts systematically, in the direction that feels best**, and
+every list of them (including this one) is biased toward the errors that produced a wrong
+answer rather than a needlessly expensive right one.
+
+Note also that their claim failed the file's own standard in a specific way: *content beats
+ancestry* was stated without its precondition, and **a rule with its precondition attached is
+testable** — *"content beats ancestry where the remote squashes"* is falsified in ten seconds
+by counting merge commits. Unqualified, it can only be believed or doubted. Same defect as Y6's
+_"wired through the stylesheet"_: true, unfalsifiable, and silently scoped.
+
 **`cmd && { ...; } || echo "not a repo"` reports the failure of the _last_ command in the
 block, not the first.** Checking a directory with `cd X && { git status; grep -n "six rules" f; } ||
 echo "X is not a repo"` printed **`X is not a repo`** — while `git status` in the same block had
