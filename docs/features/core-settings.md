@@ -247,3 +247,5 @@ These flexible view controls allow you to:
 Column view moved to its own page — it outgrew this one.
 
 **→ [Column View](/features/column-view)** — the layout, per-view overrides, spacing and the responsive fallbacks.
+
+**→ [Core Settings in the configuration reference](/reference/configuration#core-settings)** — the full option table for everything on this page.

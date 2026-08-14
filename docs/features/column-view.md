@@ -263,3 +263,6 @@ Set `day_header_separator_width: 0px` rather than reaching for a transparent col
 `0px` the card omits the element entirely, while a transparent rule still takes up height.
 :::
 
+The `column:` block and every option inside it are listed under [Column-Only Options in the
+configuration reference](/reference/configuration#column-only-options).
+

@@ -1161,13 +1161,50 @@ function checkOptionTables(docs) {
  * the other. One-directional linking is how that happens, so require the return
  * leg: every feature page points at the reference, and every reference section
  * points back at a feature page.
+ *
+ * The two legs are asserted at different strengths, deliberately. The reference
+ * leg is positional — the link must be the section's closing line — while the
+ * feature leg only required the link to appear *somewhere* in the file. That gap
+ * let three of the longest pages satisfy the check with a link in their opening
+ * third: `weather` at line 62 of 215, `core-settings` at 41 of 249, `column-view`
+ * at 91 of 265. A reader who scrolls one of those to the end finds no route to
+ * the option table, which is the failure the check exists to prevent.
+ *
+ * So the feature leg now asserts what AGENTS.md actually says — the page *closes*
+ * by naming its reference section — expressed as "the link falls after the last
+ * `##`", i.e. inside the final section. Position-in-file would need an arbitrary
+ * threshold; "the last section" is the same structural rule the reference leg
+ * uses, read from the other end.
+ *
+ * Pages with no `##` at all (`multi-day-events`, `performance`) are short enough
+ * that there is no "end" to be far from, and have no final section to test. They
+ * keep the containment check.
  */
 function checkCrossLinks(docs) {
   for (const file of docs) {
     const rel = relative(ROOT, file);
     if (!rel.startsWith('docs/features/')) continue;
-    if (!readFileSync(file, 'utf8').includes('/reference/configuration'))
+
+    const lines = readFileSync(file, 'utf8').split('\n');
+    let fenced = false;
+    let lastHeading = -1;
+    let lastLink = -1;
+    lines.forEach((line, i) => {
+      if (line.startsWith('```')) fenced = !fenced;
+      if (fenced) return;
+      if (/^## /.test(line)) lastHeading = i;
+      if (line.includes('/reference/configuration')) lastLink = i;
+    });
+
+    if (lastLink === -1) {
       error(`${rel}: no link back to /reference/configuration.`);
+    } else if (lastLink < lastHeading) {
+      error(
+        `${rel}:${lastLink + 1} links to /reference/configuration, but not from the ` +
+          `final section ("${lines[lastHeading].slice(3)}") — the page does not close by ` +
+          `naming its reference section.`,
+      );
+    }
   }
 
   const lines = readFileSync(REFERENCE_DOC, 'utf8').split('\n');
