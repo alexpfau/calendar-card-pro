@@ -311,15 +311,26 @@ A measured width then settles it; the optimistic pre-measurement answer must not
 
 ### D7. Release Blockers & Follow-Ups
 
-| Item                                 | Requirement                                                                       |
-| ------------------------------------ | --------------------------------------------------------------------------------- |
-| `column.entities[]` overrides        | Rule and implement, or document as unsupported.                                   |
-| Per-column compact budget            | Rule in and implement, or document as not applicable.                             |
-| Week/month separator override design | Rule in, or document as not applicable.                                           |
-| View-scoped editor notes             | Ship annotations from the same scope table the docs use.                          |
-| Too-narrow affordance                | Keep the layout-band warning/table honest before changing A3-G defaults.          |
-| Progress bar coverage                | Add a test that enables it; default-config tests cannot see it.                   |
-| Bad `column:` key feedback           | Editor should prevent invalid keys; YAML-only warnings stay silent in production. |
+All seven are resolved. The table is kept rather than deleted because the rationale
+archive cites §D7 in several places, and because the resolution is the useful record —
+three of these were closed by ruling them out of scope rather than by building anything,
+which is not visible from the code alone.
+
+| Item                                 | Resolution                                                                                                         |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `column.entities[]` overrides        | Documented as unsupported — `entities` is a fetch-time key (B3), stated in `features/column-view.md`.               |
+| Per-column compact budget            | Ruled not applicable by A3-D; enforced at runtime by `viewAppliesCompactLimits`.                                    |
+| Week/month separator override design | Ruled in — both widths and colours are in `COLUMN_OVERRIDE_KEYS` (B2).                                              |
+| View-scoped editor notes             | Shipped, driven by `VIEW_SCOPE` / `ENTITY_VIEW_SCOPE` rather than by duplicated prose.                              |
+| Too-narrow affordance                | `describeColumnLayoutBands` is the same arithmetic `resolveColumnFit` runs; the two are pinned against each other.  |
+| Progress bar coverage                | `tests/progress-bar-width.test.ts` enables it, which default-config tests cannot.                                   |
+| Bad `column:` key feedback           | `validateColumnOverrides` gives four tailored diagnostics; the schema-driven editor cannot emit an invalid key.     |
+
+The one caveat worth keeping in view: those diagnostics are `Logger.warn`, and production
+pins the log level to `ERROR`. A YAML-only user sees nothing until they raise the level
+from the console. That is the deliberate trade described in `logger.ts`, not an oversight,
+but it does mean the editor is the only surface that prevents the mistake rather than
+reporting it.
 
 ### D8. Editor Requirements
 
