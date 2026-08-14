@@ -628,6 +628,22 @@ defect — missing anchors on byte counts. The figures were fine. Third instance
 pattern: **going to check one thing is how the other thing gets found**, and it does not
 work if you skip the check because you expect it to pass.
 
+**And it is predictable rather than unlucky, which makes the third row stronger than "no gate
+catches it".** Every gate listed validates *fragments independently*: prettier formats a
+paragraph, `check:docs` resolves a link, VitePress parses a block. All three ask **is this
+piece well-formed**. A rule-and-its-example is a **relation between** pieces, and no amount of
+local validity ever sums to a relation — so the empty column is a **category boundary, not a
+coverage gap**, and a fourth local gate would move it by nothing. Third instance of the
+observation at the top of this file: *more of the wrong category does not help.*
+
+Which also means dislocation is catchable **in principle**, and this repo already owns an
+instrument of the right kind. `tests/list-dom.test.ts` serializes the whole rendered tree
+(`container.innerHTML`) and pins it with `toMatchSnapshot()` — so a fragment's **position** is
+part of what is checked, not merely its validity. That is why a moved node fails it and a
+malformed-but-local change is not what it is for. Nobody has pointed a structural oracle at
+prose here and this is not a proposal to; the useful part is that *uncatchable* would have been
+the wrong note to leave.
+
 **A measurement recorded in the present tense will be wrong; label it as a moment instead.**
 A table in the glossary carried a per-language casing percentage under a heading reading
 _"mid-string capitals today"_. Every figure in it was stale within a day, and the fix that
