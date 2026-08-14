@@ -636,6 +636,23 @@ clean run over an empty set. **A probe that names its inputs beats a reader who 
 list**, and three participants have now demonstrated the remembering approach failing, twice
 by the person who had just written the warning down.
 
+**The author supplies the missing piece for free, which is why they cannot see it is
+missing.** A session reviewing a shared skill file found the sentence *"A third session (this
+one) later replaced the whole view"*. Unambiguous to whoever wrote it; **`(this one)` has no
+referent at all** for a reader next month, and none of the three participants who had edited
+that file noticed.
+
+That is the same shape as the absence-assertion two entries down, rotated into prose. The
+author knows the run happened, so *"no output"* reads as evidence of absence. The author
+knows which session, so *"this one"* reads as a reference. **In both cases the missing piece
+is supplied silently by the only person who cannot notice it is missing** — which is also why
+re-reading fails on both, and why the discriminating instrument is a *different reader* or a
+*mechanism*, never a second look.
+
+The practical form: **when writing a claim, ask what it depends on that is not in the text.**
+A run having happened, a session being current, a ref not having moved, a corpus not having
+been narrowed. Every one of those in this file was true when written and inert to its author.
+
 **"This cannot be checked" is itself a claim, and it is usually a claim about the wrong
 thing.** A session whose worktree I deleted reported an unclosable gap: its last
 `ahead 0 / unpushed 0` could no longer be re-derived, because *the check that would settle the
