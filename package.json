@@ -1,5 +1,5 @@
 {
-  "name": "calendar-card-pro-dev",
+  "name": "calendar-card-pro",
   "version": "4.0.0",
   "description": "Custom Home Assistant calendar card",
   "main": "dist/calendar-card-pro.js",
@@ -18,7 +18,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexpfau/calendar-card-pro-dev.git"
+    "url": "https://github.com/alexpfau/calendar-card-pro.git"
   },
   "keywords": [
     "calendar",
@@ -32,7 +32,7 @@
   "author": "Alex Pfau",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/alexpfau/calendar-card-pro-dev/issues"
+    "url": "https://github.com/alexpfau/calendar-card-pro/issues"
   },
   "homepage": "https://calendar-card-pro.alexpfau.com",
   "devDependencies": {
