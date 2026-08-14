@@ -1,6 +1,19 @@
 name: HACS Validation
 
+# Runs on PRs as well as on `main`, because everything HACS validates is decided before a
+# merge and not after it. `hacs.json`, the repository description and topics, the release
+# assets' names — a mistake in any of them is a failed install for every user, and until
+# this ran pre-merge it could only be discovered once `main` already carried it. The
+# two-file split is the case that made this concrete: which files a release ships is now a
+# thing a PR can get wrong.
+#
+# The branch list mirrors ci.yml, for the reason documented there.
 on:
+  pull_request:
+    branches:
+      - main
+      - dev
+      - 'feature/**'
   push:
     branches:
       - main

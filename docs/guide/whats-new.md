@@ -86,7 +86,7 @@ public release in January 2025 to today.
 - 🎨 **Today's Date Styling**: Customize the [appearance of today's date](/features/layout-appearance#date-column-customization) with dedicated color options (`today_weekday_color`, `today_day_color`, `today_month_color`)
 - 🚦 **Event Progress Bars**: Visualise how far a running event has progressed with optional [progress bars](/features/event-content#progress-bar-display)
 - ✂️ **Split Multi-Day Events**: Display [multi-day events on every day they cover](/features/multi-day-events#split-multi-day-events)
-- 🧠 **Enhanced Compact Mode Controls**: More precise control over [what appears in compact vs expanded views](/features/core-settings#compact-view-management-event-limits)
+- 🧠 **Enhanced Compact Mode Controls**: More precise control over [what appears in compact vs expanded mode](/features/core-settings#compact-mode-event-limits)
 
 ## v2.3
 

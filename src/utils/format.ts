@@ -1,6 +1,5 @@
 /**
  * Formatting utilities for Calendar Card Pro
- *
  * Handles formatting of dates, times, and locations for display.
  */
 
@@ -16,35 +15,15 @@ import * as Localize from '../translations/localize';
 
 /**
  * Does this event span more than one day *as an all-day event*?
- *
- * This is the condition `formatEventTime` branches on to produce an "all day, ends
- * tomorrow" style string rather than a bare "all day", and it is exported because the
- * renderer needs the same answer: a single-day all-day event may have its time row
- * suppressed (`show_single_allday_time`), a multi-day one never is.
- *
- * It exists as a function so there is exactly one place that decides. `presentation.ts`
- * previously recovered the answer by substring-matching the *rendered string* against
- * the `multiDay` / `endsToday` / `endsTomorrow` translations — asking the output what
- * the input had been. That coupling was silent in both directions: eight languages
- * carry a two-character `multiDay` token (`до`, `do`, `עד`), so a single-day string
- * that happened to contain those two characters would have shown a time row that
- * should be hidden, and a translation edit could have removed a token and hidden one
- * that should show. Neither is an error — only a row appearing or vanishing — so
- * nothing would have reported it.
- *
- * Note that the answer depends only on the event's own dates, never on the current
- * time: which of the three multi-day phrasings gets rendered changes as the day rolls
- * over, but whether the event *is* multi-day does not.
+ * iCal all-day end dates are exclusive, so the visible end is one day earlier.
  *
  * @param event Calendar event
  * @returns True for an all-day event whose start and (inclusive) end fall on different days
  */
 export function isMultiDayAllDayEvent(event: Types.CalendarEventData): boolean {
-  // A timed event is not an all-day event, whatever its span.
   if (event.start.dateTime) return false;
 
   const startDate = parseAllDayDate(event.start.date || '');
-  // iCal all-day end dates are exclusive, so the last day the event covers is the day before.
   const inclusiveEndDate = parseAllDayDate(event.end.date || '');
   inclusiveEndDate.setDate(inclusiveEndDate.getDate() - 1);
 
@@ -53,7 +32,6 @@ export function isMultiDayAllDayEvent(event: Types.CalendarEventData): boolean {
 
 /**
  * Generates a human-readable time string for calendar events
- * handling all-day events, multi-day events, and regular events
  *
  * @param event Calendar event
  * @param config Card configuration
@@ -73,11 +51,9 @@ export function formatEventTime(
   let endDate;
 
   if (isAllDayEvent) {
-    // Parse all-day dates using the specialized function to handle timezone issues
     startDate = parseAllDayDate(event.start.date || '');
     endDate = parseAllDayDate(event.end.date || '');
   } else {
-    // Regular events with time use standard parsing
     startDate = new Date(event.start.dateTime || '');
     endDate = new Date(event.end.dateTime || '');
   }
@@ -86,38 +62,20 @@ export function formatEventTime(
 
   if (isAllDayEvent) {
     const adjustedEndDate = new Date(endDate);
-    // For all-day events, the end date is exclusive in iCal format
     adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
 
-    // Check if it's a multi-day event.
-    //
-    // Deliberately its own date comparison rather than a call to `isMultiDayAllDayEvent`,
-    // which is the one point where this diverges from the version that landed on `dev`.
-    // Delegating reads better and was tried first. It makes the two an identical single
-    // implementation — and that silently disarms `tests/multiday-allday-predicate.test.ts`,
-    // whose whole job is to prove the new predicate agrees with the string-matching one it
-    // replaced. That differential reproduces the old behaviour by calling `formatEventTime`,
-    // so routing this line through the predicate makes it compare the predicate against
-    // itself.
-    //
-    // Not a theory: breaking the predicate on purpose reports **2** failing tests when this
-    // line delegates and **5** when it does not. Drift between the two is what the test
-    // exists to catch, so the test must be able to see it.
     if (startDate.toDateString() !== adjustedEndDate.toDateString()) {
       return capitalizeFirstLetter(
         formatMultiDayAllDayTime(adjustedEndDate, language, translations),
       );
     }
 
-    // Single day all-day event
     return capitalizeFirstLetter(translations.allDay);
   }
 
-  // Determine whether to use native HA formatting
   const useNativeFormatting = !!(config.time_24h === 'system' && hass?.locale);
   const use24h = config.time_24h === true;
 
-  // Handle multi-day events with start/end times
   if (startDate.toDateString() !== endDate.toDateString()) {
     return capitalizeFirstLetter(
       formatMultiDayTime(
@@ -133,7 +91,6 @@ export function formatEventTime(
     );
   }
 
-  // Single day event with start/end times
   return capitalizeFirstLetter(
     formatSingleDayTime(
       startDate,
@@ -149,11 +106,7 @@ export function formatEventTime(
 
 /**
  * Generates a localized countdown string for an event
- * Uses dayjs for consistent, localized relative time formatting
- *
- * All-day events, and every row of a split multi-day event, are measured
- * midnight-to-midnight rather than from the current instant, so the countdown
- * reflects whole calendar days.
+ * All-day and split multi-day rows count calendar days rather than remaining hours.
  *
  * @param event Calendar event to generate countdown for
  * @param language Language to use
@@ -163,7 +116,6 @@ export function getCountdownString(
   event: Types.CalendarEventData,
   language: string = 'en',
 ): string | null {
-  // Skip for empty days or events without start times
   if (event._isEmptyDay || !event.start) return null;
 
   const now = new Date();
@@ -176,21 +128,6 @@ export function getCountdownString(
 
   if (!startDate || startDate <= now) return null;
 
-  // All-day events start at local midnight and carry no meaningful time of day.
-  // Measuring from the current instant would count remaining 24-hour periods, so
-  // the countdown drops a day once the clock passes midday and renders tomorrow's
-  // event as "in 4 hours". Anchoring to the start of today makes the difference a
-  // whole number of calendar days, which is what an all-day countdown means.
-  //
-  // The same applies to every row of a split multi-day event. Splitting rewrites
-  // the middle days as all-day segments but leaves a real start time on the first
-  // day and a synthesized midnight on the last, so measuring each row on its own
-  // terms gave one event three different countdowns: 3 / 5 / 6 / 6 where the days
-  // are 4 / 5 / 6 / 7 apart. Each row is a day, so each row counts days.
-  //
-  // Both ends are floored to local midnight rather than only the reference. A
-  // segment can start at 20:00, and start-of-today → 20:00 four days out is 4.8
-  // days, which rounds up to five.
   const countsCalendarDays = isAllDayEvent || Boolean(event._isMultiDaySegment);
   const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const startOfEventDay = new Date(
@@ -199,14 +136,10 @@ export function getCountdownString(
     startDate.getDate(),
   );
 
-  // A row falling on today keeps wall-clock precision: "in an hour" is the useful
-  // answer for an event starting at 07:00 today, and flooring both ends would
-  // collapse the difference to zero and render it as "a few seconds ago".
   if (countsCalendarDays && startOfEventDay > startOfToday) {
     return getRelativeTimeString(startOfEventDay, language, startOfToday);
   }
 
-  // Use dayjs for relative time formatting
   return getRelativeTimeString(startDate, language);
 }
 
@@ -223,13 +156,11 @@ export function formatLocation(location: string, removeCountry: boolean | string
 
   const locationText = location.trim();
 
-  // User-defined custom pattern (string)
   if (typeof removeCountry === 'string' && removeCountry !== 'true') {
     const pattern = new RegExp(`(${removeCountry})\\s*$`, 'i');
     return locationText.replace(pattern, '').replace(/,?\s*$/, '');
   }
 
-  // Default behavior (true) - Use built-in country list
   for (const country of Constants.COUNTRY_NAMES) {
     if (locationText.endsWith(country)) {
       return locationText.slice(0, locationText.length - country.length).replace(/,?\s*$/, '');
@@ -240,8 +171,7 @@ export function formatLocation(location: string, removeCountry: boolean | string
 }
 
 /**
- * Strip HTML tags and decode HTML entities from a string, returning plain text.
- * Useful for calendar integrations that include HTML markup in descriptions.
+ * Strip HTML tags and decode HTML entities from a string, returning plain text
  */
 export function stripHtmlTags(text: string): string {
   if (!text) return '';
@@ -268,24 +198,19 @@ export function capitalizeFirstLetter(text: string): string {
 
 /**
  * Parse all-day event date string to local date object
- *
- * Creates a date object at local midnight for the specified date
- * which preserves the intended day regardless of timezone
+ * Avoid `new Date('YYYY-MM-DD')`, which treats the date as UTC and can shift the day.
  *
  * @param dateString - ISO format date string (YYYY-MM-DD)
  * @returns Date object at local midnight on the specified date
  */
 export function parseAllDayDate(dateString: string): Date {
-  // Extract year, month, day from date string
   const [year, month, day] = dateString.split('-').map(Number);
 
-  // Create date at local midnight (months are 0-indexed in JS)
   return new Date(year, month - 1, day);
 }
 
 /**
  * Generate a date key string in YYYY-MM-DD format from a Date object
- * Uses local date components instead of UTC
  *
  * @param date - Date object to format
  * @returns Date key string in YYYY-MM-DD format
@@ -295,11 +220,11 @@ export function getLocalDateKey(date: Date): string {
 }
 
 /**
- * Format time according to 12/24 hour setting
+ * Format a time with the configured hour style.
  *
- * @param date Date object to format
- * @param use24h Whether to use 24-hour format
- * @param twoDigitHours Whether to use 2 digits in hours
+ * @param date Date to format
+ * @param use24h Whether to use 24-hour time
+ * @param twoDigitHours Whether to pad hours to two digits
  * @returns Formatted time string
  */
 export function formatTime(date: Date, use24h = true, twoDigitHours = false): string {
@@ -315,57 +240,42 @@ export function formatTime(date: Date, use24h = true, twoDigitHours = false): st
   return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)}`;
 }
 
-/**
- * Pad with 0 if only one digit.
- */
 function pad(n: number): string {
   return n.toString().padStart(2, '0');
 }
 
 /**
  * Calculate ISO week number for a date
- * Week 1 is the week with the first Thursday of the year
  *
  * @param date Date to calculate week number for
  * @returns ISO week number (1-53)
  */
 export function getISOWeekNumber(date: Date): number {
-  // Create a copy of the date
   const d = new Date(date);
 
-  // Set to nearest Thursday: current date + 4 - current day number
-  // Make Sunday's day number 7
   d.setDate(d.getDate() + 4 - (d.getDay() || 7));
 
-  // Get first day of year
   const yearStart = new Date(d.getFullYear(), 0, 1);
 
-  // Calculate full weeks to nearest Thursday
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
 /**
- * Calculate simple week number (1st January = week 1)
+ * Calculate a simple week number using the configured first day of week.
  *
- * @param date Date to calculate week number for
- * @param firstDayOfWeek First day of week (0 = Sunday, 1 = Monday)
- * @returns Simple week number (1-53)
+ * @param date Date to calculate from
+ * @param firstDayOfWeek First day of the week, where 0 is Sunday
+ * @returns Week number
  */
 export function getSimpleWeekNumber(date: Date, firstDayOfWeek: number = 0): number {
-  // Create a copy of the date
   const d = new Date(date);
 
-  // Get the first day of the year
   const startOfYear = new Date(d.getFullYear(), 0, 1);
 
-  // Calculate days since start of the year
   const days = Math.floor((d.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
 
-  // Calculate offset based on first day of the year and configured first day of week
-  // This adjustment aligns the week boundaries with the configured first day of week
   const dayOfWeekOffset = (startOfYear.getDay() - firstDayOfWeek + 7) % 7;
 
-  // Calculate week number (adding 1 because we want weeks to start from 1)
   return Math.ceil((days + dayOfWeekOffset + 1) / 7);
 }
 
@@ -380,21 +290,16 @@ export function getFirstDayOfWeek(
   firstDayConfig: 'sunday' | 'monday' | 'system',
   locale: string = 'en',
 ): number {
-  // Explicit setting takes precedence
   if (firstDayConfig === 'sunday') return 0;
   if (firstDayConfig === 'monday') return 1;
 
-  // For system setting, try to detect from locale
   try {
-    // Northern American locales typically use Sunday as first day
     if (/^en-(US|CA)|es-US/.test(locale)) {
       return 0; // Sunday
     }
 
-    // Most other locales use Monday
     return 1;
   } catch {
-    // Default to Monday on error
     return 1;
   }
 }
@@ -412,17 +317,13 @@ export function getWeekNumber(
   method: 'iso' | 'simple' | null,
   firstDayOfWeek: number,
 ): number | null {
-  // Use provided method or default to "iso" when null
   const effectiveMethod = method || 'iso';
 
   if (effectiveMethod === 'iso') {
-    // ISO week numbers are defined by ISO 8601 standard and always use Monday as first day
-    // for calculation purposes, but we still display separator on the configured first day
     return getISOWeekNumber(date);
   }
 
   if (effectiveMethod === 'simple') {
-    // Simple week numbers should respect the configured first day of week
     return getSimpleWeekNumber(date, firstDayOfWeek);
   }
 
@@ -433,18 +334,6 @@ export function getWeekNumber(
 // SPECIALIZED EVENT FORMATTING HELPERS
 //-----------------------------------------------------------------------------
 
-/**
- * Format single day event time with start/end times
- *
- * @param startDate Start date of the event
- * @param endDate End date of the event
- * @param showEndTime Whether to show end time
- * @param useNativeFormatting Wheter to use native formatting
- * @param use24h Whether to use 24-hour format
- * @param twoDigitHours Whether to use 2 digits in hours
- * @param hass Home Assistant
- * @returns Formatted time string
- */
 function formatSingleDayTime(
   startDate: Date,
   endDate: Date,
@@ -455,34 +344,18 @@ function formatSingleDayTime(
   hass?: Types.Hass | null,
 ): string {
   if (useNativeFormatting && hass?.locale) {
-    // Use the helper to determine time format preference
     const use24hFormat = Helpers.getTimeFormat24h(hass.locale, use24h);
 
-    // Use our formatter with the detected format preference
     return showEndTime
       ? `${formatTime(startDate, use24hFormat, twoDigitHours)} - ${formatTime(endDate, use24hFormat, twoDigitHours)}`
       : formatTime(startDate, use24hFormat, twoDigitHours);
   }
 
-  // For explicit settings, use our formatter with the specified format
   return showEndTime
     ? `${formatTime(startDate, use24h, twoDigitHours)} - ${formatTime(endDate, use24h, twoDigitHours)}`
     : formatTime(startDate, use24h, twoDigitHours);
 }
 
-/**
- * Format multi-day event time with start/end times
- *
- * @param startDate Start date of the event
- * @param endDate End date of the event
- * @param language Language code for translations
- * @param translations Translations object
- * @param useNativeFormatting Wheter to use native formatting
- * @param use24h Whether to use 24-hour format
- * @param twoDigitHours Whether to use 2 digits in hours
- * @param hass Home Assistant
- * @returns Formatted time string
- */
 function formatMultiDayTime(
   startDate: Date,
   endDate: Date,
@@ -498,38 +371,27 @@ function formatMultiDayTime(
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // Helper function for time formatting
   const formatTimeStr = (date: Date) => {
     if (useNativeFormatting && hass?.locale) {
-      // Use the helper to determine time format preference
       const use24hFormat = Helpers.getTimeFormat24h(hass.locale, use24h);
       return formatTime(date, use24hFormat, twoDigitHours);
     }
     return formatTime(date, use24h, twoDigitHours);
   };
 
-  // Format the end time part based on when the event ends
   let endPart: string;
 
   if (endDate.toDateString() === today.toDateString()) {
-    // Event ends today
     endPart = `${translations.endsToday} ${translations.at} ${formatTimeStr(endDate)}`;
   } else if (endDate.toDateString() === tomorrow.toDateString()) {
-    // Event ends tomorrow
     endPart = `${translations.endsTomorrow} ${translations.at} ${formatTimeStr(endDate)}`;
   } else {
-    // Event ends beyond tomorrow
     const endDay = endDate.getDate();
     const endMonthName = translations.months[endDate.getMonth()];
-    // Running text, never sentence-initial: this branch is always prefixed by
-    // `multiDay` below, so the weekday holds the lower-case form in languages that
-    // do not capitalise weekdays. The leading capital comes from
-    // `capitalizeFirstLetter` in `formatEventTime`, which wraps the whole string.
     const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
     const endTimeStr = formatTimeStr(endDate);
     const formatStyle = Localize.getDateFormatStyle(language);
 
-    // Format based on language style
     switch (formatStyle) {
       case 'day-dot-month':
         endPart = `${endWeekday}, ${endDay}. ${endMonthName} ${translations.at} ${endTimeStr}`;
@@ -544,34 +406,21 @@ function formatMultiDayTime(
     }
   }
 
-  // Check if today is on or before the start date
-  // If so, include the start time in the output
   if (today.getTime() <= startDate.getTime()) {
     const startTimeStr = formatTimeStr(startDate);
     return `${startTimeStr} ${translations.multiDay} ${endPart}`;
   } else {
-    // Event has already started - check if it ends today or tomorrow
     if (
       endDate.toDateString() === today.toDateString() ||
       endDate.toDateString() === tomorrow.toDateString()
     ) {
-      // For "ends today" or "ends tomorrow", don't add "until" prefix
       return endPart;
     } else {
-      // For events ending beyond tomorrow, keep "until" prefix
       return `${translations.multiDay} ${endPart}`;
     }
   }
 }
 
-/**
- * Format multi-day all-day event time
- *
- * @param endDate End date of the event
- * @param language Language code for translations
- * @param translations Translations object
- * @returns Formatted time string
- */
 function formatMultiDayAllDayTime(
   endDate: Date,
   language: string,
@@ -582,28 +431,19 @@ function formatMultiDayAllDayTime(
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  // On the end date, show "ends today"
   if (endDate.toDateString() === today.toDateString()) {
     return `${translations.allDay}, ${translations.endsToday}`;
   }
 
-  // NEW: Day before end date shows "ends tomorrow"
   if (endDate.toDateString() === tomorrow.toDateString()) {
     return `${translations.allDay}, ${translations.endsTomorrow}`;
   }
 
   const endDay = endDate.getDate();
   const endMonthName = translations.months[endDate.getMonth()];
-  // Same running-text position as the timed branch above: always preceded by
-  // `multiDay`, so `fullDaysOfWeek` supplies the mid-sentence form — lower-case
-  // where the language does not capitalise weekdays, and inflected to whatever
-  // case that preposition governs (Polish `do poniedziałku`, Ukrainian `до
-  // понеділка`). The timed branch omitting the weekday here was an asymmetry
-  // rather than a decision; both now read the same.
   const endWeekday = translations.fullDaysOfWeek[endDate.getDay()];
   const formatStyle = Localize.getDateFormatStyle(language);
 
-  // Different date formats based on language style
   switch (formatStyle) {
     case 'day-dot-month':
       return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endDay}. ${endMonthName}`;

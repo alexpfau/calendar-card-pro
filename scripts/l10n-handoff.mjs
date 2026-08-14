@@ -1,34 +1,24 @@
 #!/usr/bin/env node
 /**
- * Per-language starting files for the nine Stage 1 translation sessions.
+ * Generate per-language starting files for editor translation work.
  *
- * Like `l10n-oracle.mjs` this is an **authoring tool, not a gate**, and it needs the
- * Home Assistant frontend wheel — see that file's header for the two commands.
+ * This is an authoring tool, not a CI gate, and it needs the Home Assistant frontend
+ * wheel described in `l10n-oracle.mjs`.
  *
  *   HA_FRONTEND_TRANSLATIONS=/tmp/hafe/x/hass_frontend/static/translations \
  *     node scripts/l10n-handoff.mjs
- *
- * It exists because the mining yield is small and the oracle evidence is not. Home
- * Assistant's table fills about three of the ~200 strings each language is missing — 1.5%,
- * which is a rounding error — but the *terminology* it carries is what stops nine sessions
- * each re-deriving the same nine answers, and re-deriving them differently.
- *
- * The output is a snapshot, deliberately. It is generated once, committed, and read by the
- * session that owns the language; it is not regenerated and not checked, because the live
- * artefact is `docs/development/editor-glossary.md` and a second checked copy of the same
- * decisions would be one more thing free to drift.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
 import { loadHaLanguage, LANGS } from './l10n-oracle.mjs';
 import { loadEditorModule } from './load-editor-schema.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT_DIR = join(ROOT, 'docs/development');
-const GLOSSARY = join(ROOT, 'docs/development/editor-glossary.md');
+const OUT_DIR = join(ROOT, 'l10n-handoff');
 
 /** Loose match: case, surrounding whitespace, quote style and trailing stops ignored. */
 const normalise = (s) =>
@@ -48,8 +38,7 @@ if (!Object.values(haEn).includes('Calendar')) {
   process.exit(2);
 }
 
-// English text -> HA key. First key wins; the value is what matters, not which key it came
-// from, and duplicates carry the same English by construction.
+// English text -> HA key.
 const byEnglish = new Map();
 for (const [key, value] of Object.entries(haEn)) {
   if (typeof value !== 'string') continue;
@@ -57,41 +46,20 @@ for (const [key, value] of Object.entries(haEn)) {
   if (!byEnglish.has(n)) byEnglish.set(n, key);
 }
 
-// The glossary's decided rows, sliced per language, so a session sees its own column
-// without having to read nine.
-const glossarySrc = readFileSync(GLOSSARY, 'utf8');
+// The termbase, sliced per language.
 const termsByLang = Object.fromEntries(LANGS.map((l) => [l, []]));
 const decidedByTerm = new Map(); // term -> { lang -> form }
 const rejectedByLang = Object.fromEntries(LANGS.map((l) => [l, []]));
-for (const section of glossarySrc.split(/^### /m).slice(1)) {
-  const heading = section.slice(0, section.indexOf('\n'));
-  const name = heading.split('—')[0].trim();
-  const sense = heading.split('—').slice(1).join('—').trim();
-  const header = section.match(/^\|\s*\|([^\n]*)\|\s*$/m);
-  if (!header) continue;
-  const cols = header[1]
-    .split('|')
-    .map((c) => c.trim())
-    .filter(Boolean);
-  for (const row of section.matchAll(
-    /^\|\s*\*\*Decided\*\*(?:\s*\((\w+)\))?\s*\|([^\n]*)\|\s*$/gm,
-  )) {
-    const which = row[1] ?? name;
-    const cells = row[2].split('|').map((c) => c.trim());
-    const decided = decidedByTerm.get(which.toLowerCase()) ?? {};
-    cols.forEach((lang, i) => {
-      if (!termsByLang[lang]) return;
-      const cell = cells[i] ?? '—';
-      termsByLang[lang].push({ term: which, sense, value: cell });
-      if (cell && cell !== '—' && !/^\*.*\*$/.test(cell)) decided[lang] = cell;
+for (const term of GLOSSARY_TERMS) {
+  decidedByTerm.set(term.name, term.decided);
+  for (const lang of LANGS) {
+    if (!termsByLang[lang]) continue;
+    termsByLang[lang].push({
+      term: term.name,
+      sense: term.sense,
+      value: term.decided[lang] ?? '—',
     });
-    decidedByTerm.set(which.toLowerCase(), decided);
-  }
-  for (const line of section.matchAll(/^\*\*Rejected:\*\*([^\n]*)$/gm)) {
-    for (const pair of line[1].split(';')) {
-      const m = pair.match(/([a-z]{2}(?:-[a-z]{2})?)\s*`([^`]+)`/i);
-      if (m && rejectedByLang[m[1].toLowerCase()]) rejectedByLang[m[1].toLowerCase()].push(m[2]);
-    }
+    for (const form of term.rejected[lang] ?? []) rejectedByLang[lang].push(form);
   }
 }
 
@@ -112,31 +80,23 @@ for (const lang of LANGS) {
     let value = ha[haKey];
     let source = haKey;
     if (value === undefined) continue;
-    // Rule 1. Without this the mine hands Latvian its own English back, dressed as a
-    // translation — which is the exact silent-success failure this repo keeps hitting.
+    // Ignore untranslated HA values.
     if (value === haEn[haKey]) continue;
 
-    // **The glossary outranks the mine.** Home Assistant's value is evidence; the decided
-    // term is a decision, and the two can disagree. Left unfiltered this mine proposed
-    // German `Ereignisse` for `compact_events_to_show` — the very word §4 rejects — and
-    // Latvian `Izklājums` for `layout` where the glossary decided `Izkārtojums`. Both
-    // would have been handed to a session as a starting point and then failed the build.
+    // The glossary is a decision; Home Assistant is evidence.
     const decided = decidedByTerm.get(normalise(english))?.[lang];
     if (decided && decided !== value) {
       value = decided;
       source = 'glossary';
     }
 
-    // A rejected form reaching a session as a *proposal* is worse than no proposal.
+    // Do not propose glossary-rejected forms.
     if (rejectedByLang[lang].some((form) => value.includes(form))) {
       dropped.push({ key, english, value, why: 'contradicts a rejected term' });
       continue;
     }
 
-    // HA's table contains unit suffixes and inflected fragments that read as labels only
-    // by accident: `ui.components.calendar.event.repeat.interval.daily` is the `days` in
-    // "repeat every 3 days", and Latvian abbreviates it to `d.` — useless as a label for
-    // *Days*, and not visibly wrong in a diff.
+    // Drop unit suffixes and inflected fragments that are not standalone labels.
     if (value.length <= 2 || (/\.$/.test(value) && !/\.$/.test(english))) {
       dropped.push({ key, english, value, why: 'looks like an abbreviation or a fragment' });
       continue;
@@ -153,7 +113,7 @@ for (const lang of LANGS) {
   lines.push('');
   lines.push(
     `Generated by \`scripts/l10n-handoff.mjs\`. A snapshot, not a live artefact: the ` +
-      `termbase that governs this work is [\`editor-glossary.md\`](./editor-glossary.md), ` +
+      `termbase that governs this work is \`scripts/editor-glossary.mjs\`, ` +
       `and that is the file to edit if a decision here turns out wrong.`,
   );
   lines.push('');
@@ -243,8 +203,8 @@ for (const lang of LANGS) {
   lines.push('## Before You Start');
   lines.push('');
   lines.push(
-    "1. Read [`editor-glossary.md`](./editor-glossary.md) §3 for this language's " +
-      '**casing rule**. It is one decision, not 201.',
+    `1. This language ${NOUN_CAPS_LANGUAGES.includes(lang) ? 'capitalises nouns, so a multi-word label keeps its noun capitals' : 'does not capitalise nouns, so multi-word labels are sentence case'}. ` +
+      'It is one decision, not 201.',
   );
   lines.push(
     '2. Fix the pre-existing strings first. `node scripts/check-i18n.mjs` lists every ' +
@@ -262,6 +222,7 @@ for (const lang of LANGS) {
   );
   lines.push('');
 
+  mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(join(OUT_DIR, `editor-l10n-${lang}.md`), `${lines.join('\n')}\n`, 'utf-8');
   totals.push({
     lang,

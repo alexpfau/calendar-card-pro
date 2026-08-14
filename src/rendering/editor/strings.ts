@@ -1,42 +1,8 @@
 /**
- * English strings for the schema-driven editor.
- *
- * **The only English source there is.** There is deliberately no `en.json` beside the
- * per-language files in `./translations/`, because two English tables can disagree and
- * one of them then wins silently. The namespace this replaced demonstrated exactly
- * that: it spelled 94 of these keys the same way, and only 53 of them still carried the
- * same English text by the time it was retired.
- *
- * A **fresh namespace**, deliberately not the `editor.*` one the previous editor owned.
- * That namespace was deleted once its strings had been mined, because its keys overlap
- * these by name without matching them in meaning — a resemblance close enough to be
- * misleading and never close enough to be useful.
- *
- * `check:i18n` reconciles this table against the schemas in both directions, so a field
- * with no string and a string no field uses are both errors. Keeping English here is
- * what lets that check say "nobody wrote this string" rather than filling the gap from
- * a translation and reporting a clean run.
- *
- * Translations live in `./translations/<code>.json`, keyed identically and **partial by
- * design**: `lookup` consults the language first and falls back here per key, so a
- * language translated to any degree renders that far and no further. Shipping English
- * only, for a key or for a whole language, is safe at every step.
- *
- * **Naming.** Keys are the config key they label. A key inside a group that draws a
- * heading is qualified with that group's path (`column.min_day_width`), because Home
- * Assistant qualifies the label key it asks for the same way; `computeLabel` falls back
- * to the bare key, so a field only needs qualifying when its name alone would be
- * ambiguous. Helper text is the key plus `.helper`, and an option label is the field
- * plus `.option.<value>.label`.
+ * English editor strings; keep keys aligned with schemas and translations.
+ * `en-GB` is override-only: it carries spelling differences and otherwise falls back to `en`.
  */
 
-/**
- * Label and helper strings, keyed as described above.
- *
- * Wording notes worth keeping: this is the surface where column view either explains
- * itself or generates support threads, so the sentences here state *what the card
- * does at a width* rather than *what an option is called*.
- */
 export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Filter bar -----------------------------------------------------------
   //
@@ -213,11 +179,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.max_height': 'Maximum Height',
   'column.max_height.helper':
     'The height the column layout may grow to before it scrolls. Use none for no limit.',
-  // The three options whose stored value is a union of shapes. Each is offered under
-  // its config key rather than under the mode dropdown that edits it, because the
-  // picker lists options and the rows beneath it are how one is edited — so these name
-  // the thing, and the row's own dropdown is labelled *Numbering*, *Style* or *Country
-  // Names* exactly as it is in the panel above.
   'column.show_week_numbers': 'Week Numbers',
   'column.today_indicator': 'Today Indicator',
   'column.remove_location_country': 'Country Names',
@@ -259,12 +220,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'first_day_of_week.option.sunday.label': 'Sunday',
 
   compact_mode: 'Compact Mode',
-  // Written to be read *before* the scope note that follows it in column view, which is
-  // why it opens by saying what compact mode is rather than by saying what applies. The
-  // two used to run the other way round — "These apply to the list layout…" landed
-  // first, before the reader knew what "these" were, and both sentences then used the
-  // word "apply". See `computeHelper`, which appends a group's scope note rather than
-  // prefixing it.
   'compact_mode.helper':
     'Shortens the card while it sits in a compact dashboard slot. Leaving both empty ' +
     'means compact mode changes nothing.',
@@ -341,8 +296,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   today_day_color: "Today's Day Number Color",
   today_month_color: "Today's Month Color",
 
-  // No helper: *Today Indicator* and "a mark on the current day" are the same sentence,
-  // and the style dropdown below lists what the mark can be.
   today_indicator: 'Today Indicator',
   today_indicator_style: 'Style',
   'today_indicator_style.option.none.label': 'None',
@@ -472,11 +425,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'date.show_conditions': 'Show Conditions',
   'date.show_high_temp': 'Show High Temperature',
   'date.show_low_temp': 'Show Low Temperature',
-  // The card gives the UV index this slot when it shows one, and yields the low
-  // temperature. Stated rather than expressed by hiding the switch, because the
-  // precedence is decided per day at runtime: the index also has to clear its
-  // threshold, so on a dull day it is not shown and the low temperature is. Hiding
-  // this would remove a control that is doing real work.
   'date.show_low_temp.helper': 'The UV index takes this place on days it is shown.',
   'date.show_uv_index': 'Show UV Index',
   'date.uv_index_threshold': 'UV Index Threshold',
@@ -488,10 +436,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'weather.event': 'Beside Each Event',
   'weather.event.helper': "The forecast for each event's own start time.",
   'event.show_conditions': 'Show Conditions',
-  // Path-qualified, and it has to be: both weather groups name this field
-  // `show_conditions`, and an applicability note keys on the bare name, so it would
-  // annotate the day header too. A note would also be false here — the option is not
-  // inert in the column layout, it does something different there.
   'event.show_conditions.helper':
     'Shows the condition icon. In the column layout the icon is always shown, because ' +
     'the row shares an icon edge with the time and location, and this adds the ' +
@@ -533,15 +477,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'scope.list_only.compact_events_to_show':
     'Applies to the list layout. Capping events per card would empty columns rather ' +
     'than shorten the card.',
-  // Stated on the group rather than on each of its three fields, which all share this
-  // scope — see GROUP_SCOPE in localize.ts. The per-field notes the group replaces are
-  // deliberately absent: written, they would never be looked up.
-  //
-  // Leads with the fact and gives the reason second. An earlier version opened with
-  // "That shortening is the list layout…", which explained *why* the limits do not apply
-  // without ever saying *that* they do not — a reader could finish the paragraph still
-  // expecting compact mode to shorten their column card. Reported from the live editor.
-  // The reason is kept, because "has no effect" alone invites someone to file it as a bug.
   'scope.list_only.compact_mode':
     'No effect in column view. These only shorten the list layout, which also appears ' +
     'on narrow screens; in columns, limits would remove whole days instead.',

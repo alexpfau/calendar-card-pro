@@ -2,43 +2,10 @@
 /**
  * Documentation integrity check for Calendar Card Pro.
  *
- * The docs are a separate VitePress site (calendar-card-pro.alexpfau.com) carved out
- * of what used to be a ~1800-line README. Nothing connects them to the code, so every
- * way they can rot is silent: the site builds, the card works, and the page lies.
+ * Validates docs against the code and catches drift that VitePress cannot see: defaults,
+ * missing options, malformed examples, broken internal links and style conventions.
  *
- * Four failure modes, all of which have actually happened in this repo:
- *
- *   1. Documented defaults drift from DEFAULT_CONFIG. Nine were wrong at once —
- *      `day_spacing` said 5px against a real 10px, `remove_location_country` had the
- *      boolean inverted. A reader copies the documented value and gets a different card.
- *
- *   2. An option exists in code and is documented nowhere. The reference table had
- *      collapsed whole nested interfaces to a bare `object`, so `label_icon_color`,
- *      `service_data` and `open_tab` were reachable only by reading the source.
- *
- *   3. A broken code fence swallows the rest of a page. `core-settings.md` had an
- *      `entities:` line outside its ```yaml fence; VitePress renders that happily and
- *      the example silently becomes wrong.
- *
- *   4. An example that announces itself as a complete card isn't one. Most snippets in
- *      these docs are deliberately partial — they show only the option under discussion,
- *      which is what makes them readable. The convention (stated on /guide/usage) is that
- *      a block carrying `type: custom:calendar-card-pro` is the copy-pasteable kind, so
- *      that block must actually work.
- *
- * None of this is visible to tsc, eslint, vitest, or `vitepress build`. The site builds
- * clean with every one of these defects present.
- *
- * No dependencies, not part of the bundle:
- *
- *   node scripts/check-docs.mjs            # errors are fatal, warnings are advisory
- *   node scripts/check-docs.mjs --strict   # warnings are fatal too
- *
- * Design note: like check-i18n.mjs, the code is read out of the TypeScript source with
- * regexes rather than imported, so the check stays dependency-free and needs no build
- * step. That is only safe because every extraction fails *loudly* when it finds nothing
- * — see assertFound(). A regex that silently matched nothing would report a clean run
- * over an empty set, which is the one outcome worse than a false alarm.
+ * Run with `node scripts/check-docs.mjs`; add `--strict` to make warnings fatal.
  */
 
 import { readFileSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -198,12 +165,7 @@ function listDocs(dir = DOCS_DIR, acc = []) {
 // ---------------------------------------------------------------------------
 
 /**
- * Three notation conventions account for every false positive this check would
- * otherwise raise, and all three are the docs being *more* useful than the code:
- *
- *   var(--primary-text-color) vs --primary-text-color   (CSS custom property notation)
- *   undefined                 vs "inherits `day_color`"  (documented inheritance)
- *   system                    vs System                  (sentence case in prose)
+ * Accept CSS custom property notation, documented inheritance and prose sentence case.
  */
 function normalise(value) {
   return String(value)
@@ -221,16 +183,8 @@ const isStructural = (raw) => raw.startsWith('[') || raw.startsWith('{');
  * Options whose static default is `undefined` because the real value is decided at
  * runtime, each one traced to the code that decides it.
  *
- * Every entry here would otherwise warn on every single run. Nine permanent warnings is
- * not a signal, it is a wall: a reader who has scrolled past the same nine lines a dozen
- * times will scroll past the tenth without reading it, and the tenth is the one that
- * matters. This table exists so that a warning from this check means "nobody has looked
- * at this yet" rather than "here is the list again".
- *
- * The value is the documented default each trace was made against, so editing the docs
- * re-opens the question instead of silently inheriting a sign-off given for different
- * wording. The comment is the code that was read — re-read it before touching an entry,
- * and delete the entry rather than updating it blind.
+ * The value is the documented default. The comment names the code path to re-read before
+ * touching an entry.
  */
 const VERIFIED_RUNTIME_FALLBACKS = new Map([
   // utils/events.ts — absent or unparseable resolves to today ("Falling back to today").
@@ -353,13 +307,7 @@ function checkDefaults(defaults, rows, resolveConstant) {
 /**
  * Does this page document this option?
  *
- * Deliberately not a bare word match. `service`, `title` and `entity` are ordinary
- * English words, and "handles navigation and service calls" is prose about the card,
- * not documentation of the `service` option. Counting it would make the check pass on
- * an option nobody can look up — a false pass, which defeats the point of the check.
- *
- * So an option only counts when it appears in a context that marks it as an identifier:
- * inside a backtick span, as its own cell in a table, or as a YAML key inside a fence.
+ * An option counts only in identifier contexts: backticks, a table cell or a YAML key.
  */
 function isDocumented(field, text, fencedContent) {
   const asWord = new RegExp(`(^|[^A-Za-z0-9_])${field}([^A-Za-z0-9_]|$)`);
@@ -419,26 +367,8 @@ function checkCoverage(fields, docs) {
 // ---------------------------------------------------------------------------
 
 /**
- * Three constructs that render as literal paragraph text instead of what was meant,
- * with nothing anywhere else to notice.
- *
- * Every one of these was confirmed against the shipped renderer rather than assumed —
- * a fixture page was built with `vitepress build` and the emitted HTML inspected. That
- * matters, because the intuition here is unreliable: a heading, list, table, container,
- * fence or blockquote written with **no blank line before it** all render perfectly
- * well, so a "block needs a blank line" rule would be noise. These three do not.
- *
- *  - `##Heading` (no space after the hashes) emitted
- *    `<p>##Heading …</p>`.
- *  - A table whose separator row has a different column count from its header emitted
- *    `<p>| Option | Type | Extra | | --- …</p>`, pipes and all.
- *  - `[text] (url)` with a space between the brackets emitted
- *    `<p>See [text] (/features/…)</p>`. This one is doubly invisible: it is not a
- *    markdown link, so check 7 never resolves it either — a typo turns a link into
- *    literal brackets *and* escapes link validation.
- *
- * An unclosed `:::` container is deliberately not checked: markdown-it closes it at end
- * of file and the block renders correctly, so a rule would fire on working pages.
+ * Three constructs that render as literal paragraph text: `##Heading`, mismatched table
+ * separators and `[text] (url)` with a space before the URL.
  */
 function checkSilentMarkdown(docs) {
   for (const file of docs) {
@@ -454,10 +384,7 @@ function checkSilentMarkdown(docs) {
       }
       if (fenced) return;
 
-      // A letter, deliberately, not "any non-space". These documents open wrapped prose
-      // lines with GitHub issue references — `#339 exhibits ...` — which markdown also
-      // renders as text, correctly and on purpose. Requiring a letter catches `##Heading`
-      // and leaves `#339` alone; the first version of this rule flagged four such lines.
+      // Require a letter so GitHub issue references like `#339` are not headings.
       if (/^#{1,6}[A-Za-z]/.test(line)) {
         error(`${rel}:${i + 1} heading needs a space after the hashes; renders as body text.`);
       }
@@ -545,14 +472,8 @@ function checkCopyableExamples(docs) {
 // ---------------------------------------------------------------------------
 
 /**
- * The README is the HACS landing page, so it has to show what a config looks like
- * without sending the reader elsewhere first. That one block is therefore the single
- * place in the project where duplication is deliberate rather than accidental.
- *
- * Duplication that nothing checks is just drift with a delay on it, so rather than
- * removing the block or tolerating the copy, this pins it: the README's first card
- * example must stay byte-identical to the first one in the usage guide. Edit either
- * and this fails, naming both files.
+ * The README's first complete example is pinned to the usage guide's first complete
+ * example because the README is the HACS landing page.
  */
 function checkReadmeExample() {
   const readme = join(ROOT, 'README.md');
@@ -591,14 +512,8 @@ function checkReadmeExample() {
 // ---------------------------------------------------------------------------
 
 /**
- * `docs/guide/whats-new.md` is the card's full history, unlike the README's What's New
- * which is a capped highlights reel. Because it is written by hand at release time and
- * nothing renders it from the release notes, the failure mode is silent: a release ships,
- * `RELEASE_NOTES.md` gains an entry, and the archive quietly stops being an archive.
- *
- * So pin the two together. Every minor line that has release notes must have a heading
- * here — patches fold into their `vX.Y` entry rather than adding one, which is why this
- * compares minor lines rather than exact versions.
+ * The What's New page is the full archive. Every minor line in release notes must have a
+ * heading here; patches fold into their `vX.Y` entry.
  */
 function checkWhatsNewCoverage() {
   const notes = join(DOCS_DIR, 'RELEASE_NOTES.md');
@@ -813,38 +728,9 @@ function checkInternalLinks(docs) {
 // ---------------------------------------------------------------------------
 
 /**
- * `docs/development/` is excluded from the VitePress site and from check 7, which
- * together left it checked by nothing at all. That was not a theoretical hole: a
- * probe of the tree found **17 broken anchors**, every one of them created when the
- * column-view plan was split into a spec plus an archive and the archive's internal
- * links kept pointing at headings the split had moved or reworded.
- *
- * The exclusion in check 7 is right and stays. These files are not published, so a
- * root-absolute `/features/x` in them is not a site link and resolving it against
- * published routes would be meaningless. What they actually use is **relative** —
- * `./v4-backlog.md#some-heading` and bare `#some-heading` — so that is what this
- * resolves, against the real files and their real headings.
- *
- * Slugs here are **GitHub's**, not VitePress's, and that distinction is the whole
- * reason this check needed writing carefully. These files are never published to the
- * site — they are read on GitHub — and GitHub does *not* collapse runs of hyphens,
- * where VitePress does. Every heading in this corpus uses an em-dash, which both
- * slugifiers drop while leaving the spaces either side, so a real anchor reads
- * `…show_empty_days--my-force-it-on-was-wrong` with a double hyphen. Running the
- * site's `slugifyHeading` over them reports **all 17 cross-references as broken** when
- * every one of them resolves correctly in the tool that renders the file. That was the
- * first result this check produced, and believing it would have meant "fixing" 17
- * working links.
- *
- * Paths are resolved **relative to the linking file**, and the heading map is keyed by
- * each document's path relative to `docs/development/` rather than by its basename
- * (Y11). Keying by basename made the check dishonest in two directions once the
- * directory nested: `./editor-glossary.md` written from inside a subdirectory resolved
- * against the basename map and **passed while being broken on GitHub**, and a link
- * written `../x.md` was not matched by the `./`-only pattern at all, so it was never
- * checked in either direction. The corpus is flat today, so this changes no current
- * result — it stops the check from silently going blind the first time someone nests a
- * file, which is precisely when a link checker has to still work.
+ * Resolve relative links in `docs/development/`, which is not part of the VitePress site.
+ * These files render on GitHub, so anchors use GitHub slug rules and paths resolve
+ * relative to the linking file.
  */
 function githubSlug(text) {
   return text
@@ -880,9 +766,7 @@ function checkDesignDocLinks(docs) {
   }
   assertFound(headings, 'design documents', DEV_DIR);
 
-  // Matches ./x, ../x and bare #anchor. The `../` arm is the Y11 fix: the previous
-  // pattern accepted only `./`, so an up-directory link was invisible to the check
-  // rather than failing it.
+  // Matches ./x, ../x and bare #anchor.
   const LINK = /\[[^\]]*\]\((\.\.?\/[^)\s]+|#[^)\s]+)\)/g;
   let checked = 0;
 
@@ -1087,14 +971,7 @@ function checkPageIntros(docs) {
 // Checks 12-14 — spelling, option tables, bidirectional cross-links
 // ---------------------------------------------------------------------------
 
-/**
- * Check 12: US spelling.
- *
- * The config options are US-spelled (`color`, `vertical_line_color`), so British
- * spelling in the prose around them reads as inconsistent. A hand sweep already
- * missed `Optimised` once, because a case-sensitive grep for `optimised` does not
- * match a capitalised word at the start of a sentence. Hence: case-insensitive.
- */
+/** Check 12: US spelling around US-spelled config options. */
 const BRITISH = [
   ['colour', 'color'],
   ['customis', 'customiz'],
@@ -1132,27 +1009,8 @@ function checkSpelling(docs) {
 /**
  * Check 15: a backticked option name is followed by the word "option".
  *
- * The docs settled on "option" as the single term for a card configuration key
- * (106 uses), but prose had drifted into "parameter" (17) and "setting" (39) for
- * the same concept, so the same key was a "parameter" on one page and an
- * "option" on the next.
- *
- * The rule is deliberately narrow: it only fires on a backticked identifier
- * immediately followed by the wrong noun. That is the one construction where the
- * noun unambiguously refers to a card option, which keeps the legitimate uses of
- * these words intact:
- *
- *   - "Home Assistant theme variables (`var(--primary-color)`)" — CSS variables
- *     really are variables, and the backtick follows rather than precedes.
- *   - "the parameters are Home Assistant's own" — action parameters, no backtick.
- *   - "Core Settings" / "Display Settings" — these mirror the editor's own
- *     section labels in `src/translations/languages/en.json`, so renaming them
- *     would make the docs disagree with the UI the reader is looking at.
- *   - "preserves their original properties" — properties of a calendar event,
- *     not of the config.
- *
- * `whats-new.md` and the release notes are exempt: they record what was
- * announced at the time and are not rewritten.
+ * The rule is narrow: it only fires on a backticked identifier immediately followed by
+ * the wrong noun, so CSS variables and Home Assistant action parameters stay out of scope.
  */
 const OPTION_NOUN =
   /(`[a-z0-9_*]+`\*{0,2}\s+)(parameters|parameter|settings|setting|variables|variable|properties|property)\b/;
@@ -1190,13 +1048,7 @@ function checkOptionNoun(docs) {
 /**
  * Check 13: option tables are `Option | Type | Default | Description`.
  *
- * `check:docs` reconciles documented defaults against the code for the reference
- * page only, so a feature page can omit the Default column entirely and nothing
- * notices — which is exactly what `core-settings.md` did for all ten of its
- * per-entity options.
- *
- * Only tables whose first header cell names an option are inspected, so
- * comparison and release tables are left alone.
+ * Only tables whose first header cell names an option are inspected.
  */
 const OPTION_SYNONYMS = ['variable', 'property', 'parameter', 'setting', 'field', 'key'];
 
@@ -1232,28 +1084,8 @@ function checkOptionTables(docs) {
 /**
  * Check 14: features and the reference link to each other, both ways.
  *
- * `show_countdown_allday` shipped documented in one place and unreachable from
- * the other. One-directional linking is how that happens, so require the return
- * leg: every feature page points at the reference, and every reference section
- * points back at a feature page.
- *
- * The two legs are asserted at different strengths, deliberately. The reference
- * leg is positional — the link must be the section's closing line — while the
- * feature leg only required the link to appear *somewhere* in the file. That gap
- * let three of the longest pages satisfy the check with a link in their opening
- * third: `weather` at line 62 of 215, `core-settings` at 41 of 249, `column-view`
- * at 91 of 265. A reader who scrolls one of those to the end finds no route to
- * the option table, which is the failure the check exists to prevent.
- *
- * So the feature leg now asserts what AGENTS.md actually says — the page *closes*
- * by naming its reference section — expressed as "the link falls after the last
- * `##`", i.e. inside the final section. Position-in-file would need an arbitrary
- * threshold; "the last section" is the same structural rule the reference leg
- * uses, read from the other end.
- *
- * Pages with no `##` at all (`multi-day-events`, `performance`) are short enough
- * that there is no "end" to be far from, and have no final section to test. They
- * keep the containment check.
+ * Every feature page points at the reference from its final section, and every reference
+ * section closes with a feature-page footer.
  */
 function checkCrossLinks(docs) {
   for (const file of docs) {
@@ -1290,7 +1122,7 @@ function checkCrossLinks(docs) {
     if (line.startsWith('```')) fenced = !fenced;
     if (fenced || !/^## /.test(line)) return;
 
-    // The footer belongs to the *previous* section, so the first h2 has none.
+    // The footer belongs to the previous section, so the first h2 has none.
     seen += 1;
     if (seen === 1) return;
 
@@ -1308,15 +1140,8 @@ function checkCrossLinks(docs) {
 // ---------------------------------------------------------------------------
 
 /**
- * Check 1 reconciles `DEFAULT_CONFIG` only, so the four column-only options were
- * unchecked on both sides at once: their defaults live in `COLUMN_DEFAULTS` in
- * `view.ts`, and their rows are written `column → day_gap` rather than as a bare
- * backticked key, which `readReferenceRows` deliberately skips. A wrong default in
- * that table therefore shipped silently — and `day_gap` has already moved once,
- * from 8px to 12px.
- *
- * Errors rather than warns, matching check 1: a documented default that contradicts
- * the code is wrong, not merely suspicious.
+ * Check 1 reconciles `DEFAULT_CONFIG` only; column-only defaults live in
+ * `COLUMN_DEFAULTS` and use `column → key` rows in the reference.
  */
 function readColumnDefaults() {
   const src = readFileSync(VIEW_TS, 'utf8');
@@ -1351,14 +1176,8 @@ function readColumnRows() {
  * Column-only options whose default is computed rather than constant, and which
  * therefore have no `COLUMN_DEFAULTS` entry to reconcile against.
  *
- * `min_days_to_show` defaults to `days_to_show`, a sibling option — not a value a
- * static table can hold. `resolveMinDaysToShow` owns it instead. Listing it here
- * rather than silently tolerating unmatched rows keeps the reconciliation total:
- * every documented row is either checked against the code or named as an exception,
- * and a new row that matches neither still warns.
- *
- * The documented default must name the option it derives from, so the reader is sent
- * somewhere real rather than to a dash.
+ * Listing dynamic rows here keeps every documented row either checked against code or
+ * named as an exception.
  */
 const DYNAMIC_COLUMN_DEFAULTS = new Map([['min_days_to_show', '`days_to_show`']]);
 
@@ -1402,65 +1221,9 @@ function checkColumnDefaults(columnDefaults, columnRows) {
 // ---------------------------------------------------------------------------
 
 /**
- * Nothing else in this repo validates `AGENTS.md`, and it is the file every session reads
- * first. A mid-sentence splice in `1e91714` orphaned six lines that began mid-line at
- * `absence. more than in most repos:`; they were live for a full day, on a file two
- * sessions were quoting from closely, and no gate could see them — `check:docs` read the
- * published `docs/` tree, `check:i18n` read `src/`, and nothing opened this file.
- *
- * 🚨 **The intuitive check does not work, and this is the load-bearing detail.** Measured
- * against the real artefact at `f43697b^`, not a synthetic case:
- *
- *     exact duplicate *paragraph*   pre-fix 0   <- misses it entirely
- *     duplicate *sentence*          pre-fix 2   post-fix 0
- *
- * Paragraph comparison finds nothing **because the splice landed mid-sentence**, so
- * paragraph boundaries never align. Anyone reaching for it would conclude the file was
- * clean and file the gap as unfixable.
- *
- * Advisory rather than fatal, matching how `check:i18n` reports translation coverage. A
- * sentence quoted deliberately twice is legitimate and must not fail a build; the file
- * currently has none at this threshold, so this starts green and only speaks up on drift.
- */
-/**
- * `AGENTS.md` links out to six documents and **nothing resolved those links** until this
- * check existed — `check:docs` validated the published `docs/` tree and the design docs,
- * and neither walk opens `AGENTS.md`. Verified by breaking one deliberately: the suite
- * stayed green.
- *
- * That matters more since the verification material was split (Y15): the rules live here
- * and the worked instances live in `verification-practices.md`, so a rename that broke the
- * link would leave every rule without the evidence that makes it falsifiable — which is
- * exactly the property the split was meant to preserve.
- *
- * Fatal rather than advisory, unlike the duplication check beside it. A duplicated sentence
- * is a wart; a link into nothing is a reader sent to a file that is not there.
- *
- * Two controls, because they fail differently and the second is the one that bit us. A
- * zero-match guard catches the pattern going stale *entirely*; it cannot catch it going
- * stale *partially*, because the surviving matches keep the count non-zero. The first
- * version of this check required a leading `./`, so `[x](docs/development/gone.md)` was
- * unguarded while seven `./` links kept the zero-guard quiet — verified by appending
- * exactly that link and watching `check:docs` report "Documentation is consistent".
- *
- * The partial case is caught by an invariant instead of a threshold: every relative
- * markdown link the file contains must be one this check resolved, so `matched` and
- * `relative` are two measures of one quantity and drift between them is a coverage hole
- * by construction.
- *
- * That invariant is **vacuous on today's corpus**, and saying so is the point. Every
- * relative link in `AGENTS.md` currently carries a `./`, so narrowing the matcher back
- * loses nothing and the counts still agree — I asserted otherwise in the first draft of
- * this comment, ran it, and got a green from both halves of a mutation that was applied.
- * The falsifier needs a planted violation to discriminate, exactly like the glossary
- * mutations:
- *
- *   append `[probe](docs/architecture.md)` to AGENTS.md   (relative, no `./`, resolves)
- *   narrow `all`'s matcher back to /\]\((\.\/[^)#\s]+)…/
- *   -> "resolved 7 of 8 relative links — the matcher covers only part of the file"
- *
- * Without that appended line both states are green, which is evidence about the corpus
- * and not about the code.
+ * Validate `AGENTS.md` relative links and warn on duplicated prose sentences. The link
+ * check is fatal because a reader would be sent to a missing file; the duplication check is
+ * advisory because deliberate repetition is legitimate.
  */
 function checkAgentsLinks() {
   const file = join(ROOT, 'AGENTS.md');
@@ -1481,7 +1244,7 @@ function checkAgentsLinks() {
     return;
   }
 
-  // Partial staleness: a narrower matcher would resolve some links and skip others silently.
+  // Ensure the matcher covers every relative markdown link in the file.
   const relativeInFile = [...raw.matchAll(/\]\(([^)\s]+)\)/g)]
     .map((m) => m[1].replace(/#.*$/, ''))
     .filter((t) => t !== '' && RELATIVE(t));
@@ -1511,7 +1274,7 @@ function checkAgentsDuplication() {
   const prose = raw.replace(/```[\s\S]*?```/g, ' ');
   const flat = prose.replace(/\s+/g, ' ');
 
-  // 60 chars is the measured floor: below it, short legitimate phrases collide.
+  // Keep short legitimate phrases from colliding.
   const sentences = flat
     .split(/(?<=[.!?]) /)
     .map((x) => x.trim())
@@ -1570,22 +1333,7 @@ function report(counts) {
 // ---------------------------------------------------------------------------
 
 /**
- * `COLUMN_DEFAULT_OVERRIDES` is the only place where the default printed in the
- * reference table is *wrong* for one of the two layouts the same card renders —
- * and it is wrong silently. A key listed there does not inherit its top-level
- * value in column view at all: the column default stands until the `column:`
- * block overrides it.
- *
- * Check 16 reconciles `COLUMN_DEFAULTS`, the column-*only* keys, and knows
- * nothing about this constant. That gap is not hypothetical: both entries shipped
- * undocumented, with `show_empty_days` and `split_multiday_events` each
- * advertising `false` in the reference while column view used `true`, and every
- * gate stayed green throughout.
- *
- * The required phrasing is deliberately fixed rather than fuzzy-matched. A rule
- * of "mentions the word column somewhere" passes on a description that merely
- * links to the column page, which is exactly the near-miss that would let this
- * regress. Rewording is still allowed — it just has to carry this clause.
+ * Shared options with column-view default overrides must say so in the reference table.
  */
 function readColumnDefaultOverrides() {
   const src = readFileSync(VIEW_TS, 'utf8');

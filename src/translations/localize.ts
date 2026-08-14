@@ -1,14 +1,10 @@
 /* eslint-disable import/order -- the annotated language list below is separated by a blank line on purpose; see the comment above it. */
 /**
- * Localization module for Calendar Card Pro
- *
- * This module handles loading and accessing translations
- * for different languages in the Calendar Card Pro.
+ * Localization module for Calendar Card Pro.
  */
 
 import * as Types from '../config/types';
 
-// Import language files (sorted alphabetically by language code)
 import bgTranslations from './languages/bg.json';
 import caTranslations from './languages/ca.json';
 import csTranslations from './languages/cs.json';
@@ -46,10 +42,9 @@ import zhCNTranslations from './languages/zh-CN.json';
 import zhTWTranslations from './languages/zh-TW.json';
 
 /**
- * Available translations keyed by language code
+ * Available translations keyed by language code.
  */
 export const TRANSLATIONS: Record<string, Types.Translations> = {
-  // Sorted alphabetically by language code
   bg: bgTranslations,
   cs: csTranslations,
   ca: caTranslations,
@@ -87,16 +82,12 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   'zh-tw': zhTWTranslations,
 };
 
-/**
- * Default language to use if requested language is not available
- */
 export const DEFAULT_LANGUAGE = 'en';
 
 //-----------------------------------------------------------------------------
 // HIGH-LEVEL API FUNCTIONS
 //-----------------------------------------------------------------------------
 
-// Cache for already determined languages to prevent repeated calculations
 const languageCache = new Map<string, string>();
 
 /**
@@ -113,17 +104,14 @@ export function getEffectiveLanguage(
   configLanguage?: string,
   hassLocale?: { language: string },
 ): string {
-  // Create cache key from inputs
   const cacheKey = `${configLanguage || ''}:${hassLocale?.language || ''}`;
 
-  // Return cached result if available
   if (languageCache.has(cacheKey)) {
     return languageCache.get(cacheKey)!;
   }
 
   let effectiveLanguage: string;
 
-  // Priority 1: Use config language if specified and supported
   if (configLanguage && configLanguage.trim() !== '') {
     const configLang = configLanguage.toLowerCase();
     if (TRANSLATIONS[configLang]) {
@@ -133,7 +121,6 @@ export function getEffectiveLanguage(
     }
   }
 
-  // Priority 2: Use HA system language if available and supported
   if (hassLocale?.language) {
     const sysLang = hassLocale.language.toLowerCase();
     if (TRANSLATIONS[sysLang]) {
@@ -142,7 +129,6 @@ export function getEffectiveLanguage(
       return effectiveLanguage;
     }
 
-    // Check for language part only (e.g., "de" from "de-DE")
     const langPart = sysLang.split(/[-_]/)[0];
     if (langPart !== sysLang && TRANSLATIONS[langPart]) {
       effectiveLanguage = langPart;
@@ -151,7 +137,6 @@ export function getEffectiveLanguage(
     }
   }
 
-  // Priority 3: Use default language as fallback
   effectiveLanguage = DEFAULT_LANGUAGE;
   languageCache.set(cacheKey, effectiveLanguage);
   return effectiveLanguage;
@@ -184,19 +169,7 @@ export function translate(
 ): string | string[] {
   const translations = getTranslations(language);
 
-  // Dotted keys never name anything in this file.
-  //
-  // The card's strings are flat, so a key with a dot in it belongs to the editor's own
-  // namespace — `editor.time.show_end_time` — which lives in
-  // `src/rendering/editor/translations/` and is resolved by that chunk's `lookup()`.
-  // Nothing here can answer for it, so the caller's fallback is the correct answer.
-  //
-  // Returning one used to be conditional on a two-segment prefix match against an
-  // `editor` section this file no longer holds, and that match was a wrong answer which
-  // looked right: `editor.time` is the string "Time", so every field inside the `time`
-  // group resolved to its group's own label, and so did its helper text. The same
-  // collapse hit `location`, `description`, `event` and `date`. The caller's "no string
-  // here" fallback never ran, because a string was returned.
+  // Dotted keys belong to the editor chunk; this eager translation table is flat.
   if (typeof key === 'string' && key.includes('.')) {
     const [, ...rest] = key.split('.');
     const subKey = rest.join('.');
@@ -204,16 +177,13 @@ export function translate(
     return fallback !== undefined ? fallback : subKey;
   }
 
-  // Handle direct keys in the translations object
   if (key in translations) {
     const value = translations[key as keyof Types.Translations];
-    // Handle the value safely to ensure return type matches
     if (typeof value === 'string' || Array.isArray(value)) {
       return value;
     }
   }
 
-  // Use fallback or key name if translation is missing
   return fallback !== undefined ? fallback : (key as string);
 }
 
@@ -243,23 +213,3 @@ export function getDateFormatStyle(language: string): 'day-dot-month' | 'month-d
   // Default for most other languages: day then month without dot (e.g., "17 Mar")
   return 'day-month';
 }
-
-// `getDayName` used to live here: an accessor that returned either `daysOfWeek` or
-// `fullDaysOfWeek` depending on a `full` flag. It had no callers, and the flag asserted
-// that the two arrays are long and short spellings of one thing. They are not — they
-// occupy different grammatical positions. `daysOfWeek` is a standalone day-header label
-// and is capitalised; `fullDaysOfWeek` is only ever emitted mid-sentence after
-// `multiDay`, so it holds the running-text form. One accessor cannot honour both
-// contracts, and its first caller would have silently picked the wrong one.
-
-// `getMonthName` and `formatDateShort` used to live here, and went the same way for the
-// same reason: neither had a caller. Every site that needs a month name reads
-// `translations.months` directly, because it is already holding the translations object
-// for something else; `getDateFormatStyle` above is the part `formatDateShort` wrapped
-// that callers actually wanted, and `format.ts` calls it directly.
-
-// A `getSupportedLanguages` / `isLanguageSupported` / `addTranslations` trio used to
-// follow. Nothing called any of them. The first two are answerable from `TRANSLATIONS`
-// where it is needed, and the third registered a language at runtime — which this card
-// has no path to do, since every language is imported statically and `check:i18n`
-// reconciles that import list against the files on disk.

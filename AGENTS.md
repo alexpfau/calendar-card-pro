@@ -7,7 +7,8 @@ agent-facing summary plus the things that are easy to get wrong.
 ## Project
 
 Calendar Card Pro is a custom Lovelace card for Home Assistant, written in TypeScript
-with Lit 3 and bundled with Rollup into a single ES module. It is distributed via HACS.
+with Lit 3 and bundled with Rollup into two ES modules — the card and its editor. It is
+distributed via HACS.
 
 There is **no runtime framework beyond Lit** — no React, no state library. Keep it that
 way; bundle size is a design constraint.
@@ -23,16 +24,16 @@ production bundle by 3 bytes, all of which were a bug fix.
 These are the npm scripts. Do not invent others — add one only when a command is run often
 enough that people will otherwise get it wrong.
 
-| Command                | Output                          | Element name            | Logging |
-| ---------------------- | ------------------------------- | ----------------------- | ------- |
-| `npm run dev`          | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
-| `npm run build`        | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
-| `npm run lint`         | — (eslint, `--fix`)             |                         |         |
-| `npm run format`       | — (prettier, `--write`)         |                         |         |
-| `npm test`             | — (vitest, single run)          |                         |         |
-| `npm run check:i18n`   | — (translation wiring check)    |                         |         |
-| `npm run check:docs`   | — (docs/config parity check)    |                         |         |
-| `npm run check:bundle` | — (emitted-file check)          |                         |         |
+| Command                | Output                                                | Element names                                           | Logging |
+| ---------------------- | ----------------------------------------------------- | ------------------------------------------------------- | ------- |
+| `npm run dev`          | `dist/calendar-card-pro-dev.js` + `dist/editor-dev.js` | `calendar-card-pro-dev`, `calendar-card-pro-dev-editor` | verbose |
+| `npm run build`        | `dist/calendar-card-pro.js` + `dist/editor.js`         | `calendar-card-pro`, `calendar-card-pro-editor`         | silent  |
+| `npm run lint`         | — (eslint, `--fix`)                                   |                                                         |         |
+| `npm run format`       | — (prettier, `--write`)                               |                                                         |         |
+| `npm test`             | — (vitest, single run)                                |                                                         |         |
+| `npm run check:i18n`   | — (translation wiring check)                          |                                                         |         |
+| `npm run check:docs`   | — (docs/config parity check)                          |                                                         |         |
+| `npm run check:bundle` | — (emitted-file check)                                |                                                         |         |
 
 `lint` and `format` cover **`src/`, `tests/` and `scripts/`**. `scripts/` was outside both
 until v4 — 220 KB of logic that gates every PR, watched by nothing, which is how three of
@@ -48,15 +49,16 @@ Three further scripts build the documentation site (see _Documenting a change_):
 command Cloudflare runs), and `docs:preview` (serve the built output).
 
 **The card ships as two files.** `rollup.config.mjs` exports an **array of two configs**,
-so each build emits the name in the table above plus an `editor.js` (`editor-dev.js`)
-beside it, and the editor is fetched only when someone opens it — which keeps it and its
+so each build emits the pair named in the table above, and the editor is fetched only when
+someone opens it — which keeps it and its
 translations off every dashboard load. Both files are self-contained bundles with stable,
 human-readable names. `hacs.json` names the card and needs no change; HACS downloads every
 asset attached to a release, and `filename` only selects which one becomes the Lovelace
-resource. Three consequences worth holding on to: **neither file may import the other**,
+resource. Four consequences worth holding on to: **neither file may import the other**,
 **every emitted file must sit directly in `dist/`** because HACS fetches no
-subdirectories, and **`import.meta` must survive into the output** (below). `npm run
-check:bundle` enforces all three.
+subdirectories, **`import.meta` must survive into the output** (below), and **both files
+stamp the same version** so the card can warn when a stale editor is paired with a fresh
+card. `npm run check:bundle` enforces all four.
 
 **Why two builds and not one build with code-splitting.** Rollup, given one entry and a
 dynamic `import()`, puts the modules the card and editor share into a chunk that the
@@ -157,8 +159,7 @@ npm run check:bundle   # after the build — it reads dist/
 Those seven are every npm gate CI runs, so a green local run should mean a green PR.
 `check:docs` is the one that
 surprises people: it is described under _Documenting a change_ below, which makes it look like a
-docs-only concern, but it gates **every** PR and it validates the design docs in
-`docs/development/` as well as the user-facing site. A change touching no `src/` file at all can
+docs-only concern, but it gates **every** PR. A change touching no `src/` file at all can
 still fail it. Adding a config option without a reference-table row fails it too — which is the
 point.
 
@@ -507,11 +508,14 @@ every manual installer into exactly that trap.
 
 ## CI
 
-- `ci.yml` — lint + build on every PR to `main` or `dev`. Also guards the two release-infra
+- `ci.yml` — lint + build on every PR to `main`, `dev` or a `feature/**` branch. Also guards
+  the two release-infra
   drifts nothing else can see: `package.json` disagreeing with either version field in
   `package-lock.json`, and `.nvmrc` disagreeing with `.node-version`. Both run before the
   install, so they fail in seconds.
-- `hacs-validate.yml` — HACS validation on `main` and nightly.
+- `hacs-validate.yml` — HACS validation on the same PR branches, plus `main` and nightly.
+  Everything it validates is decided before a merge, so running it only on `main` meant a
+  packaging mistake could only be found once `main` already carried it.
 - `release.yml` — tag-triggered draft release.
 
 ## Docs site deployment
@@ -612,6 +616,16 @@ that one, and runs in CI. Run it before you claim a language is done — but not
 verifies **wiring**, not translation quality, and it cannot tell you whether
 `pēc 2 dienām` is correct Latvian.
 
+**The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
+It records, per language, the decided form of each UI term and the forms rejected for it,
+and `check:i18n` enforces both: a rejected form anywhere in a governed key is an error, and
+a key whose English *is* a term is warned about when it does not use the decided form.
+Rejected entries are the stronger statement, because they match at a word start and so
+catch compounds — roughly half the terms have no key whose English matches them exactly,
+and for those the decided form is documentation only. Every run prints which half is which.
+Edit that file when a decision changes; it is data the checker imports, so a shape change
+is a load error rather than a check that silently enforces nothing.
+
 Regional variants usually need no `dayjs.ts` change at all, because `mapLocale()`
 reduces them to their base code (`en-gb` → `en`). Only `zh-cn` / `zh-tw` are
 special-cased.
@@ -679,26 +693,12 @@ explanation. It does not ship.
 ## Reference
 
 - [`docs/architecture.md`](./docs/architecture.md) — module responsibilities, data flow,
-  caching and performance design. Read before making structural changes.
-- [`docs/development/column-view.md`](./docs/development/column-view.md) — short current-state
-  specification for the column view (`view: 'column'`, targeting v4.0.0). Its companion
-  archive, `docs/development/column-view-rationale.md`, holds the rejected alternatives and
-  revision history.
-  Read before touching the rendering pipeline, the view dispatch, or any view-dependent
-  config key, so in-flight work stays compatible with it.
-- [`docs/development/editor-rebuild.md`](./docs/development/editor-rebuild.md) — the design
-  and staging for the schema-driven editor that replaces the hand-rolled one in v4. Read
-  before touching anything under `src/rendering/editor/`. Its status banner records which
-  parts the maintainer has superseded and which claims implementation has corrected — read
-  that first, not the body.
-- [`docs/development/v4-backlog.md`](./docs/development/v4-backlog.md) — the index of every
-  open item for v4, including the ones no specification owns. **Read it before starting a
-  stage and add to it when review turns something up**; it exists because findings kept
-  living only in a chat thread, which is not a place work survives.
-- [`docs/development/verification-practices.md`](./docs/development/verification-practices.md) —
-  the worked instances behind the verification rules below. Read it when a check passes and you
-  are not sure it proved anything; every entry is a real failure from this repo with its
-  measurement.
+  caching and performance design. Read before making structural changes. Its _Two Views,
+  One Agenda_ and _Two Files, One Card_ sections are the current description of the view
+  split and the two-bundle build.
+- [`docs/features/column-view.md`](./docs/features/column-view.md) — what column view does,
+  which options it overrides per view, and which it deliberately ignores. Read before
+  touching the rendering pipeline, the view dispatch, or any view-dependent config key.
 
 ## Verification
 
@@ -710,8 +710,7 @@ falsifier: _"delete `leaves.ts:122` and run `npm test`"_ cannot go quietly stale
 _"prettier does not reformat templates"_ did.
 
 **Four ways a check passes while proving nothing.** Each was found here, twice, against
-different artefacts; the worked instances and their measurements are in
-[`verification-practices.md`](./docs/development/verification-practices.md).
+different artefacts.
 
 | #   | Failure                                                                                                                                                                                                                                         | Falsifier                                                                                                          |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |

@@ -2,65 +2,16 @@
 /**
  * The en-GB derivation — one substitution list, shared by the generator and the check.
  *
- * `en-GB` is not a translation and must never be filled to 312 keys. It is a spelling
- * variant layered over `strings.ts`, and `lookup()` resolves per key, so it should
- * override **only** where British English genuinely differs. Filling it would ship
- * hundreds of strings identical to the American ones, inflate the editor chunk for no
- * benefit, and guarantee silent divergence the next time an English string is edited.
- *
- * So it is **generated output plus an assertion**, not a file anyone writes by hand.
- * That is what makes it unable to drift, unable to lose Title Case, and unable to go
- * stale when an English string changes.
- *
- * **The measured answer is 36 keys**, and three routes agree on exactly those 36:
- *
- *   1. this list, applied to `EDITOR_STRINGS`;
- *   2. the pre-v4 editor's hand-written `en-GB.json`, which overrode 29 keys years
- *      earlier and is a strict subset;
- *   3. the vocabulary extracted from Home Assistant's own `en-GB` table and applied to
- *      our 312 keys — same 36, same per-substitution counts.
- *
- * Route 3 is weaker evidence than it first looks and the caveat is worth keeping. Taken
- * raw it yields **125** keys, because HA's `en-GB` diffs mix genuine spelling with
- * grammar fixes, style rewrites and outright errors — `home` → `overview`,
- * `movie` → `film`, `the` → `a`, and one entry whose value is in French. It only lands
- * on 36 once an orthographic filter throws those away, and that filter encodes the same
- * judgement this list encodes. The routes therefore **confirm the answer without being
- * fully independent of each other**; routes 1 and 2 are the independent pair.
- *
- * **Do not derive the count from a rate.** HA diverges on ~3.9% of its strings, which
- * would predict 12–15 of our 312. The measured answer is 36, or 11.5%, because corpus
- * shape dominates: this table configures a card's *appearance* and **32 of its 312 keys
- * contain the word `Color`**. A general UI table is not colour-dense. Any figure
- * extrapolated from HA's percentage is wrong.
- *
- * **And do not learn substitutions from HA's table wholesale.** 23 of its 61 sampled
- * divergences are casing-only — `Add event` → `Add Event` — which is contributor drift,
- * not a British convention. A generator that adopted them would silently re-case our
- * labels.
+ * `en-GB` is a spelling variant layered over `strings.ts`, not a full translation. It is
+ * generated output plus an assertion, and it overrides only strings that genuinely differ
+ * from en-US.
  */
 
 /**
  * US → UK spellings, applied whole-word and case-preserving.
  *
- * The list is deliberately wider than what fires today, so that a future English string
- * is caught without anyone remembering to extend it. Only three entries fire against the
- * current table (`color` ×32, `colors` ×2, `customized` ×2); the rest are inert and cost
- * nothing.
- *
- * **Deliberately excluded**, because each would be wrong at least as often as right in a
- * Home Assistant card editor. They are listed rather than merely omitted, so that nobody
- * adds them later believing they were an oversight:
- *
- * | not substituted | why |
- * |---|---|
- * | `meter` → `metre` | a device. HA is full of electricity, gas and water *meters*. |
- * | `program` → `programme` | computing keeps `program` in British English. |
- * | `disk` → `disc` | likewise; a storage disk is a `disk` in both. |
- * | `dialog` → `dialogue` | a UI dialog is `dialog` in both; `dialogue` is conversation. |
- * | `practice` → `practise` | British splits noun/verb, so the rule is not lexical. |
- * | `license` → `licence` | same noun/verb split. |
- * | `analog` → `analogue` | kept — unambiguous — but note the pair above it. |
+ * Phrase-level exclusions avoid UI nouns where a broad British spelling rule would be
+ * wrong, such as `meter`, `program`, `disk`, `dialog`, `practice` and `license`.
  */
 export const SUBSTITUTIONS = [
   // -or → -our
@@ -155,13 +106,7 @@ export function britishise(text) {
 /**
  * The whole en-GB file, derived.
  *
- * Emits **only** the keys the substitution changed. A key whose British and American
- * spellings are identical must not appear: an entry equal to the English is a no-op that
- * ships bytes and does nothing, and 28 of them are what the hand-written file
- * accumulated.
- *
- * Key order follows `EDITOR_STRINGS`, so the generated file reviews as a diff against
- * the table it derives from rather than against an arbitrary sort.
+ * Emits only the keys the substitution changed, in `EDITOR_STRINGS` order.
  *
  * @param strings - `EDITOR_STRINGS`
  * @returns The en-GB overrides

@@ -1,18 +1,5 @@
 /**
- * The Time Range & Content panel — which days the card covers, and what it puts in them.
- *
- * The panel that owns `start_date`, and with it the single trickiest field in the
- * rebuild. `start_date` holds either an absolute date or a relative expression, so the
- * control that edits it depends on the shape of the value it is editing — and a user
- * typing `-7` passes through `-`, which is not a value the configuration can hold. The
- * old editor deferred that write until the field lost focus, using a guard on the DOM
- * event type that `ha-form` cannot offer, because it fires one event for the whole
- * form. `synthetic.ts` replaces it by holding the text until it parses, which commits
- * a keystroke earlier rather than a blur later.
- *
- * The compact-mode group states its list-layout applicability once, on the group,
- * rather than on each of its three fields: the whole family is scoped the same way, and
- * saying it three times reads as three problems. See `GROUP_SCOPE` in `localize.ts`.
+ * Content schema rows.
  */
 
 import { mdiCalendarRange } from '@mdi/js';
@@ -26,10 +13,8 @@ import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
 import { bool, color, group, number, row, select, text } from './common';
 
-/** Icon for the panel. */
 export const CONTENT_ICON = mdiCalendarRange;
 
-/** Icon paths for the sub-groups, inlined to keep the bundle to one asset. */
 const COMPACT_ICON = 'M4 5h16v2H4V5m0 6h10v2H4v-2m0 6h16v2H4v-2Z';
 const CONTENT_GROUP_ICON =
   'M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0' +
@@ -41,12 +26,6 @@ const LANGUAGE_ICON =
 
 /**
  * The start-date controls, which vary with the shape of the value.
- *
- * The mode selector is always shown; what sits under it is whichever control can edit
- * the value the card currently holds. This is progressive disclosure on a value the
- * user sets in this same panel, which is the case where hiding a field is right — the
- * two date controls are alternatives, and the control that chooses between them is
- * directly above.
  *
  * @param language - Effective language code
  * @param mode - Derived start-date mode
@@ -69,18 +48,6 @@ function startDateFields(language: string, mode: string): HaFormSchema[] {
 /**
  * The compact-mode fields, in dependency order.
  *
- * The two limits come first because they *are* compact mode: leave both empty and
- * compact mode changes nothing, and either one on its own switches it on. "Finish the
- * last day" is not a third limit but a modifier of the event one — `groupEventsByDay`
- * reads it only inside the branch guarded by a finite `compact_events_to_show`, so with
- * no event limit set it is genuinely inert — and it is held back until there is an
- * event limit for it to modify.
- *
- * That is progressive disclosure on a value set directly above it, which is the case
- * where hiding a field is right. It is not the same as hiding an option because of the
- * view, which the card does not do: the whole group is list-only, and that is annotated
- * on the group instead.
- *
  * @param hasEventLimit - Whether a card-wide compact event limit is set
  * @returns The two limits, and the modifier once it has something to modify
  */
@@ -94,22 +61,14 @@ function compactFields(hasEventLimit: boolean): HaFormSchema[] {
 /**
  * Builds the Time Range & Content panel schema.
  *
- * Memoised on what it reads: the two derived modes that decide which fields appear,
- * whether a compact event limit is set, whether an empty-day message is being shown at
- * all, and the language. The view is not among them — nothing here is added or removed
- * by view, only annotated, and annotation happens in the helper hook rather than in the
- * schema.
- *
  * @param language - Effective language code
  * @param startMode - Derived start-date mode
  * @param languageMode - Derived language mode
  * @param hasEventLimit - Whether a compact event limit is set, which is what the
- *   complete-days modifier modifies
  * @param showEmptyDays - Whether empty days are shown, which is what the two empty-day
- *   fields are for
  * @returns The panel's schema
  */
-export const contentSchema = Helpers.memoizeLast(
+const contentSchema = Helpers.memoizeLast(
   (
     language: string,
     startMode: string,
@@ -165,16 +124,6 @@ export function buildContentSchema(ctx: SchemaCtx): HaFormSchema[] {
 /**
  * Whether a card-wide compact event limit is set.
  *
- * Asked through `toValidNumber` rather than with a bare `Number.isFinite`, because the
- * editor and the card do not see the same value. The card normalizes on every
- * `setConfig`; the editor's is a plain merge over the defaults, so what arrives here is
- * the raw YAML. `toValidNumber` is the coercion the card applies before its own
- * `Number.isFinite` guard in `groupEventsByDay`, so asking it is what keeps the two in
- * agreement — a quoted `'3'` is a limit the card honours and this must not hide its
- * modifier, and a negative value is not a limit at all and this must not offer one.
- *
- * Zero counts: it is a valid limit and the card honours it as one.
- *
  * @param config - Merged configuration
  * @returns `true` when the complete-days modifier has something to modify
  */
@@ -184,11 +133,6 @@ function hasCompactEventLimit(config: Readonly<Types.Config>): boolean {
 
 /**
  * Whether the card shows empty days in the view it is configured for.
- *
- * Asked of the resolver rather than read off the top level, because a view may start
- * this option from a different default and not inherit — which column view does, so a
- * column card shows empty days while its top-level value says otherwise. Hiding the
- * two fields that style them would then hide the controls for something on screen.
  *
  * @param config - Merged configuration
  * @param view - View the card is configured to render
