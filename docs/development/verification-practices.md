@@ -987,8 +987,28 @@ git fsck --unreachable            356 unreachable commits, 135 from today
 spot-check: 3 of 3 readable, showing real diffs (8, 38 and 48 changed lines)
 ```
 
-**Nothing was lost.** Unreachable is not deleted — every one of those objects is still readable
-today and will be until a `git gc` prunes them. The conclusion is therefore not *"9 sessions
+**Nothing was lost.** Unreachable is not deleted — every one of those objects is still readable.
+
+**And "until a `git gc` prunes them" was wrong in both directions, which is worse than vague.**
+A routine `git gc`, including the `--auto` that fires implicitly after commits and fetches,
+honours `gc.pruneExpire` — **default `2.weeks.ago`** — so objects created today survive it.
+What destroys them is an *explicit* `git gc --prune=now`, `git prune`, or `git reflog expire
+--expire-unreachable=now`. Measured: `gc.pruneExpire` unset, and `git prune -n --expire=now`
+reports 670 objects it *would* drop.
+
+So the advice overstated the urgency **and** misnamed the hazard — it invites racing a clock
+that is not running, while the real risk is someone typing `--prune=now` during the next
+cleanup. Given how that evening went, not hypothetical.
+
+**The durable move is not to race it but to leave the set.** `git update-ref
+refs/recovered/<name> <sha>` makes the objects reachable and the question stops being
+time-varying — the same instrument choice as preferring `git log -S` to ancestry. Done here for
+21 auto-stashes and 4 named ones; the `WIP on` head reaches its index and untracked parents, so
+one ref per stash suffices. What remained unreachable afterwards was 81 app checkpoint commits
+and one throwaway probe — no user work.
+
+That is the general lesson and it is not about git: **when a fact is only true until something
+happens, change the fact rather than documenting the deadline.** The conclusion is therefore not *"9 sessions
 unknown"* but *"no work is gone, and there is an open recovery window"*, which is both a better
 answer and a **different question** from the one three successive probes were pointed at.
 
