@@ -9,10 +9,14 @@ Every number below was produced by importing the modules or by a real build. Fou
 were run against modified translation files; **the working tree was restored after each**
 (`git checkout -- src/rendering/editor/translations/`) and is clean.
 
-> **Status: plan only. Nothing here is implemented.**
-> The deliverable is the scope, the mining verdict, the glossary method, the quality bar
-> and the session split. No string was translated in producing it, beyond the handful
-> quoted as evidence.
+> **Status: executed. All nine languages reached 312/312.**
+> This was written as a plan, and the body below still reads as one — present tense,
+> nothing yet done. What it planned has since been carried out: the nine languages it
+> scopes are fully translated, the glossary it proposes exists as
+> [`editor-glossary.md`](./editor-glossary.md) and is parsed by `check:i18n`, and the
+> per-language handoff briefs it describes were generated, used and discarded. It is kept
+> for §3 — the mining analysis, whose measurements are cited elsewhere and are the reason
+> the pre-v4 archive was ultimately deleted rather than kept.
 
 ---
 
