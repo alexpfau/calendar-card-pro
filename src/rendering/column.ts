@@ -24,7 +24,6 @@ import * as ViewConfig from '../config/view';
 /**
  * Where each day sits relative to the one before it.
  */
-
 interface DayBoundary {
   isNewWeek: boolean;
 
@@ -40,7 +39,6 @@ interface DayBoundary {
  * @param days - Days to classify, already grouped and in ascending date order
  * @returns One entry per day, index-aligned with the input
  */
-
 function computeDayBoundaries(days: Types.EventsByDay[]): DayBoundary[] {
   return days.map((day, index) => {
     const prevDay = index > 0 ? days[index - 1] : undefined;
@@ -75,7 +73,6 @@ interface ColumnSeparator {
  * @param config - Card configuration, already resolved for the column view
  * @returns The rule to draw, or null when this gutter carries none
  */
-
 function resolveSeparator(boundary: DayBoundary, config: Types.Config): ColumnSeparator | null {
   if (boundary.isNewMonth && !ViewConfig.isZeroLength(config.month_separator_width)) {
     return {
@@ -111,7 +108,6 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): ColumnSe
  * @param gap - The grid's column gap, i.e. the resolved `day_spacing`
  * @returns Rendered separator
  */
-
 function renderColumnSeparator(
   separator: ColumnSeparator,
   columnIndex: number,
@@ -147,7 +143,6 @@ function renderColumnSeparator(
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @returns Rendered event
  */
-
 function renderColumnEvent(
   event: Types.CalendarEventData,
   day: Types.EventsByDay,
@@ -202,7 +197,6 @@ function renderColumnEvent(
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @returns Rendered day column
  */
-
 function renderDayColumn(
   day: Types.EventsByDay,
   config: Types.Config,
@@ -282,7 +276,6 @@ function renderDayColumn(
  * @param visible - Whether this column is the one that shows the number
  * @returns Rendered week-number cell
  */
-
 function renderColumnWeekNumber(
   weekNumber: number | null | undefined,
   visible: boolean,
@@ -301,7 +294,6 @@ function renderColumnWeekNumber(
  * @param config - Card configuration, already resolved for the column view
  * @returns One cell per day, or one `nothing` per day when no row is warranted
  */
-
 function buildWeekRows(
   days: Types.EventsByDay[],
   config: Types.Config,
@@ -336,7 +328,6 @@ function buildWeekRows(
  * @param hass - Home Assistant instance, for locale-aware formatting
  * @returns Rendered column grid
  */
-
 export function renderColumnGroupedEvents(
   days: Types.EventsByDay[],
   config: Types.Config,

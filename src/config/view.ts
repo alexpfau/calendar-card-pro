@@ -170,11 +170,6 @@ const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
   'refresh_on_navigate',
 ]);
 
-// Planned column-view options can get a precise diagnostic before implementation.
-const NOT_YET_IMPLEMENTED_KEYS: ReadonlySet<string> = new Set([
-  // Empty until a documented column option is not yet implemented.
-]);
-
 //-----------------------------------------------------------------------------
 // COLUMN-ONLY DEFAULTS
 //-----------------------------------------------------------------------------
@@ -520,14 +515,6 @@ export function validateColumnOverrides(config: Types.Config): void {
       continue;
     }
 
-    // Must stay above the `DEFAULT_CONFIG` check because these are valid top-level keys.
-    if (NOT_YET_IMPLEMENTED_KEYS.has(key)) {
-      Logger.warn(
-        `Ignoring "column.${key}": this option is planned for column view but is not implemented yet.`,
-      );
-      continue;
-    }
-
     if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
       Logger.warn(
         `Ignoring "column.${key}": "${key}" is a valid top-level option but cannot be overridden ` +
@@ -564,7 +551,7 @@ function warnAboutTopLevelColumnOnlyKeys(config: Types.Config): void {
 //-----------------------------------------------------------------------------
 
 /** Horizontal padding the card reserves for itself in column view, in pixels. */
-export const COLUMN_CARD_PADDING_PX = 32;
+const COLUMN_CARD_PADDING_PX = 32;
 
 /**
  * Width band, in pixels, by which the column-to-list threshold is lowered once

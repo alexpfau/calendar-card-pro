@@ -26,7 +26,6 @@ import * as Weather from '../utils/weather';
  * @param weatherForecasts Fetched forecasts, if any
  * @returns Rendered badge, or `nothing`
  */
-
 export function renderDateWeather(
   date: Date,
   config: Types.Config,
@@ -85,7 +84,6 @@ export function renderDateWeather(
  * @param date Date to check
  * @returns True when the date is a Saturday or Sunday
  */
-
 export function isWeekendDate(date: Date): boolean {
   const day = date.getDay();
   return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
@@ -97,7 +95,6 @@ export function isWeekendDate(date: Date): boolean {
  * @param timestamp Start-of-day timestamp for the day
  * @returns Whether the day is today, and whether it is tomorrow
  */
-
 export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: boolean } {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -126,7 +123,6 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
  * @param weatherContent Already-rendered weather badge, or `nothing`
  * @returns Rendered date block contents
  */
-
 export function renderDateContent(
   date: Date,
   config: Types.Config,
@@ -200,7 +196,6 @@ export function renderDateContent(
 /**
  * A pictographic character: emoji (as a surrogate pair) or a symbol/dingbat.
  */
-
 const GLYPH_CHAR =
   /[\u2000-\u3300]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDC00-\uDFFF]/;
 
@@ -209,7 +204,6 @@ const PROSE_CHAR = /[\sA-Za-z]/;
 /**
  * Whether a text label is a compact glyph (emoji, symbol) rather than prose.
  */
-
 function isGlyphLabel(label: string): boolean {
   return GLYPH_CHAR.test(label) && !PROSE_CHAR.test(label);
 }
@@ -222,7 +216,6 @@ function isGlyphLabel(label: string): boolean {
  * @param labelType - Shape the entity configuration names, if it names one
  * @returns TemplateResult for the appropriate label type
  */
-
 export function renderLabel(
   label: string | undefined,
   labelIconColor?: string,
@@ -249,7 +242,6 @@ export function renderLabel(
 /**
  * Render an event title with optional label and weather data
  */
-
 function renderEventTitle(
   event: Types.CalendarEventData,
   config: Types.Config,
@@ -285,7 +277,6 @@ function renderEventTitle(
 /**
  * Whether the card is configured to show a weather badge on individual events.
  */
-
 function hasEventWeather(config: Types.Config): boolean {
   return !!(
     config.weather?.entity &&
@@ -303,7 +294,6 @@ function hasEventWeather(config: Types.Config): boolean {
  * @param hass Home Assistant instance, used only to localize the condition text
  * @returns Rendered badge, or an empty template when there is nothing to show
  */
-
 export function renderEventWeather(
   event: Types.CalendarEventData,
   config: Types.Config,
@@ -376,7 +366,6 @@ export function renderEventWeather(
 /**
  * Locals that `renderEventContent` needs but must not recompute.
  */
-
 export interface EventContentParts {
   eventTime: string;
 
@@ -394,7 +383,6 @@ export interface EventContentParts {
 /**
  * Per-view choices `renderEventContent` cannot derive for itself.
  */
-
 export interface EventContentOptions {
   weatherForecasts?: Types.WeatherForecasts;
   /**
@@ -431,7 +419,6 @@ export interface EventContentOptions {
  * @param options Per-view placement choices - see `EventContentOptions`
  * @returns Rendered event body
  */
-
 export function renderEventContent(
   event: Types.CalendarEventData,
   config: Types.Config,
@@ -559,7 +546,6 @@ export function renderEventContent(
  * @param position Position in CSS-like syntax ("x y" format)
  * @returns Style object with positioning properties
  */
-
 function parseIndicatorPosition(position: string): Record<string, string> {
   const positionStyles: Record<string, string> = {
     position: 'absolute',
@@ -589,7 +575,6 @@ function parseIndicatorPosition(position: string): Record<string, string> {
  * @param layout Placement strategy — `absolute` positions by percentage, `inline`
  * @returns TemplateResult or nothing
  */
-
 export function renderTodayIndicator(
   config: Types.Config,
   isToday: boolean,
@@ -619,7 +604,6 @@ export function renderTodayIndicator(
 /**
  * Render specific indicator based on type
  */
-
 function renderIndicatorByType(
   type: string,
   value: string | boolean,

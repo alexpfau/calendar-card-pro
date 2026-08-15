@@ -12,7 +12,6 @@ import * as FormatUtils from '../utils/format';
 /**
  * Everything about a single event that is independent of the view rendering it.
  */
-
 interface EventPresentation {
   isEmptyDay: boolean;
 
@@ -34,7 +33,6 @@ interface EventPresentation {
  * @param hass - Home Assistant instance, used for locale-aware time formatting
  * @returns The event's view-independent presentation
  */
-
 export function buildEventPresentation(
   event: Types.CalendarEventData,
   config: Types.Config,

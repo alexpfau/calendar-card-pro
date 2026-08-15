@@ -17,7 +17,6 @@ import * as Logger from '../utils/logger';
  * @param config - Card configuration to use for styling
  * @returns The created hold indicator element
  */
-
 export function createHoldIndicator(event: PointerEvent, config: Types.Config): HTMLElement {
   const holdIndicator = document.createElement('div');
 
@@ -55,7 +54,6 @@ export function createHoldIndicator(event: PointerEvent, config: Types.Config): 
  *
  * @param indicator - Hold indicator element to remove
  */
-
 export function removeHoldIndicator(indicator: HTMLElement): void {
   indicator.style.opacity = '0';
   indicator.style.transition = `opacity ${Constants.TIMING.HOLD_INDICATOR_FADEOUT}ms ease-out`;

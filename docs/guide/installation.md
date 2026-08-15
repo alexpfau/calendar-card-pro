@@ -23,10 +23,11 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
 
 ### Steps
 
-1. **Download** the latest release:  
-   👉 [calendar-card-pro.zip](https://github.com/alexpfau/calendar-card-pro/releases/latest)
+1. **Download** both files from the latest release:  
+   👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest) and
+   [editor.js](https://github.com/alexpfau/calendar-card-pro/releases/latest)
 
-2. **Extract all files** into a folder of their own under `www`:  
+2. **Put both files** into a folder of their own under `www`:  
    /config/www/calendar-card-pro/
 
 3. **Navigate to:**
@@ -41,7 +42,7 @@ type: module
 
 5. **Clear cache & refresh** your browser to apply changes.
 
-::: warning Extract Both Files, Into Their Own Folder
+::: warning Both Files, In Their Own Folder
 The card ships as two files: `calendar-card-pro.js` and `editor.js`. Both must sit in the
 same folder, and only `calendar-card-pro.js` is named as a resource — the card fetches the
 editor itself, the first time you open it, so a dashboard never downloads it.
@@ -56,14 +57,21 @@ expects its editor, and the editor still will not open. A folder of its own remo
 question. HACS does all of this for you, which is why it is the recommended route.
 :::
 
-::: tip The `.gz` Files Are Not Optional Extras
-The zip also contains `calendar-card-pro.js.gz` and `editor.js.gz`. Extract them along
-with everything else and then ignore them — you never name a `.gz` as a resource.
+::: tip Optional: Compress The Files Yourself
+Home Assistant serves a pre-compressed `.gz` beside a file when it finds one, and does not
+compress on the fly. Neither install route ships one, so the card transfers at its full
+190 KB and the editor at 293 KB — once per version, then the browser caches both.
 
-Home Assistant serves a pre-compressed file when it finds one beside the original, and
-does not compress on the fly. With them the card downloads at 57 KB and the editor at
-83 KB; without them, 188 KB and 293 KB. HACS writes these files itself, so a HACS install
-has always had them and a hand-copied one never did.
+If you want the smaller transfer, create the companions yourself and keep them beside the
+originals:
+
+```bash
+gzip -9 -k calendar-card-pro.js editor.js
+```
+
+That brings the card to 57 KB and the editor to 82 KB. Delete the `.gz` files whenever you
+update, or regenerate them — Home Assistant will serve a stale `.gz` in preference to a
+newer `.js`.
 :::
 
 </details>

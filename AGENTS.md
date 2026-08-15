@@ -24,16 +24,16 @@ production bundle by 3 bytes, all of which were a bug fix.
 These are the npm scripts. Do not invent others — add one only when a command is run often
 enough that people will otherwise get it wrong.
 
-| Command                | Output                                                | Element names                                           | Logging |
-| ---------------------- | ----------------------------------------------------- | ------------------------------------------------------- | ------- |
+| Command                | Output                                                 | Element names                                           | Logging |
+| ---------------------- | ------------------------------------------------------ | ------------------------------------------------------- | ------- |
 | `npm run dev`          | `dist/calendar-card-pro-dev.js` + `dist/editor-dev.js` | `calendar-card-pro-dev`, `calendar-card-pro-dev-editor` | verbose |
 | `npm run build`        | `dist/calendar-card-pro.js` + `dist/editor.js`         | `calendar-card-pro`, `calendar-card-pro-editor`         | silent  |
-| `npm run lint`         | — (eslint, `--fix`)                                   |                                                         |         |
-| `npm run format`       | — (prettier, `--write`)                               |                                                         |         |
-| `npm test`             | — (vitest, single run)                                |                                                         |         |
-| `npm run check:i18n`   | — (translation wiring check)                          |                                                         |         |
-| `npm run check:docs`   | — (docs/config parity check)                          |                                                         |         |
-| `npm run check:bundle` | — (emitted-file check)                                |                                                         |         |
+| `npm run lint`         | — (eslint, `--fix`)                                    |                                                         |         |
+| `npm run format`       | — (prettier, `--write`)                                |                                                         |         |
+| `npm test`             | — (vitest, single run)                                 |                                                         |         |
+| `npm run check:i18n`   | — (translation wiring check)                           |                                                         |         |
+| `npm run check:docs`   | — (docs/config parity check)                           |                                                         |         |
+| `npm run check:bundle` | — (emitted-file check)                                 |                                                         |         |
 
 `lint` and `format` cover **`src/`, `tests/` and `scripts/`**. `scripts/` was outside both
 until v4 — 220 KB of logic that gates every PR, watched by nothing, which is how three of
@@ -224,6 +224,41 @@ Both are correct; the difference is the point, and the reasoning is at the helpe
 docblock.
 
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
+
+### `scripts/`
+
+Ten files, and only three are reachable through `package.json`, so the rest are easy to
+mistake for leftovers. They are not. What each one is:
+
+| Script                      | Kind           | How it runs                          |
+| --------------------------- | -------------- | ------------------------------------ |
+| `check-bundle.mjs`          | gate           | `npm run check:bundle`               |
+| `check-docs.mjs`            | gate           | `npm run check:docs`                 |
+| `check-i18n.mjs`            | gate           | `npm run check:i18n`                 |
+| `extract-release-notes.mjs` | release        | `release.yml`, stdout → release body |
+| `generate-en-gb.mjs`        | generator      | by hand — see below                  |
+| `editor-glossary.mjs`       | data           | imported by the i18n gate            |
+| `en-gb.mjs`                 | data           | imported by gate + generator         |
+| `load-editor-schema.mjs`    | library        | imported by the i18n gate            |
+| `l10n-oracle.mjs`           | authoring tool | by hand, needs an HA frontend wheel  |
+| `l10n-handoff.mjs`          | authoring tool | by hand, needs an HA frontend wheel  |
+
+**`generate-en-gb.mjs` is the one with a trap in it.** `src/rendering/editor/translations/en-GB.json`
+is generated, not maintained — `en-gb.mjs` holds the substitution list, the generator writes
+the file, and `check:i18n` recomputes the same data and fails on any difference. Nothing runs
+the generator for you. So editing `strings.ts` in a way that touches a substituted spelling
+fails the i18n gate, and the fix is not to hand-edit the JSON the error points at:
+
+```bash
+node scripts/generate-en-gb.mjs   # then re-run npm run check:i18n
+```
+
+The two `l10n-*` tools are deliberately outside CI. They need `HA_FRONTEND_TRANSLATIONS`
+pointed at an unpacked, pinned `home-assistant-frontend` wheel, which is why they are run by
+hand and why neither has an npm script. `l10n-oracle.mjs` gathers the evidence a glossary
+decision cites; `l10n-handoff.mjs` writes per-language starting files for editor translation
+work into a gitignored `l10n-handoff/`. Absence from `package.json` is the design, not an
+oversight — do not "fix" it by wiring them into the gates.
 
 ## Branch model
 
@@ -481,6 +516,7 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    8 of the 10 releases from v3.0.1 through v3.4.0 shipped with a stale lock version — 31
    of 37 tags overall. `ci.yml` now checks all three, so skipping this fails the release PR
    rather than shipping quietly.
+
 2. Update `docs/RELEASE_NOTES.md`, the README's `## 4️⃣ What's New` section, **and**
    `docs/guide/whats-new.md` — see _The two "What's New" surfaces_ for the differing rules.
 3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
@@ -490,21 +526,93 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    commit behind. See _`dev` must never fall behind `main`_.
 5. Tag `main` with `vX.Y.Z` and push the tag.
 6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
-   attaches `dist/*.js` — since the two-file split that is **both** `calendar-card-pro.js`
-   and `editor.js` — plus a flat `calendar-card-pro.zip` containing the same two files.
-   Publish it manually.
+   attaches `dist/*.js` and nothing else — since the two-file split that is **both**
+   `calendar-card-pro.js` and `editor.js`. Publish it manually.
 
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
 HACS downloads every asset attached to a release, so it gets the editor without being told
 about it; `filename` only selects which asset becomes the Lovelace resource.
 
-**The zip exists for manual installers, and it is not optional courtesy.** Copying only
-`calendar-card-pro.js` into `www/` yields a card that renders perfectly and then reports a
-missing file the first time someone opens the visual editor — the failure appears nowhere
-near the omission that caused it. The zip makes "extract both" the path of least
-resistance. An earlier version of this section described the release as attaching
-`dist/calendar-card-pro.js` alone, which was true before the split and would have sent
-every manual installer into exactly that trap.
+**Every asset you attach is downloaded by every HACS user. Price a new one that way
+before adding it.** This is the constraint that shapes the whole release, and it is
+asymmetric: an asset that helps a minority is paid for by everyone.
+
+**Manual installers must copy both files, and nothing in the tooling enforces that** —
+only the documentation does. Copying only `calendar-card-pro.js` into `www/` yields a card
+that renders perfectly and then reports a missing file the first time someone opens the
+visual editor, a failure that appears nowhere near the omission that caused it. So
+`README.md` and `docs/guide/installation.md` both say "both files, in a folder of their
+own" in as many words. If the file layout ever changes again, those two pages are the fix;
+there is no packaging step to lean on.
+
+**The convenience zip was removed, deliberately, before v4 shipped.** Up to that point the
+release also attached a flat `calendar-card-pro.zip` holding the same two files plus a
+`.gz` beside each. It was genuinely useful — it made "extract both" the path of least
+resistance, and the `.gz` siblings are why a hand-copied card could cost 57 KB and 82 KB
+over the wire instead of 190 KB and 293 KB, Home Assistant serving a pre-compressed file
+when it finds one and never compressing on the fly. It was dropped anyway, because HACS
+downloaded it too: ~274 KB into every user's `www/community/calendar-card-pro/` that
+nothing ever loads. Waste for the many against convenience for the few, and the few can be
+served by prose. Do not re-add it without re-making that trade explicitly; the cost side
+has not changed.
+
+**Note which way round the gzip benefit ran, because it is easy to state backwards.** HACS
+has no compression logic anywhere in its source, and Home Assistant's `http` component
+serves static files through aiohttp's `FileResponse` without enabling compression. aiohttp
+will serve a `.gz` sibling when one is already on disk, and nothing in either project ever
+creates one. So the `.gz` files came from the zip and from nowhere else: **manual**
+installers had the compressed transfer and HACS users never did. After the removal nobody
+does. Any sentence claiming HACS delivers pre-compressed files is false, and one shipped in
+`README.md` and `docs/guide/installation.md` before being corrected — check the direction
+before repeating the claim.
+
+**How other multi-file cards handle this, surveyed across ten popular ones.** The short
+answer is that almost none of them face it, because almost none code-split:
+
+- **One bundled file** — mushroom, button-card, apexcharts-card, plotly-graph-card,
+  mini-graph-card, light-entity-card. A single asset, so the problem never arises. This is
+  the overwhelming majority, and it is worth remembering that splitting the editor out put
+  this card in a minority of two.
+- **Attach everything and absorb the cost** — advanced-camera-card ships **53** assets: the
+  card, a zip, and 51 hashed chunks (`editor-*.js`, `engine-frigate-*.js`, `lang-de-*.js`
+  …). Every HACS user downloads all 53. Its `hacs.json` is minimal. It simply does not
+  optimize this.
+- **Deliver through the repository tree and attach nothing** — Bubble-Card commits `dist/`
+  (66 files) and publishes releases with **zero** assets. `gather_files_to_download()`
+  appends assets then returns `if files:` — _conditionally_ — so a release with no assets
+  falls through to the tree path, which for a `plugin` walks `dist/` and downloads every
+  file in it with no extension filter.
+
+That third route is the only one that would put `.gz` files in front of HACS users, since
+the tree path does not filter by extension. It costs a committed `dist/`, zero release
+assets, and a clumsier manual download — GitHub offers no way to fetch one folder. It was
+considered and not taken; reopen it only with those three costs in hand.
+
+**Never add `content_in_root` to `hacs.json`.** Its absence is load-bearing, and the
+failure it prevents is invisible from the manifest — which is why this warning lives here
+rather than as a comment in the file, JSON having nowhere to put one. Today HACS reaches
+`gather_files_to_download()` with releases in play, appends _every_ asset and returns, so
+both `.js` files arrive. Setting `content_in_root: true` makes `update_filenames()` skip
+the release-asset branch entirely and resolve `filename` against the repository tree, and
+the download narrows to that one file. `editor.js` would stop being delivered. The card
+would still render for every HACS user; it would 404 only when someone opens the visual
+editor, so the break would look like an editor bug and not a packaging change.
+
+**No manifest option can narrow what HACS downloads.** The full schema is
+`content_in_root`, `country`, `filename`, `hacs`, `hide_default_branch`, `homeassistant`,
+`manifest`, `name`, `persistent_directory`, `render_readme`, `zip_release` — there is no
+asset filter among them, and the release branch of `gather_files_to_download()` appends
+every asset and returns without consulting any of them. The only lever is the `files:`
+list in `release.yml`, which is why that list is the whole story and why the comment above
+it is long.
+
+`zip_release: true` is not the escape hatch it appears to be, so do not reach for it if a
+bundled download is ever wanted again. It does make HACS download a single archive and
+extract it — but only when `filename` ends in `.zip`, and `filename` is the same field
+`generate_dashboard_resource_url()` builds the Lovelace resource from. The registered
+resource would become `…/calendar-card-pro.zip?hacstag=…`. That option is built for
+categories that do not register a JS resource; for a `plugin` it is unusable. A bundled
+download would have to live outside the release assets entirely.
 
 ## CI
 
@@ -619,7 +727,7 @@ verifies **wiring**, not translation quality, and it cannot tell you whether
 **The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
 It records, per language, the decided form of each UI term and the forms rejected for it,
 and `check:i18n` enforces both: a rejected form anywhere in a governed key is an error, and
-a key whose English *is* a term is warned about when it does not use the decided form.
+a key whose English _is_ a term is warned about when it does not use the decided form.
 Rejected entries are the stronger statement, because they match at a word start and so
 catch compounds — roughly half the terms have no key whose English matches them exactly,
 and for those the decided form is documentation only. Every run prints which half is which.
@@ -677,6 +785,34 @@ both directions, by importing the schema modules. A new field with no string fai
 - Run `npm run format` (prettier) before committing; `npm run lint` uses `--fix`.
 - Match the existing module layout: `config/`, `interaction/`, `rendering/`,
   `translations/`, `utils/`.
+
+**A JSDoc block touches the thing it documents — no blank line between them.** This is the
+one style rule in the project that nothing mechanical enforces, so it is the one that
+silently rots. TypeScript still associates a doc comment and its `@param` tags across a
+blank line, so hover text and signature help keep working; no ESLint rule governs the gap;
+and Prettier does not close it. Every gate stays green while the comments drift away from
+the code.
+
+It rots in bulk rather than one comment at a time, because the cause is an automated edit
+sweeping a whole file: v4 accumulated **80 detached blocks across 10 files**, with 8 of the
+10 detached in their entirety, against zero on `dev`. Reattaching them is a pure whitespace
+change — 80 deletions, no insertions.
+
+The exception is a block that documents the file rather than a declaration. A module header
+or a section banner is _followed_ by a blank line and then an `import` or another comment,
+and that blank line is correct — do not close it. The distinction to apply when in doubt:
+if the next non-blank line is a declaration, the comment belongs against it; if it is an
+`import` or a comment, the block is a header and the gap stays.
+
+<!-- prettier-ignore -->
+```ts
+/** Return the card's configured view. */    // ✅ attached to the declaration
+export function getView(config: Config): View {
+
+/** Return the card's configured view. */    // ❌ detached — nothing will flag this
+                                             //    (blank line here)
+export function getView(config: Config): View {
+```
 
 **Comment the stylesheets as freely as the TypeScript.** A `css` tagged template's contents
 are a string literal, so no minifier looks inside one — comments there used to ship to every

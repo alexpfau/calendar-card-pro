@@ -1060,10 +1060,17 @@ function reportGlossaryReach(glossary, strings) {
   if (inert.length > 0) {
     glossaryNotes.push(
       `  ${inert.length} are documentation only — no such key, so editing the decided form ` +
-        `changes nothing. Add a \`rejected\` entry in ${GLOSSARY_SOURCE} for those, which ` +
-        'matches compounds:',
+        `changes nothing. A \`rejected\` entry in ${GLOSSARY_SOURCE} would enforce them, ` +
+        'because it matches compounds:',
     );
     glossaryNotes.push(`    ${inert.join(', ')}`);
+    glossaryNotes.push(
+      '  This is a standing invitation for a native speaker, NOT a mechanical task. A rejected ' +
+        'form is an ERROR, so a guessed one fails CI on a perfectly good translation. Only add ' +
+        'a form somebody actually considered and turned down for that language — the way ' +
+        '`event` carries de:Ereignis and pl:Zdarzenia. Leaving a term documentation-only is the ' +
+        'correct outcome when nobody has made that call yet.',
+    );
   }
 }
 

@@ -2,7 +2,6 @@
  * Start date expression parser for Calendar Card Pro
  * Parses the relative-date grammar accepted by the `start_date` config option.
  */
-
 const MAX_OPERATORS = 8;
 
 /** Result of parsing a `start_date` expression. */
