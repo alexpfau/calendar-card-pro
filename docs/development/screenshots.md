@@ -25,6 +25,40 @@ own.
 Create the token in Home Assistant under Profile → Security, keep it out of the repo, and
 revoke it when the run is done.
 
+### If the browser cannot reach Home Assistant
+
+macOS gates LAN access **per binary** (System Settings → Privacy & Security → Local
+Network). The symptom is specific and misleading: `curl` reaches Home Assistant fine while
+Chromium reports `ERR_ADDRESS_UNREACHABLE` and Node reports `EHOSTUNREACH`, and the
+browser can still load public internet pages, so it does not look like a networking
+problem at all. It can appear on a machine where captures worked the day before, because
+the grant can reset.
+
+Grant Node and Chromium the permission, or — without touching any system setting — relay
+through loopback, which the check exempts, from a binary that still holds the grant:
+
+```python
+# python3 relay.py   →   point HA_URL at http://127.0.0.1:8199
+import socket, threading
+TARGET, LISTEN = ("<ha-ip>", 8123), ("127.0.0.1", 8199)
+def pump(a, b):
+    try:
+        while (chunk := a.recv(65536)):
+            b.sendall(chunk)
+    finally:
+        a.close(); b.close()
+srv = socket.socket(); srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+srv.bind(LISTEN); srv.listen(64)
+while True:
+    c, _ = srv.accept()
+    u = socket.create_connection(TARGET)
+    threading.Thread(target=pump, args=(c, u), daemon=True).start()
+    threading.Thread(target=pump, args=(u, c), daemon=True).start()
+```
+
+It is transparent at the TCP layer, so WebSocket upgrades pass through unchanged.
+`HA_URL` exists for exactly this; the default stays `homeassistant.local`.
+
 ## Which tab feeds which image
 
 | Tab | Theme | Feeds |
@@ -163,6 +197,71 @@ hang on `waiting for fonts to load`. Anchoring on visible furniture survives Hom
 renaming its internals, which it does between releases.
 
 Nothing is saved — the browser context is discarded without touching **Save**.
+
+## Framing: the card is not the whole picture
+
+Every image carries **20 output pixels** of dashboard background around the card
+(`CARD_PADDING_OUTPUT_PX`). Without it the crop lands flush on the card's bounding box,
+which cuts its rounded corners square and loses any sense of how it sits on a dashboard —
+the card reads harsher than it does in use. 20px reproduces what the pre-v4 screenshots
+carried, measured at 20–21px on `example_1_basic_native`.
+
+The constant is in **output** pixels rather than CSS pixels on purpose. The two shot
+families are captured at different scales (3.2 for list, 2 for column), so a fixed CSS
+padding would render as a visibly different border in each; fixing the output width makes
+every published image match. Each shot divides by its own scale.
+
+Three things about capturing it:
+
+- An **element screenshot cannot do this** — it clips to the element box by definition. It
+  has to be a clipped *page* screenshot.
+- **`fullPage: true` is not the answer** for a card taller than the viewport. It stitches,
+  and the stitch leaves a grey band across the bottom of the card. Instead the viewport is
+  grown until the padded card fits, then clipped normally: one paint, no stitching.
+- On the narrowest shot the card all but fills the viewport, so the full padding **does not
+  exist to capture**. The clip is clamped to the page and the image gets the section's own
+  margin instead (16 output px rather than 20). That is expected; the clamp is explicit in
+  the code so the smaller number does not read as a bug.
+
+## The refresh spinner will ship if you let it
+
+The card draws a `.loading-indicator` over its top-right corner while it re-reads its
+calendars, and **it does not change the card's height**, so the settle-on-stable-size loop
+cannot see it. It shipped in one screenshot before this was caught, and a tap-to-expand
+makes it much more likely by triggering a re-render. `settle()` now waits for the element
+to disappear as well as for the box to stop moving.
+
+## The progress bar needs an event running *right now*
+
+`example_today_indicator` shows a countdown on future events and a progress bar on the
+one in progress. The countdown is easy — something is always upcoming. The bar is not:
+it renders only while an event is actually running, so capture at the wrong hour and the
+feature the screenshot exists to show is simply absent.
+
+Check before capturing:
+
+```
+ha_eval_template("{{ states('calendar.calendar_card_pro_work') }}")   # 'on' == running
+```
+
+An all-day event reports `on` without giving a meaningful bar — it needs a **timed** one.
+If nothing is running, create a short fixture spanning the current moment, capture, and
+**delete it again**:
+
+```
+ha_config_set_calendar_event(entity_id="calendar.calendar_card_pro_work",
+    summary="…", start="<40 min ago>", end="<2 h ahead>")
+# capture example_today_indicator only
+ha_config_remove_calendar_event(entity_id=…, uid=…)
+```
+
+Delete it rather than leaving it: a one-off event violates the weekly-recurring convention
+that makes `rrule == null` a reliable fixture filter, and while it exists it appears in
+**every other screenshot whose range covers today** — which is most of them. Capture the
+one shot that needs it first, then remove it and take the rest.
+
+Making it weekly-recurring instead would keep it reproducible but put it in every
+Saturday-covering screenshot, which is worse.
 
 ## Before committing a retake
 
