@@ -23,10 +23,11 @@ The easiest way to install **Calendar Card Pro** is via **[HACS (Home Assistant 
 
 ### Steps
 
-1. **Download** the latest release:  
-   👉 [calendar-card-pro.zip](https://github.com/alexpfau/calendar-card-pro/releases/latest)
+1. **Download** both files from the latest release:  
+   👉 [calendar-card-pro.js](https://github.com/alexpfau/calendar-card-pro/releases/latest) and
+   [editor.js](https://github.com/alexpfau/calendar-card-pro/releases/latest)
 
-2. **Extract all files** into a folder of their own under `www`:  
+2. **Put both files** into a folder of their own under `www`:  
    /config/www/calendar-card-pro/
 
 3. **Navigate to:**
@@ -41,7 +42,7 @@ type: module
 
 5. **Clear cache & refresh** your browser to apply changes.
 
-::: warning Extract Both Files, Into Their Own Folder
+::: warning Both Files, In Their Own Folder
 The card ships as two files: `calendar-card-pro.js` and `editor.js`. Both must sit in the
 same folder, and only `calendar-card-pro.js` is named as a resource — the card fetches the
 editor itself, the first time you open it, so a dashboard never downloads it.
@@ -56,14 +57,14 @@ expects its editor, and the editor still will not open. A folder of its own remo
 question. HACS does all of this for you, which is why it is the recommended route.
 :::
 
-::: tip The `.gz` Files Are Not Optional Extras
-The zip also contains `calendar-card-pro.js.gz` and `editor.js.gz`. Extract them along
-with everything else and then ignore them — you never name a `.gz` as a resource.
+::: tip A Manual Install Downloads More Than a HACS One
+Home Assistant serves a pre-compressed `.gz` file when it finds one beside the original,
+and does not compress on the fly. HACS writes those files as it installs; copying the
+release files by hand does not, and nothing on the release page provides them.
 
-Home Assistant serves a pre-compressed file when it finds one beside the original, and
-does not compress on the fly. With them the card downloads at 57 KB and the editor at
-83 KB; without them, 188 KB and 293 KB. HACS writes these files itself, so a HACS install
-has always had them and a hand-copied one never did.
+So a hand-installed card costs 188 KB and its editor 293 KB, where a HACS install pays
+57 KB and 83 KB. Everything works either way — this is transfer size, not function — but
+it is one more reason to prefer HACS where you can.
 :::
 
 </details>

@@ -526,21 +526,35 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    commit behind. See _`dev` must never fall behind `main`_.
 5. Tag `main` with `vX.Y.Z` and push the tag.
 6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
-   attaches `dist/*.js` — since the two-file split that is **both** `calendar-card-pro.js`
-   and `editor.js` — plus a flat `calendar-card-pro.zip` containing the same two files.
-   Publish it manually.
+   attaches `dist/*.js` and nothing else — since the two-file split that is **both**
+   `calendar-card-pro.js` and `editor.js`. Publish it manually.
 
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
 HACS downloads every asset attached to a release, so it gets the editor without being told
 about it; `filename` only selects which asset becomes the Lovelace resource.
 
-**The zip exists for manual installers, and it is not optional courtesy.** Copying only
-`calendar-card-pro.js` into `www/` yields a card that renders perfectly and then reports a
-missing file the first time someone opens the visual editor — the failure appears nowhere
-near the omission that caused it. The zip makes "extract both" the path of least
-resistance. An earlier version of this section described the release as attaching
-`dist/calendar-card-pro.js` alone, which was true before the split and would have sent
-every manual installer into exactly that trap.
+**Every asset you attach is downloaded by every HACS user. Price a new one that way
+before adding it.** This is the constraint that shapes the whole release, and it is
+asymmetric: an asset that helps a minority is paid for by everyone.
+
+**Manual installers must copy both files, and nothing in the tooling enforces that** —
+only the documentation does. Copying only `calendar-card-pro.js` into `www/` yields a card
+that renders perfectly and then reports a missing file the first time someone opens the
+visual editor, a failure that appears nowhere near the omission that caused it. So
+`README.md` and `docs/guide/installation.md` both say "both files, in a folder of their
+own" in as many words. If the file layout ever changes again, those two pages are the fix;
+there is no packaging step to lean on.
+
+**The convenience zip was removed, deliberately, before v4 shipped.** Up to that point the
+release also attached a flat `calendar-card-pro.zip` holding the same two files plus a
+`.gz` beside each. It was genuinely useful — it made "extract both" the path of least
+resistance, and the `.gz` siblings are why a hand-copied card could cost 57 KB and 83 KB
+over the wire instead of 188 KB and 293 KB, Home Assistant serving a pre-compressed file
+when it finds one and never compressing on the fly. It was dropped anyway, because HACS
+downloaded it too: ~274 KB into every user's `www/community/calendar-card-pro/` that
+nothing ever loads. Waste for the many against convenience for the few, and the few can be
+served by prose. Do not re-add it without re-making that trade explicitly; the cost side
+has not changed.
 
 **Never add `content_in_root` to `hacs.json`.** Its absence is load-bearing, and the
 failure it prevents is invisible from the manifest — which is why this warning lives here
@@ -552,28 +566,21 @@ the download narrows to that one file. `editor.js` would stop being delivered. T
 would still render for every HACS user; it would 404 only when someone opens the visual
 editor, so the break would look like an editor bug and not a packaging change.
 
-**HACS also downloads the zip, and nothing in the manifest can stop it.** Its full schema is
+**No manifest option can narrow what HACS downloads.** The full schema is
 `content_in_root`, `country`, `filename`, `hacs`, `hide_default_branch`, `homeassistant`,
 `manifest`, `name`, `persistent_directory`, `render_readme`, `zip_release` — there is no
-asset filter among them, and the release branch of `gather_files_to_download()` takes every
-asset without consulting any of them. So each HACS user fetches ~274 KB of zip into
-`www/community/calendar-card-pro/` beside the loose files they actually use. It is waste,
-not breakage: nothing loads it, and `filename` still selects the Lovelace resource.
+asset filter among them, and the release branch of `gather_files_to_download()` appends
+every asset and returns without consulting any of them. The only lever is the `files:`
+list in `release.yml`, which is why that list is the whole story and why the comment above
+it is long.
 
-`zip_release: true` is not the escape hatch it appears to be. It does make HACS download a
-single archive and extract it — but only when `filename` ends in `.zip`, and `filename` is
-the same field `generate_dashboard_resource_url()` builds the Lovelace resource from. The
-registered resource would become `…/calendar-card-pro.zip?hacstag=…`. That option is built
-for categories that do not register a JS resource; for a `plugin` it is unusable.
-
-That leaves one real lever: **whether the zip is attached to the release at all.** Dropping
-it from `files:` in `release.yml` gives HACS users exactly the two files they need, at the
-cost of the manual-install path this section exists to protect — and of the `.gz` siblings,
-which are why a hand-copied card costs 57 KB and 83 KB over the wire instead of 188 KB and
-293 KB. Any replacement channel has to live outside the release assets to be worth doing.
-Treat this as a maintainer decision, not a cleanup: it trades a documented, measured
-benefit for real users against unused bytes for others, and both `README.md` and
-`docs/guide/installation.md` link the zip by name.
+`zip_release: true` is not the escape hatch it appears to be, so do not reach for it if a
+bundled download is ever wanted again. It does make HACS download a single archive and
+extract it — but only when `filename` ends in `.zip`, and `filename` is the same field
+`generate_dashboard_resource_url()` builds the Lovelace resource from. The registered
+resource would become `…/calendar-card-pro.zip?hacstag=…`. That option is built for
+categories that do not register a JS resource; for a `plugin` it is unusable. A bundled
+download would have to live outside the release assets entirely.
 
 ## CI
 
