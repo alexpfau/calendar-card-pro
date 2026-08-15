@@ -49,3 +49,9 @@ docs/.vitepress/cache/
 
 # Ignore local-only MCP server config (may contain access tokens)
 .mcp.json
+
+# Local agent skills (machine-specific, not for contributors).
+# No trailing slash: worktrees reach these through a symlink, and a
+# `.agents/` pattern matches real directories only, so the link would
+# be left untracked and could be committed.
+.agents
