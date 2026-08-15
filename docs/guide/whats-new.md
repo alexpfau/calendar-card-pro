@@ -28,7 +28,6 @@ public release in January 2025 to today.
 - 🐛 **Multi-Day Countdowns Disagreed Row to Row**: Each row of a [split multi-day event](/features/multi-day-events) counted differently, reading `in 3 days / in 5 days / in 6 days / in 6 days`; every row now counts whole calendar days to its own date
 - 🐛 **Silently Ignored Options**: The five options removed in v3.0.0 were dropped without comment for anyone configuring in YAML, and are now reported in the console alongside the option that replaces them
 
-
 ## v3.5
 
 - 🫥 **Empty State Control**: [Remove the card entirely](/features/event-content#calendar-events-display) when there are no upcoming events, or replace "No upcoming events" with [your own wording](/features/event-content#custom-empty-day-text)

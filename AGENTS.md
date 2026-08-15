@@ -31,18 +31,29 @@ enough that people will otherwise get it wrong.
 | `npm run lint`         | — (eslint, `--fix`)                                    |                                                         |         |
 | `npm run format`       | — (prettier, `--write`)                                |                                                         |         |
 | `npm test`             | — (vitest, single run)                                 |                                                         |         |
+| `npm run check:format` | — (prettier, `--check`)                                |                                                         |         |
 | `npm run check:i18n`   | — (translation wiring check)                           |                                                         |         |
 | `npm run check:docs`   | — (docs/config parity check)                           |                                                         |         |
 | `npm run check:bundle` | — (emitted-file check)                                 |                                                         |         |
 
-`lint` and `format` cover **`src/`, `tests/` and `scripts/`**. `scripts/` was outside both
-until v4 — 220 KB of logic that gates every PR, watched by nothing, which is how three of
-those files drifted out of prettier style unnoticed and how Y22 shipped. It is linted under
-a **second, weaker config block**, because these are plain Node ESM rather than TypeScript:
-prettier plus a handful of core correctness rules, no type-aware rules, and deliberately
-**no `no-undef`** — the scripts legitimately use Node globals, and declaring them would mean
-depending on a package that is not a direct devDependency. So a typo in a global reads as
-valid in `scripts/` where `tsc` would have caught it in `src/`.
+`lint` covers **`src/`, `tests/` and `scripts/`**; `format` and `check:format` cover the
+**whole repo**. `scripts/` was outside both until v4 — 220 KB of logic that gates every PR,
+watched by nothing, which is how three of those files drifted out of prettier style
+unnoticed and how Y22 shipped. It is linted under a **second, weaker config block**, because
+these are plain Node ESM rather than TypeScript: prettier plus a handful of core correctness
+rules, no type-aware rules, and deliberately **no `no-undef`** — the scripts legitimately use
+Node globals, and declaring them would mean depending on a package that is not a direct
+devDependency. So a typo in a global reads as valid in `scripts/` where `tsc` would have
+caught it in `src/`.
+
+**`check:format` is the only step that actually gates formatting**, and it exists because
+the obvious-looking enforcement was never real. `prettier/prettier` is an eslint _error_
+rule, but `lint` runs with `--fix`: in CI a misformatted file is rewritten in the throwaway
+checkout and the step exits 0. Meanwhile eslint never saw markdown, YAML or JSON at all.
+Both holes were open until v4, by which point ten documentation files had drifted — the
+README and the release notes among them. Run `npm run format` before committing; the gate
+fails the PR if you forget. `wrangler.jsonc` is the one deliberate exclusion, for the reason
+recorded in `.prettierignore`.
 
 Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
@@ -149,6 +160,7 @@ changes with:
 ```bash
 npx tsc --noEmit   # typecheck — not exposed as an npm script
 npm run lint
+npm run check:format
 npm test
 npm run check:i18n
 npm run check:docs
@@ -156,7 +168,7 @@ npm run build
 npm run check:bundle   # after the build — it reads dist/
 ```
 
-Those seven are every npm gate CI runs, so a green local run should mean a green PR.
+Those eight are every npm gate CI runs, so a green local run should mean a green PR.
 `check:docs` is the one that
 surprises people: it is described under _Documenting a change_ below, which makes it look like a
 docs-only concern, but it gates **every** PR. A change touching no `src/` file at all can
@@ -782,7 +794,8 @@ both directions, by importing the schema modules. A new field with no string fai
 
 - Strict TypeScript; keep it strict.
 - JSDoc on public functions.
-- Run `npm run format` (prettier) before committing; `npm run lint` uses `--fix`.
+- Run `npm run format` (prettier, whole repo) before committing — `check:format` gates it in
+  CI. `npm run lint` uses `--fix`, so it _repairs_ formatting rather than failing on it.
 - Match the existing module layout: `config/`, `interaction/`, `rendering/`,
   `translations/`, `utils/`.
 

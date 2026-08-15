@@ -82,6 +82,15 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # `npm run lint` runs eslint with `--fix`, and `prettier/prettier` is a fixable
+      # error rule — so a misformatted file is silently rewritten in the CI checkout and
+      # the step exits 0. Formatting has therefore never been gated, and eslint covers
+      # only `src/`, `tests/` and `scripts/` anyway: markdown, YAML and JSON were outside
+      # every check. Ten docs files had drifted, including the README and the release
+      # notes. This is the same failure that hit `scripts/` before v4 pulled it in.
+      - name: Check formatting
+        run: npm run check:format
+
       # AGENTS.md prescribes tsc --noEmit as a validation step, but it was never
       # enforced in CI. Rollup strips types without checking them, so a type error
       # could build and ship cleanly.

@@ -167,7 +167,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🐛 **Multi-Day Countdowns**: Each row of a [split multi-day event](https://calendar-card-pro.alexpfau.com/features/multi-day-events) counted differently; every row now counts whole calendar days to its own date
 - 🐛 **Silently Ignored Options**: Options removed back in v3.0.0 were dropped without comment for YAML users, and are now reported with their replacement
 
-
 ### v3.5
 
 - 🫥 **Empty State Control**: [Remove the card entirely](https://calendar-card-pro.alexpfau.com/features/event-content#calendar-events-display) when there are no upcoming events, or replace "No upcoming events" with [your own wording](https://calendar-card-pro.alexpfau.com/features/event-content#custom-empty-day-text)

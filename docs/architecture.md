@@ -141,7 +141,7 @@ Manages all configuration aspects of the card:
   - Resolves the effective value of an option for the view being rendered, merging the
     `column:` override block over the top-level value
   - Owns which options may be overridden per view, and which may not — anything deciding
-    *which* events are fetched has to hold one value in both layouts, because the card
+    _which_ events are fetched has to hold one value in both layouts, because the card
     switches between them as the dashboard resizes
   - Computes the width threshold at which the column layout engages, and the hysteresis
     that stops it oscillating at the boundary

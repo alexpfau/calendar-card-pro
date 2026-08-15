@@ -129,10 +129,10 @@ The block covers the card's dimensions too, and that is where it earns its keep 
 
 Two options mean something different once days sit side by side, so column view starts them from its own default rather than from yours.
 
-| Option | Type | Default | Column Default |
-| ------ | ---- | ------- | -------------- |
-| `show_empty_days` | boolean | `false` | `true` |
-| `split_multiday_events` | boolean | `false` | `true` |
+| Option                  | Type    | Default | Column Default |
+| ----------------------- | ------- | ------- | -------------- |
+| `show_empty_days`       | boolean | `false` | `true`         |
+| `split_multiday_events` | boolean | `false` | `true`         |
 
 A list of events reads perfectly well with the blank days left out. A row of day columns does not: drop the empty ones and the columns stop corresponding to consecutive days, so the card quietly becomes something other than it appears. The same reasoning applies to a multi-day event — a column _is_ a day, so an event spanning three of them belongs in all three.
 
@@ -288,4 +288,3 @@ are ordinary options that apply in both layouts.
 
 The `column:` block and every option inside it are listed under [Column-Only Options in the
 configuration reference](/reference/configuration#column-only-options).
-

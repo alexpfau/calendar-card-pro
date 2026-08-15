@@ -25,6 +25,7 @@ Want to improve **Calendar Card Pro**? I welcome contributions of all kinds—wh
    ```sh
    npx tsc --noEmit      # typecheck — deliberately not an npm script
    npm run lint
+   npm run check:format  # prettier across the whole repo, docs included
    npm test
    npm run check:i18n    # translation wiring
    npm run check:docs    # docs and config parity — gates every PR, not only docs changes
@@ -41,7 +42,7 @@ Released builds log errors only. Everything below that — the running commentar
 caching, refreshes and rendering — is compiled out, so the console stays quiet on a
 normal dashboard.
 
-That is the right default, but it is unhelpful when something *is* wrong. To turn the
+That is the right default, but it is unhelpful when something _is_ wrong. To turn the
 detail back on, open your browser's developer console and run:
 
 ```js

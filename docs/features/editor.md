@@ -10,17 +10,17 @@ To open it, click the three dots (⋮) in the top-right corner of the card and s
 
 The editor is organized into nine panels, each named for what it configures rather than for where the option happens to live in YAML. They are listed here in the order the editor shows them:
 
-| Panel | What it covers |
-| --- | --- |
-| **Calendars** | Which calendars the card shows, and how each one looks |
-| **Layout** | How the card arranges days, and how much room it takes up |
-| **Time Range & Content** | Which days the card covers, and what it puts in them |
-| **Card & Title** | The card itself, and the heading above it |
-| **Day Header** | How each day announces itself, whichever layout it is announced in |
-| **Events** | The events themselves, and the lines each one can carry |
-| **Separators** | The rules the card draws between days, weeks and months |
-| **Weather** | A forecast beside the day, beside the event, or both |
-| **Actions & Refresh** | What a tap does, and how often the card re-reads its calendars |
+| Panel                    | What it covers                                                     |
+| ------------------------ | ------------------------------------------------------------------ |
+| **Calendars**            | Which calendars the card shows, and how each one looks             |
+| **Layout**               | How the card arranges days, and how much room it takes up          |
+| **Time Range & Content** | Which days the card covers, and what it puts in them               |
+| **Card & Title**         | The card itself, and the heading above it                          |
+| **Day Header**           | How each day announces itself, whichever layout it is announced in |
+| **Events**               | The events themselves, and the lines each one can carry            |
+| **Separators**           | The rules the card draws between days, weeks and months            |
+| **Weather**              | A forecast beside the day, beside the event, or both               |
+| **Actions & Refresh**    | What a tap does, and how often the card re-reads its calendars     |
 
 Panels open one at a time, and options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
 
@@ -108,13 +108,13 @@ pinning it.
 
 Five options were removed in v3.0.0. They are **inert** — the card has not read them in three major versions — so a configuration still carrying one is not doing what it says:
 
-| Removed | Use instead |
-| ------- | ----------- |
-| `max_events_to_show` | `compact_events_to_show` |
-| `vertical_line_color` | `accent_color` |
-| `horizontal_line_width` | `day_separator_width` |
-| `horizontal_line_color` | `day_separator_color` |
-| `row_spacing` | `day_spacing` |
+| Removed                 | Use instead              |
+| ----------------------- | ------------------------ |
+| `max_events_to_show`    | `compact_events_to_show` |
+| `vertical_line_color`   | `accent_color`           |
+| `horizontal_line_width` | `day_separator_width`    |
+| `horizontal_line_color` | `day_separator_color`    |
+| `row_spacing`           | `day_spacing`            |
 
 `max_events_to_show` is also recognized on an individual entry under `entities:`.
 
