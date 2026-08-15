@@ -124,7 +124,9 @@ one that leaves relative times quietly in English.
 - Use the established module structure - place new code in the appropriate module
 - Follow the existing patterns for similar functionality
 - Document all public functions with JSDoc comments
-- Run linting before submitting: `npm run lint` (the script already applies `--fix`)
+- Run linting and formatting before submitting: `npm run lint` (the script already applies
+  `--fix`) and `npm run format`. Formatting covers the whole repo, documentation included,
+  and `npm run check:format` fails the pull request if you skip it
 - Add a test when you add a config option. The Vitest suite in `tests/` is built from
   default config, so an option defaulting to `false` renders nothing and stays invisible
   to it unless a test turns the option on
@@ -139,6 +141,7 @@ one that leaves relative times quietly in English.
    ```bash
    npx tsc --noEmit      # typecheck — deliberately not an npm script
    npm run lint
+   npm run check:format  # prettier across the whole repo, docs included
    npm test
    npm run check:i18n    # translation wiring
    npm run check:docs    # docs and config parity — gates every PR, not only docs changes

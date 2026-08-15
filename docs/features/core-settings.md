@@ -20,21 +20,21 @@ entities:
 
 ### Available Options for Entity Configuration Objects
 
-| Option                   | Type    | Default                                                                                                         | Description                                                                                                                    |
-| ------------------------ | ------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `entity`                 | string  | —                                                                                                               | **Required.** The calendar entity ID                                                                                           |
-| `label`                  | string  | `-`                                                                                                             | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`) |
-| `label_type`             | string  | derived from `label`                                                                                            | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind |
-| `color`                  | string  | `event_color`                                                                                                   | Custom color for event titles from this calendar                                                                               |
-| `accent_color`           | string  | `accent_color`                                                                                                  | Custom color for the vertical line and event background (when `event_background_opacity` is >0)                                |
-| `label_icon_color`       | string  | `-`                                                                                                             | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                    |
-| `show_time`              | boolean | `show_time`                                                                                                     | Whether to show event times for this calendar (overrides global `show_time` option)                                            |
-| `show_location`          | boolean | `show_location`                                                                                                 | Whether to show event locations for this calendar (overrides global `show_location` option)                                    |
-| `show_description`       | boolean | `show_description`                                                                                              | Whether to show event descriptions for this calendar (overrides global `show_description` option)                              |
-| `compact_events_to_show` | number  | `compact_events_to_show`                                                                                        | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                               |
-| `blocklist`              | string  | `-`                                                                                                             | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                      |
-| `allowlist`              | string  | `-`                                                                                                             | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                    |
-| `split_multiday_events`  | boolean | `split_multiday_events`                                                                                         | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                |
+| Option                   | Type    | Default                  | Description                                                                                                                     |
+| ------------------------ | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                            |
+| `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`)  |
+| `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind |
+| `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                |
+| `accent_color`           | string  | `accent_color`           | Custom color for the vertical line and event background (when `event_background_opacity` is >0)                                 |
+| `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                     |
+| `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                             |
+| `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                     |
+| `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option)                               |
+| `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                |
+| `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                       |
+| `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                     |
+| `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                 |
 
 This structure gives you granular control over how information from different calendars is displayed.
 
