@@ -17,6 +17,15 @@ HA_TOKEN=… node scripts/capture-screenshots.mjs --probe column-week         # 
 HA_TOKEN=… node scripts/capture-screenshots.mjs --list                      # ids
 ```
 
+::: tip There Is A Companion Skill
+`calendar-card-pro-deploy` at
+`/Users/alexpfau/Documents/Tech/GitHub/calendar-card-pro/.agents/skills/` covers the rest
+of the live-Home-Assistant loop — deploying a dev build, the cache-buster bump, the
+browser harness, and the machine-specific setup. It is **untracked, so it does not exist
+in a worktree**; the absolute path is deliberate. This page is the tracked half and covers
+the card knowledge; that one covers the machine.
+:::
+
 Playwright is deliberately **not** a dependency: its postinstall downloads a browser that
 no gate would ever use, and CI runs `npm ci` on every pull request. The script resolves it
 from a global install, because Node's ESM resolver does not consult the global root on its
