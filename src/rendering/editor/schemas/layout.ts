@@ -1,21 +1,5 @@
 /**
- * The Layout panel — how the card arranges days, and how much room it takes.
- *
- * The reference implementation for every panel that follows, and the first place the
- * card has ever offered a control for `view` at all.
- *
- * Three things here are worth copying and one is worth not copying. Copy the
- * `type: 'grid'` pairing, which halves a panel's height for three lines of schema and
- * no CSS of ours; copy the nested `expandable` for an optional sub-group, which nests
- * the data under its own name and so edits `column:` with no plumbing; and copy the
- * derived helper text, which comes from one table rather than from siblings placed by
- * hand. Do **not** copy the width table into another panel — it is specific to a view
- * whose layout depends on measurement, and it is presented as data so that the
- * chassis, not the schema, decides how to draw it.
- *
- * No view name is written as a comparison anywhere below. What the panel offers is
- * driven by `VIEWS`, `OVERRIDE_BLOCK_BY_VIEW` and `VIEWS_WITH_WIDTH_FALLBACK`, so a
- * third view costs entries in those tables and an illustration, and nothing here.
+ * Layout schema rows.
  */
 
 import * as Types from '../../../config/types';
@@ -27,14 +11,6 @@ import type { PanelExtra, SchemaCtx, WidthTableRow } from '../panels';
 import { interpolate } from '../strings';
 import * as Synthetic from '../synthetic';
 
-/**
- * Illustrations for the boxed view selector.
- *
- * Inline SVG rather than files, because HACS publishes exactly one asset for this card
- * and a second one would 404 in every user's browser — the failure mode that made us
- * turn sourcemaps off. A neutral grey reads acceptably on both light and dark themes,
- * which avoids shipping two variants of each.
- */
 const VIEW_ARTWORK: Readonly<Record<Types.EffectiveView, string>> = {
   list:
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 32"><g fill="#8b8b8b">' +
@@ -54,18 +30,12 @@ const VIEW_ARTWORK: Readonly<Record<Types.EffectiveView, string>> = {
     '<rect x="33" y="10.5" width="13" height="18.5" rx="2" opacity=".4"/></g></svg>',
 };
 
-/** Wraps an SVG document as a data URI an `<img>` can load. */
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 /**
  * Builds the options for the view selector.
- *
- * Generated from `VIEWS`, which is what keeps `grid` out of it: the name is reserved
- * in the design and rejected by `validateView`, so offering it would let the editor
- * write a configuration the card refuses to load. It becomes selectable by being
- * implemented, not by being listed here.
  *
  * @param language - Effective language code
  * @returns One boxed option per implemented view
@@ -81,15 +51,6 @@ function viewOptions(language: string): SelectOption[] {
 
 /**
  * Column density — the options that decide how narrow the card may get.
- *
- * Nested under the block's own config key without `flatten`, so its children read and
- * write `config.column.*` directly. These are column-only options with no top-level
- * counterpart, which is why they are ordinary configuration here rather than
- * exceptions to something.
- *
- * The day-header *rule* used to sit here and now lives in the Separators panel, beside
- * the three rules it is a fourth of. Its *gap* stays, because a gap is spacing and
- * spacing is what this panel owns.
  *
  * @param blockKey - Config key holding this view's override block
  * @param daysToShow - Configured day count, which bounds the column floor
@@ -145,19 +106,13 @@ function densityGroup(blockKey: string, daysToShow: number, language: string): H
 /**
  * Builds the Layout panel schema.
  *
- * Memoised on the values it reads rather than on the context object, which is rebuilt
- * on every keystroke and so would never compare equal — a memoiser handed the whole
- * config is a memoiser that never hits. The arguments are therefore the view, the
- * height mode that gates which height field shows, `days_to_show`, which bounds the
- * column floor, and the language.
- *
  * @param view - View the card is configured to render
  * @param heightMode - Derived height mode
  * @param daysToShow - Configured day count
  * @param language - Effective language code
  * @returns The panel's schema
  */
-export const layoutSchema = Helpers.memoizeLast(
+const layoutSchema = Helpers.memoizeLast(
   (
     view: Types.EffectiveView,
     heightMode: string,
@@ -195,12 +150,6 @@ export const layoutSchema = Helpers.memoizeLast(
       },
     ];
 
-    // Progressive disclosure on a value the user sets in this same panel, which is the
-    // case where hiding is right: the two height fields are alternatives, and the
-    // control that chooses between them is directly above.
-    // Bound to synthetic fields rather than to `height` / `max_height` themselves: the
-    // mode above is derived from whether those keys are set, so an emptied box would
-    // otherwise delete the value and take this field with it. See `synthetic.ts`.
     if (heightMode === 'fixed') {
       schema.push({ name: 'card_height', selector: { text: {} } });
     } else if (heightMode === 'maximum') {
@@ -219,9 +168,6 @@ export const layoutSchema = Helpers.memoizeLast(
 /**
  * Builds the Layout panel schema for a context.
  *
- * The seam between the context object the chassis carries and the primitive arguments
- * the memoised builder compares.
- *
  * @param ctx - Schema context
  * @returns The panel's schema
  */
@@ -236,11 +182,6 @@ export function buildLayoutSchema(ctx: SchemaCtx): HaFormSchema[] {
 
 /**
  * Formats the layout staircase as table rows.
- *
- * The thing this card will otherwise generate support threads about is *why does my
- * card look different on my phone*, and the honest answer is a table. Every figure
- * comes from `describeColumnLayoutBands`, which is the same arithmetic the renderer
- * uses to decide, so the table cannot describe a card the code would not produce.
  *
  * @param ctx - Schema context
  * @returns One row per column count, then one for the fallback
@@ -272,9 +213,6 @@ export function widthTableRows(ctx: SchemaCtx): WidthTableRow[] {
 
 /**
  * Extra content rendered below the Layout panel's fields.
- *
- * Returned as data rather than as markup so this module stays free of Lit and of the
- * DOM, which is what lets the test suite import it and assert on the table directly.
  *
  * @param ctx - Schema context
  * @returns The width table, for views whose layout depends on how wide the card is

@@ -1,19 +1,5 @@
 /**
- * The Day Header panel — the weekday, day number and month a day is announced by.
- *
- * Renamed from *Date Display*, and the rename is the point. A list row's date cell and
- * a column's header band are the same thing under two layouts, so a noun naming one of
- * them cannot survive the other — `day_header_gap` and `day_header_separator_*` already
- * ship with this noun.
- *
- * Thirty-five stacked fields in the old editor; here it presents as six things,
- * because the four sub-groups that are genuinely optional are collapsed. `flatten`
- * keeps the configuration exactly as flat as it was, so the grouping costs no
- * migration at all.
- *
- * `today_indicator` is a union of six shapes stored in one key, which is why its style
- * selector is synthetic. Choosing a shape rewrites the key; the picker that follows
- * edits it. Nothing about that reaches the configuration as a phantom option.
+ * Day-header schema rows.
  */
 
 import { mdiCalendarWeekBegin } from '@mdi/js';
@@ -24,10 +10,8 @@ import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
 import { bool, color, group, row, select, text } from './common';
 
-/** Icon for the panel. */
 export const DAY_HEADER_ICON = mdiCalendarWeekBegin;
 
-/** Icon paths for the sub-groups, inlined to keep the bundle to one asset. */
 const WEEKEND_ICON =
   'M12 20a8 8 0 0 1-8-8 8 8 0 0 1 8-8 8 8 0 0 1 8 8 8 8 0 0 1-8 8m0-18a10 10 0 0 0-10 10 10 10 0' +
   ' 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2m.5 5H11v6l4.75 2.85.75-1.23-4-2.37V7Z';
@@ -35,7 +19,6 @@ const TODAY_COLOR_ICON = 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 4a6 6 0 0 1
 const INDICATOR_ICON = 'M12 8a4 4 0 1 1-4 4 4 4 0 0 1 4-4Z';
 const WEEK_NUMBER_ICON = 'M4 5h16v2H4V5m0 6h16v2H4v-2m0 6h16v2H4v-2Z';
 
-/** The six shapes `today_indicator` can hold, in the order they are offered. */
 export const TODAY_INDICATOR_STYLES: ReadonlyArray<string> = [
   'none',
   'dot',
@@ -45,16 +28,10 @@ export const TODAY_INDICATOR_STYLES: ReadonlyArray<string> = [
   'custom',
 ];
 
-/** The three shapes `show_week_numbers` can hold, in the order they are offered. */
 export const WEEK_NUMBER_MODES: ReadonlyArray<string> = ['none', 'iso', 'simple'];
 
 /**
  * The style dropdown and whichever value control the chosen style calls for.
- *
- * Exported because the exceptions widget renders the same pair: a `column:` override
- * for `today_indicator` is a value of the same union, so it needs the same derivation.
- * Written once here rather than twice, because two copies of an option list are two
- * places for a seventh style to be added to only one of.
  *
  * @param language - Effective language code
  * @param style - Derived indicator style
@@ -74,10 +51,6 @@ export function todayIndicatorFields(language: string, style: string): HaFormSch
 
 /**
  * The week-numbering dropdown.
- *
- * One field rather than two, because every shape of `show_week_numbers` is named by an
- * option — there is no free value to type. Exported for the same reason as its
- * neighbour above.
  *
  * @param language - Effective language code
  * @returns The dropdown
@@ -134,18 +107,13 @@ function weekNumberGroup(language: string, mode: string): HaFormSchema {
 /**
  * Builds the Day Header panel schema.
  *
- * Memoised on the three values that decide which fields appear — whether the month is
- * shown, which indicator style is chosen, whether week numbers are on — plus the
- * language. The view is absent on purpose: no field here is added or removed by view,
- * only annotated, and annotation is the helper hook's job.
- *
  * @param language - Effective language code
  * @param showMonth - Whether the month line is shown
  * @param indicatorStyle - Derived today-indicator style
  * @param weekNumberMode - Derived week-number mode
  * @returns The panel's schema
  */
-export const dayHeaderSchema = Helpers.memoizeLast(
+const dayHeaderSchema = Helpers.memoizeLast(
   (
     language: string,
     showMonth: boolean,

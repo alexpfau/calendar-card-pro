@@ -2,19 +2,8 @@
 /**
  * Loads the editor's schema modules as real JavaScript.
  *
- * `check-i18n.mjs` reconciles the editor's string table against the fields that use
- * it, and the only honest way to know what a panel references is to build its schema
- * and look. Everything under `src/rendering/editor/` except the element and its
- * stylesheet is deliberately free of Lit and of the DOM for exactly this reason, so
- * bundling the schema half and importing it needs no browser and no build step of the
- * project's own.
- *
- * esbuild is already a devDependency — it is what Rollup transpiles with — so this
- * costs nothing in shipped bytes. AGENTS.md's bundle rule governs `dependencies`.
- *
- * The alternative, scraping the source with regexes, is what the check used to do to
- * the old editor and is what the rebuild exists to stop needing: a schema is data, so
- * it can be read rather than parsed out of the text that produces it.
+ * `check-i18n.mjs` reconciles the editor's string table against the fields that use it.
+ * The editor schema is DOM-free, so this can bundle and import it without a browser.
  */
 
 import { build } from 'esbuild';
@@ -45,9 +34,7 @@ export async function loadEditorModule(root) {
     bundle: true,
     write: false,
     format: 'esm',
-    // `node`, not `neutral`, purely so that package resolution works — the schema half
-    // of the editor imports `@mdi/js` for its icons, and `neutral` resolves no package
-    // conditions at all. Nothing bundled here touches a Node API.
+    // `node` enables package resolution for schema icon imports; the bundle uses no Node API.
     platform: 'node',
     target: 'es2022',
     logLevel: 'silent',
@@ -55,7 +42,6 @@ export async function loadEditorModule(root) {
 
   const code = result.outputFiles[0].text;
 
-  // Imported as a data URL rather than written to disk, so the check leaves nothing
-  // behind and cannot race a concurrent run.
+  // Import as a data URL so the check writes no generated file.
   return import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
 }

@@ -1,17 +1,5 @@
 /**
- * The Events panel — the events themselves, and the four lines each one can carry.
- *
- * Four sub-groups, each gated on the switch that turns its line on. That gating is
- * progressive disclosure on a value the user sets in this same panel, which is the one
- * case where hiding a field is right: `show_location: false` makes five location
- * styling fields meaningless, and the control that made them meaningless is directly
- * above them. It is *not* the same act as hiding a field because of the view, which is
- * forbidden — a card set to a view with a width fallback renders both layouts over its
- * lifetime, so an option scoped to the other one is still live.
- *
- * `accent_color` sits beside `event_color` here rather than in a spacing panel, which
- * repairs an adjacency the old editor got wrong and the per-entity form already got
- * right: the two colours are alternatives for the same bar of the same event.
+ * Event schema rows.
  */
 
 import { mdiCalendarText } from '@mdi/js';
@@ -22,10 +10,8 @@ import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
 import { bool, color, group, number, row, select, text } from './common';
 
-/** Icon for the panel. */
 export const EVENTS_ICON = mdiCalendarText;
 
-/** Icon paths for the sub-groups, inlined to keep the bundle to one asset. */
 const TIME_ICON =
   'M12 20a8 8 0 1 1 8-8 8 8 0 0 1-8 8m0-18a10 10 0 1 0 10 10A10 10 0 0 0 12 2m.5 5H11v6l5.25 3.15.75-1.23-4.5-2.67V7Z';
 const LOCATION_ICON =
@@ -55,15 +41,10 @@ function timeGroup(language: string, showTime: boolean): HaFormSchema {
   return group(language, 'time', TIME_ICON, [bool('show_time'), ...styling]);
 }
 
-/** The three shapes `remove_location_country` can hold, in the order they are offered. */
 export const LOCATION_COUNTRY_MODES: ReadonlyArray<string> = ['keep', 'builtin', 'custom'];
 
 /**
  * The country-removal dropdown and the pattern it may call for.
- *
- * Exported because the exceptions widget renders the same pair: a `column:` override
- * for `remove_location_country` is a value of the same union and needs the same
- * derivation. One definition, so a fourth mode cannot reach only one of them.
  *
  * @param language - Effective language code
  * @param countryMode - Derived country-removal mode
@@ -117,9 +98,6 @@ function descriptionGroup(language: string, showDescription: boolean): HaFormSch
 /**
  * The countdown and progress group — the two things the card says about *when*.
  *
- * They share a group because they are the same question asked either side of an
- * event's start: how long until it begins, and how far through it we are.
- *
  * @param language - Effective language code
  * @param showCountdown - Whether the countdown is shown
  * @param showProgressBar - Whether the progress bar is shown
@@ -143,9 +121,6 @@ function progressGroup(
 /**
  * Builds the Events panel schema.
  *
- * Memoised on the four switches that gate a sub-group, the country mode that gates one
- * field inside one of them, and the language.
- *
  * @param language - Effective language code
  * @param showTime - Whether event times are shown
  * @param showLocation - Whether event locations are shown
@@ -155,7 +130,7 @@ function progressGroup(
  * @param showProgressBar - Whether the progress bar is shown
  * @returns The panel's schema
  */
-export const eventsSchema = Helpers.memoizeLast(
+const eventsSchema = Helpers.memoizeLast(
   (
     language: string,
     showTime: boolean,

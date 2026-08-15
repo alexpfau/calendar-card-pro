@@ -1,9 +1,5 @@
 /**
- * Rendering module for Calendar Card Pro
- *
- * Contains pure functions for rendering the calendar card's UI components.
- * These functions generate Lit TemplateResult objects that can be used
- * within the main component's render method.
+ * List-view rendering functions for Calendar Card Pro.
  */
 
 import { TemplateResult, html, nothing } from 'lit';
@@ -19,11 +15,9 @@ import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 
 /**
- * Re-exported so the card can dispatch between views through a single import
- * namespace. Keeping both renderers reachable as `Render.*` means the two call
- * sites in `render()` read symmetrically, which is the property that stops one
- * of them being updated and the other missed.
+ * Re-exported so the card can dispatch between views through a single import namespace. Keeping both renderers reachable as `Render.*` means the two call
  */
+
 export { renderColumnGroupedEvents } from './column';
 
 //-----------------------------------------------------------------------------
@@ -31,8 +25,7 @@ export { renderColumnGroupedEvents } from './column';
 //-----------------------------------------------------------------------------
 
 /**
- * Render the main calendar card structure
- * Creates a stable DOM structure for card-mod compatibility
+ * Render the main calendar card structure Creates a stable DOM structure for card-mod compatibility
  *
  * @param customStyles Custom style properties from configuration
  * @param title Card title from configuration
@@ -44,6 +37,7 @@ export { renderColumnGroupedEvents } from './column';
  * @param effectiveView The view actually being rendered, after any width fallback
  * @returns TemplateResult for the complete card
  */
+
 export function renderMainCardStructure(
   customStyles: Record<string, string>,
   title: string | undefined,
@@ -60,16 +54,6 @@ export function renderMainCardStructure(
   titlePending: boolean = false,
   effectiveView: Types.EffectiveView = 'list',
 ): TemplateResult {
-  // Built by filter-and-join rather than by interpolating ternaries into the attribute.
-  // Both conditional classes are empty for a default list card, and interpolation left
-  // their separators behind: `class="calendar-card-pro  "`, two spaces and a trailing
-  // one. Harmless to card-mod, which matches `ha-card.calendar-card-pro` rather than the
-  // literal attribute — which is exactly why nothing caught it for so long.
-  //
-  // Not lit's `classMap`: measured, it emits its own surrounding whitespace
-  // (`" calendar-card-pro "`) because it is built to concatenate with static classes in
-  // the same attribute. That trades one whitespace quirk for another, and this attribute
-  // is pinned by `tests/card-wrapper-dom.test.ts`, so it should say exactly what it means.
   const cardClasses = [
     'calendar-card-pro',
     maxHeightSet ? 'max-height-set' : '',
@@ -122,6 +106,7 @@ export function renderMainCardStructure(
  * @param language Language code for translations
  * @returns Template result for card content
  */
+
 export function renderCardContent(state: 'loading' | 'error', language: string): TemplateResult {
   const translations = Localize.getTranslations(language);
 
@@ -145,9 +130,7 @@ export function renderCardContent(state: 'loading' | 'error', language: string):
 //-----------------------------------------------------------------------------
 
 /**
- * Create consistent separator styles for any type of horizontal separator
- * Properly calculates margins based on day_spacing to ensure vertical centering
- * with appropriate multipliers for different separator types
+ * Create consistent separator styles for any type of horizontal separator Properly calculates margins based on day_spacing to ensure vertical centering
  *
  * @param lineWidth - Border width for the separator
  * @param lineColor - Border color for the separator
@@ -155,18 +138,16 @@ export function renderCardContent(state: 'loading' | 'error', language: string):
  * @param separatorType - Type of separator (day, week, or month)
  * @returns Style object for use with styleMap
  */
+
 function createSeparatorStyle(
   lineWidth: string,
   lineColor: string,
   config: Types.Config,
   separatorType: 'day' | 'week' | 'month' = 'day',
 ): Record<string, string> {
-  // Base spacing from configuration
   const baseSpacing = parseFloat(config.day_spacing);
 
-  // Special handling for day separators to balance margins
   if (separatorType === 'day') {
-    // For day separators, we want equal spacing above and below
     return {
       borderTopWidth: lineWidth,
       borderTopColor: lineColor,
@@ -176,13 +157,11 @@ function createSeparatorStyle(
     };
   }
 
-  // For week and month separators, determine the appropriate multiplier
   let multiplier = Constants.UI.SEPARATOR_SPACING.WEEK; // Default to week multiplier
   if (separatorType === 'month') {
     multiplier = Constants.UI.SEPARATOR_SPACING.MONTH;
   }
 
-  // Calculate the desired total spacing between elements (finalSpacing)
   const finalSpacing = baseSpacing * multiplier;
 
   return {
@@ -204,6 +183,7 @@ function createSeparatorStyle(
  * @param isFirstWeek - Whether this is the first week in the view
  * @returns TemplateResult or nothing
  */
+
 function renderHorizontalSeparator(
   lineWidth: string,
   lineColor: string,
@@ -212,7 +192,6 @@ function renderHorizontalSeparator(
   isFirstWeek: boolean = false,
   separatorType: 'day' | 'week' | 'month' = 'day',
 ): TemplateResult | typeof nothing {
-  // Don't render for zero width or first week
   if (lineWidth === '0px' || isFirstWeek) {
     return nothing;
   }
@@ -228,6 +207,7 @@ function renderHorizontalSeparator(
  * @param config - Card configuration
  * @returns TemplateResult or nothing
  */
+
 function renderMonthSeparator(config: Types.Config): TemplateResult | typeof nothing {
   return renderHorizontalSeparator(
     config.month_separator_width,
@@ -246,6 +226,7 @@ function renderMonthSeparator(config: Types.Config): TemplateResult | typeof not
  * @param isFirstWeek - Whether this is the first week in the view
  * @returns TemplateResult or nothing
  */
+
 function renderWeekSeparator(
   config: Types.Config,
   isFirstWeek: boolean = false,
@@ -261,8 +242,7 @@ function renderWeekSeparator(
 }
 
 /**
- * Render a week row with a week number pill and a separator line
- * Uses table structure to align perfectly with day tables
+ * Render a week row with a week number pill and a separator line Uses table structure to align perfectly with day tables
  *
  * @param weekNumber - Week number to display
  * @param isMonthBoundary - Whether this is also a month boundary
@@ -270,6 +250,7 @@ function renderWeekSeparator(
  * @param isFirstWeek - Whether this is the first week in the view
  * @returns TemplateResult or nothing
  */
+
 function renderWeekRow(
   weekNumber: number | null,
   isMonthBoundary: boolean,
@@ -280,7 +261,6 @@ function renderWeekRow(
     return nothing;
   }
 
-  // Use the appropriate multiplier for week separator spacing
   const baseSpacing = parseFloat(config.day_spacing);
   const multiplier = isMonthBoundary
     ? Constants.UI.SEPARATOR_SPACING.MONTH
@@ -293,7 +273,6 @@ function renderWeekRow(
     marginBottom: `${finalSpacing}px`, // Half of the desired spacing below
   };
 
-  // Modified line style generation
   const lineStyle: Record<string, string> = {};
 
   if (!isFirstWeek) {
@@ -338,6 +317,7 @@ function renderWeekRow(
  * @param isToday Whether the date is today
  * @returns Rendered date column
  */
+
 function renderDateColumn(
   date: Date,
   config: Types.Config,
@@ -345,7 +325,6 @@ function renderDateColumn(
   isToday: boolean,
   weatherForecasts?: Types.WeatherForecasts,
 ): TemplateResult {
-  // Weather is rendered by the shared leaf; the date block only positions it.
   const weatherContent = Leaves.renderDateWeather(date, config, weatherForecasts);
 
   return Leaves.renderDateContent(date, config, language, isToday, weatherContent);
@@ -361,6 +340,7 @@ function renderDateColumn(
  * @param boundaryInfo - Information about week and month boundaries
  * @returns TemplateResult for the day
  */
+
 export function renderDay(
   day: Types.EventsByDay,
   config: Types.Config,
@@ -370,22 +350,10 @@ export function renderDay(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  // Shared with the column view, which needs the identical answer for its day headers.
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
-
-  // Separator precedence hierarchy (highest to lowest):
-  // 1. Month boundaries (with month separator enabled)
-  // 2. Week boundaries (with week separator or week numbers enabled)
-  // 3. Regular day boundaries (with regular day separator enabled)
-  // Only render the highest precedence separator that applies
 
   let daySeparator: TemplateResult | typeof nothing = nothing;
 
-  // Only add a regular day separator between days IF:
-  // 1. This is not the first day displayed (prevDay exists)
-  // 2. This is not a month boundary with month separators enabled
-  // 3. This is not a week boundary with week separators or week numbers enabled
-  // 4. Day separator width is not zero
   const isMonthBoundary = boundaryInfo?.isNewMonth || false;
   const isWeekBoundary = boundaryInfo?.isNewWeek || false;
   const hasMonthSeparator = isMonthBoundary && config.month_separator_width !== '0px';
@@ -427,9 +395,9 @@ export function renderDay(
 }
 
 /**
- * Render grouped events with week and month separators
- * Uses a precedence system for different separator types
+ * Render grouped events with week and month separators Uses a precedence system for different separator types
  */
+
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
   config: Types.Config,
@@ -442,51 +410,39 @@ export function renderGroupedEvents(
       const prevDay = index > 0 ? days[index - 1] : undefined;
       const weekNumber = day.weekNumber ?? null;
 
-      // Enhanced week boundary detection - compare week numbers instead of just day of week
       let isNewWeek = false;
 
       if (!prevDay) {
-        // First day is always a new week
         isNewWeek = true;
       } else {
-        // Compare week numbers to detect week boundaries
-        // This works even when days are missing (show_empty_days: false)
         const currentWeekNumber = day.weekNumber;
         const prevWeekNumber = prevDay.weekNumber;
 
-        // Week boundary if week numbers differ
         isNewWeek = currentWeekNumber !== prevWeekNumber;
       }
 
       const isNewMonth = prevDay && day.monthNumber !== prevDay.monthNumber;
       const isFirstWeek = index === 0;
 
-      // Pass boundary information to renderDay
       const boundaryInfo = {
         isNewWeek,
         isNewMonth: Boolean(isNewMonth),
       };
 
-      // Determine which separator to show based on precedence rules
       let separator: TemplateResult | typeof nothing = nothing;
 
-      // Don't prioritize month separator if its width is 0px
       if (
         isNewMonth &&
         config.month_separator_width !== '0px' &&
         (!isNewWeek || config.show_week_numbers === null)
       ) {
-        // Month boundaries without week change get month separator
         separator = renderMonthSeparator(config);
       } else if (isNewWeek) {
-        // Check for first week + config setting
         if (isFirstWeek && config.show_week_numbers !== null && !config.show_current_week_number) {
-          // Skip week number pill for first week if setting disabled, but keep month/week separators if needed
           separator = isNewMonth
             ? renderMonthSeparator(config)
             : renderWeekSeparator(config, isFirstWeek);
         } else {
-          // Normal rendering logic - week boundaries get either week number pill or week separator
           separator =
             config.show_week_numbers !== null
               ? renderWeekRow(weekNumber, Boolean(isNewMonth), config, isFirstWeek)
@@ -512,6 +468,7 @@ export function renderGroupedEvents(
  * @param language - Language code for translations
  * @returns TemplateResult for the event
  */
+
 export function renderEvent(
   event: Types.CalendarEventData,
   day: Types.EventsByDay,
@@ -522,20 +479,15 @@ export function renderEvent(
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  // Everything about this event that does not depend on the layout axis. The column
-  // view must derive the identical values, so it is computed once, in one place.
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
 
-  // Check if this is a weekend day
   const dayDate = new Date(day.timestamp);
   const isWeekendDay = Leaves.isWeekendDate(dayDate);
 
-  // Determine event position for styling
   const isFirst = index === 0;
   const isLast = index === day.events.length - 1;
   const isMiddle = !isFirst && !isLast;
 
-  // Create class map with position classes
   const eventClasses = {
     event: true,
     'event-first': isFirst,

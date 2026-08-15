@@ -169,9 +169,9 @@ This technique lets you:
 - Use accent colors with backgrounds (when event_background_opacity > 0) for even more distinction
 - Avoid needing to create separate calendars for different event categories
 
-## 📊 Compact View Management & Event Limits
+## 📊 Compact Mode & Event Limits
 
-Calendar Card Pro offers powerful controls for managing what appears in compact and expanded views:
+Calendar Card Pro offers powerful controls for managing what appears in compact and expanded mode:
 
 ```yaml
 # Total days to fetch from API and display when expanded
@@ -186,6 +186,20 @@ compact_days_to_show: 2 # Fewer days to display in compact mode
 # Ensure complete days are shown
 compact_events_complete_days: true # Never cut off a day's events mid-day
 ```
+
+::: warning Compact Mode Applies to List View Only
+All three options on this page cap the card as a whole, which a stack of days can express
+and a row of columns cannot: a limit of three events would fill the first column, spill into
+the second and leave every later one blank. So `compact_events_to_show`,
+`compact_days_to_show` and `compact_events_complete_days` — including the per-calendar
+`compact_events_to_show` below — are read in list view and ignored in column view.
+
+They are not errors and they need not be removed: a card set to `view: column` renders as a
+list whenever it is too narrow for columns, and they all apply again the moment it does. To
+control how much a column view shows, use
+[`min_days_to_show` and `min_days_fallback`](/features/column-view#showing-fewer-columns-instead)
+instead.
+:::
 
 ### Entity-Level vs. Global Event Limits
 
@@ -203,7 +217,7 @@ This feature provides several important behaviors:
 - **Entity limits are applied first**: Each calendar is restricted to its specific maximum
 - **Global limit is applied second**: Total events across all calendars are then limited
 - **Chronological order is preserved**: Events remain sorted by date/time
-- **Different behavior in views**: In compact view, both entity and global limits apply; in expanded view, all limits are removed and all events within the configured date range are displayed
+- **Different behavior per mode**: In compact mode, both entity and global limits apply; in expanded mode, all limits are removed and all events within the configured date range are displayed
 
 ### Controlling Days in Compact Mode
 
@@ -234,7 +248,7 @@ For example, with `compact_events_to_show: 5` and `compact_events_complete_days:
 
 ### Benefits of These Controls
 
-These flexible view controls allow you to:
+These flexible controls allow you to:
 
 - **Create concise dashboard views**: Show just what's immediately relevant
 - **Prioritize important calendars**: Give more visual space to key calendars

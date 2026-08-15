@@ -1,16 +1,12 @@
 /**
- * dayjs configuration and utilities for Calendar Card Pro
- *
- * Handles loading language-specific configurations for relative time formatting.
+ * dayjs configuration and utilities for relative time formatting.
  */
 
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
-// Configure dayjs with the relativeTime plugin before importing locales
 dayjs.extend(relativeTime);
 
-// Explicitly import all locales supported by our card
 import 'dayjs/locale/bg';
 import 'dayjs/locale/ca';
 import 'dayjs/locale/cs';
@@ -64,18 +60,14 @@ export function getRelativeTimeString(date: Date, locale: string, reference?: Da
  * Map Home Assistant/Card locale to dayjs locale if needed
  */
 function mapLocale(locale: string): string {
-  // Handle special cases first (like zh-CN, zh-TW)
   const lowerLocale = locale.toLowerCase();
   if (lowerLocale === 'zh-cn' || lowerLocale === 'zh-tw') {
     return lowerLocale;
   }
 
-  // For other locales, extract the base language code
   const baseLocale = lowerLocale.split('-')[0];
 
-  // Complete list of supported locales matching our translations.
-  // IMPORTANT: every locale imported above must also be listed here,
-  // otherwise it silently falls back to English relative times.
+  // Must match the imported locales, or dayjs falls back to English relative times.
   const supportedLocales = [
     'bg',
     'ca',
@@ -113,6 +105,5 @@ function mapLocale(locale: string): string {
     'zh-tw',
   ];
 
-  // Default to English if locale isn't supported
   return supportedLocales.includes(baseLocale) ? baseLocale : 'en';
 }

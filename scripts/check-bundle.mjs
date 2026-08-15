@@ -2,59 +2,9 @@
 /**
  * Bundle integrity checks, run after every build.
  *
- * The card ships as **two** files — the card and the editor — and each is self-contained.
- * Every way that can go wrong is silent at build time and fatal in a browser, so this
- * script asserts the shape against the real emitted output rather than trusting the
- * config that produced it.
- *
- * Three things are load-bearing.
- *
- * **Neither file may import the other.** HACS registers the Lovelace resource as
- * `…/calendar-card-pro.js?hacstag=N`, and a relative specifier resolves against the
- * importing module's URL **with the query dropped**. So a file that imports the card back
- * makes the browser fetch it a second time, under a URL it has not seen, and evaluate the
- * whole card again:
- *
- *     NotSupportedError: the name "calendar-card-pro" has already been used with this registry
- *
- * — a dead editor, and a card that may not render either. Two separate Rollup builds are
- * what prevent it; one build with code-splitting reintroduces it immediately. This script
- * exists because the reference card that hit this first documented it as a *comment* in
- * its own Rollup config, and a comment is not a check.
- *
- * **`import.meta` must survive into the output.** The card locates the editor with
- * `new URL('./editor.js', import.meta.url)`. esbuild's `target: 'es2017'` predates
- * `import.meta` and its default is to lower it to the literal `{}` — so `import.meta.url`
- * becomes `undefined`, the URL is unresolvable, and the editor never loads. No build
- * error, no type error, and a card that works perfectly until someone opens the editor.
- * This is the one failure mode invisible to every other gate in the project.
- *
- * **The query must be propagated.** `/hacsfiles/**` is served `max-age=2678400` (one
- * month) and only the registered resource carries `?hacstag=`. Copying the card's own
- * query onto the editor URL is what busts the editor's cache on upgrade; without it, a
- * user can be served last month's editor against this month's card.
- *
- * The rest follow one rule: never ship a reference to a file we do not publish. That is
- * the lesson of the sourcemap 404s (#315, #358), which shipped for several releases
- * because nothing looked.
- *
- * Checks, all against the real emitted output:
- *
- *   1. `dist/` holds exactly the two files this build should have written, named for the
- *      build variant — dev and production output never in one directory.
- *   2. Neither file imports anything. No facade, no chunk, no bare specifier.
- *   3. The card names the editor file belonging to its own build variant.
- *   4. `import.meta.url` is in the built card.
- *   5. The card copies its own query onto the editor URL.
- *   6. Nothing references a sourcemap, and no `.map` is emitted.
- *   7. `dist/` is flat. HACS fetches no subdirectories, so a nested file is downloaded by
- *      nobody and 404s for everybody.
- *
- * Specifiers and expression shapes are read from a real parse rather than by grepping.
- * `rollup/parseAst` is the parser Rollup itself uses and is already installed, so this
- * costs nothing and cannot be fooled by a string literal in minified output that happens
- * to look like an import. It also means the checks survive minification: they assert on
- * expression *shape*, which terser preserves, not on identifier names, which it mangles.
+ * The card ships as two self-contained files, the card and the editor. This script checks
+ * the real emitted output for code-splitting, stale editor URLs, lost `import.meta.url`,
+ * missing query propagation, sourcemap leaks and unpublished files.
  *
  * Usage: `npm run check:bundle` — after `npm run build` or `npx rollup -c`.
  */
@@ -70,10 +20,6 @@ const DIST = join(ROOT, 'dist');
 
 /**
  * The two files each build variant emits.
- *
- * A dev build exists to sit beside the HACS-installed release in the same flat directory,
- * so both of its files carry the `-dev` suffix. Keyed by the card's filename, because that
- * is what identifies the variant on disk.
  */
 const VARIANTS = {
   'calendar-card-pro.js': { editor: 'editor.js', label: 'production' },
@@ -82,11 +28,6 @@ const VARIANTS = {
 
 /**
  * The smallest a real build can plausibly be.
- *
- * Nothing here is under 200 KB, so this is not a budget — it is a tripwire for a *stub*
- * landing in `dist/`. The previous shape emitted a 41-byte facade entry; if something
- * reintroduces one, the import checks below would pass (a facade's import is legitimate
- * in its own terms) while the shipped card was a file that does nothing on its own.
  */
 const STUB_MAX_BYTES = 10_240;
 
@@ -104,9 +45,6 @@ function error(file, message) {
 
 /**
  * Walk every node of an AST, depth first.
- *
- * A plain recursive walk rather than a visitor library: the shapes this script cares about
- * are few, and each is matched by inspecting one node plus its immediate children.
  *
  * @param node - AST node, or an array of them
  * @param visit - Called with every object node encountered
@@ -146,9 +84,7 @@ function parse(code, file) {
 /**
  * Every module specifier a file imports or re-exports, static and dynamic.
  *
- * A dynamic `import()` whose argument is not a literal is deliberately not reported: the
- * card's editor import is exactly that, by design, and checks 3 to 5 cover it far more
- * precisely than a specifier ever could.
+ * Dynamic imports with non-literal arguments are covered by the editor URL shape check.
  *
  * @param ast - Parsed module
  * @returns Specifiers, in source order
@@ -216,10 +152,7 @@ function isNewUrl(node) {
 /**
  * Facts about how the card locates its editor, read out of the built card.
  *
- * Shape-based rather than name-based, because terser mangles every identifier and may
- * leave the helper as an inlined function expression taking `import.meta.url` as an
- * argument — so the literal text `new URL("./editor.js", import.meta.url)` is not
- * guaranteed to appear even when the code is exactly right.
+ * Shape-based checks survive minification and identifier mangling.
  *
  * @param ast - Parsed card module
  * @returns What the card does: the editor filenames it constructs URLs from, whether
@@ -258,8 +191,7 @@ function editorImportShape(ast) {
 /**
  * Resolve a relative specifier the way a browser would.
  *
- * Only the file name matters, because `dist/` is asserted flat and HACS writes every asset
- * into one directory.
+ * Only the file name matters because `dist/` must be flat.
  *
  * @param specifier - Import specifier
  * @returns The file it names
@@ -301,8 +233,7 @@ function findVariant(jsFiles) {
   const expected = [card, editor];
   const unexpected = jsFiles.filter((f) => !expected.includes(f));
 
-  // 1. Exactly two files. Anything else means Rollup code-split — which is the shape that
-  // reintroduces the ?hacstag= trap — or that a file from an earlier build survived.
+  // Exactly two files: the card and the matching editor.
   for (const file of unexpected) {
     error(
       `dist/${file}`,
@@ -339,9 +270,7 @@ function main() {
     process.exit(1);
   }
 
-  // 7. Flat namespace. HACS writes release assets into one directory and fetches no
-  // subdirectories, so anything nested is unreachable in production even though it
-  // resolves perfectly on disk here.
+  // HACS fetches no subdirectories.
   for (const entry of entries) {
     if (entry.isDirectory()) {
       error(
@@ -396,8 +325,7 @@ function main() {
     const ast = parse(code, `dist/${file}`);
     if (!ast) continue;
 
-    // 2. Nothing is imported, by anything. Each file is a self-contained bundle, so any
-    // specifier at all means the build changed shape.
+    // Each emitted file is a self-contained bundle.
     for (const specifier of importedSpecifiers(ast)) {
       const target = resolveRelative(specifier);
 
@@ -425,8 +353,7 @@ function main() {
 
     const { urlLiterals, hasImportMetaUrl, propagatesQuery } = editorImportShape(ast);
 
-    // 4. The trap nothing else can see. `import.meta` lowered to `{}` still typechecks,
-    // still builds, still lints, and still passes every test — and the editor never loads.
+    // The editor URL depends on `import.meta.url` surviving the build.
     if (!hasImportMetaUrl) {
       error(
         `dist/${file}`,
@@ -438,8 +365,7 @@ function main() {
       );
     }
 
-    // 3. The right editor for this build. A dev card naming ./editor.js loads the
-    // production editor if one happens to sit beside it, and 404s if one does not.
+    // Dev and production builds must name their matching editor file.
     if (!urlLiterals.includes(`./${variant.editor}`)) {
       const named = urlLiterals.filter((v) => typeof v === 'string' && v.includes('editor'));
       error(
@@ -452,9 +378,7 @@ function main() {
       );
     }
 
-    // 5. Cache-busting. /hacsfiles/** is served max-age=2678400 and only the registered
-    // resource carries ?hacstag=, so the editor's URL has to inherit the card's query or a
-    // browser can serve last month's editor against this month's card for up to 31 days.
+    // The editor URL must inherit the card's cache-busting query string.
     if (!propagatesQuery) {
       error(
         `dist/${file}`,

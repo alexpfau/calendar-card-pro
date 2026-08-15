@@ -18,7 +18,10 @@ Before contributing code, I strongly recommend reviewing my [architecture docume
 3. Install dependencies: `npm install`
 4. Start development mode: `npm run dev`
 5. The build emits **two** files into `dist/`: `calendar-card-pro-dev.js` and
-   `editor-dev.js` — the card fetches the editor by URL when someone opens it
+   `editor-dev.js` — the card fetches the editor by URL when someone opens it. Both must
+   be installed together; a production build (`npm run build`) emits the same pair without
+   the `-dev` suffix, and the release workflow adds a `.gz` companion for each, which only
+   the release zip carries
 6. For testing in Home Assistant, follow the [testing instructions](#testing-in-home-assistant)
 
 ## Branch Structure

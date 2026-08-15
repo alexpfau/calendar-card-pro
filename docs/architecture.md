@@ -6,7 +6,7 @@ title: Architecture
 
 This document provides a high-level overview of the Calendar Card Pro architecture, explaining how different modules work together to create a performant and maintainable calendar card for Home Assistant.
 
-## Directory Structure
+## 🗂️ Directory Structure
 
 ```text
 src/
@@ -61,7 +61,7 @@ src/
     └── weather-i18n.ts           # Condition text in the card's language
 ```
 
-## Two Views, One Agenda
+## 🧭 Two Views, One Agenda
 
 The card renders the same agenda in one of two layouts, and this is the structural fact
 most worth holding on to before changing anything under `rendering/`:
@@ -83,7 +83,7 @@ which is why options are annotated as list-only rather than hidden. `config/view
 that resolution, along with the `column:` override block whose values apply only when the
 card renders as columns.
 
-## Two Files, One Card
+## 📦 Two Files, One Card
 
 The build emits **two** self-contained bundles into a flat `dist/`:
 `calendar-card-pro.js` and `editor.js` (`-dev` suffixed in development builds). The card
@@ -97,7 +97,7 @@ from the card, and the query string HACS appends to the card's own URL would mak
 browser treat that as a second copy of the card. `npm run check:bundle` asserts the
 result after every build.
 
-## Module Responsibilities
+## 🧩 Module Responsibilities
 
 ### Main Component (`calendar-card-pro.ts`)
 
@@ -260,7 +260,7 @@ Provides core functionality across the card:
   - Renders condition text in the **card's** configured language rather than the
     signed-in user's profile language
 
-## Module Interaction Flow
+## 🔄 Module Interaction Flow
 
 ```mermaid
 graph TD
@@ -306,7 +306,7 @@ graph TD
     Logger --> Inter
 ```
 
-## Data Flow
+## 🔀 Data Flow
 
 ### Event Data Flow
 
@@ -344,7 +344,7 @@ graph TD
    - Expansion toggle, navigation, and service calls
    - Home Assistant service integration
 
-## Optimizations
+## ⚡ Optimizations
 
 ### Performance Optimizations
 
@@ -369,7 +369,7 @@ graph TD
    - Clean loading states during data fetching
    - Optimized transitions between states
 2. **Adaptive Display**:
-   - Compact/expanded view modes
+   - Compact/expanded modes
    - Empty state handling
    - Responsive sizing
 
@@ -378,7 +378,7 @@ graph TD
    - Hold indicators
    - Focus states for keyboard navigation
 
-## Advanced Features
+## 🛠️ Advanced Features
 
 ### Start Date Configuration
 
@@ -473,7 +473,7 @@ The card implements a multi-level caching strategy:
    - Manual refreshes are rate-limited to prevent API abuse
    - Reactive to page visibility changes and Home Assistant reconnection events
 
-## Design Principles
+## 🎯 Design Principles
 
 The code follows these core principles:
 
@@ -497,7 +497,7 @@ The code follows these core principles:
    - Detailed comments and documentation
    - Clear function signatures and module organization
 
-## Maintenance Guidelines
+## 🧹 Maintenance Guidelines
 
 When modifying code:
 

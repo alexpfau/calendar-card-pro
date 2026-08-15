@@ -2,60 +2,20 @@
 /**
  * i18n integrity check for Calendar Card Pro.
  *
- * Two independent things live here.
- *
- * **Language wiring.** Adding a language touches four places, and three of the four
- * fail *silently*:
- *
- *   1. src/translations/languages/<code>.json  — missing keys render as raw key names
- *   2. src/translations/localize.ts            — import + a LOWERCASE TRANSLATIONS key
- *   3. src/translations/dayjs.ts               — a locale import AND a supportedLocales entry
- *   4. README.md                               — prose, not checked here
- *
- * Omitting 3b is the worst of them: everything works except relative times, which quietly
- * fall back to English. Catalan and Romanian shipped that way for months. Nothing in the
- * build, the type checker or the linter can see any of it, because every one of these is a
- * runtime lookup with a fallback.
- *
- * **Editor strings.** The editor is schema-driven, so the schema *is* its field
- * registry: every panel can be built and walked, and what comes back is exactly the set
- * of keys it will look up. That is checked against `src/rendering/editor/strings.ts` in
- * both directions — a field with no string, and a string no field uses.
- *
- * **Editor translations.** `src/rendering/editor/translations/<code>.json` holds a
- * subset of that table per language, and `lookup` falls back to English per key, so a
- * partial file is safe by design and completeness is reported rather than enforced.
- * What *is* enforced is that a translation can be reached — every key must exist in
- * `strings.ts`, and `lookup` is called to prove it returns the translation rather than
- * the English behind it. That check exists because its absence let a regression ship in
- * silence: the resolution order was inverted, `strings.ts` defines every key, and so all
- * eleven translated languages rendered in English with nothing raised anywhere.
- *
- * The `editor` sections that used to sit inside the language files now live in
- * `src/rendering/editor/translations/`, so they load with the editor's own chunk rather
- * than on every dashboard load. A section reappearing in a language file is an error
- * here, because nothing else would notice the weight.
- *
- * This script's only dependency is esbuild, which is already a devDependency and never
- * reaches the bundle. Run it with:
+ * Validates language wiring, dayjs locale wiring, editor string coverage, editor
+ * translation reachability and glossary-based translation checks.
  *
  *   node scripts/check-i18n.mjs            # errors are fatal, warnings are advisory
  *   node scripts/check-i18n.mjs --strict   # warnings are fatal too
  *
- * Design note: the wiring in localize.ts and dayjs.ts is read out of the TypeScript source
- * with regexes rather than by importing it, because those files are read for their *shape*
- * — which identifier is imported, how a map key is spelled — and importing them would
- * evaluate the shape away. That is only safe because every extraction below fails *loudly*
- * when it cannot find what it expects — see assertFound(). A regex that silently matched
- * nothing would report a clean run over an empty set, which is the one outcome worse than a
- * false alarm. The editor half needs no such caution: it is imported, so there is no
- * pattern to go stale, and it asserts on an empty panel list for the same reason.
+ * Source-shape checks use regexes and fail loudly when a pattern stops matching.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
 import { deriveEnGb } from './en-gb.mjs';
 import { loadEditorModule } from './load-editor-schema.mjs';
 
@@ -67,7 +27,7 @@ const LOCALIZE_TS = join(ROOT, 'src/translations/localize.ts');
 const DAYJS_TS = join(ROOT, 'src/translations/dayjs.ts');
 const PANELS_TS = join(ROOT, 'src/rendering/editor/panels.ts');
 const STRINGS_TS = join(ROOT, 'src/rendering/editor/strings.ts');
-const GLOSSARY_MD = join(ROOT, 'docs/development/editor-glossary.md');
+const GLOSSARY_SOURCE = 'scripts/editor-glossary.mjs';
 const REFERENCE_LANG = 'en.json';
 
 const STRICT = process.argv.includes('--strict');
@@ -84,20 +44,12 @@ const read = (path) => readFileSync(path, 'utf-8');
 
 /**
  * The editor's modules, bundled once per run.
- *
- * Two checks need them — the string reconciliation and the translation-reachability
- * gate — and bundling is the expensive part of this script. Cached rather than passed
- * around, so adding a third consumer costs nothing.
  */
 let editorModule;
 const loadEditor = async () => (editorModule ??= await loadEditorModule(ROOT));
 
 /**
  * Guard against a stale regex silently matching nothing.
- *
- * Every extraction in this file goes through here. If the source is refactored such that a
- * pattern no longer matches, the script says so and exits non-zero instead of reporting a
- * clean run over an empty set.
  */
 function assertFound(value, what, file) {
   const empty = value === null || value === undefined || value.length === 0;
@@ -192,14 +144,8 @@ function mapLocale(locale, specialCased) {
 /**
  * Editor string keys the schemas reference, and the panels' own.
  *
- * The schema is the field registry, so this is a real reconciliation rather than a
- * regex over source: every panel is built, for every view and for a spread of
- * configurations chosen to open each of its conditional branches, and every node that
- * comes back is a key that will be looked up.
- *
- * Two keys per node, because `computeLabel` resolves the group-qualified key first and
- * the bare one second — a field inside a flattened group is labelled by its config key
- * without the group name being repeated in the table.
+ * The schema is the field registry, so panels are built and walked instead of parsed from
+ * source. Each node has both group-qualified and bare label candidates.
  */
 async function readEditorSchemaKeys() {
   const editor = await loadEditor();
@@ -238,16 +184,10 @@ async function readEditorSchemaKeys() {
    */
   const collect = (schema, path, bareHelper) => {
     for (const { node, path: nodePath } of walkSchema(schema, path)) {
-      // A grid is a layout, not a level of labelling: Home Assistant renders no
-      // heading for one and passes the label hooks straight through. That is true of
-      // a *named* grid too, which is how the weather block nests without drawing a
-      // second "Weather" heading inside the Weather panel.
+      // A grid is layout, not a label scope.
       if (node.type === 'grid' || !node.name) continue;
 
-      // A group resolves its own heading when it is built, so Home Assistant never
-      // asks for its label. Its string is `titleKey`, which may differ from its name
-      // — two panels nest the same block under different headings — and its helper is
-      // asked for under that same key, with no path.
+      // A group uses `titleKey` for its heading and helper.
       if (node.titleKey !== undefined) {
         titles.add(node.titleKey);
         helpers.add(node.titleKey);
@@ -262,10 +202,7 @@ async function readEditorSchemaKeys() {
       roots.add(qualified);
       roots.add(node.name);
 
-      // The hand-rendered sub-forms resolve helpers by their qualified key alone —
-      // see `computeSubformHelper`, and the reason it exists: a per-calendar
-      // `show_time` falling back to the bare key would render the card-level helper,
-      // which says something broader and, for four of these options, something false.
+      // Hand-rendered sub-forms resolve helpers by qualified key only.
       if (bareHelper) helpers.add(node.name);
     }
   };
@@ -277,10 +214,7 @@ async function readEditorSchemaKeys() {
     for (const prefix of panel.strings ?? []) roots.add(prefix);
   }
 
-  // The chassis renders schema of its own — the filter bar — and text of its own around
-  // the two hand-written widgets. Both are declared rather than inferred: `entity.copy`
-  // and its neighbours were reachable only because the weather panel happens to hold a
-  // field named `entity`, which is a root by coincidence and would vanish with a rename.
+  // The chassis declares schema and text outside the panels.
   for (const subform of chassisSubforms()) collect(subform.schema, subform.path, true);
   for (const prefix of CHASSIS_STRINGS) roots.add(prefix);
 
@@ -290,9 +224,7 @@ async function readEditorSchemaKeys() {
 
       collect(panel.build(ctx), [], true);
 
-      // The two places the editor stops being schema-driven still render schema, and
-      // are declared for exactly this reason. Left out, the per-calendar fields and
-      // every exception row would be a set of labels nothing reconciles.
+      // Hand-rendered panel subforms still expose schema to reconcile.
       for (const subform of panelSubforms(panel, ctx)) {
         collect(subform.schema, subform.path, false);
       }
@@ -305,8 +237,7 @@ async function readEditorSchemaKeys() {
     helpers,
     roots,
     strings: EDITOR_STRINGS,
-    // Merged, because the two tables make the same promise about different surfaces:
-    // an option scoped to some views must say which, wherever it is offered.
+    // Both scope tables make the same promise on different surfaces.
     viewScope: { ...VIEW_SCOPE, ...ENTITY_VIEW_SCOPE },
     defaultOverridesByView: DEFAULT_OVERRIDES_BY_VIEW,
   };
@@ -315,12 +246,7 @@ async function readEditorSchemaKeys() {
 /**
  * Configurations chosen to open every conditional branch in every panel.
  *
- * A panel only offers the fields its configuration calls for — a location's styling
- * appears once locations are shown, a fixed height once the height is fixed — so a
- * single default configuration would walk past most of the editor and report a clean
- * run over a third of it. Booleans are swept both ways together, since no panel gates
- * one field on two switches, and the handful of shape-derived modes are swept
- * individually.
+ * Defaults alone hide conditional fields, so booleans and view-derived modes are swept.
  *
  * @param defaults - The card's default configuration
  * @param views - Every view the card can render
@@ -449,13 +375,7 @@ function checkLanguageParity(languages) {
 /**
  * No language file may carry an `editor` section.
  *
- * `localize.ts` imports all 35 statically and `translate()` looks keys up dynamically, so
- * Rollup cannot tree-shake it — one section reintroduced is ~12 KB added to what every
- * user downloads and parses on every dashboard load, to label a surface most of them
- * never open. Nothing breaks, so nothing else reports it.
- *
- * The editor's strings live in `src/rendering/editor/translations/`, which loads with the
- * editor's own chunk.
+ * `localize.ts` is eager; editor strings belong in the editor chunk.
  *
  * @param languages - Language files on disk, keyed by lowercased code
  */
@@ -580,21 +500,8 @@ function checkDayjsWiring(entries, { imports, supported, specialCased }) {
 /**
  * The editor's string table must cover every field, and hold nothing else.
  *
- * Both directions matter and they fail differently. A field with no string renders a
- * humanised key — `Show location` rather than `Show Location` — which is a cosmetic
- * shortfall by design, but a deliberate one for a *missing* string rather than an
- * acceptable resting state, so it is an error here. A string with no field is dead
- * weight that will be translated into every language before anyone notices it labels
- * nothing.
- *
- * Helper text is not required. Most fields have none, and `computeHelper` returning
- * nothing is the normal case rather than a gap.
- *
- * The table is checked directly rather than through `lookup`, which would consult the
- * language files second. Their `editor` sections are dormant — kept to be mined during
- * the translation pass — and several of their keys are spelled the same as the new
- * ones but worded for the editor that used to ship. Resolving through them would let
- * old copy stand in for a string nobody has written yet, and the check would pass.
+ * Missing labels render humanised keys; unused strings become translation work for keys
+ * that label nothing. Helper text remains optional.
  */
 async function checkEditorStrings() {
   const { labels, titles, helpers, roots, strings, viewScope, defaultOverridesByView } =
@@ -718,33 +625,8 @@ function readEditorTranslationWiring() {
 /**
  * The live editor's translations: wired up, and — the point of this check — reachable.
  *
- * **This is the check whose absence let a silent regression ship.** The editor resolved
- * `strings.ts` first and the translation files second, and because `strings.ts` defines
- * every key the editor asks for, the second source was never reached: eleven translated
- * languages all rendered in English, in every panel. Nothing failed, because every
- * individual piece was correct — the files existed, were valid JSON, were imported,
- * were registered under lowercase keys. What was wrong was that no key in them could
- * ever be *returned*, and reachability is a property nothing here looked at.
- *
- * Three things are checked, each of which would have caught it alone:
- *
- *   1. **Every key must exist in `EDITOR_STRINGS`.** One that does not is unreachable by
- *      construction: `lookup` is only ever asked for keys the schemas produce, and those
- *      are already reconciled against `EDITOR_STRINGS` in both directions. A translation
- *      outside that table is weight that labels nothing.
- *   2. **`lookup` must actually return the translation.** Asserted by calling it, for
- *      every key of every language, rather than by reasoning about resolution order —
- *      which is exactly what was reasoned about, in a docstring, while the code did the
- *      opposite of what the docstring said. A check that calls the function cannot go
- *      stale the way that prose did.
- *   3. **No `en.json`.** English lives in `strings.ts` alone. Two English tables can
- *      disagree and the loser does so silently; the previous namespace kept both, and
- *      they drifted apart on 41 of the 94 keys they shared — two of them, `language` and
- *      `language_mode`, ending up with each other's meanings.
- *
- * Coverage is reported, never enforced. Per-key fallback is what makes a partial
- * language safe, and the ruling is explicit: show the language, and fall back to English
- * only for the individual strings it is missing.
+ * Every translation key must exist in `EDITOR_STRINGS`, and `lookup()` must return the
+ * translated value. Coverage is reported rather than enforced because fallback is per key.
  *
  * @param languages - Language files on disk, keyed by lowercased code
  */
@@ -880,27 +762,8 @@ async function checkEditorTranslations(languages) {
 /**
  * Keys whose value is the same in every language, because it is not language at all.
  *
- * A comparison symbol with a placeholder (`≥ {width} px`, `< {width} px`) and the name of
- * an ISO standard (`ISO 8601`) do not translate into anything, in any of the nine. They
- * are exempt by **key**, so a language reaching full coverage needs no entry for them.
- *
- * **This is the second mechanism the `lang:key` list below anticipated**, added by the
- * Baltic session (Stage 1) at the point that list predicted. The note it replaces put the
- * threshold at "three entries is not yet worth a second mechanism" and expected the list to
- * grow by 27; by the time `et`, `lt` and `lv` merged, `de`, `pl`, `sv` and `nb` had already
- * contributed **twelve** such entries and `it` and `sk` owed six more. All twelve are
- * retired here, and the six are never written.
- *
- * The bar for adding a key here is higher than for the list below, and deliberately so: a
- * `lang:key` entry claims *this language* keeps the English word, which is a claim about
- * one language and is reviewed as such. An entry **here** claims no language will ever
- * translate it, which is unfalsifiable from inside any single session. Keep it to symbols,
- * numerals and proper names of standards — anything that is a *word*, however
- * international it looks, belongs below where one language owns it.
- *
- * Falsifier, thirty seconds: delete any line from this set and run the script. It errors
- * once per language at full coverage — six of them today, not one, which is the whole
- * argument for the set existing.
+ * Keep this to symbols, numerals and proper names of standards. Words that happen to match
+ * English belong in the per-language allow-list below.
  */
 const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
   'width_table.at_least',
@@ -911,29 +774,7 @@ const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
 /**
  * Values that are legitimately byte-identical to their English.
  *
- * Keyed `lang:key`, and deliberately tiny. Every entry is a loanword the language
- * genuinely uses, not a gap — the whole point of the check above it is that an untranslated
- * string and a correctly-identical one are indistinguishable by machine, so each one is
- * reviewed once, here, in a diff.
- *
- * `Layout` is the word in German, Italian, Norwegian and Swedish. Home Assistant's own
- * tables leave it untranslated in German and Swedish for the same reason, which
- * corroborates it independently.
- *
- * **Three of these are not about language at all**, and the German session hit all three
- * the moment it reached full coverage: `width_table.at_least` is `≥ {width} px`,
- * `width_table.below` is `< {width} px`, and `week_number_mode.option.iso.label` is
- * `ISO 8601`. A symbol with a placeholder and the name of an ISO standard are the same in
- * every one of the nine, so **every language session needs all three**. The German session
- * left the choice of when to generalise them to whoever found it tiresome; the `it`/`sk`
- * session did, because two languages at once turns three lines into six and the seven
- * sessions still to come would have added twenty-one more to a list none of them can
- * usefully review. They now live in `IDENTICAL_TO_ENGLISH_ANY_LANGUAGE` below, which is
- * checked first, so `IDENTICAL_TO_ENGLISH_OK` holds only decisions that are genuinely
- * about a language.
- *
- * `view` is `Layout` for the same reason `panel.layout` is, and recurs for `it`, `nb`
- * and `sv`: it is a key those languages had not translated when this list was written.
+ * Keyed `lang:key`. Each entry is a loanword the language genuinely uses, not a gap.
  */
 const IDENTICAL_TO_ENGLISH_OK = new Set([
   'de:panel.layout',
@@ -941,81 +782,30 @@ const IDENTICAL_TO_ENGLISH_OK = new Set([
   'nb:panel.layout',
   'sv:panel.layout',
 
-  // German, Stage 1. `Label` is a loanword HA German uses throughout with German
-  // inflection — `Label hinzufügen`, `Keine Labels verfügbar` — which is what
-  // distinguishes it from an untranslated string; see editor-glossary.md §5, `label`.
+  // `Label` is a German loanword in Home Assistant's own UI.
   'de:entity.label',
   'de:view',
 
-  // Italian, Stage 1. `Layout` is the Italian word too — HA Italian's `Disposizione` is
-  // an arrangement and is rejected by the glossary; see editor-glossary.md §5, `layout`.
+  // `Layout` is the Italian term chosen by the glossary.
   'it:view',
 
-  // Swedish and Norwegian, Stage 1. `Layout` is the ordinary word in both — the glossary's
-  // `layout` row records it as the Rule 1 false-positive case, where HA leaves the English
-  // because the loanword *is* the target word rather than because it has no translation.
+  // `Layout` is the ordinary Swedish and Norwegian word.
   'sv:view',
   'nb:view',
 ]);
 
 /**
- * Keys whose English is the same string in every language, for reasons that are not
- * linguistic.
- *
- * A comparison symbol carrying a placeholder (`≥ {width} px`, `< {width} px`) and the name
- * of an ISO standard (`ISO 8601`) do not translate into anything, in any of the nine. Held
- * apart from `IDENTICAL_TO_ENGLISH_OK` so that list stays a record of per-language
- * judgements a reviewer can actually check.
- *
- * This subsumes the twelve `de:` / `pl:` / `sv:` / `nb:` lines that stood here before, which
- * said the same thing four times. Behaviour is unchanged and strictly more general: the set
- * is keyed by bare key and consulted first, so it already covers the five languages still
- * to come.
- */
-
-/**
  * Keys where the decided term is deliberately *qualified* rather than used bare.
  *
- * Distinct from `IDENTICAL_TO_ENGLISH_OK`: the term is still used, with a word added so
- * two settings stay distinguishable. This exists because two checks here can genuinely
- * pull in opposite directions, and the tie has to be broken per key rather than by
- * weakening either one.
- *
- * The English table distinguishes a *field* from a *picker option* with an article —
- * `Icon` names which icon, `An Icon` is an answer to "what kind?". **A language without
- * articles cannot carry that distinction**, so both collapse onto the decided term and
- * `checkCollapsedLabels` correctly reports settings the user cannot tell apart. German
- * never hits it: `Symbol` against `Ein Symbol` keeps them separate for free.
- *
- * Qualifying the field is what gives way, because the option labels are answers in a
- * list where an added word would read as invented, and because the field's own siblings
- * are already qualified — `Kolor wskaźnika`, `Rozmiar wskaźnika`, `Pozycja wskaźnika`,
- * so `Ikona wskaźnika` is the *more* consistent of the two, not a concession.
- *
- * Falsifier, thirty seconds: set `pl:today_indicator_icon` to the bare `Ikona` and run
- * this script. The collapsed-label warning it raises is the defect this entry avoids.
- *
- * **Five languages now, and that is the finding rather than a coincidence.** Polish,
- * Estonian, Lithuanian and Latvian have no articles, so every one of them hits this key;
- * German is the only one of the five so far that escapes, and only because German has an
- * article to spend. Italian and Slovak should expect it too — Italian can spell the
- * distinction (`Un'icona`), Slovak cannot. The Baltic session arrived at the opposite fix
- * first — naming what the picker offers, `MDI ikoon` — and dropped it on merge: it adds
- * information the English does not carry, and one repo-wide answer to a repo-wide problem
- * is worth more than a locally defensible second one.
+ * The term is still used, with a word added so two settings stay distinguishable.
  */
 const GLOSSARY_QUALIFIED_OK = new Set([
-  // Polish, Stage 1. `Ikona` alone collides with `entity.label_type.option.icon.label`
-  // and `today_indicator_style.option.icon.label`, both `An Icon`.
+  // `Ikona` alone collides with two picker options that mean `An Icon`.
   'pl:today_indicator_icon',
 
-  // Slovak, Stage 1. Identical collision, identical resolution: the siblings read
-  // `Farba identifikátora`, `Veľkosť identifikátora`, `Poloha identifikátora`.
+  // Same collision and resolution as Polish.
   'sk:today_indicator_icon',
-  // Estonian, Lithuanian and Latvian, Stage 1 — the same collision, the same fix. Each
-  // language's three sibling fields are already qualified (`Indikaatori värv`,
-  // `Indikatoriaus spalva`, `Indikatora krāsa`), so the qualified form is the consistent
-  // one here as well.
+  // Same collision; the sibling fields are already qualified.
   'et:today_indicator_icon',
   'lt:today_indicator_icon',
   'lv:today_indicator_icon',
@@ -1024,16 +814,7 @@ const GLOSSARY_QUALIFIED_OK = new Set([
 /**
  * Characters whose loss changes what a string means, rather than how it looks.
  *
- * Derived from the English rather than hardcoded, because a hardcoded list goes stale in
- * the direction that cannot be seen: an earlier reading of this table named `→` and a
- * non-breaking space among the glyphs at risk, and **neither occurs anywhere in it**. A
- * check guarding those would have guarded nothing while reporting success.
- *
- * A character counts as structural when it is non-ASCII and is neither a letter nor a
- * combining mark — so `—` and `≥` qualify, and every accented letter a translation
- * legitimately introduces does not. Quotation marks are excluded and handled separately,
- * because German `„…“`, Polish `„…”` and Swedish `”…”` are all correct and a check that
- * demanded the English `“…”` would be enforcing a calque.
+ * Non-ASCII symbols like `—` and `≥` qualify; letters and localized quotes do not.
  */
 const structuralGlyphs = (text) =>
   [...text].filter(
@@ -1045,14 +826,7 @@ const placeholders = (text) => (text.match(/\{[a-z_]+\}/g) ?? []).sort();
 /**
  * Structural integrity, orthography and terminology, per language.
  *
- * These are separate axes and are checked separately, which is not a stylistic preference
- * but a correction: Polish agrees with Home Assistant on essentially every term while
- * title-casing 80% of its multi-word labels, so a vocabulary check that reported Polish
- * clean would be right and useless. Worse, the analysis that first measured the
- * terminology case-folded both sides, which hid the one disagreement that *was* purely
- * capitalisation — in Polish. **A comparison that normalises away the property you are
- * also trying to measure cannot report on it**, so nothing below shares a normaliser and
- * every comparison here is case-sensitive.
+ * Each axis keeps its own case-sensitive comparison.
  *
  * @param languages - Language files on disk, keyed by lowercased code
  * @param glossary - The parsed termbase
@@ -1174,19 +948,8 @@ async function checkTranslationQuality(languages, glossary) {
 /**
  * Two different settings rendered with the same label.
  *
- * Distinct English collapsing to one translation makes two controls indistinguishable in
- * the editor, which is a worse failure than an awkward wording: the user cannot tell which
- * one they are changing. Slovak shipped `weekday_color` and `weekend_weekday_color` both
- * as `Farba pracovného dňa`.
- *
- * **Pairs whose English differs only in capitalisation are excluded**, because those are a
- * defect in `strings.ts` rather than in any translation — `height_mode.option.maximum.label`
- * says `Maximum height` where `card_max_height` says `Maximum Height`, so every one of the
- * nine languages collapses them correctly and flagging it would blame nine files for one
- * English inconsistency.
- *
- * A warning rather than an error: a shorter label can be right when the panel it sits in
- * already supplies the context the English spells out.
+ * Distinct English collapsing to one translation makes two controls indistinguishable.
+ * Warning only: a panel can supply context that makes the shorter label right.
  */
 function checkCollapsedLabels(where, data, strings) {
   const byValue = new Map();
@@ -1201,7 +964,7 @@ function checkCollapsedLabels(where, data, strings) {
     if (keys.length < 2) continue;
     const englishes = [...new Set(keys.map((k) => strings[k]))];
     if (englishes.length < 2) continue;
-    // Same English bar its capitalisation is an English-table defect, not a translation one.
+    // Same English aside from capitalisation is an English-table issue.
     if (new Set(englishes.map((e) => e.toLowerCase())).size < 2) continue;
     warn(
       where,
@@ -1215,26 +978,9 @@ function checkCollapsedLabels(where, data, strings) {
 /**
  * The decided termbase, enforced.
  *
- * **Rejected forms are matched at a word start, case-insensitively, and only inside the
- * keys the term governs.** Each of those three is load-bearing, and the first was narrowed
- * after a mutation test caught it being too strict:
- *
- *   - *At a word start* — the start of the value, or after any non-letter. This is what
- *     lets the match be case-insensitive without becoming wrong: rejecting German `Zeit`
- *     must not fire on the legitimate `Uhrzeit`, and it cannot, because `zeit` there is
- *     mid-word. Pure case-sensitivity was the first attempt and it silently missed Swedish
- *     `Vardag` at the head of a label while catching the lower-case `vardag` — the most
- *     likely form escaping the check that exists to find it.
- *   - *Including compounds*, because German, Swedish and Latvian compound: the rejected
- *     `Ereignis` appears as `Ereignisfarbe`, which begins the value and so matches, where
- *     any whole-word test would miss it.
- *   - *Scoped to governed keys*, because the same word can be right and wrong in one
- *     file. Italian `Posizione` is wrong for *location* and correct for *position*; a
- *     whole-file scan cannot tell them apart and would fire on correct strings.
- *
- * The positive direction — a decided form that is simply absent — is a warning, not an
- * error, because inflection makes exact equality the wrong test everywhere except the
- * handful of keys whose entire English is the term.
+ * Rejected forms are matched case-insensitively at a word start, including compounds, and
+ * only inside keys governed by the term. Missing decided forms are warnings because
+ * inflection makes exact equality too strict.
  */
 function checkGlossaryAdherence(where, code, data, strings, glossary) {
   for (const term of glossary.terms) {
@@ -1258,7 +1004,7 @@ function checkGlossaryAdherence(where, code, data, strings, glossary) {
           `\`${key}\` uses ${JSON.stringify(form)}, which the glossary rejects for ` +
             `'${term.name}' in ${code} — the decided term is ` +
             `${JSON.stringify(term.decided[code] ?? '(undecided)')}. See ` +
-            'docs/development/editor-glossary.md',
+            GLOSSARY_SOURCE,
         );
       }
     }
@@ -1281,72 +1027,13 @@ function checkGlossaryAdherence(where, code, data, strings, glossary) {
 }
 
 /**
- * A markdown table cell, with emphasis removed so it can be matched as data.
- *
- * The glossary is prose *and* the machine-readable termbase, so every cell this script
- * parses is one a human may reasonably decide to emphasise. Three separate parsers read
- * those cells and all three matched raw text, which meant a purely cosmetic edit changed
- * behaviour:
- *
- *   - **bolding a language code** in the casing table dropped that row, so bolding `de`
- *     silently removed German's noun-capitalisation exemption and produced a confident,
- *     linguistically wrong warning that German was calquing English orthography;
- *   - **bolding a language in a term table's header** keyed that column under `**et**`,
- *     so every lookup by `et` missed and the term stopped being enforced for it;
- *   - **bolding a decided value** matched the italic test that excludes `*rejected*` and
- *     `*!EN*`, so an emphasised decision read as *no decision here*.
- *
- * All three fail silently and in the same direction: less enforcement, no error. Bold is
- * therefore stripped everywhere, single-asterisk italic never is — it is load-bearing
- * syntax meaning the cell holds no decision.
- *
- * **Both spellings of both, or the asymmetry becomes the bug.** Markdown writes bold as
- * `**x**` *or* `__x__` and italic as `*x*` *or* `_x_`, and prettier normalises bold toward
- * asterisks and italic toward underscores — so the spellings that actually reach this
- * parser are `**bold**` and `_italic_`, one of each family. Handling only the asterisk of
- * each is what produced two opposite silent failures in the same field: `_!EN_` read as a
- * decided term (permissive), and `__Ort__` read as a marker (restrictive). This helper
- * strips both bolds; the italic test uses a backreference to catch both italics.
- *
- * **The italic guard is dead code against this file's own conventions, and that is worth
- * knowing before anyone relies on it.** It tests `^\*.*\*$` — *asterisk* italic — while the
- * glossary writes every italic with underscores (`_!EN_`, `_rejected_`, `_Zeit_`). More to
- * the point, no italic cell has ever appeared in a `**Decided**` row, which is the only row
- * parsed: an undecided cell is written `—`. So the guard has never fired on real data, and
- * a `_form_` written into a Decided row today is taken literally — the term is enforced
- * *including* the underscores, which no translation can match. That fails loudly rather
- * than silently, so it is the safe direction, but it is not the behaviour the paragraph
- * above would lead you to expect. Verified by planting German `time` → `Zeit` and reading
- * the message: `the glossary decided "_Uhrzeit_"`.
- *
- * @param cell - Raw cell text
- * @returns The cell trimmed, with bold and underscore emphasis removed
- */
-const unemphasise = (cell) =>
-  cell
-    .trim()
-    .replace(/\*\*|__/g, '')
-    .trim();
-
-/**
  * Which glossary decisions the checker can actually enforce, reported every run.
  *
- * A `**Decided**` cell is only ever compared against keys whose English *is* the term —
- * `strings[key] === term.name` — so a term with no such key has its decision parsed into
- * memory where nothing can match it. That covers **more than half the table**, including
- * `event`, the one decision in it that changed a user-visible string.
+ * A `decided` form is only ever compared against keys whose English *is* the term —
+ * `strings[key] === term.name` — so a term with no such key is documentation only unless a
+ * `rejected` entry enforces it through substring checks.
  *
- * Those rows are not useless: the glossary is a termbase for humans first, and a session
- * reading `event → Termin` is the mechanism working. What is dangerous is the *impression*
- * of enforcement — editing a Decided cell for one of those terms changes nothing, silently,
- * and the table gives no clue which half a row is in.
- *
- * So the split is printed rather than inferred. `event` is in fact enforced, but by its
- * `**Rejected:** de \`Ereignis\`` line, which fires on substrings and compounds; that is
- * the mechanism to reach for when a decision must bite, and this report is what makes the
- * difference visible instead of a thing you have to know.
- *
- * @param glossary - The parsed termbase
+ * @param glossary - The termbase
  * @param strings - `EDITOR_STRINGS`
  */
 function reportGlossaryReach(glossary, strings) {
@@ -1364,147 +1051,41 @@ function reportGlossaryReach(glossary, strings) {
   }
 
   const total = enforced.length + inert.length;
-  assertFound(total ? ['ok'] : [], 'any decided glossary terms to report on', GLOSSARY_MD);
+  assertFound(total ? ['ok'] : [], 'any decided glossary terms to report on', GLOSSARY_SOURCE);
 
   glossaryNotes.push(
-    `  ${enforced.length} of ${total} decided terms are enforced by their **Decided** row ` +
+    `  ${enforced.length} of ${total} decided terms are enforced by their \`decided\` forms ` +
       '(a key exists whose English is exactly the term).',
   );
   if (inert.length > 0) {
     glossaryNotes.push(
-      `  ${inert.length} are documentation only — no such key, so editing the cell changes ` +
-        'nothing. Use a **Rejected:** line for those, which matches compounds:',
+      `  ${inert.length} are documentation only — no such key, so editing the decided form ` +
+        `changes nothing. Add a \`rejected\` entry in ${GLOSSARY_SOURCE} for those, which ` +
+        'matches compounds:',
     );
     glossaryNotes.push(`    ${inert.join(', ')}`);
   }
 }
 
 /**
- * Reads the termbase out of the glossary.
+ * The termbase, as data.
  *
- * The markdown *is* the source of truth — a second machine-readable copy would be one
- * more pair of artefacts free to drift, and the whole point of the glossary is that one
- * decision exists in one place. So this parses it, and fails loudly rather than quietly
- * enforcing nothing if the shape it depends on changes.
+ * Imported rather than parsed out of a document: the whole point of a glossary is that one
+ * decision exists in one place, and a checker that reads prose can be left enforcing
+ * nothing by an edit that looks purely editorial. A shape change here is a load error.
  *
  * @returns Decided and rejected forms per term, plus the languages exempt from the
  *   sentence-case rule
  */
 function readGlossary() {
-  const src = read(GLOSSARY_MD);
-
-  // The casing ruling: a language is exempt when its own orthography capitalises nouns.
-  const casingTable = src.match(/\|\s*language\s*\|\s*rule\s*\|[\s\S]*?\n\n/i);
-  assertFound(casingTable, 'the per-language casing table', GLOSSARY_MD);
-  const nounCapsLanguages = new Set();
-  let sawAnyCasingRow = false;
-  for (const line of casingTable[0].split('\n')) {
-    // Emphasis is stripped before the code is matched — see `unemphasise()`. The `pl` row
-    // is written `| **pl** |` to mark it as the problem language, and a bare `^[a-z]{2}$`
-    // test silently skipped it, while `sawAnyCasingRow` still passed on the other eight.
-    const cells = line.split('|').map((c) => unemphasise(c));
-    if (cells.length < 4 || !/^[a-z]{2}(-[a-z]{2})?$/.test(cells[1])) continue;
-    sawAnyCasingRow = true;
-    if (/nouns are capitalised/i.test(cells[2])) nounCapsLanguages.add(cells[1]);
-  }
-  assertFound(sawAnyCasingRow ? ['ok'] : [], 'any language row in the casing table', GLOSSARY_MD);
-
-  const terms = [];
-  // Sections are `### <term> — <sense>`; everything up to the next `###` belongs to it.
-  for (const section of src.split(/^### /m).slice(1)) {
-    const heading = section.slice(0, section.indexOf('\n'));
-    const name = heading.split('—')[0].trim().toLowerCase();
-    if (!name) continue;
-
-    // Column order comes from the table's own header rather than a constant, so a
-    // reordered table cannot silently shift every decision one language to the left.
-    const header = section.match(/^\|\s*\|([^\n]*)\|\s*$/m);
-    if (!header) continue;
-    const langs = header[1]
-      .split('|')
-      .map((c) => unemphasise(c))
-      .filter(Boolean);
-
-    const decided = {};
-    for (const row of section.matchAll(
-      /^\|\s*(?:\*\*|__)Decided(?:\*\*|__)(?:\s*\((\w+)\))?\s*\|([^\n]*)\|\s*$/gm,
-    )) {
-      const which = row[1] ? row[1].toLowerCase() : name;
-      const cells = row[2].split('|').map((c) => c.trim());
-      const forThisTerm = (decided[which] ??= {});
-      langs.forEach((lang, i) => {
-        // Bold is stripped, italic is not, and the order matters: a cell written
-        // `**Termin**` is a decided value someone emphasised, while `*rejected*` and
-        // `*!EN*` are markers meaning *there is no decision here*. Testing for italic
-        // before removing bold treats the first as the second and silently drops the term
-        // from enforcement — the failure being emphasis on a decision you care about.
-        //
-        // Both bold spellings must be stripped and both italic spellings tested, or the
-        // parser is asymmetric in a way that fails silently in *both* directions. `**` was
-        // stripped while `__` was not, so `__Ort__` reached the italic test, matched it as
-        // a marker, and dropped the term from enforcement — bold entered through the door
-        // marked "no decision here". `unemphasise()` above already handled both; this path
-        // did not, and the two disagreeing is what made the gap invisible.
-        const cell = unemphasise((cells[i] ?? '').replace(/^`|`$/g, ''));
-        if (cell && cell !== '—' && !/^([*_]).*\1$/.test(cell)) forThisTerm[lang] = cell;
-      });
-    }
-
-    const rejected = {};
-    for (const line of section.matchAll(/^(?:\*\*|__)Rejected:(?:\*\*|__)([^\n]*)$/gm)) {
-      for (const pair of line[1].split(';')) {
-        const m = pair.match(/([a-z]{2}(?:-[a-z]{2})?)\s*`([^`]+)`/i);
-        if (m) (rejected[m[1].toLowerCase()] ??= []).push(m[2]);
-        // The guard below counts LINES; this one counts ENTRIES, and a line survives that
-        // count while losing one of its own. `de \`Ereignis\`; pl \`Zdarzenia\`` with only
-        // the `de` backticks removed still holds a backtick, so the line is still counted,
-        // and its term still has one parsed rejection, so `parsedRejected` still counts it
-        // too -- measured: the German violation went from caught to silent with the guard
-        // reporting nothing. Line-level and entry-level loss are different failures and the
-        // count of lines cannot see the second.
-        else if (/^\s*[a-z]{2}(?:-[a-z]{2})?\s+\S/i.test(pair))
-          error(
-            'editor-glossary.md',
-            `${name}: rejected form \`${pair.trim()}\` names a language but has no ` +
-              'backticked term, so it is silently dropped — write it as ``lang `form```',
-          );
-      }
-    }
-
-    for (const [which, byLang] of Object.entries(decided)) {
-      terms.push({ name: which, decided: byLang, rejected: which === name ? rejected : {} });
-    }
-  }
-
-  // A `**Rejected:**` line that the header pattern misses disables that term's rejections
-  // with no error at all -- measured: respelling the header `__Rejected:__` took the file
-  // from 9 rejection errors to 0, silently. Both bold spellings are matched above; this
-  // counts anything that LOOKS like one -- any emphasis, colon or not -- and fails if the
-  // parser saw fewer. The first version of this guard required the colon and so missed
-  // `**Rejected**`, reproducing the defect it exists to catch one level up.
-  const rawRejected = (read(GLOSSARY_MD).match(/^\s*[*_]{0,2}Rejected\b[^\n]*`/gim) ?? []).length;
-  const parsedRejected = terms.filter((t) => Object.keys(t.rejected).length > 0).length;
-  if (parsedRejected < rawRejected) {
-    error(
-      'editor-glossary.md',
-      `${rawRejected} \`**Rejected:**\` lines are written but only ${parsedRejected} parsed — ` +
-        `a header spelling the parser does not recognise silently disables every rejection on that line`,
-    );
-  }
-
-  assertFound(terms, 'any decided glossary terms', GLOSSARY_MD);
-  return { terms, nounCapsLanguages };
+  assertFound(GLOSSARY_TERMS, 'any decided glossary terms', GLOSSARY_SOURCE);
+  return { terms: GLOSSARY_TERMS, nounCapsLanguages: new Set(NOUN_CAPS_LANGUAGES) };
 }
 
 /**
  * en-GB, recomputed and compared whole.
  *
- * The file is derived, so the only correct way to change it is to run the generator; a
- * hand-edit is a defect by construction. That matters because the hand-written file this
- * replaced had accumulated all three failure modes at once — 1 entry correct, 17 wrong
- * (they silently dropped Title Case, so `Event Color` became `Event colour` and switching
- * to British English re-cased seventeen labels as a side effect), 18 missing, and 28
- * no-ops byte-identical to the English.
+ * The file is derived, so the only correct way to change it is to run the generator.
  */
 async function checkEnGbDerivation() {
   const { EDITOR_STRINGS } = await loadEditor();
@@ -1549,11 +1130,8 @@ async function checkEnGbDerivation() {
 /**
  * Whether a string key belongs to something the editor actually renders.
  *
- * A key is owned by the longest prefix of its dotted path that names a field, a panel
- * title or a prefix a panel declared. That is the convention `strings.ts` states —
- * helper text is its key plus `.helper`, an option label is its field plus
- * `.option.<value>.label` — so checking prefixes checks the convention rather than
- * enumerating every suffix the editor might grow.
+ * A key is owned by the longest prefix of its dotted path that names a field, panel title
+ * or declared prefix.
  *
  * @param key - String key from the table
  * @param roots - Every key something in the editor references
@@ -1624,24 +1202,8 @@ function report(languageCount, fieldCount) {
 // ---------------------------------------------------------------------------
 
 /**
- * `fullDaysOfWeek` has exactly one consumer -- `format.ts:455`, and every path reaching it
- * prefixes `translations.multiDay`; the sentence-initial branches use `endsToday` /
- * `endsTomorrow` and never touch the array. So it is *always* running text, where a
- * language that lowercases weekdays should render `till mandag`, not `till Mandag`.
- *
- * dayjs's locale data is the oracle: native-curated, already a dependency, and needs no
- * corpus to fetch. Five of the card's own files already encode the split deliberately --
- * lowercase `fullDaysOfWeek` against a capitalised standalone `daysOfWeek` (`nb`, `nl`,
- * `nn`, `ru`, `uk`). Russian is the corroboration worth keeping: `ponedelnika` is
- * genitive, only grammatical after `do`, so that contributor understood the array as
- * running text and inflected it accordingly.
- *
- * Deliberately does NOT check `months`, and must not be extended to. That array has five
- * consumers spanning two casing contexts -- running text in `format.ts`, but also the
- * standalone day header in `leaves.ts` and `events.ts`, where a capital is right. One
- * array cannot serve both, so a mismatch there is a design tension needing a separate
- * `fullMonths`, not a casing defect; lowercasing it on this evidence would break the most
- * visible string on every card in 16 languages. See Y13 in the v4 backlog.
+ * `fullDaysOfWeek` is always running text after `multiDay`, so dayjs locale casing is a
+ * useful oracle. `months` spans both running-text and standalone contexts and is not checked.
  *
  * A warning rather than an error: these are native-contributed files in the eager path,
  * so the fix wants the contributor, not CI.
@@ -1698,7 +1260,7 @@ async function checkRunningTextWeekdayCase(languages) {
         `DO NOT simply copy the dayjs value: it is the NOMINATIVE, and multiDay governs ` +
         `case in cs/hr/pl/sk (do), lt (iki) and lv (lidz) -- Polish wants "do poniedzialku", ` +
         `not "do poniedzialek". Lowercasing is half the fix at most; the inflected form is a ` +
-        `native-speaker question. See Y13; the months array is deliberately not checked ` +
+        `native-speaker question. The months array spans multiple casing contexts, so it is deliberately not checked ` +
         `and must not be "fixed" alongside it`,
     );
   }

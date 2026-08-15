@@ -19,9 +19,10 @@
  * editor cannot open, but only one of the two says why.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { adoptEditorComponent } from '../src/calendar-card-pro';
+import * as Constants from '../src/config/constants';
 
 /**
  * A fresh stand-in per test. One class cannot be registered under two names — the
@@ -79,6 +80,56 @@ describe('adopting the lazily-loaded editor component', () => {
       expect(() => adoptEditorComponent(module, tag)).toThrow(/Calendar Card Pro/);
       expect(() => adoptEditorComponent(module, tag)).toThrow(/editor/i);
       expect(customElements.get(tag)).toBeUndefined();
+    });
+  }
+});
+
+/**
+ * Version skew between the two files.
+ *
+ * The card and the editor are fetched separately, so nothing forces them to come from
+ * the same release: a manual install can copy one and not the other, and a cached
+ * `editor.js` can outlive the card that fetched it. A mismatched editor usually still
+ * opens, so this warns and registers rather than refusing — the point is that the
+ * console names both versions when the editor then behaves oddly.
+ */
+describe('detecting a stale editor file beside a fresh card', () => {
+  it('registers without complaint when both files are the same version', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const tag = 'ccp-adopt-version-match';
+
+    adoptEditorComponent(
+      { CalendarCardProEditor: stubEditor(), EDITOR_VERSION: Constants.VERSION.CURRENT },
+      tag,
+    );
+
+    expect(customElements.get(tag)).toBeDefined();
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  /** An editor from a previous release, and one built before it stamped a version at all. */
+  const SKEWED: Array<[string, unknown]> = [
+    ['an older editor', '3.9.0'],
+    ['an editor with no version stamp', undefined],
+  ];
+
+  for (const [name, version] of SKEWED) {
+    it(`warns about ${name} but still registers it`, () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const tag = `ccp-adopt-version-${name.replace(/[^a-z]/g, '')}`;
+      const StubEditor = stubEditor();
+
+      adoptEditorComponent({ CalendarCardProEditor: StubEditor, EDITOR_VERSION: version }, tag);
+
+      // Registering anyway is deliberate: refusing would turn a probably-working editor
+      // into a certainly-absent one, and the card itself is unaffected either way.
+      expect(customElements.get(tag)).toBe(StubEditor);
+
+      const message = warn.mock.calls.flat().join(' ');
+      expect(message).toMatch(new RegExp(Constants.VERSION.CURRENT));
+      expect(message).toMatch(/stale/i);
+      warn.mockRestore();
     });
   }
 });

@@ -11,11 +11,7 @@ import * as Logger from '../utils/logger';
 // CORE CONFIGURATION
 //-----------------------------------------------------------------------------
 
-/**
- * Default configuration for Calendar Card Pro
- */
 export const DEFAULT_CONFIG: Types.Config = {
-  // Core settings
   entities: [],
   view: 'list',
   start_date: undefined,
@@ -30,12 +26,10 @@ export const DEFAULT_CONFIG: Types.Config = {
   split_multiday_events: false,
   language: undefined,
 
-  // Header
   title: undefined,
   title_font_size: undefined,
   title_color: undefined,
 
-  // Layout and spacing
   background_color: 'var(--ha-card-background)',
   accent_color: '#03a9f4',
   vertical_line_width: '2px',
@@ -45,7 +39,6 @@ export const DEFAULT_CONFIG: Types.Config = {
   height: 'auto',
   max_height: 'none',
 
-  // Week numbers and horizontal separators
   first_day_of_week: 'system',
   show_week_numbers: null,
   show_current_week_number: true,
@@ -59,13 +52,11 @@ export const DEFAULT_CONFIG: Types.Config = {
   month_separator_width: '0px',
   month_separator_color: 'var(--primary-text-color)',
 
-  // Today indicator
   today_indicator: false,
   today_indicator_position: '15% 50%',
   today_indicator_color: '#03a9f4',
   today_indicator_size: '6px',
 
-  // Date column
   date_vertical_alignment: 'middle',
   weekday_font_size: '14px',
   weekday_color: 'var(--primary-text-color)',
@@ -81,7 +72,6 @@ export const DEFAULT_CONFIG: Types.Config = {
   today_day_color: undefined, // Inherit from day_color or weekend_day_color
   today_month_color: undefined, // Inherit from month_color or weekend_month_color,
 
-  // Event column
   event_background_opacity: 0,
   show_past_events: false,
   show_countdown: false,
@@ -89,33 +79,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_progress_bar: false,
   progress_bar_color: 'var(--secondary-text-color)',
   progress_bar_height: 'calc(var(--calendar-card-font-size-time) * 0.75)',
-  // Deliberately absent, and the absence is the mechanism -- the same shape the weather
-  // block's `color` uses, for the same reason. The bar has two placements with genuinely
-  // different right answers: sharing the time row it wants to be small and fixed, owning
-  // a row of its own it wants to span that row. A shipped default cannot express that,
-  // because by the time CSS sees the value a width the user chose and one they never
-  // touched are the same string. So each placement supplies its own fallback in the
-  // stylesheet (`.progress-bar` / `.progress-bar-row`), and a value here overrides both.
-  //
-  // Unlike the weather block this key does not reach disk unbidden: it is a top-level
-  // scalar, so `filterDefaultValues` drops it from stored config until the user sets it.
+  // Deliberately absent: each progress-bar placement supplies its own width fallback.
   progress_bar_width: undefined,
-  // Changed from 'middle' in v4, and it is a breaking change for anyone who liked the old
-  // one -- see docs/RELEASE_NOTES.md. The option only becomes visible when a row wraps,
-  // and 'middle' then centres the icon against the whole block: a clock or map-marker
-  // floating in the vertical middle of two lines of text, level with neither. The column
-  // view wraps routinely, because its narrowest track is 140px and the countdown now
-  // shares the time row as running text; the list view wraps less often but does wrap, on
-  // a long address or a description.
-  //
-  // Both views, not column only, and that is a decision about the mechanism rather than
-  // about taste. COLUMN_DEFAULT_OVERRIDES does not mean "a different default": a key
-  // listed there stops inheriting the top-level value altogether, so a user who set
-  // `event_icon_vertical_alignment: middle` at the top level would find column view
-  // ignoring it until they repeated themselves inside `column:`. That price is worth
-  // paying for `show_empty_days`, where the alternative is a grid of columns that no
-  // longer corresponds to consecutive days. It is not worth paying for an icon's
-  // alignment, where the surprise is larger than the thing being decided.
+  // Top alignment keeps icons level with the first line when text wraps.
   event_icon_vertical_alignment: 'top',
   event_font_size: '14px',
   event_color: 'var(--primary-text-color)',
@@ -142,22 +108,9 @@ export const DEFAULT_CONFIG: Types.Config = {
   description_color: 'var(--secondary-text-color)',
   description_icon_size: '14px',
 
-  // Weather
-  //
-  // `color` is deliberately absent from both positions, and its absence is the whole
-  // mechanism -- same shape as `progress_bar_width`. Each placement wants a different
-  // colour (the day header sits beside the weekday and day number, which are primary;
-  // the event row sits beside the time and location, which are secondary), so the
-  // renderers supply their own fallback. A shipped default cannot express that: by the
-  // time anything downstream sees the value, one the user chose and one they never
-  // touched are the same string.
-  //
-  // Absence matters more here than it does for `progress_bar_width`, because this key
-  // reaches disk. `weather` is an ATOMIC_KEY in the editor (see `editor/value.ts`), so
-  // the whole merged block is written back the moment a user picks a weather entity --
-  // a shipped `color` is therefore copied into their YAML on the first edit, where it is
-  // indistinguishable from a deliberate choice forever after. That is how the event row
-  // came to render in the title's colour on a card nobody had styled.
+  // Weather. `color` is deliberately absent so each placement can use its own fallback;
+  // adding a default would be written to YAML by the editor and become indistinguishable
+  // from a user choice.
   weather: {
     entity: undefined,
     position: 'date',
@@ -182,15 +135,12 @@ export const DEFAULT_CONFIG: Types.Config = {
     },
   },
 
-  // Actions
   tap_action: { action: 'none' },
   hold_action: { action: 'none' },
 
-  // Cache and refresh settings
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
   refresh_on_navigate: true,
 
-  // Column view
   column: undefined,
 };
 
@@ -201,10 +151,8 @@ export const DEFAULT_CONFIG: Types.Config = {
 /**
  * Coerces a raw configuration value into a usable number.
  *
- * The visual editor persists an empty string when a numeric field is cleared, and
- * hand-written YAML can supply `null` or non-numeric text. Such values pass the
- * `!== undefined` guards used throughout the card but then coerce to `0` in numeric
- * comparisons, silently suppressing events or entire days (issue #327).
+ * Empty editor values, `null` and non-numeric YAML must not collapse numeric options
+ * to zero.
  *
  * @param value - Raw value taken from the user configuration
  * @param minimum - Smallest value that should be treated as valid
@@ -220,18 +168,7 @@ export function toValidNumber(value: unknown, minimum = 0): number | undefined {
   return parsed;
 }
 
-/**
- * Config keys removed in the v3.0.0 API cleanup, mapped to their replacements.
- *
- * The removal was deliberate — the runtime no longer understands these names. The
- * visual editor offers a one-click upgrade for them, but a user who configures the
- * card in YAML and never opens the editor gets no signal at all: the value is simply
- * ignored and the replacement key silently takes its default. `warnDeprecatedKeys`
- * closes that gap by naming the replacement on the console.
- *
- * This is the single source of truth — the editor's upgrade path reads it too, so a
- * key can never be offered for migration in one place and unknown in the other.
- */
+// Also read by the editor's upgrade path.
 export const DEPRECATED_CONFIG_MAP: Readonly<Record<string, string>> = {
   max_events_to_show: 'compact_events_to_show',
   vertical_line_color: 'accent_color',
@@ -240,9 +177,6 @@ export const DEPRECATED_CONFIG_MAP: Readonly<Record<string, string>> = {
   row_spacing: 'day_spacing',
 };
 
-/**
- * Per-entity config keys removed in the same cleanup, mapped to their replacements.
- */
 export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
   max_events_to_show: 'compact_events_to_show',
 };
@@ -250,10 +184,8 @@ export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
 /**
  * Reports removed config keys found in the raw user configuration.
  *
- * Reads the config *as the user wrote it*, before the merge with `DEFAULT_CONFIG`
- * fills every key in — afterwards a removed key is indistinguishable from an absent
- * one. Entity entries are inspected in place because `normalizeEntities` has not run
- * yet and a string entry carries no options.
+ * Reads the raw config before `DEFAULT_CONFIG` fills every key in. Entity entries are
+ * inspected before `normalizeEntities` turns them into the canonical shape.
  *
  * @param config - Raw configuration passed to `setConfig`
  * @returns Human-readable messages, one per removed key found; empty when the config is clean
@@ -290,9 +222,6 @@ export function findDeprecatedKeys(config: Partial<Types.Config>): string[] {
 /**
  * Sanitizes every numeric option so invalid values fall back to their defaults.
  *
- * Applied on each `setConfig` call, which means configurations already saved with an
- * empty value recover automatically without the user having to edit them again.
- *
  * @param config - Configuration to normalize (mutated in place)
  * @returns The same configuration instance, for chaining
  */
@@ -321,14 +250,8 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
  * rejects the declaration, and the rule silently disappears. Nothing errors and nothing
  * is logged — the option simply has no effect, which reads as the option being broken.
  *
- * Length-ness is inferred from the shape of the key's shipped default rather than from a
- * hand-maintained list, because a hand-maintained list is what drifts. A default matching
- * a plain pixel length is a length; `#03a9f4`, `15% 50%` and `en` are not, and a number
- * written against one of those is meaningless either way, so misclassification cannot
- * make anything worse than the raw number already was.
- *
- * Non-numeric values pass through untouched, including booleans and numbers written
- * against genuinely numeric options such as `title_max_lines` and `days_to_show`.
+ * Length-ness is inferred from the shipped default instead of a hand-maintained list.
+ * Non-numeric values and genuinely numeric options pass through untouched.
  *
  * @param key - Option the value was written against
  * @param value - Raw configured value, which YAML may have typed as a number
@@ -344,10 +267,7 @@ export function coercePixelLength(key: string, value: unknown): unknown {
 /**
  * {@link coercePixelLength} against a shipped default supplied directly.
  *
- * Split out so the nested walk can pass the default it has already descended to, rather
- * than looking one up by a flat key that would not find it. The by-key form remains the
- * entry point for callers that hold only a name — `resolveEffectiveConfig` and the
- * column gutter resolution, both of which work on top-level option names.
+ * Split out so the nested walk can pass the default it has already descended to.
  *
  * @param shippedDefault - The value this option ships with, at the same nesting level
  * @param value - Raw configured value, which YAML may have typed as a number
@@ -366,21 +286,9 @@ function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unkn
 /**
  * Applies {@link coercePixelLength} across every option, including nested groups.
  *
- * The column-view override path has coerced its own keys since `day_spacing` moved into
- * the override list, so `column: {day_spacing: 4}` rendered a 4px gutter while a
- * top-level `day_spacing: 4` rendered none — the same value in two places behaving
- * differently, which is worse than either behaviour on its own. Routing both through one
- * exported function is what stops them diverging again.
- *
- * Twenty-three shipped options take a pixel length, so this is not a `day_spacing` fix
- * wearing a general name: every one of them silently lost its rule when written bare.
- *
  * The walk descends `config` and `DEFAULT_CONFIG` **together**, which is what lets it
- * reach nested groups. An earlier version stopped at the top level, on the reasoning that
- * a nested key's shipped default was not visible to the flat lookup — but it is, because
- * the defaults carry the same nesting, so both structures can be descended in step. Four
- * shipped options sat in that gap: `weather.date.icon_size`, `weather.date.font_size` and
- * the two `weather.event` equivalents, each silently inert when written as a bare number.
+ * reach nested groups. Both structures carry the same nesting, so their values can be
+ * compared in step.
  *
  * Descent requires a plain object on **both** sides. That excludes arrays — `entities` has
  * no per-index shipped default to descend into, so walking it could only do harm — and it
@@ -390,16 +298,8 @@ function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unkn
  * **Nested groups are copied, never written through.** Home Assistant hands cards a frozen
  * configuration, and `setConfig` merges it shallowly — so `config.weather` and
  * `config.tap_action` are the *user's own frozen objects*, not copies. Writing into one
- * throws `TypeError: Cannot assign to read only property` in strict mode, which is every
- * module here, and it throws even when the assignment would not have changed anything.
- * A first version of this walk did exactly that and broke every card carrying a
- * `tap_action`, `hold_action` or `weather` block.
- *
- * So a nested group is rebuilt into a fresh object and only attached when something in it
- * actually changed. That also removes a second hazard the same shape creates: a card with
- * no `weather:` block gets `DEFAULT_CONFIG.weather` by reference out of the shallow merge,
- * and an in-place coercion there would edit the shipped defaults for every card in the
- * process.
+ * throws in strict mode. Rebuilding changed groups also prevents edits to shared default
+ * objects from leaking between cards.
  *
  * @param config - Configuration to normalize in place
  * @returns The same object, for chaining alongside `normalizeNumericOptions`
@@ -416,10 +316,8 @@ export function normalizeLengthOptions(config: Types.Config): Types.Config {
 /**
  * Recursive half of {@link normalizeLengthOptions}.
  *
- * Writes to `target` only where a value genuinely changed, which is what lets the caller
- * hand it a frozen object safely. The return value is what makes that possible one level
- * up: a nested group is rebuilt into a copy, and the copy is attached only if this
- * reports that the rebuild was not a no-op.
+ * Writes only changed values. Nested callers use the return value to attach rebuilt
+ * objects only when needed.
  *
  * @param target - Configuration level to normalize in place
  * @param defaults - The matching level of `DEFAULT_CONFIG`
@@ -460,8 +358,6 @@ function coerceLengthsAgainst(
 /**
  * Whether a value is a plain object, i.e. something with named keys to descend into.
  *
- * Arrays are excluded deliberately; see {@link normalizeLengthOptions}.
- *
  * @param value - Value to test
  * @returns `true` for a non-null, non-array object
  */
@@ -469,9 +365,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/**
- * Normalizes entity configuration to ensure consistent format
- */
+/** Normalizes entity configuration to ensure consistent format. */
 export function normalizeEntities(
   entities: Array<
     | string
@@ -506,18 +400,12 @@ export function normalizeEntities(
           label_icon_color: undefined,
         };
       }
-      // `typeof null === 'object'`, so a bare `-` list item in YAML — which parses
-      // as null — would reach `item.entity` and throw, taking down setConfig and
-      // with it the whole card. The `.filter(Boolean)` below already intends to
-      // drop malformed entries; this guard lets them reach it.
+      // Let malformed YAML entries reach the `.filter(Boolean)` instead of throwing.
       if (item && typeof item === 'object' && item.entity) {
         return {
           entity: item.entity,
           label: item.label,
-          // Dropped unless it names one of the four shapes, which is what makes an
-          // absent or misspelled type fall back to reading the value — the behaviour
-          // every configuration written before this key existed relies on. This list
-          // is an allowlist, so a key omitted here is silently discarded.
+          // Unknown label types fall back to the legacy value-label behavior.
           label_type: Helpers.isLabelType(item.label_type) ? item.label_type : undefined,
           color: item.color || undefined,
           accent_color: item.accent_color || undefined,
@@ -543,13 +431,11 @@ export function hasConfigChanged(
   previous: Partial<Types.Config> | undefined,
   current: Types.Config,
 ): boolean {
-  // Handle empty/undefined config
   if (!previous || Object.keys(previous).length === 0) {
     return true;
   }
 
-  // Extract entity IDs without colors for comparison - entity colors are styling only
-  // and don't require API data refresh
+  // Entity colors are styling only and do not require an API data refresh.
   const previousEntityIds = (previous.entities || [])
     .map((e) => (typeof e === 'string' ? e : e.entity))
     .sort()
@@ -560,18 +446,13 @@ export function hasConfigChanged(
     .sort()
     .join(',');
 
-  // Check refresh interval separately (it affects both timers and cache now)
   const refreshIntervalChanged = previous?.refresh_interval !== current?.refresh_interval;
 
-  // Check if core data-affecting properties changed
   const dataChanged =
     previousEntityIds !== currentEntityIds ||
     previous.days_to_show !== current.days_to_show ||
     previous.start_date !== current.start_date ||
-    // Moves the fetch window whenever start_date is week-relative, because
-    // `parseStartDateExpression` resolves `start_of_week` and the weekday names against
-    // it. Listed in FETCH_TIME_KEYS for that reason, and previously absent from both
-    // this comparison and the cache key — so the window changed and nothing refetched.
+    // Moves the fetch window whenever `start_date` is week-relative.
     previous.first_day_of_week !== current.first_day_of_week ||
     previous.show_past_events !== current.show_past_events ||
     previous.filter_duplicates !== current.filter_duplicates;
@@ -587,16 +468,12 @@ export function hasConfigChanged(
 // INITIALIZATION HELPERS
 //-----------------------------------------------------------------------------
 
-/**
- * Find a calendar entity in Home Assistant states
- */
+// Finds a calendar entity in common Home Assistant state shapes.
 export function findCalendarEntity(hass: Record<string, { state: string }>): string | null {
-  // No valid hass object provided
   if (!hass || typeof hass !== 'object') {
     return null;
   }
 
-  // Check for entities in the states property (standard Home Assistant structure)
   if ('states' in hass && typeof hass.states === 'object') {
     const stateKeys = Object.keys(hass.states);
     const calendarInStates = stateKeys.find((key) => key.startsWith('calendar.'));
@@ -605,33 +482,14 @@ export function findCalendarEntity(hass: Record<string, { state: string }>): str
     }
   }
 
-  // Check for entities at the top level (alternative structure)
   return Object.keys(hass).find((entityId) => entityId.startsWith('calendar.')) || null;
 }
 
 /**
  * Grid layout hint attached to the card picker suggestion.
  *
- * Full width, because this card is a text-heavy list: every row carries a date,
- * a title, a time and optionally a location. A section has a capped maximum
- * width, so half of one lands around 230-250px on any screen, and below roughly
- * 250px those fields wrap aggressively - a long location can spill over several
- * lines. That makes the card harder to read *and* taller than the full-width
- * equivalent showing the same events, so half width costs horizontal space
- * without buying anything back.
- *
- * The row count is deliberately left to the content. A numeric `rows` pins the
- * card to a fixed height rather than a minimum, and this card's height is not
- * knowable at suggestion time: `days_to_show` says nothing about how many events
- * fall in those days. A fixed height would leave dead space on a quiet calendar
- * and silently truncate a busy one. `'auto'` avoids both.
- *
- * These mirror the card's own `getGridOptions()`, so the suggestion asks for exactly
- * what a hand-added card gets by default. `columns` is the string `'full'`, not the
- * number 12: a section's grid is `12 * column_span` tracks wide, so 12 is one section
- * column's worth of width no matter how wide the section actually is, while `'full'`
- * fills it. They are stated explicitly rather than left out so the intent is legible
- * at the call site.
+ * Full width avoids cramped text wrapping in the picker. `'auto'` leaves height to
+ * the fetched content instead of pinning a fixed row count.
  */
 const SUGGESTION_GRID_OPTIONS = {
   columns: 'full',
@@ -642,18 +500,9 @@ const SUGGESTION_GRID_OPTIONS = {
  * The label distinguishing the column-layout suggestion from the list one.
  *
  * Home Assistant renders a suggestion's heading as `${cardName} - ${label}`,
- * taking `cardName` from our `window.customCards` entry, so this shows as
- * *Calendar Card Pro - Columns*. The first suggestion carries no label and is the
- * canonical recipe, which is the convention core's own providers follow.
- *
- * Deliberately untranslated. Home Assistant localizes its own suggestion labels
- * through `hass.localize`, but a custom card's label is passed through verbatim —
- * and the name beside it is already an untranslated product name. Translating it
- * would mean a new string in `src/translations/languages/*.json`, which is the
- * *eager* bundle: 35 files downloaded by every dashboard, to localize one word
- * seen only while adding a card. The wording matches the editor's own
- * `view.option.column.label`, which cannot be reused directly because it lives in
- * the lazily-loaded editor bundle and this runs card-side.
+ * taking `cardName` from our `window.customCards` entry. Deliberately untranslated:
+ * custom card labels are passed through verbatim, and this runs outside the lazy
+ * editor bundle.
  */
 const SUGGESTION_COLUMN_LABEL = 'Columns';
 
@@ -665,9 +514,8 @@ const SUGGESTION_COLUMN_LABEL = 'Columns';
  * form — a plain array of entity IDs — rather than the object form used for
  * per-calendar styling.
  *
- * The `-dev` suffix on the element name is intentional and must stay a plain
- * string literal: the build rewrites that exact literal to the production element
- * name, so a computed or pre-stripped name would break one of the two bundles.
+ * The `-dev` suffix must stay a plain string literal; the build rewrites that exact
+ * literal to the production element name.
  *
  * @param entities - Calendar entity IDs to pre-fill
  * @returns A ready-to-use card configuration
@@ -681,9 +529,7 @@ function buildDefaultCardConfig(entities: ReadonlyArray<string>): Record<string,
   };
 }
 
-/**
- * Generate a stub configuration for the card editor
- */
+/** Generates a stub configuration for the card editor. */
 export function getStubConfig(hass: Record<string, { state: string }>): Record<string, unknown> {
   const calendarEntity = findCalendarEntity(hass);
   return {
@@ -702,40 +548,18 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * untrusted, nothing is assumed about the shape of `hass`, and anything
  * unexpected returns `null` (never an empty array).
  *
- * A throw is contained rather than catastrophic — `generateCardSuggestions`
- * wraps each custom card's hook in its own `try`/`catch`, logs it and drops that
- * card's entries only. An earlier version of this comment claimed a throw
- * discarded the whole community list including other cards' entries; that is not
- * what the frontend does. The defensive style stays regardless, because the
- * contained failure is still *our* suggestions vanishing with nothing on screen
- * to say why.
- *
  * The domain check is the whole filter. A calendar entity carries no capability
  * signal worth testing: there is no meaningful device class, no relevant
  * `supported_features`, and its state only reports whether an event is currently
  * running, which says nothing about whether this card suits it.
  *
- * **Two suggestions are returned: the list layout, then the column layout.** This
- * reverses an earlier ruling here that exactly one should be offered, on the
- * grounds that the picker mounts every suggestion as a live card — true, it
- * renders `<hui-card preview>` per entry with no virtualization — and that each
- * extra variant would therefore cost a real calendar API request *every time*
- * anyone picks a calendar entity. The mechanism is right and the cost was
- * overstated: `generateDeterministicId` keys the event cache on entities,
- * `days_to_show`, `show_past_events` and `start_date`, and on none of them do the
- * two recipes differ. They share a cache key, so the second card is a cache read.
- * Only a cold cache pays twice, once per TTL window rather than once per pick.
- *
- * The two configs differ by exactly one key, which is what keeps that true. Do
- * not give the column variant its own `days_to_show` without re-reading
- * `generateDeterministicId` — that key *is* in the hash, and changing it makes
- * every pick two real fetches.
+ * The two configs differ only by `view`, so they share the same event-cache key.
+ * Changing fetch-affecting options in the column suggestion would make each picker
+ * preview issue its own calendar request.
  *
  * The column preview renders as columns rather than falling back to a list,
  * because `hui-card` sets `preview` on the element it mounts and `effectiveView`
- * returns the *requested* view whenever that flag is set. Without it the
- * suggestion would be pointless: a preview cell is 250-310px and three columns
- * need 488px, so the second tile would render identically to the first.
+ * returns the requested view whenever that flag is set.
  *
  * @param hass - Home Assistant instance, treated as possibly absent or malformed
  * @param entityId - Entity ID selected in the card picker

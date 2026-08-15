@@ -1,16 +1,6 @@
 /**
- * The editor element — the chassis around `<ha-form>`.
- *
- * What is left once the field-rendering layer is Home Assistant's: lifecycle,
- * `setConfig`, one panel mount per registered panel, one change handler, and the three
- * hooks that resolve every string in the form. There is no per-field code here at all,
- * and that is the measure of whether the rebuild is working.
- *
- * The element names three Home Assistant components — `ha-form`, `ha-expansion-panel`
- * and `ha-svg-icon` — where the editor it replaced named a dozen, most of them input
- * elements. Input elements are the ones Home Assistant renames: `ha-textfield` became
- * `ha-input` in 2026.5 and cost a runtime-detection shim that was deleted with that
- * editor. A schema names a selector instead, and Home Assistant picks the element.
+ * The editor element that hosts schema panels and mediates `<ha-form>` changes.
+ * Schemas name Home Assistant selectors rather than concrete input elements, because HA renames its components without notice.
  */
 
 import { LitElement, TemplateResult, html, nothing } from 'lit';
@@ -35,7 +25,6 @@ import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Localize from '../../translations/localize';
 
-/** Icon for a calendar's own settings, and for the exceptions group. */
 const ENTITY_ICON =
   'M19 19H5V8h14m-3-7v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2Z';
 const EXCEPTION_ICON =
@@ -51,90 +40,20 @@ export class CalendarCardProEditor extends LitElement {
 
   @property({ attribute: false }) hass?: Types.Hass;
 
-  /**
-   * The configuration being edited, with defaults merged in.
-   *
-   * Merged rather than raw because a form binds values, and an unset option has to
-   * show the value the card would actually use. The write path narrows it again — see
-   * `value.ts` — so what is stored stays minimal regardless of what is displayed.
-   */
   @state() private _config?: Types.Config;
 
-  /**
-   * Text the user has typed that the configuration cannot accept yet.
-   *
-   * The replacement for the old editor's `event.type` guards, which have no equivalent
-   * under a form that fires one event for every field. See `synthetic.ts`.
-   */
   @state() private _pending: Record<string, string> = {};
 
-  /**
-   * Options the user has asked to hold an exception for.
-   *
-   * Not derivable from the configuration, and that is the whole reason it exists. An
-   * exception starts out equal to the value it inherits, and an override equal to what
-   * it inherits is stripped on write — so a list derived from the stored block would
-   * delete each row at the moment it was created. This is the same shape of problem as
-   * a half-typed value, held the same way: in the editor, until the configuration can
-   * carry it.
-   */
   @state() private _declaredExceptions: ReadonlySet<string> = new Set();
 
-  /**
-   * What the user has asked the editor to show them.
-   *
-   * Editor state and nothing else: it filters what is rendered and never reaches the
-   * configuration, so there is no write path to guard and no chance of a search term
-   * being persisted to someone's YAML.
-   */
   @state() private _filter: Filter.FilterCriteria = Filter.NO_FILTER;
 
-  /**
-   * The form data as last rendered, per panel.
-   *
-   * Kept so a change can be diffed back to the key that moved: `ha-form` reports the
-   * whole data object and never says which field produced the event.
-   */
   private _renderedData = new Map<string, Record<string, unknown>>();
 
-  /**
-   * The configuration this editor last sent to Home Assistant.
-   *
-   * Home Assistant echoes a `config-changed` back through `setConfig`, so without a
-   * record of what we sent there is no way to tell our own edit from a new card being
-   * opened — and the two need opposite treatment of the pending text.
-   */
   private _lastDispatched?: Record<string, unknown>;
 
   /**
    * Accepts a configuration from Home Assistant.
-   *
-   * Pending text is normally dropped here, because the configuration has moved
-   * underneath the form — a different card has been opened, or the YAML was edited
-   * directly — and holding a half-typed value across that would show text belonging to
-   * a card that is no longer on screen.
-   *
-   * The exception is our own edit coming back round. Home Assistant answers a
-   * `config-changed` by feeding the configuration back in, so an unconditional reset
-   * here would erase a held keystroke with the echo of the keystroke that produced it.
-   *
-   * `entities` is guarded here for the same reason the card guards it in its own
-   * `setConfig`: it is the option a user is most likely to mistype, because most cards
-   * take a singular `entity:`. The card has always been defensive — `normalizeEntities`
-   * answers `[]` for anything that is not a list — but the editor was not, and several
-   * separate places across `element.ts` and `synthetic.ts` read `config.entities ?? []`
-   * expecting an array. So
-   * `entities: calendar.family` threw out of `deriveSyntheticData` and the editor never
-   * opened, which is the worst place for it to fail: the editor is what the user reaches
-   * for *because* the configuration is wrong.
-   *
-   * Deliberately only the array-ness, not `normalizeEntities` itself. That normalizer
-   * also expands a bare `calendar.family` into `{entity: 'calendar.family'}`, which is
-   * right for the card — it reads the objects and never writes them back — and wrong
-   * here, because whatever shape the editor holds is the shape it stores. Running it
-   * would rewrite every user's compact list into objects on the first unrelated edit.
-   * Entry *contents* are already handled: a list holding `null` or a number renders
-   * fine, and `Entities.writeEntity` owns the shape from there.
    *
    * @param config - Card configuration as stored
    */
@@ -154,11 +73,6 @@ export class CalendarCardProEditor extends LitElement {
       this._declaredExceptions = Exceptions.declaredKeys(this._config);
     }
 
-    // Recorded even for an echo, and even before anything is edited: without a
-    // baseline the first edit has nothing to compare against and would be reported
-    // whether or not it configured anything. `toStoredConfig` is idempotent, so
-    // normalising the incoming config here makes the comparison like-for-like — a
-    // config carrying a redundant default compares equal to the one we would write.
     this._lastDispatched = Value.toStoredConfig(this._config);
 
     this._renderedData.clear();
@@ -199,16 +113,11 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Builds the data object bound to a panel's form.
    *
-   * The merged configuration plus the synthetic fields, which exist only here and are
-   * removed again on the way out.
-   *
    * @returns Form data
    */
   private _formData(): Record<string, unknown> {
     return {
       ...(this._config as unknown as Record<string, unknown>),
-      // Projected so that a density control shows the value the card is using rather
-      // than a blank box; see `columnFormBlock`. The write path strips it again.
       column: Value.columnFormBlock(this._config!),
       ...Synthetic.deriveSyntheticData(this._config!, this._pending),
     };
@@ -234,8 +143,6 @@ export class CalendarCardProEditor extends LitElement {
     this._config = applied.config;
     this._pending = applied.pending;
 
-    // Re-derived rather than taken from the event, so that a value the config refused
-    // — a half-typed offset — is reflected back as what the form should now show.
     this._renderedData.set(panelId, this._formData());
 
     this._report(applied.config);
@@ -243,15 +150,6 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Tells Home Assistant what the configuration now is, when it has moved.
-   *
-   * The single exit from the editor, shared by the form handler and by the two
-   * hand-written widgets, so that what is stored is narrowed the same way regardless of
-   * which of the three produced the edit.
-   *
-   * An edit that changed nothing storable is not reported, and telling Home Assistant
-   * anyway would be actively harmful rather than merely noisy: it answers with a
-   * `setConfig` carrying the unchanged configuration, and any held keystrokes go with
-   * it. Silence is also correct on its own terms — nothing was configured.
    *
    * @param config - Merged configuration after the edit
    */
@@ -269,14 +167,6 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Resolves a label for any field in any panel.
-   *
-   * One closure for the whole form, against 122 hand-written lookup sites in the old
-   * editor.
-   *
-   * Home Assistant passes the enclosing group path as `{ path }` rather than as a bare
-   * array — `ha-form-expandable` builds `{ ...options, path: [...] }` as it descends —
-   * so the object is unwrapped here rather than in the resolver, which stays a plain
-   * function the tests can call directly.
    *
    * @param schema - Node being labelled
    * @param _data - Form data, unused
@@ -307,10 +197,6 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Resolves option labels that a selector asks Home Assistant to translate.
    *
-   * Selectors built here carry their own labels, so this only fires for keys a
-   * selector generates itself. Returning `undefined` leaves Home Assistant's own
-   * resolution in place rather than overriding it with a humanised key.
-   *
    * @param key - Translation key the selector asked for
    * @returns The resolved string, or `undefined` to defer
    */
@@ -320,14 +206,6 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Renders one panel: an expansion panel wrapping a form.
    *
-   * Nothing is rendered for a panel the filter has emptied. A collapsed heading with no
-   * fields under it is worse than absent — it reads as a section that holds no match,
-   * which is exactly the thing the user would then open to check.
-   *
-   * A filtered editor renders its panels **expanded**, because the alternative is nine
-   * collapsed headings and no answer: the user asked where an option is, and a closed
-   * panel replies only with which section it is in.
-   *
    * @param panel - Panel definition
    * @param ctx - Schema context
    * @returns The panel template, or nothing when the filter leaves it empty
@@ -336,10 +214,6 @@ export class CalendarCardProEditor extends LitElement {
     const filterCtx = this._filterCtx;
     const filtering = Filter.isFiltering(this._filter);
 
-    // A panel whose own heading answers the query is shown whole, exactly as a matching
-    // group inside one is: the user asked for the section, not for whichever of its
-    // fields repeats the word. "Customized only" is no such exemption — a section kept
-    // whole on the strength of its title would bring back every default in it.
     const built = panel.build(ctx);
     const wholePanel =
       filtering && !this._filter.customizedOnly && Filter.matchesPanel(panel, filterCtx);
@@ -348,10 +222,6 @@ export class CalendarCardProEditor extends LitElement {
     const data = this._formData();
     this._renderedData.set(panel.id, data);
 
-    // Built against the *unfiltered* schema: which options a panel may hold an exception
-    // for is a property of the panel, not of what is on screen, and deriving it from a
-    // filtered schema would quietly shorten the picker's list of options while a search
-    // was active.
     const exceptions = this._renderExceptions(panel, built, ctx);
     const entities = this._renderEntities(panel, ctx);
     const extras = Filter.filterExtras(panel.extras?.(ctx) ?? [], panel, filterCtx);
@@ -408,9 +278,6 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Resolves the sentence under a panel's heading.
    *
-   * One line saying what the panel is for, which is what makes nine collapsed headings
-   * navigable rather than a list of nouns to guess between.
-   *
    * @param panel - Panel definition
    * @param ctx - Schema context
    * @returns Helper text, or `undefined` when the panel has none
@@ -421,9 +288,6 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Renders panel content that is not a form field.
-   *
-   * The union is over data, so this is the only place in the editor that knows how any
-   * of it is drawn.
    *
    * @param extra - Content to render
    * @returns The template
@@ -450,30 +314,11 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Renders the per-calendar settings, one collapsible form per configured calendar.
    *
-   * The hand-written half of the editor, and it is hand-written because `ha-form` has
-   * no member for an ordered list of heterogeneous sub-configs — the same reason every
-   * Home Assistant card with a list is a hybrid. What is hand-written is the **list**:
-   * each calendar's fields are an ordinary schema fed to an ordinary form, which is why
-   * labels, helpers, grids and default-stripping all still work here without a second
-   * implementation of any of them.
-   *
-   * The picker above stays. It is the only way to add a calendar at all, it is where
-   * order is set — and order is configuration, since duplicate filtering keeps the copy
-   * from whichever calendar is listed first — and it already merges settings back by
-   * entity id, so a calendar deselected and reselected keeps everything configured for
-   * it. The two are one control split by responsibility: membership and order above,
-   * settings below.
-   *
    * @param panel - Panel being rendered
    * @param ctx - Schema context
    * @returns The list, or nothing for every other panel
    */
   private _renderEntities(panel: PanelDef, ctx: SchemaCtx): TemplateResult | typeof nothing {
-    // Selected by the path it is rendered under rather than by position, and by the
-    // panel that owns the list rather than by name. `entities` is the only list-shaped
-    // key the configuration has — `weather.date`, `weather.event` and `column` are all
-    // fixed-key objects — so a panel declaring a sub-form under this path is declaring
-    // the schema for one member of it.
     const subform = panel
       .subforms?.(ctx)
       ?.find((candidate) => candidate.path.join('.') === ENTITY_PATH.join('.'));
@@ -485,17 +330,11 @@ export class CalendarCardProEditor extends LitElement {
     const filterCtx = this._filterCtx;
     const filtering = Filter.isFiltering(this._filter);
 
-    // Filtered per calendar rather than once for the list: what counts as customized is
-    // a property of the individual calendar, so one calendar's settings can survive a
-    // filter that empties its neighbour's.
     const shown = entries
       .map((entry, index) => ({
         entry,
         index,
         schema: Filter.filterEntitySchema(
-          // Narrowed to this calendar's own label shape before the filter runs, so the
-          // filter sees the fields this calendar actually renders rather than the
-          // superset the panel declares.
           entitySchemaFor(subform.schema, Entities.labelTypeOf(entry)),
           entry,
           subform.path,
@@ -571,10 +410,6 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * The line under a calendar's heading.
    *
-   * Its label where it has one, since that is what the user named it; otherwise a count
-   * of what is configured, so a collapsed calendar still says whether there is anything
-   * inside it.
-   *
    * @param entry - Entry as stored
    * @param ctx - Schema context
    * @returns Secondary text
@@ -619,9 +454,6 @@ export class CalendarCardProEditor extends LitElement {
   private _copyEntitySettings(entry: string | Types.EntityConfig): void {
     Entities.copySettings(entry);
 
-    // The clipboard lives outside this element, so that it survives the dialog being
-    // closed and reopened — which is the case the feature exists for. Nothing about it
-    // is reactive, so the paste buttons have to be told it moved.
     this.requestUpdate();
   }
 
@@ -643,21 +475,6 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Renders the exceptions widget for a panel.
-   *
-   * An exception is a value that differs in one view, so it belongs beside the value it
-   * differs from — in the panel that owns that value, not in a panel or a tab of its
-   * own. What is offered comes from the panel's own schema, so the control for an
-   * exception is the same control as for the option itself.
-   *
-   * Nothing is rendered for a view with no override block, or for a panel holding no
-   * overridable option, and nothing is rendered *inside* the group until an exception is
-   * added — a card with none costs one collapsed heading and no fields.
-   *
-   * Under a filter the widget appears only when it has rows the filter keeps. An
-   * exception is a customization by construction, so "customized only" keeps every
-   * declared row; a search keeps the rows it matches, and the whole widget when the
-   * heading itself matches. A panel showing an exceptions heading with nothing behind it
-   * would be the same empty promise as an empty panel.
    *
    * @param panel - Panel being rendered
    * @param schema - The panel's schema, as built and before any filtering
@@ -692,17 +509,11 @@ export class CalendarCardProEditor extends LitElement {
         select: {
           mode: 'dropdown',
           multiple: true,
-          // Labelled from the fields themselves, so the list of options a user can
-          // hold an exception for reads exactly like the panel above it.
           options: eligible.map((field) => ({ value: field.name, label: label(field) })),
         },
       },
     };
 
-    // Bound to the block **plus** the stand-ins for whichever of its keys are unions —
-    // the same mode dropdowns the panel above uses, pointed at the block. Recomputed
-    // rather than remembered: it is a pure function of state the change has not touched
-    // yet, so the handler below can rebuild the identical object to diff against.
     const names = active.map((field) => field.name);
     const data = Overrides.overrideFormData(
       Value.exceptionFormBlock(this._config!, names),
@@ -772,12 +583,6 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Adds and removes exceptions as the picker reports them.
    *
-   * Removal deletes the key from the block rather than writing the inherited value into
-   * it. Those are different acts, and only the first is what "remove this exception"
-   * means: writing the inherited value leaves a line doing nothing, which is how a
-   * configuration accumulates overrides nobody meant, and it would silently become a
-   * real override the moment the shared value changed.
-   *
    * @param blockKey - Config key holding the view's override block
    * @param eligible - The panel's eligible fields
    * @param event - The picker's `value-changed`
@@ -805,24 +610,11 @@ export class CalendarCardProEditor extends LitElement {
     this._config = applied.config;
     this._declaredExceptions = applied.declared;
 
-    // Declaring an exception configures nothing on its own — it starts out equal to the
-    // value it inherits — so this reports only when a removal actually took a key away.
     this._report(this._config);
   }
 
   /**
    * Folds a change to an exception's value into the override block.
-   *
-   * A diff rather than a whole-object write, for the reason `applyFormChange` is a diff
-   * everywhere else: three of the options here are edited through stand-in fields, so
-   * what the form hands back is not the block — it is the block with some of its keys
-   * replaced by the mode dropdowns that write them. `applyOverrideChange` reverses that,
-   * and the previous data it diffs against is rebuilt rather than remembered, since it
-   * is a pure function of configuration this event has not changed yet.
-   *
-   * Anything the result leaves redundant — an exception equal to what it would inherit,
-   * a density value left at its default — is stripped on the way to storage, so
-   * displaying an effective value never persists one.
    *
    * @param blockKey - Config key holding the view's override block
    * @param names - Options whose rows this form is currently showing
@@ -888,9 +680,6 @@ export class CalendarCardProEditor extends LitElement {
       (panel) => panel !== nothing,
     );
 
-    // Only a filter can empty the editor, and only a filter has anything to explain: an
-    // unfiltered editor with no panels would be a bug, and telling the user their search
-    // matched nothing would be the wrong thing to say about it.
     const empty = panels.length === 0 && Filter.isFiltering(this._filter);
 
     return html`
@@ -902,11 +691,6 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Renders the filter bar above the panels.
-   *
-   * One `<ha-form>` of two fields, which is what keeps a search box from being the
-   * editor's first input element and its fourth Home Assistant component — see
-   * `FILTER_SCHEMA`. Its own form, bound to its own data, with a handler that touches
-   * editor state and nothing else: no configuration passes through here at all.
    *
    * @returns The filter bar
    */
@@ -943,13 +727,6 @@ export class CalendarCardProEditor extends LitElement {
 
   /**
    * Says why the editor is empty.
-   *
-   * Worth its own message rather than a blank pane, and worth two of them. A search that
-   * finds nothing has a specific reason a user cannot see: the panels only build the
-   * fields the current configuration calls for, so an option gated behind a switch that
-   * is off is genuinely not in the editor to be found, and saying so is the difference
-   * between a hint and a dead end. "Customized only" with nothing to show is not a
-   * failure at all — it is the answer, and it deserves to be stated as one.
    *
    * @param ctx - Schema context
    * @returns The message

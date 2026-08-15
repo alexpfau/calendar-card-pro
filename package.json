@@ -62,7 +62,6 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@material/web": "^2.4.1",
     "@mdi/js": "^7.4.47",
     "dayjs": "^1.11.20",
     "lit": "^3.3.2"

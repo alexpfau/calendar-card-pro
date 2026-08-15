@@ -2,59 +2,10 @@
 /**
  * Terminology evidence for the editor glossary.
  *
- * This is a **one-shot authoring tool, not a gate**. Nothing in CI runs it, and it is
- * committed so the numbers in `docs/development/editor-glossary.md` can be re-derived
- * rather than taken on trust.
- *
- * It answers one question per term: *what does everyone else already call this?* Three
- * artefacts have an opinion, and they are consulted in this order —
- *
- *   1. **Home Assistant's own frontend**, per language. The register an HA card editor
- *      should be written in. Two rules govern its use, both learned the hard way:
- *
- *      - **Rule 1 — reject any value byte-identical to its English.** That is HA's own
- *        translation gap, not evidence. Latvian's table is ~20% English, so without this
- *        the oracle actively injects English into the language it is least able to help.
- *      - **Rule 2 — the domain sense wins.** A term is looked up at a key from the
- *        *calendar* namespace wherever one exists. Reading `event` at HA's `event`
- *        *entity* domain — a button press, a doorbell — rather than at its calendar
- *        domain is what made an earlier pass conclude German should say `Ereignis` when
- *        HA's own calendar UI says `Termin`. The preference order below is Rule 2 made
- *        mechanical, and `HA_KEY` overrides it by hand wherever automatic ranking would
- *        still pick the wrong sense.
- *
- *   2. **The card's own 35 languages** — native-contributed, and the only in-repo second
- *      opinion on the shared vocabulary.
- *   3. **The editor's existing translations** — mined from a 97–100% complete
- *      predecessor, so they are evidence too, not merely the thing being checked.
- *
- * Where those three disagree the glossary records which won and why. Where they agree,
- * the entry is cheap and the session does not have to think about it again.
- *
- * **The corpus is the PyPI wheel, not a live instance.** It is versioned, reproducible,
- * needs no credentials, and — decisively — it carries every translation *fragment*.
- * HA splits its table up, and the card-editor vocabulary a calendar card needs
- * (`Layout`, `Columns`, `Width`, `Background`, `Theme`, `Appearance`) lives almost
- * entirely in the lazily-loaded `lovelace` fragment. A scrape of the core table alone
- * reports those terms as absent, which is a false negative rather than a finding: it
- * moved this probe from 1,889 English keys to 7,341.
- *
- *   pip download home-assistant-frontend==20260128.6 --no-deps
- *   unzip -q home_assistant_frontend-*.whl -d /tmp/hafe
- *   HA_FRONTEND_TRANSLATIONS=/tmp/hafe/hass_frontend/static/translations \
- *     node scripts/l10n-oracle.mjs
- *
- * **Pin the version.** An unpinned `pip download` is not reproducible across
- * environments: behind a corporate proxy the index for this package can stop at an older
- * release, and two people following the same instruction faithfully then get corpora a
- * year apart — 5,884 English keys against 7,341. That is not hypothetical. It is why the
- * key deciding `location` appeared not to exist, and why the glossary records the version
- * beside the evidence. If a key named there does not resolve, compare corpus sizes before
- * concluding the glossary is wrong.
- *
- * Every fragment directory found is loaded, deliberately rather than a hand-picked list:
- * a hand-picked list is how a term gets reported as having no evidence when the evidence
- * was simply in a file nobody opened.
+ * One-shot authoring tool, not a CI gate. It compares Home Assistant frontend strings,
+ * the card's languages and existing editor translations so glossary decisions can cite
+ * reproducible evidence. Point `HA_FRONTEND_TRANSLATIONS` at an unpacked, pinned
+ * `home-assistant-frontend` wheel and run `node scripts/l10n-oracle.mjs`.
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -76,9 +27,7 @@ export const LANGS = ['de', 'et', 'it', 'lt', 'lv', 'nb', 'pl', 'sk', 'sv'];
 const flatten = (obj, prefix = '', out = {}) => {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? `${prefix}.${k}` : k;
-    // Arrays are joined rather than skipped. Skipping them is what made an earlier probe
-    // report zero matches against the card's strings, where the weekday and month names
-    // — 26 real strings per language — are arrays.
+    // Arrays are joined so weekday and month names remain searchable.
     if (v && typeof v === 'object' && !Array.isArray(v)) flatten(v, key, out);
     else out[key] = Array.isArray(v) ? v.join('|') : v;
   }
@@ -129,17 +78,11 @@ export function loadHaLanguage(lang) {
 /**
  * The glossary's terms, and where each one's evidence is read from.
  *
- * `HA_KEY` is hand-picked per term because automatic ranking cannot tell a calendar
- * event from an `event` entity. A `null` records that the corpus genuinely has no
- * evidence — checked, not assumed, and worth stating in the glossary because those are
- * the terms nothing external will arbitrate.
- *
- * Order is by measured risk, not by frequency: `time` and `start date` lead because they
- * are where the nine languages were *measured* to diverge, and a term nobody ever decided
- * is more dangerous than a frequent one everybody renders the same way.
+ * `HA_KEY` is hand-picked where automatic ranking cannot tell a calendar event from an
+ * `event` entity. A `null` records that the corpus has no evidence.
  */
 export const TERMS = [
-  // --- measured trouble spots -----------------------------------------------
+  // --- trouble spots ---------------------------------------------------------
   ['time', 'ui.components.selectors.selector.types.time', ['time']],
   ['start date', 'ui.components.date-range-picker.start_date', []],
   // --- core domain nouns ----------------------------------------------------
@@ -208,8 +151,7 @@ export const TERMS = [
 export async function collectEvidence() {
   const ha = Object.fromEntries(['en', ...LANGS].map((l) => [l, loadHaLanguage(l)]));
 
-  // Self-test before any absence is believed. A probe that cannot find a string it is
-  // known to contain has not established that anything is missing.
+  // Self-test before any absence is believed.
   if (!Object.values(ha.en).includes('Calendar')) {
     console.error('\n  FATAL: self-test failed — "Calendar" is not in the English corpus.\n');
     process.exit(2);

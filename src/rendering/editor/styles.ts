@@ -1,11 +1,5 @@
 /**
- * Styling for the schema-driven editor.
- *
- * Deliberately small, and it should stay that way. Every field in the form is a Home
- * Assistant selector rendering with Home Assistant's own styling, so the only things
- * that need rules here are the chassis around the forms and the one piece of content
- * that is not a field. A rule targeting an input element would be a rule that breaks
- * when Home Assistant renames one — the exact liability the rebuild exists to shed.
+ * Styles for the editor chassis around Home Assistant form controls.
  */
 
 import { css } from 'lit';
@@ -28,11 +22,6 @@ export default css`
     padding: 8px 0 4px;
   }
 
-  /*
-   * The width table. Two columns, the widths right-aligned so the figures line up as
-   * a scale — the point of the table is the ordering of the numbers, and a ragged
-   * left edge on a column of measurements defeats it.
-   */
   .width-table {
     border: 1px solid var(--divider-color);
     border-radius: var(--ha-card-border-radius, 12px);
@@ -75,11 +64,6 @@ export default css`
     margin-top: 10px;
   }
 
-  /*
-   * The filter bar. Pinned above the panels so that a search box is where a search box
-   * is expected, and separated by a rule rather than by space alone — it is the chassis
-   * talking about the editor, not another section of the card's configuration.
-   */
   .filter-bar {
     border-bottom: 1px solid var(--divider-color);
     padding-bottom: 12px;
@@ -98,11 +82,6 @@ export default css`
     margin-top: 8px;
   }
 
-  /*
-   * One collapsible group per calendar, and one for a panel's exceptions. Indented so
-   * that a group belonging to a panel reads as being inside it rather than as a tenth
-   * panel, and matching the inset Home Assistant gives the sub-groups it draws itself.
-   */
   ha-expansion-panel.entity-panel,
   ha-expansion-panel.exceptions {
     margin: 0;
@@ -114,13 +93,6 @@ export default css`
     justify-content: flex-end;
   }
 
-  /*
-   * A plain button rather than one of Home Assistant's. The editor names three of its
-   * components and every one of them is a container: input elements are what Home
-   * Assistant renames — ha-textfield became ha-input in 2026.5 and cost a runtime
-   * shim — so a rule of taking none of them is cheaper to keep than a judgement about
-   * which ones are safe. Ten lines of CSS is the whole price.
-   */
   .text-button {
     background: none;
     border: none;
