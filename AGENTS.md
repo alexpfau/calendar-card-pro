@@ -4,33 +4,6 @@ Instructions for AI coding agents working in this repository.
 Human contributors should read [CONTRIBUTING.md](./CONTRIBUTING.md) — this file is the
 agent-facing summary plus the things that are easy to get wrong.
 
-## Local agent skills — read this before building any tooling
-
-Three skills live at an **absolute path outside this checkout**:
-
-```
-/Users/alexpfau/Documents/Tech/GitHub/calendar-card-pro/.agents/skills/
-    calendar-card-pro-deploy     build → deploy to HA → live-test in a real browser
-    calendar-card-pro-release    release preflight
-    calendar-card-pro-triage     issue triage
-```
-
-**They are untracked, so they exist only in the main checkout — a worktree under
-`.worktrees/` has none of them, which is exactly where you are when working a branch.**
-That is why the path above is absolute and must not be shortened; the scripts resolve
-their own neighbours from `import.meta.url`, so only the invocation needs it.
-
-Read `calendar-card-pro-deploy/SKILL.md` before doing anything involving the live Home
-Assistant instance — deploying a dev build, driving a browser, taking screenshots, or
-touching the `ccp-release-*` dashboard tabs. It already covers the dev-build deploy loop,
-the cache-buster bump, the screenshot fixtures, macOS Local Network permission, and a
-list of traps with the measurements behind them.
-
-This pointer exists because those skills are invisible from a worktree and nothing else
-names them: a session rebuilt Playwright capture tooling, re-diagnosed the macOS LAN
-block, and rediscovered the `max_columns: 1` column-view trap, all of which were already
-written down there.
-
 ## Project
 
 Calendar Card Pro is a custom Lovelace card for Home Assistant, written in TypeScript
@@ -337,6 +310,13 @@ User-facing documentation lives on the **documentation site**,
 deployed by Cloudflare on every push to `main`. `README.md` is now only a landing page:
 badges, overview, installation, a quick-start example, What's New, and contributing.
 Everything else moved to `docs/`.
+
+The screenshots under `.github/img/` are **not** captured by anything in this repo. They
+come from a Home Assistant instance only the maintainer has, so they cannot be regenerated
+from a PR. Two consequences: a change that alters how the card renders by default — spacing,
+alignment, what a row shows — silently invalidates them, so **say so in the PR** rather than
+assuming someone will notice; and they are referenced by `main`-branch raw URLs, so a
+replacement is only live once it reaches `main`.
 
 **In a feature or fix PR** (targeting `dev`), document the change in `docs/`, not the README:
 
@@ -719,12 +699,6 @@ explanation. It does not ship.
   the worked instances behind the verification rules below. Read it when a check passes and you
   are not sure it proved anything; every entry is a real failure from this repo with its
   measurement.
-- [`docs/development/screenshots.md`](./docs/development/screenshots.md) — how the images
-  under `.github/img/` are captured, which dashboard tab feeds which, and the traps.
-  **Read it before retaking any screenshot.** A screenshot is a config _plus a date plus a
-  calendar_, and only the first is written down anywhere: derive the config from the image
-  rather than from the dashboard card, because the cards drift — no `start_date`, changed
-  `days_to_show`, and v3 key names the runtime now ignores silently.
 
 ## Verification
 

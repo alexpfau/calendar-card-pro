@@ -4290,7 +4290,7 @@ entity label, and change an allow/block pattern. Confirm the view updates.
 
 #### G13 spike results — measured 2026-08-10 on a live HA instance
 
-Chromium against `dashboard-admin`, **reloading at each viewport width**. Live resizing does
+Chromium against a live dashboard, **reloading at each viewport width**. Live resizing does
 not settle and produces non-monotonic garbage (a 900px viewport reported a wider content box
 than a 1024px one); every number below is steady-state after reload.
 
