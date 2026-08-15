@@ -1,7 +1,6 @@
 /**
  * Public entry point for the schema-driven editor build.
  */
-
 export { CalendarCardProEditor } from './element';
 export { EDITOR_VERSION } from './version';
 export { PANELS, walkSchema } from './panels';

@@ -18,7 +18,6 @@ import * as Logger from '../utils/logger';
  * @param entities - Entity configuration array
  * @returns The primary entity ID or undefined if not available
  */
-
 function getPrimaryEntityId(entities: Array<string | Types.EntityConfig>): string | undefined {
   if (!entities || !entities.length) return undefined;
 
@@ -34,7 +33,6 @@ function getPrimaryEntityId(entities: Array<string | Types.EntityConfig>): strin
  * @param action - Action type: "tap" or "hold"
  * @param expandCallback - Optional callback for the card-specific expand action
  */
-
 export function handleAction(
   node: HTMLElement,
   config: Types.Config,

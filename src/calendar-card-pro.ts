@@ -71,7 +71,6 @@ declare global {
  * @param tagName - Element name to register the editor under
  * @throws When the module does not carry a usable editor component
  */
-
 export function adoptEditorComponent(module: unknown, tagName: string): void {
   const editorModule = module as Partial<typeof Editor> | undefined | null;
   const component = editorModule?.CalendarCardProEditor;
@@ -107,7 +106,6 @@ export function adoptEditorComponent(module: unknown, tagName: string): void {
 /**
  * Main Calendar Card Pro custom element.
  */
-
 @customElement('calendar-card-pro-dev')
 class CalendarCardPro extends LitElement {
   //-----------------------------------------------------------------------------
@@ -128,20 +126,17 @@ class CalendarCardPro extends LitElement {
   /**
    * Latest value rendered by Home Assistant for a templated `title`.
    */
-
   @property({ attribute: false }) renderedTitle?: string;
 
   /**
    * Set while the dashboard is editable or the card picker preview is rendering.
    */
-
   @property({ type: Boolean }) preview = false;
   @property({ type: Boolean }) editMode = false;
 
   /**
    * Tells `hui-card` to keep this element in the DOM while it is hidden.
    */
-
   public connectedWhileHidden = true;
 
   /**
@@ -152,7 +147,6 @@ class CalendarCardPro extends LitElement {
    *
    * @returns The editor element, once its file has loaded
    */
-
   static async getConfigElement(): Promise<HTMLElement> {
     if (!customElements.get('calendar-card-pro-dev-editor')) {
       try {
@@ -181,7 +175,6 @@ class CalendarCardPro extends LitElement {
    *
    * @returns Default grid sizing for a sections-view dashboard
    */
-
   public getGridOptions(): { columns: 'full'; rows: 'auto' } {
     return { columns: 'full', rows: 'auto' };
   }
@@ -190,7 +183,6 @@ class CalendarCardPro extends LitElement {
   /**
    * The `_instanceId` the events currently held in `events` were fetched for.
    */
-
   private _eventsInstanceId = '';
   private _language = '';
   private _refreshTimerId?: number;
@@ -202,12 +194,10 @@ class CalendarCardPro extends LitElement {
   /**
    * Subscription that keeps `renderedTitle` in step with a templated `title`.
    */
-
   private _titleSubscription?: Templates.TemplateSubscription;
   /**
    * True when the most recent fetch could not read at least one calendar.
    */
-
   private _hasFetchError = false;
   private _visibleCountCache?: {
     events: Types.CalendarEventData[];
@@ -230,7 +220,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Card width in CSS pixels, as most recently measured.
    */
-
   private _measuredWidthPx: number | null = null;
 
   private _effectiveView: Types.EffectiveView = 'list';
@@ -238,7 +227,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Day columns actually rendered, after any width-driven reduction.
    */
-
   private _columnCount = 0;
 
   private _resizeObserver: ResizeObserver | null = null;
@@ -246,7 +234,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Pending trailing timer for the last width measurement.
    */
-
   private _widthSettleTimerId: number | null = null;
 
   //-----------------------------------------------------------------------------
@@ -455,7 +442,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Begins observing the card's own width.
    */
-
   private _startWidthObserver(): void {
     if (this._resizeObserver || typeof ResizeObserver === 'undefined') {
       return;
@@ -477,7 +463,6 @@ class CalendarCardPro extends LitElement {
    *
    * @param widthPx - Measured content width in CSS pixels
    */
-
   private _scheduleWidthMeasurement(widthPx: number): void {
     if (this._widthSettleTimerId !== null) {
       clearTimeout(this._widthSettleTimerId);
@@ -504,7 +489,6 @@ class CalendarCardPro extends LitElement {
    *
    * @param widthPx - Measured content width in CSS pixels
    */
-
   private _handleWidthMeasured(widthPx: number): void {
     const next = ViewConfig.resolveColumnFitOnMeasurement(
       this.requestedView,
@@ -573,7 +557,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Keep the title template subscription aligned with the current config.
    */
-
   private _updateTitleSubscription(): void {
     const isTemplated = Templates.isTemplate(this.config.title);
 
@@ -606,7 +589,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Hide the card entirely when it has no events and `hide_when_empty` is on.
    */
-
   private _applyVisibility(): void {
     const isErrorState =
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
@@ -640,7 +622,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Generate style properties from configuration Returns a style object for use with styleMap
    */
-
   private getCustomStyles(): Record<string, string> {
     return Styles.generateCustomPropertiesObject(this.effectiveConfig);
   }
@@ -648,7 +629,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle visibility changes to refresh data when returning to the page
    */
-
   private _handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') {
       const now = Date.now();
@@ -662,7 +642,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Start the refresh timer
    */
-
   private startRefreshTimer() {
     if (this._refreshTimerId) {
       clearTimeout(this._refreshTimerId);
@@ -683,7 +662,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Schedule weather subscription setup, debounced to collapse multiple calls within the same microtask into a single setup.
    */
-
   private _scheduleWeatherSetup(): void {
     if (this._weatherSetupPending) return;
     this._weatherSetupPending = true;
@@ -697,7 +675,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Set up weather forecast subscriptions
    */
-
   private async _setupWeatherSubscriptions(): Promise<void> {
     const version = ++this._weatherSetupVersion;
 
@@ -741,7 +718,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Clean up weather subscriptions
    */
-
   private _cleanupWeatherSubscriptions(): void {
     const count = this._weatherUnsubscribers.length;
     if (count > 0) {
@@ -762,7 +738,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle pointer down events for hold detection
    */
-
   private _handlePointerDown(ev: PointerEvent) {
     this._activePointerId = ev.pointerId;
     this._holdTriggered = false;
@@ -785,7 +760,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle pointer up events to execute actions
    */
-
   private _handlePointerUp(ev: PointerEvent) {
     if (ev.pointerId !== this._activePointerId) return;
 
@@ -814,7 +788,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle pointer cancel/leave events to clean up
    */
-
   private _handlePointerCancel() {
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
@@ -833,7 +806,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle keyboard navigation for accessibility
    */
-
   private _handleKeyDown(ev: KeyboardEvent) {
     if (ev.key === 'Enter' || ev.key === ' ') {
       ev.preventDefault();
@@ -848,7 +820,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle configuration updates from Home Assistant
    */
-
   setConfig(config: Partial<Types.Config>): void {
     const previousConfig = this.config;
 
@@ -894,7 +865,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Update calendar events from API or cache Simplified for card-mod compatibility
    */
-
   async updateEvents(force = false): Promise<void> {
     Logger.debug(`Updating events (force=${force})`);
 
@@ -962,7 +932,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Determine whether compact mode is actually limiting what the card renders.
    */
-
   private hasCompactModeLimits(): boolean {
     if (!ViewConfig.viewAppliesCompactLimits(this.effectiveView)) {
       return false;
@@ -984,7 +953,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Toggle expanded state for view modes with limited events
    */
-
   toggleExpanded(): void {
     if (this.hasCompactModeLimits()) {
       this.isExpanded = !this.isExpanded;
@@ -994,7 +962,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle user action
    */
-
   handleAction(actionConfig: Types.ActionConfig): void {
     const action = actionConfig === this.config.hold_action ? 'hold' : 'tap';
     Actions.handleAction(this, this.config, action, () => this.toggleExpanded());
@@ -1007,7 +974,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Render method with consistent, stable DOM structure for card-mod
    */
-
   render() {
     const customStyles = this.getCustomStyles();
 

@@ -17,7 +17,6 @@ import * as Localize from '../translations/localize';
 /**
  * Re-exported so the card can dispatch between views through a single import namespace. Keeping both renderers reachable as `Render.*` means the two call
  */
-
 export { renderColumnGroupedEvents } from './column';
 
 //-----------------------------------------------------------------------------
@@ -37,7 +36,6 @@ export { renderColumnGroupedEvents } from './column';
  * @param effectiveView The view actually being rendered, after any width fallback
  * @returns TemplateResult for the complete card
  */
-
 export function renderMainCardStructure(
   customStyles: Record<string, string>,
   title: string | undefined,
@@ -106,7 +104,6 @@ export function renderMainCardStructure(
  * @param language Language code for translations
  * @returns Template result for card content
  */
-
 export function renderCardContent(state: 'loading' | 'error', language: string): TemplateResult {
   const translations = Localize.getTranslations(language);
 
@@ -138,7 +135,6 @@ export function renderCardContent(state: 'loading' | 'error', language: string):
  * @param separatorType - Type of separator (day, week, or month)
  * @returns Style object for use with styleMap
  */
-
 function createSeparatorStyle(
   lineWidth: string,
   lineColor: string,
@@ -183,7 +179,6 @@ function createSeparatorStyle(
  * @param isFirstWeek - Whether this is the first week in the view
  * @returns TemplateResult or nothing
  */
-
 function renderHorizontalSeparator(
   lineWidth: string,
   lineColor: string,
@@ -207,7 +202,6 @@ function renderHorizontalSeparator(
  * @param config - Card configuration
  * @returns TemplateResult or nothing
  */
-
 function renderMonthSeparator(config: Types.Config): TemplateResult | typeof nothing {
   return renderHorizontalSeparator(
     config.month_separator_width,
@@ -226,7 +220,6 @@ function renderMonthSeparator(config: Types.Config): TemplateResult | typeof not
  * @param isFirstWeek - Whether this is the first week in the view
  * @returns TemplateResult or nothing
  */
-
 function renderWeekSeparator(
   config: Types.Config,
   isFirstWeek: boolean = false,
@@ -250,7 +243,6 @@ function renderWeekSeparator(
  * @param isFirstWeek - Whether this is the first week in the view
  * @returns TemplateResult or nothing
  */
-
 function renderWeekRow(
   weekNumber: number | null,
   isMonthBoundary: boolean,
@@ -317,7 +309,6 @@ function renderWeekRow(
  * @param isToday Whether the date is today
  * @returns Rendered date column
  */
-
 function renderDateColumn(
   date: Date,
   config: Types.Config,
@@ -340,7 +331,6 @@ function renderDateColumn(
  * @param boundaryInfo - Information about week and month boundaries
  * @returns TemplateResult for the day
  */
-
 export function renderDay(
   day: Types.EventsByDay,
   config: Types.Config,
@@ -397,7 +387,6 @@ export function renderDay(
 /**
  * Render grouped events with week and month separators Uses a precedence system for different separator types
  */
-
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
   config: Types.Config,
@@ -468,8 +457,7 @@ export function renderGroupedEvents(
  * @param language - Language code for translations
  * @returns TemplateResult for the event
  */
-
-export function renderEvent(
+function renderEvent(
   event: Types.CalendarEventData,
   day: Types.EventsByDay,
   index: number,

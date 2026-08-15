@@ -24,16 +24,16 @@ production bundle by 3 bytes, all of which were a bug fix.
 These are the npm scripts. Do not invent others — add one only when a command is run often
 enough that people will otherwise get it wrong.
 
-| Command                | Output                                                | Element names                                           | Logging |
-| ---------------------- | ----------------------------------------------------- | ------------------------------------------------------- | ------- |
+| Command                | Output                                                 | Element names                                           | Logging |
+| ---------------------- | ------------------------------------------------------ | ------------------------------------------------------- | ------- |
 | `npm run dev`          | `dist/calendar-card-pro-dev.js` + `dist/editor-dev.js` | `calendar-card-pro-dev`, `calendar-card-pro-dev-editor` | verbose |
 | `npm run build`        | `dist/calendar-card-pro.js` + `dist/editor.js`         | `calendar-card-pro`, `calendar-card-pro-editor`         | silent  |
-| `npm run lint`         | — (eslint, `--fix`)                                   |                                                         |         |
-| `npm run format`       | — (prettier, `--write`)                               |                                                         |         |
-| `npm test`             | — (vitest, single run)                                |                                                         |         |
-| `npm run check:i18n`   | — (translation wiring check)                          |                                                         |         |
-| `npm run check:docs`   | — (docs/config parity check)                          |                                                         |         |
-| `npm run check:bundle` | — (emitted-file check)                                |                                                         |         |
+| `npm run lint`         | — (eslint, `--fix`)                                    |                                                         |         |
+| `npm run format`       | — (prettier, `--write`)                                |                                                         |         |
+| `npm test`             | — (vitest, single run)                                 |                                                         |         |
+| `npm run check:i18n`   | — (translation wiring check)                           |                                                         |         |
+| `npm run check:docs`   | — (docs/config parity check)                           |                                                         |         |
+| `npm run check:bundle` | — (emitted-file check)                                 |                                                         |         |
 
 `lint` and `format` cover **`src/`, `tests/` and `scripts/`**. `scripts/` was outside both
 until v4 — 220 KB of logic that gates every PR, watched by nothing, which is how three of
@@ -224,6 +224,41 @@ Both are correct; the difference is the point, and the reasoning is at the helpe
 docblock.
 
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
+
+### `scripts/`
+
+Ten files, and only three are reachable through `package.json`, so the rest are easy to
+mistake for leftovers. They are not. What each one is:
+
+| Script                      | Kind           | How it runs                          |
+| --------------------------- | -------------- | ------------------------------------ |
+| `check-bundle.mjs`          | gate           | `npm run check:bundle`               |
+| `check-docs.mjs`            | gate           | `npm run check:docs`                 |
+| `check-i18n.mjs`            | gate           | `npm run check:i18n`                 |
+| `extract-release-notes.mjs` | release        | `release.yml`, stdout → release body |
+| `generate-en-gb.mjs`        | generator      | by hand — see below                  |
+| `editor-glossary.mjs`       | data           | imported by the i18n gate            |
+| `en-gb.mjs`                 | data           | imported by gate + generator         |
+| `load-editor-schema.mjs`    | library        | imported by the i18n gate            |
+| `l10n-oracle.mjs`           | authoring tool | by hand, needs an HA frontend wheel  |
+| `l10n-handoff.mjs`          | authoring tool | by hand, needs an HA frontend wheel  |
+
+**`generate-en-gb.mjs` is the one with a trap in it.** `src/rendering/editor/translations/en-GB.json`
+is generated, not maintained — `en-gb.mjs` holds the substitution list, the generator writes
+the file, and `check:i18n` recomputes the same data and fails on any difference. Nothing runs
+the generator for you. So editing `strings.ts` in a way that touches a substituted spelling
+fails the i18n gate, and the fix is not to hand-edit the JSON the error points at:
+
+```bash
+node scripts/generate-en-gb.mjs   # then re-run npm run check:i18n
+```
+
+The two `l10n-*` tools are deliberately outside CI. They need `HA_FRONTEND_TRANSLATIONS`
+pointed at an unpacked, pinned `home-assistant-frontend` wheel, which is why they are run by
+hand and why neither has an npm script. `l10n-oracle.mjs` gathers the evidence a glossary
+decision cites; `l10n-handoff.mjs` writes per-language starting files for editor translation
+work into a gitignored `l10n-handoff/`. Absence from `package.json` is the design, not an
+oversight — do not "fix" it by wiring them into the gates.
 
 ## Branch model
 
@@ -481,6 +516,7 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    8 of the 10 releases from v3.0.1 through v3.4.0 shipped with a stale lock version — 31
    of 37 tags overall. `ci.yml` now checks all three, so skipping this fails the release PR
    rather than shipping quietly.
+
 2. Update `docs/RELEASE_NOTES.md`, the README's `## 4️⃣ What's New` section, **and**
    `docs/guide/whats-new.md` — see _The two "What's New" surfaces_ for the differing rules.
 3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
@@ -505,6 +541,39 @@ near the omission that caused it. The zip makes "extract both" the path of least
 resistance. An earlier version of this section described the release as attaching
 `dist/calendar-card-pro.js` alone, which was true before the split and would have sent
 every manual installer into exactly that trap.
+
+**Never add `content_in_root` to `hacs.json`.** Its absence is load-bearing, and the
+failure it prevents is invisible from the manifest — which is why this warning lives here
+rather than as a comment in the file, JSON having nowhere to put one. Today HACS reaches
+`gather_files_to_download()` with releases in play, appends _every_ asset and returns, so
+both `.js` files arrive. Setting `content_in_root: true` makes `update_filenames()` skip
+the release-asset branch entirely and resolve `filename` against the repository tree, and
+the download narrows to that one file. `editor.js` would stop being delivered. The card
+would still render for every HACS user; it would 404 only when someone opens the visual
+editor, so the break would look like an editor bug and not a packaging change.
+
+**HACS also downloads the zip, and nothing in the manifest can stop it.** Its full schema is
+`content_in_root`, `country`, `filename`, `hacs`, `hide_default_branch`, `homeassistant`,
+`manifest`, `name`, `persistent_directory`, `render_readme`, `zip_release` — there is no
+asset filter among them, and the release branch of `gather_files_to_download()` takes every
+asset without consulting any of them. So each HACS user fetches ~274 KB of zip into
+`www/community/calendar-card-pro/` beside the loose files they actually use. It is waste,
+not breakage: nothing loads it, and `filename` still selects the Lovelace resource.
+
+`zip_release: true` is not the escape hatch it appears to be. It does make HACS download a
+single archive and extract it — but only when `filename` ends in `.zip`, and `filename` is
+the same field `generate_dashboard_resource_url()` builds the Lovelace resource from. The
+registered resource would become `…/calendar-card-pro.zip?hacstag=…`. That option is built
+for categories that do not register a JS resource; for a `plugin` it is unusable.
+
+That leaves one real lever: **whether the zip is attached to the release at all.** Dropping
+it from `files:` in `release.yml` gives HACS users exactly the two files they need, at the
+cost of the manual-install path this section exists to protect — and of the `.gz` siblings,
+which are why a hand-copied card costs 57 KB and 83 KB over the wire instead of 188 KB and
+293 KB. Any replacement channel has to live outside the release assets to be worth doing.
+Treat this as a maintainer decision, not a cleanup: it trades a documented, measured
+benefit for real users against unused bytes for others, and both `README.md` and
+`docs/guide/installation.md` link the zip by name.
 
 ## CI
 
@@ -619,7 +688,7 @@ verifies **wiring**, not translation quality, and it cannot tell you whether
 **The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
 It records, per language, the decided form of each UI term and the forms rejected for it,
 and `check:i18n` enforces both: a rejected form anywhere in a governed key is an error, and
-a key whose English *is* a term is warned about when it does not use the decided form.
+a key whose English _is_ a term is warned about when it does not use the decided form.
 Rejected entries are the stronger statement, because they match at a word start and so
 catch compounds — roughly half the terms have no key whose English matches them exactly,
 and for those the decided form is documentation only. Every run prints which half is which.
@@ -677,6 +746,34 @@ both directions, by importing the schema modules. A new field with no string fai
 - Run `npm run format` (prettier) before committing; `npm run lint` uses `--fix`.
 - Match the existing module layout: `config/`, `interaction/`, `rendering/`,
   `translations/`, `utils/`.
+
+**A JSDoc block touches the thing it documents — no blank line between them.** This is the
+one style rule in the project that nothing mechanical enforces, so it is the one that
+silently rots. TypeScript still associates a doc comment and its `@param` tags across a
+blank line, so hover text and signature help keep working; no ESLint rule governs the gap;
+and Prettier does not close it. Every gate stays green while the comments drift away from
+the code.
+
+It rots in bulk rather than one comment at a time, because the cause is an automated edit
+sweeping a whole file: v4 accumulated **80 detached blocks across 10 files**, with 8 of the
+10 detached in their entirety, against zero on `dev`. Reattaching them is a pure whitespace
+change — 80 deletions, no insertions.
+
+The exception is a block that documents the file rather than a declaration. A module header
+or a section banner is _followed_ by a blank line and then an `import` or another comment,
+and that blank line is correct — do not close it. The distinction to apply when in doubt:
+if the next non-blank line is a declaration, the comment belongs against it; if it is an
+`import` or a comment, the block is a header and the gap stays.
+
+<!-- prettier-ignore -->
+```ts
+/** Return the card's configured view. */    // ✅ attached to the declaration
+export function getView(config: Config): View {
+
+/** Return the card's configured view. */    // ❌ detached — nothing will flag this
+                                             //    (blank line here)
+export function getView(config: Config): View {
+```
 
 **Comment the stylesheets as freely as the TypeScript.** A `css` tagged template's contents
 are a string literal, so no minifier looks inside one — comments there used to ship to every

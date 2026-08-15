@@ -2,7 +2,6 @@
  * English editor strings; keep keys aligned with schemas and translations.
  * `en-GB` is override-only: it carries spelling differences and otherwise falls back to `en`.
  */
-
 export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Filter bar -----------------------------------------------------------
   //
