@@ -385,13 +385,31 @@ async function settle(page, card) {
     previous = signature;
   }
 
-  // The refresh spinner does not change the card's box, so the size check above cannot
-  // see it. It is drawn over the top-right corner and has shipped in a screenshot once.
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    if ((await card.locator('.loading-indicator').count()) === 0) return;
+  await waitForSpinner(page, card);
+}
+
+/**
+ * Wait for the card's refresh spinner to be gone and *stay* gone.
+ *
+ * `.loading-indicator` is drawn over the card's top-right corner and does **not** change
+ * the card's height, so the settle-on-stable-size loop cannot see it.
+ *
+ * Absence has to be **sustained rather than merely observed once**, which is the subtlety
+ * that shipped two screenshots with a spinner in them. The card mounts, its size goes
+ * stable, and the fetch starts only after that — so a check that returns on the first
+ * zero count passes *before the spinner has appeared at all*. Requiring several
+ * consecutive clear polls closes that race, and also covers the second path in, where
+ * resizing the viewport makes the card re-measure and re-fetch.
+ */
+async function waitForSpinner(page, card) {
+  const REQUIRED_CLEAR_POLLS = 6; // 1.5s quiet
+  let clear = 0;
+  for (let attempt = 0; attempt < 80; attempt += 1) {
+    clear = (await card.locator('.loading-indicator').count()) === 0 ? clear + 1 : 0;
+    if (clear >= REQUIRED_CLEAR_POLLS) return;
     await page.waitForTimeout(250);
   }
-  console.warn('  ! loading spinner still visible after 10s');
+  console.warn('  ! loading spinner never settled');
 }
 
 /**
@@ -462,6 +480,9 @@ async function capturePadded(page, card, shot, target) {
     await settle(page, card);
   }
 
+  // Last thing before the shutter: the resize above can raise a fresh spinner.
+  await waitForSpinner(page, card);
+
   const box = await card.boundingBox();
   const viewport = page.viewportSize();
 
@@ -480,6 +501,12 @@ async function capturePadded(page, card, shot, target) {
       height: Math.min(box.y + box.height + pad, viewport.height) - top,
     },
   });
+
+  // Fail rather than publish. A spinner that appeared during the shutter is invisible in
+  // the run log but obvious in the committed image, and it has cost two review rounds.
+  if ((await card.locator('.loading-indicator').count()) > 0) {
+    throw new Error(`${shot.out}: refresh spinner appeared while capturing — re-run this shot`);
+  }
   return box;
 }
 
