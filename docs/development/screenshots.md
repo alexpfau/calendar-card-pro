@@ -227,9 +227,23 @@ Three things about capturing it:
 
 The card draws a `.loading-indicator` over its top-right corner while it re-reads its
 calendars, and **it does not change the card's height**, so the settle-on-stable-size loop
-cannot see it. It shipped in one screenshot before this was caught, and a tap-to-expand
-makes it much more likely by triggering a re-render. `settle()` now waits for the element
-to disappear as well as for the box to stop moving.
+cannot see it.
+
+The subtlety that caught this twice: **absence has to be sustained, not merely observed
+once.** The first fix polled for a zero count and returned on the first one — which passes
+*before the spinner has appeared at all*, because the card mounts, its size goes stable,
+and only then does the fetch start. Two screenshots shipped with a spinner through a check
+that was, on its own terms, working. `waitForSpinner()` now requires six consecutive clear
+polls, and runs again immediately before the shutter, since resizing the viewport makes the
+card re-measure and re-fetch.
+
+The capture is also **fail-closed**: if the spinner is present immediately after the
+screenshot, the shot throws rather than writing a quietly wrong image. A spinner is
+invisible in the run log and obvious in the committed file, which is the wrong way round.
+
+To check an existing image without opening it, sample the top-right corner against the
+top-left — the spinner is a bright ring on a flat background, so a large brightness spread
+on the right with a flat left is the tell.
 
 ## The progress bar needs an event running *right now*
 
