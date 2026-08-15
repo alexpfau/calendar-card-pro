@@ -57,14 +57,21 @@ expects its editor, and the editor still will not open. A folder of its own remo
 question. HACS does all of this for you, which is why it is the recommended route.
 :::
 
-::: tip A Manual Install Downloads More Than a HACS One
-Home Assistant serves a pre-compressed `.gz` file when it finds one beside the original,
-and does not compress on the fly. HACS writes those files as it installs; copying the
-release files by hand does not, and nothing on the release page provides them.
+::: tip Optional: Compress The Files Yourself
+Home Assistant serves a pre-compressed `.gz` beside a file when it finds one, and does not
+compress on the fly. Neither install route ships one, so the card transfers at its full
+190 KB and the editor at 293 KB — once per version, then the browser caches both.
 
-So a hand-installed card costs 188 KB and its editor 293 KB, where a HACS install pays
-57 KB and 83 KB. Everything works either way — this is transfer size, not function — but
-it is one more reason to prefer HACS where you can.
+If you want the smaller transfer, create the companions yourself and keep them beside the
+originals:
+
+```bash
+gzip -9 -k calendar-card-pro.js editor.js
+```
+
+That brings the card to 57 KB and the editor to 82 KB. Delete the `.gz` files whenever you
+update, or regenerate them — Home Assistant will serve a stale `.gz` in preference to a
+newer `.js`.
 :::
 
 </details>

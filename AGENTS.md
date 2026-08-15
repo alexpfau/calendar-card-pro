@@ -548,13 +548,45 @@ there is no packaging step to lean on.
 **The convenience zip was removed, deliberately, before v4 shipped.** Up to that point the
 release also attached a flat `calendar-card-pro.zip` holding the same two files plus a
 `.gz` beside each. It was genuinely useful — it made "extract both" the path of least
-resistance, and the `.gz` siblings are why a hand-copied card could cost 57 KB and 83 KB
-over the wire instead of 188 KB and 293 KB, Home Assistant serving a pre-compressed file
+resistance, and the `.gz` siblings are why a hand-copied card could cost 57 KB and 82 KB
+over the wire instead of 190 KB and 293 KB, Home Assistant serving a pre-compressed file
 when it finds one and never compressing on the fly. It was dropped anyway, because HACS
 downloaded it too: ~274 KB into every user's `www/community/calendar-card-pro/` that
 nothing ever loads. Waste for the many against convenience for the few, and the few can be
 served by prose. Do not re-add it without re-making that trade explicitly; the cost side
 has not changed.
+
+**Note which way round the gzip benefit ran, because it is easy to state backwards.** HACS
+has no compression logic anywhere in its source, and Home Assistant's `http` component
+serves static files through aiohttp's `FileResponse` without enabling compression. aiohttp
+will serve a `.gz` sibling when one is already on disk, and nothing in either project ever
+creates one. So the `.gz` files came from the zip and from nowhere else: **manual**
+installers had the compressed transfer and HACS users never did. After the removal nobody
+does. Any sentence claiming HACS delivers pre-compressed files is false, and one shipped in
+`README.md` and `docs/guide/installation.md` before being corrected — check the direction
+before repeating the claim.
+
+**How other multi-file cards handle this, surveyed across ten popular ones.** The short
+answer is that almost none of them face it, because almost none code-split:
+
+- **One bundled file** — mushroom, button-card, apexcharts-card, plotly-graph-card,
+  mini-graph-card, light-entity-card. A single asset, so the problem never arises. This is
+  the overwhelming majority, and it is worth remembering that splitting the editor out put
+  this card in a minority of two.
+- **Attach everything and absorb the cost** — advanced-camera-card ships **53** assets: the
+  card, a zip, and 51 hashed chunks (`editor-*.js`, `engine-frigate-*.js`, `lang-de-*.js`
+  …). Every HACS user downloads all 53. Its `hacs.json` is minimal. It simply does not
+  optimize this.
+- **Deliver through the repository tree and attach nothing** — Bubble-Card commits `dist/`
+  (66 files) and publishes releases with **zero** assets. `gather_files_to_download()`
+  appends assets then returns `if files:` — _conditionally_ — so a release with no assets
+  falls through to the tree path, which for a `plugin` walks `dist/` and downloads every
+  file in it with no extension filter.
+
+That third route is the only one that would put `.gz` files in front of HACS users, since
+the tree path does not filter by extension. It costs a committed `dist/`, zero release
+assets, and a clumsier manual download — GitHub offers no way to fetch one folder. It was
+considered and not taken; reopen it only with those three costs in hand.
 
 **Never add `content_in_root` to `hacs.json`.** Its absence is load-bearing, and the
 failure it prevents is invisible from the manifest — which is why this warning lives here
