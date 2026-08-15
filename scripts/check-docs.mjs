@@ -770,9 +770,9 @@ function checkDesignDocLinks(docs) {
   const LINK = /\[[^\]]*\]\((\.\.?\/[^)\s]+|#[^)\s]+)\)/g;
   let checked = 0;
 
-  // A `../` link can leave the corpus entirely — `verification-practices.md` cites
-  // `../../AGENTS.md#reference`, which is a real file with real headings and was
-  // unchecked until the pattern above started matching it. Rather than skip those,
+  // A `../` link can leave the corpus entirely — a design doc citing
+  // `../../AGENTS.md#reference` names a real file with real headings, and those went
+  // unchecked until the pattern above started matching them. Rather than skip those,
   // resolve them on disk and validate the anchor too. Cached because several documents
   // cite the same handful of outside files.
   const outside = new Map();
@@ -830,9 +830,21 @@ function checkDesignDocLinks(docs) {
   }
 
   // Same guard as check 7: a pattern that stops matching must not read as a clean run.
+  //
+  // "No links matched" has two causes and they need different answers. The pattern may
+  // have gone stale against markup it should match — the failure this guard exists for —
+  // or the corpus may genuinely hold no relative links, which is the honest state of a
+  // folder trimmed to a single file. A looser scan tells them apart: if nothing here even
+  // looks like a relative link, there is nothing to check and nothing to report.
   if (!checked) {
-    console.error(`Found no relative links under ${join(DOCS_DIR, 'development')}.`);
-    process.exit(2);
+    const looksLinked = design.some((file) => /\]\((\.\.?\/|#)/.test(readFileSync(file, 'utf8')));
+    if (looksLinked) {
+      console.error(
+        `Found no relative links under ${join(DOCS_DIR, 'development')}, but the files ` +
+          'contain link-like markup. The pattern above is stale.',
+      );
+      process.exit(2);
+    }
   }
   return checked;
 }

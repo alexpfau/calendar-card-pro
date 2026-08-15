@@ -690,6 +690,12 @@ plugin exists, the reasonable move is to keep CSS comments terse, and the reason
 `styles.ts` is exactly where terse comments have already cost this project twice. Write the
 explanation. It does not ship.
 
+One syntax trap comes with that freedom: **a CSS comment lives inside a template literal, so
+a backtick in one ends the literal.** Quoting a property as `` `align-self` `` — the habit
+every other comment in the codebase rewards — turns the rest of the stylesheet into
+TypeScript and produces parse errors pointing at whatever line the compiler gave up on,
+nowhere near the backtick. Write property names bare in CSS comments.
+
 ## Reference
 
 - [`docs/architecture.md`](./docs/architecture.md) — module responsibilities, data flow,

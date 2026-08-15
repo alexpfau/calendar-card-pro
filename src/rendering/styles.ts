@@ -291,7 +291,16 @@ export const cardStyles = css`
     border-bottom: 0;
   }
 
-  /* ===== DATE COLUMN STYLES ===== */
+  /* ===== DATE COLUMN STYLES =====
+   *
+   * date_vertical_alignment reaches this cell as vertical-align, which works because the
+   * list view is a table. Converting this container to flex or grid cannot carry the option
+   * over as align-self: that overrides align-items: stretch and shrinks the item to content
+   * height, so the cell collapses from the full day to roughly one line of date text, and a
+   * height: 100% today indicator collapses with it. The two-part mapping is to keep the cell
+   * stretched and move its content with justify-content on an inner flex column, which is
+   * what column view's header does. today_indicator defaults to false, so the damage would
+   * reach opted-in users only -- invisible to a screenshot pass. */
 
   .date-column {
     width: var(--calendar-card-date-column-width);
