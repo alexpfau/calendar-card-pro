@@ -87,6 +87,20 @@ const CARD_TAG = 'calendar-card-pro-dev';
 const LIST_SCALE = 3.2;
 
 /**
+ * Background left visible around the card, in **output** pixels.
+ *
+ * Deliberately not a CSS-pixel value: the two shot families are captured at different
+ * scales (3.2 for list, 2 for column), so a fixed CSS padding would render as a different
+ * visual border in each. Fixing the *output* width keeps every published image looking
+ * the same, and each shot divides by its own scale to get there.
+ *
+ * 20px reproduces the pre-v4 screenshots, which carried 20-21px of dashboard background
+ * measured on `example_1_basic_native` — enough to show the card's rounded corners and how
+ * it sits on a dashboard rather than cropping hard to its bounding box.
+ */
+const CARD_PADDING_OUTPUT_PX = 20;
+
+/**
  * One entry per published screenshot.
  *
  * `view` is the dashboard path, `index` the zero-based position among the calendar cards
@@ -370,6 +384,14 @@ async function settle(page, card) {
     if (signature === previous && box.height > 40) break;
     previous = signature;
   }
+
+  // The refresh spinner does not change the card's box, so the size check above cannot
+  // see it. It is drawn over the top-right corner and has shipped in a screenshot once.
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    if ((await card.locator('.loading-indicator').count()) === 0) return;
+    await page.waitForTimeout(250);
+  }
+  console.warn('  ! loading spinner still visible after 10s');
 }
 
 /**
@@ -418,6 +440,49 @@ async function captureEditor(page, shot) {
   // Nothing is saved: the context is discarded without touching Save.
 }
 
+/**
+ * Screenshot the card with `CARD_PADDING_OUTPUT_PX` of dashboard background around it.
+ *
+ * An element screenshot clips exactly to the card's box, which crops its rounded corners
+ * flush and loses the sense of how it sits on a dashboard. A clipped *page* screenshot
+ * keeps the background, but only captures what is inside the viewport — and
+ * `fullPage: true` stitches, which leaves a grey band across the bottom of a card taller
+ * than the viewport. So grow the viewport until the padded card fits, then clip normally:
+ * one paint, no stitching.
+ */
+async function capturePadded(page, card, shot, target) {
+  const pad = CARD_PADDING_OUTPUT_PX / (shot.scale ?? 2);
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const box = await card.boundingBox();
+    const needed = Math.ceil(box.y + box.height + pad + 40);
+    const viewport = page.viewportSize();
+    if (needed <= viewport.height) break;
+    await page.setViewportSize({ width: viewport.width, height: needed });
+    await settle(page, card);
+  }
+
+  const box = await card.boundingBox();
+  const viewport = page.viewportSize();
+
+  // Clamp to the page. On the narrowest shot the card all but fills the viewport, so the
+  // full padding does not exist to capture — it gets the section's own margin instead
+  // (8 CSS px a side rather than 10). Clamping here makes that explicit; left implicit,
+  // Playwright silently returns a narrower image and the difference looks like a bug.
+  const left = Math.max(0, box.x - pad);
+  const top = Math.max(0, box.y - pad);
+  await page.screenshot({
+    path: target,
+    clip: {
+      x: left,
+      y: top,
+      width: Math.min(box.x + box.width + pad, viewport.width) - left,
+      height: Math.min(box.y + box.height + pad, viewport.height) - top,
+    },
+  });
+  return box;
+}
+
 async function capture(page, shot) {
   const theme = shot.theme ?? HA_THEME;
   await page.setViewportSize({ width: shot.width, height: 1200 });
@@ -446,8 +511,7 @@ async function capture(page, shot) {
   }
 
   const target = path.join(OUT_DIR, shot.out);
-  await card.screenshot({ path: target, scale: 'device' });
-  const box = await card.boundingBox();
+  const box = await capturePadded(page, card, shot, target);
   console.log(
     `  ✓ ${shot.out.padEnd(34)} ${String(Math.round(box.width)).padStart(4)}x${String(
       Math.round(box.height),
