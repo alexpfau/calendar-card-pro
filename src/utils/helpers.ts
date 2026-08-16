@@ -238,6 +238,38 @@ export function hashString(str: string): string {
 //-----------------------------------------------------------------------------
 
 /**
+ * Instant used to probe a locale's hour cycle
+ *
+ * 13:00 is the only hour that renders unambiguously: a 12-hour locale must emit
+ * a day period to distinguish it from 01:00, while a 24-hour locale never does.
+ */
+const HOUR_CYCLE_PROBE = new Date(2000, 0, 1, 13, 0, 0);
+
+/**
+ * Resolve whether a locale uses a 24-hour clock, using the platform's CLDR data
+ *
+ * Asks `Intl` whether formatting an afternoon hour emits a day period, rather
+ * than maintaining a language allowlist. This keeps regional variants correct
+ * (`en-GB` is 24-hour while `en-US` is not) and detects day periods written in
+ * non-Latin scripts (`el` renders `1 μ.μ.`, `zh-TW` renders `下午1時`), both of
+ * which a hand-maintained list and an `/AM|PM/` regex get wrong.
+ *
+ * @param locale - BCP 47 language tag
+ * @returns True for 24-hour, false for 12-hour, or undefined if detection failed
+ */
+function resolveIs24Hour(locale: string): boolean | undefined {
+  try {
+    const parts = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).formatToParts(
+      HOUR_CYCLE_PROBE,
+    );
+
+    return !parts.some((part) => part.type === 'dayPeriod');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Determines whether to use 24-hour time format based on Home Assistant settings
  *
  * @param locale - Home Assistant locale object
@@ -250,58 +282,22 @@ export function getTimeFormat24h(
 ): boolean {
   if (!locale) return fallbackTo24h;
 
+  const byLanguage = (): boolean =>
+    locale.language ? (resolveIs24Hour(locale.language) ?? fallbackTo24h) : fallbackTo24h;
+
   if (locale.time_format === '24') {
     return true;
   } else if (locale.time_format === '12') {
     return false;
   } else if (locale.time_format === 'language' && locale.language) {
-    return is24HourByLanguage(locale.language);
+    return byLanguage();
   } else if (locale.time_format === 'system') {
-    try {
-      const formatter = new Intl.DateTimeFormat(navigator.language, {
-        hour: 'numeric',
-      });
-      const formattedTime = formatter.format(new Date(2000, 0, 1, 13, 0, 0));
-      return !formattedTime.match(/AM|PM|am|pm/);
-    } catch {
-      return locale.language ? is24HourByLanguage(locale.language) : fallbackTo24h;
-    }
+    const systemLocale = typeof navigator === 'undefined' ? undefined : navigator.language;
+
+    return (systemLocale ? resolveIs24Hour(systemLocale) : undefined) ?? byLanguage();
   }
 
   return fallbackTo24h;
-
-  function is24HourByLanguage(language: string): boolean {
-    const likely24hLanguages = [
-      'de',
-      'fr',
-      'es',
-      'it',
-      'pt',
-      'nl',
-      'ru',
-      'pl',
-      'sv',
-      'no',
-      'fi',
-      'da',
-      'cs',
-      'sk',
-      'sl',
-      'hr',
-      'hu',
-      'ro',
-      'bg',
-      'el',
-      'tr',
-      'zh',
-      'ja',
-      'ko',
-    ];
-
-    const baseLanguage = language.split('-')[0].toLowerCase();
-
-    return likely24hLanguages.includes(baseLanguage);
-  }
 }
 
 /**
