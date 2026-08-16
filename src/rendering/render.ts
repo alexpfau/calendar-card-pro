@@ -341,6 +341,10 @@ export function renderDay(
   hass?: Types.Hass | null,
 ): TemplateResult {
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
+  // Column view carries `weekend` on its day container, so list view does too — a card-mod
+  // rule targeting weekends should not need to know which view is active. List view also
+  // keeps it on `.date-column`, where it drives the built-in date-cell styling.
+  const isWeekendDay = Leaves.isWeekendDate(new Date(day.timestamp));
 
   let daySeparator: TemplateResult | typeof nothing = nothing;
 
@@ -379,6 +383,7 @@ export function renderDay(
         today: isToday,
         tomorrow: isTomorrow,
         'future-day': !isToday,
+        weekend: isWeekendDay,
       })}
     >
       ${repeat(

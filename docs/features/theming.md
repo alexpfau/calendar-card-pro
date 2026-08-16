@@ -38,6 +38,42 @@ card_mod:
 
 ## 🎨 Card-Mod Examples
 
+### Day container classes
+
+Every recipe below selects a **day container** — the element wrapping one day's events.
+Which element that is depends on the active view, so a rule written for one layout does
+nothing in the other unless both are named:
+
+| View                            | Day container | Emitted by                              |
+| ------------------------------- | ------------- | --------------------------------------- |
+| List                            | `.day-table`  | the table holding that day's rows       |
+| [Column](/features/column-view) | `.day-column` | the grid cell holding that day's column |
+
+Both carry the same four state classes, so the state half of a selector is portable even
+though the container name is not:
+
+| Class        | Applied when                    |
+| ------------ | ------------------------------- |
+| `today`      | the day is today                |
+| `tomorrow`   | the day is tomorrow             |
+| `future-day` | the day is not today            |
+| `weekend`    | the day is a Saturday or Sunday |
+
+In list view, `weekend` is additionally on the date cell (`.date-column.weekend`), which
+is what the built-in `weekend_day_color` and `weekend_weekday_color` options style.
+
+::: tip Write Rules For Both Layouts
+Selector lists cost nothing and survive a later switch to column view:
+
+```css
+.day-table.today .event-title,
+.day-column.today .event-title { ... }
+```
+
+The event-level classes — `.event`, `.event-title`, `.time`, `.location`, `.past-event` —
+are shared by both views, so only the day container needs doubling up.
+:::
+
 ### Custom title styling
 
 ```yaml
@@ -65,14 +101,16 @@ entities:
 card_mod:
   style: |
     /* Make today's events stand out */
-    .day-table.today .event-title {
+    .day-table.today .event-title,
+    .day-column.today .event-title {
       font-size: 16px !important;     /* Larger text */
       font-weight: bold !important;   /* Bold text */
       color: var(--accent-color) !important; /* Use theme accent color */
     }
 
     /* Add subtle left border pulse animation */
-    .day-table.today .event {
+    .day-table.today .event,
+    .day-column.today .event {
       border-left-width: 4px !important;
       transition: border-left-color 1s ease-in-out;
       animation: todayPulse 3s infinite alternate;
@@ -95,10 +133,29 @@ entities:
 card_mod:
   style: |
     /* Make tomorrow's events stand out */
-    .day-table.tomorrow .event-title {
+    .day-table.tomorrow .event-title,
+    .day-column.tomorrow .event-title {
       font-size: 16px !important;     /* Larger text */
       font-weight: bold !important;   /* Bold text */
       color: var(--accent-color) !important; /* Use theme accent color */
+    }
+```
+
+### Shade weekend days
+
+`weekend` is on the day container in both views, so one rule covers Saturday and Sunday
+whichever layout is active:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+card_mod:
+  style: |
+    .day-table.weekend,
+    .day-column.weekend {
+      background: var(--secondary-background-color);
+      border-radius: 8px;
     }
 ```
 
