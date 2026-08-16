@@ -124,6 +124,23 @@ jobs:
       - name: Check docs integrity
         run: npm run check:docs
 
+      # The converse of the step above, and the reason both exist. check:docs reads the
+      # markdown; this compiles the site the way Cloudflare does. Neither subsumes the
+      # other: a link to a heading that does not exist is caught here by check:docs and
+      # sails through vitepress build, while a broken docs/.vitepress/config.mts is
+      # invisible to check:docs, to lint, and to tsc --noEmit — docs/ is outside the
+      # tsconfig include — and fails only the real build.
+      #
+      # That gap mattered because the site deploys on push to main and nowhere else, so
+      # no pull request ever ran this command. A config error would pass every check
+      # here, merge, fail the Cloudflare build, and leave the site quietly serving the
+      # previous version — the same silent-stale-docs failure recorded in AGENTS.md for
+      # the npm-major drift, which the .nvmrc pinning check above now guards. Running
+      # the deploy's own build command is the strongest form of that guarantee, and it
+      # costs about two seconds.
+      - name: Build docs site
+        run: npm run docs:build
+
       - name: Build
         run: npm run build
 
