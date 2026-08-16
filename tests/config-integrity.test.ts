@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
+import { SYNTHETIC_FIELDS } from '../src/rendering/editor/synthetic';
 import * as EventUtils from '../src/utils/events';
 import '../src/calendar-card-pro';
-import { SYNTHETIC_FIELDS } from '../src/rendering/editor/synthetic';
 
 /**
  * Three ways a valid configuration could be silently replaced by a different
