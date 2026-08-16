@@ -51,14 +51,7 @@ function config(overrides: Partial<Types.Config>): Types.Config {
 describe('first_day_of_week is treated as the fetch-affecting option it is', () => {
   /** `getBaseCacheKey` with only the resolved weekday varying. */
   function keyFor(firstDayOfWeek: number | undefined, startDate = 'start_of_week'): string {
-    return EventUtils.getBaseCacheKey(
-      'inst',
-      ['calendar.personal'],
-      7,
-      false,
-      startDate,
-      firstDayOfWeek,
-    );
+    return EventUtils.getBaseCacheKey('inst', ['calendar.personal'], 7, startDate, firstDayOfWeek);
   }
 
   it('changes the cache key when the start date depends on it', () => {
@@ -122,14 +115,12 @@ describe('first_day_of_week is treated as the fetch-affecting option it is', () 
     const sunday = Helpers.generateDeterministicId(
       ['calendar.personal'],
       7,
-      false,
       'start_of_week',
       'sunday',
     );
     const monday = Helpers.generateDeterministicId(
       ['calendar.personal'],
       7,
-      false,
       'start_of_week',
       'monday',
     );
@@ -139,20 +130,8 @@ describe('first_day_of_week is treated as the fetch-affecting option it is', () 
 
   it('keeps the query identity stable when the weekday does not', () => {
     // The control, in the same shape as the cache-key pair above.
-    const a = Helpers.generateDeterministicId(
-      ['calendar.personal'],
-      7,
-      false,
-      'start_of_week',
-      'monday',
-    );
-    const b = Helpers.generateDeterministicId(
-      ['calendar.personal'],
-      7,
-      false,
-      'start_of_week',
-      'monday',
-    );
+    const a = Helpers.generateDeterministicId(['calendar.personal'], 7, 'start_of_week', 'monday');
+    const b = Helpers.generateDeterministicId(['calendar.personal'], 7, 'start_of_week', 'monday');
 
     expect(a).toBe(b);
   });

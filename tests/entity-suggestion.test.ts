@@ -100,12 +100,7 @@ describe('getEntitySuggestion', () => {
         show_past_events?: boolean;
         start_date?: string;
       };
-      return generateDeterministicId(
-        config.entities,
-        config.days_to_show,
-        config.show_past_events ?? false,
-        config.start_date,
-      );
+      return generateDeterministicId(config.entities, config.days_to_show, config.start_date);
     });
 
     expect(ids[0]).toBe(ids[1]);

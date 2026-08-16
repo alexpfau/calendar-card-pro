@@ -41,7 +41,6 @@ export async function fetchEventData(
     instanceId,
     config.entities,
     config.days_to_show,
-    config.show_past_events,
     config.start_date,
     firstDayOfWeek,
   );
@@ -1214,7 +1213,6 @@ export function cacheEvents(
  * @param instanceId - Component instance ID for uniqueness
  * @param entities - Calendar entities
  * @param daysToShow - Number of days to display
- * @param showPastEvents - Whether to show past events
  * @param startDate - Optional start date in YYYY-MM-DD format, ISO format, or the
  *   relative grammar (`start_of_week`, `monday+1w`, …)
  * @param firstDayOfWeek - Resolved numeric first day of week (0 = Sunday), which moves
@@ -1227,7 +1225,6 @@ export function getBaseCacheKey(
   instanceId: string,
   entities: Array<string | Types.EntityConfig>,
   daysToShow: number,
-  showPastEvents: boolean,
   startDate?: string,
   firstDayOfWeek?: number,
 ): string {
@@ -1258,7 +1255,7 @@ export function getBaseCacheKey(
   // test would drop it from the key and collide a Sunday-start week with "no weekday".
   const firstDayPart = weekRelative && firstDayOfWeek !== undefined ? `_fdw${firstDayOfWeek}` : '';
 
-  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
+  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
 }
 
 /**

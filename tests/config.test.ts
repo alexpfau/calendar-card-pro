@@ -225,12 +225,20 @@ describe('hasConfigChanged', () => {
   it.each([
     ['days_to_show', { days_to_show: 7 }],
     ['start_date', { start_date: '2026-01-01' }],
-    ['show_past_events', { show_past_events: true }],
-    ['filter_duplicates', { filter_duplicates: true }],
     ['refresh_interval', { refresh_interval: 60 }],
     ['entities', { entities: ['calendar.other'] }],
   ])('detects a change to %s', (_label, patch) => {
     expect(hasConfigChanged(base, { ...base, ...patch } as Types.Config)).toBe(true);
+  });
+
+  // Both are applied inside `groupEventsByDay`, which runs from an unmemoized getter
+  // on every render, and neither reaches `getTimeWindow`. Asking for a refresh spent a
+  // round-trip and a loading state to re-fetch a byte-identical payload.
+  it.each([
+    ['show_past_events', { show_past_events: true }],
+    ['filter_duplicates', { filter_duplicates: true }],
+  ])('does not request a refetch for the render-only option %s', (_label, patch) => {
+    expect(hasConfigChanged(base, { ...base, ...patch } as Types.Config)).toBe(false);
   });
 
   it('ignores entity reordering, which does not change the data fetched', () => {

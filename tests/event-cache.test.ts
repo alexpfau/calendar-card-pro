@@ -9,10 +9,9 @@ import * as EventUtils from '../src/utils/events';
  *
  * These pin the boundary between what is *fetched* and what is *processed*.
  * `fetchEventData` used to cache the output of `processEvents`, while
- * `getBaseCacheKey` only covered fetch inputs — entity ids, window,
- * `show_past_events`, `filter_duplicates`. Every other config key that
- * `processEvents` reads was therefore invisible to the cache, so changing one
- * returned the previous result until the entry expired.
+ * `getBaseCacheKey` only covered fetch inputs — entity ids and window. Every
+ * other config key that `processEvents` reads was therefore invisible to the
+ * cache, so changing one returned the previous result until the entry expired.
  *
  * Two distinct defects fell out of that, and they need separate tests because
  * they had different mechanisms and could be half-fixed:
