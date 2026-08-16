@@ -160,6 +160,29 @@ function processRawEvents(
   });
 }
 
+/**
+ * Drop events that are missing a start or an end.
+ *
+ * Everything downstream — deduplication, grouping, multi-day splitting, sorting — reads
+ * `start` and `end` without checking they are there, because Home Assistant's calendar API
+ * is supposed to supply both. Whichever integration backs the entity actually produces the
+ * payload, though, so a malformed event does reach us in practice, and an exception thrown
+ * while grouping does not cost that one event a row: it costs the whole card, taking every
+ * other calendar's events down with it.
+ *
+ * Applied at both entry points, because they are reachable independently: the fetch path
+ * processes events before they are ever grouped, while `groupEventsByDay` deduplicates
+ * whatever it is handed before any of that filtering has run.
+ *
+ * @param events Events to check
+ * @returns Only those events with both a start and an end
+ */
+function keepWellFormedEvents(
+  events: ReadonlyArray<Types.CalendarEventData>,
+): Types.CalendarEventData[] {
+  return events.filter((event) => Boolean(event.start) && Boolean(event.end));
+}
+
 function deduplicateEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
@@ -218,7 +241,11 @@ export function groupEventsByDay(
   // on its own terms rather than to fix a live defect.
   const config = ViewConfig.resolveEffectiveConfig(rawConfig, effectiveView);
 
-  const events = deduplicateEvents(rawEvents, config, config.filter_duplicates);
+  const events = deduplicateEvents(
+    keepWellFormedEvents(rawEvents),
+    config,
+    config.filter_duplicates,
+  );
 
   const showEmptyDays = config.show_empty_days;
 
@@ -653,9 +680,17 @@ function processEvents(
 ): Types.CalendarEventData[] {
   const processedEvents: Types.CalendarEventData[] = [];
 
+  const wellFormed = keepWellFormedEvents(events);
+  const malformedCount = events.length - wellFormed.length;
+  if (malformedCount > 0) {
+    Logger.warn(
+      `Ignoring ${malformedCount} calendar event(s) missing a start or end; the calendar integration returned an incomplete payload`,
+    );
+  }
+
   config.entities.forEach((entityConfig) => {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
-    const entityEvents = events.filter((event) => event._entityId === entityId);
+    const entityEvents = wellFormed.filter((event) => event._entityId === entityId);
     if (entityEvents.length === 0) return;
 
     const matchedEvents = filterEventsForEntity(entityEvents, entityConfig);

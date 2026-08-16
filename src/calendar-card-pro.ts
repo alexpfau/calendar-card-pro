@@ -557,10 +557,22 @@ class CalendarCardPro extends LitElement {
 
     const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');
     const prevConfig = changedProps.get('config') as Types.Config | undefined;
+    const weatherEntityChanged =
+      changedProps.has('config') && this.config?.weather?.entity !== prevConfig?.weather?.entity;
     const weatherConfigChanged =
-      changedProps.has('config') &&
-      (this.config?.weather?.entity !== prevConfig?.weather?.entity ||
+      weatherEntityChanged ||
+      (changedProps.has('config') &&
         this.config?.weather?.position !== prevConfig?.weather?.position);
+
+    // The forecast we are holding belongs to the entity we are leaving. Tearing down its
+    // subscription does not remove the data, so without this the old entity's forecast is
+    // drawn under the new configuration until the replacement subscription emits — and if
+    // the new entity never supplies that forecast type, indefinitely. Deliberately not
+    // done for other weather edits: the entity is unchanged there, so blanking the
+    // forecast would only produce a flicker.
+    if (weatherEntityChanged) {
+      this.weatherForecasts = { daily: {}, hourly: {} };
+    }
 
     if (hassJustAvailable || weatherConfigChanged) {
       this._scheduleWeatherSetup();
