@@ -44,7 +44,7 @@ export const SUBSTITUTIONS = [
   ['personalize', 'personalise'],
   ['personalized', 'personalised'],
   ['synchronize', 'synchronise'],
-  ['synchronized', 'synchronise'],
+  ['synchronized', 'synchronised'],
   ['initialize', 'initialise'],
   ['initialized', 'initialised'],
   ['visualize', 'visualise'],
