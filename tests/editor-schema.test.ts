@@ -2755,6 +2755,34 @@ describe('editor: per-calendar settings', () => {
     }
   });
 
+  /**
+   * The split shares the tristate machinery but not its vocabulary: its two
+   * decided states are offered as `split` and `whole` rather than `show` and
+   * `hide`, and those two words are mapped in a second table. The round-trip
+   * above covers only the `show`/`hide` pair, so both split words could be
+   * dropped from that table with every gate green — after which choosing
+   * "Split" in the editor writes nothing at all, and the calendar silently
+   * keeps inheriting from the card.
+   */
+  it('round-trips the two decided states of the split', () => {
+    const cases: Array<[boolean, string]> = [
+      [true, 'split'],
+      [false, 'whole'],
+    ];
+
+    for (const [stored, offered] of cases) {
+      const entry = {
+        entity: 'calendar.a',
+        split_multiday_events: stored,
+      } as Types.EntityConfig;
+
+      expect(toEntityFormData(entry).split_multiday_events, offered).toBe(offered);
+      expect(fromEntityFormData('calendar.a', { split_multiday_events: offered }), offered).toEqual(
+        { entity: 'calendar.a', split_multiday_events: stored },
+      );
+    }
+  });
+
   it('writes a bare entity id for a calendar that carries no settings', () => {
     expect(fromEntityFormData('calendar.a', { label: '', color: '', show_time: 'inherit' })).toBe(
       'calendar.a',
