@@ -189,6 +189,20 @@ defaulting to `false` renders nothing and is invisible to it unless a test sets 
 branches were missed that way, including two the suite existed to protect. When you add a
 config option, add a test that turns it on.
 
+🚨 **A test that walks a table's own keys cannot notice a key leaving it.** The idiom
+`for (const key of Object.keys(TABLE)) expect(somethingAbout(key)).toBeDefined()` reads
+like coverage and is not: delete an entry and the loop runs one fewer time, so the suite
+stays green while the table quietly shrinks. This has been found three times — 24 of 54
+`COLUMN_OVERRIDE_KEYS` entries, 2 of 6 `VIEW_SCOPE` entries and 4 of 5
+`DEPRECATED_CONFIG_MAP` entries were each removable with every gate passing. The damage is
+always silent, because these tables describe what the card tells the user rather than what
+it renders: an editor field stops saying an option is inert in this view, or a removed
+option stops being reported at all. **Pin the whole table by value** (`toEqual` on a
+normalized copy) or reconcile it against a second surface, so both directions — a dropped
+entry and an unexplained new one — fail. When sweeping for this, blank one line at a time,
+run `npx tsc --noEmit` first as a cheap kill, and restore with `cp` from a backup, never
+`git checkout --`.
+
 ### The suite runs as four projects, and the split is load-bearing
 
 `vitest.config.mjs` defines a `projects` array, so `npm test` runs the same files under
