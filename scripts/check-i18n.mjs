@@ -742,6 +742,24 @@ async function checkEditorTranslations(languages) {
         'editor/translations/index.ts',
         `EDITOR_LANGUAGE_STRINGS entry '${key}' names \`${identifier}\`, which is not imported`,
       );
+      continue;
+    }
+
+    // A key may only name the file for its *own* language. Nothing else in this gate
+    // relates the two: the checks above accept any imported identifier, and the loop
+    // below only asks that each import is used *somewhere*. So `nl: deEditor` — a key
+    // with no file of its own, aliased onto another language's — passes both, and every
+    // Dutch user silently gets the German editor. Aliasing is never what was meant: a
+    // language with no editor file is supposed to be absent from this map entirely, so
+    // that `hasEditorTranslations()` can fall the whole language back to English.
+    const expected = basename(imports.get(identifier), '.json').toLowerCase();
+    if (expected !== key) {
+      error(
+        'editor/translations/index.ts',
+        `EDITOR_LANGUAGE_STRINGS key '${key}' names \`${identifier}\`, which is ` +
+          `'${expected}' — '${key}' would render the editor in ${expected}. Either add ` +
+          `${key}.json, or remove the entry so '${key}' falls back to English`,
+      );
     }
   }
 

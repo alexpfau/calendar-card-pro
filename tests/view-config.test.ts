@@ -567,26 +567,11 @@ describe('validateColumnOverrides', () => {
     expect(warnMock.mock.calls[1][0]).toContain('not a recognized option');
   });
 
-  // The deferred set is empty: every key the design document published ahead of the
-  // code now renders. There is deliberately no test enumerating its members, because
-  // an `it.each([])` throws rather than passing vacuously. What must stay tested is
-  // the *branch*, which the next block does with a synthetic key.
-  it('tells the user a deferred key is planned rather than misdirecting them', () => {
-    const config = buildConfig();
-    config.column = { day_header_gap: '32px' } as unknown as Types.ColumnOverrides;
-
-    validateColumnOverrides(config);
-
-    // A Category-C key is accepted, so this proves only that a valid block is quiet.
-    // The deferred branch itself is unreachable while the set is empty, and will be
-    // covered again by the first key that re-enters it.
-    expect(warnMock).not.toHaveBeenCalled();
-  });
-
-  // The mirror image of the deferred set, and the reason it has to be kept honest:
-  // these graduated out of it as each feature landed -- five when week numbers shipped,
-  // six more when the separators did. A key that stays on the deferred list after it
-  // ships warns the user away from an option that works.
+  // These graduated out of the "planned but not implemented" set as each feature landed
+  // -- five when week numbers shipped, six more when the separators did. That set is now
+  // empty and its warning branch is gone from `validateColumnOverrides`, so what is left
+  // to protect is the inverse: a shipped key must never warn the user away from an option
+  // that works.
   it.each([
     'show_week_numbers',
     'show_current_week_number',
@@ -738,6 +723,48 @@ describe('column view config surface', () => {
 
     expect(resolveColumnOption(config, 'day_header_gap')).toBe('4px');
     expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('1px');
+  });
+
+  it('coerces a bare number typed as a string, which is what the editor hands back', () => {
+    // The test above covers YAML's number. The visual editor cannot produce one: both
+    // of these fields are `selector: { text: {} }` (schemas/layout.ts, schemas/separators.ts),
+    // and an HA text field always hands back a string. So typing `12` into "Day header
+    // gap" stores `'12'`, which is the *same* invalid CSS as the number case — the style
+    // attribute is written as `border-top-width:12` and the browser discards it.
+    //
+    // This half was missed because the two coercion paths were separate: `coercePixelLength`
+    // infers length-ness from `DEFAULT_CONFIG`, and neither of these keys is in it — they
+    // live in `COLUMN_DEFAULTS`. Both paths now share `coercePixelLengthAgainst`, so a new
+    // length-valued column option is covered by construction rather than by remembering.
+    const config = buildConfig();
+    config.column = {
+      day_header_gap: '12',
+      day_header_separator_width: '1',
+    } as unknown as Types.Config['column'];
+
+    expect(resolveColumnOption(config, 'day_header_gap')).toBe('12px');
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('1px');
+  });
+
+  it('leaves a column-only option that is not a length alone', () => {
+    // The other half of the invariant, and the reason length-ness is inferred from the
+    // shipped default rather than assumed: a bare number is meaningful for some options
+    // and appending `px` to those would be the mirror-image bug.
+    const config = buildConfig();
+    config.column = {
+      day_header_separator_color: '12',
+      min_days_fallback: 'cramp',
+    } as unknown as Types.Config['column'];
+
+    expect(resolveColumnOption(config, 'day_header_separator_color')).toBe('12');
+    expect(resolveColumnOption(config, 'min_days_fallback')).toBe('cramp');
+  });
+
+  it('leaves an already-suffixed length alone, from either source', () => {
+    const config = buildConfig();
+    config.column = { day_header_gap: '12px' };
+
+    expect(resolveColumnOption(config, 'day_header_gap')).toBe('12px');
   });
 
   it('treats a bare zero as a suppressed length', () => {
