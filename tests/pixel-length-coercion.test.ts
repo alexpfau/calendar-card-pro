@@ -24,8 +24,11 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
+import { resolveEffectiveConfig } from '../src/config/view';
+import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 
 /** Every top-level option whose shipped default is a plain pixel length. */
 const PIXEL_KEYS = Object.entries(Config.DEFAULT_CONFIG as unknown as Record<string, unknown>)
@@ -52,7 +55,9 @@ describe('Y21 — pixel-length coercion', () => {
     expect(Config.coercePixelLength(key, 4)).toBe(4);
   });
 
-  it('leaves strings, booleans and non-finite numbers untouched', () => {
+  it('leaves unit-bearing strings, booleans and non-finite numbers untouched', () => {
+    // A string carrying a unit is already a valid length, so touching it could only break
+    // it. A bare-numeric string is the separate case handled below — it is not a length.
     expect(Config.coercePixelLength('day_spacing', '10px')).toBe('10px');
     expect(Config.coercePixelLength('day_spacing', '1rem')).toBe('1rem');
     expect(Config.coercePixelLength('show_location', true)).toBe(true);
@@ -242,5 +247,143 @@ describe('Y21 — pixel-length coercion', () => {
     Config.normalizeLengthOptions(config);
     Config.normalizeLengthOptions(config);
     expect((config as unknown as Record<string, unknown>).day_spacing).toBe('4px');
+  });
+});
+
+/**
+ * Y21b — the same bare number, reached through the visual editor rather than YAML.
+ *
+ * Y21 fixed the YAML path only, because it assumed a bare number arrives typed as a
+ * number. The editor renders these options as free-text fields, and `ha-form` hands a
+ * text field's value back as a **string**. So typing `10` into Day Spacing stores
+ * `"10"`, which the number-only guard let straight through — the identical silent
+ * failure, on the input path most users actually use, in a card whose own fix was
+ * already in the file.
+ *
+ * It is worse than a rule that does nothing. A browser discards the **whole
+ * declaration**, not the bad token, so:
+ *
+ *  - `padding: var(--event-spacing) 0 var(--event-spacing) 12px` loses the `12px` too
+ *  - `padding: calc(var(--spacing-additional) + 16px) 16px` collapses to `0px`, wiping
+ *    the card's base padding — `additional_card_spacing: 8` makes the card *worse* than
+ *    leaving it unset
+ *
+ * Both measured in headless Chrome against the card's real declarations.
+ *
+ * Why nothing caught it: `coercePixelLength` was tested with numbers only, the editor
+ * suite asserts on what the schema *declares* rather than on what a typed value becomes,
+ * and no gate connects the two. The affected field set is therefore derived here from
+ * the live editor schema, so an option that later becomes free text is covered without
+ * anyone remembering to add it.
+ */
+describe('Y21b — a bare number typed into an editor text field', () => {
+  /**
+   * Fields the editor renders as free text, across every panel and both views.
+   *
+   * A `text` selector carrying a `type` (`date`, `number`, …) is excluded: those do not
+   * hand back a bare numeric string.
+   */
+  const TEXT_FIELDS = (() => {
+    const names = new Set<string>();
+
+    for (const panel of PANELS) {
+      for (const view of ['list', 'column'] as const) {
+        const config = buildConfig({ view }) as Types.Config;
+
+        for (const { node } of walkSchema(panel.build({ view, config, language: 'en' }))) {
+          if ('schema' in node || node.name === '') continue;
+
+          const text = (node as { selector?: { text?: unknown } }).selector?.text;
+          if (typeof text === 'object' && text !== null && !('type' in text)) {
+            names.add(node.name);
+          }
+        }
+      }
+    }
+
+    return [...names];
+  })();
+
+  /** The affected set: rendered as free text, and defaulting to a pixel length. */
+  const TYPED_LENGTH_FIELDS = TEXT_FIELDS.filter((name) => PIXEL_KEYS.includes(name));
+
+  it('finds the affected fields in the live editor schema', () => {
+    // The denominator, and the reason this suite cannot pass vacuously: if the derivation
+    // silently returned nothing, every `it.each` below would run zero cases and go green.
+    expect(TEXT_FIELDS.length).toBeGreaterThan(3);
+    expect(TYPED_LENGTH_FIELDS).toEqual(
+      expect.arrayContaining(['day_spacing', 'event_spacing', 'additional_card_spacing']),
+    );
+  });
+
+  it.each(TYPED_LENGTH_FIELDS)('coerces a number typed into %s', (key) => {
+    expect(Config.coercePixelLength(key, '10')).toBe('10px');
+    expect(Config.coercePixelLength(key, '4.5')).toBe('4.5px');
+    expect(Config.coercePixelLength(key, '-2')).toBe('-2px');
+  });
+
+  it('coerces a typed zero, which is a length only outside calc()', () => {
+    // Bare `0` is a valid length on its own, so this looks harmless — but the card's
+    // separator offset is `calc(-0.5 * (var(--gap) + 1px))`, and calc() requires a unit
+    // on every term. Unitless zero kills that declaration like any other bare number.
+    expect(Config.coercePixelLength('day_spacing', '0')).toBe('0px');
+  });
+
+  it('tolerates whitespace around a typed number', () => {
+    // A text field trivially collects it, and a padded number is no more a valid length
+    // than an unpadded one, so passing it through would preserve the bug for anyone who
+    // hit the space bar.
+    expect(Config.coercePixelLength('day_spacing', ' 10 ')).toBe('10px');
+    expect(Config.coercePixelLength('day_spacing', '\t4\n')).toBe('4px');
+  });
+
+  it.each(['10px', '1rem', '2em', '50%', 'calc(100% - 4px)', 'auto', '', '10 px', '1e3'])(
+    'leaves %o alone — it is not a bare number',
+    (value) => {
+      // Anything already carrying a unit, and anything that is not plainly numeric. `1e3`
+      // is excluded deliberately: `1e3px` is not a CSS length, so guessing would replace a
+      // dead rule with a different dead rule.
+      expect(Config.coercePixelLength('day_spacing', value)).toBe(value);
+    },
+  );
+
+  it.each(NUMERIC_KEYS)('leaves a number typed into %s as the string it was', (key) => {
+    // The over-reach control, restated for the string path: these take a real number, and
+    // `days_to_show: "4px"` would be far more broken than the value the user typed.
+    expect(Config.coercePixelLength(key, '4')).toBe('4');
+  });
+
+  it('is idempotent across the string path', () => {
+    const once = Config.coercePixelLength('day_spacing', '10');
+    expect(Config.coercePixelLength('day_spacing', once)).toBe('10px');
+  });
+
+  it('reaches a nested group, where the editor writes the same way', () => {
+    const config = {
+      ...Config.DEFAULT_CONFIG,
+      entities: ['calendar.family'],
+      weather: { position: 'date', date: { icon_size: '20', font_size: '16px' } },
+    } as unknown as Types.Config;
+
+    Config.normalizeLengthOptions(config);
+
+    const weather = (config as unknown as Record<string, Record<string, Record<string, unknown>>>)
+      .weather;
+    expect(weather.date.icon_size).toBe('20px');
+    expect(weather.date.font_size).toBe('16px');
+  });
+
+  it('reaches the column override block', () => {
+    // The override path resolves separately from `setConfig`, so a fix applied only to
+    // normalization would leave `column: {day_spacing: "10"}` broken — which is the exact
+    // shape of the split that Y21 existed to close.
+    const config = buildConfig({
+      view: 'column',
+      column: { day_spacing: '10' },
+    } as unknown as Partial<Types.Config>) as Types.Config;
+
+    const resolved = resolveEffectiveConfig(config, 'column');
+
+    expect((resolved as unknown as Record<string, unknown>).day_spacing).toBe('10px');
   });
 });
