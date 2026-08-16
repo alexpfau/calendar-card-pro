@@ -4038,6 +4038,43 @@ describe('editor: exceptions for the union-typed options', () => {
  * added to the union, documented, and still be unselectable in the UI, which is how a
  * reader ends up shown an option the editor will not let them choose.
  */
+/**
+ * Every dropdown the editor builds, across the configurations that surface them all.
+ *
+ * A panel only offers what the configuration in front of it calls for, so the weather
+ * and column dropdowns exist only once those features are configured.
+ *
+ * @returns Each dropdown's field name mapped to the values it offers
+ */
+function editorOptions(): Map<string, string[]> {
+  const configs = [
+    buildConfig({}),
+    buildConfig({ view: 'column' }),
+    buildConfig({ weather: { entity: 'weather.home' } }),
+    buildConfig({ view: 'column', weather: { entity: 'weather.home' } }),
+  ] as Types.Config[];
+
+  const found = new Map<string, string[]>();
+  for (const config of configs) {
+    for (const panel of PANELS) {
+      const schema = panel.build({ view: config.view, config, language: 'en' });
+      for (const { node } of walkSchema(schema)) {
+        const options = (node as { selector?: { select?: { options?: unknown[] } } }).selector
+          ?.select?.options;
+        if (!node.name || !options) continue;
+
+        found.set(
+          node.name,
+          options.map((option) =>
+            typeof option === 'string' ? option : (option as SelectOption).value,
+          ),
+        );
+      }
+    }
+  }
+  return found;
+}
+
 describe('editor: enumerated options offer their whole vocabulary', () => {
   /**
    * Where the editor surfaces each enumerated config key, and any value that exists only
@@ -4087,43 +4124,6 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     return found;
   }
 
-  /**
-   * Every dropdown the editor builds, across the configurations that surface them all.
-   *
-   * A panel only offers what the configuration in front of it calls for, so the weather
-   * and column dropdowns exist only once those features are configured.
-   *
-   * @returns Each dropdown's field name mapped to the values it offers
-   */
-  function editorOptions(): Map<string, string[]> {
-    const configs = [
-      buildConfig({}),
-      buildConfig({ view: 'column' }),
-      buildConfig({ weather: { entity: 'weather.home' } }),
-      buildConfig({ view: 'column', weather: { entity: 'weather.home' } }),
-    ] as Types.Config[];
-
-    const found = new Map<string, string[]>();
-    for (const config of configs) {
-      for (const panel of PANELS) {
-        const schema = panel.build({ view: config.view, config, language: 'en' });
-        for (const { node } of walkSchema(schema)) {
-          const options = (node as { selector?: { select?: { options?: unknown[] } } }).selector
-            ?.select?.options;
-          if (!node.name || !options) continue;
-
-          found.set(
-            node.name,
-            options.map((option) =>
-              typeof option === 'string' ? option : (option as SelectOption).value,
-            ),
-          );
-        }
-      }
-    }
-    return found;
-  }
-
   it('maps every enumerated option the types declare', () => {
     // Discovered rather than listed, so adding a sixth enumerated option fails here
     // instead of silently skipping the vocabulary check below.
@@ -4138,6 +4138,87 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
 
       expect(offered, `the editor builds no dropdown named ${field}`).toBeDefined();
       expect([...offered!].sort()).toEqual(expected);
+    },
+  );
+});
+
+describe('editor: every enumerated synthetic option is selectable', () => {
+  /**
+   * A synthetic dropdown has no config key of its own; it derives a mode from whatever the
+   * card actually stores, and turns a pick back into that storage. Both halves are
+   * hand-written per field, so the vocabulary check above can pass while a value that is
+   * offered stores nothing the derive step recognises. The user then picks an option and
+   * watches the form snap back to the one they left.
+   *
+   * @returns Each synthetic dropdown's field name paired with the values it offers
+   */
+  function syntheticDropdowns(): Array<[string, string[]]> {
+    return [...editorOptions()].filter(([name]) => name in SYNTHETIC_FIELDS);
+  }
+
+  /**
+   * Performs the edit a user makes by choosing one dropdown value.
+   *
+   * @param config - Configuration the form was rendered from
+   * @param pending - Uncommitted text held for synthetic fields
+   * @param field - Synthetic dropdown being changed
+   * @param value - Value the user picked
+   * @returns The configuration and pending text after the edit
+   */
+  function pick(
+    config: Types.Config,
+    pending: Record<string, string>,
+    field: string,
+    value: string,
+  ) {
+    const before = { ...config, ...deriveSyntheticData(config, pending) } as Record<
+      string,
+      unknown
+    >;
+
+    return applyFormChange(config, before, { ...before, [field]: value }, pending);
+  }
+
+  it('pins which dropdowns store through a synthetic field', () => {
+    // Discovered rather than listed, so a new synthetic dropdown is covered below the
+    // moment it is added instead of being silently skipped.
+    expect(
+      syntheticDropdowns()
+        .map(([name]) => name)
+        .sort(),
+    ).toEqual([
+      'height_mode',
+      'language_mode',
+      'location_country_mode',
+      'start_date_mode',
+      'time_format',
+      'today_indicator_style',
+      'week_number_mode',
+    ]);
+  });
+
+  it.each(syntheticDropdowns())(
+    'shows %s back after picking it from any other value',
+    (field, values) => {
+      for (const from of values) {
+        for (const to of values) {
+          const entered = pick(DEFAULT_CONFIG as Types.Config, {}, field, from);
+
+          // Without this the loop below would compare every transition against the default
+          // state, and would still pass with the whole store half broken.
+          expect(
+            deriveSyntheticData(entered.config, entered.pending)[field],
+            `${field} never reached ${from}`,
+          ).toBe(from);
+
+          const moved = pick(entered.config, entered.pending, field, to);
+
+          expect(
+            deriveSyntheticData(moved.config, moved.pending)[field],
+            `${field}: picking ${to} while on ${from}`,
+          ).toBe(to);
+        }
+      }
     },
   );
 });
