@@ -16,6 +16,17 @@ const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
 
 const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set(['entity']);
 
+/**
+ * Settings copied from one calendar, awaiting a paste.
+ *
+ * Deliberately module-scoped rather than editor-instance state: the clipboard outlives a
+ * single editor dialog, so settings copied while editing one card can be pasted into
+ * another. That is the useful case — several cards usually list the same calendars — and
+ * it matches how a clipboard is expected to behave. It is page-scoped, not persisted, and
+ * a paste is always an explicit click, so nothing is written without the user asking.
+ *
+ * `clearCopiedSettings()` exists for tests, which would otherwise leak this between cases.
+ */
 let clipboard: Types.EntityConfig | undefined;
 
 /**

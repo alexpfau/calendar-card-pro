@@ -273,13 +273,18 @@ export function coercePixelLength(key: string, value: unknown): unknown {
 /**
  * {@link coercePixelLength} against a shipped default supplied directly.
  *
- * Split out so the nested walk can pass the default it has already descended to.
+ * Split out so the nested walk can pass the default it has already descended to, and
+ * exported so the column-only options can reuse the *same* inference. Those keys are
+ * absent from `DEFAULT_CONFIG` — they live in `COLUMN_DEFAULTS` — so {@link
+ * coercePixelLength} looks them up as `undefined` and returns every value untouched.
+ * Reusing this rather than repeating the test is what stops the two tables of lengths
+ * from drifting apart.
  *
  * @param shippedDefault - The value this option ships with, at the same nesting level
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
  * @returns The value, with a bare number turned into a pixel length where appropriate
  */
-function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unknown {
+export function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unknown {
   const bare = bareNumber(value);
   if (bare === undefined) {
     return value;

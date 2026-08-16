@@ -28,6 +28,7 @@ import { buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { resolveEffectiveConfig } from '../src/config/view';
+import * as View from '../src/config/view';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 
 /** Every top-level option whose shipped default is a plain pixel length. */
@@ -37,6 +38,20 @@ const PIXEL_KEYS = Object.entries(Config.DEFAULT_CONFIG as unknown as Record<str
 
 /** Options that take a real number and must never be turned into a length. */
 const NUMERIC_KEYS = ['days_to_show', 'refresh_interval', 'title_max_lines'];
+
+/**
+ * The same derivation over the *second* default table.
+ *
+ * Column-only options are not in `DEFAULT_CONFIG` — they live in `COLUMN_DEFAULTS`, and
+ * `resolveColumnOption` is what reads them. That is why the Y21b fix below did not reach
+ * them: `coercePixelLength` looks a key up in `DEFAULT_CONFIG`, finds nothing, and returns
+ * the value untouched, so `day_header_gap: '12'` stayed `'12'` and the browser dropped the
+ * declaration. Deriving both tables the same way means a column-only length option added
+ * later is covered here without anyone remembering to add it.
+ */
+const COLUMN_PIXEL_KEYS = Object.entries(View.COLUMN_DEFAULTS as unknown as Record<string, unknown>)
+  .filter(([, v]) => typeof v === 'string' && /^-?\d+(?:\.\d+)?px$/.test(v as string))
+  .map(([k]) => k);
 
 describe('Y21 — pixel-length coercion', () => {
   it('has a non-empty key set to test against', () => {
@@ -320,6 +335,31 @@ describe('Y21b — a bare number typed into an editor text field', () => {
     expect(Config.coercePixelLength(key, '10')).toBe('10px');
     expect(Config.coercePixelLength(key, '4.5')).toBe('4.5px');
     expect(Config.coercePixelLength(key, '-2')).toBe('-2px');
+  });
+
+  /**
+   * Every column-only length the editor renders as free text.
+   *
+   * Intersecting the live schema with `COLUMN_DEFAULTS` is what makes this future-proof:
+   * both halves are read from the code, so neither a new column-only length option nor a
+   * field switched to a text selector can quietly escape it.
+   */
+  const TYPED_COLUMN_LENGTH_FIELDS = TEXT_FIELDS.filter((name) => COLUMN_PIXEL_KEYS.includes(name));
+
+  it('finds the column-only length fields too', () => {
+    // The second denominator. `TEXT_FIELDS` walks both views, so these are in it — they
+    // were simply never intersected with the column default table, which is precisely how
+    // the gap survived the first fix.
+    expect(TYPED_COLUMN_LENGTH_FIELDS).toEqual(
+      expect.arrayContaining(['day_header_gap', 'day_header_separator_width']),
+    );
+  });
+
+  it.each(TYPED_COLUMN_LENGTH_FIELDS)('coerces a number typed into column %s', (key) => {
+    const config = buildConfig({ view: 'column' }) as Types.Config;
+    config.column = { [key]: '10' } as unknown as Types.Config['column'];
+
+    expect(View.resolveColumnOption(config, key as keyof typeof View.COLUMN_DEFAULTS)).toBe('10px');
   });
 
   it('coerces a typed zero, which is a length only outside calc()', () => {

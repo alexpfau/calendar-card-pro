@@ -4,7 +4,7 @@
  * Resolves per-view configuration, column-only defaults and width fallback.
  */
 
-import { DEFAULT_CONFIG, coercePixelLength } from './config';
+import { DEFAULT_CONFIG, coercePixelLength, coercePixelLengthAgainst } from './config';
 import * as Types from './types';
 import * as Logger from '../utils/logger';
 
@@ -216,20 +216,22 @@ export const COLUMN_DEFAULTS = {
 type ColumnOptionValue<K extends keyof typeof COLUMN_DEFAULTS> =
   (typeof COLUMN_DEFAULTS)[K] extends number ? number : string;
 
-// Bare YAML numbers for these keys are coerced to pixels before they reach CSS.
-const COLUMN_LENGTH_KEYS: ReadonlySet<string> = new Set([
-  'day_header_gap',
-  'day_header_separator_width',
-]);
-
 /**
  * Normalizes a column-only option value to a usable value of its declared type.
  *
  * Numeric column-only values do not pass through `normalizeConfig`, so invalid
  * `min_day_width` values are caught here before they can break threshold arithmetic.
  *
+ * Length-valued keys accept a bare number from either source — YAML's `day_header_gap: 12`
+ * and the visual editor's text field, which hands back the *string* `'12'`. Both are
+ * turned into `'12px'` by the same {@link coercePixelLengthAgainst} the rest of the
+ * config uses, which infers length-ness from the shipped default rather than from a
+ * hand-maintained list. There is no valid unitless CSS length, so a bare number is already
+ * broken wherever one is expected: `border-top-width:12` is written to the style attribute
+ * and then discarded by the browser, leaving the separator invisible with no error.
+ *
  * @param key - Option being resolved
- * @param value - Raw configured value, which YAML may have typed as a number
+ * @param value - Raw configured value, which YAML or the editor may have typed as a number
  * @returns A value of the key's declared type
  */
 function normalizeColumnValue(key: keyof typeof COLUMN_DEFAULTS, value: unknown): string | number {
@@ -240,11 +242,7 @@ function normalizeColumnValue(key: keyof typeof COLUMN_DEFAULTS, value: unknown)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return COLUMN_LENGTH_KEYS.has(key) ? `${value}px` : String(value);
-  }
-
-  return String(value);
+  return String(coercePixelLengthAgainst(fallback, value));
 }
 
 /**
@@ -707,9 +705,13 @@ export function resolveMinDaysFallback(config: Types.Config): Types.ColumnMinDay
  * threshold that value still says `column` while the card renders a list, and every
  * per-view resolution would then resolve for the wrong view.
  *
- * The fallback is **wholesale**: below the threshold the card renders list view with
- * every configured day. It never renders column view with fewer columns than asked
- * for.
+ * The fallback this function models is **wholesale**: below the threshold it answers
+ * list view, never column view with fewer columns. That is a property of *this
+ * function*, not of the card — do not cite it as product behaviour. {@link
+ * resolveColumnFit} reduces the column count to what fits and only falls back to list
+ * when even `min_days_to_show` will not fit, so the card does render column view with
+ * fewer columns than were asked for. `docs/features/column-view.md` describes that
+ * behaviour; this block describes only the view half it is pinned against.
  *
  * @param requestedView - The configured view
  * @param measuredWidthPx - Measured card width, or `null` before first measurement

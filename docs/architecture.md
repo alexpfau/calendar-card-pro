@@ -529,6 +529,8 @@ When modifying code:
 6. **Configuration**:
    - Make new features configurable when appropriate
    - Provide sensible defaults in constants.ts
-   - Document new configuration options in README.md
+   - Document new configuration options in `docs/reference/configuration.md` and on the
+     relevant `docs/features/*.md` page; update `README.md` only when installation or the
+     quick-start example changes
 
 By following these architectural principles, Calendar Card Pro maintains a clean, maintainable codebase that delivers excellent performance and user experience.
