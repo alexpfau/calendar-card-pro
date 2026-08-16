@@ -22,6 +22,13 @@ const REFERENCE_DOC = join(DOCS_DIR, 'reference/configuration.md');
 
 const STRICT = process.argv.includes('--strict');
 
+/**
+ * GitHub renders `::error::` and `::warning::` lines as inline annotations on the pull
+ * request. Locally they would be noise, so the plain symbols stay outside CI. Mirrors
+ * `check-i18n.mjs`, so a docs failure surfaces the same way an i18n failure does.
+ */
+const IN_CI = Boolean(process.env.GITHUB_ACTIONS);
+
 const errors = [];
 const warnings = [];
 
@@ -1466,12 +1473,12 @@ function report(counts) {
 
   if (errors.length) {
     console.log(`${errors.length} error(s):`);
-    for (const e of errors) console.log(`  ✗ ${e}`);
+    for (const e of errors) console.log(IN_CI ? `::error::${e}` : `  ✗ ${e}`);
     console.log('');
   }
   if (warnings.length) {
     console.log(`${warnings.length} warning(s):`);
-    for (const w of warnings) console.log(`  ⚠ ${w}`);
+    for (const w of warnings) console.log(IN_CI ? `::warning::${w}` : `  ⚠ ${w}`);
     console.log('');
   }
 
