@@ -38,14 +38,14 @@ These live inside the `column:` block and have no top-level counterpart, because
 describe spacing that only exists once days sit side by side. Their defaults make an
 absent `column:` block a visual no-op.
 
-| Option                                | Type   | Default                | Description                                                                      |
-| ------------------------------------- | ------ | ---------------------- | -------------------------------------------------------------------------------- |
-| `column → day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                          |
-| `column → day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule |
-| `column → day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                               |
-| `column → min_day_width`              | number | `140`                  | Narrowest a day column may become, in pixels, before the card drops a column     |
-| `column → min_days_to_show`           | number | `days_to_show`         | Fewest columns the card may shrink to; below this, `min_days_fallback` decides   |
-| `column → min_days_fallback`          | string | `list`                 | What happens when even `min_days_to_show` will not fit: `list` or `cramp`        |
+| Option                                | Type   | Default                | Description                                                                                                                                                  |
+| ------------------------------------- | ------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `column → day_header_gap`             | string | `8px`                  | Vertical space between a day header and its first event                                                                                                      |
+| `column → day_header_separator_width` | string | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule                                                                             |
+| `column → day_header_separator_color` | string | `var(--divider-color)` | Color of that rule                                                                                                                                           |
+| `column → min_day_width`              | number | `140`                  | Narrowest a day column may become, in pixels, before the card sheds a column                                                                                 |
+| `column → min_days_to_show`           | number | `days_to_show`         | Fewest columns the card may shrink to. Defaults to `days_to_show`, so no columns are shed unless you lower it; below this floor, `min_days_fallback` decides |
+| `column → min_days_fallback`          | string | `list`                 | What happens when even `min_days_to_show` will not fit: `list` or `cramp`                                                                                    |
 
 **→ [Column View](/features/column-view)** — worked examples.
 
