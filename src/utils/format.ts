@@ -247,34 +247,49 @@ function pad(n: number): string {
 /**
  * Calculate ISO week number for a date
  *
+ * Reads the local calendar date, then performs every step in UTC. Taking a
+ * difference in absolute milliseconds between two dates built with local methods
+ * drifts by the DST offset whenever a transition falls between them, which tips
+ * the final `Math.ceil` by a whole week for roughly one date in seven. The drift
+ * is negative north of the equator and positive south of it, so this rounded up
+ * only where Jan 1 falls inside DST — correct in Europe and the Americas while
+ * wrong in Australia, New Zealand and Chile. UTC has no transitions, so building
+ * the dates there removes the failure mode rather than compensating for it.
+ *
  * @param date Date to calculate week number for
  * @returns ISO week number (1-53)
  */
 export function getISOWeekNumber(date: Date): number {
-  const d = new Date(date);
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
 
-  d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
 
-  const yearStart = new Date(d.getFullYear(), 0, 1);
+  const yearStart = Date.UTC(d.getUTCFullYear(), 0, 1);
 
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return Math.ceil(((d.getTime() - yearStart) / 86400000 + 1) / 7);
 }
 
 /**
  * Calculate a simple week number using the configured first day of week.
+ *
+ * Built in UTC for the reason given on {@link getISOWeekNumber}, with the
+ * hemispheres reversed: this one floors rather than ceils, so it undercounted
+ * where the DST drift is negative — wrong in Europe and the Americas, correct in
+ * Australia and New Zealand. Between them the two functions were wrong almost
+ * everywhere that observes DST.
  *
  * @param date Date to calculate from
  * @param firstDayOfWeek First day of the week, where 0 is Sunday
  * @returns Week number
  */
 export function getSimpleWeekNumber(date: Date, firstDayOfWeek: number = 0): number {
-  const d = new Date(date);
+  const d = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
 
-  const startOfYear = new Date(d.getFullYear(), 0, 1);
+  const startOfYear = Date.UTC(date.getFullYear(), 0, 1);
 
-  const days = Math.floor((d.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+  const days = Math.round((d - startOfYear) / (24 * 60 * 60 * 1000));
 
-  const dayOfWeekOffset = (startOfYear.getDay() - firstDayOfWeek + 7) % 7;
+  const dayOfWeekOffset = (new Date(startOfYear).getUTCDay() - firstDayOfWeek + 7) % 7;
 
   return Math.ceil((days + dayOfWeekOffset + 1) / 7);
 }
