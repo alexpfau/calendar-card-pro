@@ -187,6 +187,10 @@ export function generateInstanceId(): string {
  * @param daysToShow Number of days to display
  * @param showPastEvents Whether to show past events
  * @param startDate Optional custom start date
+ * @param firstDayOfWeek Raw `first_day_of_week` setting. Included because
+ *   `hasConfigChanged` treats it as fetch-affecting — a week-relative `startDate`
+ *   resolves to a different window when it changes — and the two must agree, or a
+ *   failed refresh keeps the previous window's events under the new identity.
  * @returns Deterministic ID string based on input parameters
  */
 export function generateDeterministicId(
@@ -194,6 +198,7 @@ export function generateDeterministicId(
   daysToShow: number,
   showPastEvents: boolean,
   startDate?: string,
+  firstDayOfWeek?: string,
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -214,8 +219,9 @@ export function generateDeterministicId(
   }
 
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
+  const firstDayPart = firstDayOfWeek ? `_fdw${firstDayOfWeek}` : '';
 
-  const baseString = `calendar_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}`;
+  const baseString = `calendar_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}${firstDayPart}`;
 
   return hashString(baseString);
 }

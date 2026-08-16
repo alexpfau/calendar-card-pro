@@ -31,16 +31,20 @@ export async function fetchEventData(
   instanceId: string,
   force = false,
 ): Promise<Types.EventFetchResult> {
+  // Resolved before the key is built, not after. `first_day_of_week: 'system'` is a
+  // single config string that resolves to a different weekday per user profile, so
+  // keying on the raw value gave a Sunday-start and a Monday-start week one shared
+  // cache entry whenever `start_date` was week-relative.
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass.locale);
+
   const cacheKey = getBaseCacheKey(
     instanceId,
     config.entities,
     config.days_to_show,
     config.show_past_events,
     config.start_date,
-    config.first_day_of_week,
+    firstDayOfWeek,
   );
-
-  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass.locale);
 
   const isManualPageReload = isManualPageLoad();
   if (!force) {
@@ -730,7 +734,15 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
     const firstDayEnd = new Date(startDateTime);
     firstDayEnd.setHours(23, 59, 59, 999);
 
-    if (firstDayEnd < endDateTime) {
+    // An event that ends at exactly local midnight occupies no time on the following
+    // day, so it is not multi-day. Testing against the last millisecond of the start
+    // day treated it as one and pushed a zero-length segment (start === end) into the
+    // next day's bucket, which surfaced as a phantom entry there. Testing against the
+    // next day's first millisecond instead keeps the event whole and preserves the end
+    // time the user actually set, rather than truncating it to 23:59:59.999.
+    const nextDayStart = new Date(firstDayEnd.getTime() + 1);
+
+    if (nextDayStart < endDateTime) {
       const firstDaySegment: Types.CalendarEventData = {
         ...event,
         start: { dateTime: startDateTime.toISOString() },
@@ -1205,8 +1217,10 @@ export function cacheEvents(
  * @param showPastEvents - Whether to show past events
  * @param startDate - Optional start date in YYYY-MM-DD format, ISO format, or the
  *   relative grammar (`start_of_week`, `monday+1w`, …)
- * @param firstDayOfWeek - Resolved first day of week, which moves the window whenever
- *   `startDate` uses a week-relative expression
+ * @param firstDayOfWeek - Resolved numeric first day of week (0 = Sunday), which moves
+ *   the window whenever `startDate` uses a week-relative expression. Numeric, not the
+ *   raw `first_day_of_week` string: `'system'` resolves to a different weekday per user
+ *   profile, so keying on the raw value gave two different windows one cache entry.
  * @returns Base cache key
  */
 export function getBaseCacheKey(
@@ -1215,7 +1229,7 @@ export function getBaseCacheKey(
   daysToShow: number,
   showPastEvents: boolean,
   startDate?: string,
-  firstDayOfWeek?: string,
+  firstDayOfWeek?: number,
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
@@ -1240,7 +1254,9 @@ export function getBaseCacheKey(
   const weekRelative = /^(start_of_week|end_of_week|mon|tue|wed|thu|fri|sat|sun)/i.test(
     normalizedStartDate,
   );
-  const firstDayPart = weekRelative && firstDayOfWeek ? `_fdw${firstDayOfWeek}` : '';
+  // Explicitly against `undefined`, not truthiness: Sunday resolves to 0, so a truthy
+  // test would drop it from the key and collide a Sunday-start week with "no weekday".
+  const firstDayPart = weekRelative && firstDayOfWeek !== undefined ? `_fdw${firstDayOfWeek}` : '';
 
   return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
 }
