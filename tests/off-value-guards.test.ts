@@ -1,9 +1,10 @@
 import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FROZEN_NOW, buildConfig } from './fixtures';
+import { FROZEN_NOW, SINGLE_EVENT, WEATHER, buildConfig } from './fixtures';
 import * as Types from '../src/config/types';
 import * as Leaves from '../src/rendering/leaves';
+import * as Presentation from '../src/rendering/presentation';
 import * as EventUtils from '../src/utils/events';
 import * as FormatUtils from '../src/utils/format';
 import '../src/calendar-card-pro';
@@ -202,5 +203,116 @@ describe('hide_when_empty leaves an empty card visible when off', () => {
 
   it('leaves an empty card visible at the default', () => {
     expect(hiddenWith(false)).toBe(false);
+  });
+});
+
+/**
+ * The same sweep, extended from boolean options to numeric ones whose "off"
+ * value is `0` or unset. Three more gates survived and are pinned below.
+ *
+ * These are harder to see than the boolean cases, because `0` is not a
+ * disabled feature — it is a different, equally valid setting that happens to
+ * render nothing extra. `uv_index_threshold: 0` means "never suppress", and a
+ * background opacity of `0` means "draw no background", so in both cases the
+ * default output is indistinguishable from the option not working at all.
+ */
+describe('uv_index_threshold suppresses the badge below the threshold', () => {
+  /**
+   * The threshold is the whole point of the option: it exists so a user only
+   * sees a UV badge on days that warrant one. Both scopes asserted that the
+   * badge *appears* — mutating the comparison to `false` killed 1 test in the
+   * date scope and 7 in the event scope — but mutating it to `true`, which
+   * makes the threshold do nothing at all, left the suite green in both.
+   *
+   * The fixture forecast carries `uv_index: 7`, so a threshold of 7 must still
+   * show the badge and a threshold of 8 must hide it. Both are asserted, so
+   * neither passes in a harness that simply never renders UV.
+   */
+  const DATE = new Date(FROZEN_NOW);
+
+  // `renderEventWeather` drops the badge for an event that has already ended,
+  // so the clock has to sit inside the fixture day or every case below returns
+  // empty markup and the absence assertions pass for the wrong reason.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function dateBadge(uv_index_threshold: number) {
+    const config = buildConfig({
+      weather: {
+        entity: 'weather.home',
+        position: 'date',
+        date: { show_uv_index: true, uv_index_threshold },
+      },
+    } as never);
+    const container = document.createElement('div');
+    litRender(Leaves.renderDateWeather(DATE, config, WEATHER), container);
+    return container.querySelector('.weather-uv-index');
+  }
+
+  function eventBadge(uv_index_threshold: number) {
+    const config = buildConfig({
+      weather: {
+        entity: 'weather.home',
+        position: 'event',
+        event: { show_uv_index: true, uv_index_threshold },
+      },
+    } as never);
+    const container = document.createElement('div');
+    // The hourly fixtures carry no `uv_index` at all, so a timed event that
+    // resolves to one can never show the badge. Empty the hourly map to take
+    // the documented daily fallback, which is the forecast that has the index.
+    const forecasts = { ...WEATHER, hourly: {} };
+    litRender(
+      Leaves.renderEventWeather(SINGLE_EVENT[0], config, forecasts, 'title', null),
+      container,
+    );
+    return container.querySelector('.weather-uv-index');
+  }
+
+  it('shows the date badge when the index reaches the threshold', () => {
+    expect(dateBadge(7)?.textContent).toBe('UV7');
+  });
+
+  it('hides the date badge when the index is below the threshold', () => {
+    expect(dateBadge(8)).toBeNull();
+  });
+
+  it('shows the event badge when the index reaches the threshold', () => {
+    expect(eventBadge(7)?.textContent).toBe('UV7');
+  });
+
+  it('hides the event badge when the index is below the threshold', () => {
+    expect(eventBadge(8)).toBeNull();
+  });
+});
+
+describe('event_background_opacity draws a background once it is set', () => {
+  /**
+   * The inverse direction to the UV case. Forcing the opacity to a constant 50
+   * killed 17 tests, so "no background at the default" is thoroughly covered —
+   * but forcing it to a constant 0, which removes the background from every
+   * card that asks for one, left the suite green. `event_background_opacity`
+   * appeared only in `config.test.ts`, which normalizes the value and never
+   * renders it, so nothing connected the accepted number to any output.
+   */
+  const presentation = (event_background_opacity: number) =>
+    Presentation.buildEventPresentation(
+      SINGLE_EVENT[0],
+      buildConfig({ event_background_opacity }),
+      'en',
+      null,
+    );
+
+  it('emits no background colour at the default of 0', () => {
+    expect(presentation(0).entityAccentBackgroundColor).toBe('');
+  });
+
+  it('emits a background colour once an opacity is configured', () => {
+    expect(presentation(50).entityAccentBackgroundColor).not.toBe('');
   });
 });
