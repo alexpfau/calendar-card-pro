@@ -20,7 +20,6 @@ import { generateCustomPropertiesObject } from '../src/rendering/styles';
  * value is therefore pinned here explicitly, so neither `top` nor `middle` is ever again
  * covered only by being the default.
  */
-
 describe('event icon vertical alignment', () => {
   const PROP = '--calendar-card-event-icon-vertical-alignment';
 

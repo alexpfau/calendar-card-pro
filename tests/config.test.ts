@@ -21,7 +21,6 @@ import type * as Types from '../src/config/types';
  * whole days. The failure is invisible — the card renders successfully, just
  * empty — so it is exactly the class of bug that needs a test rather than a soak.
  */
-
 describe('toValidNumber', () => {
   it('accepts plain numbers at or above the minimum', () => {
     expect(toValidNumber(5)).toBe(5);

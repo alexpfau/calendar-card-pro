@@ -28,7 +28,6 @@ import {
  * rest and are asserted first: the fetch does not happen when the languages already
  * agree, and a cold cache renders the instance's wording rather than nothing.
  */
-
 const GERMAN_INSTANCE = { language: 'de' };
 
 /** The reply shape `frontend/get_translations` actually returns, verified against 2026.8.1. */

@@ -14,7 +14,6 @@ import { generateDeterministicId } from '../src/utils/helpers';
  * exactly one key so that they share an event-cache entry. Neither property is
  * visible in the rendered DOM, so no other gate in this repo can see them break.
  */
-
 const hass = (...entityIds: string[]): Types.Hass =>
   ({
     states: Object.fromEntries(

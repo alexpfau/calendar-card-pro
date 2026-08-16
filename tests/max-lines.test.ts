@@ -13,7 +13,6 @@ import { generateCustomPropertiesObject } from '../src/rendering/styles';
  * `description_max_lines` precedent: a positive value emits the line count as a
  * string, and `0` emits `none` (the correct `-webkit-line-clamp` unlimited value).
  */
-
 describe('per-field max-lines custom properties', () => {
   it.each([
     ['title_max_lines', '--calendar-card-title-max-lines'],

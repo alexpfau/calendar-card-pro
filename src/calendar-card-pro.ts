@@ -243,7 +243,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Safe accessor for hass - always returns hass object or null
    */
-
   get safeHass(): Types.Hass | null {
     return this.hass || null;
   }
@@ -251,7 +250,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Get the effective language to use based on configuration and HA locale
    */
-
   get effectiveLanguage(): string {
     if (!this._language && this.hass) {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass.locale);
@@ -262,7 +260,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Get events grouped by day
    */
-
   get groupedEvents(): Types.EventsByDay[] {
     return EventUtils.groupEventsByDay(
       this.events,
@@ -276,7 +273,6 @@ class CalendarCardPro extends LitElement {
   /**
    * The view the user asked for, before any width-based fallback.
    */
-
   get requestedView(): Types.EffectiveView {
     return this.config.view;
   }
@@ -284,7 +280,6 @@ class CalendarCardPro extends LitElement {
   /**
    * The view that will actually render.
    */
-
   get effectiveView(): Types.EffectiveView {
     if (this.preview || this.editMode) {
       return this.requestedView;
@@ -296,7 +291,6 @@ class CalendarCardPro extends LitElement {
   /**
    * The configuration as it applies to the view currently on screen.
    */
-
   get effectiveConfig(): Types.Config {
     const view = this.effectiveView;
     const cache = this._effectiveConfigCache;
@@ -315,7 +309,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Title to display, with templates resolved.
    */
-
   get effectiveTitle(): string | undefined {
     if (!Templates.isTemplate(this.config.title)) {
       return this.config.title;
@@ -327,7 +320,6 @@ class CalendarCardPro extends LitElement {
   /**
    * True while a templated title is waiting for its first rendered value.
    */
-
   get isTitlePending(): boolean {
     return Templates.isTemplate(this.config.title) && this.renderedTitle === undefined;
   }
@@ -335,7 +327,6 @@ class CalendarCardPro extends LitElement {
   /**
    * Number of real events the card would show across its full configured range.
    */
-
   get visibleEventCount(): number {
     const language = this.effectiveLanguage;
     const view = this.effectiveView;
@@ -620,7 +611,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Generate style properties from configuration Returns a style object for use with styleMap
+   * Generate style properties from configuration. Returns a style object for use with styleMap.
    */
   private getCustomStyles(): Record<string, string> {
     return Styles.generateCustomPropertiesObject(this.effectiveConfig);
@@ -863,7 +854,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Update calendar events from API or cache Simplified for card-mod compatibility
+   * Update calendar events from API or cache. Simplified for card-mod compatibility.
    */
   async updateEvents(force = false): Promise<void> {
     Logger.debug(`Updating events (force=${force})`);

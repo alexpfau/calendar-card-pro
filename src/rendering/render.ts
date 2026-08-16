@@ -15,7 +15,7 @@ import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 
 /**
- * Re-exported so the card can dispatch between views through a single import namespace. Keeping both renderers reachable as `Render.*` means the two call
+ * Re-exported so the card can dispatch between views through a single import namespace. Keeping both renderers reachable as `Render.*` means the two call sites in the card's view dispatch read as a symmetrical pair rather than pulling from different modules.
  */
 export { renderColumnGroupedEvents } from './column';
 
@@ -24,7 +24,7 @@ export { renderColumnGroupedEvents } from './column';
 //-----------------------------------------------------------------------------
 
 /**
- * Render the main calendar card structure Creates a stable DOM structure for card-mod compatibility
+ * Render the main calendar card structure. Creates a stable DOM structure for card-mod compatibility.
  *
  * @param customStyles Custom style properties from configuration
  * @param title Card title from configuration
@@ -127,7 +127,7 @@ export function renderCardContent(state: 'loading' | 'error', language: string):
 //-----------------------------------------------------------------------------
 
 /**
- * Create consistent separator styles for any type of horizontal separator Properly calculates margins based on day_spacing to ensure vertical centering
+ * Create consistent separator styles for any type of horizontal separator. Properly calculates margins based on day_spacing to ensure vertical centering.
  *
  * @param lineWidth - Border width for the separator
  * @param lineColor - Border color for the separator
@@ -187,7 +187,7 @@ function renderHorizontalSeparator(
   isFirstWeek: boolean = false,
   separatorType: 'day' | 'week' | 'month' = 'day',
 ): TemplateResult | typeof nothing {
-  if (lineWidth === '0px' || isFirstWeek) {
+  if (ViewConfig.isZeroLength(lineWidth) || isFirstWeek) {
     return nothing;
   }
 
@@ -235,7 +235,7 @@ function renderWeekSeparator(
 }
 
 /**
- * Render a week row with a week number pill and a separator line Uses table structure to align perfectly with day tables
+ * Render a week row with a week number pill and a separator line. Uses table structure to align perfectly with day tables.
  *
  * @param weekNumber - Week number to display
  * @param isMonthBoundary - Whether this is also a month boundary
@@ -268,11 +268,11 @@ function renderWeekRow(
   const lineStyle: Record<string, string> = {};
 
   if (!isFirstWeek) {
-    if (isMonthBoundary && config.month_separator_width !== '0px') {
+    if (isMonthBoundary && !ViewConfig.isZeroLength(config.month_separator_width)) {
       lineStyle['--separator-border-width'] = config.month_separator_width;
       lineStyle['--separator-border-color'] = config.month_separator_color;
       lineStyle['--separator-display'] = 'block';
-    } else if (config.week_separator_width !== '0px') {
+    } else if (!ViewConfig.isZeroLength(config.week_separator_width)) {
       lineStyle['--separator-border-width'] = config.week_separator_width;
       lineStyle['--separator-border-color'] = config.week_separator_color;
       lineStyle['--separator-display'] = 'block';
@@ -346,14 +346,21 @@ export function renderDay(
 
   const isMonthBoundary = boundaryInfo?.isNewMonth || false;
   const isWeekBoundary = boundaryInfo?.isNewWeek || false;
-  const hasMonthSeparator = isMonthBoundary && config.month_separator_width !== '0px';
+  const hasMonthSeparator =
+    isMonthBoundary && !ViewConfig.isZeroLength(config.month_separator_width);
   const hasWeekSeparator =
-    isWeekBoundary && (config.show_week_numbers !== null || config.week_separator_width !== '0px');
+    isWeekBoundary &&
+    (config.show_week_numbers !== null || !ViewConfig.isZeroLength(config.week_separator_width));
 
   const daySeparatorWidth = config.day_separator_width;
   const daySeparatorColor = config.day_separator_color;
 
-  if (prevDay && daySeparatorWidth !== '0px' && !hasMonthSeparator && !hasWeekSeparator) {
+  if (
+    prevDay &&
+    !ViewConfig.isZeroLength(daySeparatorWidth) &&
+    !hasMonthSeparator &&
+    !hasWeekSeparator
+  ) {
     const separatorStyle = createSeparatorStyle(
       daySeparatorWidth,
       daySeparatorColor,
@@ -385,7 +392,7 @@ export function renderDay(
 }
 
 /**
- * Render grouped events with week and month separators Uses a precedence system for different separator types
+ * Render grouped events with week and month separators. Uses a precedence system for different separator types.
  */
 export function renderGroupedEvents(
   days: Types.EventsByDay[],
@@ -422,7 +429,7 @@ export function renderGroupedEvents(
 
       if (
         isNewMonth &&
-        config.month_separator_width !== '0px' &&
+        !ViewConfig.isZeroLength(config.month_separator_width) &&
         (!isNewWeek || config.show_week_numbers === null)
       ) {
         separator = renderMonthSeparator(config);
