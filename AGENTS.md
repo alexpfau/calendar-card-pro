@@ -164,16 +164,23 @@ npm run check:format
 npm test
 npm run check:i18n
 npm run check:docs
+npm run docs:build
 npm run build
 npm run check:bundle   # after the build — it reads dist/
 ```
 
-Those eight are every npm gate CI runs, so a green local run should mean a green PR.
+Those nine are every npm gate CI runs, so a green local run should mean a green PR.
 `check:docs` is the one that
 surprises people: it is described under _Documenting a change_ below, which makes it look like a
 docs-only concern, but it gates **every** PR. A change touching no `src/` file at all can
 still fail it. Adding a config option without a reference-table row fails it too — which is the
 point.
+
+`docs:build` is not redundant with it. `check:docs` reads the Markdown as text; `docs:build`
+compiles it, so it is the only gate that sees a page VitePress cannot parse. A stray `{{ … }}`
+in prose — easy to write in a Home Assistant card's docs, where that is Jinja rather than Vue —
+passes `check:docs` and fails the build. Check 20 in `check-docs.mjs` reconciles this list
+against `ci.yml`, because it silently went stale once when `docs:build` was added to CI.
 
 Two things to know before trusting it. `tests/list-dom.test.ts` snapshots serialized DOM, so
 an intentional markup change means **reading** the snapshot diff and committing it, not

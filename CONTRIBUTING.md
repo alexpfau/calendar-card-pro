@@ -145,13 +145,16 @@ one that leaves relative times quietly in English.
    npm test
    npm run check:i18n    # translation wiring
    npm run check:docs    # docs and config parity — gates every PR, not only docs changes
+   npm run docs:build    # compiles the docs site; catches pages check:docs cannot parse
    npm run build
    npm run check:bundle  # after the build; it reads dist/
    ```
 
    `check:docs` is the one that surprises people: it reads like a docs-only concern but
    gates every PR, and adding a config option without a reference-table row fails it —
-   which is the point.
+   which is the point. `docs:build` is not redundant with it: `check:docs` reads the
+   Markdown as text, while `docs:build` compiles it, so it is the only gate that catches a
+   page VitePress cannot parse.
 
 4. Submit a PR against the **`dev`** branch (not `main` — `main` only receives release
    PRs from `dev`)
