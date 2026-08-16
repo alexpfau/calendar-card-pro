@@ -89,7 +89,15 @@ export function conditionLanguage(
 
 const conditionsByLanguage = new Map<string, Record<string, string>>();
 
-const inFlight = new Set<string>();
+/**
+ * Cards waiting on a language whose request is already on the wire.
+ *
+ * Deduplicating the request is right — two cards on one dashboard should not each ask
+ * Home Assistant for the same language. Dropping the second card's callback is not: the
+ * translations land and are cached, but only the card that asked first is told to redraw,
+ * so the others sit on the English fallback until something unrelated re-renders them.
+ */
+const inFlight = new Map<string, Array<() => void>>();
 
 const reportedFailures = new Set<string>();
 
@@ -187,7 +195,13 @@ export function ensureConditionTranslations(
     return;
   }
 
-  if (conditionsByLanguage.has(haLanguage) || inFlight.has(haLanguage)) {
+  if (conditionsByLanguage.has(haLanguage)) {
+    return;
+  }
+
+  const waiting = inFlight.get(haLanguage);
+  if (waiting) {
+    waiting.push(onLoaded);
     return;
   }
 
@@ -203,7 +217,8 @@ export function ensureConditionTranslations(
     return;
   }
 
-  inFlight.add(haLanguage);
+  const waiters: Array<() => void> = [onLoaded];
+  inFlight.set(haLanguage, waiters);
 
   request
     .then((response) => {
@@ -217,7 +232,10 @@ export function ensureConditionTranslations(
       conditionsByLanguage.set(haLanguage, conditions);
       reportIncompletePayload(haLanguage, conditions);
       Logger.debug(`Loaded ${Object.keys(conditions).length} weather conditions in ${haLanguage}`);
-      onLoaded();
+
+      for (const notify of waiters) {
+        notify();
+      }
     })
     .catch((error) => {
       reportFailure(haLanguage, String(error));
