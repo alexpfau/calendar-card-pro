@@ -314,13 +314,6 @@ export const cardStyles = css`
     padding-right: 12px;
   }
 
-  .date-content {
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    z-index: 2; /* Ensure date content is above indicator */
-  }
-
   /* List-view today indicators are positioned inside the full date cell.
    * Inline indicators stay in normal flow and must not receive this box. */
   .today-indicator-container:not(.inline) {
