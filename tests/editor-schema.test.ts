@@ -9,6 +9,7 @@ import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
   COLUMN_DEFAULT_OVERRIDES,
+  COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   ENTITY_VIEW_SCOPE,
   VIEWS,
@@ -1410,8 +1411,9 @@ describe('editor: the panel set', () => {
       max_height: 'height_mode',
     };
 
-    // `weather` and `column` are containers whose members are offered individually,
-    // and `view` is offered by the Layout panel under its own name.
+    // `weather` and `column` are containers offered as their members rather than under
+    // their own name, so neither is expected here. Their members are reconciled by the
+    // test below — skipping a container here once skipped everything inside it too.
     const containers = new Set(['weather', 'column']);
 
     const missing = Object.keys(DEFAULT_CONFIG).filter((key) => {
@@ -1420,6 +1422,59 @@ describe('editor: the panel set', () => {
     });
 
     expect(missing).toEqual([]);
+  });
+
+  /**
+   * The test above walks `DEFAULT_CONFIG`'s top level, so a container option is one key
+   * there however many fields it holds. It exempted `weather` and `column` on the
+   * grounds that their members are offered individually — which is true, and which
+   * also meant nothing checked that they were. Deleting the whole `min_days_fallback`
+   * node from the Layout schema left `tsc`, `lint`, the suite, `check:i18n` and
+   * `check:docs` all green; 21 fields could be removed outright that way.
+   *
+   * The members are reconciled against the source that defines each one rather than
+   * against a list written here, so a new column or weather option is covered the day
+   * it is added. The paths are the ones `walkSchema` yields: an expandable group adds
+   * its own name, so a weather member arrives as `date.icon_size`, not
+   * `weather.date.icon_size`.
+   */
+  it('covers every member of the options it offers as a container', () => {
+    const weather = DEFAULT_CONFIG.weather as unknown as Record<string, unknown>;
+    const group = (name: string) => Object.keys(weather[name] as Record<string, unknown>);
+
+    const expected = [
+      // `entity` and `position` sit directly on the Weather panel, outside either group.
+      'entity',
+      'position',
+      ...group('date').map((key) => `date.${key}`),
+      ...group('event').map((key) => `event.${key}`),
+      ...COLUMN_ONLY_KEYS.map((key) => `column.${key}`),
+    ];
+
+    // A container that stopped resolving would empty the domain and pass silently.
+    expect(expected.length).toBeGreaterThan(20);
+
+    const offered = new Set<string>();
+    const configs = [
+      buildConfig({ view: 'column' }),
+      // The UV threshold is held back until UV is on, in both groups.
+      buildConfig({
+        weather: {
+          entity: 'weather.home',
+          position: 'both',
+          date: { show_uv_index: true },
+          event: { show_uv_index: true },
+        },
+      }),
+    ];
+
+    for (const config of configs) {
+      for (const { node, path } of everyNode(config)) {
+        if (node.name) offered.add([...path, node.name].join('.'));
+      }
+    }
+
+    expect(expected.filter((name) => !offered.has(name))).toEqual([]);
   });
 
   /**
