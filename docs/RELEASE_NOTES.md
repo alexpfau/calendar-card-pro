@@ -97,6 +97,7 @@ Translation resolves **per string**, requested language first and English second
 
 ### Weather
 
+- **"Nowhere" Was the Most Expensive Weather Setting** - The editor's weather position offers "Nowhere" alongside the date column, the event row and both. Picking it drew no weather anywhere, as intended — but it also fell through the branch that decides which forecasts to subscribe to, landing on the arm reserved for the positions that draw the most. So the option that renders nothing quietly subscribed to _both_ the daily and hourly forecast streams, more than "Date Column" asks for. It now subscribes to neither, and `'none'` is a documented value of `weather.position` rather than one the editor could produce but the type never admitted
 - **The Editor Wrote a Weather Color Into Your Configuration** - `weather.event.color` shipped a default, and the editor writes the whole weather block back the moment you pick an entity — so that default was copied into the user's YAML, where it became indistinguishable from a deliberate choice forever after. A card nobody had styled ended up with a weather badge pinned to the primary text color, beside siblings that were not. The default is now absent so it is never created, and each placement supplies the color it actually wants. A configuration already saved in this state keeps its explicit value; delete the `color` line to pick up the per-placement fallback. The icon takes the resolved color too, where it previously inherited and put a dark glyph in front of grey text
 
 ### Translations

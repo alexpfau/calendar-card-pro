@@ -13,7 +13,7 @@ entities:
 days_to_show: 5
 weather:
   entity: weather.forecast_home
-  position: both # Options: 'date', 'event', or 'both'
+  position: both # Options: 'none', 'date', 'event', or 'both'
   date:
     # Date column shows condition icon and high temperature only
     show_conditions: true
@@ -40,7 +40,7 @@ This flexible configuration allows you to create a personalized experience that 
 | Option                            | Type    | Default                       | Description                                                                                                                        |
 | --------------------------------- | ------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | `entity`                          | string  | -                             | Weather entity to use for forecasts                                                                                                |
-| `position`                        | string  | `date`                        | Where to show weather data: `'date'` (date column), `'event'` (next to events), or `'both'`                                        |
+| `position`                        | string  | `date`                        | Where to show weather data: `'none'` (nowhere), `'date'` (date column), `'event'` (next to events), or `'both'`                    |
 | `date → show_conditions`          | boolean | `true`                        | Whether to show weather condition icons in date column                                                                             |
 | `date → show_high_temp`           | boolean | `true`                        | Whether to show high temperature in date column                                                                                    |
 | `date → show_low_temp`            | boolean | `false`                       | Whether to show low temperature in date column. The UV index takes this place on days it is shown                                  |
@@ -65,6 +65,7 @@ These sit under the card's `weather` option — see [Weather in the configuratio
 
 You can choose where weather information appears in your calendar:
 
+- `none`: Hides weather everywhere, without clearing the entity — the card subscribes to no forecast at all
 - `date`: Shows daily forecasts in the date column (left side)
 - `event`: Shows hourly forecasts next to event titles
 - `both`: Displays weather in both positions simultaneously

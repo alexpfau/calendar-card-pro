@@ -272,7 +272,7 @@ export interface WeatherPositionConfig {
 /** Weather configuration. */
 export interface WeatherConfig {
   entity?: string;
-  position?: 'date' | 'event' | 'both';
+  position?: 'none' | 'date' | 'event' | 'both';
   date?: WeatherPositionConfig;
   event?: WeatherPositionConfig;
 }

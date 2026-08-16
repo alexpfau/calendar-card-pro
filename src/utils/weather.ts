@@ -27,6 +27,13 @@ export function getRequiredForecastTypes(
 
   const position = weatherConfig.position || 'date';
 
+  // 'none' renders nothing anywhere, so subscribing to a forecast would pay the
+  // cost of a stream nobody reads. Without this arm it falls through to the
+  // `['daily', 'hourly']` return below and becomes the most expensive option.
+  if (position === 'none') {
+    return [];
+  }
+
   if (position === 'date') {
     return ['daily'];
   }
