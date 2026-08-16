@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { stripComments } from '../rollup.config.mjs';
+import { cardStyles } from '../src/rendering/styles';
 
 /**
  * The build strips comments out of `css` tagged templates, because their contents are a
- * string literal that no minifier touches — 29,259 bytes raw and 10,879 gzip on the
- * eagerly-loaded card, which is 65% of the stylesheet.
+ * string literal that no minifier touches — 15,214 bytes raw and 5,889 gzip on the
+ * eagerly-loaded card, which is 46% of the stylesheet.
  *
  * That makes this function the one place in the build that edits CSS, and a bug in it
  * ships a broken stylesheet to every user with every gate still green: `stylesheet.test.ts`
@@ -71,5 +72,28 @@ describe('stripComments', () => {
   it('is idempotent', () => {
     const once = stripComments('a{color:red}/* x */\nb{color:blue}');
     expect(stripComments(once)).toBe(once);
+  });
+
+  // The figures in this file's header and in `AGENTS.md` are the reason anyone believes the
+  // plugin is worth its complexity, and until now nothing measured them. They drifted to
+  // roughly double the truth — 29,259 raw against an actual 15,214, and 65% of the sheet
+  // against an actual 46% — and disagreed with each other by five bytes, with every gate
+  // green, because a number in a comment is not checked by anything.
+  //
+  // Bands rather than exact bytes: an exact pin would fail on every edit to a CSS comment,
+  // which is precisely the thing `AGENTS.md` tells contributors to write freely. These are
+  // wide enough to survive ordinary editing and far too tight to survive the 1.9x drift
+  // that actually happened.
+  it('saves the number of bytes the documentation claims it does', () => {
+    const body = cardStyles.cssText;
+    expect(body.length).toBeGreaterThan(10_000);
+
+    const saved = body.length - stripComments(body).length;
+    const share = saved / body.length;
+
+    expect(saved).toBeGreaterThan(13_000);
+    expect(saved).toBeLessThan(18_000);
+    expect(share).toBeGreaterThan(0.4);
+    expect(share).toBeLessThan(0.55);
   });
 });

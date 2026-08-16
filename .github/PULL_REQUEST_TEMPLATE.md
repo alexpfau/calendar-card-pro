@@ -42,4 +42,4 @@ This PR fixes or closes issue: fixes #
 - [ ] My change requires a change to the documentation.
 - [ ] I have updated the documentation accordingly.
 - [ ] I have tested the change in my local Home Assistant instance.
-- [ ] I have followed [the translation guidelines](https://github.com/alexpfau/calendar-card-pro#adding-translations) if I'm adding or updating a translation.
+- [ ] I have followed [the translation guidelines](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) if I'm adding or updating a translation.
