@@ -914,6 +914,14 @@ class CalendarCardPro extends LitElement {
     const generation = ++this._eventRequestGeneration;
     const isSuperseded = (): boolean => generation !== this._eventRequestGeneration;
 
+    // A retry is only ever armed because `hass` was missing. Now that it is present the
+    // retry has nothing left to do, and it would fire with `force = true` — bypassing the
+    // cache — 1.5 seconds after the card has already rendered.
+    if (this.safeHass && this._initialLoadRetryId) {
+      clearTimeout(this._initialLoadRetryId);
+      this._initialLoadRetryId = undefined;
+    }
+
     if (!this.safeHass || !this.config.entities.length) {
       this.isLoading = false;
       if (!this.safeHass) {
