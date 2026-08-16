@@ -182,6 +182,37 @@ defaulting to `false` renders nothing and is invisible to it unless a test sets 
 branches were missed that way, including two the suite existed to protect. When you add a
 config option, add a test that turns it on.
 
+### The suite runs as three projects, and the split is load-bearing
+
+`vitest.config.mjs` defines a `projects` array, so `npm test` runs the same files under
+more than one timezone:
+
+| Project      | `TZ`               | Files                                               |
+| ------------ | ------------------ | --------------------------------------------------- |
+| `unit`       | `UTC`              | `tests/**/*.test.ts`, **excluding** `*.dst.test.ts` |
+| `dst-berlin` | `Europe/Berlin`    | `tests/**/*.dst.test.ts`                            |
+| `dst-sydney` | `Australia/Sydney` | `tests/**/*.dst.test.ts`                            |
+
+The UTC pin on `unit` is deliberate and must stay — without it a date renders one way
+locally and another in CI. But UTC is also the **only zone with no DST transitions**, so any
+arithmetic that assumes every day is 24 hours long is unconditionally correct there and can
+be wrong everywhere else. Both week-number functions shipped broken that way for every
+release up to v4: wrong on roughly one date in seven under real zones, with a green suite
+and a dedicated `tests/column-week-numbers.test.ts` that was structurally incapable of
+seeing it.
+
+Hence the two extra projects, and **both are required** — the drift is negative north of the
+equator and positive south of it, so `Math.floor` and `Math.ceil` fail in _opposite_
+hemispheres. Berlin alone proves nothing about a `ceil`; Sydney alone proves nothing about a
+`floor`. Reverting either fix in `src/utils/format.ts` turns exactly one of the two projects
+red and leaves the other, and `unit`, green.
+
+So: **name any timezone-sensitive test `*.dst.test.ts`** and it picks up both zones
+automatically. Give it a guard test asserting the January and July offsets differ, so it
+fails loudly instead of silently proving nothing if it is ever run under UTC —
+`tests/week-number-dst.dst.test.ts` has one to copy. The `exclude` on the `unit` project is
+what stops those files running a third time under UTC; do not drop it.
+
 **A snapshot diff you did not intend is usually a whitespace error, not a rendering
 change.** The serializer normalises whitespace _between tags only_; whitespace adjacent to
 a text node survives verbatim, so the literal source indentation inside an `html` template
