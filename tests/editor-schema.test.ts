@@ -747,6 +747,40 @@ describe('editor: applicability', () => {
     }
   });
 
+  it('lists exactly the options that are inert in some view', () => {
+    // The test above only walks whatever keys the table happens to contain, so deleting an
+    // entry satisfies it trivially: the option silently becomes "applies everywhere", the
+    // editor stops warning that it does nothing, and every gate stays green. Two of these
+    // five entries could be removed that way without a single test noticing. Pinning the
+    // membership means an option can neither lose its scope by accident nor gain one
+    // without someone stating, here, which views it is inert in and why.
+    expect(
+      Object.fromEntries(
+        Object.entries(VIEW_SCOPE).map(([key, views]) => [key, [...views].sort()]),
+      ),
+    ).toEqual({
+      // Column view draws the indicator inline and never reads a position.
+      today_indicator_position: ['list'],
+      // Column view stacks the date above its events, so there is nothing to align against.
+      date_vertical_alignment: ['list'],
+      // `viewAppliesCompactLimits` is false for column view, so none of the compact
+      // limiting runs there at all.
+      compact_events_to_show: ['list'],
+      compact_days_to_show: ['list'],
+      compact_events_complete_days: ['list'],
+    });
+
+    expect(
+      Object.fromEntries(
+        Object.entries(ENTITY_VIEW_SCOPE).map(([key, views]) => [key, [...views].sort()]),
+      ),
+    ).toEqual({
+      // A per-calendar opt-out is ignored in column view, so later days of a multi-day
+      // event cannot vanish from the columns they belong to.
+      split_multiday_events: ['list'],
+    });
+  });
+
   it('prefixes the option helper rather than replacing it', () => {
     const helper = computeHelper('en', 'column', {
       name: 'compact_days_to_show',
