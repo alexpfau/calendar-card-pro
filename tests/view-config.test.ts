@@ -912,9 +912,15 @@ describe('computeColumnThresholdPx', () => {
 
     const threshold = computeColumnThresholdPx(config);
     expect(Number.isFinite(threshold)).toBe(true);
-    // The fallback is the default gutter, so an unresolvable length costs nothing.
-    // Asserting the same number as the default-config case above is the point: it
-    // pins the two together, which is what `DEFAULT_DAY_GAP_PX` exists to guarantee.
+    // Asserting the same number as the default-config case above is the point: it pins
+    // the two together, which is what `DEFAULT_DAY_GAP_PX` exists to guarantee.
+    //
+    // It is a fallback, not a free lunch. A resolvable-but-non-px gutter is under-counted
+    // by twice its excess over the default — `3rem` (48px) should threshold at 548 and
+    // gets 472 — so the card switches to columns some 76px narrower than it should, which
+    // is the overflow the threshold exists to prevent. Accepted, because resolving
+    // `em`/`rem` needs layout this pass does not have, and an under-count degrades
+    // gradually where NaN pins the card to one view forever.
     expect(threshold).toBe(472);
   });
 });

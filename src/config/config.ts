@@ -245,16 +245,22 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
 /**
  * Coerces a bare number written against a length-valued option into pixels.
  *
- * Home Assistant's YAML parser types `day_spacing: 4` as a number, and a number is not a
- * valid CSS length: it reaches `styleMap` or a custom property as `"4"`, the browser
- * rejects the declaration, and the rule silently disappears. Nothing errors and nothing
- * is logged — the option simply has no effect, which reads as the option being broken.
+ * Two paths produce one. Home Assistant's YAML parser types `day_spacing: 4` as a number,
+ * and the visual editor renders these options as free-text fields, so typing `10` into one
+ * hands back the string `'10'`. Neither is a valid CSS length: it reaches `styleMap` or a
+ * custom property unitless, the browser rejects the declaration, and the rule silently
+ * disappears. Nothing errors and nothing is logged — the option simply has no effect,
+ * which reads as the option being broken.
+ *
+ * A rejected declaration is not merely a missing gap, because the browser discards the
+ * whole declaration rather than the offending part: `additional_card_spacing: 8` takes the
+ * card's `padding: calc(var(--…) + 16px) 16px` down to `0`, losing the base padding too.
  *
  * Length-ness is inferred from the shipped default instead of a hand-maintained list.
- * Non-numeric values and genuinely numeric options pass through untouched.
+ * Values that carry no bare number, and genuinely numeric options, pass through untouched.
  *
  * @param key - Option the value was written against
- * @param value - Raw configured value, which YAML may have typed as a number
+ * @param value - Raw configured value, which YAML or the editor may have typed as a number
  * @returns The value, with a bare number turned into a pixel length where appropriate
  */
 export function coercePixelLength(key: string, value: unknown): unknown {
@@ -270,17 +276,42 @@ export function coercePixelLength(key: string, value: unknown): unknown {
  * Split out so the nested walk can pass the default it has already descended to.
  *
  * @param shippedDefault - The value this option ships with, at the same nesting level
- * @param value - Raw configured value, which YAML may have typed as a number
+ * @param value - Raw configured value, which YAML or the editor may have typed as a number
  * @returns The value, with a bare number turned into a pixel length where appropriate
  */
 function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unknown {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
+  const bare = bareNumber(value);
+  if (bare === undefined) {
     return value;
   }
 
   return typeof shippedDefault === 'string' && /^-?\d+(?:\.\d+)?px$/.test(shippedDefault)
-    ? `${value}px`
+    ? `${bare}px`
     : value;
+}
+
+/**
+ * The numeric text of a value that carries a number and no unit, in either form config
+ * arrives in: a YAML-typed number, or the string a visual-editor text field hands back.
+ *
+ * There is no valid unitless CSS length, so a value matching this is already broken
+ * wherever a length is expected — which is what makes appending `px` safe rather than a
+ * guess. Surrounding whitespace is tolerated for the same reason: `' 10 '` cannot mean
+ * anything else either.
+ *
+ * @param value - Raw configured value
+ * @returns Its numeric text, or `undefined` when it carries no bare number
+ */
+function bareNumber(value: unknown): string | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? `${value}` : undefined;
+  }
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return /^-?\d+(?:\.\d+)?$/.test(trimmed) ? trimmed : undefined;
 }
 
 /**
