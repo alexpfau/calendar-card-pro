@@ -66,20 +66,28 @@ Each calendar under the picker gets its own collapsible form, and the first cont
 is **Label Type**. A label is the mark shown before every event from that calendar, and it
 can be four things — nothing, text or an emoji, an icon, or an image.
 
-The type is not stored anywhere. It is read back from the value, because the value is what
-decides how the card draws it: `mdi:home` is an icon, `/local/work.png` is an image, and
-anything else is text. Choosing a type simply rewrites the value, so a calendar configured
-in YAML opens with the right control already selected.
+Most of the time the type is not stored at all. It is read back from the value, because
+the value is usually enough to decide how the card draws it: `mdi:home` is an icon,
+`/local/work.png` is an image, and anything else is text. That is why a calendar
+configured in YAML opens with the right control already selected, without a `label_type`
+option anywhere in it.
+
+The type is only written out when the value alone would give the wrong answer — picking
+**Text or Emoji** and then typing `mdi:home`, for example, or picking **An Icon** before
+choosing one. In those cases `label_type` is stored alongside `label` and takes
+precedence over the value, so the card draws what you chose rather than what the value
+looks like.
 
 Choosing **An Icon** gives you Home Assistant's icon picker rather than a box you have to
 know `mdi:` to use, and it is the only type for which **Label Icon Color** appears — that
 color does nothing unless the label is an icon, so it is no longer shown under every
 calendar.
 
-::: tip Typing an Icon Name Still Works
-Type `mdi:calendar` into the text box and the editor recognises it as an icon and swaps in
-the picker, holding what you typed. Nothing is lost — the value the card would render is
-stored at every keystroke.
+::: tip Your Choice Wins Over the Value
+Type `mdi:calendar` into the text box and the card renders it as the literal text
+`mdi:calendar`, not as an icon. The editor records that you asked for text, so the value
+is left alone rather than being reinterpreted. Switch **Label Type** to **An Icon** to
+get the icon picker.
 :::
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — the `label` option itself, and the rest of the per-calendar table.

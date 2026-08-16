@@ -40,8 +40,9 @@ Want to improve **Calendar Card Pro**? I welcome contributions of all kinds—wh
 ### Reporting a Bug
 
 Released builds log errors only. Everything below that — the running commentary about
-caching, refreshes and rendering — is compiled out, so the console stays quiet on a
-normal dashboard.
+caching, refreshes and rendering — is suppressed at runtime, so the console stays quiet
+on a normal dashboard. The logging code is still in the bundle; only the level it prints
+at differs, which is what makes the switch below work without a rebuild.
 
 That is the right default, but it is unhelpful when something _is_ wrong. To turn the
 detail back on, open your browser's developer console and run:
@@ -50,9 +51,11 @@ detail back on, open your browser's developer console and run:
 window.calendarCardProDebug = true;
 ```
 
-Then reload the page and reproduce the problem. The card picks the flag up on its next
-render, so no reinstall or rebuild is needed. Include the resulting console output in
-your issue — it usually identifies the cause immediately.
+Then reproduce the problem **without reloading the page**. The flag lives on `window`,
+so a reload discards it and puts you back where you started. The card reads it on its
+next render, which means switching to another dashboard view and back — or opening the
+card's editor — is enough to get a fully logged render. Include the resulting console
+output in your issue; it usually identifies the cause immediately.
 
 For finer control, set a level instead: `0` errors only, `1` adds warnings, `2` adds
 information, `3` adds full debug output.
@@ -61,8 +64,8 @@ information, `3` adds full debug output.
 window.calendarCardProLogLevel = 1;
 ```
 
-Neither setting persists. Reloading with the line removed, or simply opening the
-dashboard in a new tab, returns the card to its normal quiet behavior.
+Neither setting persists, which is also how you turn them off again: reload the page, or
+open the dashboard in a new tab, and the card is back to its normal quiet behavior.
 
 ::: tip Warnings Are Worth Reading
 Level `1` is the useful one for configuration problems. Several warnings report a
