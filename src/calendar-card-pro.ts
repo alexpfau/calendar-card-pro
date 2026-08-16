@@ -189,6 +189,16 @@ class CalendarCardPro extends LitElement {
    * The `_instanceId` the events currently held in `events` were fetched for.
    */
   private _eventsInstanceId = '';
+  /**
+   * Monotonic ticket for in-flight event requests.
+   *
+   * `updateEvents()` awaits the API, and `setConfig()` can regenerate `_instanceId` and
+   * start a second request during that await. The two requests go to different
+   * calendars, so their latencies are unrelated and the older one can settle last.
+   * Comparing the ticket a request started with against the current value is what tells
+   * a superseded response to discard itself instead of committing.
+   */
+  private _eventRequestGeneration = 0;
   private _language = '';
   private _refreshTimerId?: number;
   private _lastUpdateTime = 0;
@@ -896,6 +906,14 @@ class CalendarCardPro extends LitElement {
   async updateEvents(force = false): Promise<void> {
     Logger.debug(`Updating events (force=${force})`);
 
+    // Take a ticket before anything can await. Any call that starts after this one
+    // supersedes it, and a superseded response must not touch card state — committing
+    // it would both show the previous calendar's events and stamp them with the current
+    // `_instanceId`, which makes `eventsMatchCurrentQuery` report true for a payload the
+    // current query never asked for.
+    const generation = ++this._eventRequestGeneration;
+    const isSuperseded = (): boolean => generation !== this._eventRequestGeneration;
+
     if (!this.safeHass || !this.config.entities.length) {
       this.isLoading = false;
       if (!this.safeHass) {
@@ -922,6 +940,11 @@ class CalendarCardPro extends LitElement {
         force,
       );
 
+      if (isSuperseded()) {
+        Logger.debug('Discarding a superseded event response');
+        return;
+      }
+
       this._hasFetchError = failedEntities.length > 0;
       if (this._hasFetchError) {
         Logger.warn(`Could not load calendar(s): ${failedEntities.join(', ')}`);
@@ -930,6 +953,11 @@ class CalendarCardPro extends LitElement {
       this.isLoading = false;
       this.isInitialLoad = false;
       await this.updateComplete;
+
+      if (isSuperseded()) {
+        Logger.debug('Discarding a superseded event response');
+        return;
+      }
 
       const eventsMatchCurrentQuery = this._eventsInstanceId === this._instanceId;
       const keepPreviousEvents =
@@ -950,6 +978,10 @@ class CalendarCardPro extends LitElement {
         Logger.info('Event update completed successfully');
       }
     } catch (error) {
+      if (isSuperseded()) {
+        Logger.debug('Ignoring a failure from a superseded event request');
+        return;
+      }
       Logger.error('Failed to update events:', error);
       this._hasFetchError = true;
       this.isLoading = false;
