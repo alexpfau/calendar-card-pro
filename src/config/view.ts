@@ -582,9 +582,40 @@ const COLUMN_CARD_PADDING_PX = 32;
  */
 export const VIEW_SWITCH_HYSTERESIS_PX = 32;
 
+/**
+ * Replaces a negative gutter with the shipped default.
+ *
+ * `column-gap` is defined as `normal | <length-percentage [0,∞]>`, so a browser
+ * discards a negative value outright and renders no gutter at all. Passing one
+ * through would make the threshold arithmetic below *subtract* space that the
+ * layout is in fact not saving, selecting more columns than can fit: at 280px with
+ * three days, a 140px floor and a `-100px` gutter the threshold falls to 252px, so
+ * columns render 83px wide against the 140px minimum the user asked for. Tracks are
+ * `minmax(0, 1fr)`, so nothing downstream re-imposes that floor — the arithmetic is
+ * the only thing holding it.
+ *
+ * Substituting the default rather than clamping to zero keeps the value that reaches
+ * the renderer a valid length, so the separator offset — `calc(-0.5 * (gap + width))`,
+ * which turns a negative gap into a *positive* margin and survives the browser's
+ * validity check — stays centred in the gutter it is drawn in.
+ *
+ * This mirrors the `parsed > 0` guard {@link normalizeColumnValue} already applies to
+ * `min_day_width`, the other operand of the same expression. Zero is legitimate here
+ * and is kept, where a zero column width would not be.
+ *
+ * Only a leading minus is detected. A negative buried inside `calc()` is not, which is
+ * the same bound the threshold arithmetic already accepts for non-pixel lengths.
+ *
+ * @param value - Configured gutter, as a CSS length
+ * @returns The value, or the shipped default when it is negative
+ */
+export function sanitizeGutter(value: string): string {
+  return value.trim().startsWith('-') ? DEFAULT_CONFIG.day_spacing : value;
+}
+
 // Threshold arithmetic can only use plain pixel lengths.
 function parsePx(value: string, fallback: number): number {
-  const match = /^(-?\d+(?:\.\d+)?)px$/.exec(value.trim());
+  const match = /^(\d+(?:\.\d+)?)px$/.exec(sanitizeGutter(value).trim());
   return match ? Number.parseFloat(match[1]) : fallback;
 }
 

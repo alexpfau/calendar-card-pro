@@ -950,6 +950,32 @@ describe('computeColumnThresholdPx', () => {
     // gradually where NaN pins the card to one view forever.
     expect(threshold).toBe(472);
   });
+
+  it('refuses to reserve space a negative gutter does not save', () => {
+    // `column-gap` is `normal | <length-percentage [0,∞]>`, so a browser discards a
+    // negative value and renders no gutter. Subtracting it from the threshold would
+    // reserve space the layout is not saving and select columns that cannot fit: this
+    // configuration thresholds at 252px unguarded, so a 280px card renders three 83px
+    // columns against the 140px floor it was told to honour. Tracks are `minmax(0, 1fr)`,
+    // so the arithmetic is the only thing holding that floor.
+    const config = buildConfig();
+    config.column = { day_spacing: '-100px', min_day_width: 140 };
+
+    // Same number as the default-gutter case: the negative value is replaced, not clamped.
+    expect(computeColumnThresholdPx(config)).toBe(472);
+    expect(resolveColumnFit('column', config, 280, null)).toEqual({ view: 'list', columns: 0 });
+  });
+
+  it('keeps a zero gutter, which is a legitimate request', () => {
+    // The guard above mirrors the `> 0` test `min_day_width` already applies, but the
+    // two floors differ: a card with no gutter is a real layout, a zero-width column
+    // is not. Pinning this stops the guard being tightened to `> 0` by symmetry.
+    const config = buildConfig();
+    config.column = { day_spacing: '0px' };
+
+    // 140 x 3 + 32 + 2 x 0 = 452
+    expect(computeColumnThresholdPx(config)).toBe(452);
+  });
 });
 
 describe('resolveEffectiveView', () => {
