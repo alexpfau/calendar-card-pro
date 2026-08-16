@@ -1468,6 +1468,7 @@ function report(counts) {
       `${counts.releases} release lines documented, ${counts.links} internal links resolved, ` +
       `${counts.gates} CI gates documented, ` +
       `${counts.enums} enumerated options fully listed, ` +
+      `${counts.removed} removed options migrated, ` +
       `release surfaces agree on v${counts.version}.\n`,
   );
 
@@ -1741,6 +1742,105 @@ function checkEnumValues(enums) {
   return described;
 }
 
+// ---------------------------------------------------------------------------
+// Check 22 — the migration table lists exactly the options the card still reports
+// ---------------------------------------------------------------------------
+
+const NUMBER_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
+
+/**
+ * The removed-key maps in config.ts, keyed by the option a user may still have.
+ *
+ * `findDeprecatedKeys` walks these to tell a reader which option replaced theirs,
+ * so they are the authority on what the migration table has to say.
+ */
+function readDeprecatedMaps() {
+  const src = readFileSync(CONFIG_TS, 'utf8');
+  const read = (name) => {
+    const block = src.match(new RegExp(`export const ${name}[^=]*=\\s*\\{([\\s\\S]*?)\\n\\};`));
+    const pairs = new Map();
+    if (!block) return pairs;
+    for (const m of block[1].matchAll(/^\s{2}([a-z0-9_]+):\s*'([a-z0-9_]+)'/gm))
+      pairs.set(m[1], m[2]);
+    return pairs;
+  };
+  const maps = {
+    card: read('DEPRECATED_CONFIG_MAP'),
+    entity: read('DEPRECATED_ENTITY_CONFIG_MAP'),
+  };
+  assertFound(maps.card, 'removed card options', CONFIG_TS);
+  assertFound(maps.entity, 'removed per-entity options', CONFIG_TS);
+  return maps;
+}
+
+/**
+ * Every removed option must appear in the migration table, naming its replacement.
+ *
+ * The runtime notice and this table are written from the same map but checked by
+ * nothing in common: the test that walks `DEPRECATED_CONFIG_MAP` asserts one message
+ * per key it finds, so dropping a key drops an assertion with it and stays green. A
+ * reader upgrading from v2 then gets neither a console notice nor a table row, and the
+ * option they still have simply stops working with no explanation anywhere.
+ */
+function checkDeprecatedTable(maps) {
+  const page = join(DOCS_DIR, 'features/editor.md');
+  const text = readFileSync(page, 'utf8');
+  const where = relative(ROOT, page);
+
+  const documented = new Map();
+  for (const m of text.matchAll(/^\|\s*`([a-z0-9_]+)`\s*\|\s*`([a-z0-9_]+)`\s*\|$/gm)) {
+    documented.set(m[1], m[2]);
+  }
+
+  for (const [oldKey, newKey] of maps.card) {
+    const listed = documented.get(oldKey);
+    if (!listed) {
+      error(
+        `${where}: \`${oldKey}\` is reported at runtime as removed but has no migration ` +
+          `table row, so a reader who still has it is told to change something the docs ` +
+          `never mention. Add a row pointing at \`${newKey}\`.`,
+      );
+    } else if (listed !== newKey) {
+      error(
+        `${where}: the migration table sends \`${oldKey}\` to \`${listed}\`, but the card ` +
+          `reports \`${newKey}\`. One of the two is wrong.`,
+      );
+    }
+  }
+
+  for (const [oldKey, newKey] of documented) {
+    if (!maps.card.has(oldKey)) {
+      error(
+        `${where}: the migration table lists \`${oldKey}\` → \`${newKey}\`, but the card no ` +
+          `longer reports it, so nobody configuring it is warned. Either restore it to ` +
+          `DEPRECATED_CONFIG_MAP or drop the row.`,
+      );
+    }
+  }
+
+  // The count is prose, so nothing else can catch it drifting from the table beneath it.
+  const stated = text.match(/^([A-Z][a-z]+) options were removed in v[\d.]+\./m);
+  const expected = NUMBER_WORDS[maps.card.size];
+  if (stated && expected && stated[1] !== expected) {
+    error(
+      `${where}: the page opens "${stated[1]} options were removed" while the card reports ` +
+        `${maps.card.size}. Write "${expected}".`,
+    );
+  }
+
+  for (const oldKey of maps.entity.keys()) {
+    if (!new RegExp(`\`${oldKey}\`[^\n]*entities`).test(text)) {
+      error(
+        `${where}: \`${oldKey}\` is also reported on a per-entity entry, but the page never ` +
+          `says so, so anyone who set it under \`entities:\` reads the table and concludes ` +
+          `it does not apply to them.`,
+      );
+    }
+  }
+
+  return maps.card.size;
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -1773,6 +1873,7 @@ function main() {
   const gates = checkGateLists();
   const version = checkReleaseVersion();
   const enums = checkEnumValues(readEnumOptions());
+  const removed = checkDeprecatedTable(readDeprecatedMaps());
 
   process.exit(
     report({
@@ -1785,6 +1886,7 @@ function main() {
       links,
       gates,
       enums,
+      removed,
       version,
     }),
   );
