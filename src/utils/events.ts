@@ -17,6 +17,21 @@ import * as Localize from '../translations/localize';
 //-----------------------------------------------------------------------------
 
 /**
+ * Raw fetches that have been started but not yet settled, keyed by cache key.
+ *
+ * Three independent paths start the first load — `setConfig()`, `connectedCallback()`
+ * and the `updated()` arm that fires when `hass` arrives — and Home Assistant assigns
+ * both the config and `hass` before it appends the card, so all three run before any
+ * of them has written the cache. Without this map one configured calendar produced
+ * three round-trips. The editor's two live previews are the same shape: they share a
+ * cache key by design, but a shared key only helps once an entry exists.
+ *
+ * Only the raw payload is shared. Each caller still processes it against its own live
+ * config, so joining a request never leaks another caller's display options.
+ */
+const inFlightRawFetches = new Map<string, Promise<Types.EventFetchResult>>();
+
+/**
  * Fetch calendar event data with caching support
  *
  * @param hass Home Assistant instance
@@ -57,29 +72,65 @@ export async function fetchEventData(
     }
   }
 
-  Logger.info('Fetching events from API');
-  const entities = config.entities.map((e) =>
-    typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
-  );
-
-  const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
-  const { events: fetchedEvents, failedEntities } = await fetchEvents(hass, entities, timeWindow);
-
-  if (fetchedEvents.length > 0) {
-    cacheEvents(cacheKey, fetchedEvents);
-  } else if (failedEntities.length > 0) {
-    Logger.warn(
-      `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
-    );
+  let rawFetch = inFlightRawFetches.get(cacheKey);
+  if (rawFetch) {
+    Logger.info('Joining an in-flight request for the same calendars and window');
   } else {
-    const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
-    Logger.info(
-      `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
-    );
-    cacheEvents(cacheKey, fetchedEvents, emptyTtlMs);
+    rawFetch = fetchRawEvents(hass, config, cacheKey, firstDayOfWeek);
+    inFlightRawFetches.set(cacheKey, rawFetch);
   }
 
+  const { events: fetchedEvents, failedEntities } = await rawFetch;
+
   return { events: processRawEvents(fetchedEvents, config, firstDayOfWeek), failedEntities };
+}
+
+/**
+ * Perform one API round-trip and cache its raw payload.
+ *
+ * Returns the events exactly as the API supplied them; callers apply their own config.
+ * The in-flight entry is cleared in `finally` so a failure cannot pin a stale promise
+ * and block every later attempt at the same window.
+ *
+ * @param hass Home Assistant instance
+ * @param config Calendar card configuration
+ * @param cacheKey Key under which to cache the raw payload
+ * @param firstDayOfWeek Resolved first day of the week, used to build the time window
+ * @returns Promise resolving to the raw events and any entities that failed
+ */
+async function fetchRawEvents(
+  hass: Types.Hass,
+  config: Types.Config,
+  cacheKey: string,
+  firstDayOfWeek: number,
+): Promise<Types.EventFetchResult> {
+  try {
+    Logger.info('Fetching events from API');
+    const entities = config.entities.map((e) =>
+      typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
+    );
+
+    const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
+    const { events: fetchedEvents, failedEntities } = await fetchEvents(hass, entities, timeWindow);
+
+    if (fetchedEvents.length > 0) {
+      cacheEvents(cacheKey, fetchedEvents);
+    } else if (failedEntities.length > 0) {
+      Logger.warn(
+        `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
+      );
+    } else {
+      const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
+      Logger.info(
+        `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
+      );
+      cacheEvents(cacheKey, fetchedEvents, emptyTtlMs);
+    }
+
+    return { events: fetchedEvents, failedEntities };
+  } finally {
+    inFlightRawFetches.delete(cacheKey);
+  }
 }
 
 function processRawEvents(
