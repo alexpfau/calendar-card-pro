@@ -388,11 +388,23 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
     derive: (config) => (config.entities ?? []).map(entityIdOf),
     apply: (value, config) => {
       const ids = Array.isArray(value) ? value.map((id) => String(id)) : [];
-      const existing = new Map(
-        (config.entities ?? []).map((entry) => [entityIdOf(entry), entry] as const),
-      );
+      // Listing the same calendar twice is supported and meaningful — each block
+      // carries its own label, colour and limits. A Map keyed by entity ID kept
+      // only the last block for a repeated ID, so re-opening the picker rewrote
+      // every earlier duplicate with the last one's settings. Queue the blocks
+      // per ID and consume them in picker order so each keeps its own config.
+      const existing = new Map<string, Array<string | Types.EntityConfig>>();
+      for (const entry of config.entities ?? []) {
+        const id = entityIdOf(entry);
+        const queue = existing.get(id);
+        if (queue) {
+          queue.push(entry);
+        } else {
+          existing.set(id, [entry]);
+        }
+      }
 
-      return { changes: { entities: ids.map((id) => existing.get(id) ?? id) } };
+      return { changes: { entities: ids.map((id) => existing.get(id)?.shift() ?? id) } };
     },
   },
 };

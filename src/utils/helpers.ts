@@ -133,6 +133,10 @@ export function getTodayIndicatorType(value: string | boolean): string {
 export type LabelType = 'none' | 'icon' | 'image' | 'text';
 
 /**
+ * Narrow an unknown configuration value to a supported label shape.
+ *
+ * @param value Value read from the configuration
+ * @returns True when the value names one of the four label shapes
  */
 export function isLabelType(value: unknown): value is LabelType {
   return value === 'none' || value === 'icon' || value === 'image' || value === 'text';
