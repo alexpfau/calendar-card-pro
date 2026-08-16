@@ -8,6 +8,14 @@ name: HACS Validation
 # thing a PR can get wrong.
 #
 # The branch list mirrors ci.yml, for the reason documented there.
+#
+# A branch whose name ends in `tags` fails this workflow for a reason that has nothing to do
+# with the repository. HACS reads `hacs.json` and the README over the network from
+# raw.githubusercontent.com/{repo}/{ref}/{file}, and hacs/integration's base.py strips
+# `tags/` out of that URL unconditionally, to normalise release refs like `tags/v1.2.3`. The
+# fetch then 404s and both content checks report generic "invalid hacs.json" / "no images in
+# Readme" errors while the six metadata checks pass. Rename the branch — see AGENTS.md,
+# "Branch model".
 on:
   pull_request:
     branches:

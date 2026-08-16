@@ -316,6 +316,19 @@ passing status checks; `dev` only blocks deletion.
 External contributors frequently open PRs against `main` by mistake. Retarget them to
 `dev` (`gh pr edit <n> --base dev`) rather than merging into `main`.
 
+**Never name a branch so that it ends in `tags`** — `validate-hacs` fails on it, and the
+failure accuses the repository rather than the name. HACS reads `hacs.json` and the README
+over the network from `raw.githubusercontent.com/{repo}/{ref}/{file}`, and
+`custom_components/hacs/base.py` strips `tags/` out of that URL unconditionally, to
+normalise release refs like `tags/v1.2.3`. A branch called `fix/void-element-end-tags`
+therefore requests `…-tags/hacs.json`, HACS rewrites it to `…-hacs.json`, and both fetches 404. The two content checks then report _"invalid 'hacs.json' file"_ and _"does not have
+images in the Readme file"_ while the six metadata checks pass, because those need no file
+fetch — **that 6-pass/2-fail split is the signature**, and the generic wording is the second
+tell, since a genuinely malformed `hacs.json` produces a humanized schema error instead.
+Both files were byte-identical to `main` throughout. Ten hypotheses were falsified before
+the branch name was suspected; the fix is to rename it and re-open the PR. Only reachable
+since v4 added the `pull_request` trigger below.
+
 **When several branches feed one integration branch, "merged" has to name which branch.**
 Merging the integration branch _into_ your own, or merging your work into a peer's, leaves
 a local state indistinguishable from being integrated: `git status` is clean, local equals
