@@ -751,7 +751,8 @@ async function checkEditorTranslations(languages) {
     // with no file of its own, aliased onto another language's — passes both, and every
     // Dutch user silently gets the German editor. Aliasing is never what was meant: a
     // language with no editor file is supposed to be absent from this map entirely, so
-    // that `hasEditorTranslations()` can fall the whole language back to English.
+    // that `lookup()` finds no entry for it and falls each key through to EDITOR_STRINGS,
+    // which is English.
     const expected = basename(imports.get(identifier), '.json').toLowerCase();
     if (expected !== key) {
       error(
