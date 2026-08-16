@@ -274,13 +274,22 @@ export function resolveColumnOption<K extends keyof typeof COLUMN_DEFAULTS>(
  * Reports whether a resolved CSS length means "none".
  *
  * Accepts every zero length spelling so renderers can avoid emitting an empty element
- * that still occupies separator spacing.
+ * that still occupies separator spacing. That matters because a separator's margins do
+ * not scale with its width: a `0.0px` rule still contributes a full `day_spacing`
+ * margin above and below, so a user who asked for no separator gets an invisible one
+ * and the gap it would have sat in.
+ *
+ * The numeric part is parsed rather than pattern-matched against a single `0`, because
+ * the spellings that reach here are not hand-written CSS. Unitless input is coerced to
+ * pixels by {@link Config.coercePixelLength}, so an editor free-text field accepting
+ * `0.0` or `-0` arrives as `0.0px` or `-0px` — both zero, neither a literal `0`.
  *
  * @param value - A resolved CSS length
  * @returns `true` when the length is zero in any unit
  */
 export function isZeroLength(value: string): boolean {
-  return /^0(?:[a-z%]*)$/i.test(value.trim());
+  const match = /^([-+]?(?:\d*\.)?\d+)[a-z%]*$/i.exec(value.trim());
+  return match !== null && Number.parseFloat(match[1]) === 0;
 }
 
 //-----------------------------------------------------------------------------
