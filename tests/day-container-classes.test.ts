@@ -104,6 +104,40 @@ function renderColumn(config: Types.Config): HTMLElement {
   return container;
 }
 
+/**
+ * `tomorrow` needs the shared fixture, not the weekend span.
+ *
+ * `WEEKEND_SPAN` starts on the 19th, two days after the frozen Wednesday, so no day in
+ * it is ever tomorrow. Every assertion above therefore compares `tomorrow` as absent in
+ * both views and passes whether the class is computed or hardcoded to `false` — which is
+ * exactly what happened: dropping `tomorrow` from `column.ts` left this file green and
+ * was caught only by the list snapshot, which column view has no equivalent of.
+ *
+ * `EVENTS` spans the frozen day and the two after it, so day 1 is genuinely tomorrow and
+ * days 0 and 2 are genuinely not. Asserting the whole boolean run keeps the presence and
+ * the absence in one expectation.
+ */
+const TOMORROW_CONFIG = { days_to_show: 3 };
+const TOMORROW_COLUMN_CONFIG = {
+  ...TOMORROW_CONFIG,
+  view: 'column' as const,
+  column: { show_empty_days: false },
+};
+
+function renderListTomorrow(config: Types.Config): HTMLElement {
+  const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'list');
+  const container = document.createElement('div');
+  litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null), container);
+  return container;
+}
+
+function renderColumnTomorrow(config: Types.Config): HTMLElement {
+  const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', 'column');
+  const container = document.createElement('div');
+  litRender(Column.renderColumnGroupedEvents(days, config, 'en', undefined, null), container);
+  return container;
+}
+
 describe('day container state classes', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -149,6 +183,21 @@ describe('day container state classes', () => {
     // container must not have moved it off the cell.
     const cells = classesOf(renderList(buildConfig(SPAN_CONFIG)), '.date-column');
     expect(cells.map((c) => c.includes('weekend'))).toEqual([false, true, true, false]);
+  });
+
+  it('marks the day after today as tomorrow in list view', () => {
+    const containers = classesOf(renderListTomorrow(buildConfig(TOMORROW_CONFIG)), '.day-table');
+    expect(containers).toHaveLength(3);
+    expect(containers.map((c) => c.includes('tomorrow'))).toEqual([false, true, false]);
+  });
+
+  it('marks the day after today as tomorrow in column view', () => {
+    const containers = classesOf(
+      renderColumnTomorrow(buildConfig(TOMORROW_COLUMN_CONFIG)),
+      '.day-column',
+    );
+    expect(containers).toHaveLength(3);
+    expect(containers.map((c) => c.includes('tomorrow'))).toEqual([false, true, false]);
   });
 });
 
