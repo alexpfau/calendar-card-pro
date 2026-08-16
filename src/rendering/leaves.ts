@@ -233,7 +233,7 @@ export function renderLabel(
   }
 
   if (type === 'image') {
-    return html`<img src="${label}" class="label-image"></img>`;
+    return html`<img src="${label}" class="label-image" />`;
   }
 
   const glyphClass = isGlyphLabel(label) ? ' label-emoji' : '';
@@ -622,13 +622,12 @@ function renderIndicatorByType(
       break;
     case 'image':
       if (typeof value === 'string') {
-        return html`
-          <img 
-            src="${value}" 
-            class="today-indicator image"
-            style=${styleMap(positionStyles)}
-            alt="Today">
-          </img>`;
+        return html` <img
+          src="${value}"
+          class="today-indicator image"
+          style=${styleMap(positionStyles)}
+          alt="Today"
+        />`;
       }
       return nothing;
     case 'emoji':
