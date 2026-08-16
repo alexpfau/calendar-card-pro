@@ -60,7 +60,7 @@ Translation resolves **per string**, requested language first and English second
 
 ### 🩺 Diagnosing a Released Build
 
-- **Runtime Log Level** - A released build compiles out everything below errors, so all 17 warning sites are invisible to real users — including actionable ones such as an invalid `start_date` falling back to today. Someone filing a bug therefore could not produce the output that would explain it. Running `window.calendarCardProDebug = true` in the browser console and reloading turns the detail back on, and `window.calendarCardProLogLevel = 0..3` selects a level directly. Neither persists, and neither needs a reinstall — the card picks the flag up on its next render (see [Reporting a Bug](https://calendar-card-pro.alexpfau.com/contributing#reporting-a-bug))
+- **Runtime Log Level** - A released build compiles out everything below errors, so all 21 warning sites are invisible to real users — including actionable ones such as an invalid `start_date` falling back to today. Someone filing a bug therefore could not produce the output that would explain it. Running `window.calendarCardProDebug = true` in the browser console and reloading turns the detail back on, and `window.calendarCardProLogLevel = 0..3` selects a level directly. Neither persists, and neither needs a reinstall — the card picks the flag up on its next render (see [Reporting a Bug](https://calendar-card-pro.alexpfau.com/contributing#reporting-a-bug))
 
 ## 🐛 Bug Fixes
 
