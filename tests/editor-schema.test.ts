@@ -2145,6 +2145,22 @@ describe('editor: fields that must survive being typed into', () => {
   });
 
   /**
+   * The same field accepts two kinds of value, and only the image half was covered above.
+   * An emoji is complete the moment it is typed, so it commits on the first keystroke
+   * rather than being held pending — the opposite of the image path, and the reason both
+   * arms of the committability test need asserting. Mutation testing found that dropping
+   * the emoji arm left every gate green while the editor silently refused to ever store an
+   * emoji the user typed.
+   */
+  it('commits an emoji indicator on the keystroke that completes it', () => {
+    const start = buildConfig({ today_indicator: 'star.png' });
+    const typed = type(start, 'today_indicator_custom', ['⭐']);
+
+    expect(typed.config.today_indicator).toBe('⭐');
+    expect(typed.pending.today_indicator_custom ?? null).toBeNull();
+  });
+
+  /**
    * Home Assistant's text selector reports every keystroke and turns an emptied field
    * into `undefined`, so binding `height` directly would delete the measurement the
    * moment the box was cleared to retype it — and take the field with it, since the
