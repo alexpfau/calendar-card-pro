@@ -585,6 +585,16 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 
 2. Update `docs/RELEASE_NOTES.md`, the README's `## 4️⃣ What's New` section, **and**
    `docs/guide/whats-new.md` — see _The two "What's New" surfaces_ for the differing rules.
+
+   `check:docs` now reads `package.json` and requires all three to name that exact
+   version: a `# Calendar Card Pro vX.Y.Z` section in the release notes, a `## vX.Y`
+   entry in the archive, and `vX.Y` somewhere in the README's What's New. Before this
+   existed, nothing tied the release docs to the shipped version — a bump could leave
+   every surface describing the _previous_ release, and the only thing that would ever
+   notice was `extract-release-notes.mjs` failing the release workflow after the tag was
+   already pushed. So step 1 and step 2 are now a single commit whether you like it or
+   not; bumping the version alone fails the PR.
+
 3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
    review that you cannot give yourself, so this needs `gh pr merge <n> --merge --admin`.
 4. **Fast-forward `dev` back onto `main`** — `git push origin origin/main:dev`. The merge
