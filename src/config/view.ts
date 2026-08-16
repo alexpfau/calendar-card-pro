@@ -19,64 +19,63 @@ import * as Logger from '../utils/logger';
  * `COLUMN_ONLY_KEYS`, because applying them to `Types.Config` would create fields the
  * runtime type does not describe.
  */
-export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & keyof Types.Config> =
-  [
-    'show_empty_days',
-    'empty_day_text',
-    'split_multiday_events',
-    // Render-side filters; neither changes the Home Assistant request or cache key.
-    'show_past_events',
-    'filter_duplicates',
-    'vertical_line_width',
-    'event_spacing',
-    'day_spacing',
-    'additional_card_spacing',
-    'height',
-    'max_height',
-    'today_indicator',
-    'today_indicator_size',
-    'today_indicator_color',
-    'weekday_font_size',
-    'day_font_size',
-    'show_month',
-    'month_font_size',
-    'event_background_opacity',
-    'event_font_size',
-    'show_countdown',
-    'show_countdown_allday',
-    'show_progress_bar',
-    'progress_bar_height',
-    'progress_bar_width',
-    'event_icon_vertical_alignment',
-    'show_time',
-    'show_single_allday_time',
-    'time_two_digit_hours',
-    'show_end_time',
-    'time_font_size',
-    'time_icon_size',
-    'time_max_lines',
-    'show_location',
-    'remove_location_country',
-    'location_font_size',
-    'location_icon_size',
-    'location_max_lines',
-    'show_description',
-    'title_max_lines',
-    'description_max_lines',
-    'description_font_size',
-    'description_icon_size',
-    'show_week_numbers',
-    'show_current_week_number',
-    'week_number_font_size',
-    'week_number_color',
-    'week_number_background_color',
-    'day_separator_width',
-    'day_separator_color',
-    'week_separator_width',
-    'week_separator_color',
-    'month_separator_width',
-    'month_separator_color',
-  ];
+export const COLUMN_OVERRIDE_KEYS = [
+  'show_empty_days',
+  'empty_day_text',
+  'split_multiday_events',
+  // Render-side filters; neither changes the Home Assistant request or cache key.
+  'show_past_events',
+  'filter_duplicates',
+  'vertical_line_width',
+  'event_spacing',
+  'day_spacing',
+  'additional_card_spacing',
+  'height',
+  'max_height',
+  'today_indicator',
+  'today_indicator_size',
+  'today_indicator_color',
+  'weekday_font_size',
+  'day_font_size',
+  'show_month',
+  'month_font_size',
+  'event_background_opacity',
+  'event_font_size',
+  'show_countdown',
+  'show_countdown_allday',
+  'show_progress_bar',
+  'progress_bar_height',
+  'progress_bar_width',
+  'event_icon_vertical_alignment',
+  'show_time',
+  'show_single_allday_time',
+  'time_two_digit_hours',
+  'show_end_time',
+  'time_font_size',
+  'time_icon_size',
+  'time_max_lines',
+  'show_location',
+  'remove_location_country',
+  'location_font_size',
+  'location_icon_size',
+  'location_max_lines',
+  'show_description',
+  'title_max_lines',
+  'description_max_lines',
+  'description_font_size',
+  'description_icon_size',
+  'show_week_numbers',
+  'show_current_week_number',
+  'week_number_font_size',
+  'week_number_color',
+  'week_number_background_color',
+  'day_separator_width',
+  'day_separator_color',
+  'week_separator_width',
+  'week_separator_color',
+  'month_separator_width',
+  'month_separator_color',
+] as const;
 
 /**
  * Column-only options — the ones with no top-level counterpart.
@@ -85,14 +84,53 @@ export const COLUMN_OVERRIDE_KEYS: ReadonlyArray<keyof Types.ColumnOverrides & k
  * preserves the invariant that every `COLUMN_OVERRIDE_KEYS` member is also a
  * `DEFAULT_CONFIG` key.
  */
-export const COLUMN_ONLY_KEYS: ReadonlyArray<keyof Types.ColumnOverrides> = [
+export const COLUMN_ONLY_KEYS = [
   'day_header_gap',
   'day_header_separator_width',
   'day_header_separator_color',
   'min_day_width',
   'min_days_to_show',
   'min_days_fallback',
-];
+] as const;
+
+/**
+ * Compile-time partition check for the two key arrays above.
+ *
+ * The arrays are the only thing that decides whether a `column:` override reaches the
+ * renderer: `resolveEffectiveConfig` hoists `COLUMN_OVERRIDE_KEYS` and nothing else, so a
+ * key that exists on `Types.ColumnOverrides` but appears in neither array is accepted by
+ * the editor, validated, stored — and then silently replaced by the top-level default at
+ * render time. There is no error and no warning; the user's override simply does nothing.
+ *
+ * That gap cannot be closed by a test. The suite's parity tests iterate the arrays
+ * themselves, so a key missing from an array is equally missing from the loop that would
+ * have caught it — they are structurally incapable of seeing the omission. Mutation testing
+ * confirmed it: deleting any of 24 of the 54 override keys left the entire suite green.
+ *
+ * These assertions close it from the other side, by starting from the interface. `as const`
+ * is what makes them work — with a `ReadonlyArray<...>` annotation the element type is the
+ * declared union rather than the literal contents, which would make the whole check
+ * tautological.
+ */
+type AssertNever<T extends never> = T;
+
+/** Every `ColumnOverrides` key must be classified into exactly one of the two arrays. */
+type _UnclassifiedColumnKeys = Exclude<
+  keyof Types.ColumnOverrides,
+  (typeof COLUMN_OVERRIDE_KEYS)[number] | (typeof COLUMN_ONLY_KEYS)[number]
+>;
+export type _AssertEveryColumnKeyClassified = AssertNever<_UnclassifiedColumnKeys>;
+
+/** Every hoisted key must have the top-level counterpart hoisting it assumes. */
+type _OverrideKeysWithoutCounterpart = Exclude<
+  (typeof COLUMN_OVERRIDE_KEYS)[number],
+  keyof Types.ColumnOverrides & keyof Types.Config
+>;
+export type _AssertEveryOverrideKeyHoistable = AssertNever<_OverrideKeysWithoutCounterpart>;
+
+/** Column-only keys must have no top-level counterpart, or they belong in the other array. */
+type _OnlyKeysWithCounterpart = Extract<(typeof COLUMN_ONLY_KEYS)[number], keyof Types.Config>;
+export type _AssertColumnOnlyKeysHaveNoCounterpart = AssertNever<_OnlyKeysWithCounterpart>;
 
 const OVERRIDE_KEY_SET: ReadonlySet<string> = new Set<string>([
   ...COLUMN_OVERRIDE_KEYS,
