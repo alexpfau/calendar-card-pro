@@ -663,7 +663,9 @@ download would have to live outside the release assets entirely.
   the two release-infra
   drifts nothing else can see: `package.json` disagreeing with either version field in
   `package-lock.json`, and `.nvmrc` disagreeing with `.node-version`. Both run before the
-  install, so they fail in seconds.
+  install, so they fail in seconds. It also runs `docs:build`, so the site's own build
+  command is exercised on a pull request rather than first on `main` — see _Docs site
+  deployment_.
 - `hacs-validate.yml` — HACS validation on the same PR branches, plus `main` and nightly.
   Everything it validates is decided before a merge, so running it only on `main` meant a
   packaging mistake could only be found once `main` already carried it.
@@ -678,6 +680,13 @@ and serves `docs/.vitepress/dist` as static assets.
 - **It builds only on push to `main`.** Pushing to `dev` produces no Workers check run at
   all, so nothing on `dev` is ever live. **Merging the `dev` → `main` PR _is_ the deploy** —
   there is no separate publish step and no tag involved.
+- **`ci.yml` runs `docs:build` so a pull request exercises the deploy's own command.** It
+  did not always, and the gap was invisible: a broken `docs/.vitepress/config.mts` passes
+  `check:docs`, `lint` and `tsc --noEmit` — `docs/` sits outside the tsconfig include — so
+  every check went green, the PR merged, and the Cloudflare build was the first thing to
+  run it. The two docs checks are complementary rather than redundant, and each catches
+  what the other misses: a link to a heading that does not exist fails `check:docs` and
+  builds cleanly under VitePress, while a config error fails only the build. Keep both.
 - `wrangler.jsonc` defines the Worker: no `main` script, `assets.directory` pointing at the
   VitePress output, and the custom domain declared as a route so the hostname binding stays
   in version control.
