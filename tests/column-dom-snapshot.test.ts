@@ -68,7 +68,7 @@ describe('column view DOM', () => {
   });
 
   it('suppresses empty day columns', () => {
-    // `show_empty_days` defaults to true for this view (`view.ts:353`), the opposite of the
+    // `show_empty_days` defaults to true for this view (`COLUMN_DEFAULT_OVERRIDES`), the opposite of the
     // list view, so `true` here would have re-rendered the default and asserted nothing.
     expect(
       renderColumn(SINGLE_EVENT, buildConfig({ column: { show_empty_days: false } })),
@@ -80,7 +80,7 @@ describe('column view DOM', () => {
   });
 
   it('renders unsplit multi-day events', () => {
-    // Splitting is forced on for this view (`view.ts:354`), so only the column override that
+    // Splitting is forced on for this view (`COLUMN_DEFAULT_OVERRIDES`), so only the column override that
     // turns it back off produces markup the default case does not already cover.
     expect(
       renderColumn(EVENTS, buildConfig({ column: { split_multiday_events: false } })),
@@ -128,7 +128,7 @@ describe('column view DOM', () => {
   });
 
   it('renders a single day', () => {
-    // Compact mode is deliberately list-scoped (`view.ts:161-162`) and would render the
+    // Compact mode is deliberately list-scoped (`VIEW_SCOPE` in `view.ts`) and would render the
     // default column markup, so the day count is the axis that varies here instead.
     expect(renderColumn(EVENTS, buildConfig({ days_to_show: 1 }))).toMatchSnapshot();
   });

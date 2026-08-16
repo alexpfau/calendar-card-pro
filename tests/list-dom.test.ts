@@ -9,21 +9,21 @@ import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
 
 /**
- * Phase 0 Stage 2 — the list-view DOM equality gate.
+ * The list-view DOM equality gate.
  *
- * Phase 1 extracts the list's leaf renderers into shared functions so the column view
- * can reuse them. The list's own DOM is supposed to come out **byte-identical**; that
- * is the entire safety argument for calling Phase 1 low-risk. This file is what makes
- * that claim checkable instead of asserted.
+ * The list's leaf renderers live in `leaves.ts` and are shared with the column view, so
+ * a change made for one view can silently alter the other. The list's DOM is supposed to
+ * stay **byte-identical** across any such change; this file is what makes that checkable
+ * instead of asserted.
  *
  * ## What is rendered, and into what
  *
  * The pipeline under test is `groupEventsByDay` → `renderGroupedEvents` → Lit, which is
  * exactly what `calendar-card-pro.ts` `render()` does for the populated case. The card
  * element itself is deliberately **not** constructed. Doing so would require a fake
- * `hass`, a mocked `callApi` (`events.ts:1167`), and awaiting an async fetch — none of
- * which this gate is about, and all of which could fail for reasons unrelated to the
- * DOM. Rendering the pure functions directly isolates the surface Phase 1 changes.
+ * `hass`, a mocked `callApi`, and awaiting an async fetch — none of which this gate is
+ * about, and all of which could fail for reasons unrelated to the DOM. Rendering the
+ * pure functions directly isolates the shared rendering surface.
  *
  * The two functions kept together on purpose: grouping decides day boundaries,
  * ordering and which events survive, and rendering turns that into the table. A change
@@ -36,7 +36,7 @@ import * as EventUtils from '../src/utils/events';
  * two different days produces two different DOMs. Fake timers freeze `Date.now()` and
  * the `new Date()` constructor globally, which covers dayjs too since dayjs has no
  * independent clock. This needs **zero production changes** — no `now` parameter
- * threaded through the very functions Phase 1 is extracting.
+ * threaded through the shared leaf renderers.
  *
  * ## Baselines and the update path
  *
@@ -238,7 +238,7 @@ describe('list view DOM', () => {
 
   it('renders split multi-day events', () => {
     // `split_multiday_events` decomposes the Conference fixture across days, which is
-    // one of the paths Phase 1's shared renderers must preserve.
+    // one of the paths the shared leaf renderers must preserve.
     //
     // Until column view arrived this snapshot was byte-identical to the default one,
     // and the test asserted nothing. Splitting used to live in `processEvents`, on the
@@ -294,13 +294,13 @@ describe('list view DOM', () => {
     ).toMatchSnapshot();
   });
 
-  // Weather is pinned in its own block because Phase 1 extracts it FIRST, and because it
+  // Weather is pinned in its own block because it is drawn by shared leaves, and because it
   // is the one part of the render that stays inert unless forecasts are supplied — the
   // rest of this file would pass unchanged against a completely broken weather renderer.
 
   it('renders weather on the date column', () => {
     // `position: 'date'` drives `findDailyForecast` inside `renderDateColumn`
-    // (`render.ts:526-575`) — the exact block Phase 1 lifts out first.
+    // (`renderDateWeather` in `leaves.ts`).
     expect(
       renderList(EVENTS, buildConfig({ weather: { entity: 'weather.home', position: 'date' } }), {
         weather: WEATHER,
@@ -309,7 +309,7 @@ describe('list view DOM', () => {
   });
 
   it('renders weather on events', () => {
-    // A separate render site (`renderEventWeather`, `render.ts:1050+`) reading the
+    // A separate render site (`renderEventWeather` in `leaves.ts`) reading the
     // hourly forecast. Pinned separately so an extraction that fixes one and breaks the
     // other cannot pass.
     expect(
@@ -331,7 +331,7 @@ describe('list view DOM', () => {
             entity: 'weather.home',
             position: 'both',
             date: { show_low_temp: true, show_high_temp: true, show_conditions: true },
-            event: { show_conditions: true, show_high_temp: true },
+            event: { show_conditions: true },
           },
         }),
         { weather: WEATHER },
@@ -341,8 +341,8 @@ describe('list view DOM', () => {
 
   it('suppresses the low temp when a UV index is shown', () => {
     // `showLowTemp` is `show_low_temp === true && !showUvIndex && templow !== undefined`
-    // (`render.ts:545-546`) — an interaction between two independent flags, which is
-    // exactly the kind of condition an extraction silently drops. Both flags are on
+    // (`renderDateWeather` in `leaves.ts`) — an interaction between two independent flags,
+    // which is exactly the kind of condition a refactor silently drops. Both flags are on
     // here, so the snapshot must contain `weather-uv-index` and must NOT contain
     // `weather-temp-low`; the assertions below state that outright rather than trusting
     // a reader to notice an absence in 1300 lines of snapshot.
@@ -371,10 +371,9 @@ describe('list view DOM', () => {
 
   it('renders the today indicator', () => {
     // `today_indicator` defaults to `false`, so `renderTodayIndicator` returns `nothing` in
-    // every other test — and `parseIndicatorPosition` (`render.ts:358-382`) is only reachable
-    // through it. That function is one of Phase 1's four **named** extraction targets, so
-    // without this case the gate would have been silent on a quarter of the work it exists to
-    // protect. Asserted directly as well as snapshotted, so "renders nothing" cannot pass.
+    // every other test — and `parseIndicatorPosition` (`leaves.ts`) is only reachable through
+    // it. That function is one of the shared leaf renderers, so without this case the gate
+    // would be silent on part of the surface it exists to protect. Asserted directly as well as snapshotted, so "renders nothing" cannot pass.
     const out = renderList(EVENTS, buildConfig({ today_indicator: 'dot' }));
 
     expect(out).toContain('today-indicator-container');
@@ -383,7 +382,7 @@ describe('list view DOM', () => {
 
   it('renders a custom today indicator position', () => {
     // `parseIndicatorPosition` turns a CSS-like `"x y"` string into inline styles (documented
-    // in README.md:841-843; default `'15% 50%'`). Pinning a non-default position is what
+    // in `docs/features/layout-appearance.md`; default `'15% 50%'`). Pinning a non-default position is what
     // distinguishes "the function ran" from "the function ran and its output reached the DOM".
     const out = renderList(
       EVENTS,
@@ -400,14 +399,14 @@ describe('list view DOM', () => {
     // Both default to `false`. The progress bar additionally requires a *running* event, which
     // is why the fixture set contains one straddling `FROZEN_NOW` — without it this config
     // would render no bar and the snapshot would look like coverage while providing none.
-    // Both branches live in the `.event-content` subtree, Phase 1's third extraction target.
+    // Both branches live in the `.event-content` subtree, drawn by the shared leaves.
     //
-    // Note for whoever extracts this: `show_progress_bar` is checked **twice** — once at
-    // `render.ts:902` when computing `progressPercentage`, and again at `:954`/`:973` when
-    // rendering. Either guard alone is dead code, because the first already forces
+    // Note for whoever refactors this: `show_progress_bar` is checked **twice** — once in
+    // `buildEventPresentation` when computing `progressPercentage`, and again in the
+    // event-content leaves when rendering. Either guard alone is dead code, because the first already forces
     // `progressPercentage` to `null`. Mutation-testing confirmed this: removing either one
     // in isolation changes no output at all, while removing both fails 13 of these 18 tests.
-    // The redundancy is harmless, but it means a Phase 1 extraction that keeps only one of
+    // The redundancy is harmless, but it means a refactor that keeps only one of
     // the two guards is still correct — don't treat dropping one as a regression.
     const out = renderList(EVENTS, buildConfig({ show_countdown: true, show_progress_bar: true }));
 
@@ -754,16 +753,15 @@ describe('list view DOM', () => {
   // and an empty html`` template. The rendered DOM cannot tell `''` from `nothing`,
   // so no behavioural test can pin them; only reading the source can.
   //
-  // Phase 1 moved the event leaves out of render.ts into leaves.ts. This guard failed
-  // at that moment by design, and each idiom below was re-read and confirmed unchanged
-  // before the regexes were repointed. It is expected to fail again at each later
-  // extraction seam, for the same reason. When it does: repoint, having first confirmed
+  // Moving the event leaves out of render.ts into leaves.ts made this guard fail by
+  // design, and each idiom below was re-read and confirmed unchanged before the regexes
+  // were repointed. It is expected to fail again at each later extraction seam, for the
+  // same reason. When it does: repoint, having first confirmed
   // every idiom survived byte-for-byte. Do not delete it, and do not "fix" it by relaxing
   // a regex to match whatever the new code happens to say.
   //
-  // Phase 2 will cut the `${index === 0 ? html`…` : ''}` seam in render.ts, when the
-  // column container grows its own date rendering. That idiom is asserted here too so
-  // the same forcing function applies to it.
+  // The `${index === 0 ? html`…` : ''}` seam in render.ts is asserted here too, so the
+  // same forcing function applies to it.
   it('preserves no-output idioms at extraction seams', () => {
     const renderSource = readFileSync(`${process.cwd()}/src/rendering/render.ts`, 'utf8');
     const leavesSource = readFileSync(`${process.cwd()}/src/rendering/leaves.ts`, 'utf8');

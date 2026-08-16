@@ -96,7 +96,8 @@ function realEventCount(days: Types.EventsByDay[]): number {
  * Group with a per-entity cap, wiring `_matchedConfig` by reference.
  *
  * Production sets `_matchedConfig` at fetch time to the very object in `config.entities`
- * (`events.ts:805`), and the bucket key is derived by identity lookup against that array.
+ * (`processEvents` in `events.ts`), and the bucket key is derived by identity lookup
+ * against that array.
  * Building the config first and reading the normalized entry back out reproduces that,
  * rather than passing a lookalike literal that would land in the fallback bucket.
  */

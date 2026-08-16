@@ -72,7 +72,8 @@ const WEEKEND_SPAN: Types.CalendarEventData[] = [
 const SPAN_CONFIG = { days_to_show: 10 };
 
 /**
- * Column view ships `show_empty_days: true` (`view.ts:317`) because a grid has to fill
+ * Column view ships `show_empty_days: true` (`COLUMN_DEFAULT_OVERRIDES` in `view.ts`)
+ * because a grid has to fill
  * every column, so it renders 10 day containers where list view renders the 4 that hold
  * events. Turning it off is what makes the two day *sets* comparable; without it a
  * cross-view assertion compares Friday against Wednesday and fails for a reason that has

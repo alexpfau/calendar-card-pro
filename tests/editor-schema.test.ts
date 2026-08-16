@@ -2698,8 +2698,8 @@ describe('editor: per-calendar settings', () => {
    * The defect in the editor this replaces, and the reason four of these are dropdowns.
    *
    * The card reads them presence-first — `getEntitySetting(…) ?? config.show_time`
-   * (`presentation.ts:124`), and `typeof … !== 'undefined'` for the split
-   * (`events.ts:898`) — so absent means *follow the card*. Bound to a checkbox, that
+   * (`buildEventPresentation` in `presentation.ts`), and `typeof … !== 'undefined'` for
+   * the split (`shouldSplitEvent` in `events.ts`) — so absent means *follow the card*. Bound to a checkbox, that
    * state renders as "off", which is a different instruction, and the first touch
    * writes a literal `false` that no checkbox can take back.
    */
@@ -3261,7 +3261,8 @@ describe('editor: per-calendar settings', () => {
   /**
    * Per-entity and card-level `split_multiday_events` are the same word for two
    * different scopes. The card-level key is a real column override — `column:
-   * { split_multiday_events: false }` skips the split entirely (`events.ts:225`) —
+   * { split_multiday_events: false }` skips the split entirely
+   * (`viewForcesMultidaySplit` in `events.ts`) —
    * while the per-entity one is ignored in column view, because a column that omitted
    * the later days of an event would be a claim about a day that is not true.
    */

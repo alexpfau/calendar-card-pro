@@ -4,8 +4,8 @@ import type * as Types from '../src/config/types';
 /**
  * Fixtures and helpers for the list-view DOM equality gate (`tests/list-dom.test.ts`).
  *
- * Kept separate from the test so that Phase 1's shared leaf renderers, and later the
- * column view, can reuse exactly the same event data. The whole point of the gate is
+ * Kept separate from the test so that the shared leaf renderers and the column view can
+ * reuse exactly the same event data. The whole point of the gate is
  * that both views are fed identical input; that only holds if the input has one home.
  */
 
@@ -118,8 +118,8 @@ export const SINGLE_EVENT: Types.CalendarEventData[] = [
 /**
  * Weather forecasts covering the fixture dates.
  *
- * Included because Phase 1's **first** extraction is weather (`render.ts:526-575`), and
- * a gate that passes no forecasts leaves that step unprotected — `weatherForecasts` is
+ * Included because weather is drawn by shared leaves (`renderDateWeather` in `leaves.ts`),
+ * and a gate that passes no forecasts leaves it unprotected — `weatherForecasts` is
  * optional, so every weather branch short-circuits to `nothing` and the snapshots would
  * agree perfectly with a broken extraction.
  *
