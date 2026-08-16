@@ -139,7 +139,7 @@ function deduplicateEvents(
  * Group events by display day.
  *
  * @param rawEvents Calendar events to group
- * @param config Card configuration
+ * @param rawConfig Card configuration, with or without the `column:` block applied
  * @param isExpanded Whether the card is in expanded mode
  * @param language Language code for date calculations
  * @param effectiveView View currently being rendered
@@ -148,19 +148,25 @@ function deduplicateEvents(
  */
 export function groupEventsByDay(
   rawEvents: Types.CalendarEventData[],
-  config: Types.Config,
+  rawConfig: Types.Config,
   isExpanded: boolean,
   language: string,
   effectiveView: Types.EffectiveView = 'list',
   hassLocale?: { language?: string; first_weekday?: string },
 ): Types.EventsByDay[] {
-  const events = deduplicateEvents(
-    rawEvents,
-    config,
-    ViewConfig.resolveViewOption(config, 'filter_duplicates', effectiveView),
-  );
+  // Resolved once, at the boundary, so every read below is view-aware without each
+  // one having to remember to ask for itself. Roughly a dozen override-capable
+  // options are read in this function and its helpers; when only some of them went
+  // through a resolver, the rest silently ignored the `column:` block for any caller
+  // that had not already applied it. Callers in `calendar-card-pro.ts` do pass the
+  // effective config, and this is a no-op on one — the resolver re-reads the same
+  // block and reaches the same answer — so this is here to make the function correct
+  // on its own terms rather than to fix a live defect.
+  const config = ViewConfig.resolveEffectiveConfig(rawConfig, effectiveView);
 
-  const showEmptyDays = ViewConfig.resolveViewOption(config, 'show_empty_days', effectiveView);
+  const events = deduplicateEvents(rawEvents, config, config.filter_duplicates);
+
+  const showEmptyDays = config.show_empty_days;
 
   const compactLimitsApply = !isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
 
@@ -172,14 +178,7 @@ export function groupEventsByDay(
   // cannot vanish from their columns.
   const splitEvents = processMultiDayEvents(
     events,
-    {
-      ...config,
-      split_multiday_events: ViewConfig.resolveViewOption(
-        config,
-        'split_multiday_events',
-        effectiveView,
-      ),
-    },
+    config,
     ViewConfig.viewForcesMultidaySplit(effectiveView),
   );
 
