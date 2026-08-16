@@ -19,6 +19,7 @@ const CONSTANTS_TS = join(ROOT, 'src/config/constants.ts');
 const TYPES_TS = join(ROOT, 'src/config/types.ts');
 const DOCS_DIR = join(ROOT, 'docs');
 const REFERENCE_DOC = join(DOCS_DIR, 'reference/configuration.md');
+const VITEPRESS_CONFIG = join(DOCS_DIR, '.vitepress/config.mts');
 
 const STRICT = process.argv.includes('--strict');
 
@@ -1469,6 +1470,7 @@ function report(counts) {
       `${counts.gates} CI gates documented, ` +
       `${counts.enums} enumerated options fully listed, ` +
       `${counts.removed} removed options migrated, ` +
+      `${counts.reachable} pages reachable from the navigation, ` +
       `release surfaces agree on v${counts.version}.\n`,
   );
 
@@ -1841,6 +1843,77 @@ function checkDeprecatedTable(maps) {
   return maps.card.size;
 }
 
+// ---------------------------------------------------------------------------
+// Check 23 - every published page is reachable from the site navigation
+// ---------------------------------------------------------------------------
+
+/** Routes deliberately absent from the nav and sidebar. */
+const UNLISTED_ROUTES = new Set([
+  '/', // home page, reached through the logo and the hero buttons
+  '/development/backlog', // internal planning notes, not user documentation
+]);
+
+/**
+ * Collect every route the VitePress nav or sidebar points at.
+ *
+ * @returns {Set<string>} routes with any fragment and trailing slash stripped
+ */
+function readNavRoutes() {
+  const config = readFileSync(VITEPRESS_CONFIG, 'utf8');
+  const routes = new Set();
+  for (const match of config.matchAll(/link:\s*'(\/[^']*)'/g)) {
+    const route = match[1].split('#')[0].replace(/\/$/, '');
+    routes.add(route === '' ? '/' : route);
+  }
+  assertFound(routes, 'navigation links', VITEPRESS_CONFIG);
+  return routes;
+}
+
+/**
+ * Reconcile the published pages against the navigation in both directions.
+ *
+ * VitePress builds and deploys every markdown file it finds, so a page that nothing
+ * links to still ships - reachable only by guessing the URL. Neither `docs:build` nor
+ * any other check notices, which is how a documented option can still be undiscoverable.
+ *
+ * @param {string[]} docs absolute paths to every published markdown page
+ * @param {Set<string>} routes routes referenced by the navigation
+ * @returns {number} pages reachable from the navigation
+ */
+function checkPageReachability(docs, routes) {
+  const published = new Map();
+  for (const file of docs) {
+    const route = `/${relative(DOCS_DIR, file)
+      .split(sep)
+      .join('/')
+      .replace(/\.md$/, '')
+      .replace(/(^|\/)index$/, '')}`;
+    published.set(route.length > 1 ? route.replace(/\/$/, '') : '/', file);
+  }
+  assertFound(published, 'published routes', DOCS_DIR);
+
+  let reachable = 0;
+  for (const [route, file] of published) {
+    if (routes.has(route)) {
+      reachable += 1;
+    } else if (!UNLISTED_ROUTES.has(route)) {
+      error(
+        `${relative(ROOT, file)} is published but nothing in ` +
+          `${relative(ROOT, VITEPRESS_CONFIG)} links to it, so it deploys reachable only by URL - ` +
+          `add a sidebar entry for ${route}, or list it in UNLISTED_ROUTES if that is deliberate.`,
+      );
+    }
+  }
+  for (const route of routes) {
+    if (!published.has(route)) {
+      error(
+        `${relative(ROOT, VITEPRESS_CONFIG)} links to ${route}, but no page under docs/ builds that route.`,
+      );
+    }
+  }
+  return reachable;
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -1874,6 +1947,7 @@ function main() {
   const version = checkReleaseVersion();
   const enums = checkEnumValues(readEnumOptions());
   const removed = checkDeprecatedTable(readDeprecatedMaps());
+  const reachable = checkPageReachability(docs, readNavRoutes());
 
   process.exit(
     report({
@@ -1887,6 +1961,7 @@ function main() {
       gates,
       enums,
       removed,
+      reachable,
       version,
     }),
   );
