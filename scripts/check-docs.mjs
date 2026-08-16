@@ -1459,6 +1459,7 @@ function report(counts) {
     `${counts.defaults} defaults in code, ${counts.rows} rows in the reference, ` +
       `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} complete examples, ` +
       `${counts.releases} release lines documented, ${counts.links} internal links resolved, ` +
+      `${counts.gates} CI gates documented, ` +
       `release surfaces agree on v${counts.version}.\n`,
   );
 
@@ -1597,6 +1598,65 @@ function checkReleaseVersion() {
   return version;
 }
 
+// ---------------------------------------------------------------------------
+// Check 20 — the documented gate list matches the gates CI actually runs
+// ---------------------------------------------------------------------------
+
+/**
+ * Three files tell a contributor which commands to run before pushing, and all three
+ * claim the list is complete: "every npm gate CI runs, so a green local run should mean
+ * a green PR". Nothing checked that claim, so adding a step to `ci.yml` silently made all
+ * three wrong — which is exactly what happened when `docs:build` was added to CI and the
+ * lists were not updated. The promise then inverts: the docs send you to a green local run
+ * that still fails the pull request.
+ *
+ * `ci.yml` is the source of truth. Extra entries fail too, so a list cannot drift by
+ * naming a gate CI dropped.
+ */
+function checkGateLists() {
+  const normalize = (line) =>
+    line
+      .trim()
+      .replace(/\s+#.*$/, '')
+      .replace(/\s+/g, ' ');
+
+  const workflow = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
+  const gates = workflow
+    .split('\n')
+    .map((line) => line.match(/^\s*run:\s*((?:npm|npx)\s.+)$/))
+    .filter(Boolean)
+    .map((match) => normalize(match[1]))
+    // Installing dependencies is not a gate a contributor reruns as a check.
+    .filter((command) => command !== 'npm ci');
+  assertFound(gates, 'npm gate commands', join(ROOT, '.github/workflows/ci.yml'));
+
+  // Each file states the list once, in the only fenced block that reaches check:bundle.
+  for (const file of ['AGENTS.md', 'CONTRIBUTING.md', 'docs/contributing.md']) {
+    const text = readFileSync(join(ROOT, file), 'utf8');
+    const block = [...text.matchAll(/```(?:bash|sh)\n([\s\S]*?)```/g)]
+      .map((match) => match[1])
+      .find((body) => body.includes('check:bundle'));
+    if (!block) {
+      error(`${file}: no gate list found — the check cannot run blind, so fix the parser.`);
+      continue;
+    }
+    const listed = block.split('\n').map(normalize).filter(Boolean);
+    for (const gate of gates) {
+      if (!listed.includes(gate)) {
+        error(
+          `${file} omits \`${gate}\`, which ci.yml runs. The file promises the list is every gate CI runs, so a contributor following it would push a red pull request.`,
+        );
+      }
+    }
+    for (const command of listed) {
+      if (!gates.includes(command)) {
+        error(`${file} lists \`${command}\`, which ci.yml does not run.`);
+      }
+    }
+  }
+  return gates.length;
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -1626,6 +1686,7 @@ function main() {
   checkCrossLinks(docs);
   checkAgentsDuplication();
   checkAgentsLinks();
+  const gates = checkGateLists();
   const version = checkReleaseVersion();
 
   process.exit(
@@ -1637,6 +1698,7 @@ function main() {
       complete,
       releases,
       links,
+      gates,
       version,
     }),
   );

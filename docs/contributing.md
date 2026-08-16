@@ -29,6 +29,7 @@ Want to improve **Calendar Card Pro**? I welcome contributions of all kinds—wh
    npm test
    npm run check:i18n    # translation wiring
    npm run check:docs    # docs and config parity — gates every PR, not only docs changes
+   npm run docs:build    # compiles the docs site; catches pages check:docs cannot parse
    npm run build
    npm run check:bundle  # after the build; it reads dist/
    ```
