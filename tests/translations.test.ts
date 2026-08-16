@@ -32,7 +32,6 @@ import { formatEventTime } from '../src/utils/format';
  * against and because it keeps this file free of Vite-only syntax, so plain `tsc`
  * can typecheck it alongside src.
  */
-
 const LANGUAGES = Object.keys(TRANSLATIONS);
 
 describe('language registry', () => {

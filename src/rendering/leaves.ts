@@ -389,24 +389,20 @@ export interface EventContentOptions {
    * Where the event weather badge goes. `'title'` uses the summary row; `'row'`
    * gives the badge its own row beneath the time.
    */
-
   weatherPlacement?: 'title' | 'row';
   /**
    * Where the progress bar goes. `'inline'` keeps it on the time row; `'row'`
    * gives it a dedicated row.
    */
-
   progressPlacement?: 'inline' | 'row';
   /**
    * Where the countdown goes. `'trailing'` keeps it at the end of the time row;
    * `'text'` folds it into the time text.
    */
-
   countdownPlacement?: 'trailing' | 'text';
   /**
    * Home Assistant instance, used only to localize the condition text the own-row weather placement can carry. Absent for the title placement, which has no words.
    */
-
   hass?: Types.Hass | null;
 }
 

@@ -211,6 +211,31 @@ describe('list view DOM', () => {
     ).toMatchSnapshot();
   });
 
+  it('treats every spelling of zero width as no separator', () => {
+    // The list renderer used to compare `day_separator_width !== '0px'` against the
+    // literal. `'0px'` is the default, so every existing test agreed with the helper by
+    // accident, and `'0em'` / `'0'` / `'0%'` fell through to draw a separator the user
+    // had explicitly switched off. Column view never had the bug because it routed
+    // through `ViewConfig.isZeroLength` from the start, so the two views disagreed on
+    // the same config. This pins list view to the helper rather than to the one literal
+    // the default happens to use.
+    for (const width of ['0px', '0em', '0', '0%', '0rem']) {
+      const container = renderListContainer(
+        EVENTS,
+        buildConfig({ days_to_show: 10, day_separator_width: width }),
+      );
+      expect(container.querySelectorAll('.separator').length).toBe(0);
+    }
+
+    // Guard against the loop above being vacuous: if `.separator` never matched
+    // anything the assertion would pass whatever the renderer did.
+    const drawn = renderListContainer(
+      EVENTS,
+      buildConfig({ days_to_show: 10, day_separator_width: '1px' }),
+    );
+    expect(drawn.querySelectorAll('.separator').length).toBeGreaterThan(0);
+  });
+
   it('renders split multi-day events', () => {
     // `split_multiday_events` decomposes the Conference fixture across days, which is
     // one of the paths Phase 1's shared renderers must preserve.

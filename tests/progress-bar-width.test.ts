@@ -22,7 +22,6 @@ import { generateCustomPropertiesObject } from '../src/rendering/styles';
  *
  * The three cases the maintainer named are the three `describe` blocks below.
  */
-
 const PROP = '--calendar-card-progress-bar-width';
 
 describe('progress_bar_width', () => {

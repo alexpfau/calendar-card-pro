@@ -35,7 +35,6 @@ import * as EventUtils from '../src/utils/events';
  * classification reads the wall clock, so an unfrozen run classifies a fixture
  * differently depending on the day it happens to be run.
  */
-
 function serialize(container: HTMLElement): string {
   return container.innerHTML
     .replace(/<!--\?lit\$[0-9]+\$-->/g, '')

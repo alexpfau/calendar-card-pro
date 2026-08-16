@@ -25,7 +25,6 @@ import {
  * below `min_day_width`. The threshold is bypassed without ever being
  * violated by any single comparison, which is why the pure resolvers cannot catch it.
  */
-
 vi.mock('../src/utils/logger', () => ({
   warn: vi.fn(),
   error: vi.fn(),

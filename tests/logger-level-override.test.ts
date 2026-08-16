@@ -17,7 +17,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * The level is mocked at module load because `currentLogLevel` is still captured once,
  * at import time; only the *override* is read per call.
  */
-
 interface OverrideHost {
   calendarCardProDebug?: unknown;
   calendarCardProLogLevel?: unknown;
