@@ -46,8 +46,16 @@ Day-navigation controls fold in here (maintainer, 2026-08-14) — `«` `‹` Tod
 a candidate to consider _with_ the grid view rather than ahead of it. Two constraints are
 why it was never a v4 item: it must be optional, so it does not bloat the UI for people who
 do not want it, and navigation must not trigger a refetch. The prototype re-slices an
-oversized fetch where ours is sized to exactly `days_to_show`, so the fetch-window question
-has to be settled first.
+oversized fetch, so the fetch-window question has to be settled first.
+
+Ours is oversized too, which is the useful half of that answer. `getTimeWindow` advances
+the end to `start + days_to_show` — already the exclusive boundary — and then pushes it to
+`23:59:59.999`, so a `days_to_show: 3` window asks Home Assistant for four whole days. The
+extra day is filtered out downstream, so nothing renders wrong; it is only waste, and it is
+proportionally largest on the small windows most people run. Narrowing the end to local
+midnight on the boundary date is a one-line change, but it moves the actual API request, so
+it wants a real Home Assistant round-trip against several calendar integrations rather than
+a late change on a release candidate.
 
 **1px vertical shift in the list event-weather badge.** Measured against v3.6.0, the badge
 box grows from `[754,6,34,14]` to `[754,4,34,18]` and its glyphs sit 1px lower. Colour is
