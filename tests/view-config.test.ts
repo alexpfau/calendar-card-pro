@@ -537,9 +537,9 @@ describe('validateColumnOverrides', () => {
     expect(warnMock.mock.calls[0][0]).toContain('loaded from Home Assistant');
   });
 
-  it('accepts the column-only options now that Phase 4b implements them', () => {
-    // These three were reported as "planned but not implemented yet" until Phase 4b
-    // built them. The message was correct then and would be a lie now, so this test
+  it('accepts the column-only options now that the column view implements them', () => {
+    // These three were reported as "planned but not implemented yet" until the column
+    // view built them. The message was correct then and would be a lie now, so this test
     // inverts: the keys must validate silently.
     const config = buildConfig();
     config.column = {

@@ -193,13 +193,13 @@ Both height options may be overridden inside a `column:` block, and usually shou
 
 ## 🌦️ Weather
 
-| Option               | Type   | Default | Description                                                                                                                    |
-| -------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `weather`            | object | -       | Weather configuration object containing the settings below                                                                     |
-| `weather → entity`   | string | -       | Home Assistant weather entity to use for forecasts                                                                             |
-| `weather → position` | string | `date`  | Where to show weather data: `none` (nowhere), `date` (in date column), `event` (next to events), or `both` (in both positions) |
-| `weather → date`     | object | -       | Configuration for weather display in the date column                                                                           |
-| `weather → event`    | object | -       | Configuration for weather display next to events                                                                               |
+| Option               | Type   | Default | Description                                                                                                                       |
+| -------------------- | ------ | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `weather`            | object | -       | Weather configuration object containing the settings below                                                                        |
+| `weather → entity`   | string | -       | Home Assistant weather entity to use for forecasts                                                                                |
+| `weather → position` | string | `date`  | Where to show weather data: `none` (nowhere), `date` (in the day header), `event` (next to events), or `both` (in both positions) |
+| `weather → date`     | object | -       | Configuration for weather display in the day header                                                                               |
+| `weather → event`    | object | -       | Configuration for weather display next to events                                                                                  |
 
 ### Weather Position Options
 

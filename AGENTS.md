@@ -920,6 +920,22 @@ both directions, by importing the schema modules. A new field with no string fai
 - Match the existing module layout: `config/`, `interaction/`, `rendering/`,
   `translations/`, `utils/`.
 
+**Cite symbols in comments, never line numbers.** A citation into the five-hundreds of
+`render.ts` was accurate when it was written and became a pointer into empty space the moment
+the v4 refactor cut that file from roughly a thousand lines to five hundred. Six such citations shipped in the test suite, one of them
+naming a README line four times past the end of the file, and nothing failed because no tool
+reads prose. A symbol name — `renderDateWeather` in `leaves.ts` — is greppable, survives
+every edit above it, and tells the reader what to look for rather than where it used to sit.
+`check:docs` now flags any comment citation that points beyond the end of the file it names;
+citations that quote a released tag, such as `v3.6.0 leaves.ts:324`, are exempt because a tag
+is immutable.
+
+**When a planning document is retired, grep for its vocabulary.** `docs/development/column-view.md`
+was deleted once the column view shipped, and nineteen references to its phases survived in
+four test files — still written in the future tense, still describing work as upcoming that
+had already landed. Comments that name a document outlive the document, so deleting one is
+not finished until `grep -rn "Phase [0-9]" src tests` comes back empty.
+
 **A JSDoc block touches the thing it documents — no blank line between them.** This is the
 one style rule in the project that nothing mechanical enforces, so it is the one that
 silently rots. TypeScript still associates a doc comment and its `@param` tags across a

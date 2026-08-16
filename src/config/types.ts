@@ -356,7 +356,7 @@ export interface EventsByDay {
   month: string;
   timestamp: number;
   events: CalendarEventData[];
-  weekNumber?: number | null; // Changed from number | undefined to number | null
+  weekNumber?: number | null;
   isFirstDayOfWeek?: boolean;
   isFirstDayOfMonth?: boolean;
   monthNumber?: number;

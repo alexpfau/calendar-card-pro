@@ -35,6 +35,7 @@ src/
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
 │   │   ├── localize.ts           # The string hooks `ha-form` calls
 │   │   ├── strings.ts            # English editor strings
+│   │   ├── version.ts            # Build-stamped version the editor reports
 │   │   ├── translations/         # The same keys per language, partial by design
 │   │   └── styles.ts             # Editor chassis CSS
 │   ├── render.ts                 # Card shell and the list view

@@ -1474,6 +1474,7 @@ function report(counts) {
       `${counts.removed} removed options migrated, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
+      `${counts.citations} line citations resolved, ` +
       `release surfaces agree on v${counts.version}.\n`,
   );
 
@@ -2016,6 +2017,87 @@ function checkThemeDefaults(rows) {
   return reconciled;
 }
 
+// Check 25 - no source comment cites a line number that no longer exists
+
+/**
+ * Flags `file.ext:NNN` citations in comments that point past the end of the file they
+ * name.
+ *
+ * Line numbers in prose rot silently. The v4 refactor split `render.ts` from ~1050 lines
+ * down to 523, and six citations across the test suite were left pointing into empty
+ * space — one of them named a README line four times past the end of that file. Nothing
+ * failed, because no tool reads comments.
+ *
+ * This only flags citations that are provably wrong (beyond EOF), not every numeric
+ * reference: historical citations to a released tag (`v3.6.0 leaves.ts:324`) and recorded
+ * measurement tables are legitimate and stable. The fix for a flagged citation is to name
+ * the symbol instead of the line, which is greppable and survives edits.
+ *
+ * Historical citations opt out by naming their release in the same line, which is why the
+ * example above is spelled out in prose rather than shown literally.
+ */
+function checkCitations() {
+  const CITE = /([A-Za-z0-9_./-]+\.(?:ts|md|mjs))[: ]+(\d+)/g;
+  const SCAN = ['src', 'tests', 'scripts'];
+  const lineCounts = new Map();
+  const byBasename = new Map();
+
+  const walk = (dir, out = []) => {
+    for (const name of readdirSync(dir)) {
+      if (name === 'node_modules' || name === '__snapshots__' || name.startsWith('.')) continue;
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walk(full, out);
+      else out.push(full);
+    }
+    return out;
+  };
+
+  const all = [
+    ...SCAN.flatMap((d) => walk(join(ROOT, d))),
+    ...walk(DOCS_DIR),
+    join(ROOT, 'README.md'),
+    join(ROOT, 'AGENTS.md'),
+    join(ROOT, 'CONTRIBUTING.md'),
+  ];
+  for (const file of all) {
+    const base = file.slice(file.lastIndexOf(sep) + 1);
+    if (!byBasename.has(base)) byBasename.set(base, file);
+  }
+
+  let checked = 0;
+  for (const file of all) {
+    if (!/\.(ts|mjs|md)$/.test(file)) continue;
+    const lines = readFileSync(file, 'utf8').split('\n');
+    lines.forEach((line, i) => {
+      const trimmed = line.trim();
+      const isComment =
+        trimmed.startsWith('*') ||
+        trimmed.startsWith('//') ||
+        trimmed.startsWith('#') ||
+        trimmed.includes('<!--');
+      if (!isComment) return;
+      // Historical citations name the release they describe and stay valid forever.
+      if (/v\d+\.\d+\.\d+/.test(line)) return;
+      for (const match of line.matchAll(CITE)) {
+        const target = byBasename.get(match[1].slice(match[1].lastIndexOf('/') + 1));
+        if (!target || target === file) continue;
+        if (!lineCounts.has(target)) {
+          lineCounts.set(target, readFileSync(target, 'utf8').split('\n').length);
+        }
+        const total = lineCounts.get(target);
+        checked += 1;
+        if (Number(match[2]) > total) {
+          error(
+            `${relative(ROOT, file)}:${i + 1} cites ${match[1]}:${match[2]}, but that file has ` +
+              `${total} lines. Name the symbol instead of the line number.`,
+          );
+        }
+      }
+    });
+  }
+  return checked;
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -2051,6 +2133,7 @@ function main() {
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
   const themed = checkThemeDefaults(readThemeTable());
+  const citations = checkCitations();
 
   process.exit(
     report({
@@ -2066,6 +2149,7 @@ function main() {
       removed,
       reachable,
       themed,
+      citations,
       version,
     }),
   );

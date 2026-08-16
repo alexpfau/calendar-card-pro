@@ -11,7 +11,7 @@ import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
 
 /**
- * Phase 4b — the column view's DOM.
+ * The column view's DOM.
  *
  * The list view has a snapshot gate whose job is to prove nothing changed. This file
  * has the opposite job: the column view is new, so there is no prior output to be
@@ -959,8 +959,8 @@ describe('column view DOM', () => {
       // not, because `renderEventContent` reads only `show_progress_bar` — every other
       // display decision arrives pre-resolved in `contentParts` from
       // `buildEventPresentation`, which both views call identically. So this asserts
-      // that the two views share the rendering leaf, and Phase 2's presentation layer
-      // is what guarantees they share the decisions feeding it.
+      // that the two views share the rendering leaf, and `buildEventPresentation` is
+      // what guarantees they share the decisions feeding it.
       //
       // `split_multiday_events` is set on both sides so the two views group the same
       // events. Column raises it by default (spec §D6); leaving the list on the default
