@@ -12,9 +12,14 @@
  * exactly when the event row does.
  */
 
-import { describe, expect, it } from 'vitest';
+import { render as litRender } from 'lit';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { EVENTS, FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
 import * as Types from '../src/config/types';
+import * as Column from '../src/rendering/column';
+import * as Render from '../src/rendering/render';
+import * as EventUtils from '../src/utils/events';
 import * as WeatherUtils from '../src/utils/weather';
 
 const ENTITY = 'weather.forecast_home';
@@ -98,5 +103,77 @@ describe('getRequiredForecastTypes', () => {
     // Defensive: an unrecognised value must not resolve to "no forecast", which would
     // hide a future typo behind an empty weather column instead of surfacing it.
     expect(forecastsFor('bogus')).toEqual(['daily', 'hourly']);
+  });
+});
+
+/**
+ * The other half of the same contract, on the render side.
+ *
+ * The subscription tests above prove `'none'` asks for no forecast stream. That is
+ * only half of "renders nothing": the card is handed forecasts whenever *any* card on
+ * the dashboard subscribes to them, so a render-side gate that has drifted still draws
+ * badges for a card configured to show none. Nothing above can see that — those tests
+ * never render.
+ *
+ * Both gates were measured to be freely widenable at the merged head: relaxing the day
+ * header's gate to `position !== 'event'` and the event row's to `position !== 'date'`
+ * left the entire suite passing while `'none'` started drawing weather on both
+ * surfaces. This is the third link in the chain for an enum option — offered by the
+ * editor, stored by the config, and actually *drawn* — and it was the missing one.
+ *
+ * `'both'` is asserted alongside as the positive control. Without it a gate that
+ * rendered nothing at all would satisfy the `'none'` assertions and look correct.
+ */
+describe('weather position `none` renders no badge', () => {
+  // Same freeze as the other DOM suites: day classification and the forecast lookup
+  // both read the wall clock, so without it the fixture's forecast keys stop matching
+  // the fixture's event days and the positive control below renders nothing.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function containersFor(position: string): { column: HTMLElement; list: HTMLElement } {
+    const config = buildConfig({ split_multiday_events: true });
+    config.weather = {
+      entity: ENTITY,
+      position,
+      date: { show_conditions: true, show_temp: true },
+      event: { show_conditions: true, show_temp: true },
+    } as Types.WeatherConfig;
+
+    const render = (view: 'column' | 'list'): HTMLElement => {
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', view);
+      const container = document.createElement('div');
+      litRender(
+        view === 'column'
+          ? Column.renderColumnGroupedEvents(days, config, 'en', WEATHER, null)
+          : Render.renderGroupedEvents(days, config, 'en', WEATHER, null),
+        container,
+      );
+      return container;
+    };
+
+    return { column: render('column'), list: render('list') };
+  }
+
+  it('draws both badges for `both`, proving the forecasts and fixtures reach the gates', () => {
+    const { column, list } = containersFor('both');
+    expect(column.querySelectorAll('.weather').length).toBeGreaterThan(0);
+    expect(column.querySelectorAll('.event-weather').length).toBeGreaterThan(0);
+    expect(list.querySelectorAll('.weather').length).toBeGreaterThan(0);
+    expect(list.querySelectorAll('.event-weather').length).toBeGreaterThan(0);
+  });
+
+  it('draws neither badge in either view for `none`', () => {
+    const { column, list } = containersFor('none');
+    expect(column.querySelectorAll('.weather').length).toBe(0);
+    expect(column.querySelectorAll('.event-weather').length).toBe(0);
+    expect(list.querySelectorAll('.weather').length).toBe(0);
+    expect(list.querySelectorAll('.event-weather').length).toBe(0);
   });
 });
