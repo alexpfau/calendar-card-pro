@@ -45,12 +45,22 @@ export default defineConfig({
       // zones while passing every UTC assertion. These projects run the `.dst.test.ts`
       // files under real zones instead.
       //
-      // Both zones are required, not belt-and-braces. The drift is negative north of
-      // the equator and positive south of it, and the two functions round in opposite
-      // directions, so each zone catches exactly the bug the other misses. Zones with
-      // a stable, long-standing DST rule are chosen deliberately — the assertions must
-      // not depend on a recent legislative change in the host's tz database.
-      ...['Europe/Berlin', 'Australia/Sydney'].map((timeZone) => ({
+      // Both hemispheres are required, not belt-and-braces. The drift is negative north
+      // of the equator and positive south of it, and the two functions round in opposite
+      // directions, so each zone catches exactly the bug the other misses.
+      //
+      // A zone *behind* UTC is required for a separate reason. Berlin and Sydney are
+      // both ahead of it, so an implementation that parsed a date-only string as UTC
+      // midnight rather than local midnight still landed on the right local calendar day
+      // in both of them. Planting exactly that failed twice under each of those zones
+      // and seventeen times under New York. It is the failure mode that would render
+      // every all-day event a day early for every user in the Americas, and neither
+      // original zone can observe it.
+      //
+      // Zones with a stable, long-standing DST rule are chosen deliberately — the
+      // assertions must not depend on a recent legislative change in the host's tz
+      // database.
+      ...['Europe/Berlin', 'Australia/Sydney', 'America/New_York'].map((timeZone) => ({
         extends: true,
         test: {
           name: `dst-${timeZone.split('/')[1].toLowerCase()}`,

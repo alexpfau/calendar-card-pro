@@ -23,15 +23,6 @@ const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
 const version = packageJson.version;
 
 /**
- * The plugin chain, built fresh for each output.
- *
- * A factory rather than a shared array: a Rollup plugin instance carries per-build state,
- * and handing one instance to two configs in the same process is a documented way to get
- * results that depend on which build ran first.
- *
- * @returns The plugins, in order
- */
-/**
  * Strips `/* *\/` comments from the contents of `css` tagged templates.
  *
  * A `css` template's contents are a **string literal**, so esbuild and terser minify the
@@ -156,6 +147,15 @@ export function stripComments(css) {
   return out.replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n');
 }
 
+/**
+ * The plugin chain, built fresh for each output.
+ *
+ * A factory rather than a shared array: a Rollup plugin instance carries per-build state,
+ * and handing one instance to two configs in the same process is a documented way to get
+ * results that depend on which build ran first.
+ *
+ * @returns The plugins, in order
+ */
 function plugins() {
   return [
     stripCssComments,

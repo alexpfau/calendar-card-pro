@@ -877,6 +877,15 @@ class CalendarCardPro extends LitElement {
     if (configChanged) {
       Logger.debug('Configuration changed, refreshing data');
       this.updateEvents(true);
+    } else if (Config.hasEntityProcessingChanged(previousConfig, this.config)) {
+      // A per-calendar edit that left every entity ID alone. The API request is
+      // unchanged, but the decoration derived from it — label, color, filters — is
+      // stamped onto each event at fetch time and shadows the live config, so the
+      // cached payload has to be run through processing again. `false` keeps this on
+      // the cache-hit path; without it a color tweak in the editor would appear to do
+      // nothing until the next scheduled refresh.
+      Logger.debug('Per-calendar configuration changed, reprocessing cached data');
+      this.updateEvents(false);
     }
 
     this.startRefreshTimer();

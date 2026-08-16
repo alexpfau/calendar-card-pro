@@ -461,6 +461,57 @@ export function normalizeEntities(
 }
 
 /**
+ * Serialize an entity list so two lists can be compared without naming their fields.
+ *
+ * Key order is normalized because the same YAML can reach us with its keys in any order,
+ * but element order is deliberately preserved: listing one calendar twice with different
+ * filters is a supported pattern, and those copies are processed independently.
+ *
+ * Being field-agnostic is the point. A hand-written field list would silently stop
+ * covering the next per-calendar option somebody adds.
+ *
+ * @param entities Entity list, normalized or raw
+ * @returns Stable string that changes if and only if some entity field changes
+ */
+function serializeEntities(entities: Array<string | Types.EntityConfig> | undefined): string {
+  return JSON.stringify(
+    (entities || []).map((item) => {
+      const entity = typeof item === 'string' ? { entity: item } : item;
+      const record = entity as unknown as Record<string, unknown>;
+      return Object.keys(record)
+        .sort()
+        .map((key) => [key, record[key]]);
+    }),
+  );
+}
+
+/**
+ * Determine if per-calendar configuration changed without moving the fetch window.
+ *
+ * Per-calendar options are not applied at render time — they are stamped onto each event
+ * as `_matchedConfig` during processing, which happens only on the fetch path, and the
+ * readers prefer that stamp over the live config. So an edit to a label, a color or a
+ * filter needs the raw payload reprocessed even though the API request is unchanged.
+ *
+ * Callers should reprocess rather than refetch: neither the event cache key nor the
+ * instance ID contains anything but entity IDs, so the cached payload is still valid.
+ *
+ * @param previous Previous configuration
+ * @param current Current configuration
+ * @returns True when the entity list changed in any way other than not at all
+ */
+export function hasEntityProcessingChanged(
+  previous: Partial<Types.Config> | undefined,
+  current: Types.Config,
+): boolean {
+  if (!previous || Object.keys(previous).length === 0) {
+    return false;
+  }
+
+  return serializeEntities(previous.entities) !== serializeEntities(current.entities);
+}
+
+/**
  * Determine if configuration changes affect data retrieval
  */
 export function hasConfigChanged(
