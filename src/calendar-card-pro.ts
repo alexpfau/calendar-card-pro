@@ -267,6 +267,7 @@ class CalendarCardPro extends LitElement {
       this.isExpanded,
       this.effectiveLanguage,
       this.effectiveView,
+      this.hass?.locale,
     );
   }
 
@@ -343,10 +344,14 @@ class CalendarCardPro extends LitElement {
     }
 
     const count = this.events.length
-      ? EventUtils.groupEventsByDay(this.events, this.effectiveConfig, true, language, view).reduce(
-          (total, day) => total + day.events.filter((event) => !event._isEmptyDay).length,
-          0,
-        )
+      ? EventUtils.groupEventsByDay(
+          this.events,
+          this.effectiveConfig,
+          true,
+          language,
+          view,
+          this.hass?.locale,
+        ).reduce((total, day) => total + day.events.filter((event) => !event._isEmptyDay).length, 0)
       : 0;
 
     this._visibleCountCache = { events: this.events, config: this.config, view, language, count };
@@ -1010,6 +1015,7 @@ class CalendarCardPro extends LitElement {
         this.isExpanded,
         this.effectiveLanguage,
         this.effectiveView,
+        this.hass?.locale,
       );
       content = renderDays(groupedEmptyDays);
     } else {

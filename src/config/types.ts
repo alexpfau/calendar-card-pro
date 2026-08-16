@@ -396,6 +396,8 @@ export interface Hass {
   locale?: {
     language: string;
     time_format?: string;
+    /** Home Assistant's first-weekday profile setting: a weekday name, or 'language'. */
+    first_weekday?: string;
   };
   connection?: {
     subscribeEvents: (callback: (event: unknown) => void, eventType: string) => Promise<() => void>;
