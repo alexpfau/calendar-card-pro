@@ -31,10 +31,8 @@ export function getRequiredForecastTypes(
     return ['daily'];
   }
 
-  if (position === 'event') {
-    return ['daily', 'hourly'];
-  }
-
+  // 'event' and 'both' both render a per-event forecast, which needs hourly data;
+  // 'both' additionally keeps the daily forecast on the day header.
   return ['daily', 'hourly'];
 }
 

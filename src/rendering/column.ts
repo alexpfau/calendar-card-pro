@@ -165,6 +165,9 @@ function renderColumnEvent(
     'past-event': presentation.isPastEvent,
   };
 
+  // Column view places two of these differently from list view: the countdown rides the
+  // time row, and the progress bar takes a row of its own. Documented for users at
+  // docs/features/column-view.md § Progress Bar & Countdown.
   return html`
     <div
       class=${classMap(eventClasses)}

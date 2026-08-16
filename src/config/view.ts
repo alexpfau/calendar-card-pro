@@ -673,15 +673,23 @@ export function resolveMinDaysFallback(config: Types.Config): Types.ColumnMinDay
 }
 
 /**
- * Resolves which view the card actually renders.
+ * Resolves the view for a width, without resolving a column count.
+ *
+ * **Not the production path.** The card renders through {@link resolveColumnFit}, which
+ * answers view *and* column count in one pass. This function survives as the reference
+ * implementation of the view half: `tests/view-config.test.ts` pins `resolveColumnFit`
+ * against it, so a future change to the fit logic that silently altered the view
+ * decision fails there. It is tree-shaken out of the bundle, so keeping it costs
+ * nothing shipped — but do not add callers, and do not delete it without replacing
+ * that equivalence check.
  *
  * - **`requestedView`** is what the user configured.
  * - **`effectiveView`** is what is rendered after the width fallback.
  *
  * Everything downstream — option resolution, grouping, compaction, rendering — takes
- * `effectiveView`. Nothing reads `config.view` directly, because below the threshold
- * that value still says `column` while the card renders a list, and every per-view
- * resolution would then resolve for the wrong view.
+ * the resolved effective view. Nothing reads `config.view` directly, because below the
+ * threshold that value still says `column` while the card renders a list, and every
+ * per-view resolution would then resolve for the wrong view.
  *
  * The fallback is **wholesale**: below the threshold the card renders list view with
  * every configured day. It never renders column view with fewer columns than asked
@@ -720,6 +728,10 @@ export function resolveEffectiveView(
 
 /**
  * Resolves the view for a freshly measured width, given the previous measurement.
+ *
+ * **Not the production path**, for the same reason as {@link resolveEffectiveView}: the
+ * card measures through {@link resolveColumnFitOnMeasurement}. This is the reference
+ * implementation that check is pinned against.
  *
  * `resolveEffectiveView` renders the *requested* view before any measurement exists,
  * so that optimistic answer must not seed hysteresis. A `null`
