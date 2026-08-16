@@ -1475,6 +1475,7 @@ function report(counts) {
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
       `${counts.citations} line citations resolved, ` +
+      `${counts.readmeAnchors} README anchor links checked, ` +
       `release surfaces agree on v${counts.version}.\n`,
   );
 
@@ -2098,6 +2099,61 @@ function checkCitations() {
   return checked;
 }
 
+// Check 26 - no link points into our own GitHub README with a content fragment
+//
+// The README stopped being the manual in v4: it is a landing page whose sections are
+// Overview, Installation, Quick Start, What's New and Contributing, and everything it used
+// to document now lives on the docs site. Links written against the old README therefore
+// still resolve to a page — GitHub simply ignores an anchor it cannot find and drops the
+// reader at the top — so nothing is visibly broken and no check has ever looked.
+//
+// Check 16 only resolves relative links inside `docs/`, so an absolute link to our own
+// repository is outside its reach, and `.github/` metadata is not scanned at all. Three
+// links survived that way: two in the release notes and one in the pull request template.
+//
+// Rather than reimplement GitHub's heading slugger — which would have to agree with it
+// about emoji to avoid failing a release for a link that works — this bans the shape. A
+// fragment into our own README is always wrong now, because the content it named is on the
+// docs site. The bare `#readme` anchor GitHub generates for the repository landing page is
+// not a heading link and stays allowed.
+function checkReadmeFragmentLinks() {
+  const surfaces = [];
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '.git') continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/\.(md|ya?ml)$/.test(entry.name)) surfaces.push(full);
+    }
+  };
+  walk(join(ROOT, '.github'));
+  walk(DOCS_DIR);
+  for (const name of ['README.md', 'CONTRIBUTING.md', 'AGENTS.md']) {
+    const full = join(ROOT, name);
+    if (existsSync(full)) surfaces.push(full);
+  }
+  assertFound(surfaces, 'documentation and metadata surfaces', ROOT);
+
+  const pattern = /https:\/\/github\.com\/alexpfau\/calendar-card-pro#([\w%-]+)/g;
+  let checked = 0;
+  for (const file of surfaces) {
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        for (const match of line.matchAll(pattern)) {
+          checked += 1;
+          if (match[1] === 'readme') continue;
+          error(
+            `${relative(ROOT, file)}:${i + 1} links to the GitHub README anchor ` +
+              `#${match[1]}, but the README is only a landing page. Link to the ` +
+              `matching https://calendar-card-pro.alexpfau.com page instead.`,
+          );
+        }
+      });
+  }
+  return checked;
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -2128,6 +2184,7 @@ function main() {
   checkAgentsDuplication();
   checkAgentsLinks();
   const gates = checkGateLists();
+  const readmeAnchors = checkReadmeFragmentLinks();
   const version = checkReleaseVersion();
   const enums = checkEnumValues(readEnumOptions());
   const removed = checkDeprecatedTable(readDeprecatedMaps());
@@ -2150,6 +2207,7 @@ function main() {
       reachable,
       themed,
       citations,
+      readmeAnchors,
       version,
     }),
   );

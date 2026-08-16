@@ -204,7 +204,7 @@ The card deliberately never hides while you are editing the dashboard, never hid
 - **Weekday Anchors** - `saturday`, or the short form `sat`, resolves to the next Saturday, counting today if today is already Saturday
 - **Composable Offsets** - `+N` / `-N` days, `+Nw` / `-Nw` weeks and `+<weekday>` / `-<weekday>` jumps combine on any anchor: `start_of_week+7`, `today+sat+7`, `monday+1w`
 
-Parsing is case-insensitive and ignores whitespace, and existing values such as a fixed `2025-07-01`, `today+7` and `+3` behave exactly as before. The README has worked examples of every anchor and offset combination — see [Start Date Configuration](https://github.com/alexpfau/calendar-card-pro#-start-date-configuration) (#296, #276, #193)
+Parsing is case-insensitive and ignores whitespace, and existing values such as a fixed `2025-07-01`, `today+7` and `+3` behave exactly as before. The documentation has worked examples of every anchor and offset combination — see [Start Date Configuration](https://calendar-card-pro.alexpfau.com/features/start-date-offset#start-date-configuration) (#296, #276, #193)
 
 ### 🏷️ Templated Titles
 
@@ -1851,7 +1851,7 @@ A huge thank you to these contributors who made this multi-language release poss
 - **Improved localization framework**: Updated to support multiple date formatting conventions
 - **Consistent naming convention**: Language files follow standard IETF language tags
 
-Want to add your language? See the [Adding Translations](https://github.com/alexpfau/calendar-card-pro#-adding-translations) section in our README.
+Want to add your language? See the [Adding Translations](https://calendar-card-pro.alexpfau.com/contributing#adding-translations) section in the documentation.
 
 ---
 
