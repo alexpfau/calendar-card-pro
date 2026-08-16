@@ -11,6 +11,30 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history, so the ancestry check below has something to walk. The default
+          # shallow fetch hands it a single commit with no relationship to any branch.
+          fetch-depth: 0
+
+      # A `v*` tag on *any* commit reaches this workflow — the trigger cannot tell a
+      # release tag on main from one pushed to a feature branch by mistake, and the
+      # version check below compares the tag text to package.json, which a release
+      # branch carrying the bumped version passes cleanly. So without this step,
+      # tagging the wrong branch produces a complete, publishable draft release whose
+      # two assets are built from unreviewed code, and the only signal that anything is
+      # wrong is a draft appearing where you expected one.
+      #
+      # Placed before the install so it costs seconds, and stated as ancestry rather
+      # than "is the tag on main" so that tagging an older commit that main has since
+      # moved past still passes — that is a legitimate patch release.
+      - name: Verify tag is on main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not an ancestor of origin/main. Release tags are created on main after the dev -> main release PR has merged; see AGENTS.md § Release process."
+            exit 1
+          fi
+          echo "Ancestry check passed: ${GITHUB_SHA} is reachable from main."
 
       # Read the Node version from .nvmrc, exactly as ci.yml does. This job is the one
       # that runs `npm ci` against the lockfile and publishes what every user downloads,
