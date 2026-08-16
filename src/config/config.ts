@@ -540,9 +540,14 @@ export function hasConfigChanged(
     previous.days_to_show !== current.days_to_show ||
     previous.start_date !== current.start_date ||
     // Moves the fetch window whenever `start_date` is week-relative.
-    previous.first_day_of_week !== current.first_day_of_week ||
-    previous.show_past_events !== current.show_past_events ||
-    previous.filter_duplicates !== current.filter_duplicates;
+    previous.first_day_of_week !== current.first_day_of_week;
+
+  // `show_past_events` and `filter_duplicates` are deliberately absent. Both are
+  // applied inside `groupEventsByDay`, which runs from an unmemoized getter on every
+  // render, so a new config object is all either one needs. Neither reaches
+  // `getTimeWindow`, so toggling one produced a byte-identical Home Assistant request
+  // — the refresh spent a network round-trip and a loading state to re-fetch data the
+  // cache already held. See `src/config/view.ts` (render-side filter classification).
 
   if (dataChanged || refreshIntervalChanged) {
     Logger.debug('Configuration change requires data refresh');

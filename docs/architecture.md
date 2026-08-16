@@ -459,8 +459,11 @@ The card implements a multi-level caching strategy:
 
 1. **Event Data Caching**:
    - Calendar events are cached in localStorage
-   - Cache key includes entities, days to show, past events setting, and start date
-   - Cache invalidation is automatic when configuration changes
+   - Cache key includes entities, days to show, start date and — for a week-relative
+     start date — the resolved first day of the week
+   - The key covers only what shapes the Home Assistant request. Render-side options
+     such as `show_past_events` and `filter_duplicates` are reapplied on every read,
+     so toggling one re-renders from cache instead of refetching
    - Cache duration is configurable through refresh_interval setting
 
 2. **Deterministic IDs**:
