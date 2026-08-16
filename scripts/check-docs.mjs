@@ -441,6 +441,11 @@ function checkFences(docs) {
  * Deliberately asymmetric. A fragment showing two options is good documentation and is
  * not flagged. But a block carrying `type: custom:calendar-card-pro` is announcing
  * itself as copy-pasteable, so it has to work — which means it needs `entities:`.
+ *
+ * Checking that the *key* exists is not enough. `entities` must be a sequence: a scalar
+ * such as `entities: calendar.home` normalizes to no usable calendars and renders an
+ * empty card (see `tests/editor-malformed-entities.test.ts`), so an example that reads
+ * as copy-pasteable would still be broken while satisfying the gate.
  */
 function checkCopyableExamples(docs) {
   let complete = 0;
@@ -452,9 +457,34 @@ function checkCopyableExamples(docs) {
     blocks.forEach((block, i) => {
       if (!/^\s*type:\s*custom:calendar-card-pro\s*$/m.test(block)) return;
       complete++;
-      if (!/^\s*entities:/m.test(block)) {
+      const decl = block.match(/^([ \t]*)entities:[ \t]*(.*)$/m);
+      if (!decl) {
         error(
           `${rel}: yaml block #${i + 1} declares \`type: custom:calendar-card-pro\` but has no \`entities:\` — it reads as copy-pasteable but will not render`,
+        );
+        return;
+      }
+      const [matched, indent, inline] = decl;
+      const value = inline.replace(/(?:^|\s)#.*$/, '').trim();
+      let isSequence;
+      if (value) {
+        // A flow sequence on the same line, and a non-empty one: `[]` is as useless
+        // as a scalar.
+        isSequence = /^\[\s*\S[\s\S]*]$/.test(value);
+      } else {
+        // A block sequence: the next meaningful line must be a `- ` item indented at
+        // least as far as the key (YAML permits both `entities:\n- x` and `\n  - x`).
+        isSequence = false;
+        for (const line of block.slice(decl.index + matched.length).split('\n')) {
+          if (!line.trim() || /^\s*#/.test(line)) continue;
+          const item = line.match(/^([ \t]*)-\s+\S/);
+          isSequence = Boolean(item && item[1].length >= indent.length);
+          break;
+        }
+      }
+      if (!isSequence) {
+        error(
+          `${rel}: yaml block #${i + 1} declares \`type: custom:calendar-card-pro\` but \`entities:\` is not a non-empty list — a scalar or empty value normalizes to no calendars and renders an empty card`,
         );
       }
     });
@@ -872,7 +902,7 @@ function checkNoRawHtml(docs) {
         if (fenced) return;
         if (/<a\s[^>]*href=/.test(line))
           error(`${relative(ROOT, file)}:${i + 1} uses a raw <a href>. Use a markdown link.`);
-        if (/\sstyle="/.test(line))
+        if (/\sstyle\s*=/i.test(line))
           error(`${relative(ROOT, file)}:${i + 1} uses an inline style, which ignores the theme.`);
       });
   }
@@ -1130,21 +1160,40 @@ function checkCrossLinks(docs) {
   const rel = relative(ROOT, REFERENCE_DOC);
   let fenced = false;
   let seen = 0;
+  let lastHeading = -1;
+
+  /**
+   * Check that the section ending just above `end` closes with a → feature-page
+   * footer. `end` is the index of the next h2, or `lines.length` for the final
+   * section — which is why this is a named helper rather than inline: the last
+   * section has no following heading to trigger it, and for a long time was
+   * therefore never checked at all.
+   */
+  const checkFooterAbove = (end, label) => {
+    let j = end - 1;
+    while (j >= 0 && !lines[j].trim()) j -= 1;
+    if (j < 0 || /^#/.test(lines[j])) return; // an empty section
+    if (!/\(\/features\//.test(lines[j]))
+      error(`${rel}:${end} section ${label} has no → feature-page footer.`);
+  };
+
   lines.forEach((line, i) => {
     if (line.startsWith('```')) fenced = !fenced;
     if (fenced || !/^## /.test(line)) return;
 
     // The footer belongs to the previous section, so the first h2 has none.
     seen += 1;
+    lastHeading = i;
     if (seen === 1) return;
 
-    // Walk back to the previous section's last non-blank line.
-    let j = i - 1;
-    while (j >= 0 && !lines[j].trim()) j -= 1;
-    if (j < 0 || /^#/.test(lines[j])) return; // an empty section
-    if (!/\(\/features\//.test(lines[j]))
-      error(`${rel}:${i} section above "${line.slice(3)}" has no → feature-page footer.`);
+    checkFooterAbove(i, `above "${line.slice(3)}"`);
   });
+
+  // The final section is followed by end-of-file rather than by an h2, so the
+  // loop above can never reach it.
+  if (seen >= 1) {
+    checkFooterAbove(lines.length, `"${lines[lastHeading].slice(3)}" (final section)`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1314,7 +1363,8 @@ function report(counts) {
   console.log(
     `${counts.defaults} defaults in code, ${counts.rows} rows in the reference, ` +
       `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} complete examples, ` +
-      `${counts.releases} release lines documented, ${counts.links} internal links resolved.\n`,
+      `${counts.releases} release lines documented, ${counts.links} internal links resolved, ` +
+      `release surfaces agree on v${counts.version}.\n`,
   );
 
   if (errors.length) {
@@ -1392,6 +1442,66 @@ function checkColumnDefaultOverrides(overrides) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Check 18 — the release docs describe the version the package actually ships
+// ---------------------------------------------------------------------------
+
+/**
+ * `package.json` is the single source of truth for the release version, but nothing in
+ * this script read it: release notes were reconciled only against What's New, and the
+ * README's highlights were not checked at all. A version bump could therefore leave
+ * every release surface describing the previous release, and the gap would surface only
+ * at tag time, when `extract-release-notes.mjs` fails the release workflow.
+ *
+ * This moves that failure to the pull request that bumps the version.
+ */
+function checkReleaseVersion() {
+  const pkgPath = join(ROOT, 'package.json');
+  const version = JSON.parse(readFileSync(pkgPath, 'utf8')).version;
+  if (!/^\d+\.\d+\.\d+/.test(version || '')) {
+    error(`package.json: version "${version}" is not a semver release version.`);
+    return null;
+  }
+  const [major, minor] = version.split('.');
+  const line = `${major}.${minor}`;
+
+  const notes = readFileSync(join(DOCS_DIR, 'RELEASE_NOTES.md'), 'utf8');
+  // Anchored to the exact version: a patch release needs its own notes section, which
+  // is also what the tag-time extractor looks for.
+  if (!new RegExp(`^# Calendar Card Pro v${version.replace(/\./g, '\\.')}\\b`, 'm').test(notes)) {
+    error(
+      `docs/RELEASE_NOTES.md has no "# Calendar Card Pro v${version}" section, but package.json ships ${version}. The release workflow extracts this section by exact version and fails without it.`,
+    );
+  }
+
+  const whatsNew = readFileSync(join(DOCS_DIR, 'guide/whats-new.md'), 'utf8');
+  if (
+    !new RegExp(`^## (?:Latest Release: )?v${line.replace('.', '\\.')}\\s*$`, 'm').test(whatsNew)
+  ) {
+    error(
+      `docs/guide/whats-new.md has no "## v${line}" entry, but package.json ships ${version}. The archive must cover every minor line.`,
+    );
+  }
+
+  const readme = readFileSync(join(ROOT, 'README.md'), 'utf8');
+  // Sliced rather than matched with an end anchor: JavaScript has no `\Z`, and `$` under
+  // /m would stop at the first line break.
+  const start = readme.search(/^## [^\n]*What's New/m);
+  if (start === -1) {
+    error("README.md: no What's New section found — the landing page must show the highlights.");
+  } else {
+    const rest = readme.slice(start + 1);
+    const next = rest.search(/^## /m);
+    const section = next === -1 ? rest : rest.slice(0, next);
+    if (!new RegExp(`v${line.replace('.', '\\.')}\\b`).test(section)) {
+      error(
+        `README.md's What's New section does not mention v${line}, but package.json ships ${version}. The landing page would advertise the previous release.`,
+      );
+    }
+  }
+  return version;
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -1420,6 +1530,7 @@ function main() {
   checkCrossLinks(docs);
   checkAgentsDuplication();
   checkAgentsLinks();
+  const version = checkReleaseVersion();
 
   process.exit(
     report({
@@ -1430,6 +1541,7 @@ function main() {
       complete,
       releases,
       links,
+      version,
     }),
   );
 }
