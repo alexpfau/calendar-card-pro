@@ -60,7 +60,7 @@ Translation resolves **per string**, requested language first and English second
 
 ### 🩺 Diagnosing a Released Build
 
-- **Runtime Log Level** - A released build compiles out everything below errors, so all 17 warning sites are invisible to real users — including actionable ones such as an invalid `start_date` falling back to today. Someone filing a bug therefore could not produce the output that would explain it. Running `window.calendarCardProDebug = true` in the browser console and reloading turns the detail back on, and `window.calendarCardProLogLevel = 0..3` selects a level directly. Neither persists, and neither needs a reinstall — the card picks the flag up on its next render (see [Reporting a Bug](https://calendar-card-pro.alexpfau.com/contributing#reporting-a-bug))
+- **Runtime Log Level** - A released build compiles out everything below errors, so all 21 warning sites are invisible to real users — including actionable ones such as an invalid `start_date` falling back to today. Someone filing a bug therefore could not produce the output that would explain it. Running `window.calendarCardProDebug = true` in the browser console and reloading turns the detail back on, and `window.calendarCardProLogLevel = 0..3` selects a level directly. Neither persists, and neither needs a reinstall — the card picks the flag up on its next render (see [Reporting a Bug](https://calendar-card-pro.alexpfau.com/contributing#reporting-a-bug))
 
 ## 🐛 Bug Fixes
 
@@ -108,7 +108,7 @@ Translation resolves **per string**, requested language first and English second
 
 - **Weekday Names Were Capitalized Mid-Sentence** - Full weekday names are rendered in exactly one place, in the running text after "until", and 17 of 35 languages stored a capital there — Swedish read `till Måndag, 5 Jan` where it wants `till måndag`. Fixed in ten languages: nine lower-cased against `dayjs`, and Polish given the genitive its preposition governs. Seven more need an inflected form that no in-repo evidence supplies, so they are deliberately left flagged rather than half-fixed
 - **Romanian Diacritics** - Restored throughout the Romanian translation
-- **A Rendering Decision No Longer Reads Translated Text** - Whether an event was a multi-day all-day event was decided by searching its _formatted_ time string for a translated token, asking the renderer to parse back a sentence its own formatter had just built. No defect shipped, but the margin was zero: eight languages translate one of those tokens to two characters, and the search ran against a string that can carry arbitrary event text. It is now derived from the event's own dates
+- **A Rendering Decision No Longer Reads Translated Text** - Whether an event was a multi-day all-day event was decided by searching its _formatted_ time string for a translated token, asking the renderer to parse back a sentence its own formatter had just built. No defect shipped, but the margin was zero: eleven languages translate one of those tokens to two characters, and the search ran against a string that can carry arbitrary event text. It is now derived from the event's own dates
 
 ## ⚡ Performance
 
