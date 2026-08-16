@@ -9,7 +9,10 @@ import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 
-const ATOMIC_KEYS = ['tap_action', 'hold_action', 'weather'] as const;
+const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
+
+/** The nested groups of a `weather:` block, each defaulted option by option. */
+const WEATHER_GROUPS = ['date', 'event'] as const;
 
 /**
  * Structural comparison, enough for the small plain objects a config holds.
@@ -194,6 +197,9 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
   const column = stripColumnDefaults(config);
   delete draft.column;
 
+  const weather = stripWeatherDefaults(config);
+  delete draft.weather;
+
   const stored = Helpers.filterDefaultValues(
     draft,
     Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
@@ -207,6 +213,10 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
 
   if (column !== undefined) {
     stored.column = column;
+  }
+
+  if (weather !== undefined) {
+    stored.weather = weather;
   }
 
   return stored;
@@ -279,6 +289,78 @@ export function columnFormBlock(config: Readonly<Types.Config>): Record<string, 
     min_days_to_show: ViewConfig.resolveMinDaysToShow(config),
     ...(config.column ?? {}),
   };
+}
+
+/**
+ * Builds the `weather:` block as the form should show it.
+ *
+ * The card reads every nested weather option as `!== false`, so an omitted one
+ * renders as its default. Binding the block raw would therefore show the five
+ * default-on toggles unchecked while the card draws them enabled. Merging the
+ * defaults in mirrors {@link columnFormBlock}; {@link stripWeatherDefaults}
+ * takes them back out on write, so the stored block stays minimal.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The block, with every unset option at its effective value
+ */
+export function weatherFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+  const defaults = Config.DEFAULT_CONFIG.weather ?? {};
+  const stored = (config.weather ?? {}) as Record<string, unknown>;
+  const block: Record<string, unknown> = { ...defaults, ...stored };
+
+  for (const group of WEATHER_GROUPS) {
+    block[group] = {
+      ...(defaults[group] ?? {}),
+      ...((stored[group] as Record<string, unknown> | undefined) ?? {}),
+    };
+  }
+
+  return block;
+}
+
+/**
+ * Strips redundant entries from a `weather:` block.
+ *
+ * The counterpart to {@link weatherFormBlock}: the form binds every defaulted
+ * option, so without this every edit would persist the whole block.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The minimal block, or `undefined` when nothing in it is doing anything
+ */
+export function stripWeatherDefaults(
+  config: Readonly<Types.Config>,
+): Record<string, unknown> | undefined {
+  const block = config.weather;
+
+  if (!block || typeof block !== 'object' || Array.isArray(block)) {
+    return undefined;
+  }
+
+  const defaults = (Config.DEFAULT_CONFIG.weather ?? {}) as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    if (value === undefined) continue;
+
+    if ((WEATHER_GROUPS as readonly string[]).includes(key)) {
+      const groupDefaults = (defaults[key] ?? {}) as Record<string, unknown>;
+      const group: Record<string, unknown> = {};
+
+      for (const [option, setting] of Object.entries(value as Record<string, unknown>)) {
+        if (setting === undefined) continue;
+        if (deepEqual(groupDefaults[option], setting)) continue;
+        group[option] = setting;
+      }
+
+      if (Object.keys(group).length > 0) result[key] = group;
+      continue;
+    }
+
+    if (deepEqual(defaults[key], value)) continue;
+    result[key] = value;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
 }
 
 /**

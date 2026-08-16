@@ -140,14 +140,15 @@ describe('editor: default stripping', () => {
   /**
    * `filterDefaultValues` passes `weather` through unconditionally — its comment says
    * "preserve entire structure once defined", but a merged config always has it
-   * defined, because `DEFAULT_CONFIG` supplies it. Left alone, the first edit of any
-   * kind would write twenty default weather keys into the user's YAML.
+   * defined, because `DEFAULT_CONFIG` supplies it. So `toStoredConfig` strips the
+   * block itself; left to that function, the first edit of any kind would write
+   * twenty default weather keys into the user's YAML.
    */
   it('does not write the default weather block into an untouched config', () => {
     expect(toStoredConfig(buildConfig())).not.toHaveProperty('weather');
   });
 
-  it('writes a configured weather block whole rather than stripping its defaults', () => {
+  it('strips a configured weather block down to what differs from the defaults', () => {
     const weather = {
       ...DEFAULT_CONFIG.weather,
       entity: 'weather.home',
@@ -155,7 +156,25 @@ describe('editor: default stripping', () => {
 
     const stored = toStoredConfig(buildConfig({ weather }));
 
-    expect(stored.weather).toEqual(weather);
+    expect(stored.weather).toEqual({ entity: 'weather.home' });
+  });
+
+  it('keeps every nested weather option the user actually changed', () => {
+    const weather = {
+      entity: 'weather.home',
+      position: 'both',
+      date: { show_conditions: false, show_high_temp: true, font_size: '20px' },
+      event: { show_temp: true, max_lines: 2 },
+    } as Types.WeatherConfig;
+
+    const stored = toStoredConfig(buildConfig({ weather }));
+
+    expect(stored.weather).toEqual({
+      entity: 'weather.home',
+      position: 'both',
+      date: { show_conditions: false, font_size: '20px' },
+      event: { max_lines: 2 },
+    });
   });
 
   /**
@@ -2250,6 +2269,84 @@ async function fire(
   );
   await element.updateComplete;
 }
+
+/**
+ * The weather block the card actually runs on, versus the one the editor binds.
+ *
+ * Every nested weather option resolves as `!== false` at render time, so an omitted
+ * one draws as its default. Binding the stored block raw therefore showed the five
+ * default-on toggles unchecked while the card drew them enabled.
+ */
+describe('editor: the weather block', () => {
+  /** Mounts the editor on a raw config and returns the panel form data holding `weather`. */
+  async function weatherFormData(weather: unknown): Promise<Record<string, unknown>> {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({ entities: ['calendar.a'], weather } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const form = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].find(
+      (candidate) =>
+        (candidate as unknown as { data: Record<string, unknown> }).data?.weather !== undefined,
+    )!;
+
+    return (form as unknown as { data: { weather: Record<string, unknown> } }).data.weather;
+  }
+
+  it('binds every defaulted option a minimal weather block leaves out', async () => {
+    const bound = await weatherFormData({ entity: 'weather.home', position: 'both' });
+    const defaults = DEFAULT_CONFIG.weather as unknown as Record<string, Record<string, unknown>>;
+
+    const unbound = ['date', 'event'].flatMap((group) => {
+      const group_bound = (bound[group] ?? {}) as Record<string, unknown>;
+
+      return Object.keys(defaults[group])
+        .filter((option) => group_bound[option] === undefined)
+        .map((option) => `${group}.${option}`);
+    });
+
+    expect(unbound).toEqual([]);
+  });
+
+  /**
+   * The five the user would actually see wrong: each renders on, so an unbound one is a
+   * toggle sitting off in the editor while the card draws it enabled.
+   */
+  it('shows the default-on toggles on, the way the card renders them', async () => {
+    const bound = await weatherFormData({ entity: 'weather.home', position: 'both' });
+
+    const date = bound.date as Record<string, unknown>;
+    const event = bound.event as Record<string, unknown>;
+
+    expect({
+      date_conditions: date.show_conditions,
+      date_high_temp: date.show_high_temp,
+      event_conditions: event.show_conditions,
+      event_temp: event.show_temp,
+      event_fallback: event.daily_forecast_fallback,
+    }).toEqual({
+      date_conditions: true,
+      date_high_temp: true,
+      event_conditions: true,
+      event_temp: true,
+      event_fallback: true,
+    });
+  });
+
+  it('binds the default position when the block omits it', async () => {
+    const bound = await weatherFormData({ entity: 'weather.home' });
+
+    expect(bound.position).toBe('date');
+  });
+
+  /** The one non-default position, which #443 made meaningful, must survive the merge. */
+  it('keeps a position the user set', async () => {
+    const bound = await weatherFormData({ entity: 'weather.home', position: 'none' });
+
+    expect(bound.position).toBe('none');
+  });
+});
 
 describe('editor: per-calendar settings', () => {
   const calendars = PANELS.find((panel) => panel.id === 'calendars')!;
