@@ -1100,17 +1100,11 @@ class CalendarCardPro extends LitElement {
       content = Render.renderCardContent('error', this.effectiveLanguage);
     } else if (this.events.length === 0 && this._hasFetchError) {
       content = Render.renderCardContent('error', this.effectiveLanguage);
-    } else if (this.events.length === 0) {
-      const groupedEmptyDays = EventUtils.groupEventsByDay(
-        [], // Empty events array
-        this.effectiveConfig,
-        this.isExpanded,
-        this.effectiveLanguage,
-        this.effectiveView,
-        this.hass?.locale,
-      );
-      content = renderDays(groupedEmptyDays);
     } else {
+      // No separate empty-events branch: `groupedEvents` groups `this.events`, which is
+      // already the empty array in that case, with exactly the arguments a dedicated
+      // branch would pass. Column view's `show_empty_days` default still fills the card
+      // with empty day columns from here.
       content = renderDays(this.groupedEvents);
     }
 

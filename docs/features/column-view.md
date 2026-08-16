@@ -18,11 +18,13 @@ panel. Choosing **Columns** reveals the column-only options below it, and adds a
 **Column View Exceptions** row to the panels whose options can differ between the two
 layouts.
 
-Column view is responsive by design. A day column has a minimum readable width, so as the
-card narrows the layout gives up columns one at a time, and eventually falls back to the
-list layout entirely. **A card configured `view: column` therefore renders as a list on a
-narrow dashboard or a phone** — both layouts are live for the same card, and both are worth
-configuring. That is the first thing to get right, so it comes first below.
+Column view is responsive by design. A day column has a minimum readable width, so a card
+too narrow to give every configured day that much room falls back to the list layout.
+**A card configured `view: column` therefore renders as a list on a narrow dashboard or a
+phone** — both layouts are live for the same card, and both are worth configuring. That is
+the first thing to get right, so it comes first below. Dropping columns one at a time
+instead of falling back is available, but it is opt-in: see
+[Showing Fewer Columns Instead](#showing-fewer-columns-instead).
 
 ## 📱 Falling Back to the List Layout
 
