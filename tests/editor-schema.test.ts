@@ -50,6 +50,7 @@ import { buildLayoutSchema, widthTableRows } from '../src/rendering/editor/schem
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { exceptionSubforms } from '../src/rendering/editor/subforms';
 import {
+  SYNTHETIC_FIELDS,
   deriveSyntheticData,
   isCommittableOffset,
   isSyntheticKey,
@@ -675,6 +676,33 @@ describe('editor: change detection', () => {
   it('compares nested blocks structurally, not by identity', () => {
     expect(changedKeys({ column: { x: 1 } }, { column: { x: 1 } })).toEqual([]);
     expect(changedKeys({ column: { x: 1 } }, { column: { x: 2 } })).toEqual(['column']);
+  });
+
+  /**
+   * Walking `SYNTHETIC_FIELDS` to assert something about each entry cannot notice a
+   * deleted entry — the loop simply runs one fewer time. Deleting `card_max_height`
+   * left the whole suite green even though the field then stopped deriving its value,
+   * silently discarded every edit, and wrote its own name into the stored YAML. Pin
+   * the membership instead, so both a removal and an unreviewed addition fail here.
+   */
+  it('holds the exact set of synthetic keys', () => {
+    expect(Object.keys(SYNTHETIC_FIELDS).sort()).toEqual([
+      'calendars',
+      'card_height',
+      'card_max_height',
+      'height_mode',
+      'language_mode',
+      'location_country_mode',
+      'location_country_pattern',
+      'start_date_fixed',
+      'start_date_mode',
+      'start_date_offset',
+      'time_format',
+      'today_indicator_custom',
+      'today_indicator_icon',
+      'today_indicator_style',
+      'week_number_mode',
+    ]);
   });
 
   it('recognises every synthetic key it must keep out of the config', () => {
@@ -2222,6 +2250,25 @@ describe('editor: fields that must survive being typed into', () => {
     expect(
       fieldNames(() => buildLayoutSchema({ view: 'list', config: cleared.config, language: 'en' })),
     ).toContain('card_max_height');
+  });
+
+  /**
+   * The assertions above hold whether or not the field is synthetic at all — clearing it
+   * is meant to be a no-op, so a version that never handled the key passed them too. These
+   * are the three that fail when it stops being synthetic: the field renders empty over a
+   * configured maximum, a typed measurement never reaches `max_height`, and the synthetic
+   * name itself is written into the user's YAML.
+   */
+  it('derives, commits and hides the maximum-height measurement', () => {
+    const config = buildConfig({ height: 'auto', max_height: '600px' });
+    const before = { ...config, ...deriveSyntheticData(config) } as Record<string, unknown>;
+    expect(before.card_max_height).toBe('600px');
+
+    const applied = applyFormChange(config, before, { ...before, card_max_height: '900px' }, {});
+    const stored = toStoredConfig(applied.config);
+
+    expect(stored.max_height).toBe('900px');
+    expect(stored).not.toHaveProperty('card_max_height');
   });
 
   it('never lets a held measurement reach the stored configuration', () => {
