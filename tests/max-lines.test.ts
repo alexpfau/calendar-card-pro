@@ -75,6 +75,7 @@ describe('per-field max-lines custom properties', () => {
  */
 describe('the weather row line limit', () => {
   const PROP = '--calendar-card-weather-event-max-lines';
+  const DISPLAY = '--calendar-card-weather-event-condition-display';
 
   function withWeather(event: Record<string, unknown>) {
     return buildConfig({
@@ -97,6 +98,24 @@ describe('the weather row line limit', () => {
     // The shallow-merge case: this block is what a real user's YAML produces.
     expect(generateCustomPropertiesObject(withWeather({ show_conditions: true }))[PROP]).toBe(
       'none',
+    );
+  });
+
+  // The companion display property, guarded for the same reason as the title above
+  // and found the same way: mutating this ternary to either constant left the whole
+  // suite green, while the identical mutation on the title's display property was
+  // killed. The clamp value alone is inert -- `-webkit-line-clamp` only applies to a
+  // `-webkit-box`, so the two properties have to agree or the limit silently does
+  // nothing. Asserting the count without the display is how a clamp can read as
+  // configured and still never truncate.
+  it('leaves the weather condition inline at the default so the row is layout-neutral', () => {
+    expect(generateCustomPropertiesObject(buildConfig())[DISPLAY]).toBe('inline');
+    expect(generateCustomPropertiesObject(withWeather({ max_lines: 0 }))[DISPLAY]).toBe('inline');
+  });
+
+  it('blockifies the weather condition only once a limit is actually set', () => {
+    expect(generateCustomPropertiesObject(withWeather({ max_lines: 2 }))[DISPLAY]).toBe(
+      '-webkit-box',
     );
   });
 });
