@@ -53,7 +53,7 @@ function startDateFields(language: string, mode: string): HaFormSchema[] {
  */
 function compactFields(hasEventLimit: boolean): HaFormSchema[] {
   return [
-    row(number('compact_days_to_show', 1), number('compact_events_to_show', 1)),
+    row(number('compact_days_to_show', 1), number('compact_events_to_show', 0)),
     ...(hasEventLimit ? [bool('compact_events_complete_days')] : []),
   ];
 }

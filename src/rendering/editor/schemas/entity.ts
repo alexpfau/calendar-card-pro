@@ -120,7 +120,7 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
 
     {
       name: 'compact_events_to_show',
-      selector: { number: { min: 1, mode: 'box' } },
+      selector: { number: { min: 0, mode: 'box' } },
     },
 
     text('blocklist'),
