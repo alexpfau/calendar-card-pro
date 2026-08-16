@@ -189,16 +189,17 @@ defaulting to `false` renders nothing and is invisible to it unless a test sets 
 branches were missed that way, including two the suite existed to protect. When you add a
 config option, add a test that turns it on.
 
-### The suite runs as three projects, and the split is load-bearing
+### The suite runs as four projects, and the split is load-bearing
 
 `vitest.config.mjs` defines a `projects` array, so `npm test` runs the same files under
 more than one timezone:
 
-| Project      | `TZ`               | Files                                               |
-| ------------ | ------------------ | --------------------------------------------------- |
-| `unit`       | `UTC`              | `tests/**/*.test.ts`, **excluding** `*.dst.test.ts` |
-| `dst-berlin` | `Europe/Berlin`    | `tests/**/*.dst.test.ts`                            |
-| `dst-sydney` | `Australia/Sydney` | `tests/**/*.dst.test.ts`                            |
+| Project        | `TZ`               | Files                                               |
+| -------------- | ------------------ | --------------------------------------------------- |
+| `unit`         | `UTC`              | `tests/**/*.test.ts`, **excluding** `*.dst.test.ts` |
+| `dst-berlin`   | `Europe/Berlin`    | `tests/**/*.dst.test.ts`                            |
+| `dst-sydney`   | `Australia/Sydney` | `tests/**/*.dst.test.ts`                            |
+| `dst-new_york` | `America/New_York` | `tests/**/*.dst.test.ts`                            |
 
 The UTC pin on `unit` is deliberate and must stay — without it a date renders one way
 locally and another in CI. But UTC is also the **only zone with no DST transitions**, so any
@@ -208,17 +209,26 @@ release up to v4: wrong on roughly one date in seven under real zones, with a gr
 and a dedicated `tests/column-week-numbers.test.ts` that was structurally incapable of
 seeing it.
 
-Hence the two extra projects, and **both are required** — the drift is negative north of the
-equator and positive south of it, so `Math.floor` and `Math.ceil` fail in _opposite_
-hemispheres. Berlin alone proves nothing about a `ceil`; Sydney alone proves nothing about a
-`floor`. Reverting either fix in `src/utils/format.ts` turns exactly one of the two projects
-red and leaves the other, and `unit`, green.
+Hence the three extra projects, and **each is required for a different reason**. Berlin and
+Sydney cover the hemispheres: the drift is negative north of the equator and positive south
+of it, so `Math.floor` and `Math.ceil` fail in _opposite_ hemispheres. Berlin alone proves
+nothing about a `ceil`; Sydney alone proves nothing about a `floor`. Reverting either fix in
+`src/utils/format.ts` turns exactly one of those two projects red and leaves the other, and
+`unit`, green.
 
-So: **name any timezone-sensitive test `*.dst.test.ts`** and it picks up both zones
+New York covers the **offset sign**, which the other two cannot. Berlin and Sydney are both
+_ahead_ of UTC, so parsing a date-only string as UTC midnight rather than local midnight
+still lands on the correct local calendar day in both — the exact one-line "simplification"
+that would render every all-day event a day early for every user in the Americas. Planting
+it fails `tests/all-day-parse.dst.test.ts` twice under Berlin, twice under Sydney, and
+**seventeen times** under New York, while all of `unit` stays green. When you add a zone,
+say which failure mode it is the only one able to see.
+
+So: **name any timezone-sensitive test `*.dst.test.ts`** and it picks up all three zones
 automatically. Give it a guard test asserting the January and July offsets differ, so it
 fails loudly instead of silently proving nothing if it is ever run under UTC —
 `tests/week-number-dst.dst.test.ts` has one to copy. The `exclude` on the `unit` project is
-what stops those files running a third time under UTC; do not drop it.
+what stops those files running a fourth time under UTC; do not drop it.
 
 **A snapshot diff you did not intend is usually a whitespace error, not a rendering
 change.** The serializer normalises whitespace _between tags only_; whitespace adjacent to
