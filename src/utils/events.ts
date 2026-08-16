@@ -506,9 +506,7 @@ export function groupEventsByDay(
 
     const allDays: Types.EventsByDay[] = [...days];
 
-    const dayDiff = Math.floor(
-      (endDateForEmptyDays.getTime() - startDateForEmptyDays.getTime()) / (24 * 60 * 60 * 1000),
-    );
+    const dayDiff = FormatUtils.getCalendarDayDiff(startDateForEmptyDays, endDateForEmptyDays);
 
     for (let i = 0; i <= dayDiff; i++) {
       const currentDate = new Date(startDateForEmptyDays);

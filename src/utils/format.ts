@@ -220,6 +220,31 @@ export function getLocalDateKey(date: Date): string {
 }
 
 /**
+ * Count whole calendar days from one date to another.
+ *
+ * Both arguments are reduced to their local calendar date and differenced in
+ * UTC, for the reason given on {@link getISOWeekNumber}: subtracting two locally
+ * built dates in absolute milliseconds loses an hour across a spring-forward, so
+ * a plain `Math.floor` returns one day short for any window that spans one.
+ * Unlike the two week-number functions this was wrong in both hemispheres, since
+ * every zone that observes DST springs forward regardless of which month it
+ * picks — only the month of the affected window differs.
+ *
+ * Reducing to the calendar date also preserves the truncation callers rely on
+ * when `end` carries a time of day: 09:30 on the fifth day is still five days.
+ *
+ * @param start Start date, compared by its local calendar date
+ * @param end End date, compared by its local calendar date
+ * @returns Whole days from `start` to `end`, negative when `end` precedes `start`
+ */
+export function getCalendarDayDiff(start: Date, end: Date): number {
+  const startDay = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDay = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+
+  return Math.round((endDay - startDay) / 86400000);
+}
+
+/**
  * Format a time with the configured hour style.
  *
  * @param date Date to format
