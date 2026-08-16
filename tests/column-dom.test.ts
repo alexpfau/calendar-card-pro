@@ -216,6 +216,25 @@ describe('column view DOM', () => {
 
       expect(style.replace(/\s/g, '')).toContain('column-gap:32px');
     });
+
+    it('never emits a negative gutter the browser would discard', () => {
+      // A negative `column-gap` is invalid, so the browser drops the declaration and
+      // renders no gutter — while the separator offset, `calc(-0.5 * (gap + width))`,
+      // turns the same value into a *positive* margin that is valid and survives,
+      // displacing every separator into the middle of a column. Substituting the
+      // default keeps the two in step, and keeps what renders in step with the width
+      // arithmetic that decided to render columns at all.
+      const config = buildConfig();
+      config.day_spacing = '-100px';
+
+      const container = renderColumnContainer(EVENTS, config);
+      const style = requireElement(container, '.column-grid').getAttribute('style') ?? '';
+
+      expect(style).not.toContain('-100px');
+      expect(style.replace(/\s/g, '')).toContain(
+        `column-gap:${DEFAULT_CONFIG.day_spacing}`.replace(/\s/g, ''),
+      );
+    });
   });
 
   describe('day header', () => {

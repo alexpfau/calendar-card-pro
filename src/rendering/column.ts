@@ -339,6 +339,7 @@ export function renderColumnGroupedEvents(
   hass?: Types.Hass | null,
 ): TemplateResult {
   const headerGap = ViewConfig.resolveColumnOption(config, 'day_header_gap');
+  const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
   const weekRows = buildWeekRows(days, config);
   const boundaries = computeDayBoundaries(days);
 
@@ -346,7 +347,7 @@ export function renderColumnGroupedEvents(
     .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))
     .filter(({ separator, index }) => separator !== null && index > 0)
     .map(({ separator, index }) =>
-      renderColumnSeparator(separator as ColumnSeparator, index, config.day_spacing),
+      renderColumnSeparator(separator as ColumnSeparator, index, gutter),
     );
 
   return html`
@@ -354,7 +355,7 @@ export function renderColumnGroupedEvents(
       class="column-grid"
       style=${styleMap({
         gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`,
-        columnGap: config.day_spacing,
+        columnGap: gutter,
         '--calendar-card-column-header-gap': headerGap,
       })}
     >
