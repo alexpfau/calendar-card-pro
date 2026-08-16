@@ -604,7 +604,11 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 4. **Fast-forward `dev` back onto `main`** — `git push origin origin/main:dev`. The merge
    commit from step 3 exists only on `main`; without this, `dev` starts the next cycle a
    commit behind. See _`dev` must never fall behind `main`_.
-5. Tag `main` with `vX.Y.Z` and push the tag.
+5. Tag `main` with `vX.Y.Z` and push the tag. It has to be `main`: the workflow triggers
+   on any `v*` tag, so it now refuses to build unless the tagged commit is an ancestor of
+   `origin/main`. Tagging `dev` — which carries the same bumped version and therefore
+   passes the tag/`package.json` check — would otherwise have produced a complete,
+   publishable draft release built from code that never went through the release PR.
 6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
    attaches `dist/*.js` and nothing else — since the two-file split that is **both**
    `calendar-card-pro.js` and `editor.js`. Publish it manually.
