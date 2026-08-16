@@ -591,13 +591,6 @@ export function groupEventsByDay(
       } else {
         endDateForEmptyDays = new Date(referenceDate);
       }
-    } else if (
-      compactLimitsApply &&
-      config.compact_days_to_show &&
-      !config.compact_events_to_show
-    ) {
-      endDateForEmptyDays = new Date(referenceDate);
-      endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
     } else if (compactLimitsApply && config.compact_events_to_show) {
       if (days.length > 0) {
         const lastDayTimestamp = Math.max(...days.map((d) => d.timestamp));
@@ -606,6 +599,11 @@ export function groupEventsByDay(
         endDateForEmptyDays = new Date(referenceDate);
       }
     } else {
+      // Everything else pads to the full window, including a compact day limit with no
+      // event limit: `effectiveDaysToShow` has already been narrowed to that limit above,
+      // so that case needs no branch of its own. It used to have one, whose body was a
+      // byte-for-byte copy of this block, which read as a special case while doing nothing
+      // a reader could distinguish from the default.
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
     }
