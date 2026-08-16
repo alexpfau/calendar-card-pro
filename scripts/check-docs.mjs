@@ -20,6 +20,8 @@ const TYPES_TS = join(ROOT, 'src/config/types.ts');
 const DOCS_DIR = join(ROOT, 'docs');
 const REFERENCE_DOC = join(DOCS_DIR, 'reference/configuration.md');
 const VITEPRESS_CONFIG = join(DOCS_DIR, '.vitepress/config.mts');
+const STYLES_TS = join(ROOT, 'src/rendering/styles.ts');
+const THEMING_DOC = join(DOCS_DIR, 'features/theming.md');
 
 const STRICT = process.argv.includes('--strict');
 
@@ -1471,6 +1473,7 @@ function report(counts) {
       `${counts.enums} enumerated options fully listed, ` +
       `${counts.removed} removed options migrated, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
+      `${counts.themed} theme defaults documented, ` +
       `release surfaces agree on v${counts.version}.\n`,
   );
 
@@ -1914,6 +1917,105 @@ function checkPageReachability(docs, routes) {
   return reachable;
 }
 
+// ---------------------------------------------------------------------------
+// Check 24 - the documented theme defaults match the fallbacks the card ships
+// ---------------------------------------------------------------------------
+
+/**
+ * Read the custom property table published for theme authors.
+ *
+ * @returns {Map<string, string>} documented property name to its stated default
+ */
+function readThemeTable() {
+  const doc = readFileSync(THEMING_DOC, 'utf8');
+  const rows = new Map();
+  for (const match of doc.matchAll(
+    /^\|\s*`(--calendar-card-[a-z0-9-]+)`\s*\|\s*`([^`]+)`\s*\|/gm,
+  )) {
+    rows.set(match[1], match[2].trim());
+  }
+  assertFound(rows, 'documented custom properties', THEMING_DOC);
+  return rows;
+}
+
+/**
+ * Collect every fallback the stylesheet supplies for one custom property.
+ *
+ * Scans for balanced parentheses rather than matching to the next `)`, so a nested
+ * `var(--x, var(--y))` and a wrapping `calc(var(--x, 14px) + 4px)` both yield the
+ * fallback itself instead of a truncated or over-long fragment.
+ *
+ * @param {string} css the stylesheet source
+ * @param {string} name the custom property to look for
+ * @returns {string[]} one entry per site, in source order
+ */
+function readFallbacks(css, name) {
+  const found = [];
+  const needle = `var(${name},`;
+  let start = css.indexOf(needle);
+  while (start !== -1) {
+    let depth = 1;
+    let index = start + needle.length;
+    while (index < css.length && depth > 0) {
+      if (css[index] === '(') depth += 1;
+      else if (css[index] === ')') depth -= 1;
+      if (depth === 0) break;
+      index += 1;
+    }
+    found.push(css.slice(start + needle.length, index).trim());
+    start = css.indexOf(needle, index);
+  }
+  return found;
+}
+
+/**
+ * Reconcile the published theming table against the stylesheet.
+ *
+ * These properties are a public contract: themes and card-mod set them by name, and
+ * the table tells authors what each one falls back to when they do not. Both halves
+ * drift silently. The name is only pinned because tests happen to mention it, and the
+ * default is pinned by a test that a developer changing it would update in the same
+ * edit - leaving the table stating a value the card no longer ships, with every gate
+ * still green. Requiring a single agreed fallback also catches sites drifting apart
+ * from each other, which would make the documented default true in only some places.
+ *
+ * @param {Map<string, string>} rows documented property name to its stated default
+ * @returns {number} documented properties reconciled against the stylesheet
+ */
+function checkThemeDefaults(rows) {
+  const css = readFileSync(STYLES_TS, 'utf8');
+  let reconciled = 0;
+  for (const [name, claimed] of rows) {
+    const fallbacks = readFallbacks(css, name);
+    if (fallbacks.length === 0) {
+      error(
+        `${relative(ROOT, THEMING_DOC)} documents ${name}, but ${relative(ROOT, STYLES_TS)} ` +
+          `never reads it with a fallback - themes setting it would have no documented default, ` +
+          `so rename the table entry or restore the declaration.`,
+      );
+      continue;
+    }
+    const distinct = [...new Set(fallbacks)];
+    if (distinct.length > 1) {
+      error(
+        `${name} falls back to ${distinct.map((value) => `\`${value}\``).join(' and ')} at ` +
+          `different sites in ${relative(ROOT, STYLES_TS)}, so no single default is true - ` +
+          `make the fallbacks agree.`,
+      );
+      continue;
+    }
+    if (distinct[0] !== claimed) {
+      error(
+        `${relative(ROOT, THEMING_DOC)} says ${name} defaults to \`${claimed}\`, but ` +
+          `${relative(ROOT, STYLES_TS)} falls back to \`${distinct[0]}\` - update the table.`,
+      );
+      continue;
+    }
+    reconciled += 1;
+  }
+  return reconciled;
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -1948,6 +2050,7 @@ function main() {
   const enums = checkEnumValues(readEnumOptions());
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
+  const themed = checkThemeDefaults(readThemeTable());
 
   process.exit(
     report({
@@ -1962,6 +2065,7 @@ function main() {
       enums,
       removed,
       reachable,
+      themed,
       version,
     }),
   );
