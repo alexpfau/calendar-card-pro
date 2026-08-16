@@ -1353,6 +1353,26 @@ export function getBaseCacheKey(
 }
 
 /**
+ * Verify that a parsed cache payload has the shape the render path assumes.
+ *
+ * @param value Value parsed from localStorage
+ * @returns True when the value is a usable cache entry
+ */
+function isCacheEntryShape(value: unknown): value is Types.CacheEntry {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+
+  const candidate = value as Partial<Types.CacheEntry>;
+
+  if (typeof candidate.timestamp !== 'number' || !Number.isFinite(candidate.timestamp))
+    return false;
+  if (!Array.isArray(candidate.events)) return false;
+
+  return candidate.events.every(
+    (event) => typeof event === 'object' && event !== null && !Array.isArray(event),
+  );
+}
+
+/**
  * Parse and validate a cache entry.
  *
  * @param key Cache key
@@ -1369,7 +1389,22 @@ export function getValidCacheEntry(
     const item = localStorage.getItem(key);
     if (!item) return null;
 
-    const cache = JSON.parse(item) as Types.CacheEntry;
+    const parsed: unknown = JSON.parse(item);
+
+    // The cast alone trusted whatever the key held. Anything that survived
+    // JSON.parse was treated as an entry, so a stale shape from an older
+    // version — or a value written by something else — reached the render path.
+    // A string `events` was the worst of them: iterating it yields characters,
+    // so the card rendered garbage *and* counted the entry as a hit, which
+    // suppressed the refetch that would have repaired it. Reject the entry so
+    // the normal miss path refetches instead.
+    if (!isCacheEntryShape(parsed)) {
+      localStorage.removeItem(key);
+      Logger.warn(`Malformed cache entry removed for ${key}`);
+      return null;
+    }
+
+    const cache = parsed;
     const now = Date.now();
 
     let cacheDuration;

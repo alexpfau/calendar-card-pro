@@ -877,11 +877,19 @@ class CalendarCardPro extends LitElement {
     ViewConfig.validateView(this.config);
     ViewConfig.validateColumnOverrides(this.config);
 
+    // Column fitting is hysteretic: it holds the current answer inside a band so
+    // the layout does not oscillate. Discarding that state on every setConfig()
+    // re-fit the card from scratch, so an edit unrelated to layout could drop a
+    // measured column card back to the list view at an unchanged width and leave
+    // it there until the next resize. Only seed from a fit that a real
+    // measurement produced — the optimistic pre-measurement answer must not.
     const seededFit = ViewConfig.resolveColumnFit(
       this.config.view,
       this.config,
       this._measuredWidthPx,
-      null,
+      this._measuredWidthPx === null
+        ? null
+        : { view: this._effectiveView, columns: this._columnCount },
     );
 
     this._effectiveView = seededFit.view;
