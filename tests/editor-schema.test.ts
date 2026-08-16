@@ -4029,3 +4029,115 @@ describe('editor: exceptions for the union-typed options', () => {
     expect(data.week_number_mode).toBe('none');
   });
 });
+
+/**
+ * An enumerated option has two independent surfaces: the type union in `types.ts` that
+ * defines its vocabulary, and the visual editor's dropdown that offers it. `check:docs`
+ * pins the union against the reference table, so a value cannot be added to the type
+ * without being documented — but nothing pinned it against the editor. A value could be
+ * added to the union, documented, and still be unselectable in the UI, which is how a
+ * reader ends up shown an option the editor will not let them choose.
+ */
+describe('editor: enumerated options offer their whole vocabulary', () => {
+  /**
+   * Where the editor surfaces each enumerated config key, and any value that exists only
+   * in the editor because the union spells it a way a dropdown cannot.
+   */
+  const EDITOR_FIELD: Record<string, { field: string; editorOnly?: readonly string[] }> = {
+    view: { field: 'view' },
+    first_day_of_week: { field: 'first_day_of_week' },
+    // The union's third member is `null`, which is not a string literal and which the
+    // editor spells `none` because a dropdown cannot offer an absent value.
+    show_week_numbers: { field: 'week_number_mode', editorOnly: ['none'] },
+    position: { field: 'position' },
+    min_days_fallback: { field: 'min_days_fallback' },
+  };
+
+  /**
+   * Every enumerated config option, read from the types rather than listed, so a new one
+   * is discovered instead of quietly going unchecked.
+   *
+   * @returns Each option's name mapped to the string literals its union allows
+   */
+  function unionValues(): Map<string, string[]> {
+    const source = readFileSync(join(process.cwd(), 'src/config/types.ts'), 'utf-8');
+    const literals = (text: string) =>
+      (text.match(/'[a-z0-9_-]+'/g) ?? []).map((s) => s.slice(1, -1));
+
+    const aliases = new Map<string, string[]>();
+    for (const match of source.matchAll(/^export type ([A-Za-z]+)\s*=\s*([^;]+);/gm)) {
+      const values = literals(match[2]);
+      if (match[2].includes('|') && values.length > 1) aliases.set(match[1], values);
+    }
+
+    const found = new Map<string, string[]>();
+    for (const name of ['Config', 'EntityConfig', 'WeatherConfig', 'ColumnOverrides']) {
+      const block = source.match(new RegExp(`export interface ${name}\\s*\\{([\\s\\S]*?)\\n\\}`));
+      if (!block) continue;
+
+      for (const line of block[1].split('\n')) {
+        const field = line.match(/^ {2}([a-z0-9_]+)\??:\s*(.+?);/);
+        if (!field) continue;
+
+        const type = field[2].trim();
+        const values = type.includes('|') ? literals(type) : (aliases.get(type) ?? []);
+        if (values.length > 1) found.set(field[1], values);
+      }
+    }
+    return found;
+  }
+
+  /**
+   * Every dropdown the editor builds, across the configurations that surface them all.
+   *
+   * A panel only offers what the configuration in front of it calls for, so the weather
+   * and column dropdowns exist only once those features are configured.
+   *
+   * @returns Each dropdown's field name mapped to the values it offers
+   */
+  function editorOptions(): Map<string, string[]> {
+    const configs = [
+      buildConfig({}),
+      buildConfig({ view: 'column' }),
+      buildConfig({ weather: { entity: 'weather.home' } }),
+      buildConfig({ view: 'column', weather: { entity: 'weather.home' } }),
+    ] as Types.Config[];
+
+    const found = new Map<string, string[]>();
+    for (const config of configs) {
+      for (const panel of PANELS) {
+        const schema = panel.build({ view: config.view, config, language: 'en' });
+        for (const { node } of walkSchema(schema)) {
+          const options = (node as { selector?: { select?: { options?: unknown[] } } }).selector
+            ?.select?.options;
+          if (!node.name || !options) continue;
+
+          found.set(
+            node.name,
+            options.map((option) =>
+              typeof option === 'string' ? option : (option as SelectOption).value,
+            ),
+          );
+        }
+      }
+    }
+    return found;
+  }
+
+  it('maps every enumerated option the types declare', () => {
+    // Discovered rather than listed, so adding a sixth enumerated option fails here
+    // instead of silently skipping the vocabulary check below.
+    expect([...unionValues().keys()].sort()).toEqual(Object.keys(EDITOR_FIELD).sort());
+  });
+
+  it.each(Object.entries(EDITOR_FIELD))(
+    'offers every value %s accepts',
+    (option, { field, editorOnly = [] }) => {
+      const expected = [...unionValues().get(option)!, ...editorOnly].sort();
+      const offered = editorOptions().get(field);
+
+      expect(offered, `the editor builds no dropdown named ${field}`).toBeDefined();
+      expect([...offered!].sort()).toEqual(expected);
+    },
+  );
+});
