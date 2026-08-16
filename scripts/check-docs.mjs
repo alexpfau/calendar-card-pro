@@ -1460,6 +1460,7 @@ function report(counts) {
       `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} complete examples, ` +
       `${counts.releases} release lines documented, ${counts.links} internal links resolved, ` +
       `${counts.gates} CI gates documented, ` +
+      `${counts.enums} enumerated options fully listed, ` +
       `release surfaces agree on v${counts.version}.\n`,
   );
 
@@ -1657,6 +1658,82 @@ function checkGateLists() {
   return gates.length;
 }
 
+// ---------------------------------------------------------------------------
+// Check 21 — every value an option accepts is named in its reference row
+// ---------------------------------------------------------------------------
+
+/**
+ * String-literal unions in types.ts, keyed by option name.
+ *
+ * The union is the complete set of values a user may write, so it is the only
+ * authority on what the reference row has to list. One level of alias
+ * indirection is resolved so `position?: WeatherPosition` is covered too.
+ */
+function readEnumOptions() {
+  const src = readFileSync(TYPES_TS, 'utf8');
+  const literals = (text) => (text.match(/'[a-z0-9_-]+'/g) || []).map((s) => s.slice(1, -1));
+
+  const aliases = new Map();
+  for (const m of src.matchAll(/^export type ([A-Za-z]+)\s*=\s*([^;]+);/gm)) {
+    const values = literals(m[2]);
+    if (values.length > 1 && m[2].includes('|')) aliases.set(m[1], values);
+  }
+
+  const out = new Map();
+  for (const name of [...USER_FACING_INTERFACES, 'ColumnOverrides']) {
+    const block = src.match(new RegExp(`export interface ${name}\\s*\\{([\\s\\S]*?)\\n\\}`));
+    if (!block) continue;
+    for (const line of block[1].split('\n')) {
+      const field = line.match(/^\s{2}([a-z0-9_]+)\??:\s*(.+?);\s*(?:\/\/.*)?$/);
+      if (!field) continue;
+      const type = field[2].trim();
+      const values = type.includes('|') ? literals(type) : aliases.get(type) || [];
+      if (values.length > 1) out.set(field[1], values);
+    }
+  }
+  assertFound(out, 'enumerated options', TYPES_TS);
+  return out;
+}
+
+/**
+ * An option's own reference row must name every value its type allows.
+ *
+ * Nothing else can see this. The field is present, so check 2 passes; its default is
+ * correct, so check 1 passes; and the feature page may document the value in full.
+ * `weather → position` gained `none` and its row still offered the three older values,
+ * which is how a reader learns an option cannot do something it can.
+ */
+function checkEnumValues(enums) {
+  const lines = readFileSync(REFERENCE_DOC, 'utf8').split('\n');
+  let described = 0;
+
+  for (const [field, values] of enums) {
+    const rows = lines.filter((line) =>
+      new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line),
+    );
+    // Check 2 already requires every option to be documented somewhere.
+    if (!rows.length) continue;
+    described++;
+    for (const row of rows) {
+      const missing = values.filter((value) => !new RegExp(`\\b${value}\\b`).test(row));
+      if (missing.length) {
+        error(
+          `${relative(ROOT, REFERENCE_DOC)}: the \`${field}\` row never mentions ` +
+            `${missing.map((v) => `\`${v}\``).join(', ')}, so a reader cannot discover ` +
+            `${missing.length > 1 ? 'those values' : 'that value'}. The type accepts ` +
+            `${values.map((v) => `\`${v}\``).join(' | ')}.`,
+        );
+      }
+    }
+  }
+
+  if (described === 0) {
+    console.error(`\n✗ FATAL: no enumerated option matched a reference row — fix the parser.\n`);
+    process.exit(2);
+  }
+  return described;
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -1688,6 +1765,7 @@ function main() {
   checkAgentsLinks();
   const gates = checkGateLists();
   const version = checkReleaseVersion();
+  const enums = checkEnumValues(readEnumOptions());
 
   process.exit(
     report({
@@ -1699,6 +1777,7 @@ function main() {
       releases,
       links,
       gates,
+      enums,
       version,
     }),
   );
