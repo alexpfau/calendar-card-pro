@@ -164,13 +164,24 @@ export function groupEventsByDay(
 
   const compactLimitsApply = !isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
 
-  const splitEvents = ViewConfig.resolveViewOption(config, 'split_multiday_events', effectiveView)
-    ? processMultiDayEvents(
-        events,
-        { ...config, split_multiday_events: true },
-        ViewConfig.viewForcesMultidaySplit(effectiveView),
-      )
-    : events;
+  // Always run the splitter and let `shouldSplitEvent` decide per event, rather
+  // than gating the call on the card-level value. A per-entity
+  // `split_multiday_events: true` has to win over a card-level `false`, and a
+  // gate here would never consult it. In column view `viewForcesMultidaySplit`
+  // ignores the per-entity opt-out instead, so later days of a multi-day event
+  // cannot vanish from their columns.
+  const splitEvents = processMultiDayEvents(
+    events,
+    {
+      ...config,
+      split_multiday_events: ViewConfig.resolveViewOption(
+        config,
+        'split_multiday_events',
+        effectiveView,
+      ),
+    },
+    ViewConfig.viewForcesMultidaySplit(effectiveView),
+  );
 
   const referenceDate = getStartDateReference(
     config,
@@ -179,6 +190,16 @@ export function groupEventsByDay(
   const referenceStart = new Date(referenceDate);
   const referenceEnd = new Date(referenceStart);
   referenceEnd.setHours(23, 59, 59, 999);
+
+  // Upper bound of the configured window. Multi-day events are split into
+  // per-day segments just above, and a segment can land past the window when an
+  // event starts inside it but runs beyond. Splitting used to happen at fetch
+  // time, where `processRawEvents` trimmed those segments before they were ever
+  // grouped; now that it is view-scoped and happens here, the same bound has to
+  // be applied here. Without it `days_to_show` — a `.slice()` over days that
+  // have events, not a date range — would fill with days past the window.
+  const windowEnd = new Date(referenceStart);
+  windowEnd.setDate(windowEnd.getDate() + config.days_to_show);
 
   const now = new Date();
 
@@ -205,6 +226,14 @@ export function groupEventsByDay(
     }
 
     if (!startDate || !endDate) return false;
+
+    // Upper window bound, segments only. Whole events are already bounded at
+    // fetch time by `processRawEvents`; segments are not, because they are
+    // created here rather than there. An event starting inside the window but
+    // running past it yields segments beyond the window, and `days_to_show` is
+    // a `.slice()` over days that have events rather than a date range, so
+    // those segments would push real days out of the card.
+    if (event._isMultiDaySegment && startDate >= windowEnd) return false;
 
     const isEventOnOrAfterReference = startDate >= referenceStart && startDate <= referenceEnd;
     const isFutureEvent = startDate > referenceEnd;
@@ -590,10 +619,15 @@ function processEvents(
     processedEvents.push(...decoratedEvents);
   });
 
-  const finalEvents = processMultiDayEvents(processedEvents, config);
-
-  Logger.debug(`Processed ${finalEvents.length} events after filtering and splitting`);
-  return finalEvents;
+  // Multi-day splitting deliberately does NOT happen here. This runs against the
+  // raw card config, before the effective view is known, so splitting at this
+  // point bakes the top-level `split_multiday_events` into `this.events` and a
+  // view-scoped override can never undo it — `column: { split_multiday_events:
+  // false }` was silently defeated whenever the top-level value was `true`.
+  // `groupEventsByDay` resolves the option per view and splits there instead,
+  // which also avoids materialising segments that fall outside the window.
+  Logger.debug(`Processed ${processedEvents.length} events after filtering`);
+  return processedEvents;
 }
 
 function processMultiDayEvents(
