@@ -1361,3 +1361,45 @@ describe('resolveColumnFitOnMeasurement', () => {
     expect(resolveColumnFitOnMeasurement('column', config, 1200, 1065, confirmed).columns).toBe(7);
   });
 });
+
+describe('resolveViewOption and resolveEffectiveConfig agree', () => {
+  // Both resolvers read the same `column:` block, so a caller must get the same answer
+  // whichever it reaches for. They diverged once: only `resolveEffectiveConfig` applied
+  // `coercePixelLength`, so a bare `day_spacing: 4` resolved to `4` through one path and
+  // `'4px'` through the other. Nothing caught it because every `resolveViewOption` call
+  // site happened to pass a boolean, where the coercion is a no-op — the divergence was
+  // waiting for the first length-valued caller.
+  const bareNumberOverrides = Object.fromEntries(
+    COLUMN_OVERRIDE_KEYS.map((key) => [key, 4]),
+  ) as Types.ColumnOverrides;
+
+  it('returns identical values for every override key', () => {
+    const config = buildConfig({ view: 'column', column: bareNumberOverrides });
+    const effective = resolveEffectiveConfig(config, 'column');
+
+    const mismatches = COLUMN_OVERRIDE_KEYS.filter(
+      (key) => resolveViewOption(config, key, 'column') !== effective[key],
+    );
+
+    expect(mismatches).toEqual([]);
+  });
+
+  it('coerces a bare number on a length-valued key, through either path', () => {
+    // Cast because the type says `string` while YAML and the editor both hand over a
+    // bare number — which is the whole reason `coercePixelLength` exists.
+    const config = buildConfig({
+      view: 'column',
+      column: { day_spacing: 4 as unknown as string },
+    });
+
+    expect(resolveViewOption(config, 'day_spacing', 'column')).toBe('4px');
+    expect(resolveEffectiveConfig(config, 'column').day_spacing).toBe('4px');
+  });
+
+  it('leaves a non-length key untouched, through either path', () => {
+    const config = buildConfig({ view: 'column', column: { description_max_lines: 4 } });
+
+    expect(resolveViewOption(config, 'description_max_lines', 'column')).toBe(4);
+    expect(resolveEffectiveConfig(config, 'column').description_max_lines).toBe(4);
+  });
+});

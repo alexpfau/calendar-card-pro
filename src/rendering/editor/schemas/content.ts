@@ -65,7 +65,9 @@ function compactFields(hasEventLimit: boolean): HaFormSchema[] {
  * @param startMode - Derived start-date mode
  * @param languageMode - Derived language mode
  * @param hasEventLimit - Whether a compact event limit is set, which is what the
+ *   `compact_events_complete_days` toggle depends on
  * @param showEmptyDays - Whether empty days are shown, which is what the two empty-day
+ *   fields depend on
  * @returns The panel's schema
  */
 const contentSchema = Helpers.memoizeLast(

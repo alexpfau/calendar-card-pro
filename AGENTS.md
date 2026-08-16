@@ -228,10 +228,14 @@ and breaking lines. The reason the claim survived so long is an asymmetry worth 
 round-trip unchanged**, and it breaks as `</span\n><span` so no new text node appears
 between inline elements. But a template deliberately written to have _none_ gets the
 indentation put back. **Deliberate whitespace needs `// prettier-ignore`**; `leaves.ts`
-uses it at `leaves.ts:122` on the weather badge, added after `npm run format`
-reintroduced the exact spaces a fix had just removed and turned five tests red. If you
-find that directive and wonder whether it is still needed, it is — delete it and run
-`npm test`.
+uses it at **three** sites — the day-header weather badge, the event weather badge, and
+the folded time/countdown spans — each added after `npm run format` reintroduced the
+exact spaces a fix had just removed and turned five tests red. Locate them with
+`grep -n "prettier-ignore" src/rendering/leaves.ts` rather than by line number; two of
+the three moved the last time someone edited a comment above them. If you find one and
+wonder whether it is still needed, it is — delete it, **run `npm run format`**, then
+`npm test`. The format step is the whole experiment: without it the directive's removal
+changes nothing and all 1237 tests pass, which reads as "safe to delete" and is not.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artefact the person doing the refactor
@@ -934,8 +938,16 @@ These documents lean hard on the word _verified_, so it is worth saying what it 
 **A claim that no available case could have falsified has not been verified; it has been
 untested** — and "verified, not assumed" is the label most likely to end up attached to
 exactly that. So say **how** you checked, and prefer a claim that ships with its own
-falsifier: _"delete `leaves.ts:122` and run `npm test`"_ cannot go quietly stale the way
-_"prettier does not reformat templates"_ did.
+falsifier: _"delete a `prettier-ignore` in `leaves.ts`, run `npm run format`, then
+`npm test`"_ cannot go quietly stale the way _"prettier does not reformat templates"_ did.
+
+**A falsifier is itself a claim, and it can rot in two ways.** This one did both. It
+cited `leaves.ts:122`, a line that has since become three lines none of which is 122 —
+so write the `grep` that finds the site, not the number. And it omitted the `format`
+step, so anyone who ran it exactly as written saw 1237 tests pass and would reasonably
+have concluded the directive was dead. **Re-run your own falsifiers before quoting them**;
+a falsifier that no longer falsifies is worse than none, because it launders an untested
+claim as a verified one.
 
 **Four ways a check passes while proving nothing.** Each was found here, twice, against
 different artefacts.

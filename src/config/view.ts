@@ -419,7 +419,14 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
   if (overrides && hasOverride(overrides, key)) {
     // `hasOverride` has established that the option is present and not `undefined`,
     // which is the only way the optional override type can widen the config type.
-    return overrides[key] as Types.Config[K];
+    //
+    // Coerced for the same reason as in `resolveEffectiveConfig`: both resolvers read
+    // the same block, so a bare `day_spacing: 4` has to become `'4px'` whichever one the
+    // caller reached for. A total no-op on non-length keys — `coercePixelLength` acts
+    // only when the value is a bare number and the shipped default is a `px` string, and
+    // every current call site passes a boolean — so this is here to keep the two answers
+    // identical as keys are added, not to fix a live defect.
+    return coercePixelLength(key, overrides[key]) as Types.Config[K];
   }
 
   // `??` rather than a presence test on purpose: a column default of `false` is a

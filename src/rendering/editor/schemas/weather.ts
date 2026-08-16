@@ -49,6 +49,7 @@ function eventLineLimit(showConditions: boolean): HaFormSchema[] {
  * @param dateUvIndex - Whether the day forecast shows a UV index
  * @param eventUvIndex - Whether the event forecast shows a UV index
  * @param eventConditions - Whether the event row shows its condition, which is the only
+ *   thing `max_lines` depends on
  * @returns The panel's schema
  */
 const weatherSchema = Helpers.memoizeLast(

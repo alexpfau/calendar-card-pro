@@ -290,7 +290,9 @@ function hasEventWeather(config: Types.Config): boolean {
  * @param event Event the badge describes
  * @param config Card configuration
  * @param weatherForecasts Fetched forecasts, if any
- * @param placement Where the badge is being placed. `'title'` is the list view's
+ * @param placement Where the badge is being placed. `'title'` is the list view's inline
+ *   badge inside the summary row; `'row'` is column view's dedicated line, which always
+ *   shows the icon and localizes the condition text.
  * @param hass Home Assistant instance, used only to localize the condition text
  * @returns Rendered badge, or an empty template when there is nothing to show
  */
@@ -493,6 +495,7 @@ export function renderEventContent(
               </div>
             `
           : // No text placement here: with `show_time: false` there is no time text to
+            // fold the countdown into, so it always renders on its own.
             countdownStr
             ? html`
                 <div class="time">
@@ -568,7 +571,9 @@ function parseIndicatorPosition(position: string): Record<string, string> {
  *
  * @param config Calendar card configuration
  * @param isToday Whether the current day is today
- * @param layout Placement strategy — `absolute` positions by percentage, `inline`
+ * @param layout Placement strategy — `absolute` positions by percentage from
+ *   `today_indicator_position` (list view), `inline` ignores that option and lets the
+ *   indicator flow inside the column-view day header.
  * @returns TemplateResult or nothing
  */
 export function renderTodayIndicator(
