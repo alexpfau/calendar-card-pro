@@ -33,6 +33,7 @@ import { describe, expect, it } from 'vitest';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
+import * as Value from '../src/rendering/editor/value';
 
 const TAG = 'calendar-card-pro-editor-malformed-test';
 
@@ -119,5 +120,62 @@ describe('editor robustness against a malformed entities value', () => {
     expect(normalized).toHaveLength(2);
     expect(normalized[0]).toMatchObject({ entity: 'calendar.personal', color: '#ff0000' });
     expect(normalized[1]).toMatchObject({ entity: 'calendar.work' });
+  });
+});
+
+/**
+ * The same boundary, one level down.
+ *
+ * `weather:` is the only block in the card with nested groups, and both of them —
+ * `date:` and `event:` — are blocks a user starts by writing the key on its own line.
+ * YAML reads an unfinished one as `null`, not as a missing key, so `date:` followed by
+ * nothing at all arrives as `weather: { date: null }`. The card shrugs: every read of a
+ * nested weather option is optionally chained, so `null?.icon_size` is `undefined` and
+ * the option falls back to its default.
+ *
+ * The editor did not shrug. `stripWeatherDefaults` guarded the `weather` block itself
+ * but walked each group with a bare `Object.entries(value)`, which throws on `null` —
+ * and `setConfig` calls that serializer before it renders anything, so the editor threw
+ * on open for a configuration the card renders fine. Same shape of defect as the
+ * `entities` one above, and the same reason it matters: the visual editor is what a
+ * user reaches for *because* the YAML is wrong.
+ *
+ * A scalar group is the quieter half. `Object.entries('yes')` does not throw, it
+ * enumerates the string's characters, so `date: yes` was serialized back out as
+ * `date: {0: 'y', 1: 'e', 2: 's'}` — a mistyped block silently rewritten into the
+ * user's stored configuration as garbage. Both halves are rejected the same way now:
+ * a group that is not a plain object is treated as absent.
+ */
+describe('malformed nested weather groups', () => {
+  const WEATHER_GROUPS = ['date', 'event'] as const;
+
+  it('opens on a valid nested weather block', async () => {
+    // Control: the guard must not cost the shape it exists to protect.
+    const result = await mount({
+      entities: ['calendar.personal'],
+      weather: { entity: 'weather.home', date: { show_conditions: false } },
+    });
+
+    expect(result).toBe('rendered');
+  });
+
+  it.each(WEATHER_GROUPS)('opens when weather.%s is an unfinished YAML key', async (group) => {
+    const result = await mount({
+      entities: ['calendar.personal'],
+      weather: { entity: 'weather.home', [group]: null },
+    });
+
+    expect(result).toBe('rendered');
+  });
+
+  it.each(WEATHER_GROUPS)('never stores a scalar weather.%s as indexed characters', (group) => {
+    const stored = Value.toStoredConfig({
+      ...Config.DEFAULT_CONFIG,
+      entities: ['calendar.personal'],
+      weather: { entity: 'weather.home', [group]: 'yes' },
+    } as unknown as Types.Config);
+
+    const weather = (stored.weather ?? {}) as Record<string, unknown>;
+    expect(weather[group]).toBeUndefined();
   });
 });

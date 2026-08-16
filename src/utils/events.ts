@@ -1187,8 +1187,16 @@ export function getTimeWindow(
         if (year && month && day && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
           start = new Date(year, month - 1, day);
 
-          if (isNaN(start.getTime())) {
-            Logger.warn(`Invalid date: ${trimmed}, falling back to today`);
+          // `new Date(y, m - 1, d)` cannot fail on numbers this guard already bounded —
+          // it rolls a day past the end of its month forward instead, so `2025-02-30`
+          // becomes March 2 and an `isNaN` check here never fires. Reading the parts back
+          // is the only way to tell a real date from one JavaScript quietly moved.
+          if (
+            start.getFullYear() !== year ||
+            start.getMonth() !== month - 1 ||
+            start.getDate() !== day
+          ) {
+            Logger.warn(`Impossible date: ${trimmed}, falling back to today`);
             start = today();
           }
         } else {
