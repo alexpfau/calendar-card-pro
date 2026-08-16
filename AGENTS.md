@@ -560,6 +560,16 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    of 37 tags overall. `ci.yml` now checks all three, so skipping this fails the release PR
    rather than shipping quietly.
 
+   **When the bump lands.** Historically 0–48 h before the tag, because a minor release is
+   prepared and cut from `dev` in one sitting. A major developed on a long-lived
+   integration branch is the exception and the bump lands early by necessity — the release
+   notes, the two "What's New" surfaces and the docs all name the version, so they cannot
+   be written against a placeholder. `feature/column-view-v4` carried `4.0.0` for two days
+   and 146 commits, which is the same lead time v3.2.0 had. Do not file this as premature:
+   the version's only consumers are the event cache key (a change self-heals), the
+   card↔editor mismatch warning (both halves are built from the same value) and the logger
+   banner. A review pass raised it as a finding purely because this paragraph did not exist.
+
 2. Update `docs/RELEASE_NOTES.md`, the README's `## 4️⃣ What's New` section, **and**
    `docs/guide/whats-new.md` — see _The two "What's New" surfaces_ for the differing rules.
 3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
