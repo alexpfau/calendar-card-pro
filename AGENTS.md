@@ -608,6 +608,15 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 
 3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
    review that you cannot give yourself, so this needs `gh pr merge <n> --merge --admin`.
+
+   **This merge is also the docs deploy.** The moment it lands, the site and the README
+   advertise the new version and — since the two-file split — tell manual installers to
+   download both files "from the latest release", while `releases/latest` still resolves
+   to the _previous_ release, which carries only one of them. Steps 3–6 are therefore one
+   operation rather than a merge now and a publish when convenient: the gap between them
+   is a window in which the published install instructions describe a release that does
+   not exist yet.
+
 4. **Fast-forward `dev` back onto `main`** — `git push origin origin/main:dev`. The merge
    commit from step 3 exists only on `main`; without this, `dev` starts the next cycle a
    commit behind. See _`dev` must never fall behind `main`_.

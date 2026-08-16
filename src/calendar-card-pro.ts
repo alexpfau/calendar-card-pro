@@ -88,9 +88,13 @@ export function adoptEditorComponent(module: unknown, tagName: string): void {
   if (editorVersion !== Constants.VERSION.CURRENT) {
     Logger.warn(
       `Editor file is v${editorVersion ?? 'unknown'} but the card is v${Constants.VERSION.CURRENT}. ` +
+        // Deliberately names the two roles rather than the two filenames: this string is
+        // emitted into both bundles, and the dev build's files carry a `-dev` suffix, so
+        // any literal filename here is wrong in one of the two builds. `tests/
+        // editor-adoption.test.ts` holds that line.
         'Both files come from the same release, so one of them is stale — hard-refresh the ' +
-        'browser, and if that does not help, reinstall so calendar-card-pro.js and editor.js ' +
-        'are replaced together.',
+        'browser, and if that does not help, reinstall so the card and editor files are ' +
+        'replaced together.',
     );
   }
 

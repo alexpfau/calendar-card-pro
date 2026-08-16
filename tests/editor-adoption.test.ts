@@ -129,6 +129,12 @@ describe('detecting a stale editor file beside a fresh card', () => {
       const message = warn.mock.calls.flat().join(' ');
       expect(message).toMatch(new RegExp(Constants.VERSION.CURRENT));
       expect(message).toMatch(/stale/i);
+
+      // The same source string is emitted into both bundles, and the dev build's files
+      // are `calendar-card-pro-dev.js` and `editor-dev.js`. A literal filename here is
+      // therefore wrong in whichever build it does not describe — and this is the one
+      // message a manual installer reads while trying to work out which file is stale.
+      expect(message).not.toMatch(/\b(?:calendar-card-pro|editor)(?:-dev)?\.js\b/);
       warn.mockRestore();
     });
   }
