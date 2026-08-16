@@ -961,6 +961,34 @@ describe('card stylesheet', () => {
     });
   });
 
+  describe('date column vertical alignment reaches the date cell', () => {
+    /*
+     * The sibling of the Y5 bug above, and the half nobody guarded. When the icon option
+     * was pinned end to end, `date_vertical_alignment` -- the older option the icon one
+     * was modelled on -- kept a single assertion on its default value and nothing at all
+     * on its wiring.
+     *
+     * Both ends could therefore be severed with every gate green: `styles.ts` could stop
+     * reading the user's config and hardcode a value, or this rule could lose its
+     * `vertical-align` outright, and `npm test`, `check:docs`, `build` and `check:bundle`
+     * all still passed. The option is documented as controlling how a date sits against
+     * its day's events, so either break is silent and plainly visible to the user.
+     */
+    it('the date cell aligns from the configured variable', () => {
+      expect(declared('.date-column', 'vertical-align')).toBe(
+        'var(--calendar-card-date-column-vertical-alignment)',
+      );
+    });
+
+    it('does not hardcode the alignment it is supposed to read', () => {
+      // The Y5 failure mode in its general form. Worth asserting separately here because
+      // `.date-column` is a table cell, whose initial `vertical-align` is `baseline`: a
+      // literal `middle` would look like a sensible default and silently pin every
+      // list-view row to one alignment.
+      expect(declared('.date-column', 'vertical-align')).not.toBe('middle');
+    });
+  });
+
   describe('single-declaration invariants', () => {
     it.each(['.event-title', '.summary'])('%s is declared exactly once', (selector) => {
       // Both were split across two blocks at some point, which made the winning

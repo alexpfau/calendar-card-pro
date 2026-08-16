@@ -102,6 +102,43 @@ describe('event icon vertical alignment', () => {
   });
 });
 
+describe('date column vertical alignment', () => {
+  const PROP = '--calendar-card-date-column-vertical-alignment';
+
+  /*
+   * Pinned for the same reason as `event_icon_vertical_alignment` above, and missing for
+   * far longer. This option reaches CSS verbatim rather than through a mapping ternary,
+   * so the property value *is* the config value -- which makes it look too trivial to be
+   * worth a test, and is exactly why nothing tested it. `styles.ts` could hardcode any of
+   * the three values and the entire suite stayed green.
+   */
+  it.each(['top', 'middle', 'bottom'] as const)('passes %s through to the property', (option) => {
+    expect(
+      generateCustomPropertiesObject(buildConfig({ date_vertical_alignment: option }))[PROP],
+    ).toBe(option);
+  });
+
+  it('resolves to middle at the default', () => {
+    // Two assertions rather than one, matching the icon option: the first states the
+    // shipped default so the docs cannot drift from the code, the second states that the
+    // default actually reaches CSS. The pre-existing default-only assertion could not
+    // see the second, which is the half that broke.
+    expect(Config.DEFAULT_CONFIG.date_vertical_alignment).toBe('middle');
+    expect(generateCustomPropertiesObject(buildConfig())[PROP]).toBe('middle');
+  });
+
+  it('passes an unrecognised value straight through, unlike the icon option', () => {
+    // The two options genuinely differ here and the difference is worth stating. The icon
+    // option funnels an unknown value into `center` through its ternary; this one hands
+    // the string to CSS, where an invalid `vertical-align` is dropped and the cell falls
+    // back to `baseline`. A future "make the alignments consistent" pass would change
+    // that without any test noticing.
+    expect(
+      generateCustomPropertiesObject(buildConfig({ date_vertical_alignment: 'centre' }))[PROP],
+    ).toBe('centre');
+  });
+});
+
 describe('time text display custom property', () => {
   const PROP = '--calendar-card-time-display';
 
