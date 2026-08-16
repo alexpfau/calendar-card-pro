@@ -40,8 +40,7 @@ export async function fetchEventData(
     config.first_day_of_week,
   );
 
-  const language = Localize.getEffectiveLanguage(config.language, hass.locale);
-  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language);
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass.locale);
 
   const isManualPageReload = isManualPageLoad();
   if (!force) {
@@ -144,6 +143,7 @@ function deduplicateEvents(
  * @param isExpanded Whether the card is in expanded mode
  * @param language Language code for date calculations
  * @param effectiveView View currently being rendered
+ * @param hassLocale Home Assistant locale, so `first_day_of_week: system` can follow it
  * @returns Day buckets containing the matching events
  */
 export function groupEventsByDay(
@@ -152,6 +152,7 @@ export function groupEventsByDay(
   isExpanded: boolean,
   language: string,
   effectiveView: Types.EffectiveView = 'list',
+  hassLocale?: { language?: string; first_weekday?: string },
 ): Types.EventsByDay[] {
   const events = deduplicateEvents(
     rawEvents,
@@ -173,7 +174,7 @@ export function groupEventsByDay(
 
   const referenceDate = getStartDateReference(
     config,
-    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language),
+    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale),
   );
   const referenceStart = new Date(referenceDate);
   const referenceEnd = new Date(referenceStart);
@@ -296,7 +297,7 @@ export function groupEventsByDay(
     });
   }
 
-  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language);
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale);
 
   Object.values(eventsByDay).forEach((day) => {
     const dayDate = new Date(day.timestamp);

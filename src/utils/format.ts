@@ -320,28 +320,98 @@ export function getSimpleWeekNumber(date: Date, firstDayOfWeek: number = 0): num
 }
 
 /**
- * Get first day of week based on config and locale
+ * Weekday names as Home Assistant stores them in `locale.first_weekday`, ordered so the
+ * array index is already the day number this module uses (0 = Sunday).
+ */
+const WEEKDAY_NAMES = [
+  'sunday',
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+];
+
+/**
+ * CLDR first day of week for every Home Assistant frontend language whose week does not
+ * start on Monday, plus the regional variants that must not inherit their base language.
+ *
+ * Monday is the CLDR default, so only exceptions are listed. Lookup is full tag first,
+ * then base language, then Monday — which is why `en-gb` and `zh-hans` need explicit
+ * Monday entries: their base languages (`en`, `zh-Hant`) start on Sunday.
+ *
+ * This is a table rather than a call into `Intl.Locale.prototype.getWeekInfo` for three
+ * reasons: that API is ES2020+ and the project targets ES2017, its availability varies by
+ * engine — Node 22, the version this project pins, exposes only the older `weekInfo`
+ * getter while Node 25 also has the `getWeekInfo()` method, and browsers differ the same
+ * way — and the input domain here is closed, because `hass.locale.language` is always one
+ * of the languages Home Assistant ships. Home Assistant itself hits this and falls back to
+ * a third-party package. `tests/first-day-of-week-locale.test.ts` pins every entry
+ * below against CLDR, so the table cannot silently drift.
+ */
+const FIRST_DAY_BY_LOCALE: Record<string, number> = {
+  af: 0,
+  ar: 6,
+  bn: 0,
+  en: 0,
+  'en-gb': 1,
+  fa: 6,
+  he: 0,
+  hi: 0,
+  id: 0,
+  is: 0,
+  ja: 0,
+  ko: 0,
+  ml: 0,
+  pt: 0,
+  'pt-br': 0,
+  ta: 0,
+  te: 0,
+  th: 0,
+  ur: 0,
+  'zh-hans': 1,
+  'zh-hant': 0,
+};
+
+/**
+ * Resolve the first day of the week implied by a language tag.
+ *
+ * @param tag BCP 47 language tag, in any casing
+ * @returns Day number (0 = Sunday), defaulting to Monday for unlisted languages
+ */
+function getFirstDayForLocale(tag: string): number {
+  const key = tag.toLowerCase();
+  return FIRST_DAY_BY_LOCALE[key] ?? FIRST_DAY_BY_LOCALE[key.split('-')[0]] ?? 1;
+}
+
+/**
+ * Get first day of week based on config and the user's Home Assistant locale.
+ *
+ * `'system'` mirrors Home Assistant's own `firstWeekdayIndex()`: an explicit weekday in the
+ * user's Home Assistant profile wins, and only when that is left at its `language` default
+ * does the language itself decide.
+ *
+ * The card's own `language` option is deliberately *not* consulted. That option picks which
+ * translation to display, and it doubles as the fallback for the 30-odd Home Assistant
+ * languages the card has no translation for, so it says nothing reliable about which day the
+ * user's week starts on.
  *
  * @param firstDayConfig Configuration setting for first day of week
- * @param locale Current locale
- * @returns Day number (0 = Sunday, 1 = Monday)
+ * @param hassLocale Home Assistant locale, the authoritative source for `'system'`
+ * @returns Day number (0 = Sunday, 1 = Monday, ... 6 = Saturday)
  */
 export function getFirstDayOfWeek(
   firstDayConfig: 'sunday' | 'monday' | 'system',
-  locale: string = 'en',
+  hassLocale?: { language?: string; first_weekday?: string },
 ): number {
   if (firstDayConfig === 'sunday') return 0;
   if (firstDayConfig === 'monday') return 1;
 
-  try {
-    if (/^en-(US|CA)|es-US/.test(locale)) {
-      return 0; // Sunday
-    }
+  const explicit = WEEKDAY_NAMES.indexOf(hassLocale?.first_weekday ?? '');
+  if (explicit !== -1) return explicit;
 
-    return 1;
-  } catch {
-    return 1;
-  }
+  return hassLocale?.language ? getFirstDayForLocale(hassLocale.language) : 1;
 }
 
 /**
