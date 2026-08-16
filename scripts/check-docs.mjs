@@ -1280,6 +1280,101 @@ function checkColumnDefaults(columnDefaults, columnRows) {
 }
 
 // ---------------------------------------------------------------------------
+// Check 19 — the weather scope table lists exactly the options each scope has
+// ---------------------------------------------------------------------------
+
+/**
+ * `weather → date` and `weather → event` are documented as one membership row each,
+ * naming their options inline rather than as a row per option. Check 1 reads
+ * `DEFAULT_CONFIG` at two-space indent, so it never sees these nested keys, and check 16
+ * only understands `column → key` rows — which left the whole weather scope table
+ * unreconciled in both directions. It was possible to add a nested weather default and
+ * document nothing, or to drop an option from the table and keep shipping it.
+ */
+function readWeatherScopeDefaults() {
+  const src = readFileSync(CONFIG_TS, 'utf8');
+  const block = src.match(/\n {2}weather: \{([\s\S]*?)\n {2}\},/);
+  if (!block) {
+    console.error(
+      `\n✗ FATAL: could not locate DEFAULT_CONFIG.weather in ${relative(ROOT, CONFIG_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+
+  const out = new Map();
+  for (const scope of ['date', 'event']) {
+    const group = block[1].match(new RegExp(`\\n {4}${scope}: \\{([\\s\\S]*?)\\n {4}\\},`));
+    if (!group) {
+      console.error(
+        `\n✗ FATAL: DEFAULT_CONFIG.weather.${scope} not found in ${relative(ROOT, CONFIG_TS)}.\n`,
+      );
+      process.exit(2);
+    }
+    const keys = new Set();
+    for (const line of group[1].split('\n')) {
+      const m = line.match(/^ {6}([a-z0-9_]+):/);
+      if (m) keys.add(m[1]);
+    }
+    if (keys.size === 0) {
+      console.error(`\n✗ FATAL: DEFAULT_CONFIG.weather.${scope} parsed to zero keys.\n`);
+      process.exit(2);
+    }
+    out.set(scope, keys);
+  }
+  return out;
+}
+
+function readWeatherScopeRows() {
+  const doc = readFileSync(REFERENCE_DOC, 'utf8');
+  const out = new Map();
+  for (const line of doc.split('\n')) {
+    const m = line.match(/^\|\s*`weather\s*→\s*(date|event)`\s*\|([^|]*)\|/);
+    if (!m) continue;
+    out.set(m[1], new Set([...m[2].matchAll(/`([a-z0-9_]+)`/g)].map((x) => x[1])));
+  }
+  assertFound(out, 'weather scope rows', REFERENCE_DOC);
+  return out;
+}
+
+function checkWeatherScopes(scopeDefaults, scopeRows, fields) {
+  for (const [scope, keys] of scopeDefaults) {
+    const listed = scopeRows.get(scope);
+    if (!listed) {
+      error(`weather → ${scope}: has no scope row in docs/reference/configuration.md`);
+      continue;
+    }
+
+    for (const key of keys) {
+      if (!listed.has(key)) {
+        error(
+          `weather → ${scope} → ${key}: in DEFAULT_CONFIG but the scope table does not list it`,
+        );
+      }
+    }
+
+    // A listed option needs no default — `color` has none — but it must be genuinely
+    // defaultless, not merely the *other* scope's option. The two lists are similar and
+    // hand-maintained, so a copied line is the likely error; WeatherPositionConfig is a
+    // union of both scopes and cannot tell them apart on its own.
+    const defaultedSomewhere = new Set([...scopeDefaults.values()].flatMap((s) => [...s]));
+    for (const key of listed) {
+      if (keys.has(key)) continue;
+      if (defaultedSomewhere.has(key)) {
+        error(
+          `weather → ${scope} → ${key}: listed here but it is the other scope's option — ` +
+            `it has no DEFAULT_CONFIG.weather.${scope} entry`,
+        );
+      } else if (!fields.get(key)?.has('WeatherPositionConfig')) {
+        error(
+          `weather → ${scope} → ${key}: listed in the scope table but is neither a ` +
+            `DEFAULT_CONFIG.weather.${scope} key nor a WeatherPositionConfig field`,
+        );
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 
 /**
  * Validate `AGENTS.md` relative links and warn on duplicated prose sentences. The link
@@ -1512,6 +1607,7 @@ function main() {
   checkDefaults(defaults, rows, buildConstantResolver());
   checkColumnDefaults(readColumnDefaults(), readColumnRows());
   checkColumnDefaultOverrides(readColumnDefaultOverrides());
+  checkWeatherScopes(readWeatherScopeDefaults(), readWeatherScopeRows(), fields);
   checkCoverage(fields, docs);
   checkFences(docs);
   checkSilentMarkdown(docs);
