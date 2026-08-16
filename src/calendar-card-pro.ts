@@ -36,6 +36,7 @@ import * as Styles from './rendering/styles';
 import * as Localize from './translations/localize';
 import { editorModuleUrl } from './utils/editor-url';
 import * as EventUtils from './utils/events';
+import * as FormatUtils from './utils/format';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
 import * as Templates from './utils/templates';
@@ -208,6 +209,12 @@ class CalendarCardPro extends LitElement {
     config: Types.Config;
     view: Types.EffectiveView;
     language: string;
+    /**
+     * Resolved first weekday. `config` alone does not cover it: under
+     * `first_day_of_week: 'system'` the weekday comes from the user's Home Assistant
+     * profile, so it can move while the config object stays identical.
+     */
+    firstWeekday: number;
     count: number;
   };
   private _effectiveConfigCache?: {
@@ -335,6 +342,10 @@ class CalendarCardPro extends LitElement {
   get visibleEventCount(): number {
     const language = this.effectiveLanguage;
     const view = this.effectiveView;
+    const firstWeekday = FormatUtils.getFirstDayOfWeek(
+      this.config.first_day_of_week,
+      this.hass?.locale,
+    );
     const cache = this._visibleCountCache;
 
     if (
@@ -342,7 +353,8 @@ class CalendarCardPro extends LitElement {
       cache.events === this.events &&
       cache.config === this.config &&
       cache.view === view &&
-      cache.language === language
+      cache.language === language &&
+      cache.firstWeekday === firstWeekday
     ) {
       return cache.count;
     }
@@ -358,7 +370,14 @@ class CalendarCardPro extends LitElement {
         ).reduce((total, day) => total + day.events.filter((event) => !event._isEmptyDay).length, 0)
       : 0;
 
-    this._visibleCountCache = { events: this.events, config: this.config, view, language, count };
+    this._visibleCountCache = {
+      events: this.events,
+      config: this.config,
+      view,
+      language,
+      firstWeekday,
+      count,
+    };
 
     return count;
   }
@@ -851,6 +870,7 @@ class CalendarCardPro extends LitElement {
       this.config.days_to_show,
       this.config.show_past_events,
       this.config.start_date,
+      this.config.first_day_of_week,
     );
 
     const configChanged = Config.hasConfigChanged(previousConfig, this.config);

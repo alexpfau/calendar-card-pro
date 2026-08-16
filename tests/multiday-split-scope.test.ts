@@ -51,6 +51,17 @@ function allDay(summary: string, start: string, end: string): Types.CalendarEven
   };
 }
 
+/** A timed event. Both endpoints are local-time ISO strings, deliberately without a
+ * zone suffix, so "midnight" means midnight wherever the suite happens to run. */
+function timed(summary: string, start: string, end: string): Types.CalendarEventData {
+  return {
+    start: { dateTime: start },
+    end: { dateTime: end },
+    summary,
+    _entityId: 'calendar.personal',
+  };
+}
+
 /**
  * Run the card's own path: fetch with the raw config, group with the resolved
  * one. Counts *days carrying the event* rather than non-empty days — column
@@ -138,5 +149,32 @@ describe('multi-day splitting is resolved per view', () => {
     const config = buildConfig({ view: 'column', days_to_show: 3 });
 
     await expect(daysShowing(overrun, config, 'column', 'window-bound')).resolves.toBe(1);
+  });
+
+  it('does not create a phantom day for an event ending at exactly midnight', async () => {
+    // An event ending at 00:00 occupies no time on the following day. The entry
+    // guard compared the end against the last millisecond of the start day, so
+    // 00:00:00.000 cleared it by exactly 1 ms, the event was treated as multi-day,
+    // and an unconditional final segment with `start === end` landed in the next
+    // day's bucket. Column view forces splitting on, so it saw this by default.
+    const overnight = timed('Overnight', '2026-06-17T23:00:00', '2026-06-18T00:00:00');
+
+    await expect(
+      daysShowing(overnight, buildConfig({ split_multiday_events: true }), 'list', 'midnight-list'),
+    ).resolves.toBe(1);
+    await expect(
+      daysShowing(overnight, buildConfig({ view: 'column' }), 'column', 'midnight-column'),
+    ).resolves.toBe(1);
+  });
+
+  it('still splits an event that runs one minute past midnight', async () => {
+    // The control for the case above. Without it, a guard that simply refused to
+    // split anything ending near midnight would pass the regression while breaking
+    // every genuine overnight event.
+    const overnight = timed('Overnight', '2026-06-17T23:00:00', '2026-06-18T00:01:00');
+
+    await expect(
+      daysShowing(overnight, buildConfig({ split_multiday_events: true }), 'list', 'past-mid-list'),
+    ).resolves.toBe(2);
   });
 });
