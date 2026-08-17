@@ -516,6 +516,18 @@ export function groupEventsByDay(
     );
   }
 
+  // The `_isEmptyDay` guards below — and the matching term in the filter just above —
+  // are inert for every input this function can receive. Empty-day placeholders are
+  // synthesized further down, after compaction, so no day reaching this point carries
+  // one: both callers pass raw calendar events, never a previous grouping result.
+  // Replacing any of these conditions with a thrower leaves the whole suite green.
+  //
+  // They are kept because the two branches disagree about what should happen if that
+  // ordering ever changes: the complete-days branch drops empty days, since they never
+  // enter `daysStarted`, while the branch below keeps them and exempts them from the
+  // event budget. Deleting them would erase that divergence rather than settle it, so
+  // moving placeholder creation ahead of this block stays a deliberate decision with a
+  // chosen answer instead of a silent change in what the card renders.
   if (compactLimitsApply) {
     const maxEvents = config.compact_events_to_show;
 
