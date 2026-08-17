@@ -175,7 +175,7 @@ When [`split_multiday_events`](/features/multi-day-events) is on, a multi-day ev
 Control visibility of events that have already occurred:
 
 ```yaml
-show_past_events: true # Show today's events that have already ended
+show_past_events: true # Show events that have already ended
 ```
 
 When enabled, past events appear with reduced opacity (60%) to visually distinguish them from upcoming events.

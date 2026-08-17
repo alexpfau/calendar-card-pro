@@ -106,3 +106,69 @@ describe('fixed start dates that are not impossible', () => {
     expect(() => EventUtils.getTimeWindow(config.days_to_show, config.start_date, 1)).not.toThrow();
   });
 });
+
+/**
+ * A relative expression whose arithmetic leaves the representable range must fall back too.
+ *
+ * The two branches of `getTimeWindow` that build a `Date` from text disagreed. The ISO
+ * branch checked its result with `isNaN` and fell back to today; the relative-expression
+ * branch trusted `kind === 'ok'` and assigned straight through. But `kind` reports whether
+ * the *grammar* parsed, not whether the resulting date exists: `today+99999999` is a single
+ * well-formed operator, so it parses, and then overflows JavaScript's ±275760-year `Date`
+ * range into `Invalid Date`.
+ *
+ * That produced the one outcome the docs explicitly promise cannot happen — no warning, no
+ * fallback, no fetch, and an empty card — while `MAX_OPERATORS` gave the impression the
+ * expression grammar was already bounded. It bounds the operator *count*; nothing bounded
+ * the operand magnitude.
+ *
+ * The controls separate the two bounds deliberately. A nine-operator expression is rejected
+ * by the count bound and a small operand resolves normally, so a test that only checked
+ * "absurd input falls back" would pass on the count bound alone and never touch the
+ * magnitude path this pins.
+ */
+describe('relative start dates that overflow the representable range', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each(['today+99999999', 'today+999999999', 'today-999999999'])(
+    'falls back to today for %s rather than yielding an invalid date',
+    (input) => {
+      expect(resolvedStart(input)).toBe('2025-01-10');
+    },
+  );
+
+  it('honours an in-range negative offset even when it is absurd', () => {
+    // The negative operand above is deliberately larger than the positive ones, because
+    // `Date`'s bounds are not symmetric about 2025: forward reaches +275760 in ~273,735
+    // years, backward reaches -271821 in ~273,846. So 99,999,999 days overflows forward
+    // and does *not* overflow backward — it lands on a real date in year -271766.
+    //
+    // That is not the defect this block pins. An instruction the runtime can represent is
+    // carried out, however silly; only an unrepresentable one falls back. Asserting the
+    // fallback here instead would quietly widen the guard into a range policy nobody chose.
+    expect(resolvedStart('today-99999999')).toBe('-271766-05-01');
+  });
+
+  it('never hands an invalid date to the caller', () => {
+    const window = EventUtils.getTimeWindow(3, 'today+99999999', 1);
+    expect(Number.isNaN(window.start.getTime())).toBe(false);
+  });
+
+  it('still resolves an in-range relative offset', () => {
+    // Control: the same single-operator grammar, small operand. If this ever falls back,
+    // the guard above is over-broad and has swallowed the whole relative-date feature.
+    expect(resolvedStart('today+7')).toBe('2025-01-17');
+  });
+
+  it('still rejects too many operators by the separate count bound', () => {
+    // Control for the other bound: nine operators is refused before magnitude matters.
+    expect(resolvedStart('today+1+1+1+1+1+1+1+1+1')).toBe('2025-01-10');
+  });
+});

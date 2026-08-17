@@ -1183,7 +1183,15 @@ export function getTimeWindow(
 
       if (parsed.kind === 'ok') {
         start = parsed.date;
-        Logger.info(`Resolved start_date "${trimmed}" to ${FormatUtils.getLocalDateKey(start)}`);
+
+        if (isNaN(start.getTime())) {
+          Logger.warn(
+            `start_date "${trimmed}" resolved outside the supported date range. Falling back to today.`,
+          );
+          start = today();
+        } else {
+          Logger.info(`Resolved start_date "${trimmed}" to ${FormatUtils.getLocalDateKey(start)}`);
+        }
       } else if (parsed.kind === 'error') {
         Logger.warn(`Invalid start_date "${trimmed}": ${parsed.message}. Falling back to today.`);
         start = today();
