@@ -2,9 +2,22 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
-import { coercePixelLength } from '../src/config/config';
+import {
+  DEFAULT_CONFIG,
+  coercePixelLength,
+  coercePixelLengthAgainst,
+  normalizeEntities,
+  normalizeLengthOptions,
+  normalizeNumericOptions,
+} from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { isZeroLength } from '../src/config/view';
+import {
+  isZeroLength,
+  resolveColumnOption,
+  validateColumnOverrides,
+  validateView,
+} from '../src/config/view';
+import * as Column from '../src/rendering/column';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
 
@@ -143,5 +156,149 @@ describe('zero-width separators in the rendered DOM', () => {
     ).map((node) => node.getAttribute('style') ?? '');
 
     expect(styles.filter((style) => style.includes('border-top-style:solid'))).toEqual([]);
+  });
+});
+
+/**
+ * A blank YAML value — `day_separator_width:` with nothing after the colon — parses as
+ * `null`, and `setConfig`'s shallow `{ ...DEFAULT_CONFIG, ...config }` merge lets that
+ * `null` overwrite the shipped `'0px'`. Nothing downstream restored it, so the `null`
+ * reached `isZeroLength`, which calls `.trim()` on it: a `TypeError` that took the whole
+ * card down to a blank box, in both views, for all three separator widths.
+ *
+ * The column-only key is the same bug wearing different clothes. It resolves through
+ * `normalizeColumnValue`, which wraps the coercion in `String(...)` — so instead of
+ * throwing it produced the literal string `'null'`, which `isZeroLength` reads as
+ * non-zero and draws as an invisible rule carrying a full pair of margins.
+ *
+ * Both are fixed at one boundary, in `coercePixelLengthAgainst`, so these tests exercise
+ * the real `setConfig` chain rather than `buildConfig` — `buildConfig` calls
+ * `normalizeNumericOptions` but *not* `normalizeLengthOptions`, so a test written through
+ * it would bypass the very step under test.
+ */
+const SEPARATOR_KEYS = [
+  'day_separator_width',
+  'week_separator_width',
+  'month_separator_width',
+] as const;
+
+/** The verbatim normalization chain from `setConfig` (calendar-card-pro.ts). */
+function realSetConfig(raw: Record<string, unknown>): Types.Config {
+  const config = {
+    ...DEFAULT_CONFIG,
+    entities: ['calendar.personal'],
+    ...raw,
+  } as unknown as Types.Config;
+
+  config.entities = normalizeEntities(config.entities);
+  normalizeNumericOptions(config);
+  normalizeLengthOptions(config);
+  validateView(config);
+  validateColumnOverrides(config);
+  return config;
+}
+
+function drawWith(view: Types.EffectiveView, raw: Record<string, unknown>): HTMLElement {
+  const config = realSetConfig({ days_to_show: 30, show_empty_days: true, ...raw });
+  const days = EventUtils.groupEventsByDay(ACROSS_MONTH_BOUNDARY, config, false, 'en', view);
+  const container = document.createElement('div');
+  litRender(
+    view === 'column'
+      ? Column.renderColumnGroupedEvents(days, config, 'en', undefined, null)
+      : Render.renderGroupedEvents(days, config, 'en', undefined, null),
+    container,
+  );
+  return container;
+}
+
+describe('blank YAML values reaching the length guards', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('restores the shipped default when a length option arrives blank', () => {
+    expect(coercePixelLengthAgainst('0px', null)).toBe('0px');
+    expect(coercePixelLengthAgainst('0px', undefined)).toBe('0px');
+    expect(coercePixelLengthAgainst('12px', null)).toBe('12px');
+  });
+
+  it('leaves a blank non-length option alone', () => {
+    // The over-reach control. Length-ness is inferred from the shipped default, so an
+    // option that takes a number or a boolean must not acquire a pixel string from this.
+    expect(coercePixelLengthAgainst(10, null)).toBeNull();
+    expect(coercePixelLengthAgainst(true, null)).toBeNull();
+    expect(coercePixelLengthAgainst('sans-serif', null)).toBeNull();
+  });
+
+  it('still passes an empty string through', () => {
+    // The scope control. `''` is pinned as pass-through by `pixel-length-coercion.test.ts`
+    // and cannot throw — `isZeroLength('')` returns `false` without touching `.trim()` on
+    // a nullish value. Substituting a default for it would be a guess, not a fix.
+    expect(coercePixelLengthAgainst('0px', '')).toBe('');
+  });
+
+  it.each(SEPARATOR_KEYS)('normalizes a blank %s back to its shipped default', (key) => {
+    expect(realSetConfig({ [key]: null })[key]).toBe(DEFAULT_CONFIG[key]);
+  });
+
+  it.each(SEPARATOR_KEYS)('leaves a real %s value untouched', (key) => {
+    // The opposite direction: the fallback must not fire for a value the user did supply.
+    expect(realSetConfig({ [key]: '3px' })[key]).toBe('3px');
+  });
+
+  it('CONTROL: the fixture renders more than one day, so the guards are reachable', () => {
+    // Guards the guards. `renderGroupedEvents` short-circuits its separator branch on the
+    // previous day, so a single-day fixture would make every render assertion below pass
+    // without ever calling `isZeroLength`.
+    const config = realSetConfig({ days_to_show: 30, show_empty_days: true });
+
+    expect(
+      EventUtils.groupEventsByDay(ACROSS_MONTH_BOUNDARY, config, false, 'en', 'list').length,
+    ).toBeGreaterThan(1);
+  });
+
+  it('CONTROL: a real separator width still renders in both views', () => {
+    for (const view of ['list', 'column'] as Types.EffectiveView[]) {
+      expect(drawWith(view, { month_separator_width: '3px' }).innerHTML.length).toBeGreaterThan(0);
+    }
+  });
+
+  it.each(
+    SEPARATOR_KEYS.flatMap((key) =>
+      (['list', 'column'] as Types.EffectiveView[]).map((view) => [view, key] as const),
+    ),
+  )('renders %s view with a blank %s', (view, key) => {
+    let container: HTMLElement | undefined;
+
+    expect(() => {
+      container = drawWith(view, { [key]: null });
+    }).not.toThrow();
+    // Not throwing is only half of it — an empty container would satisfy that too.
+    expect(container?.innerHTML.length ?? 0).toBeGreaterThan(0);
+  });
+
+  it('resolves a blank column-only length to its column default', () => {
+    // The `String(null)` path: this used to resolve to the literal `'null'`, which reads
+    // as non-zero and draws an invisible rule with a full pair of margins.
+    const config = realSetConfig({
+      view: 'column',
+      column: { day_header_separator_width: null },
+    });
+
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('0px');
+  });
+
+  it('keeps an explicit column-only length', () => {
+    const config = realSetConfig({
+      view: 'column',
+      column: { day_header_separator_width: '3px' },
+    });
+
+    expect(resolveColumnOption(config, 'day_header_separator_width')).toBe('3px');
   });
 });

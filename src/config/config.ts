@@ -257,11 +257,15 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
  * card's `padding: calc(var(--…) + 16px) 16px` down to `0`, losing the base padding too.
  *
  * Length-ness is inferred from the shipped default instead of a hand-maintained list.
- * Values that carry no bare number, and genuinely numeric options, pass through untouched.
+ * Values that carry no bare number, and genuinely numeric options, pass through untouched
+ * — except a missing one. A blank YAML value parses as `null`, which means "no value
+ * supplied" rather than a value to preserve, so a length-valued option falls back to what
+ * it ships with.
  *
  * @param key - Option the value was written against
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
- * @returns The value, with a bare number turned into a pixel length where appropriate
+ * @returns The value, with a bare number turned into a pixel length and a missing one
+ *   replaced by the shipped default, where appropriate
  */
 export function coercePixelLength(key: string, value: unknown): unknown {
   return coercePixelLengthAgainst(
@@ -282,17 +286,45 @@ export function coercePixelLength(key: string, value: unknown): unknown {
  *
  * @param shippedDefault - The value this option ships with, at the same nesting level
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
- * @returns The value, with a bare number turned into a pixel length where appropriate
+ * @returns The value, with a bare number turned into a pixel length and a missing one
+ *   replaced by the shipped default, where appropriate
  */
 export function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unknown {
+  // A blank YAML value — `day_separator_width:` with nothing after the colon — parses as
+  // `null`, and a key written explicitly as `undefined` survives `setConfig`'s shallow
+  // merge the same way. Both mean "no value supplied", so a length-valued option has to
+  // fall back to what it ships with. This mirrors the contract `toValidNumber` already
+  // states for numeric options: empty editor values and `null` must not collapse an
+  // option. Without it the `null` reaches `isZeroLength`, which calls `.trim()` on it and
+  // throws a `TypeError` that takes the whole card down to a blank box.
+  //
+  // Deliberately narrow. An empty string, `NaN` and `Infinity` also reach here and are
+  // pinned as pass-through by `tests/pixel-length-coercion.test.ts`: none of them throws,
+  // and substituting a default for them would replace a dead rule with a guess.
+  if (value === null || value === undefined) {
+    return isPixelLengthDefault(shippedDefault) ? shippedDefault : value;
+  }
+
   const bare = bareNumber(value);
   if (bare === undefined) {
     return value;
   }
 
-  return typeof shippedDefault === 'string' && /^-?\d+(?:\.\d+)?px$/.test(shippedDefault)
-    ? `${bare}px`
-    : value;
+  return isPixelLengthDefault(shippedDefault) ? `${bare}px` : value;
+}
+
+/**
+ * Whether a shipped default marks its option as length-valued.
+ *
+ * Length-ness is inferred from the default rather than a hand-maintained list, so this is
+ * the single place that inference lives — both the bare-number coercion and the
+ * missing-value fallback above read it, and cannot drift apart.
+ *
+ * @param shippedDefault - The value an option ships with
+ * @returns `true` when the option takes a CSS length
+ */
+function isPixelLengthDefault(shippedDefault: unknown): boolean {
+  return typeof shippedDefault === 'string' && /^-?\d+(?:\.\d+)?px$/.test(shippedDefault);
 }
 
 /**
