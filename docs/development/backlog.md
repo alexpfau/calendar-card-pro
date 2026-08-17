@@ -37,8 +37,11 @@ contributor to ask.
 
 ## After v4
 
-**Grid view.** The `grid` name is reserved in the view vocabulary; nothing is built.
-Feasibility was assessed and the architecture generalises, with named changes. Attribution
+**Grid view.** Nothing is built, and the `grid` name is not reserved anywhere either —
+`EffectiveView` in `src/config/types.ts` is `'list' | 'column'`, so adding it starts with
+widening that union. (The `'grid'` occurrences in `src/rendering/editor/` are Home
+Assistant form-layout node types and have nothing to do with views.) Feasibility was
+assessed and the architecture generalises, with named changes. Attribution
 runs through [issue #339](https://github.com/alexpfau/calendar-card-pro/issues/339), from
 @lenaxia — that issue is the durable record and the thing to credit. Do not expect to
 recover code from a branch: both the contributor branch and the adapted review branch have
