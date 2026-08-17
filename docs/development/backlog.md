@@ -78,6 +78,35 @@ reviewed column layout was the wrong way round on the eve of a release; it is th
 round once the release is out. **Scope the selector to list view, or re-verify column
 view's weather spacing alongside the change.**
 
+**`setConfig` merges only the top level.** It builds the effective configuration as
+`{ ...DEFAULT_CONFIG, ...config }`, so a nested block the user writes partly replaces the
+default block wholesale instead of being filled in key by key. A `weather:` holding just
+`entity:` therefore arrives with `position`, `date` and `event` all `undefined`, even
+though `position` is published with a default of `date` in the reference and the two
+sub-blocks carry defaults of their own in `DEFAULT_CONFIG`.
+
+This produced two defects in v4 review, and both were fixed at the symptom rather than at
+the cause. `isCustomized` in `src/rendering/editor/filter.ts` now returns early when the
+value it reads is `undefined`, so the editor's Customized Only filter stops flagging keys
+the user never wrote, and `resolveWeatherPosition` in `src/utils/weather.ts` centralises
+the `position` default that the subscribe and render halves had been resolving
+differently — one paying for a forecast stream the other then declined to draw. Both are
+covered by tests that fail if the fix is removed.
+
+The cause is still there, so a third reader of a nested default can repeat it. What bounds
+the risk is that the exposed surface is almost entirely `weather`: `DEFAULT_CONFIG` has
+four nested entries, and `tap_action` and `hold_action` each default to a single key while
+`entities` defaults to `[]` and is written in full, so none of them can lose a key to a
+partial write the way `weather` can.
+
+A deep merge is the real fix and was deliberately not attempted on a release candidate.
+It changes `setConfig` semantics for every consumer at once, and `hasConfigChanged`,
+`isCustomized` and `toStoredConfig` are all built around the current shape —
+`toStoredConfig` in particular strips defaults back out on the write path, so filling them
+in on the read path has to be matched there or the card starts writing ninety defaults
+into the user's YAML. **Do it early in a cycle, with the write path changed in the same
+commit, not as a late fix.**
+
 **`visible:` conditions in the editor.** Home Assistant's `ha-form` can hide a row through
 a `visible:` condition rather than through the memoised schema recomputation the editor does
 today. Worth adopting only with a stated minimum HA version, since a version that does not
