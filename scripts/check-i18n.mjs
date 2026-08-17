@@ -840,7 +840,15 @@ const structuralGlyphs = (text) =>
     (ch) => ch.codePointAt(0) > 127 && !/[\p{L}\p{M}]/u.test(ch) && !/["'“”‘’„«»]/u.test(ch),
   );
 
-const placeholders = (text) => (text.match(/\{[a-z_]+\}/g) ?? []).sort();
+/**
+ * Placeholders the runtime will substitute.
+ *
+ * Must mirror `interpolate()` in `src/rendering/editor/strings.ts`, which matches
+ * `/\{(\w+)\}/g`. A narrower pattern here exempts any placeholder carrying an uppercase
+ * letter or a digit from validation entirely — `{maxCount}` dropped from a translation
+ * passed this check silently until the two were reconciled.
+ */
+const placeholders = (text) => (text.match(/\{\w+\}/g) ?? []).sort();
 
 /**
  * Structural integrity, orthography and terminology, per language.

@@ -297,7 +297,8 @@ exact spaces a fix had just removed and turned five tests red. Locate them with
 the three moved the last time someone edited a comment above them. If you find one and
 wonder whether it is still needed, it is — delete it, **run `npm run format`**, then
 `npm test`. The format step is the whole experiment: without it the directive's removal
-changes nothing and all 1237 tests pass, which reads as "safe to delete" and is not.
+changes nothing and the whole suite still passes, which reads as "safe to delete" and
+is not.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artefact the person doing the refactor
@@ -1052,10 +1053,12 @@ falsifier: _"delete a `prettier-ignore` in `leaves.ts`, run `npm run format`, th
 **A falsifier is itself a claim, and it can rot in two ways.** This one did both. It
 cited `leaves.ts:122`, a line that has since become three lines none of which is 122 —
 so write the `grep` that finds the site, not the number. And it omitted the `format`
-step, so anyone who ran it exactly as written saw 1237 tests pass and would reasonably
-have concluded the directive was dead. **Re-run your own falsifiers before quoting them**;
-a falsifier that no longer falsifies is worse than none, because it launders an untested
-claim as a verified one.
+step, so anyone who ran it exactly as written saw the whole suite pass and would
+reasonably have concluded the directive was dead. Note that neither sentence quotes a
+test count: an absolute total is the same rot-prone citation as a line number, and this
+one had already drifted by several hundred before anyone reading it noticed.
+**Re-run your own falsifiers before quoting them**; a falsifier that no longer falsifies
+is worse than none, because it launders an untested claim as a verified one.
 
 **Four ways a check passes while proving nothing.** Each was found here, twice, against
 different artefacts.
