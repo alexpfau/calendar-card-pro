@@ -2059,11 +2059,23 @@ function checkThemeDefaults(rows) {
  *
  * Historical citations opt out by naming their release in the same line, which is why the
  * example above is spelled out in prose rather than shown literally.
+ *
+ * A citation resolves by path, not by basename, and an ambiguous one is skipped rather than
+ * guessed. Six basenames are duplicated across the tree — `events.ts`, `styles.ts`,
+ * `weather.ts`, `actions.ts`, `index.ts`, `localize.ts` — each once under
+ * `src/rendering/editor/` and once outside it. Matching on the basename alone resolved every
+ * one of them to whichever copy the walk reached first, which is the shorter editor schema in
+ * five of the six cases, so a correct citation to the 1504-line `src/utils/events.ts` was
+ * measured against a 172-line file and reported as past EOF. That is the worst failure mode a
+ * gate can have: it rejects correct work, and symmetrically passes a genuinely dead citation
+ * into the file that lost the collision.
  */
 function checkCitations() {
   const CITE = /([A-Za-z0-9_./-]+\.(?:ts|md|mjs))[: ]+(\d+)/g;
   const SCAN = ['src', 'tests', 'scripts'];
   const lineCounts = new Map();
+  const byPath = new Map();
+  const basenameCounts = new Map();
   const byBasename = new Map();
 
   const walk = (dir, out = []) => {
@@ -2086,7 +2098,26 @@ function checkCitations() {
   for (const file of all) {
     const base = file.slice(file.lastIndexOf(sep) + 1);
     if (!byBasename.has(base)) byBasename.set(base, file);
+    basenameCounts.set(base, (basenameCounts.get(base) ?? 0) + 1);
+    byPath.set(relative(ROOT, file).split(sep).join('/'), file);
   }
+
+  /**
+   * Resolves a cited path to a file, or to null when it cannot be resolved unambiguously.
+   *
+   * Skipping an ambiguous citation is deliberate. Checking it against an arbitrary candidate
+   * is what produced the false positives this replaced, and a citation nobody can resolve is
+   * not evidence of a stale line number.
+   */
+  const resolveCitation = (cited) => {
+    const norm = cited.replace(/^\.\//, '');
+    if (byPath.has(norm)) return byPath.get(norm);
+    if (norm.includes('/')) {
+      const hits = [...byPath].filter(([path]) => path.endsWith(`/${norm}`));
+      return hits.length === 1 ? hits[0][1] : null;
+    }
+    return basenameCounts.get(norm) === 1 ? byBasename.get(norm) : null;
+  };
 
   let checked = 0;
   for (const file of all) {
@@ -2103,7 +2134,7 @@ function checkCitations() {
       // Historical citations name the release they describe and stay valid forever.
       if (/v\d+\.\d+\.\d+/.test(line)) return;
       for (const match of line.matchAll(CITE)) {
-        const target = byBasename.get(match[1].slice(match[1].lastIndexOf('/') + 1));
+        const target = resolveCitation(match[1]);
         if (!target || target === file) continue;
         if (!lineCounts.has(target)) {
           lineCounts.set(target, readFileSync(target, 'utf8').split('\n').length);
