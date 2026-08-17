@@ -87,9 +87,15 @@ describe('getEntitySuggestion', () => {
    * Both suggestions are mounted as live cards at once, and each fetches on
    * setup. They are affordable together only because the event cache keys on
    * `generateDeterministicId`, which hashes entities, `days_to_show`,
-   * `show_past_events` and `start_date` — and on none of those do the recipes
+   * `start_date` and `first_day_of_week` — and on none of those do the recipes
    * differ. Give the column variant its own `days_to_show` and every pick
    * silently becomes two real calendar API requests instead of one.
+   *
+   * Pass every current input. `show_past_events` was dropped from the key in
+   * #461 and `first_day_of_week` added; a call that still names the first and
+   * omits the second cannot see a divergence in the input that is actually
+   * hashed — adding `first_day_of_week` to one recipe alone typechecked and
+   * left this test green.
    */
   it('keeps both recipes on one event-cache key', () => {
     const suggestions = getEntitySuggestion(hass('calendar.family'), 'calendar.family');
@@ -97,10 +103,15 @@ describe('getEntitySuggestion', () => {
       const config = suggestion.config as {
         entities: string[];
         days_to_show: number;
-        show_past_events?: boolean;
         start_date?: string;
+        first_day_of_week?: string;
       };
-      return generateDeterministicId(config.entities, config.days_to_show, config.start_date);
+      return generateDeterministicId(
+        config.entities,
+        config.days_to_show,
+        config.start_date,
+        config.first_day_of_week,
+      );
     });
 
     expect(ids[0]).toBe(ids[1]);

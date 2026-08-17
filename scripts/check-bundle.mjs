@@ -9,9 +9,10 @@
  * Usage: `npm run check:bundle` — after `npm run build` or `npx rollup -c`.
  */
 
-import { readdirSync, readFileSync, statSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { basename, join } from 'path';
 import { fileURLToPath } from 'url';
+import { gzipSync } from 'zlib';
 
 import { parseAst } from 'rollup/parseAst';
 
@@ -257,6 +258,85 @@ function findVariant(jsFiles) {
 }
 
 /**
+ * The four transfer sizes `docs/guide/installation.md` quotes.
+ *
+ * The page tells someone deciding whether to gzip by hand exactly what they save, so the
+ * numbers have to be the numbers this build actually emits. They are prose, and prose does
+ * not fail: both raw figures sat a kilobyte low because the bundle had grown since they
+ * were written, and nothing anywhere noticed. Deriving them here means the build that
+ * changes a size is the build that reports the stale sentence.
+ *
+ * Each entry names the sentence to read the pair out of and how to weigh the files. A
+ * pattern that stops matching is itself a failure: reword the page and this check would
+ * otherwise go quiet while still reporting success.
+ */
+const DOC_SIZES = {
+  path: join(ROOT, 'docs', 'guide', 'installation.md'),
+  files: ['calendar-card-pro.js', 'editor.js'],
+  claims: [
+    {
+      what: 'uncompressed',
+      pattern: /the card transfers at its full\s+(\d+)\s*KB and the editor at\s+(\d+)\s*KB/,
+      measure: (file) => statSync(join(DIST, file)).size,
+    },
+    {
+      what: 'gzipped',
+      pattern: /brings the card to\s+(\d+)\s*KB and the editor to\s+(\d+)\s*KB/,
+      measure: (file) => gzipSync(readFileSync(join(DIST, file)), { level: 9 }).length,
+    },
+  ],
+};
+
+/**
+ * Check the installation page's transfer sizes against the emitted files.
+ *
+ * Quoted in whole kilobytes, truncated — 191,767 bytes reads as 191 KB — so a change has to
+ * cross a kilobyte before it is worth reporting.
+ *
+ * @returns Nothing; failures are collected in `errors`
+ */
+function checkDocumentedSizes() {
+  const label = 'docs/guide/installation.md';
+
+  // The page quotes the released pair; a dev-only build has nothing to compare against.
+  if (!DOC_SIZES.files.every((file) => existsSync(join(DIST, file)))) return;
+
+  let page;
+  try {
+    page = readFileSync(DOC_SIZES.path, 'utf8');
+  } catch {
+    error(label, 'is missing, so the transfer sizes it publishes cannot be checked');
+    return;
+  }
+
+  for (const { what, pattern, measure } of DOC_SIZES.claims) {
+    const found = page.match(pattern);
+    if (!found) {
+      error(
+        label,
+        `no longer states the ${what} size of both files in a form this check can read. The ` +
+          'sentence moved or was reworded — update the matching pattern in ' +
+          'scripts/check-bundle.mjs, because a check that cannot find its subject reports ' +
+          'success forever',
+      );
+      continue;
+    }
+
+    for (const [index, file] of DOC_SIZES.files.entries()) {
+      const claimed = Number(found[index + 1]);
+      const actual = Math.floor(measure(file) / 1000);
+      if (claimed !== actual) {
+        error(
+          label,
+          `says ${file} is ${claimed} KB ${what}; this build emits ${actual} KB. Change the ` +
+            `figure to ${actual}`,
+        );
+      }
+    }
+  }
+}
+
+/**
  * Run every check.
  *
  * @returns Nothing; failures are collected in `errors`
@@ -389,6 +469,8 @@ function main() {
       );
     }
   }
+
+  checkDocumentedSizes();
 
   if (errors.length > 0) {
     for (const message of errors) {
