@@ -67,11 +67,11 @@ describe('per-field max-lines custom properties', () => {
  * thing in the per-event weather row long enough to wrap: the condition stated in words,
  * which the column layout adds.
  *
- * Read through the same fallback chain as every other weather property, because
- * `setConfig` merges shallowly — a user's `weather:` block replaces the default sub-tree
- * whole, so a card that configures weather at all has no `max_lines` in its merged
- * config. Reading it off the merged default would emit `none` for every user who set
- * one, which is the failure this pins.
+ * Read through the same fallback chain as every other weather property. `setConfig` now
+ * fills a partial `weather:` block in from the defaults, but this function is also called
+ * with configs that never went through it — the editor's preview objects, and tests — so
+ * the fallback still has to hold. Reading the value off a merged default that was not
+ * there would emit `none` for every user who set one, which is the failure this pins.
  */
 describe('the weather row line limit', () => {
   const PROP = '--calendar-card-weather-event-max-lines';
@@ -95,7 +95,7 @@ describe('the weather row line limit', () => {
   });
 
   it('emits none for a weather block that never mentions it', () => {
-    // The shallow-merge case: this block is what a real user's YAML produces.
+    // The block a real user's YAML produces, with the option left unmentioned.
     expect(generateCustomPropertiesObject(withWeather({ show_conditions: true }))[PROP]).toBe(
       'none',
     );

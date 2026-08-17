@@ -282,9 +282,11 @@ export function isCustomized(
 
   const value = valueAt(normalized(ctx.config), dataPath, name);
 
-  // `setConfig` merges only the top level, so a nested block the user wrote partly — say a
-  // `weather:` holding just `entity:` — leaves its remaining keys absent rather than filled in
-  // from the defaults. Absent is not customized; the card still falls back to its own default.
+  // A key the merged config does not carry at all — one absent from `DEFAULT_CONFIG`, or a
+  // block the user cleared outright — is not customized; the card falls back to its own
+  // default. `setConfig` now fills nested blocks in from the defaults, so the ordinary
+  // partially-written block no longer arrives here undefined, and the branch below answers
+  // it by comparison instead. This guard remains for the cases that never had a default.
   if (value === undefined) return false;
 
   return !deepEqual(value, valueAt(Config.DEFAULT_CONFIG, dataPath, name));

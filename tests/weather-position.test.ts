@@ -182,12 +182,15 @@ describe('weather position `none` renders no badge', () => {
 /**
  * The same contract once more, but reached the way a real dashboard reaches it.
  *
- * `setConfig` merges with `{ ...DEFAULT_CONFIG, ...config }` — a *shallow* spread — so a
- * user block of `weather: { entity: … }` replaces the default `weather` block wholesale
- * and arrives with `position` undefined. Both suites above assign `config.weather`
- * directly with the position spelled out, so neither can see that: they never exercise
- * the merge, and the omitted case is the one every user who does not spell the option
- * out lands on.
+ * `setConfig` deep-merges, so a user block of `weather: { entity: … }` keeps the default
+ * `position` rather than blanking it. Both suites above assign `config.weather` directly
+ * with the position spelled out, so neither exercises the merge at all — and the omitted
+ * case is the one every user who does not spell the option out lands on.
+ *
+ * This ran against a hand-rolled shallow spread until the merge was made deep. It now
+ * calls `mergeConfig` itself, because a fixture that merges differently from production
+ * stops testing production the moment the two diverge — which is exactly what happened to
+ * the defect below.
  *
  * The two halves disagreed exactly there. `getRequiredForecastTypes` resolved the
  * documented `date` default and subscribed to the daily stream, while the render gates
@@ -209,14 +212,17 @@ describe('weather position omitted from a user config', () => {
     vi.useRealTimers();
   });
 
-  /** Renders both views through the same shallow merge `setConfig` performs. */
+  /** Renders both views through the same deep merge `setConfig` performs. */
   function merged(weather: Record<string, unknown>): {
     column: HTMLElement;
     list: HTMLElement;
     config: Types.Config;
   } {
     const userYaml = { ...buildConfig({ split_multiday_events: true }), weather };
-    const config = { ...Config.DEFAULT_CONFIG, ...userYaml } as Types.Config;
+    const config = Config.mergeConfig(
+      Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
+      userYaml as unknown as Record<string, unknown>,
+    ) as unknown as Types.Config;
 
     const view = (v: 'column' | 'list'): HTMLElement => {
       const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', v);

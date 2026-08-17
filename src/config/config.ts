@@ -182,6 +182,49 @@ export const DEPRECATED_ENTITY_CONFIG_MAP: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Merges a user configuration over the defaults, filling nested blocks key by key.
+ *
+ * A plain spread merges the top level only, so a `weather:` block naming just `entity:`
+ * replaced the whole default sub-tree and arrived with `position`, `date` and `event` all
+ * `undefined` — even though each is published with a default. That produced two defects in
+ * v4 review, both fixed at the symptom: `resolveWeatherPosition` had to centralise a
+ * `position` default the subscribe and render halves were resolving differently, and
+ * `isCustomized` had to treat an absent value as not-customized so the editor's filter
+ * stopped flagging keys the user never wrote. This is the cause behind both.
+ *
+ * Only plain objects recurse. **Arrays are replaced wholesale**, which is what `entities:`
+ * needs — merging a two-calendar list over a three-calendar default would leave behind a
+ * third calendar the user had deleted. A user value that is not a plain object always wins,
+ * so `weather: null` clears the block rather than being merged into.
+ *
+ * The write path already matches this: `toStoredConfig` routes `weather` through
+ * `stripWeatherDefaults`, which compares each nested option against these same defaults and
+ * drops the ones that agree, so filling them in here does not make the editor write them
+ * back into the user's YAML.
+ *
+ * @param defaults - Shipped defaults, treated as the shape to fill in from
+ * @param overrides - Raw user configuration, which wins wherever it is present
+ * @returns A new object; neither input is mutated
+ */
+export function mergeConfig(
+  defaults: Record<string, unknown>,
+  overrides: Record<string, unknown>,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...defaults };
+
+  for (const [key, value] of Object.entries(overrides)) {
+    const fallback = defaults[key];
+
+    merged[key] =
+      Helpers.isConfigBlock(value) && Helpers.isConfigBlock(fallback)
+        ? mergeConfig(fallback, value)
+        : value;
+  }
+
+  return merged;
+}
+
+/**
  * Reports removed config keys found in the raw user configuration.
  *
  * Reads the raw config before `DEFAULT_CONFIG` fills every key in. Entity entries are
@@ -291,8 +334,8 @@ export function coercePixelLength(key: string, value: unknown): unknown {
  */
 export function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unknown {
   // A blank YAML value — `day_separator_width:` with nothing after the colon — parses as
-  // `null`, and a key written explicitly as `undefined` survives `setConfig`'s shallow
-  // merge the same way. Both mean "no value supplied", so a length-valued option has to
+  // `null`, and a key written explicitly as `undefined` survives `setConfig`'s merge the
+  // same way. Both mean "no value supplied", so a length-valued option has to
   // fall back to what it ships with. This mirrors the contract `toValidNumber` already
   // states for numeric options: empty editor values and `null` must not collapse an
   // option. Without it the `null` reaches `isZeroLength`, which calls `.trim()` on it and
@@ -368,10 +411,10 @@ function bareNumber(value: unknown): string | undefined {
  * by `resolveColumnOption` against `COLUMN_DEFAULTS`.
  *
  * **Nested groups are copied, never written through.** Home Assistant hands cards a frozen
- * configuration, and `setConfig` merges it shallowly — so `config.weather` and
- * `config.tap_action` are the *user's own frozen objects*, not copies. Writing into one
- * throws in strict mode. Rebuilding changed groups also prevents edits to shared default
- * objects from leaking between cards.
+ * configuration. `mergeConfig` rebuilds any block the user also wrote, so those are safe to
+ * touch — but a block the user did not mention is still `DEFAULT_CONFIG`'s own object by
+ * reference, and writing into that would edit the defaults for every card in the process.
+ * Rebuilding changed groups covers both cases without having to tell them apart.
  *
  * @param config - Configuration to normalize in place
  * @returns The same object, for chaining alongside `normalizeNumericOptions`

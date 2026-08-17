@@ -34,15 +34,20 @@ export const FROZEN_NOW = new Date('2026-06-17T10:00:00.000Z');
  * Builds a config the same way `setConfig` does, so fixtures exercise the real
  * normalization path rather than a hand-assembled object that happens to look right.
  *
- * Mirrors `calendar-card-pro.ts` `setConfig`: merge over defaults, then normalize
- * entities and numeric options in that order.
+ * Mirrors `calendar-card-pro.ts` `setConfig`: deep-merge over the defaults, then normalize
+ * entities and numeric options in that order. The merge has to be the real one — a plain
+ * spread here would hand every fixture a `weather:` block stripped of its nested defaults,
+ * which is precisely the shape production no longer produces.
  */
 export function buildConfig(overrides: Partial<Types.Config> = {}): Types.Config {
-  const config: Types.Config = {
-    ...Config.DEFAULT_CONFIG,
-    entities: ['calendar.personal'],
-    ...overrides,
-  };
+  const config = Config.mergeConfig(
+    Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
+    {
+      entities: ['calendar.personal'],
+      ...overrides,
+    } as Record<string, unknown>,
+  ) as unknown as Types.Config;
+
   config.entities = Config.normalizeEntities(config.entities);
   Config.normalizeNumericOptions(config);
   return config;

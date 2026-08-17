@@ -150,9 +150,9 @@ describe('custom property mapping', () => {
  * v4 turned these into a real override surface: the badges used to carry their size and
  * colour as inline `style` attributes that no theme could reach, and `theming.md` now
  * publishes all six properties with defaults. The defaults are the half that matters,
- * because `setConfig` merges `weather` shallowly — a user block naming only `entity`
- * arrives with `date` and `event` entirely absent, so every one of these reads its
- * fallback. That is the common case, not the edge case.
+ * because this function is reached with configs that never went through `setConfig` — the
+ * editor's own preview objects, and tests — where a `weather:` block naming only `entity`
+ * carries no `date` or `event` at all, so every one of these reads its fallback.
  *
  * All five unconditional fallbacks survived a mutation sweep of `styles.ts`: rewriting
  * `?? '14px'` so the fallback is dropped emits `undefined` into the property, and both
@@ -179,8 +179,8 @@ describe('weather custom properties', () => {
   it.each(WEATHER_FALLBACKS)(
     'falls %s back to %s for the %s badge',
     (_option, property, fallback, _override, placement) => {
-      // The shallow-merge case: a weather block naming only `entity`, which is what the
-      // documented minimal config looks like.
+      // A weather block naming only `entity`, which is what the documented minimal
+      // config looks like, handed straight to the generator without a merge.
       const props = propsFor({ weather: { entity: 'weather.home' } });
 
       expect(props[property]).toBe(fallback);

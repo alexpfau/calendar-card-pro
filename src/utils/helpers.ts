@@ -35,7 +35,20 @@ export function convertToRGBA(color: string, opacity: number): string {
 
 function computeRGBA(color: string, opacity: number): string {
   if (color.startsWith('var(')) {
-    return `rgba(var(--calendar-color-rgb, 3, 169, 244), ${opacity / 100})`;
+    // `color-mix` rather than `rgba(...)`, because a `var()` reference cannot be taken
+    // apart into the three channel values `rgba()` needs. The previous form emitted
+    // `rgba(var(--calendar-color-rgb, 3, 169, 244), …)` against a variable this card
+    // defines nowhere and no theme knows about, so the literal fallback — which is the
+    // default `accent_color` `#03a9f4` — won every time. A themed `var(--primary-color)`
+    // silently rendered as the shipped blue, and the failure was invisible on a default
+    // config precisely because the two agree there.
+    //
+    // Mixing with `transparent` keeps the whole expression live, so it still follows a
+    // theme switch: nothing is resolved at call time, which matters because `rgbaCache`
+    // is module-level and never evicted. The stylesheet already applies transparency this
+    // way (the progress bar's track and the today outline), so this is the idiom the card
+    // uses everywhere else rather than a new dependency.
+    return `color-mix(in srgb, ${color} ${opacity}%, transparent)`;
   }
 
   if (color === 'transparent') {
