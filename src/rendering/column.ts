@@ -103,6 +103,12 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): ColumnSe
  * The separator overlays the column's grid cell and is pulled into the gutter, so
  * enabling a rule paints the boundary without moving any columns.
  *
+ * A day rule is confined to the day row, so it stops below the week-number band
+ * rather than slicing through a week-number pill that belongs to the whole week.
+ * Week and month rules span both rows, because separating the weeks is exactly
+ * what they mean and the pill is part of what they separate. With week numbers
+ * off the band row collapses to zero and all three kinds are the same length.
+ *
  * @param separator - The resolved rule for this gutter
  * @param columnIndex - Zero-based index of the column this rule precedes
  * @param gap - The grid's column gap, i.e. the resolved `day_spacing`
@@ -118,7 +124,7 @@ function renderColumnSeparator(
       class="column-separator column-separator-${separator.kind}"
       style=${styleMap({
         gridColumn: String(columnIndex + 1),
-        gridRow: '1',
+        gridRow: separator.kind === 'day' ? '2' : '1 / -1',
         width: separator.width,
         backgroundColor: separator.color,
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
@@ -194,7 +200,6 @@ function renderColumnEvent(
  * @param day - Day data containing events
  * @param config - Card configuration
  * @param language - Language code for translations
- * @param weekRow - Reserved week-number row, or `nothing` when week numbers are off
  * @param columnIndex - Zero-based track this column occupies
  * @param weatherForecasts - Fetched forecasts, if any
  * @param hass - Home Assistant instance, for locale-aware formatting
@@ -204,7 +209,6 @@ function renderDayColumn(
   day: Types.EventsByDay,
   config: Types.Config,
   language: string,
-  weekRow: TemplateResult | typeof nothing,
   columnIndex: number,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
@@ -241,17 +245,16 @@ function renderDayColumn(
         'future-day': !isToday,
         weekend: isWeekendDay,
       })}
-      style=${styleMap({ gridColumn: String(columnIndex + 1), gridRow: '1' })}
+      style=${styleMap({ gridColumn: String(columnIndex + 1), gridRow: '2' })}
     >
       <div class="column-day-header">
         <div
           class=${classMap({
             'column-date-content': true,
             'with-today-indicator': hasInlineIndicator,
-            'with-week-number': weekRow !== nothing,
           })}
         >
-          ${weekRow} ${todayIndicator}
+          ${todayIndicator}
           ${Leaves.renderDateContent(dayDate, config, language, isToday, weatherContent)}
         </div>
       </div>
@@ -275,16 +278,28 @@ function renderDayColumn(
 /**
  * Render one column's week-number cell.
  *
+ * The cell is a top-level grid item on the band row, not a child of its day column,
+ * so the outer grid carries a real row boundary for day separators to stop at.
+ *
  * @param weekNumber - Week number for this day, or null when unavailable
  * @param visible - Whether this column is the one that shows the number
+ * @param columnIndex - Zero-based track this cell occupies
  * @returns Rendered week-number cell
  */
 function renderColumnWeekNumber(
   weekNumber: number | null | undefined,
   visible: boolean,
+  columnIndex: number,
 ): TemplateResult {
   return html`
-    <div class="column-week-number" style=${styleMap(visible ? {} : { visibility: 'hidden' })}>
+    <div
+      class="column-week-number"
+      style=${styleMap({
+        gridColumn: String(columnIndex + 1),
+        gridRow: '1',
+        ...(visible ? {} : { visibility: 'hidden' }),
+      })}
+    >
       <div class="week-number">${weekNumber ?? ''}</div>
     </div>
   `;
@@ -311,7 +326,7 @@ function buildWeekRows(
     return days.map(() => nothing);
   }
 
-  return days.map((day, index) => renderColumnWeekNumber(day.weekNumber, visible[index]));
+  return days.map((day, index) => renderColumnWeekNumber(day.weekNumber, visible[index], index));
 }
 
 //-----------------------------------------------------------------------------
@@ -359,8 +374,9 @@ export function renderColumnGroupedEvents(
         '--calendar-card-column-header-gap': headerGap,
       })}
     >
+      ${weekRows}
       ${days.map((day, index) =>
-        renderDayColumn(day, config, language, weekRows[index], index, weatherForecasts, hass),
+        renderDayColumn(day, config, language, index, weatherForecasts, hass),
       )}
       ${separators}
     </div>

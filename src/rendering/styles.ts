@@ -944,7 +944,13 @@ export const cardStyles = css`
   .column-grid {
     display: grid;
     /* grid-template-columns and column-gap are set inline: the track count is the
-       number of days being rendered, and the gap is the day_spacing option. */
+       number of days being rendered, and the gap is the day_spacing option.
+       The two rows are declared here because they are structural, not configurable:
+       row 1 is the week-number band, row 2 is the day columns. Declaring them
+       explicitly is also what makes the week and month rules' "1 / -1" span
+       resolve -- with implicit rows only, -1 would name the first line.
+       With week numbers off the band row holds nothing and collapses to zero. */
+    grid-template-rows: auto auto;
     align-items: start;
     width: 100%;
   }
@@ -1030,23 +1036,17 @@ export const cardStyles = css`
     margin-bottom: var(--calendar-card-column-header-gap, 8px);
   }
 
-  /* Week numbers reserve a top row only when enabled. Every column emits the
-   * cell, hiding non-starts, so empty grid areas do not collapse and stagger
-   * the date rows. */
-  .column-date-content.with-week-number {
-    grid-template-areas:
-      'week week .'
-      'weekday weekday .'
-      'day month weather';
-  }
-
-  .column-date-content .column-week-number {
-    grid-area: week;
+  /* Week numbers occupy the grid's own band row. Every column emits the cell and
+   * hides non-starts, so the band is one uniform height across the card and the
+   * weekday rows cannot stagger. Keeping the cell here rather than inside the day
+   * column is what gives a day separator a row boundary to stop at.
+   *
+   * The gap to the weekday below lives on this cell rather than on the grid's
+   * row-gap: a row-gap would still apply when the band row is empty and would
+   * push every header down 2px on cards with week numbers off. */
+  .column-grid > .column-week-number {
     justify-self: start;
-
-    /* The grid aligns to baselines, which a fixed-height pill has no useful one for.
-     * Centring in its own row keeps it off the weekday's baseline entirely. */
-    align-self: center;
+    margin-bottom: 2px;
   }
 
   .column-events {

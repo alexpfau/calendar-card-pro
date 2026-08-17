@@ -189,7 +189,7 @@ to `0px`, so a card that shows no lines in the list layout shows none as columns
 
 Each rule runs the full height of the grid, from the top of the day headers to the bottom
 of the busiest column, so a run of them reads as a set of dividers rather than as ragged
-marks of differing lengths.
+marks of differing lengths. Switching week numbers on is the one exception, covered below.
 
 Two details differ from the list layout:
 
@@ -197,11 +197,18 @@ Two details differ from the list layout:
   breathing room than a day separator, and a month separator more again. In a grid the gap
   between columns is a single uniform `day_spacing`, so a rule sits centered in that gap
   whatever its kind. Use width and color to signal the hierarchy.
-- **Week numbers do not imply a week separator.** In the list layout, switching week
-  numbers on suppresses the day line at a week boundary, because the week-number row
-  physically occupies that slot. Column view has no such collision — the badge sits inside
-  a column header, the rules sit between columns — so the day rule stays put and the run
-  of dividers remains regular.
+- **Week numbers do not imply a week separator, but they do shorten the day rule.** In the
+  list layout, switching week numbers on suppresses the day line at a week boundary,
+  because the week-number row physically occupies that slot. Column view has no such
+  collision — the badges sit in a band of their own above the columns, the rules sit
+  between columns — so the day rule stays put and the run of dividers remains regular.
+
+  What does change is how far up each rule reaches. A week number labels a whole week, so
+  a day rule carried past it would appear to cut one day out of the label it belongs to.
+  Day rules therefore stop level with the top of the weekday names, while week and month
+  rules continue up through the badge — which is the boundary they actually mark. With
+  week numbers off the badge row has no height and all three kinds are the same length
+  again.
 
 ::: tip Heavier Rules Between Columns
 A hairline reads well between stacked rows but can disappear against a full-height column.

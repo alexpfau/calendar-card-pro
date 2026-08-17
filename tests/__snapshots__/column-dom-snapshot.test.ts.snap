@@ -2,7 +2,7 @@
 
 exports[`column view DOM > renders a single day 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -108,7 +108,7 @@ exports[`column view DOM > renders a single day 1`] = `
 
 exports[`column view DOM > renders a single event 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -145,7 +145,7 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:1;">
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -176,7 +176,7 @@ exports[`column view DOM > renders a single event 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:3;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -212,7 +212,7 @@ exports[`column view DOM > renders a single event 1`] = `
 
 exports[`column view DOM > renders day, week and month separators 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(20, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -313,7 +313,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:1;">
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -350,7 +350,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:3;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -407,7 +407,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day weekend " style="grid-column:4;grid-row:1;">
+<div class=" day-column future-day weekend " style="grid-column:4;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -438,7 +438,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day weekend " style="grid-column:5;grid-row:1;">
+<div class=" day-column future-day weekend " style="grid-column:5;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -469,7 +469,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:6;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:6;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -500,7 +500,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:7;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:7;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -531,7 +531,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:8;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:8;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -562,7 +562,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:9;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:9;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -593,7 +593,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:10;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:10;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -624,7 +624,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day weekend " style="grid-column:11;grid-row:1;">
+<div class=" day-column future-day weekend " style="grid-column:11;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -655,7 +655,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day weekend " style="grid-column:12;grid-row:1;">
+<div class=" day-column future-day weekend " style="grid-column:12;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -686,7 +686,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:13;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:13;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -717,7 +717,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:14;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:14;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -748,7 +748,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:15;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:15;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -779,7 +779,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:16;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:16;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -810,7 +810,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:17;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:17;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -841,7 +841,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day weekend " style="grid-column:18;grid-row:1;">
+<div class=" day-column future-day weekend " style="grid-column:18;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -872,7 +872,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day weekend " style="grid-column:19;grid-row:1;">
+<div class=" day-column future-day weekend " style="grid-column:19;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -903,7 +903,7 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:20;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:20;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -934,31 +934,31 @@ exports[`column view DOM > renders day, week and month separators 1`] = `
 </div>
 </div>
 </div>
-<div class="column-separator column-separator-day" style="grid-column:2;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:3;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:4;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:5;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-week" style="grid-column:6;grid-row:1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:7;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:8;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:9;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:10;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:11;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:12;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-week" style="grid-column:13;grid-row:1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:14;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-month" style="grid-column:15;grid-row:1;width:3px;background-color:var(--primary-text-color);margin-inline-start:calc(-0.5 * (10px + 3px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:16;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:17;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:18;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-day" style="grid-column:19;grid-row:1;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
-<div class="column-separator column-separator-week" style="grid-column:20;grid-row:1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:2;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:3;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:4;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:5;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-week" style="grid-column:6;grid-row:1 / -1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:7;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:8;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:9;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:10;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:11;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:12;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-week" style="grid-column:13;grid-row:1 / -1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:14;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-month" style="grid-column:15;grid-row:1 / -1;width:3px;background-color:var(--primary-text-color);margin-inline-start:calc(-0.5 * (10px + 3px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:16;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:17;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:18;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:19;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-week" style="grid-column:20;grid-row:1 / -1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
 </div>"
 `;
 
 exports[`column view DOM > renders past events 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1079,7 +1079,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:1;">
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1116,7 +1116,7 @@ exports[`column view DOM > renders past events 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:3;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1178,7 +1178,7 @@ exports[`column view DOM > renders past events 1`] = `
 
 exports[`column view DOM > renders the default configuration 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1279,7 +1279,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:1;">
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1316,7 +1316,7 @@ exports[`column view DOM > renders the default configuration 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:3;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1378,12 +1378,18 @@ exports[`column view DOM > renders the default configuration 1`] = `
 
 exports[`column view DOM > renders the optional content rows 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
-<div class="column-day-header">
-<div class=" column-date-content with-week-number ">
-<div class="column-week-number" style="">
+<div class="column-week-number" style="grid-column:1;grid-row:1;">
 <div class="week-number">25</div>
 </div>
+<div class="column-week-number" style="grid-column:2;grid-row:1;visibility:hidden;">
+<div class="week-number">25</div>
+</div>
+<div class="column-week-number" style="grid-column:3;grid-row:1;visibility:hidden;">
+<div class="week-number">25</div>
+</div>
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Wed
     </div>
@@ -1485,12 +1491,9 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:1;">
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content with-week-number ">
-<div class="column-week-number" style="visibility:hidden;">
-<div class="week-number">25</div>
-</div>
+<div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Thu
     </div>
@@ -1525,12 +1528,9 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:3;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
-<div class=" column-date-content with-week-number ">
-<div class="column-week-number" style="visibility:hidden;">
-<div class="week-number">25</div>
-</div>
+<div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -1590,7 +1590,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 
 exports[`column view DOM > renders unsplit multi-day events 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1691,7 +1691,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:1;">
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1728,7 +1728,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:3;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1770,7 +1770,7 @@ exports[`column view DOM > renders unsplit multi-day events 1`] = `
 
 exports[`column view DOM > renders weather on both surfaces 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1876,7 +1876,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:1;">
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1915,7 +1915,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:3;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -1980,7 +1980,7 @@ exports[`column view DOM > renders weather on both surfaces 1`] = `
 
 exports[`column view DOM > renders with no events 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -2011,7 +2011,7 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:1;">
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -2042,7 +2042,7 @@ exports[`column view DOM > renders with no events 1`] = `
 </div>
 </div>
 </div>
-<div class=" day-column future-day " style="grid-column:3;grid-row:1;">
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
@@ -2078,7 +2078,7 @@ exports[`column view DOM > renders with no events 1`] = `
 
 exports[`column view DOM > suppresses empty day columns 1`] = `
 "<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
-<div class=" day-column today " style="grid-column:1;grid-row:1;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
 <div class="column-day-header">
 <div class=" column-date-content ">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">

@@ -772,18 +772,33 @@ describe('column view DOM', () => {
       expect(requireElement<HTMLElement>(container, '.column-separator').style.width).toBe('2px');
     });
 
-    it('places both columns and separators explicitly so neither displaces the other', () => {
+    it('places columns, week cells and separators explicitly so none displaces another', () => {
       const container = renderColumnContainer(EVENTS, spanConfig({ day_separator_width: '1px' }));
 
       const columns = Array.from(container.querySelectorAll<HTMLElement>('.day-column'));
 
       // Auto-placement fills only cells no explicitly-placed item claims, so a mix of
-      // the two would push the auto-placed columns into row 2 the moment a separator
-      // claimed a row-1 cell. Every item carries its own placement for that reason.
-      expect(columns.map((column) => column.style.gridRow)).toEqual(Array(15).fill('1'));
+      // the two would push the auto-placed columns off their row the moment a separator
+      // claimed a cell. Every item carries its own placement for that reason.
+      //
+      // Day columns live on row 2 because row 1 is the week-number band. That band is
+      // what a day separator stops at, so the row split is load-bearing rather than
+      // cosmetic: collapse the two rows again and day rules run back up through the
+      // week-number pills.
+      expect(columns.map((column) => column.style.gridRow)).toEqual(Array(15).fill('2'));
       expect(columns.map((column) => column.style.gridColumn)).toEqual(
         Array.from({ length: 15 }, (_, index) => String(index + 1)),
       );
+
+      const separators = Array.from(container.querySelectorAll<HTMLElement>('.column-separator'));
+
+      expect(separators.length).toBeGreaterThan(0);
+      for (const separator of separators) {
+        expect(separator.style.gridColumn).not.toBe('');
+        expect(separator.style.gridRow).toBe(
+          separator.classList.contains('column-separator-day') ? '2' : '1 / -1',
+        );
+      }
     });
   });
 

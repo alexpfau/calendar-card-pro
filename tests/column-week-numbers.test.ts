@@ -112,15 +112,20 @@ describe('column view week numbers', () => {
   it('emits a cell in every column, so headers cannot stagger', () => {
     const container = renderColumns(ACROSS_A_WEEK, { show_week_numbers: 'iso' });
     const columns = container.querySelectorAll('.day-column');
+    const cells = Array.from(container.querySelectorAll<HTMLElement>('.column-week-number'));
 
     expect(columns.length).toBeGreaterThan(1);
-    expect(container.querySelectorAll('.column-week-number')).toHaveLength(columns.length);
+    expect(cells).toHaveLength(columns.length);
 
-    // The class gates the extra grid row, so it has to be on every header too --
-    // otherwise the cells exist but land in the wrong area in some columns.
-    expect(container.querySelectorAll('.column-date-content.with-week-number')).toHaveLength(
-      columns.length,
-    );
+    // The cells are top-level items on the grid's band row, not children of a day
+    // column. That is what gives a day separator a row boundary to stop at, so each
+    // one has to carry its own placement -- a cell left to auto-placement would land
+    // in a day column's cell and stagger the header it displaced.
+    cells.forEach((cell, index) => {
+      expect(cell.parentElement?.classList.contains('column-grid')).toBe(true);
+      expect(cell.style.gridRow).toBe('1');
+      expect(cell.style.gridColumn).toBe(String(index + 1));
+    });
   });
 
   it('shows the number only on the column that starts a week', () => {
