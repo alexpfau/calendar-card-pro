@@ -1145,10 +1145,15 @@ different artefacts.
   there were 33 — having itself noted the newer commit was missing from its fetch. The fetch is
   the load-bearing half, not the ref, and three passes agreeing on a denominator is this
   bullet's own headline one level up: they agreed because they shared a brief, not because they
-  measured. The cheapest re-measurement is often the comment beside the suspected line: a fix
-  written from a real report tends to restate the defect in the reporter's own terms, which
-  separates _fixed_ from _still broken_ without a probe. Where it does not, the regression test
-  usually carries the reporter's scenario in its name.
+  measured. Report the figure with both endpoints — `<reviewed>..<tip> = N`, never a bare `N`:
+  that staleness took a separate investigation to uncover, and would have stated itself on its
+  face as `db91d09..b4eb8bf = 18`. The anchor is what makes a denominator checkable, and it
+  binds the corrector equally — the `33` sent in that correction was `34` before it arrived,
+  because the session issuing it was itself committing. The cheapest re-measurement is often
+  the comment beside the suspected line: a fix written from a real report tends to restate the
+  defect in the reporter's own terms, which separates _fixed_ from _still broken_ without a
+  probe. Where it does not, the regression test usually carries the reporter's scenario in its
+  name.
 - **Verifying the checkable half of a claim does not verify the claim.** A report that pairs
   code facts with a behavioural result invites you to check the facts, find them exact, and
   carry the result across on that credit. A sibling pass's control-design example cited two
