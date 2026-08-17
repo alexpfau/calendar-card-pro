@@ -166,6 +166,7 @@ export function getLabelType(label: unknown): LabelType {
 
 /**
  * The shape a calendar's label holds, preferring what the configuration says over what
+ * the value itself looks like.
  *
  * @param label Label value from a calendar's configuration
  * @param labelType Shape the configuration names, if it names one
