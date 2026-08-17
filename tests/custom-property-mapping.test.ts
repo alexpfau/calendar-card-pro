@@ -87,6 +87,19 @@ describe('custom property mapping', () => {
     expect(propsFor({ day_font_size: '20px' })['--calendar-card-date-column-width']).toBe('35px');
   });
 
+  it('derives the date column width in the unit the day font size was written in', () => {
+    // The pixel case above cannot see the defect this guards: deriving the width with
+    // `parseFloat` sized an `em` day number's column in `px` -- a `2em` font in a 3.5px
+    // column -- and turned a `calc()` font size into the literal `NaNpx`.
+    expect(propsFor({ day_font_size: '2em' })['--calendar-card-date-column-width']).toBe('3.5em');
+    expect(propsFor({ day_font_size: '1.5rem' })['--calendar-card-date-column-width']).toBe(
+      '2.625rem',
+    );
+    expect(
+      propsFor({ day_font_size: 'calc(1em + 2px)' })['--calendar-card-date-column-width'],
+    ).toBe('calc(1.75 * (calc(1em + 2px)))');
+  });
+
   it('dims the default empty day color and passes a configured one through', () => {
     const fallback = propsFor({ empty_day_color: Config.DEFAULT_CONFIG.empty_day_color });
     const custom = propsFor({ empty_day_color: 'rgb(14, 0, 0)' });

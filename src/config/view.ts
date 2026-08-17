@@ -328,6 +328,44 @@ export function isZeroLength(value: string): boolean {
   return match !== null && Number.parseFloat(match[1]) === 0;
 }
 
+/**
+ * Multiplies a resolved CSS length by a factor, keeping the author's unit.
+ *
+ * Several lengths in the card are derived from another rather than configured directly:
+ * list separators sit at a multiple of `day_spacing` (a week rule a full spacing away, a
+ * month rule one and a half), and the date column is 1.75× the `day_font_size` it holds.
+ * Computing those with `parseFloat` and re-appending `px` silently discards the unit, so
+ * `day_spacing: 2em` spaced the day tables by `2em` while spacing the rules between them
+ * by `2px` — the rules collapsed into the content they were meant to divide — and a `2em`
+ * day number was given a `3.5px` column to sit in. A `calc()` fared worse still: it parsed
+ * to `NaN` and emitted `NaNpx`, which is not a length at all.
+ *
+ * A simple `<number><unit>` length is scaled arithmetically so the common pixel case
+ * still emits a plain `15px` rather than a `calc()` a reader has to evaluate. Anything
+ * else — `calc()`, `var()`, or a unit this does not recognise — is wrapped and handed to
+ * the browser, which can resolve at layout time what this cannot resolve at render time.
+ * The wrap parenthesises the operand, because `calc(1.5 * var(--x, 1em + 2px))` would
+ * otherwise bind the multiplication to only the first term of a defaulted variable.
+ *
+ * The arithmetic is deliberately not rounded, matching what the previous pixel-only path
+ * emitted for the same inputs, so pixel output is unchanged to the byte.
+ *
+ * @param value - A resolved CSS length
+ * @param factor - Multiplier to apply
+ * @returns The scaled length in the original unit, or a `calc()` expression
+ */
+export function scaleLength(value: string, factor: number): string {
+  const trimmed = value.trim();
+  const match = /^([-+]?(?:\d*\.)?\d+)([a-z%]*)$/i.exec(trimmed);
+
+  if (match) {
+    const unit = match[2] || 'px';
+    return `${Number.parseFloat(match[1]) * factor}${unit}`;
+  }
+
+  return `calc(${factor} * (${trimmed}))`;
+}
+
 //-----------------------------------------------------------------------------
 // RESOLUTION
 //-----------------------------------------------------------------------------

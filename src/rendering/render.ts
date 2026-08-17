@@ -129,6 +129,11 @@ export function renderCardContent(state: 'loading' | 'error', language: string):
 /**
  * Create consistent separator styles for any type of horizontal separator. Properly calculates margins based on day_spacing to ensure vertical centering.
  *
+ * Offsets are derived with {@link ViewConfig.scaleLength} rather than `parseFloat`, so a
+ * `day_spacing` expressed in `em` positions the rules in `em` too. The day rule needs no
+ * scaling at all: its margin is one `day_spacing` by definition, so the configured value
+ * passes straight through.
+ *
  * @param lineWidth - Border width for the separator
  * @param lineColor - Border color for the separator
  * @param config - Card configuration for spacing values
@@ -141,15 +146,13 @@ function createSeparatorStyle(
   config: Types.Config,
   separatorType: 'day' | 'week' | 'month' = 'day',
 ): Record<string, string> {
-  const baseSpacing = parseFloat(config.day_spacing);
-
   if (separatorType === 'day') {
     return {
       borderTopWidth: lineWidth,
       borderTopColor: lineColor,
       borderTopStyle: 'solid',
       marginTop: '0px', // No additional margin needed on top (table already has margin)
-      marginBottom: `${baseSpacing}px`, // Equal spacing below
+      marginBottom: config.day_spacing, // Equal spacing below
     };
   }
 
@@ -158,14 +161,14 @@ function createSeparatorStyle(
     multiplier = Constants.UI.SEPARATOR_SPACING.MONTH;
   }
 
-  const finalSpacing = baseSpacing * multiplier;
+  const finalSpacing = ViewConfig.scaleLength(config.day_spacing, multiplier);
 
   return {
     borderTopWidth: lineWidth,
     borderTopColor: lineColor,
     borderTopStyle: 'solid',
-    marginTop: `${finalSpacing}px`,
-    marginBottom: `${finalSpacing}px`,
+    marginTop: finalSpacing,
+    marginBottom: finalSpacing,
   };
 }
 
@@ -253,16 +256,15 @@ function renderWeekRow(
     return nothing;
   }
 
-  const baseSpacing = parseFloat(config.day_spacing);
   const multiplier = isMonthBoundary
     ? Constants.UI.SEPARATOR_SPACING.MONTH
     : Constants.UI.SEPARATOR_SPACING.WEEK;
-  const finalSpacing = (baseSpacing * multiplier) / 2;
-  const marginTop = isFirstWeek ? 0 : finalSpacing - baseSpacing;
 
+  // The row carries half the separator spacing below it, and pulls up by whatever the
+  // day table's own margin already contributed, so the rule lands centred on the gap.
   const rowStyle = {
-    marginTop: `${marginTop}px`, // Adjusted margin that accounts for existing table margin
-    marginBottom: `${finalSpacing}px`, // Half of the desired spacing below
+    marginTop: isFirstWeek ? '0px' : ViewConfig.scaleLength(config.day_spacing, multiplier / 2 - 1),
+    marginBottom: ViewConfig.scaleLength(config.day_spacing, multiplier / 2),
   };
 
   const lineStyle: Record<string, string> = {};
