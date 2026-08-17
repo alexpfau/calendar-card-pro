@@ -1104,5 +1104,14 @@ different artefacts.
   expensive half is every place it was already turned into a rule: an imperative three
   sections away, a parsed table cell, a test that pins it, or the code a document describes.
   A document-to-document audit cannot see the last of those.
+- **Independent agreement is evidence about the code both reviewers read, not about the tip.**
+  Two reviewers converging is the strongest corroboration available, and it held here — on a
+  defect the intervening 47 and 50 commits had already fixed. Convergence localises
+  _when_, not _whether_, so take the reviewed SHA and `git rev-list --count <sha>..HEAD`
+  before the finding, and re-measure before acting. The cheapest re-measurement is often the
+  comment beside the suspected line: a fix written from a real report tends to restate the
+  defect in the reporter's own terms, which separates _fixed_ from _still broken_ without a
+  probe. Where it does not, the regression test usually carries the reporter's scenario in
+  its name.
 - **Equal sizes are not identity, and a bundle figure needs its compression level _and_ its
   build variant.** Hash instead.
