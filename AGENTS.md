@@ -1113,5 +1113,21 @@ different artefacts.
   defect in the reporter's own terms, which separates _fixed_ from _still broken_ without a
   probe. Where it does not, the regression test usually carries the reporter's scenario in
   its name.
+- **"Already fixed at the tip" does not establish that a report was stale.** A triage run
+  against a tip that has already absorbed the report cannot detect the report: it reports
+  _already fixed, no action needed_ whether the finding was genuine prior art or was live
+  and provoked the very commit being cited back at it. Those two cases are indistinguishable
+  from the triage side, and under parallel passes the second is the common one — so the
+  author of a live finding is told their pass produced nothing. Date the evidence before
+  trusting it:
+
+  ```bash
+  git log -1 --format=%ad --date=iso <cited-fix-sha>
+  ```
+
+  A commit offered as proof that a report predates it, yet timestamped _after_ that report,
+  was caused by it. Corroborate with `git show --stat <sha>`, which should land on the files
+  the report named — timing alone can coincide, timing plus overlapping files does not.
+
 - **Equal sizes are not identity, and a bundle figure needs its compression level _and_ its
   build variant.** Hash instead.
