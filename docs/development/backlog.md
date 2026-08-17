@@ -125,7 +125,17 @@ counterpart in `normalizeColumnValue` and document the range, or drop it.**
 `computeRGBA` in `src/utils/helpers.ts` returns `rgba(var(--calendar-color-rgb, 3, 169, 244),
 …)`, and `--calendar-color-rgb` has exactly one occurrence in `src/` — that line itself. No
 stylesheet or inline style ever sets it, so the fallback light blue always wins and a themed
-`var(--primary-color)` input never reaches the rendered colour.
+`var(--primary-color)` input never reaches the rendered colour. Re-confirmed at the v4 tip,
+and the line does ship in `dist/calendar-card-pro.js`.
+
+**It is not reachable on default config, which is what bounds the severity.** Two opt-ins are
+both required. `accent_color` defaults to `#03a9f4`, a hex, so the `var(` branch is not taken;
+and `event_background_opacity` defaults to `0`, on which `getEntityAccentColorWithOpacity`
+returns before calling `convertToRGBA` at all. A user has to set a `var()` colour _and_ raise
+the opacity, and no page documents `var()` as a value for that option — the `var()` usages in
+`theming.md` are all card-mod CSS, which is a different surface. Note also that the hard-coded
+fallback `3, 169, 244` **is** `#03a9f4`, so the symptom is not a wrong-looking card but a
+themed colour silently collapsing to the default accent.
 
 Resolving the colour eagerly is the wrong fix, and was declined for that reason. The branch
 returns a live CSS expression precisely so the value stays reactive to a theme switch, and
@@ -140,18 +150,49 @@ then deferred on the same reasoning: a new harness added at release point spends
 false positive at the worst possible moment, while the same harness added after a release
 costs only a re-run.
 
-**The v4 test suite has not been mutation-tested.** 95 test files were added on this branch,
-and nothing has systematically checked them for assertions that pass whether or not the
-behaviour under test exists. The risk is demonstrated rather than theoretical: a zero-length
-probe during review reported "no throw" for the month and week separators, but only because
-its fixture rendered a single day, so `prevDay &&` short-circuited before `isZeroLength` ran,
-and a second fixture crossed no month boundary. Two of eight crash combinations were invisible
-to a probe that read as correct.
+**The v4 test suite has now been partly mutation-tested, and the results are uneven.** 95 test
+files were added on this branch. The sweeps below used type-safe operator swaps only, so a
+surviving mutant means the suite could not see a change that compiled — not that the source is
+wrong. Where a survivor was traced, it is classified; where it was not, it is listed as
+untriaged rather than as a defect.
 
-The known-risky places have already been swept by hand and came back connected: all seven
-`FETCH_TIME_KEYS` fail `npm test` when dropped, the `COLUMN_OVERRIDE_KEYS` and `fitColumns`
-epsilon probes were both null, and an off-default hypothesis dissolved under measurement at
-109 keys with none lacking a test reference. **What remains is breadth.**
+| File                       | Sites | Killed | Survived | Reading                                      |
+| -------------------------- | ----: | -----: | -------: | -------------------------------------------- |
+| `src/config/view.ts`       |    52 |     49 |        3 | all three unreachable or equivalent          |
+| `src/calendar-card-pro.ts` |  28\* |     17 |       10 | **weakest of the three; see the list below** |
+| `src/utils/events.ts`      |   131 |     81 |       50 | largely defensive guards; partly untriaged   |
+
+\* A curated subset of the host element's operator sites, not all of them. Two more — the
+`updated()` guard at the `hass`-just-arrived test, and the weather-config comparison beside it
+— **cannot be swept at all**: relaxing either makes `updated()` call `updateEvents()`, which
+sets reactive properties and re-enters `updated()`, so the mutant loops forever and hangs the
+runner rather than failing it. Any harness aimed at this file needs a per-mutant timeout.
+
+The three `view.ts` survivors resolve cleanly and need nothing: `unit <= 0` in `fitColumns` is
+unreachable because `normalizeColumnValue` floors numeric column options at `> 0`, the
+`measuredWidthPx <= 0` guard is the same shape, and the hysteresis half-band's `- 1` is
+absorbed by the clamp. The `fitColumns` epsilon is documented in place as unkillable.
+
+The host element's ten survivors are worth closing next cycle, and they cluster:
+
+- **The suite is English-only end to end.** `this._language || 'en'` in `effectiveLanguage`,
+  and both halves of the language-recompute condition in `updated()`, all survive — every
+  fixture resolves to `en`, so a getter hard-wired to English is indistinguishable from a
+  correct one. This is the largest of the ten and the cheapest to fix: one host-level test in a
+  non-English language.
+- **Title-template state.** `isTitlePending` returns `isTemplate(title) && renderedTitle ===
+undefined`; relaxing it to `||` marks a plain string title as pending and nothing notices.
+- **Interaction edge.** The tap branch's `!this._holdTriggered` guard survives, because
+  `hold_action` defaults to `{ action: 'none' }` and is therefore always truthy, so the hold
+  branch always wins first. It becomes reachable only when a user writes a bare `hold_action:`
+  in YAML — the shallow-merge hazard recorded above — and a hold would then also fire the tap
+  action.
+- **Untriaged:** the refresh-interval fallback, the weather-subscription guard, the
+  initial-load retry cleanup, the `isLimit` numeric test, and the empty-state branch in
+  `render`.
+
+**What remains is breadth**, and specifically `src/rendering/` — `leaves.ts`, `render.ts`,
+`column.ts`, `presentation.ts` and `styles.ts` have not been mutation-tested at all.
 
 **No gate cross-checks documented CSS classes against emitted ones.** `theming.md` lists the
 classes the card exposes, the renderers emit them, and nothing compares the two sets. The
