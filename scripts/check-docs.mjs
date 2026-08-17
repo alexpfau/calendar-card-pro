@@ -373,7 +373,7 @@ function checkCoverage(fields, docs) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 18 — markdown that silently degrades to plain text
+// Check 27 — markdown that silently degrades to plain text
 // ---------------------------------------------------------------------------
 
 /**
@@ -1020,7 +1020,7 @@ function checkPageIntros(docs) {
 }
 
 // ---------------------------------------------------------------------------
-// Checks 12-14 — spelling, option tables, bidirectional cross-links
+// Checks 12-15 — spelling, option tables, bidirectional cross-links
 // ---------------------------------------------------------------------------
 
 /** Check 12: US spelling around US-spelled config options. */
@@ -1872,7 +1872,7 @@ function checkDeprecatedTable(maps) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 23 - every published page is reachable from the site navigation
+// Check 23 — every published page is reachable from the site navigation
 // ---------------------------------------------------------------------------
 
 /** Routes deliberately absent from the nav and sidebar. */
@@ -1943,7 +1943,7 @@ function checkPageReachability(docs, routes) {
 }
 
 // ---------------------------------------------------------------------------
-// Check 24 - the documented theme defaults match the fallbacks the card ships
+// Check 24 — the documented theme defaults match the fallbacks the card ships
 // ---------------------------------------------------------------------------
 
 /**
@@ -2041,7 +2041,7 @@ function checkThemeDefaults(rows) {
   return reconciled;
 }
 
-// Check 25 - no source comment cites a line number that no longer exists
+// Check 25 — no source comment cites a line number that no longer exists
 
 /**
  * Flags `file.ext:NNN` citations in comments that point past the end of the file they
@@ -2122,7 +2122,7 @@ function checkCitations() {
   return checked;
 }
 
-// Check 26 - no link points into our own GitHub README with a content fragment
+// Check 26 — no link points into our own GitHub README with a content fragment
 //
 // The README stopped being the manual in v4: it is a landing page whose sections are
 // Overview, Installation, Quick Start, What's New and Contributing, and everything it used
@@ -2130,7 +2130,7 @@ function checkCitations() {
 // still resolve to a page — GitHub simply ignores an anchor it cannot find and drops the
 // reader at the top — so nothing is visibly broken and no check has ever looked.
 //
-// Check 16 only resolves relative links inside `docs/`, so an absolute link to our own
+// Check 7 only resolves relative links inside `docs/`, so an absolute link to our own
 // repository is outside its reach, and `.github/` metadata is not scanned at all. Three
 // links survived that way: two in the release notes and one in the pull request template.
 //

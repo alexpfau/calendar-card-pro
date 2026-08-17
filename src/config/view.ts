@@ -198,7 +198,13 @@ export function entityScopeFor(key: string): ReadonlySet<Types.EffectiveView> | 
 }
 
 // Fetch-time options cannot become view overrides because switching views must not refetch.
-const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
+//
+// Exported so `tests/view-config.test.ts` can iterate this set rather than keep a second
+// hand-written copy of it. The two lists were maintained in parallel, which gated the
+// removal direction only: adding an eighth key here and to `COLUMN_OVERRIDE_KEYS` left a
+// literal list of seven unchanged and nothing failed, so the override was accepted, stored,
+// and then ignored at fetch time — a no-op wearing the costume of a feature.
+export const FETCH_TIME_KEYS: ReadonlySet<string> = new Set([
   'entities',
   'start_date',
   'days_to_show',

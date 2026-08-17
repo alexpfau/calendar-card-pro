@@ -8,6 +8,7 @@ import {
   COLUMN_DEFAULT_OVERRIDES,
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
+  FETCH_TIME_KEYS,
   VIEW_SWITCH_HYSTERESIS_PX,
   computeColumnThresholdPx,
   computeColumnThresholdPxFor,
@@ -791,16 +792,15 @@ describe('column view config surface', () => {
     // by whether an option sounds like it selects events — see the note on
     // FETCH_TIME_KEYS. The two are now overridable and covered by
     // tests/view-content-overrides.test.ts.
-    for (const key of [
-      'entities',
-      'start_date',
-      'days_to_show',
-      'first_day_of_week',
-      'weather',
-      'refresh_interval',
-      'refresh_on_navigate',
-    ]) {
-      expect(COLUMN_OVERRIDE_KEYS).not.toContain(key);
+    //
+    // Iterating the exported set rather than a literal copy of it is what makes this gate
+    // fire in the addition direction: a new fetch-time key is covered the moment it is
+    // declared. The assertion below pins the size so that emptying the set — which would
+    // make the loop vacuous and the test green — fails instead.
+    expect(FETCH_TIME_KEYS.size).toBe(7);
+
+    for (const key of FETCH_TIME_KEYS) {
+      expect(COLUMN_OVERRIDE_KEYS, key).not.toContain(key);
     }
   });
 
