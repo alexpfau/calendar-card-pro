@@ -1072,8 +1072,13 @@ different artefacts.
 
 **Rules that follow from those.**
 
-- **A null must prove it can be non-zero.** Print a denominator; plant a real violation and
-  confirm it is caught _before_ mutating. A mutation that changes no observable behaviour is
+- **A null must prove it can be non-zero — and so must a passing control.** Print the
+  denominator _beside_ the verdict, not as a separate step: `CONTROL x -> old:true new:true`
+  cannot expose a corpus defect, whereas the same line carrying the size of what it looked
+  at makes a short count something you catch by reading rather than by luck. Compare
+  `ls src/rendering/editor/*.ts` with `find src/rendering/editor -name '*.ts'` for a live
+  flat glob that silently drops most of a nested tree. Plant a real violation and confirm
+  it is caught _before_ mutating. A mutation that changes no observable behaviour is
   evidence about the corpus, not the code.
 - **`grep` exits 1 on no match — read the status, not the count.** `grep -c` saturates at 1
   after flattening; use `grep -o … | wc -l`.
