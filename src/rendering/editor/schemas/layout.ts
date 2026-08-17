@@ -71,7 +71,18 @@ function densityGroup(blockKey: string, daysToShow: number, language: string): H
         schema: [
           {
             name: 'min_day_width',
-            selector: { number: { min: 60, max: 400, step: 1, unit_of_measurement: 'px' } },
+            // No ceiling: `normalizeColumnValue` accepts any positive number, and the
+            // arithmetic in `computeColumnThresholdPxFor` has no upper bound either — a
+            // large floor simply means "give me columns only if each can be this wide",
+            // which is a real config on a wide dashboard card. A `max` here made that
+            // unauthorable in the editor while YAML accepted it, and it was the only
+            // arbitrary ceiling among the editor's numeric selectors (`min_days_to_show`
+            // derives its own from `days_to_show`). The floor is `1` for the same reason:
+            // it is the smallest integer the runtime's `parsed > 0` test admits at this
+            // step. Dropping `max` also settles the control type, since Home Assistant
+            // renders a slider only when both bounds are present — `mode` states that
+            // rather than leaving it to be inferred.
+            selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
           },
           {
             name: 'min_days_to_show',

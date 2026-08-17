@@ -62,6 +62,22 @@ function listReachableText(declaration: string): Array<[string, string]> {
   return listReachable(declaration).filter(([sel]) => sel.includes('.event-weather-text'));
 }
 
+/**
+ * As above, but restricted to rules whose *subject* is the wrapper rather than something
+ * inside it.
+ *
+ * `.event-weather .event-weather-text > span` also contains `.event-weather-text`, so a
+ * substring search cannot tell "the wrapper is styled" from "the wrapper's children are
+ * styled". That distinction is the whole of the 1px defect below, and it is why the
+ * declaration moving between those two selectors was invisible to every assertion in this
+ * file. A selector whose final compound is the wrapper ends with it.
+ */
+function wrapperRules(declaration: string): Array<[string, string]> {
+  return listReachable(declaration).filter(([sel]) =>
+    sel.split(',').some((part) => part.trim().endsWith('.event-weather-text')),
+  );
+}
+
 describe('event weather badge styling', () => {
   it('the stylesheet parses into rules at all (denominator)', () => {
     // A parser that silently returns [] would make every assertion below vacuous.
@@ -78,6 +94,28 @@ describe('event weather badge styling', () => {
     it('supplies a text colour that does not require .time-location', () => {
       const found = listReachableText('--calendar-card-weather-event-color');
       expect(found.length).toBeGreaterThan(0);
+    });
+
+    it('sizes the wrapper itself, not only the chips inside it', () => {
+      // The chips render at the same size either way, since they inherit it. What differs
+      // is the wrapper's line box: left at the inherited 14px event font it builds a
+      // strut from 14px and measures 4px taller than its contents, dropping the glyphs
+      // 1px against v3.6.0. Nothing reflows, which is why review never caught it.
+      //
+      // Reachability is not enough to pin this. `> span` is reachable, and `> span` is
+      // the defect.
+      const onWrapper = wrapperRules('--calendar-card-weather-event-font-size');
+      expect(onWrapper.length).toBeGreaterThan(0);
+    });
+
+    it('the wrapper filter discriminates by selector, not by declaration (control)', () => {
+      // font-weight is list-reachable — `.event-weather` carries it, and so does
+      // `.event-weather .weather-uv-index` — and on neither is the wrapper the subject.
+      // A filter that matched on the declaration alone, or that searched the selector by
+      // substring, would return those. Both halves must hold: a non-empty left side
+      // proves the corpus is not simply missing font-weight.
+      expect(listReachable('font-weight').length).toBeGreaterThan(0);
+      expect(wrapperRules('font-weight')).toEqual([]);
     });
 
     it('falls back to the secondary text colour, as v3 shipped', () => {

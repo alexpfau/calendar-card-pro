@@ -79,8 +79,13 @@ export function renderMainCardStructure(
         : nothing}
 
       <!-- Title is always rendered with the same structure, even if empty.
-           A templated title keeps the h1 from first paint so the element
-           identity does not change when its value arrives. -->
+           A templated title holds the h1 open from first paint, so the header
+           does not gain 16px of margin the moment its value arrives. That is a
+           claim about the *pending* window only: once a value is in hand the
+           header behaves exactly as it would for a static title of the same
+           text, so a template resolving to an empty string collapses back to
+           the zero-height placeholder rather than leaving an empty heading
+           taking up space forever. -->
       <div class="header-container">
         ${title || titlePending
           ? html`<h1 class="card-header">${title}</h1>`

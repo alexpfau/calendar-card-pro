@@ -783,7 +783,13 @@ class CalendarCardPro extends LitElement {
     this._activePointerId = ev.pointerId;
     this._holdTriggered = false;
 
-    if (this.config.hold_action?.action !== 'none') {
+    // Both operands are load-bearing, and the second alone was the defect: optional
+    // chaining makes `null?.action !== 'none'` true, so a bare `hold_action:` in YAML —
+    // which the user wrote to mean "nothing on hold" — armed the timer and drew a hold
+    // indicator for an action `_handlePointerUp` would then refuse to run, swallowing
+    // the tap with it. Requiring the block to exist makes this agree with the release
+    // branch there, and with the documented `hold_action: none`.
+    if (this.config.hold_action && this.config.hold_action.action !== 'none') {
       if (this._holdTimer) {
         clearTimeout(this._holdTimer);
       }
