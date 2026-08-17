@@ -1134,13 +1134,17 @@ different artefacts.
   A document-to-document audit cannot see the last of those.
 - **Independent agreement is evidence about the code both reviewers read, not about the tip.**
   Two reviewers converging is the strongest corroboration available, and it held here — on a
-  defect the intervening 47 and 50 commits had already fixed. Convergence localises
-  _when_, not _whether_, so take the reviewed SHA and `git rev-list --count <sha>..HEAD`
-  before the finding, and re-measure before acting. The cheapest re-measurement is often the
-  comment beside the suspected line: a fix written from a real report tends to restate the
-  defect in the reporter's own terms, which separates _fixed_ from _still broken_ without a
-  probe. Where it does not, the regression test usually carries the reporter's scenario in
-  its name.
+  defect the intervening 47 and 50 commits had already fixed. Convergence localises _when_,
+  not _whether_, so measure the reviewed SHA's distance before the finding and re-measure
+  before acting — `git fetch` first, then `git rev-list --count <sha>..origin/<branch>`, never
+  against a SHA quoted in a brief. Two passes here did that arithmetic correctly and still
+  reported 25 commits of drift where there were 38, because the tip they had been handed was
+  itself 13 stale; a worktree sitting at that SHA answers `0` to `<sha>..HEAD` and reads as
+  current. A symbolic ref cannot go stale, a pasted one silently can. The cheapest
+  re-measurement is often the comment beside the suspected line: a fix written from a real
+  report tends to restate the defect in the reporter's own terms, which separates _fixed_ from
+  _still broken_ without a probe. Where it does not, the regression test usually carries the
+  reporter's scenario in its name.
 - **Verifying the checkable half of a claim does not verify the claim.** A report that pairs
   code facts with a behavioural result invites you to check the facts, find them exact, and
   carry the result across on that credit. A sibling pass's control-design example cited two
