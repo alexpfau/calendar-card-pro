@@ -329,7 +329,11 @@ function bareNumber(value: unknown): string | undefined {
  * Descent requires a plain object on **both** sides. That excludes arrays — `entities` has
  * no per-index shipped default to descend into, so walking it could only do harm — and it
  * excludes any key the defaults do not describe, such as the `column:` block, whose own
- * keys are coerced by `resolveEffectiveConfig` against `COLUMN_DEFAULTS` instead.
+ * keys are coerced during view resolution instead. Neither kind of key the block holds
+ * reaches this walk, and the two are coerced by different resolvers against different
+ * tables: `resolveEffectiveConfig` hoists the ones that override a top-level option and
+ * coerces them against `DEFAULT_CONFIG`, while the column-only keys are coerced on read
+ * by `resolveColumnOption` against `COLUMN_DEFAULTS`.
  *
  * **Nested groups are copied, never written through.** Home Assistant hands cards a frozen
  * configuration, and `setConfig` merges it shallowly — so `config.weather` and
