@@ -9,14 +9,15 @@ public release in January 2025 to today.
 ## Latest Release: v4.0
 
 - 🗓️ **Column View**: Lay the days [side by side, one column each](/features/column-view), instead of stacking them — the same agenda, rotated, with its own per-view overrides and a responsive fallback to the list layout
-- ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with [search, a customized-only filter](/features/editor#search-customized-only), per-calendar settings, and [per-view exceptions](/features/editor#column-view-exceptions)
-- 🌍 **Nine Fully Translated Editor Languages**: German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish, complete — with per-string fallback so a partial translation still renders
+- ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with a [search box that finds any setting by name or YAML key](/features/editor#search-customized-only), a customized-only filter, per-calendar settings, and [per-view exceptions](/features/editor#column-view-exceptions)
 - ⚡ **41% Smaller to Download**: The editor moved into a file the card fetches only when you open it, taking it and all its translations off the path every dashboard pays for
+- ⚡ **Fewer Round-Trips on Every Page Load**: One card load asked Home Assistant for the same events up to four times; requests are now deduplicated, and two display-only switches no longer discard a valid cache entry
+- 🌍 **Nine Fully Translated Editor Languages**: German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish, complete — with per-string fallback so a partial translation still renders
 - 📏 **Per-Field Line Limits**: Cap the lines used by a title, time or location with [`title_max_lines`, `time_max_lines` and `location_max_lines`](/features/event-content#limiting-lines-per-field)
 - 🌦️ **Weather in Column View**: A row of its own beneath the time, optionally [stating the condition in words](/features/weather#weather-in-the-column-layout) in your language
+- 🐛 **Dates, Clocks and Week Numbers**: [Week numbers](/features/layout-appearance#week-numbers-visual-separators) were wrong for one date in seven outside UTC, the clock format disagreed with Home Assistant's own locale data for 33 of its 64 languages, and `first_day_of_week: system` returned Monday to everyone
 - 🩺 **Diagnosable Released Builds**: Turn the card's full logging back on from the browser console when [reporting a bug](/contributing#reporting-a-bug)
 - ⚠️ **Breaking**: Manual installs now copy [two files](/guide/installation#manual-installation), `event_icon_vertical_alignment` defaults to `top`, and weather badges are styled through [custom properties](/features/theming#weather-custom-properties) instead of inline styles
-- 🐛 **24-Hour Clocks in 24-Hour Locales**: The clock format came from a hardcoded language list that disagreed with Home Assistant's own locale data for 33 of the 64 languages it ships, so a dozen languages read `1:00 PM` where they write `13:00`
 
 ## v3.6
 
