@@ -1095,6 +1095,17 @@ different artefacts.
   while the corpus sat clean at zero. Widening a gate to the runtime's own class cannot
   yield false positives by construction — a property of the pattern, not of the tree it
   happened to be measured against.
+- **A string match is a location, not a verdict.** `grep` tells you which line to read; only
+  reading tells you whether the claim holds. Three false conclusions here stopped at the
+  match. A _paraphrase_ — `ReadonlyArray<...>` for the source's
+  `ReadonlyArray<Types.ColumnOverrides & keyof Types.Config>` — returned zero at a commit
+  where the annotation demonstrably existed, and was called invented. A search for `shallow`
+  read `AGENTS.md` while the text lived in `backlog.md`, and its zero nearly landed an
+  unneeded commit on a release branch. A hit on "structurally incapable" was called an
+  overstatement without reading its subject — _the parity tests_, not the suite — or the
+  bound stated on the next line. Wrong form, wrong file, wrong unit, one cause. Derive the
+  search target from the commit's own `--stat`, quote the source rather than your memory of
+  it, and state the claim as a sentence before testing it.
 - **`grep` exits 1 on no match — read the status, not the count.** `grep -c` saturates at 1
   after flattening; use `grep -o … | wc -l`.
 - **Regex a file for its _shape_, import it for its _values_.** And when the machine reads a
