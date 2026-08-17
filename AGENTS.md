@@ -1141,6 +1141,14 @@ different artefacts.
   defect in the reporter's own terms, which separates _fixed_ from _still broken_ without a
   probe. Where it does not, the regression test usually carries the reporter's scenario in
   its name.
+- **Verifying the checkable half of a claim does not verify the claim.** A report that pairs
+  code facts with a behavioural result invites you to check the facts, find them exact, and
+  carry the result across on that credit. A sibling pass's control-design example cited two
+  lines that proved correct to the character, and the asymmetry built on them did not
+  reproduce: the constant it described as harmlessly absorbed killed nearly as many tests as
+  the expression it described as load-bearing, where its argument required zero. The half
+  cheap enough to check is rarely the half doing the work, so reproduce the result or drop
+  the example — this document is the wrong place to discover which.
 - **"Already fixed at the tip" does not establish that a report was stale.** A triage run
   against a tip that has already absorbed the report cannot detect the report: it reports
   _already fixed, no action needed_ whether the finding was genuine prior art or was live
