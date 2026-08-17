@@ -16,7 +16,7 @@ public release in January 2025 to today.
 - 🌦️ **Weather in Column View**: A row of its own beneath the time, optionally [stating the condition in words](/features/weather#weather-in-the-column-layout) in your language
 - 🩺 **Diagnosable Released Builds**: Turn the card's full logging back on from the browser console when [reporting a bug](/contributing#reporting-a-bug)
 - ⚠️ **Breaking**: Manual installs now copy [two files](/guide/installation#manual-installation), `event_icon_vertical_alignment` defaults to `top`, and weather badges are styled through [custom properties](/features/theming#weather-custom-properties) instead of inline styles
-- 🐛 **Cached Events Ignored Config Edits**: An edited per-calendar label, color or toggle had no effect until the cache expired
+- 🐛 **24-Hour Clocks in 24-Hour Locales**: The clock format came from a hardcoded language list that disagreed with Home Assistant's own locale data for 33 of the 64 languages it ships, so a dozen languages read `1:00 PM` where they write `13:00`
 
 ## v3.6
 
