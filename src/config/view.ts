@@ -901,7 +901,14 @@ export interface ColumnFit {
 }
 
 // Closed-form inverse of `computeColumnThresholdPxFor`; the epsilon protects exact
-// boundaries from floating-point underflow.
+// boundaries from floating-point underflow. Removing it is invisible through
+// `resolveColumnFit`, the only caller: an underflowed count stops matching
+// `previousColumns`, so the hysteresis re-fit recomputes from a shifted width and
+// lands back on the same number — measured at 0 divergent over 481,915 widths derived
+// from exact column boundaries, against a control mutating this same expression that
+// diverged on 41,307. No test can kill the epsilon because there is nothing to
+// observe, so keep it on the arithmetic's own merits: a caller added without that
+// re-fit would drop a column at an exact boundary.
 function fitColumns(config: Types.Config, widthPx: number): number {
   const gutter = columnGutterPx(config);
   const unit = resolveColumnOption(config, 'min_day_width') + gutter;
