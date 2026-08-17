@@ -1080,6 +1080,12 @@ different artefacts.
   flat glob that silently drops most of a nested tree. Plant a real violation and confirm
   it is caught _before_ mutating. A mutation that changes no observable behaviour is
   evidence about the corpus, not the code.
+- **A denominator bounds the corpus, not the search.** "0 of 1,939 lines" is a true,
+  well-formed null that still misses every defect its pattern cannot express — a truncation
+  probe matching only lines that end in a comma reported zero across the whole tree while
+  `resolveLabelType`'s summary ended in the stranded word "what". Enlarging the corpus makes
+  such a null more confident without making it more correct, so quote the match set beside
+  the count.
 - **`grep` exits 1 on no match — read the status, not the count.** `grep -c` saturates at 1
   after flattening; use `grep -o … | wc -l`.
 - **Regex a file for its _shape_, import it for its _values_.** And when the machine reads a
