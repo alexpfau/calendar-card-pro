@@ -511,10 +511,21 @@ replacement is only live once it reaches `main`.
 - for a new language: the supported-languages list in `docs/contributing.md` **and all
   three hardcoded counts**. Derive them rather than incrementing by hand — they are prose,
   so nothing fails when they drift, and they were wrong for three consecutive releases:
+
   ```bash
-  ls src/translations/languages/*.json | wc -l          # total languages
-  ls src/rendering/editor/translations/*.json | wc -l   # editor languages
+  ls src/translations/languages/*.json | wc -l                            # card languages
+  echo $(( $(ls src/rendering/editor/translations/*.json | wc -l) + 1 ))  # editor languages
   ```
+
+  **The `+ 1` is not a rounding error, and the editor count is the one that keeps going
+  wrong.** US English has no file — it lives in `src/rendering/editor/strings.ts` — so
+  counting the directory undercounts by one. `en-GB.json` is a _delta_ of ~36 strings
+  rather than a full translation, so it is easy to skip as well, and the nine complete
+  files are easy to mistake for the whole set. All three are languages the editor renders
+  in, and the total is **11**: US English in code, British English as a delta, and nine
+  translated in full. Do not write "nine editor languages" — that is the count of the
+  files that happen to be complete, not the count of languages a user can get.
+  `docs/contributing.md` states the breakdown correctly; check against it.
 
 Run `npm run docs:build` before pushing. `ignoreDeadLinks` is deliberately **off**, so an
 internal link to a heading you renamed fails the build instead of shipping broken.
@@ -901,7 +912,9 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    - add the base code to the `supportedLocales` array inside `mapLocale()`
 5. `docs/contributing.md` — the supported-languages list **and the three hardcoded counts**
    (see _Documenting a change_). The counts are prose, so nothing fails when they
-   are wrong; they drifted for three releases before anyone noticed.
+   are wrong; they drifted for three releases before anyone noticed. Count the editor
+   languages as files **+ 1**, because US English lives in `strings.ts` and not in
+   `translations/`; the answer is 11, not 9 and not 10.
 
 Omitting the `supportedLocales` entry (4b) is a **silent failure**: the language works
 everywhere except relative times, which quietly fall back to English. Catalan and
