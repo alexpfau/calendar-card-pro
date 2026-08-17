@@ -169,7 +169,25 @@ npm run build
 npm run check:bundle   # after the build — it reads dist/
 ```
 
-Those nine are every npm gate CI runs, so a green local run should mean a green PR.
+Those nine are every npm gate CI runs, so a green local run should mean a green PR —
+**provided you run them on the Node version in `.nvmrc`.** CI reads that file, and results
+that pass through zlib or npm are not portable across majors. A gate reconciling the gzipped
+transfer sizes documented in `docs/guide/installation.md` was written and proven green on
+Node 25, then failed in CI on Node 22: Node 24+ ships zlib-ng and Node 22 ships classic
+zlib, so identical bundle bytes compressed to 57,860 and 58,448 — a ~1% spread that happened
+to straddle a kilobyte. Nothing was wrong with the bundle or the figure. `nvm use` first, or
+run the gate under the pin without switching:
+
+```bash
+npx -y -p node@22 node scripts/check-bundle.mjs
+```
+
+This is the same class of failure as the `.nvmrc` / `.node-version` drift described under
+_Docs site deployment_, arriving from the other direction: there the two pinned files
+disagreed, here the developer disagreed with both. Byte counts are reproducible and can be
+asserted exactly; anything a compressor or a package manager produces needs either the
+pinned runtime or a tolerance.
+
 `check:docs` is the one that
 surprises people: it is described under _Documenting a change_ below, which makes it look like a
 docs-only concern, but it gates **every** PR. A change touching no `src/` file at all can
