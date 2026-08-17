@@ -37,7 +37,6 @@ const noopHandlers = {
 function wrapper(
   opts: {
     view?: Types.EffectiveView;
-    maxHeightSet?: boolean;
     title?: string;
     isLoading?: boolean;
     titlePending?: boolean;
@@ -50,7 +49,6 @@ function wrapper(
       opts.title,
       html`<div class="sentinel"></div>`,
       noopHandlers,
-      opts.maxHeightSet ?? false,
       opts.isLoading ?? false,
       opts.titlePending ?? false,
       opts.view ?? 'list',
@@ -83,23 +81,13 @@ describe('Y20 — the card wrapper', () => {
     expect(classes(card)).toEqual(['calendar-card-pro']);
   });
 
-  it('adds column-view only in column view', () => {
-    expect(classes(wrapper({ view: 'column' })).sort()).toEqual([
-      'calendar-card-pro',
-      'column-view',
-    ]);
-    expect(classes(wrapper({ view: 'list' }))).not.toContain('column-view');
-  });
-
-  it('adds max-height-set only when a max height is set', () => {
-    expect(classes(wrapper({ maxHeightSet: true }))).toContain('max-height-set');
-    expect(classes(wrapper({ maxHeightSet: false }))).not.toContain('max-height-set');
-  });
-
-  it('combines both conditional classes without a stray separator', () => {
-    const card = wrapper({ view: 'column', maxHeightSet: true });
-    expect(classes(card).sort()).toEqual(['calendar-card-pro', 'column-view', 'max-height-set']);
+  it('adds column-view only in column view, without a stray separator', () => {
+    const card = wrapper({ view: 'column' });
+    expect(classes(card).sort()).toEqual(['calendar-card-pro', 'column-view']);
+    // `viewCssClass` returns '' for list view, so the join must not leave padding
+    // behind on either side of the conditional class.
     expect(card.getAttribute('class')).not.toMatch(/\s{2}|^\s|\s$/);
+    expect(classes(wrapper({ view: 'list' }))).not.toContain('column-view');
   });
 
   it('keeps the header container present whether or not there is a title', () => {

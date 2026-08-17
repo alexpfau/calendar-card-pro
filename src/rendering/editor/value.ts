@@ -15,22 +15,6 @@ const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
 const WEATHER_GROUPS = ['date', 'event'] as const;
 
 /**
- * Narrows a value to a configuration block we can safely enumerate.
- *
- * YAML turns a key written with nothing after it into `null`, so `date:` alone on its
- * line — an easy way to start a nested block and not finish it — reaches us as `null`
- * rather than as a missing key, and a mistyped block arrives as a bare scalar.
- * `Object.entries` throws on the first and silently enumerates the characters of the
- * second, so both have to be rejected before the value is walked.
- *
- * @param value - Any value read from a user-supplied configuration
- * @returns True when the value is a plain object safe to enumerate
- */
-function isConfigBlock(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-/**
  * Structural comparison, enough for the small plain objects a config holds.
  *
  * @param a - One value
@@ -108,7 +92,7 @@ export function stripColumnDefaults(
 ): Record<string, unknown> | undefined {
   const block = config.column;
 
-  if (!isConfigBlock(block)) {
+  if (!Helpers.isConfigBlock(block)) {
     return undefined;
   }
 
@@ -335,7 +319,7 @@ export function weatherFormBlock(config: Readonly<Types.Config>): Record<string,
     const nested = stored[group];
     block[group] = {
       ...(defaults[group] ?? {}),
-      ...(isConfigBlock(nested) ? nested : {}),
+      ...(Helpers.isConfigBlock(nested) ? nested : {}),
     };
   }
 
@@ -356,7 +340,7 @@ export function stripWeatherDefaults(
 ): Record<string, unknown> | undefined {
   const block = config.weather;
 
-  if (!isConfigBlock(block)) {
+  if (!Helpers.isConfigBlock(block)) {
     return undefined;
   }
 
@@ -367,7 +351,7 @@ export function stripWeatherDefaults(
     if (value === undefined) continue;
 
     if ((WEATHER_GROUPS as readonly string[]).includes(key)) {
-      if (!isConfigBlock(value)) continue;
+      if (!Helpers.isConfigBlock(value)) continue;
 
       const groupDefaults = (defaults[key] ?? {}) as Record<string, unknown>;
       const group: Record<string, unknown> = {};

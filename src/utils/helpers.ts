@@ -312,6 +312,24 @@ export function getTimeFormat24h(
 }
 
 /**
+ * Narrows a value to a configuration block we can safely enumerate.
+ *
+ * YAML turns a key written with nothing after it into `null`, so `date:` alone on its
+ * line — an easy way to start a nested block and not finish it — reaches us as `null`
+ * rather than as a missing key, and a mistyped block arrives as a bare scalar. Arrays
+ * are objects too, so a `typeof` test alone lets one through to a walk that expects
+ * string keys. `Object.entries` throws on the first, silently enumerates the characters
+ * of the second and yields indices for the third, so all three have to be rejected
+ * before the value is walked.
+ *
+ * @param value - Any value read from a user-supplied configuration
+ * @returns True when the value is a plain object safe to enumerate
+ */
+export function isConfigBlock(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
  * Filter out default values from configuration
  *
  * @param config User configuration to filter
@@ -322,13 +340,11 @@ export function filterDefaultValues(
   config: Record<string, unknown>,
   defaultConfig: Record<string, unknown>,
 ): Record<string, unknown> {
-  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+  if (!isConfigBlock(config)) {
     return config;
   }
 
-  const result = Array.isArray(config)
-    ? ([] as unknown as Record<string, unknown>)
-    : ({} as Record<string, unknown>);
+  const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(config)) {
     if (value === undefined) {

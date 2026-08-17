@@ -70,9 +70,38 @@ Selector lists cost nothing and survive a later switch to column view:
 .day-column.today .event-title { ... }
 ```
 
-The event-level classes — `.event`, `.event-title`, `.time`, `.location`, `.past-event` —
-are shared by both views, so only the day container needs doubling up.
+The event-level classes are shared by both views, so only the day container needs
+doubling up. They are listed under [Card & event classes](#card-event-classes).
 :::
+
+### Card & event classes
+
+The card root, `.calendar-card-pro`, carries one class describing the layout as a whole:
+
+| Class         | Applied when                                                   |
+| ------------- | -------------------------------------------------------------- |
+| `column-view` | [column view](/features/column-view) is the layout being drawn |
+
+List view adds no view class of its own, so `.calendar-card-pro:not(.column-view)` is the
+way to target it.
+
+Inside a day, every event carries `.event`, plus `past-event` once it has finished, plus
+one or both of a position pair:
+
+| Class          | Applied when                        |
+| -------------- | ----------------------------------- |
+| `event-first`  | the event is the first of its day   |
+| `event-middle` | the event is neither first nor last |
+| `event-last`   | the event is the last of its day    |
+
+::: warning A Lone Event Is Both First And Last
+A day with a single event gets `event-first` **and** `event-last` together — it is the
+first and the last. A rule written for `.event-first` alone will therefore also hit every
+single-event day. Use `.event-first:not(.event-last)` when you mean "first of several".
+:::
+
+The remaining event-level classes — `.event-title`, `.time`, `.location` — are plain
+element classes with no state attached.
 
 ### Custom title styling
 

@@ -230,7 +230,12 @@ describe('theming.md card-mod selectors', () => {
    * in the union below. Listed explicitly instead of loosening the check, so a future
    * rename of one still has to be made deliberately here.
    */
-  const CARD_CHROME = new Set(['header-container', 'card-header']);
+  const CARD_CHROME = new Set([
+    'header-container',
+    'card-header',
+    'calendar-card-pro',
+    'column-view',
+  ]);
 
   function documentedClasses(): string[] {
     // `process.cwd()` matches `editor-schema.test.ts`; vitest runs from the repo root.
