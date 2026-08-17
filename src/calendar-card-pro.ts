@@ -868,7 +868,14 @@ class CalendarCardPro extends LitElement {
       Logger.deprecation(message);
     }
 
-    const mergedConfig = { ...Config.DEFAULT_CONFIG, ...config };
+    // Deep rather than a plain spread: a nested block the user writes partly — a
+    // `weather:` naming only `entity:` — must keep the defaults for everything it does
+    // not mention, instead of blanking them. `mergeConfig` replaces arrays wholesale, so
+    // `entities:` still overwrites rather than merging into the default list.
+    const mergedConfig = Config.mergeConfig(
+      Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
+      config as Record<string, unknown>,
+    ) as unknown as Types.Config;
 
     this.config = mergedConfig;
     this.config.entities = Config.normalizeEntities(this.config.entities);

@@ -15,12 +15,13 @@ import * as Types from '../config/types';
 /**
  * Resolve the effective weather position, applying the documented `date` default.
  *
- * `setConfig` merges with `{ ...DEFAULT_CONFIG, ...config }` — a *shallow* spread — so a
- * user `weather:` block replaces the default block wholesale and `position` arrives
- * `undefined` unless it was spelled out. Every consumer must therefore resolve the
- * default itself, and reading `weather.position` raw is exactly how the subscribe and
- * render halves drifted apart: the card subscribed to the daily forecast and then drew
- * nothing.
+ * `setConfig` fills a partial `weather:` block in from the defaults, so `position` normally
+ * arrives set. This still resolves it, because the config reaching these helpers does not
+ * always come through `setConfig`: the editor builds preview configs of its own, and both
+ * halves of the weather pipeline are called directly from tests. Reading
+ * `weather.position` raw is exactly how the subscribe and render halves drifted apart —
+ * the card subscribed to the daily forecast and then drew nothing — so the default is
+ * resolved in one place rather than assumed to have been filled in upstream.
  *
  * This resolves a *missing* value only; it deliberately does not validate. Config
  * arrives from YAML unvalidated, so `position` can hold something outside its declared

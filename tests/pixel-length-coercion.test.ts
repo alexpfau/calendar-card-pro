@@ -164,9 +164,11 @@ describe('Y21 — pixel-length coercion', () => {
   });
 
   /**
-   * Home Assistant hands a card its configuration **frozen**, and `setConfig` merges it
-   * shallowly — so `config.weather` and `config.tap_action` on the merged object are the
-   * user's own frozen objects, not copies of them.
+   * Home Assistant hands a card its configuration **frozen**, and a frozen sub-object can
+   * still reach the merged config. `setConfig` rebuilds any block that has a default —
+   * `weather`, `tap_action`, `hold_action` — so those are safe to write into now. `column`
+   * has no default (it stays `undefined` so an empty block means "no block"), so a user's
+   * `column:` arrives by reference, frozen, exactly as before.
    *
    * Writing into one throws `TypeError: Cannot assign to read only property` in strict
    * mode, which is every module here, and it throws even when the assignment would not
@@ -239,8 +241,9 @@ describe('Y21 — pixel-length coercion', () => {
     });
 
     it('leaves the shipped defaults alone when no block is supplied', () => {
-      // The shallow merge hands back DEFAULT_CONFIG's own sub-objects by reference, so an
-      // in-place coercion here would edit the defaults for every card in the process.
+      // A block the user never mentioned is still DEFAULT_CONFIG's own sub-object by
+      // reference — the merge only rebuilds what the user also wrote — so an in-place
+      // coercion here would edit the defaults for every card in the process.
       const before = JSON.stringify(Config.DEFAULT_CONFIG.weather);
       const config = {
         ...Config.DEFAULT_CONFIG,

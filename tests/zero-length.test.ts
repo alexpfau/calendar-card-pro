@@ -161,7 +161,7 @@ describe('zero-width separators in the rendered DOM', () => {
 
 /**
  * A blank YAML value — `day_separator_width:` with nothing after the colon — parses as
- * `null`, and `setConfig`'s shallow `{ ...DEFAULT_CONFIG, ...config }` merge lets that
+ * `null`, and `setConfig`'s merge lets that
  * `null` overwrite the shipped `'0px'`. Nothing downstream restored it, so the `null`
  * reached `isZeroLength`, which calls `.trim()` on it: a `TypeError` that took the whole
  * card down to a blank box, in both views, for all three separator widths.

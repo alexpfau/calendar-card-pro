@@ -480,8 +480,9 @@ describe('validateView', () => {
     expect(warnMock.mock.calls[0][0]).toContain('colunm');
   });
 
-  // `{ ...DEFAULT_CONFIG, ...config }` lets an explicitly-undefined key overwrite the
-  // shipped default, so `view` can be absent despite being a required field.
+  // A key written explicitly as `undefined` still overwrites the shipped default —
+  // `Object.entries` yields it, and only plain objects recurse — so `view` can be absent
+  // despite being a required field.
   it.each([
     ['undefined', undefined],
     ['null', null],

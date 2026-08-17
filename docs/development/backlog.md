@@ -78,34 +78,41 @@ reviewed column layout was the wrong way round on the eve of a release; it is th
 round once the release is out. **Scope the selector to list view, or re-verify column
 view's weather spacing alongside the change.**
 
-**`setConfig` merges only the top level.** It builds the effective configuration as
-`{ ...DEFAULT_CONFIG, ...config }`, so a nested block the user writes partly replaces the
-default block wholesale instead of being filled in key by key. A `weather:` holding just
-`entity:` therefore arrives with `position`, `date` and `event` all `undefined`, even
-though `position` is published with a default of `date` in the reference and the two
-sub-blocks carry defaults of their own in `DEFAULT_CONFIG`.
+**~~`setConfig` merges only the top level.~~ Fixed.** It built the effective configuration as
+`{ ...DEFAULT_CONFIG, ...config }`, so a nested block the user wrote partly replaced the default
+block wholesale instead of being filled in key by key. A `weather:` holding just `entity:`
+therefore arrived with `position`, `date` and `event` all `undefined`, even though `position` is
+published with a default of `date` and the two sub-blocks carry defaults of their own.
 
-This produced two defects in v4 review, and both were fixed at the symptom rather than at
-the cause. `isCustomized` in `src/rendering/editor/filter.ts` now returns early when the
-value it reads is `undefined`, so the editor's Customized Only filter stops flagging keys
-the user never wrote, and `resolveWeatherPosition` in `src/utils/weather.ts` centralises
-the `position` default that the subscribe and render halves had been resolving
-differently — one paying for a forecast stream the other then declined to draw. Both are
-covered by tests that fail if the fix is removed.
+`Config.mergeConfig` now recurses into plain objects and replaces arrays wholesale, so
+`entities:` still overwrites rather than merging into the default list, and a non-object value
+such as `weather: null` still clears the block.
 
-The cause is still there, so a third reader of a nested default can repeat it. What bounds
-the risk is that the exposed surface is almost entirely `weather`: `DEFAULT_CONFIG` has
-four nested entries, and `tap_action` and `hold_action` each default to a single key while
-`entities` defaults to `[]` and is written in full, so none of them can lose a key to a
-partial write the way `weather` can.
+**The write path needed no change, which is why this was safe to do here rather than early in a
+cycle.** The concern was that `toStoredConfig` strips defaults on save, so filling them in on
+read would make the editor write ninety keys the user never typed. It already handles nesting:
+`weather` is routed through `stripWeatherDefaults`, which compares each nested option against
+the same defaults and drops the ones that agree, and `filterDefaultValues` recurses for
+everything else. `tests/editor-value-round-trip.test.ts` asserts the whole loop by exact object
+rather than by key count — break the strip and six of its cases fail.
 
-A deep merge is the real fix and was deliberately not attempted on a release candidate.
-It changes `setConfig` semantics for every consumer at once, and `hasConfigChanged`,
-`isCustomized` and `toStoredConfig` are all built around the current shape —
-`toStoredConfig` in particular strips defaults back out on the write path, so filling them
-in on the read path has to be matched there or the card starts writing ninety defaults
-into the user's YAML. **Do it early in a cycle, with the write path changed in the same
-commit, not as a late fix.**
+The two symptom fixes are left in place deliberately. `resolveWeatherPosition` and
+`isCustomized`'s `undefined` guard both still answer correctly, and both are still reached with
+configs that never went through `setConfig` — the editor builds preview objects of its own, and
+much of the suite calls the renderers directly. They are no longer load-bearing for the ordinary
+path; they are load-bearing for those.
+
+One thing the fix does **not** change: a block the user never mentioned is still
+`DEFAULT_CONFIG`'s own sub-object by reference, since only blocks the user also wrote are
+rebuilt. `normalizeLengthOptions` already rebuilds rather than writing through, which covers it.
+The frozen-config hazard is narrower than it was — a user's `weather:` is now a fresh object —
+but `column` has no default block, so a frozen `column:` still arrives by reference.
+
+**The lesson worth keeping is about the fixture, not the merge.** `buildConfig` in
+`tests/fixtures.ts` claimed to build configs "the same way `setConfig` does" and did its own
+shallow spread, so every fixture in the suite would have kept the old shape while production
+moved. It now calls `mergeConfig`. Two test files had also hand-rolled the merge to simulate
+`setConfig`; one of them existed specifically to catch a defect the shallow merge caused.
 
 **`visible:` conditions in the editor.** Home Assistant's `ha-form` can hide a row through
 a `visible:` condition rather than through the memoised schema recomputation the editor does
@@ -121,27 +128,31 @@ user-initiated `value-changed`, so opening the editor on a YAML-set `min_day_wid
 not silently clamp it — the number has to be touched first. **Either give the cap a runtime
 counterpart in `normalizeColumnValue` and document the range, or drop it.**
 
-**`convertToRGBA` emits a CSS variable that nothing defines.** The `var(` branch of
-`computeRGBA` in `src/utils/helpers.ts` returns `rgba(var(--calendar-color-rgb, 3, 169, 244),
-…)`, and `--calendar-color-rgb` has exactly one occurrence in `src/` — that line itself. No
-stylesheet or inline style ever sets it, so the fallback light blue always wins and a themed
-`var(--primary-color)` input never reaches the rendered colour. Re-confirmed at the v4 tip,
-and the line does ship in `dist/calendar-card-pro.js`.
+**~~`convertToRGBA` emits a CSS variable that nothing defines.~~ Fixed.** The `var(` branch of
+`computeRGBA` in `src/utils/helpers.ts` returned `rgba(var(--calendar-color-rgb, 3, 169, 244),
+…)` against a variable with exactly one occurrence in `src/` — that line itself. No stylesheet
+or inline style ever set it, so the fallback won every time and a themed `var(--primary-color)`
+never reached the rendered colour.
 
-**It is not reachable on default config, which is what bounds the severity.** Two opt-ins are
-both required. `accent_color` defaults to `#03a9f4`, a hex, so the `var(` branch is not taken;
-and `event_background_opacity` defaults to `0`, on which `getEntityAccentColorWithOpacity`
-returns before calling `convertToRGBA` at all. A user has to set a `var()` colour _and_ raise
-the opacity, and no page documents `var()` as a value for that option — the `var()` usages in
-`theming.md` are all card-mod CSS, which is a different surface. Note also that the hard-coded
-fallback `3, 169, 244` **is** `#03a9f4`, so the symptom is not a wrong-looking card but a
-themed colour silently collapsing to the default accent.
+The proposed remedy — defining `--calendar-color-rgb` on the host — was not taken, because it
+cannot work: `rgba()` needs three channel values, and a `var()` reference cannot be taken apart
+into them without resolving it, which is exactly what must not happen here. `rgbaCache` is
+module-level and never evicted, so resolving at call time would pin whichever theme was active
+on first render for the life of the page.
 
-Resolving the colour eagerly is the wrong fix, and was declined for that reason. The branch
-returns a live CSS expression precisely so the value stays reactive to a theme switch, and
-`rgbaCache` is module-level and never evicted, so computing fixed RGB at call time would pin
-whichever theme was active on first render for the life of the page. **Define
-`--calendar-color-rgb` on the host element instead.**
+The branch now emits `color-mix(in srgb, <colour> <opacity>%, transparent)`, which stays a live
+CSS expression and therefore still follows a theme switch, while actually carrying the
+configured colour. This is the idiom the stylesheet already uses in three places, including the
+progress-bar track, so it adds no new dependency.
+
+Worth keeping for the shape of it: the hard-coded fallback `3, 169, 244` **is** `#03a9f4`, the
+default `accent_color`. The bug was therefore invisible on any default config and on any theme
+whose primary colour happened to be close — the card did not look broken, it looked like the
+default. It also needed two opt-ins to reach at all (a `var()` colour _and_ a non-zero
+`event_background_opacity`, which defaults to `0` on a path that returns first), which is why it
+survived to v4. `tests/helpers-color-and-icon.test.ts` now pins both the unit output and the
+rendered background, each with a control asserting that two different variables give two
+different results — the one thing a hardcoded fallback can never do.
 
 ## Verification debt
 
@@ -150,17 +161,28 @@ then deferred on the same reasoning: a new harness added at release point spends
 false positive at the worst possible moment, while the same harness added after a release
 costs only a re-run.
 
-**The v4 test suite has now been partly mutation-tested, and the results are uneven.** 95 test
-files were added on this branch. The sweeps below used type-safe operator swaps only, so a
-surviving mutant means the suite could not see a change that compiled — not that the source is
-wrong. Where a survivor was traced, it is classified; where it was not, it is listed as
-untriaged rather than as a defect.
+**The v4 test suite has now been mutation-tested across eight files, and the results are
+uneven.** 95 test files were added on this branch. The sweeps below used type-safe operator
+swaps only, so a surviving mutant means the suite could not see a change that compiled — not
+that the source is wrong. Where a survivor was traced, it is classified; where it was not, it is
+listed as untriaged rather than as a defect. **Across the fully-triaged files, real gaps and
+equivalent mutants came out at roughly one to one.** That ratio is the point: most survivors are
+defensive duplication, so a sweep that stops at the survivor count and calls each one a gap will
+be wrong about about half of them.
 
-| File                       | Sites | Killed | Survived | Reading                                      |
-| -------------------------- | ----: | -----: | -------: | -------------------------------------------- |
-| `src/config/view.ts`       |    52 |     49 |        3 | all three unreachable or equivalent          |
-| `src/calendar-card-pro.ts` |  28\* |     17 |       10 | **weakest of the three; see the list below** |
-| `src/utils/events.ts`      |   131 |     81 |       50 | largely defensive guards; partly untriaged   |
+| File                            | Sites | Killed | Survived | Reading                                    |
+| ------------------------------- | ----: | -----: | -------: | ------------------------------------------ |
+| `src/config/view.ts`            |    52 |     49 |        3 | all three unreachable or equivalent        |
+| `src/calendar-card-pro.ts`      |  28\* |     17 |       10 | **2 real gaps closed, 8 equivalent**       |
+| `src/utils/events.ts`           |   131 |     81 |       50 | largely defensive guards; partly untriaged |
+| `src/rendering/column.ts`       |    17 |     16 |        1 | survivor provably equivalent               |
+| `src/rendering/leaves.ts`       |  24\* |     24 |        0 | no gap found                               |
+| `src/rendering/render.ts`       |    10 |      6 |        4 | **3 real gaps, now closed**; 1 equivalent  |
+| `src/rendering/presentation.ts` |     9 |      7 |        2 | **1 real gap closed**; 1 equivalent        |
+| `src/rendering/styles.ts`       | 9\*\* |      4 |        5 | **5 real gaps, all closed**                |
+
+\*\* Only the nine sites in TypeScript. The rest of that file is a `css` tagged template,
+where an operator swap is not executable code.
 
 \* A curated subset of the host element's operator sites, not all of them. Two more — the
 `updated()` guard at the `hass`-just-arrived test, and the weather-config comparison beside it
@@ -199,16 +221,76 @@ undefined`; relaxing it to `||` marks a plain string title as pending and nothin
   branch always wins first. It becomes reachable only when a user writes a bare `hold_action:`
   in YAML — the shallow-merge hazard recorded above — and a hold would then also fire the tap
   action.
-- **Untriaged:** the refresh-interval fallback, the weather-subscription guard, the
+- **Untriaged:** ~~the refresh-interval fallback, the weather-subscription guard, the
   initial-load retry cleanup, the `isLimit` numeric test, and the empty-state branch in
-  `render`.
+  `render`.~~ **All five triaged. Two were real and are closed by
+  `tests/host-guards.test.ts`:**
+  - **The refresh timer ignored its configured interval.** `config.refresh_interval ||
+DEFAULT` — the fallback never fires, because `toValidNumber` has already guaranteed a
+    number, so nothing noticed when the configured value stopped being read at all. A card
+    set to refresh every 5 minutes would have quietly refreshed every 30.
+  - **A card with no calendars rendered an empty agenda instead of the error state.**
+    Reachable from the editor, which holds an empty list mid-edit.
 
-So the running total is **one closed, two withdrawn as equivalent, seven open** — and the
-lesson generalises past this file: a cluster of survivors sharing a subject is not evidence
-that they share a cause. These three all touched language resolution and only one was a gap.
+  The other three are **equivalent mutants**, each masked by a duplicate of its own check
+  further down:
+  - the retry cleanup is followed by a branch that clears and re-arms the timer either way;
+  - `isLimit`'s `Number.isFinite` sits behind `toValidNumber`, which reduces every limit —
+    card-level _and_ per-entity — to `number | undefined` before it is read;
+  - the weather-setup early return is masked **three** times: `getRequiredForecastTypes`
+    returns an empty list without an entity, `subscribeToWeatherForecast` guards
+    `!hass?.connection`, and that function's `try`/`catch` absorbs whatever is left. Relaxing
+    the first two _together_ still changes nothing observable, so this one is unkillable by
+    construction rather than merely untested.
 
-**What remains is breadth**, and specifically `src/rendering/` — `leaves.ts`, `render.ts`,
-`column.ts`, `presentation.ts` and `styles.ts` have not been mutation-tested at all.
+So the running total is **three closed, five withdrawn as equivalent, two open** (title-template
+state and the tap/hold interaction edge) — and the lesson generalises past this file: a cluster
+of survivors sharing a subject is not evidence that they share a cause. The language three all
+touched language resolution and only one was a gap; the five here shared nothing but the file.
+
+**`src/rendering/` has now been swept in full, and the shape is informative.** `leaves.ts` (24
+sites) and `column.ts` (17) came back with **no gap at all** — 40 of 41 killed, the single
+survivor provably equivalent, because `days[index - 1]` at `index === 0` is `undefined`, which
+is exactly what the `else` branch returns. The v4 column view is the best-pinned rendering code
+in the project, and it stayed that way after the week-number band landed: all four mutants on
+that new grid-row logic died.
+
+`render.ts` was the opposite: **4 of 10 survived, and 3 were real**, now closed by
+`tests/list-separator-branches.test.ts`. All three are separator branches, and they share one
+cause — every separator width defaults to `'0px'` and `show_week_numbers` to `null`, so a suite
+built from `DEFAULT_CONFIG` draws no separator of any kind and cannot reach them.
+`zero-length.test.ts` turns the _month_ width on and covers that path, which is why these three
+looked covered:
+
+- `renderHorizontalSeparator`'s zero-width early return — the **day** separator's own
+  suppression, a different call path from the month rule.
+- `renderWeekRow` choosing month styling over week styling, invisible unless the two widths are
+  configured _differently_.
+- `hasWeekSeparator`, which does not gate the week row at all — it stops a day rule being
+  stacked on top of one, so the observable is a separator **count** (4 → 3), not a presence.
+
+The generalisable part: a fixture that turns one option on does not cover the options beside
+it, and a shared width hides which branch chose it. Configure the neighbours differently.
+
+`presentation.ts` gave up one real gap — `isPastEvent` used `now > endDateTime` with nothing
+pinning the boundary, while the all-day branch beside it was pinned by the shared fixtures.
+`tests/event-state-classes.test.ts` now carries the millisecond case so the two paths cannot
+drift apart. Its other survivor is equivalent: `isRunning && show_progress_bar` is re-checked by
+`hasProgressBar` in `leaves.ts`, and `calculateEventProgress` re-checks `isEventCurrentlyRunning`
+internally, so the presentation-side test is defensive duplication. Mutating the `leaves.ts`
+half alone **is** caught, which is how the pair was told apart.
+
+**`styles.ts` was the worst of the eight files: 5 of its 9 executable sites survived, and all
+five were real.** They are the `--calendar-card-weather-*` fallbacks — a surface v4 turned from
+inline styles into published theming hooks, all six documented with defaults in `theming.md`.
+The defaults are the common case rather than the edge case, because `setConfig` merges `weather`
+shallowly: a block naming only `entity` arrives with `date` and `event` absent, so every badge
+reads its fallback. Dropping one emits `undefined` into the property, and **both `npm test` and
+`check:docs` stayed green** — the docs gate counts the documented defaults but never reconciles
+them against the code. `tests/custom-property-mapping.test.ts` now pins each fallback beside a
+distinct override, which also catches two properties crossed.
+
+**What remains** is breadth in `src/utils/events.ts`, where 50 survivors are still untriaged.
 
 **No gate cross-checks documented CSS classes against emitted ones.** `theming.md` lists the
 classes the card exposes, the renderers emit them, and nothing compares the two sets. The

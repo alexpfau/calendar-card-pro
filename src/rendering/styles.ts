@@ -91,7 +91,8 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       config.weather?.date?.color || 'var(--primary-text-color)',
     '--calendar-card-weather-event-icon-size': config.weather?.event?.icon_size || '14px',
     '--calendar-card-weather-event-font-size': config.weather?.event?.font_size || '12px',
-    // Read with a fallback because setConfig merges weather shallowly; a user
+    // Read with a fallback because this function is also called with configs that never
+    // went through setConfig — the editor's own preview objects, and tests — where a
     // weather block can omit event.max_lines entirely.
     '--calendar-card-weather-event-max-lines':
       (config.weather?.event?.max_lines ?? 0) > 0
