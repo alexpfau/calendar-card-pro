@@ -173,13 +173,25 @@ unreachable because `normalizeColumnValue` floors numeric column options at `> 0
 `measuredWidthPx <= 0` guard is the same shape, and the hysteresis half-band's `- 1` is
 absorbed by the clamp. The `fitColumns` epsilon is documented in place as unkillable.
 
-The host element's ten survivors are worth closing next cycle, and they cluster:
+The host element's ten survivors cluster, and the first cluster turned out to be smaller than
+it looked:
 
-- **The suite is English-only end to end.** `this._language || 'en'` in `effectiveLanguage`,
-  and both halves of the language-recompute condition in `updated()`, all survive — every
-  fixture resolves to `en`, so a getter hard-wired to English is indistinguishable from a
-  correct one. This is the largest of the ten and the cheapest to fix: one host-level test in a
-  non-English language.
+- **~~The suite is English-only end to end.~~ Closed, and the original claim was wrong.**
+  `tests/host-language.test.ts` now covers `effectiveLanguage` — which no test read, while
+  `host-updated-wiring.test.ts` covered only the private `_language` field that every consumer
+  reaches _through_ that getter. So the `|| 'en'` arm was free: relaxing it to `&&` returns
+  `'en'` for every configured language and `''` when none is set, and the suite stayed green.
+  That one is real and is now killed by 7 of the new file's 9 tests.
+
+  The claim that this "closes three of the ten" was **over-stated and is withdrawn**. Both
+  halves of the language-recompute condition in `updated()` are **equivalent mutants**, not
+  coverage gaps: relaxing either `&&` to `||` only makes the condition true more often, and
+  recomputing the language is idempotent, so the resolved value never differs. Measured across
+  a 74-row lifecycle differential — 5 Home Assistant locales × 5 configured languages × 3
+  follow-up config edits, capturing `_language` and `effectiveLanguage` after each of three
+  lifecycle steps — at **0 differing rows each**, against 68 for the `effectiveLanguage`
+  mutant and 63 for a control. No test can close them; do not write one.
+
 - **Title-template state.** `isTitlePending` returns `isTemplate(title) && renderedTitle ===
 undefined`; relaxing it to `||` marks a plain string title as pending and nothing notices.
 - **Interaction edge.** The tap branch's `!this._holdTriggered` guard survives, because
@@ -190,6 +202,10 @@ undefined`; relaxing it to `||` marks a plain string title as pending and nothin
 - **Untriaged:** the refresh-interval fallback, the weather-subscription guard, the
   initial-load retry cleanup, the `isLimit` numeric test, and the empty-state branch in
   `render`.
+
+So the running total is **one closed, two withdrawn as equivalent, seven open** — and the
+lesson generalises past this file: a cluster of survivors sharing a subject is not evidence
+that they share a cause. These three all touched language resolution and only one was a gap.
 
 **What remains is breadth**, and specifically `src/rendering/` — `leaves.ts`, `render.ts`,
 `column.ts`, `presentation.ts` and `styles.ts` have not been mutation-tested at all.
