@@ -111,3 +111,58 @@ commit, not as a late fix.**
 a `visible:` condition rather than through the memoised schema recomputation the editor does
 today. Worth adopting only with a stated minimum HA version, since a version that does not
 understand the key would render the row unconditionally.
+
+**`min_day_width` is capped at 400 in the editor and nowhere else.** The number selector in
+`src/rendering/editor/schemas/layout.ts` declares `max: 400`, but `normalizeColumnValue` in
+`src/config/view.ts` has no ceiling and no docs page states a range for any option, so the cap
+has neither a runtime nor a documented basis. It is the only numeric selector in the editor
+carrying one. What bounds the risk is the write path: the editor emits a value only on a
+user-initiated `value-changed`, so opening the editor on a YAML-set `min_day_width: 500` does
+not silently clamp it — the number has to be touched first. **Either give the cap a runtime
+counterpart in `normalizeColumnValue` and document the range, or drop it.**
+
+**`convertToRGBA` emits a CSS variable that nothing defines.** The `var(` branch of
+`computeRGBA` in `src/utils/helpers.ts` returns `rgba(var(--calendar-color-rgb, 3, 169, 244),
+…)`, and `--calendar-color-rgb` has exactly one occurrence in `src/` — that line itself. No
+stylesheet or inline style ever sets it, so the fallback light blue always wins and a themed
+`var(--primary-color)` input never reaches the rendered colour.
+
+Resolving the colour eagerly is the wrong fix, and was declined for that reason. The branch
+returns a live CSS expression precisely so the value stays reactive to a theme switch, and
+`rgbaCache` is module-level and never evicted, so computing fixed RGB at call time would pin
+whichever theme was active on first render for the life of the page. **Define
+`--calendar-color-rgb` on the host element instead.**
+
+## Verification debt
+
+Gaps in what the suite and the gates can prove, rather than defects. Each was measured and
+then deferred on the same reasoning: a new harness added at release point spends its first
+false positive at the worst possible moment, while the same harness added after a release
+costs only a re-run.
+
+**The v4 test suite has not been mutation-tested.** 95 test files were added on this branch,
+and nothing has systematically checked them for assertions that pass whether or not the
+behaviour under test exists. The risk is demonstrated rather than theoretical: a zero-length
+probe during review reported "no throw" for the month and week separators, but only because
+its fixture rendered a single day, so `prevDay &&` short-circuited before `isZeroLength` ran,
+and a second fixture crossed no month boundary. Two of eight crash combinations were invisible
+to a probe that read as correct.
+
+The known-risky places have already been swept by hand and came back connected: all seven
+`FETCH_TIME_KEYS` fail `npm test` when dropped, the `COLUMN_OVERRIDE_KEYS` and `fitColumns`
+epsilon probes were both null, and an off-default hypothesis dissolved under measurement at
+109 keys with none lacking a test reference. **What remains is breadth.**
+
+**No gate cross-checks documented CSS classes against emitted ones.** `theming.md` lists the
+classes the card exposes, the renderers emit them, and nothing compares the two sets. The
+drift this would catch has already happened once — the column-view and event-position classes
+shipped undocumented and were caught by human review rather than by CI.
+
+A cheap version does not exist, which is why it was not added late. It has to parse both
+`classList.add` calls and template-literal class strings out of the renderers, and maintain an
+allowlist for chrome classes that are emitted but deliberately undocumented — precisely the
+shape that yields false positives. **Build it when a false positive costs a re-run.**
+
+**The compact-mode event limit is not pinned.** The `totalEventsShown >= maxEvents` boundary
+inside `groupEventsByDay` in `src/utils/events.ts` survives mutation — flipping the comparison
+leaves the suite green. A coverage gap over correct code, not a defect.
