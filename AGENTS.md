@@ -396,6 +396,17 @@ Both files were byte-identical to `main` throughout. Ten hypotheses were falsifi
 the branch name was suspected; the fix is to rename it and re-open the PR. Only reachable
 since v4 added the `pull_request` trigger below.
 
+**Re-run the job before you believe any of that, because a GitHub incident wears the same
+costume.** Those two content checks are the only ones that need a network fetch, so anything
+degrading `raw.githubusercontent.com` fails exactly what the branch name fails. On 2026-08-17
+— _"archive downloads and raw repository content downloads … approximate 50% error rate"_ —
+`validate-hacs` reported _"Repository structure for `<branch>` is not compliant"_ on a pull
+request touching only `src/`, `tests/` and `docs/development/`, none of which HACS reads; a
+re-run of the same commit passed. The discriminator is repetition rather than wording: the
+branch-name bug is deterministic and fails every run, an outage is not. This matters because
+the remedy above is self-confirming under an outage — rename, re-open, watch it pass, and the
+rename takes credit that belonged to the retry.
+
 **When several branches feed one integration branch, "merged" has to name which branch.**
 Merging the integration branch _into_ your own, or merging your work into a peer's, leaves
 a local state indistinguishable from being integrated: `git status` is clean, local equals

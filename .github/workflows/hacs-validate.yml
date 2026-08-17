@@ -16,6 +16,20 @@ name: HACS Validation
 # fetch then 404s and both content checks report generic "invalid hacs.json" / "no images in
 # Readme" errors while the six metadata checks pass. Rename the branch — see AGENTS.md,
 # "Branch model".
+#
+# A GitHub incident produces the same shape, and that is the trap: those two content checks
+# are the only ones that need a network fetch, so anything degrading raw.githubusercontent.com
+# fails exactly what the branch-name bug fails. On 2026-08-17 — "archive downloads and raw
+# repository content downloads … approximate 50% error rate" — this workflow reported
+# "Repository structure for <branch> is not compliant" on a pull request touching only `src/`,
+# `tests/` and `docs/development/`, none of which HACS reads.
+#
+# The two are told apart by repetition, not by reading the message: the branch-name bug is
+# deterministic and fails every run on that branch, while an outage does not. So **re-run the
+# job once before believing it**, and check https://www.githubstatus.com — a green re-run on an
+# unchanged commit is the whole diagnosis. Renaming a branch is the expensive wrong move here,
+# because it appears to work: the new run passes, and the rename gets the credit that belonged
+# to the retry.
 on:
   pull_request:
     branches:
