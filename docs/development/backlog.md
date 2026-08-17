@@ -64,19 +64,28 @@ midnight on the boundary date is a one-line change, but it moves the actual API 
 it wants a real Home Assistant round-trip against several calendar integrations rather than
 a late change on a release candidate.
 
-**1px vertical shift in the list event-weather badge.** Measured against v3.6.0, the badge
-box grows from `[754,6,34,14]` to `[754,4,34,18]` and its glyphs sit 1px lower. Colour is
-unchanged and the row is unchanged, so nothing reflows and no text moves relative to its
+**~~1px vertical shift in the list event-weather badge.~~ Fixed.** Measured against v3.6.0, the
+badge box grew from `[754,6,34,14]` to `[754,4,34,18]` and its glyphs sat 1px lower. Colour was
+unchanged and the row was unchanged, so nothing reflowed and no text moved relative to its
 neighbours — a taller invisible box, not a visible shift.
 
-Cause: the `.event-weather-text` wrapper. Only its _child_ span carries `font-size: 12px`,
-so the wrapper inherits the 14px event font and its line box is taller. The one-line fix is
-to move the font size onto the wrapper, but that rule is unscoped and would also apply in
-column view, whose weather row spacing was tuned live and signed off during v4 review.
-Trading a measured-but-invisible difference in list view for an unmeasured change to a
-reviewed column layout was the wrong way round on the eve of a release; it is the right way
-round once the release is out. **Scope the selector to list view, or re-verify column
-view's weather spacing alongside the change.**
+Cause: the `.event-weather-text` wrapper. Only its _child_ span carried `font-size: 12px`, so the
+wrapper inherited the 14px event font and built a line box 4px taller than its contents. The
+font size now sits on the wrapper; the chips render at the same size either way, since they
+inherit it.
+
+The hazard recorded here — that the rule is unscoped and would also reach column view, whose
+weather row spacing was tuned live and signed off during v4 review — turned out to be **inert,
+twice over**. Column view always passes `weatherPlacement: 'row'`, which leaves the title
+forecasts `undefined`, so it never emits this badge at all; and the row placement declares the
+same `--calendar-card-weather-event-font-size` on its own container, so the wrapper already
+computed that value by inheritance. Nothing in column view moves.
+
+`tests/weather-badge-styling.test.ts` already asserted that a font size **reaches** the badge
+without a `.time-location` ancestor, and that assertion could not see this: the selector it
+matched, `… .event-weather-text > span`, contains the wrapper's class and _is_ the defect. It
+now also pins which element is the rule's subject, with a control proving the new filter
+discriminates by selector shape rather than by declaration.
 
 **~~`setConfig` merges only the top level.~~ Fixed.** It built the effective configuration as
 `{ ...DEFAULT_CONFIG, ...config }`, so a nested block the user wrote partly replaced the default
@@ -119,14 +128,24 @@ a `visible:` condition rather than through the memoised schema recomputation the
 today. Worth adopting only with a stated minimum HA version, since a version that does not
 understand the key would render the row unconditionally.
 
-**`min_day_width` is capped at 400 in the editor and nowhere else.** The number selector in
-`src/rendering/editor/schemas/layout.ts` declares `max: 400`, but `normalizeColumnValue` in
-`src/config/view.ts` has no ceiling and no docs page states a range for any option, so the cap
-has neither a runtime nor a documented basis. It is the only numeric selector in the editor
-carrying one. What bounds the risk is the write path: the editor emits a value only on a
-user-initiated `value-changed`, so opening the editor on a YAML-set `min_day_width: 500` does
-not silently clamp it — the number has to be touched first. **Either give the cap a runtime
-counterpart in `normalizeColumnValue` and document the range, or drop it.**
+**~~`min_day_width` is capped at 400 in the editor and nowhere else.~~ Fixed by dropping the cap.**
+The number selector in `src/rendering/editor/schemas/layout.ts` declared `max: 400`, while
+`normalizeColumnValue` in `src/config/view.ts` had no ceiling and no docs page states a range for
+any option, so the cap had neither a runtime nor a documented basis. It was the only arbitrary
+ceiling among the editor's numeric selectors — `min_days_to_show` derives its own from
+`days_to_show`, which is the one basis that makes a ceiling legitimate.
+
+Dropped rather than given a runtime counterpart, because adding one would clamp a working
+config. `computeColumnThresholdPxFor` has no upper bound and a large floor is meaningful: it says
+"give me columns only if each can be this wide", which is a real thing to want on a wide dashboard
+card. The editor must not be less capable than YAML. The floor moved to the runtime's own `> 0`
+for the same reason, and `mode: 'box'` now states the control type rather than leaving it to be
+inferred from whether both bounds are present.
+
+`tests/editor-selector-minima.test.ts` existed to catch exactly this class — an editor bound the
+runtime does not share — and missed it twice over: it walked only the content and entity schemas,
+never the layout one, and it collected only `min`. Both are fixed, and the denominator assertion
+that would have caught the first is now in place.
 
 **~~`convertToRGBA` emits a CSS variable that nothing defines.~~ Fixed.** The `var(` branch of
 `computeRGBA` in `src/utils/helpers.ts` returned `rgba(var(--calendar-color-rgb, 3, 169, 244),
@@ -170,16 +189,16 @@ equivalent mutants came out at roughly one to one.** That ratio is the point: mo
 defensive duplication, so a sweep that stops at the survivor count and calls each one a gap will
 be wrong about about half of them.
 
-| File                            | Sites | Killed | Survived | Reading                                    |
-| ------------------------------- | ----: | -----: | -------: | ------------------------------------------ |
-| `src/config/view.ts`            |    52 |     49 |        3 | all three unreachable or equivalent        |
-| `src/calendar-card-pro.ts`      |  28\* |     17 |       10 | **2 real gaps closed, 8 equivalent**       |
-| `src/utils/events.ts`           |   131 |     81 |       50 | largely defensive guards; partly untriaged |
-| `src/rendering/column.ts`       |    17 |     16 |        1 | survivor provably equivalent               |
-| `src/rendering/leaves.ts`       |  24\* |     24 |        0 | no gap found                               |
-| `src/rendering/render.ts`       |    10 |      6 |        4 | **3 real gaps, now closed**; 1 equivalent  |
-| `src/rendering/presentation.ts` |     9 |      7 |        2 | **1 real gap closed**; 1 equivalent        |
-| `src/rendering/styles.ts`       | 9\*\* |      4 |        5 | **5 real gaps, all closed**                |
+| File                            | Sites | Killed | Survived | Reading                                   |
+| ------------------------------- | ----: | -----: | -------: | ----------------------------------------- |
+| `src/config/view.ts`            |    52 |     49 |        3 | all three unreachable or equivalent       |
+| `src/calendar-card-pro.ts`      |  28\* |     17 |       10 | **2 real gaps closed, 8 equivalent**      |
+| `src/utils/events.ts`           |   131 |     84 |       47 | **4 real gaps closed**; rest classified   |
+| `src/rendering/column.ts`       |    17 |     16 |        1 | survivor provably equivalent              |
+| `src/rendering/leaves.ts`       |  24\* |     24 |        0 | no gap found                              |
+| `src/rendering/render.ts`       |    10 |      6 |        4 | **3 real gaps, now closed**; 1 equivalent |
+| `src/rendering/presentation.ts` |     9 |      7 |        2 | **1 real gap closed**; 1 equivalent       |
+| `src/rendering/styles.ts`       | 9\*\* |      4 |        5 | **5 real gaps, all closed**               |
 
 \*\* Only the nine sites in TypeScript. The rest of that file is a `css` tagged template,
 where an operator swap is not executable code.
@@ -214,13 +233,34 @@ it looked:
   lifecycle steps — at **0 differing rows each**, against 68 for the `effectiveLanguage`
   mutant and 63 for a control. No test can close them; do not write one.
 
-- **Title-template state.** `isTitlePending` returns `isTemplate(title) && renderedTitle ===
-undefined`; relaxing it to `||` marks a plain string title as pending and nothing notices.
-- **Interaction edge.** The tap branch's `!this._holdTriggered` guard survives, because
-  `hold_action` defaults to `{ action: 'none' }` and is therefore always truthy, so the hold
-  branch always wins first. It becomes reachable only when a user writes a bare `hold_action:`
-  in YAML — the shallow-merge hazard recorded above — and a hold would then also fire the tap
-  action.
+- **~~Title-template state.~~ Closed.** `isTitlePending` returns `isTemplate(title) &&
+renderedTitle === undefined`, and **all three** of its mutants survived the full suite —
+  because `card-wrapper-dom` pins `renderMainCardStructure` directly and supplies
+  `titlePending` itself, so the argument was covered and the getter computing it was not.
+  Three tests in `host-guards.test.ts` now kill them separately. The third only differs when
+  a template resolves to an **empty string**, and finding it corrected `render.ts`'s own
+  comment: the heading is held open during the pending window, not for the life of the card,
+  and an empty result correctly collapses to the zero-height placeholder rather than
+  reserving a 16px margin for a title that renders nothing.
+- **~~Interaction edge.~~ Closed, and the earlier reading of it was wrong.** The note here
+  said the tap branch's `!this._holdTriggered` guard was reachable only through the shallow
+  merge in `setConfig`. It is not: `mergeConfig` replaces a non-object wholesale exactly as
+  the spread did, so `hold_action: null` still arrives as `null` and the deep merge changed
+  nothing — measured by printing what `null`, `undefined` and `{action:'none'}` each survive
+  `setConfig` as.
+
+  The real cause was a disagreement between the two pointer handlers.
+  `_handlePointerDown` armed the hold timer on `hold_action?.action !== 'none'`, and optional
+  chaining makes that **true for null**, since `null?.action` is `undefined` and `undefined`
+  is not `'none'`. So a bare `hold_action:` — which the user wrote to mean "nothing on hold"
+  — armed a timer, set `_holdTriggered` and drew a hold indicator, and then
+  `_handlePointerUp` refused it at both branches: its hold branch needs `hold_action` truthy,
+  its tap branch needs `!_holdTriggered`. A long press produced a ripple and no action, and
+  the tap never ran either. Requiring the block to exist makes the two agree, and makes a
+  bare key behave as the documented `hold_action: none` does. With that, `_holdTriggered`
+  can no longer be true while `hold_action` is falsy, which turns the tap branch's guard
+  into defensive duplication rather than a coverage gap.
+
 - **Untriaged:** ~~the refresh-interval fallback, the weather-subscription guard, the
   initial-load retry cleanup, the `isLimit` numeric test, and the empty-state branch in
   `render`.~~ **All five triaged. Two were real and are closed by
@@ -243,10 +283,14 @@ DEFAULT` — the fallback never fires, because `toValidNumber` has already guara
     the first two _together_ still changes nothing observable, so this one is unkillable by
     construction rather than merely untested.
 
-So the running total is **three closed, five withdrawn as equivalent, two open** (title-template
-state and the tap/hold interaction edge) — and the lesson generalises past this file: a cluster
-of survivors sharing a subject is not evidence that they share a cause. The language three all
-touched language resolution and only one was a gap; the five here shared nothing but the file.
+So the running total is **five closed, five withdrawn as equivalent, none open** — and the lesson
+generalises past this file: a cluster of survivors sharing a subject is not evidence that they
+share a cause. The language three all touched language resolution and only one was a gap; the
+five here shared nothing but the file. The last two to close add a second lesson, about the
+notes rather than the code: both had a stated cause recorded here, and **both causes were
+wrong**. The title one was filed as a single mutant and was three; the interaction one was
+filed as a consequence of the shallow merge and survived the merge being fixed. A survivor's
+recorded explanation is a hypothesis until something re-measures it.
 
 **`src/rendering/` has now been swept in full, and the shape is informative.** `leaves.ts` (24
 sites) and `column.ts` (17) came back with **no gap at all** — 40 of 41 killed, the single
@@ -290,7 +334,63 @@ reads its fallback. Dropping one emits `undefined` into the property, and **both
 them against the code. `tests/custom-property-mapping.test.ts` now pins each fallback beside a
 distinct override, which also catches two properties crossed.
 
-**What remains** is breadth in `src/utils/events.ts`, where 50 survivors are still untriaged.
+**`src/utils/events.ts` has now been swept, and four of its survivors were real.** 131 sites,
+84 killed, 47 survived, 0 timed out. The four are closed by `tests/events-sweep-gaps.test.ts`,
+and each was a case the existing fixtures could not reach rather than an assertion that was
+too weak:
+
+- **The all-day exclusive-end adjustment, at both sites.** An all-day `end.date` is
+  exclusive, so the card subtracts a day to get the inclusive last day. Every all-day
+  fixture in the suite starts on or after the window start, and such an event is admitted
+  by its _start_ before its end is ever consulted — so the subtraction was never
+  load-bearing. Only an event that began before today reaches it. Getting the filter-pass
+  copy wrong drops a holiday from the card on its final day; getting the grouping-pass copy
+  wrong files it under the day it started instead, which is **outside the window**.
+- **The per-calendar event counter's increment.** Every existing per-entity
+  `compact_events_to_show` fixture uses a limit of `1`, which cannot tell a counter that
+  steps by one from one that steps by two — either way the second event is refused. A limit
+  of `2` with three events is the smallest case that separates them.
+- **The identity match behind the counter key.** The key is `${entityId}__${configIdx}`, so
+  for two _different_ calendars the entity id already separates the budgets and the index is
+  inert. Only two entries naming the **same** calendar collide on the id, leaving the index
+  as the only thing keeping them apart. That is what the index is for, and it had no test.
+
+Two lessons worth more than the fixes. First, **`toContain` over a flattened day list cannot
+see an event grouped under the wrong day** — the grouping-pass mutant survived the first
+version of its own test, and only asserting the day key caught it. Second, **a fixture that
+hand-builds an entity object is not the object the lookup searches**: `buildConfig`
+normalizes `entities` into fresh objects, so a literal `_matchedConfig` is never
+identity-equal to anything in `config.entities` and every event falls through to a different
+code path that happens to pass. Take the matched config out of the built config.
+
+The remaining 43 survivors are classified rather than closed, and the classification is by
+reading except where noted:
+
+- **Documented in place already (2).** The comment above `isEventOnOrAfterReference` states
+  that both it and `isFutureEvent` are subsumed by `isOngoingEvent` for any event whose end
+  is not before its start, and that removing them leaves the suite green. Kept deliberately
+  so a malformed feed still renders.
+- **Compact-budget arms (4).** Measured equivalent over the 1,279-row differential recorded
+  further down, at 0 differing rows against 281 and 42 for two controls.
+- **Redundant paired-null guards (9), and all-day detection (4).** `!a || !b` relaxed to
+  `!a && !b`, and `start.date && end.date` relaxed to `||`. `keepWellFormedEvents` runs
+  first on the production path and guarantees `start` and `end` are both present, which
+  makes the first group unreachable there. It does **not** check which of `date` /
+  `dateTime` each carries, so the second group stays reachable from a feed mixing them —
+  an event that is already broken, where either operator gives an arbitrary answer.
+- **Empty-collection guards (5).** `length > 0` relaxed to `>= 0`, where the body is a loop
+  or a log over nothing.
+- **Masked by upstream normalization (2).** The `Number.isFinite` pair sits behind
+  `toValidNumber`, the same masking already recorded for `isLimit` in the host.
+- **Arithmetic that cannot change an answer (4).** `+1ms` versus `+2ms` into the next day;
+  the cache's exact-millisecond expiry boundary; `window.performance` being defined in every
+  runtime this ships to; and the ISO-week Sunday correction, where advancing one day or two
+  both land on a weekday in the same ISO week.
+- **Counter-key fallback and entity-id disjuncts (6).** Reached only when `configIdx` is
+  `-1`, which happens when `matchedConfig` is absent — and the branch above then returns
+  before the key is used. Confirmed by mutation for the fallback itself.
+- **Not individually re-derived (7).** The display-date branches, the all-day sort keys, and
+  the empty-day range end. These are recorded as unexplained rather than as equivalent.
 
 **No gate cross-checks documented CSS classes against emitted ones.** `theming.md` lists the
 classes the card exposes, the renderers emit them, and nothing compares the two sets. The
