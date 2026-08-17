@@ -1637,13 +1637,36 @@ function checkGateLists() {
       .replace(/\s+/g, ' ');
 
   const workflow = readFileSync(join(ROOT, '.github/workflows/ci.yml'), 'utf8');
-  const gates = workflow
-    .split('\n')
-    .map((line) => line.match(/^\s*run:\s*((?:npm|npx)\s.+)$/))
-    .filter(Boolean)
-    .map((match) => normalize(match[1]))
+  const lines = workflow.split('\n');
+  const found = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const inline = lines[index].match(/^\s*run:\s*((?:npm|npx)\s.+)$/);
+    if (inline) {
+      found.push(normalize(inline[1]));
+      continue;
+    }
+    // A step written as a YAML block scalar keeps its commands on the following
+    // lines, so matching only `run: <command>` cannot see them: a gate added as
+    // `run: |` stayed invisible here while the three lists stayed silently short.
+    // Read the block's own lines, but only where the command opens one — the
+    // pinning step is a shell script whose `npx npm@10.9.2 install` sits inside an
+    // echoed error string, and lifting that would demand contributors run it.
+    const opener = lines[index].match(/^(\s*)run:\s*[|>][-+]?\d*\s*$/);
+    if (!opener) continue;
+    for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
+      const line = lines[cursor];
+      if (line.trim() === '') continue;
+      if (line.match(/^\s*/)[0].length <= opener[1].length) break;
+      const command = line.match(/^\s*((?:npm|npx)\s.+)$/);
+      if (command) found.push(normalize(command[1]));
+    }
+  }
+  const gates = found
     // Installing dependencies is not a gate a contributor reruns as a check.
-    .filter((command) => command !== 'npm ci');
+    .filter((command) => command !== 'npm ci')
+    // One command named twice is still one gate, so the count stays the number of
+    // distinct commands a contributor has to run.
+    .filter((command, position, all) => all.indexOf(command) === position);
   assertFound(gates, 'npm gate commands', join(ROOT, '.github/workflows/ci.yml'));
 
   // Each file states the list once, in the only fenced block that reaches check:bundle.
