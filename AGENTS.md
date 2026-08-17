@@ -396,16 +396,28 @@ Both files were byte-identical to `main` throughout. Ten hypotheses were falsifi
 the branch name was suspected; the fix is to rename it and re-open the PR. Only reachable
 since v4 added the `pull_request` trigger below.
 
-**Re-run the job before you believe any of that, because a GitHub incident wears the same
-costume.** Those two content checks are the only ones that need a network fetch, so anything
-degrading `raw.githubusercontent.com` fails exactly what the branch name fails. On 2026-08-17
-— _"archive downloads and raw repository content downloads … approximate 50% error rate"_ —
-`validate-hacs` reported _"Repository structure for `<branch>` is not compliant"_ on a pull
-request touching only `src/`, `tests/` and `docs/development/`, none of which HACS reads; a
-re-run of the same commit passed. The discriminator is repetition rather than wording: the
-branch-name bug is deterministic and fails every run, an outage is not. This matters because
-the remedy above is self-confirming under an outage — rename, re-open, watch it pass, and the
-rename takes credit that belonged to the retry.
+**Run the workflow against `main` before you believe any of that, because a GitHub incident
+wears the same costume.** Those two content checks are the only ones that need a network
+fetch, so anything degrading `raw.githubusercontent.com` fails exactly what the branch name
+fails. On 2026-08-17 — _"archive downloads and raw repository content downloads … approximate
+50% error rate"_ — `validate-hacs` reported _"Repository structure for `<branch>` is not
+compliant"_ on a pull request touching only `src/`, `tests/` and `docs/development/`, none of
+which HACS reads.
+
+```bash
+gh workflow run hacs-validate.yml --ref main
+```
+
+`main` is the ref HACS ships from, so it cannot be structurally non-compliant; if it reports
+the same thing, the problem is not your branch. During that incident it did — _"…for
+`refs/heads/main` is not compliant"_ — and one run settled what retrying had not.
+
+**Retrying is the obvious discriminator and it is not good enough.** This document said
+"re-run once" for about ten minutes, until the job failed **three times running** on one
+unchanged commit — at a 50% error rate, two consecutive failures are a one-in-four
+coincidence, so "it failed twice, it must be real" is worth nothing. That matters because the
+remedy above is self-confirming under an outage: rename, re-open, watch it pass, and the
+rename takes credit that belonged to the weather.
 
 **When several branches feed one integration branch, "merged" has to name which branch.**
 Merging the integration branch _into_ your own, or merging your work into a peer's, leaves

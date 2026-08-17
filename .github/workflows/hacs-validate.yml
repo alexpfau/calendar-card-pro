@@ -24,12 +24,19 @@ name: HACS Validation
 # "Repository structure for <branch> is not compliant" on a pull request touching only `src/`,
 # `tests/` and `docs/development/`, none of which HACS reads.
 #
-# The two are told apart by repetition, not by reading the message: the branch-name bug is
-# deterministic and fails every run on that branch, while an outage does not. So **re-run the
-# job once before believing it**, and check https://www.githubstatus.com — a green re-run on an
-# unchanged commit is the whole diagnosis. Renaming a branch is the expensive wrong move here,
-# because it appears to work: the new run passes, and the rename gets the credit that belonged
-# to the retry.
+# **Settle it by running this workflow against `main`**, not by re-running the failed job:
+#
+#     gh workflow run hacs-validate.yml --ref main
+#
+# `main` is the ref HACS actually ships from, so it cannot be structurally non-compliant. If it
+# reports the same thing, the problem is not your branch. During that incident it did — "…for
+# refs/heads/main is not compliant" — which settled the question in one run.
+#
+# Retrying is the obvious move and it is not good enough: at a 50% error rate two consecutive
+# failures are a one-in-four coincidence, and this job failed **three times running** on one
+# unchanged commit that afternoon before the `main` control was tried. So "it failed twice, it
+# must be real" is worth nothing here. Renaming a branch is the expensive wrong move, because it
+# appears to work — the next run passes on its own and the rename takes the credit.
 on:
   pull_request:
     branches:
