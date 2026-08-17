@@ -1140,11 +1140,15 @@ different artefacts.
   against a SHA quoted in a brief. Two passes here did that arithmetic correctly and still
   reported 25 commits of drift where there were 38, because the tip they had been handed was
   itself 13 stale; a worktree sitting at that SHA answers `0` to `<sha>..HEAD` and reads as
-  current. A symbolic ref cannot go stale, a pasted one silently can. The cheapest
-  re-measurement is often the comment beside the suspected line: a fix written from a real
-  report tends to restate the defect in the reporter's own terms, which separates _fixed_ from
-  _still broken_ without a probe. Where it does not, the regression test usually carries the
-  reporter's scenario in its name.
+  current. A remote-tracking ref goes stale just as silently: a third pass ran the
+  `origin/<branch>` form without fetching first, inherited that same tip, and reported 18 where
+  there were 33 — having itself noted the newer commit was missing from its fetch. The fetch is
+  the load-bearing half, not the ref, and three passes agreeing on a denominator is this
+  bullet's own headline one level up: they agreed because they shared a brief, not because they
+  measured. The cheapest re-measurement is often the comment beside the suspected line: a fix
+  written from a real report tends to restate the defect in the reporter's own terms, which
+  separates _fixed_ from _still broken_ without a probe. Where it does not, the regression test
+  usually carries the reporter's scenario in its name.
 - **Verifying the checkable half of a claim does not verify the claim.** A report that pairs
   code facts with a behavioural result invites you to check the facts, find them exact, and
   carry the result across on that credit. A sibling pass's control-design example cited two
