@@ -688,6 +688,28 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 2. Update `docs/RELEASE_NOTES.md`, the README's `## 4️⃣ What's New` section, **and**
    `docs/guide/whats-new.md` — see _The two "What's New" surfaces_ for the differing rules.
 
+   **A fix belongs in the notes only if the defect it fixes was ever released.** Check each
+   one against the previous tag with `git show <tag>:<path>` — not against the diff, and
+   never against the commit message, which was written mid-branch and describes its bug as
+   live because to its author it was. Two conditions must both hold: the defective code
+   existed in the released tree, _and_ a user of that release could reach it with a
+   configuration that release supported. The second is what disqualifies a fix to code that
+   only a new feature can reach. Two shapes fail it, and a long-lived branch produces both —
+   a defect introduced and repaired inside unreleased work, and a fix that already shipped,
+   which happens whenever a release is cut from `dev` while the branch is open and its tag
+   becomes an ancestor (`git merge-base --is-ancestor <tag> HEAD`). The v4.0.0 draft listed
+   37 fixes and **16 failed this**; six of them re-announced v3.6.0 fixes, one under a
+   heading identical to the one in the section below it. No gate catches this.
+
+   Two editorial rules the v4 draft also needed. **Open a feature on what it does for the
+   reader, then earn the mechanism** — the editor section led with `<ha-form>` and schemas
+   and reached the point three sentences later. Fixes are the exception and stay
+   symptom-first, because there the symptom _is_ the value. And **weigh the sections against
+   each other before shipping**: the v4 draft put 5,971 words into 🐛 Bug Fixes against 1,943
+   into 🎉 New Features, in the release headlined by two features, with single bullets at 350
+   words against a 113-word high in v3.5/v3.6. A fix needing 300 words is carrying its own
+   post-mortem; that belongs in the commit message, not the notes.
+
    `check:docs` now reads `package.json` and requires all three to name that exact
    version: a `# Calendar Card Pro vX.Y.Z` section in the release notes, a `## vX.Y`
    entry in the archive, and `vX.Y` somewhere in the README's What's New. Before this
