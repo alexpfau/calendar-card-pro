@@ -6,7 +6,7 @@
 import * as FormatUtils from './format';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
-import { parseStartDateExpression } from './start-date';
+import { isWeekRelative, parseStartDateExpression } from './start-date';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -1363,12 +1363,17 @@ export function getBaseCacheKey(
 
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
 
-  const weekRelative = /^(start_of_week|end_of_week|mon|tue|wed|thu|fri|sat|sun)/i.test(
-    normalizedStartDate,
-  );
+  // Asked of the grammar rather than restated here. A regex over the raw value drifted
+  // both ways: it matched `end_of_week`, which is not an anchor, and missed anything
+  // carrying whitespace, because `getTimeWindow` trims before parsing and this did not —
+  // so a quoted `" start_of_week"` was keyed as absolute while its window moved.
+  //
   // Explicitly against `undefined`, not truthiness: Sunday resolves to 0, so a truthy
   // test would drop it from the key and collide a Sunday-start week with "no weekday".
-  const firstDayPart = weekRelative && firstDayOfWeek !== undefined ? `_fdw${firstDayOfWeek}` : '';
+  const firstDayPart =
+    isWeekRelative(normalizedStartDate) && firstDayOfWeek !== undefined
+      ? `_fdw${firstDayOfWeek}`
+      : '';
 
   return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
 }

@@ -70,6 +70,38 @@ function tokenize(input: string): string[] {
 }
 
 /**
+ * Whether an expression resolves differently for different first weekdays.
+ *
+ * Exactly one thing in this grammar consults `firstDayOfWeek`: the `start_of_week`
+ * anchor. Every weekday anchor lands on the next `monday`, `sat`, … from today, and every
+ * operator adds days, weeks or a weekday offset — none of which move when the week starts
+ * somewhere else.
+ *
+ * This lives here, beside the grammar it describes, because the event cache key needs the
+ * same answer and re-implementing it drifted in both directions at once. The copy was a
+ * regex over the raw config value, and it matched `end_of_week` — never an anchor here —
+ * while failing on any value carrying whitespace, because `getTimeWindow` trims before
+ * parsing and the regex did not. That second half was the live defect: a padded
+ * `" start_of_week"` resolved to a week-relative window but was keyed as though it were
+ * absolute, so a Sunday-start and a Monday-start profile shared one cache entry while
+ * asking Home Assistant for different days.
+ *
+ * Reusing `tokenize` and the normalization step rather than restating them is the point —
+ * a future anchor or operator that reads `firstDayOfWeek` has to be added a few lines
+ * below, where this predicate is visible, and `tests/start-date-week-relative.test.ts`
+ * reconciles the two by measuring whether the resolved date actually moves.
+ *
+ * @param input - Raw `start_date` config value, trimmed or not
+ * @returns `true` when the resolved date depends on the first day of the week
+ */
+export function isWeekRelative(input: string): boolean {
+  const normalized = String(input).replace(/\s+/g, '').toLowerCase();
+  if (normalized === '') return false;
+
+  return tokenize(normalized)[0] === ANCHOR_START_OF_WEEK;
+}
+
+/**
  * Parse a start date expression such as `start_of_week+7`, `today+sat` or `monday-1w`.
  *
  * @param input - Raw `start_date` config value

@@ -78,6 +78,29 @@ describe('first_day_of_week is treated as the fetch-affecting option it is', () 
     expect(keyFor(0, '2026-06-17')).toBe(keyFor(1, '2026-06-17'));
   });
 
+  it('keeps the weekday in the key when the start date is padded', () => {
+    // `getTimeWindow` trims before parsing, so a quoted `" start_of_week"` resolves
+    // week-relatively and asks Home Assistant for a different set of days per profile.
+    // The key was built from the *untrimmed* value against a regex anchored at `^`, so
+    // the leading space made it look absolute and dropped the weekday — handing a
+    // Sunday-start and a Monday-start profile the same entry for different windows.
+    //
+    // Whitespace normalization now lives with the grammar in `isWeekRelative`, which is
+    // the only thing that knows `start_of_week` is the sole weekday-dependent anchor.
+    expect(keyFor(0, ' start_of_week')).not.toBe(keyFor(1, ' start_of_week'));
+    expect(keyFor(0, 'start_of_week ')).not.toBe(keyFor(1, 'start_of_week '));
+  });
+
+  it('drops the weekday for a weekday anchor, which does not depend on it', () => {
+    // The other half of asking the grammar rather than a regex. `monday` means "the next
+    // Monday from today" and lands on the same date whatever the week starts on, so the
+    // old alternation — which matched every weekday prefix — was splitting one entry
+    // into seven. Over-matching is only ever wasted fetches, which is why it survived,
+    // but it is still wrong and the same lookup now answers both directions.
+    expect(keyFor(0, 'monday')).toBe(keyFor(1, 'monday'));
+    expect(keyFor(0, 'sat+3')).toBe(keyFor(1, 'sat+3'));
+  });
+
   it('resolves system to a different weekday per profile', () => {
     // Why the key takes the resolved value rather than the raw setting: this is one
     // config string, and it is not an identity. Both halves of the composition are
