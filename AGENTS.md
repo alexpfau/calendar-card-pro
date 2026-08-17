@@ -951,6 +951,23 @@ both directions, by importing the schema modules. A new field with no string fai
 - Match the existing module layout: `config/`, `interaction/`, `rendering/`,
   `translations/`, `utils/`.
 
+**Never turn a config value into a JS number inside `src/rendering/`.** Length options are
+documented as CSS length _strings_, so `parseFloat(config.x) + 'px'` silently discards the
+author's unit — `day_spacing: 2em` drew its separators at `2px`, and `calc()` parsed to `NaN`
+and emitted the literal string `NaNpx`. Both defect sites lived in this directory and both
+shipped in v3.6.0, surviving twelve review passes: every default is a px value, so the bug
+and the tests agreed with each other. Scale lengths with `ViewConfig.scaleLength()`, which
+keeps the unit and hands `calc()`/`var()` to the browser; coerce editor form input with
+`Config.toValidNumber()`. A `no-restricted-syntax` rule scoped to `src/rendering/**` now
+enforces this, so it fails at lint rather than at review. Genuine _counts_ (`min_days_to_show`)
+and deliberate px-only reads (`parsePx`, which compares against a measured pixel width) are
+correct and live in `config/` or `utils/`, outside the rule's scope.
+
+**When you add a length option, test it at a non-px unit.** The suite is built from default
+config, and every length default is written in px, so a px-only test agrees with a
+unit-discarding implementation. `custom-property-mapping.test.ts` pinned only `20px → 35px`,
+which is precisely why the bug above survived. Pair every px assertion with an `em`/`rem` one.
+
 **Cite symbols in comments, never line numbers.** A citation into the five-hundreds of
 `render.ts` was accurate when it was written and became a pointer into empty space the moment
 the v4 refactor cut that file from roughly a thousand lines to five hundred. Six such citations shipped in the test suite, one of them
