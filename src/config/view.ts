@@ -811,9 +811,12 @@ export function resolveMinDaysFallback(config: Types.Config): Types.ColumnMinDay
  * - **`effectiveView`** is what is rendered after the width fallback.
  *
  * Everything downstream — option resolution, grouping, compaction, rendering — takes
- * the resolved effective view. Nothing reads `config.view` directly, because below the
+ * the resolved effective view, and none of it reads `config.view`, because below the
  * threshold that value still says `column` while the card renders a list, and every
- * per-view resolution would then resolve for the wrong view.
+ * per-view resolution would then resolve for the wrong view. The three sites that do
+ * read it all want the *requested* view by definition: the `requestedView` getter, the
+ * `resolveColumnFit` call that consumes it as input, and the editor, which must show
+ * the user what they configured rather than what the current width happens to render.
  *
  * The fallback this function models is **wholesale**: below the threshold it answers
  * list view, never column view with fewer columns. That is a property of *this

@@ -13,6 +13,31 @@ import * as Types from '../config/types';
 //-----------------------------------------------------------------------------
 
 /**
+ * Resolve the effective weather position, applying the documented `date` default.
+ *
+ * `setConfig` merges with `{ ...DEFAULT_CONFIG, ...config }` — a *shallow* spread — so a
+ * user `weather:` block replaces the default block wholesale and `position` arrives
+ * `undefined` unless it was spelled out. Every consumer must therefore resolve the
+ * default itself, and reading `weather.position` raw is exactly how the subscribe and
+ * render halves drifted apart: the card subscribed to the daily forecast and then drew
+ * nothing.
+ *
+ * This resolves a *missing* value only; it deliberately does not validate. Config
+ * arrives from YAML unvalidated, so `position` can hold something outside its declared
+ * union at runtime, and `getRequiredForecastTypes` pins that case to subscribing to
+ * everything rather than dropping it. Clamping an unknown value to `date` here would
+ * quietly break that.
+ *
+ * @param weatherConfig Weather configuration options, if any
+ * @returns The position every consumer should act on
+ */
+export function resolveWeatherPosition(
+  weatherConfig?: Types.WeatherConfig,
+): NonNullable<Types.WeatherConfig['position']> {
+  return weatherConfig?.position || 'date';
+}
+
+/**
  * Determine which forecast types (daily, hourly) are required based on configuration
  *
  * @param weatherConfig Weather configuration options
@@ -25,7 +50,7 @@ export function getRequiredForecastTypes(
     return [];
   }
 
-  const position = weatherConfig.position || 'date';
+  const position = resolveWeatherPosition(weatherConfig);
 
   // 'none' renders nothing anywhere, so subscribing to a forecast would pay the
   // cost of a stream nobody reads. Without this arm it falls through to the

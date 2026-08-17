@@ -16,6 +16,7 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { EVENTS, FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
+import * as Config from '../src/config/config';
 import * as Types from '../src/config/types';
 import * as Column from '../src/rendering/column';
 import * as Render from '../src/rendering/render';
@@ -175,5 +176,85 @@ describe('weather position `none` renders no badge', () => {
     expect(column.querySelectorAll('.event-weather').length).toBe(0);
     expect(list.querySelectorAll('.weather').length).toBe(0);
     expect(list.querySelectorAll('.event-weather').length).toBe(0);
+  });
+});
+
+/**
+ * The same contract once more, but reached the way a real dashboard reaches it.
+ *
+ * `setConfig` merges with `{ ...DEFAULT_CONFIG, ...config }` — a *shallow* spread — so a
+ * user block of `weather: { entity: … }` replaces the default `weather` block wholesale
+ * and arrives with `position` undefined. Both suites above assign `config.weather`
+ * directly with the position spelled out, so neither can see that: they never exercise
+ * the merge, and the omitted case is the one every user who does not spell the option
+ * out lands on.
+ *
+ * The two halves disagreed exactly there. `getRequiredForecastTypes` resolved the
+ * documented `date` default and subscribed to the daily stream, while the render gates
+ * compared `position` raw, matched neither `'date'` nor `'both'`, and drew nothing — the
+ * card paid for a forecast it could not display. The subscribe half was already pinned
+ * above, which is why this suite stayed green while the render half was broken.
+ *
+ * Asserting *equivalence with an explicit `'date'`* rather than a bare "renders
+ * something" is what keeps this honest: a gate defaulting to the wrong position, and a
+ * gate widened to render for every value, each fail one of the two tests below.
+ */
+describe('weather position omitted from a user config', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Renders both views through the same shallow merge `setConfig` performs. */
+  function merged(weather: Record<string, unknown>): {
+    column: HTMLElement;
+    list: HTMLElement;
+    config: Types.Config;
+  } {
+    const userYaml = { ...buildConfig({ split_multiday_events: true }), weather };
+    const config = { ...Config.DEFAULT_CONFIG, ...userYaml } as Types.Config;
+
+    const view = (v: 'column' | 'list'): HTMLElement => {
+      const days = EventUtils.groupEventsByDay(EVENTS, config, false, 'en', v);
+      const container = document.createElement('div');
+      litRender(
+        v === 'column'
+          ? Column.renderColumnGroupedEvents(days, config, 'en', WEATHER, null)
+          : Render.renderGroupedEvents(days, config, 'en', WEATHER, null),
+        container,
+      );
+      return container;
+    };
+
+    return { column: view('column'), list: view('list'), config };
+  }
+
+  it('renders exactly what an explicit `date` renders', () => {
+    const omitted = merged({ entity: ENTITY });
+    const explicit = merged({ entity: ENTITY, position: 'date' });
+
+    // Positive control: the explicit config must actually draw something, or two zeroes
+    // would satisfy the equivalence below and prove nothing at all.
+    expect(explicit.column.querySelectorAll('.weather').length).toBeGreaterThan(0);
+
+    for (const view of ['column', 'list'] as const) {
+      for (const badge of ['.weather', '.event-weather'] as const) {
+        expect(omitted[view].querySelectorAll(badge).length).toBe(
+          explicit[view].querySelectorAll(badge).length,
+        );
+      }
+    }
+  });
+
+  it('draws the daily forecast it subscribed to', () => {
+    const { config, column, list } = merged({ entity: ENTITY });
+
+    expect(WeatherUtils.getRequiredForecastTypes(config.weather)).toContain('daily');
+    expect(column.querySelectorAll('.weather').length).toBeGreaterThan(0);
+    expect(list.querySelectorAll('.weather').length).toBeGreaterThan(0);
   });
 });

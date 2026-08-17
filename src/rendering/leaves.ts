@@ -31,9 +31,8 @@ export function renderDateWeather(
   config: Types.Config,
   weatherForecasts?: Types.WeatherForecasts,
 ): TemplateResult | typeof nothing {
-  const showDateWeather =
-    (config.weather?.position === 'date' || config.weather?.position === 'both') &&
-    config.weather?.entity;
+  const position = Weather.resolveWeatherPosition(config.weather);
+  const showDateWeather = (position === 'date' || position === 'both') && config.weather?.entity;
 
   if (!showDateWeather || !weatherForecasts?.daily) {
     return nothing;
@@ -293,10 +292,8 @@ function renderEventTitle(
  * Whether the card is configured to show a weather badge on individual events.
  */
 function hasEventWeather(config: Types.Config): boolean {
-  return !!(
-    config.weather?.entity &&
-    (config.weather.position === 'event' || config.weather.position === 'both')
-  );
+  const position = Weather.resolveWeatherPosition(config.weather);
+  return !!(config.weather?.entity && (position === 'event' || position === 'both'));
 }
 
 /**
