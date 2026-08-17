@@ -1086,6 +1086,15 @@ different artefacts.
   `resolveLabelType`'s summary ended in the stranded word "what". Enlarging the corpus makes
   such a null more confident without making it more correct, so quote the match set beside
   the count.
+- **A gate's normal state is having no instance — judge its pattern against the runtime,
+  not the corpus.** "Nothing in the tree violates it today" is what a working validator
+  looks like, so applying _no instance ⇒ null_ to one retires the check that would have
+  caught tomorrow's regression. Ask instead whether its pattern can express what it claims
+  to validate: `check-i18n.mjs` matched placeholders as `/\{[a-z_]+\}/g` while
+  `interpolate()` substitutes `/\{(\w+)\}/g`, exempting every `{maxCount}` from validation
+  while the corpus sat clean at zero. Widening a gate to the runtime's own class cannot
+  yield false positives by construction — a property of the pattern, not of the tree it
+  happened to be measured against.
 - **`grep` exits 1 on no match — read the status, not the count.** `grep -c` saturates at 1
   after flattening; use `grep -o … | wc -l`.
 - **Regex a file for its _shape_, import it for its _values_.** And when the machine reads a
