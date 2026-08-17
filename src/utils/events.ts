@@ -423,10 +423,6 @@ export function groupEventsByDay(
     day.weekNumber = calculateWeekNumberWithMajorityRule(dayDate, config, firstDayOfWeek);
 
     day.monthNumber = dayDate.getMonth();
-
-    day.isFirstDayOfMonth = dayDate.getDate() === 1;
-
-    day.isFirstDayOfWeek = dayDate.getDay() === firstDayOfWeek;
   });
 
   Object.values(eventsByDay).forEach((day) => {
@@ -664,8 +660,6 @@ export function groupEventsByDay(
           ],
           weekNumber,
           monthNumber: currentDate.getMonth(),
-          isFirstDayOfMonth: currentDate.getDate() === 1,
-          isFirstDayOfWeek: currentDate.getDay() === firstDayOfWeek,
         };
 
         allDays.push(dayObj);

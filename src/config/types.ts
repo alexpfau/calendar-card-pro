@@ -300,8 +300,6 @@ export interface WeatherData {
   uv_index?: number;
   datetime: string;
   hour?: number;
-  precipitation?: number;
-  precipitation_probability?: number;
 }
 
 /** Weather forecasts organized by type and date/time. */
@@ -357,8 +355,6 @@ export interface EventsByDay {
   timestamp: number;
   events: CalendarEventData[];
   weekNumber?: number | null;
-  isFirstDayOfWeek?: boolean;
-  isFirstDayOfMonth?: boolean;
   monthNumber?: number;
 }
 

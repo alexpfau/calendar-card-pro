@@ -177,5 +177,5 @@ function hour(
   temperature: number,
   h: number,
 ): Types.WeatherData {
-  return { icon, condition, temperature, datetime, hour: h, precipitation_probability: 20 };
+  return { icon, condition, temperature, datetime, hour: h };
 }

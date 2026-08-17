@@ -106,8 +106,6 @@ function processForecastData(
       templow: item.templow !== undefined ? Math.round(item.templow) : undefined,
       datetime: item.datetime,
       hour,
-      precipitation: item.precipitation,
-      precipitation_probability: item.precipitation_probability,
       uv_index: item.uv_index !== undefined ? Math.round(item.uv_index) : undefined,
     };
   });
