@@ -539,7 +539,17 @@ export function hasConfigChanged(
     previousEntityIds !== currentEntityIds ||
     previous.days_to_show !== current.days_to_show ||
     previous.start_date !== current.start_date ||
-    // Moves the fetch window whenever `start_date` is week-relative.
+    // Deliberately unconditional, and deliberately inconsistent with the exclusions
+    // below. `first_day_of_week` only moves the fetch window when `start_date` is
+    // week-relative; with an absolute date — or with none at all, which is the
+    // default — `getTimeWindow` returns a byte-identical window, so the refresh it
+    // triggers is waste by the very standard those exclusions set. It is kept anyway:
+    // narrowing it means re-deriving "is this start date week-relative" here, and a
+    // wrong predicate serves a stale window rather than merely re-fetching a fresh
+    // one. One avoidable request is the cheaper failure. Do not narrow this without
+    // `getBaseCacheKey` (`src/utils/events.ts`) and `generateDeterministicId`
+    // (`src/utils/helpers.ts`) in view — both were made weekday-aware to close real
+    // staleness bugs, so this is the conservative end of a settled trade-off.
     previous.first_day_of_week !== current.first_day_of_week;
 
   // `show_past_events` and `filter_duplicates` are deliberately absent. Both are
