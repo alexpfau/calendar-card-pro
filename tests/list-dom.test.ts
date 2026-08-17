@@ -660,6 +660,68 @@ describe('list view DOM', () => {
     ).toBeNull();
   });
 
+  /**
+   * The two tests above drive `show_location` and `show_description` from the card level
+   * only. Per-entity, the value that matters is `false`: both are resolved as
+   * `getEntitySetting(...) ?? config.show_*`, and the `??` is the only thing letting an
+   * entity's `false` beat a card-level `true`. Written with `||` — the mutation both
+   * sites survived — the entity's answer is discarded and the card-level value wins, so
+   * the override silently stops working while every other test stays green.
+   *
+   * Each case renders a second entity that inherits. The card-level flag is identical for
+   * both events, so the override is the only thing that can tell them apart, and a test
+   * that broke by disabling the option outright would fail on the inheriting entity.
+   */
+  it('honours a per-entity show_location override without affecting other entities', () => {
+    const container = renderListContainer(
+      [
+        timedEvent('2026-06-17', '14:00', '15:00', 'Overridden entity', {
+          location: '12 High Street',
+        }),
+        timedEvent('2026-06-17', '16:00', '17:00', 'Inheriting entity', {
+          _entityId: 'calendar.work',
+          location: '34 Low Road',
+        }),
+      ],
+      // `show_location` already defaults to true, so the card level needs no help here.
+      buildConfig({
+        entities: [{ entity: 'calendar.personal', show_location: false }, 'calendar.work'],
+      }),
+    );
+
+    expect(eventCellByTitle(container, 'Overridden entity').querySelector('.location')).toBeNull();
+    expect(
+      eventCellByTitle(container, 'Inheriting entity').querySelector('.location'),
+    ).not.toBeNull();
+  });
+
+  it('honours a per-entity show_description override without affecting other entities', () => {
+    const container = renderListContainer(
+      [
+        timedEvent('2026-06-17', '14:00', '15:00', 'Overridden entity', {
+          description: 'Bring ID',
+        }),
+        timedEvent('2026-06-17', '16:00', '17:00', 'Inheriting entity', {
+          _entityId: 'calendar.work',
+          description: 'Bring ID',
+        }),
+      ],
+      // Unlike `show_location`, this one defaults to false, so the card level has to be
+      // turned on for the entity's `false` to be overriding anything at all.
+      buildConfig({
+        show_description: true,
+        entities: [{ entity: 'calendar.personal', show_description: false }, 'calendar.work'],
+      }),
+    );
+
+    expect(
+      eventCellByTitle(container, 'Overridden entity').querySelector('.description'),
+    ).toBeNull();
+    expect(
+      eventCellByTitle(container, 'Inheriting entity').querySelector('.description'),
+    ).not.toBeNull();
+  });
+
   it('honors false flags in date-column weather', () => {
     const container = renderListContainer(
       SINGLE_EVENT,
