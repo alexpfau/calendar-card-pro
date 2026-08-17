@@ -1146,5 +1146,17 @@ different artefacts.
   from scratch. Sweeping the back-catalogue and retracting every hit alike would trade a set
   of unfounded dismissals for a set of equally unfounded reversals.
 
+  Aim the check at what the verdict asserted, rather than at the bare fact that it names a
+  commit. A note phrased as _"the sibling's finding and its fix"_ has already placed that
+  fix after the report, so a positive trigger corroborates the reading instead of upsetting
+  it — I flagged one of my own rows as unsound on the trigger alone and had to reverse that
+  within the hour. Only a claim of staleness is falsified here; nothing wider.
+
+  A silent commit message is likewise not evidence of prior art. Some fixes arrive from
+  neither direction: work aimed at something else can sweep up the reported line as
+  collateral, leaving a finding that was live when filed, resolved before triage, and never
+  once addressed on purpose. Reach for that reading when ancestry puts the fix later but
+  nothing in it acknowledges the report.
+
 - **Equal sizes are not identity, and a bundle figure needs its compression level _and_ its
   build variant.** Hash instead.
