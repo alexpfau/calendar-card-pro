@@ -195,11 +195,26 @@ export function renderDateContent(
 //-----------------------------------------------------------------------------
 /**
  * A pictographic character: emoji (as a surrogate pair) or a symbol/dingbat.
+ *
+ * The `\u2000-\u3300` range is deliberately coarse and overlaps several scripts
+ * (Hiragana, Katakana, Bopomofo, Hangul Jamo). `PROSE_CHAR` is what vetoes those,
+ * so the two constants have to be read together.
  */
 const GLYPH_CHAR =
   /[\u2000-\u3300]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDC00-\uDFFF]/;
 
-const PROSE_CHAR = /[\sA-Za-z]/;
+/**
+ * A character that makes a label prose rather than ornament: any letter, in any
+ * script, plus whitespace.
+ *
+ * This must stay `\p{L}` and not `A-Za-z`. Matching only Latin letters classified
+ * every non-Latin label as a glyph -- either when an emoji was joined directly to
+ * a word (`🎉Отпуск`), or, because `GLYPH_CHAR` covers kana, for plain Japanese
+ * labels with no emoji at all (`やすみ`). Those then got the single-glyph hanging
+ * indent below sized for their full width. Digits are excluded on purpose: `①`
+ * and other numeric glyphs are ornament, not prose.
+ */
+const PROSE_CHAR = /[\s\p{L}]/u;
 
 /**
  * Whether a text label is a compact glyph (emoji, symbol) rather than prose.

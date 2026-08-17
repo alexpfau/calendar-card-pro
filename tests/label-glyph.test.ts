@@ -23,10 +23,17 @@ import * as Helpers from '../src/utils/helpers';
  * note in `max-lines.test.ts` about the stylesheet being ungated. What *is*
  * checkable, and what actually decides the behaviour, is which class comes out.
  *
- * The predicate is written without `\p{Extended_Pictographic}` because tsconfig
- * targets ES2017 and Unicode property escapes are ES2018, so the surrogate ranges
- * are spelled out longhand. That makes it worth testing against real emoji rather
+ * The predicate spells the pictographic surrogate ranges out longhand rather than
+ * using `\p{Extended_Pictographic}`. That is a legacy shape, not a constraint:
+ * Unicode property escapes compile fine under our ES2017 target (`PROSE_CHAR`
+ * below uses `\p{L}`), so the longhand is kept only because the ranges are pinned
+ * by the cases here. Either way it is worth testing against real emoji rather
  * than trusting it by inspection.
+ *
+ * Those ranges are coarse enough to cover Hiragana, Katakana, Bopomofo and Hangul
+ * Jamo, so the *only* thing keeping a plain Japanese label out of the glyph branch
+ * is `PROSE_CHAR` matching any letter in any script. The non-Latin cases below
+ * pin that: they failed when `PROSE_CHAR` was `[\sA-Za-z]`.
  */
 describe('renderLabel glyph classification', () => {
   let host: HTMLElement;
@@ -48,6 +55,7 @@ describe('renderLabel glyph classification', () => {
     ['a ZWJ family sequence', '👨‍👩‍👧‍👦'],
     ['a skin-tone modifier sequence', '👋🏽'],
     ['a dingbat', '✔'],
+    ['an enclosed numeral', '①'],
   ])('marks %s as a glyph', (_name, label) => {
     const el = renderLabel(label);
     expect(el?.classList.contains('calendar-label')).toBe(true);
@@ -61,6 +69,34 @@ describe('renderLabel glyph classification', () => {
     ['prose followed by an emoji', 'Party 🎉'],
     ['a bare number', '2024'],
     ['a single letter', 'F'],
+  ])('does not mark %s as a glyph', (_name, label) => {
+    const el = renderLabel(label);
+    expect(el?.classList.contains('calendar-label')).toBe(true);
+    expect(el?.classList.contains('label-emoji')).toBe(false);
+  });
+
+  /**
+   * Non-Latin prose. Two separate ways this used to be misread as ornament:
+   *
+   * - an emoji joined directly to a word, with none of the whitespace that saves
+   *   the Latin equivalent (`🎉 Party` was always fine, `🎉Отпуск` was not);
+   * - a label needing no emoji at all, because `GLYPH_CHAR` covers kana and
+   *   Bopomofo, so `やすみ` matched it and nothing vetoed the match.
+   *
+   * Kanji sits above the range and so was never affected on its own, which is why
+   * it is listed here as the case that always worked.
+   */
+  it.each([
+    ['Cyrillic joined to an emoji', '🎉Отпуск'],
+    ['Arabic joined to an emoji', '🎉احتفال'],
+    ['Hebrew joined to an emoji', '🎉חופשה'],
+    ['Greek joined to an emoji', '🎉Διακοπές'],
+    ['Devanagari joined to an emoji', '🎉छुट्टी'],
+    ['bare Hiragana', 'やすみ'],
+    ['bare Katakana', 'カタカナ'],
+    ['bare Bopomofo', 'ㄅㄆㄇ'],
+    ['Kanji mixed with Hiragana', '休暇やすみ'],
+    ['bare Kanji', '休暇'],
   ])('does not mark %s as a glyph', (_name, label) => {
     const el = renderLabel(label);
     expect(el?.classList.contains('calendar-label')).toBe(true);
