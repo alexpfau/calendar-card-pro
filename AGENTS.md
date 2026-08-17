@@ -1149,6 +1149,16 @@ different artefacts.
   the expression it described as load-bearing, where its argument required zero. The half
   cheap enough to check is rarely the half doing the work, so reproduce the result or drop
   the example — this document is the wrong place to discover which.
+- **"Emitted but undocumented" is a claim about the production call site, not the producer.**
+  The natural evidence — the code that emits the thing, plus a test pinning it — can both hold
+  while the finding is false, because a test may call the producer directly and supply the very
+  condition said to occur. Trace the path production actually takes, and check the released
+  branch as well as the tip. A class reported here as a missing theming hook proved gated on a
+  parameter no production caller ever set — passed explicitly as `false` on the branch under
+  review, and left to its `false` default on the released one — so it had never reached a user
+  in any version; the remedy inverted from documenting it to deleting it and the pair of tests
+  that were its only caller. Where a remedy is to write documentation, first establish that its
+  subject exists for users at all.
 - **"Already fixed at the tip" does not establish that a report was stale.** A triage run
   against a tip that has already absorbed the report cannot detect the report: it reports
   _already fixed, no action needed_ whether the finding was genuine prior art or was live
