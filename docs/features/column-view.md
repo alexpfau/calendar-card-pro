@@ -1,8 +1,9 @@
 # Column View
 
 Column view places the days side by side, one column each, so a week reads across the card
-rather than down it. It is the same agenda the list layout shows, rotated — every event,
-label and color option you already use applies unchanged.
+rather than down it. It is the same agenda the list layout shows, rotated — your events,
+labels and colors carry over as they are, apart from
+[two options that start from a different default](#options-that-start-from-a-different-default).
 
 Set it with `view`. The default, `list`, stacks each day above the next.
 
