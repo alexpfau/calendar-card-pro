@@ -8,6 +8,7 @@ import * as Overrides from './overrides';
 import { walkSchema } from './panels';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
+import * as Helpers from '../../utils/helpers';
 
 const EXTRA_KEYS_BY_PANEL: Readonly<Record<string, ReadonlyArray<string>>> = {
   layout: ['height', 'max_height'],
@@ -83,9 +84,9 @@ export function declaredKeys(config: Readonly<Types.Config>): ReadonlySet<string
   for (const blockKey of Object.values(ViewConfig.OVERRIDE_BLOCK_BY_VIEW)) {
     const block = config[blockKey];
 
-    if (!block || typeof block !== 'object' || Array.isArray(block)) continue;
+    if (!Helpers.isConfigBlock(block)) continue;
 
-    for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(block)) {
       if (value !== undefined && OVERRIDE_KEYS.has(key)) declared.add(key);
     }
   }
@@ -122,7 +123,7 @@ export function removeException(
 ): Types.Config {
   const block = config[blockKey];
 
-  if (!block || typeof block !== 'object' || Array.isArray(block)) {
+  if (!Helpers.isConfigBlock(block)) {
     return config as Types.Config;
   }
 

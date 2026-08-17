@@ -1113,7 +1113,6 @@ class CalendarCardPro extends LitElement {
       this.effectiveTitle,
       content,
       handlers,
-      false,
       this.isLoading,
       this.isTitlePending,
       this.effectiveView,

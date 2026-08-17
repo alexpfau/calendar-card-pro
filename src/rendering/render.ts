@@ -30,7 +30,6 @@ export { renderColumnGroupedEvents } from './column';
  * @param title Card title from configuration
  * @param content Main card content (events or status)
  * @param handlers Event handler functions
- * @param maxHeightSet Flag to add max-height-set class
  * @param isLoading Flag to mark the card as busy while events load
  * @param titlePending True while a templated title awaits its first value
  * @param effectiveView The view actually being rendered, after any width fallback
@@ -47,16 +46,13 @@ export function renderMainCardStructure(
     pointerCancel: (ev: Event) => void;
     pointerLeave: (ev: Event) => void;
   },
-  maxHeightSet: boolean = false,
   isLoading: boolean = false,
   titlePending: boolean = false,
   effectiveView: Types.EffectiveView = 'list',
 ): TemplateResult {
-  const cardClasses = [
-    'calendar-card-pro',
-    maxHeightSet ? 'max-height-set' : '',
-    ViewConfig.viewCssClass(effectiveView),
-  ]
+  // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
+  // separator out of the class attribute.
+  const cardClasses = ['calendar-card-pro', ViewConfig.viewCssClass(effectiveView)]
     .filter((cls) => cls !== '')
     .join(' ');
 
