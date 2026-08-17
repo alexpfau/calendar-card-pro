@@ -142,3 +142,73 @@ describe('custom property mapping', () => {
     expect(emitted.filter((name) => !asserted.has(name) && !known.has(name))).toEqual([]);
   });
 });
+
+/**
+ * The weather badges' theming hooks, which the allowlist above admits are emitted but
+ * never asserted.
+ *
+ * v4 turned these into a real override surface: the badges used to carry their size and
+ * colour as inline `style` attributes that no theme could reach, and `theming.md` now
+ * publishes all six properties with defaults. The defaults are the half that matters,
+ * because `setConfig` merges `weather` shallowly — a user block naming only `entity`
+ * arrives with `date` and `event` entirely absent, so every one of these reads its
+ * fallback. That is the common case, not the edge case.
+ *
+ * All five unconditional fallbacks survived a mutation sweep of `styles.ts`: rewriting
+ * `?? '14px'` so the fallback is dropped emits `undefined` into the property, and both
+ * `npm test` and `check:docs` stayed green. Each pair below asserts the fallback and a
+ * distinct override, so a mapping that ignores its config and a mapping that has lost its
+ * default both fail — and the override values are unique, so two crossed properties fail
+ * as well.
+ */
+const WEATHER_FALLBACKS = [
+  ['icon_size', '--calendar-card-weather-date-icon-size', '14px', '31px', 'date'],
+  ['font_size', '--calendar-card-weather-date-font-size', '12px', '32px', 'date'],
+  [
+    'color',
+    '--calendar-card-weather-date-color',
+    'var(--primary-text-color)',
+    'rgb(9, 0, 0)',
+    'date',
+  ],
+  ['icon_size', '--calendar-card-weather-event-icon-size', '14px', '33px', 'event'],
+  ['font_size', '--calendar-card-weather-event-font-size', '12px', '34px', 'event'],
+] as const;
+
+describe('weather custom properties', () => {
+  it.each(WEATHER_FALLBACKS)(
+    'falls %s back to %s for the %s badge',
+    (_option, property, fallback, _override, placement) => {
+      // The shallow-merge case: a weather block naming only `entity`, which is what the
+      // documented minimal config looks like.
+      const props = propsFor({ weather: { entity: 'weather.home' } });
+
+      expect(props[property]).toBe(fallback);
+      expect(placement).toMatch(/^(date|event)$/);
+    },
+  );
+
+  it.each(WEATHER_FALLBACKS)(
+    'passes a configured %s through to %s',
+    (option, property, _fallback, override, placement) => {
+      // The other direction. Without this, a property hardcoded to its own default would
+      // satisfy every fallback assertion above.
+      const props = propsFor({
+        weather: { entity: 'weather.home', [placement]: { [option]: override } },
+      });
+
+      expect(props[property]).toBe(override);
+    },
+  );
+
+  it('keeps the two placements independent', () => {
+    // The badges sit beside different text colours and keep separate fallbacks; setting
+    // one must not move the other. A single shared read would pass both tables above.
+    const props = propsFor({
+      weather: { entity: 'weather.home', date: { icon_size: '41px' } },
+    });
+
+    expect(props['--calendar-card-weather-date-icon-size']).toBe('41px');
+    expect(props['--calendar-card-weather-event-icon-size']).toBe('14px');
+  });
+});

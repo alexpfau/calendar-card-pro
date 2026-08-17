@@ -150,17 +150,28 @@ then deferred on the same reasoning: a new harness added at release point spends
 false positive at the worst possible moment, while the same harness added after a release
 costs only a re-run.
 
-**The v4 test suite has now been partly mutation-tested, and the results are uneven.** 95 test
-files were added on this branch. The sweeps below used type-safe operator swaps only, so a
-surviving mutant means the suite could not see a change that compiled — not that the source is
-wrong. Where a survivor was traced, it is classified; where it was not, it is listed as
-untriaged rather than as a defect.
+**The v4 test suite has now been mutation-tested across eight files, and the results are
+uneven.** 95 test files were added on this branch. The sweeps below used type-safe operator
+swaps only, so a surviving mutant means the suite could not see a change that compiled — not
+that the source is wrong. Where a survivor was traced, it is classified; where it was not, it is
+listed as untriaged rather than as a defect. **Across the fully-triaged files, real gaps and
+equivalent mutants came out at roughly one to one.** That ratio is the point: most survivors are
+defensive duplication, so a sweep that stops at the survivor count and calls each one a gap will
+be wrong about about half of them.
 
-| File                       | Sites | Killed | Survived | Reading                                      |
-| -------------------------- | ----: | -----: | -------: | -------------------------------------------- |
-| `src/config/view.ts`       |    52 |     49 |        3 | all three unreachable or equivalent          |
-| `src/calendar-card-pro.ts` |  28\* |     17 |       10 | **weakest of the three; see the list below** |
-| `src/utils/events.ts`      |   131 |     81 |       50 | largely defensive guards; partly untriaged   |
+| File                            | Sites | Killed | Survived | Reading                                    |
+| ------------------------------- | ----: | -----: | -------: | ------------------------------------------ |
+| `src/config/view.ts`            |    52 |     49 |        3 | all three unreachable or equivalent        |
+| `src/calendar-card-pro.ts`      |  28\* |     17 |       10 | **2 real gaps closed, 8 equivalent**       |
+| `src/utils/events.ts`           |   131 |     81 |       50 | largely defensive guards; partly untriaged |
+| `src/rendering/column.ts`       |    17 |     16 |        1 | survivor provably equivalent               |
+| `src/rendering/leaves.ts`       |  24\* |     24 |        0 | no gap found                               |
+| `src/rendering/render.ts`       |    10 |      6 |        4 | **3 real gaps, now closed**; 1 equivalent  |
+| `src/rendering/presentation.ts` |     9 |      7 |        2 | **1 real gap closed**; 1 equivalent        |
+| `src/rendering/styles.ts`       | 9\*\* |      4 |        5 | **5 real gaps, all closed**                |
+
+\*\* Only the nine sites in TypeScript. The rest of that file is a `css` tagged template,
+where an operator swap is not executable code.
 
 \* A curated subset of the host element's operator sites, not all of them. Two more — the
 `updated()` guard at the `hass`-just-arrived test, and the weather-config comparison beside it
@@ -199,16 +210,76 @@ undefined`; relaxing it to `||` marks a plain string title as pending and nothin
   branch always wins first. It becomes reachable only when a user writes a bare `hold_action:`
   in YAML — the shallow-merge hazard recorded above — and a hold would then also fire the tap
   action.
-- **Untriaged:** the refresh-interval fallback, the weather-subscription guard, the
+- **Untriaged:** ~~the refresh-interval fallback, the weather-subscription guard, the
   initial-load retry cleanup, the `isLimit` numeric test, and the empty-state branch in
-  `render`.
+  `render`.~~ **All five triaged. Two were real and are closed by
+  `tests/host-guards.test.ts`:**
+  - **The refresh timer ignored its configured interval.** `config.refresh_interval ||
+DEFAULT` — the fallback never fires, because `toValidNumber` has already guaranteed a
+    number, so nothing noticed when the configured value stopped being read at all. A card
+    set to refresh every 5 minutes would have quietly refreshed every 30.
+  - **A card with no calendars rendered an empty agenda instead of the error state.**
+    Reachable from the editor, which holds an empty list mid-edit.
 
-So the running total is **one closed, two withdrawn as equivalent, seven open** — and the
-lesson generalises past this file: a cluster of survivors sharing a subject is not evidence
-that they share a cause. These three all touched language resolution and only one was a gap.
+  The other three are **equivalent mutants**, each masked by a duplicate of its own check
+  further down:
+  - the retry cleanup is followed by a branch that clears and re-arms the timer either way;
+  - `isLimit`'s `Number.isFinite` sits behind `toValidNumber`, which reduces every limit —
+    card-level _and_ per-entity — to `number | undefined` before it is read;
+  - the weather-setup early return is masked **three** times: `getRequiredForecastTypes`
+    returns an empty list without an entity, `subscribeToWeatherForecast` guards
+    `!hass?.connection`, and that function's `try`/`catch` absorbs whatever is left. Relaxing
+    the first two _together_ still changes nothing observable, so this one is unkillable by
+    construction rather than merely untested.
 
-**What remains is breadth**, and specifically `src/rendering/` — `leaves.ts`, `render.ts`,
-`column.ts`, `presentation.ts` and `styles.ts` have not been mutation-tested at all.
+So the running total is **three closed, five withdrawn as equivalent, two open** (title-template
+state and the tap/hold interaction edge) — and the lesson generalises past this file: a cluster
+of survivors sharing a subject is not evidence that they share a cause. The language three all
+touched language resolution and only one was a gap; the five here shared nothing but the file.
+
+**`src/rendering/` has now been swept in full, and the shape is informative.** `leaves.ts` (24
+sites) and `column.ts` (17) came back with **no gap at all** — 40 of 41 killed, the single
+survivor provably equivalent, because `days[index - 1]` at `index === 0` is `undefined`, which
+is exactly what the `else` branch returns. The v4 column view is the best-pinned rendering code
+in the project, and it stayed that way after the week-number band landed: all four mutants on
+that new grid-row logic died.
+
+`render.ts` was the opposite: **4 of 10 survived, and 3 were real**, now closed by
+`tests/list-separator-branches.test.ts`. All three are separator branches, and they share one
+cause — every separator width defaults to `'0px'` and `show_week_numbers` to `null`, so a suite
+built from `DEFAULT_CONFIG` draws no separator of any kind and cannot reach them.
+`zero-length.test.ts` turns the _month_ width on and covers that path, which is why these three
+looked covered:
+
+- `renderHorizontalSeparator`'s zero-width early return — the **day** separator's own
+  suppression, a different call path from the month rule.
+- `renderWeekRow` choosing month styling over week styling, invisible unless the two widths are
+  configured _differently_.
+- `hasWeekSeparator`, which does not gate the week row at all — it stops a day rule being
+  stacked on top of one, so the observable is a separator **count** (4 → 3), not a presence.
+
+The generalisable part: a fixture that turns one option on does not cover the options beside
+it, and a shared width hides which branch chose it. Configure the neighbours differently.
+
+`presentation.ts` gave up one real gap — `isPastEvent` used `now > endDateTime` with nothing
+pinning the boundary, while the all-day branch beside it was pinned by the shared fixtures.
+`tests/event-state-classes.test.ts` now carries the millisecond case so the two paths cannot
+drift apart. Its other survivor is equivalent: `isRunning && show_progress_bar` is re-checked by
+`hasProgressBar` in `leaves.ts`, and `calculateEventProgress` re-checks `isEventCurrentlyRunning`
+internally, so the presentation-side test is defensive duplication. Mutating the `leaves.ts`
+half alone **is** caught, which is how the pair was told apart.
+
+**`styles.ts` was the worst of the eight files: 5 of its 9 executable sites survived, and all
+five were real.** They are the `--calendar-card-weather-*` fallbacks — a surface v4 turned from
+inline styles into published theming hooks, all six documented with defaults in `theming.md`.
+The defaults are the common case rather than the edge case, because `setConfig` merges `weather`
+shallowly: a block naming only `entity` arrives with `date` and `event` absent, so every badge
+reads its fallback. Dropping one emits `undefined` into the property, and **both `npm test` and
+`check:docs` stayed green** — the docs gate counts the documented defaults but never reconciles
+them against the code. `tests/custom-property-mapping.test.ts` now pins each fallback beside a
+distinct override, which also catches two properties crossed.
+
+**What remains** is breadth in `src/utils/events.ts`, where 50 survivors are still untriaged.
 
 **No gate cross-checks documented CSS classes against emitted ones.** `theming.md` lists the
 classes the card exposes, the renderers emit them, and nothing compares the two sets. The

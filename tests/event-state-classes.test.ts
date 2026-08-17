@@ -114,4 +114,42 @@ describe('event state classes', () => {
     // A card-mod rule written against one view has to keep matching in the other.
     expect(firstDayEventClasses('column')).toEqual(firstDayEventClasses('list'));
   });
+
+  it('does not call an event past at the instant it ends', () => {
+    // `now > endDateTime`, not `>=`. The boundary is one millisecond wide and survived a
+    // mutation sweep, while the all-day branch beside it — `today > endDate` — is pinned
+    // by the fixtures above; this makes the timed path carry the same convention rather
+    // than leaving the two free to drift apart.
+    //
+    // Both halves are asserted, so the test cannot pass on a card that has stopped
+    // marking anything past at all.
+    const endsExactlyNow: Types.CalendarEventData = {
+      start: { dateTime: '2026-06-17T09:00:00.000Z' },
+      end: { dateTime: FROZEN_NOW.toISOString() },
+      summary: 'ends-now',
+      _entityId: 'calendar.personal',
+    };
+    const endedAMillisecondAgo: Types.CalendarEventData = {
+      start: { dateTime: '2026-06-17T09:00:00.000Z' },
+      end: { dateTime: new Date(FROZEN_NOW.getTime() - 1).toISOString() },
+      summary: 'ended',
+      _entityId: 'calendar.personal',
+    };
+
+    const config = buildConfig({ days_to_show: 1, show_past_events: true });
+    const days = EventUtils.groupEventsByDay(
+      [endsExactlyNow, endedAMillisecondAgo],
+      config,
+      false,
+      'en',
+    );
+    const container = document.createElement('div');
+    litRender(Render.renderGroupedEvents(days, config, 'en', undefined, null), container);
+
+    const past = Array.from(container.querySelectorAll('.event')).map((element) =>
+      element.classList.contains('past-event'),
+    );
+
+    expect(past).toEqual([false, true]);
+  });
 });
