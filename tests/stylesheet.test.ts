@@ -583,9 +583,26 @@ describe('card stylesheet', () => {
       expect(declared('.time-location .event-weather .event-weather-text', 'color')).toBe(
         'var(--calendar-card-weather-event-color, var(--secondary-text-color))',
       );
-      expect(
-        declared('.time-location .event-weather .event-weather-text > span', 'font-size'),
-      ).toBe('var(--calendar-card-weather-event-font-size, 12px)');
+      expect(declared('.time-location .event-weather', 'font-size')).toBe(
+        'var(--calendar-card-weather-event-font-size, 12px)',
+      );
+    });
+
+    it('sizes the weather row itself, so its strut matches the chips it holds', () => {
+      // line-height is relative, so the size has to land on the row and not only on
+      // the leaf chips. Left at the inherited event font size (14px) the row builds a
+      // 16.8px strut around 12px text; under `align-items: flex-start` the glyphs then
+      // sit ~2px below the icon and the row reads as misaligned next to .time and
+      // .description. Those two line up precisely because they size their own row, so
+      // the invariant is that every icon-bearing event row does.
+      for (const selector of [
+        '.time',
+        '.location',
+        '.description',
+        '.time-location .event-weather',
+      ]) {
+        expect(declared(selector, 'font-size')).not.toBe('');
+      }
     });
   });
 

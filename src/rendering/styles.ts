@@ -711,12 +711,19 @@ export const cardStyles = css`
   /* Own-row event weather placement. The descendant selector keeps these
    * rules away from the list-view title-row badge. Resets remove the title
    * badge margins and weight; the wrapper creates a hanging indent so wrapped
-   * lines start under the temperature, not under the icon. */
+   * lines start under the temperature, not under the icon.
+   *
+   * font-size belongs on the row, not only on the leaf chips, because
+   * line-height is relative: leaving the row at the inherited event font size
+   * builds a strut from 14px while the chips render at 12px, so the text's
+   * baseline sits ~2px below the icon under flex-start and the row reads as
+   * misaligned next to .time and .description, which both size their own row. */
   .time-location .event-weather {
     display: flex;
     flex-wrap: nowrap;
     row-gap: 2px;
     align-items: var(--calendar-card-event-icon-vertical-alignment);
+    font-size: var(--calendar-card-weather-event-font-size, 12px);
     line-height: 1.2;
     font-weight: normal;
     margin-top: 2px;
@@ -736,10 +743,6 @@ export const cardStyles = css`
     flex: 1 1 auto;
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
     overflow-wrap: break-word;
-  }
-
-  .time-location .event-weather .event-weather-text > span {
-    font-size: var(--calendar-card-weather-event-font-size, 12px);
   }
 
   /* Weather condition text wraps by default and clamps only when
