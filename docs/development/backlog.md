@@ -163,6 +163,29 @@ A cheap version does not exist, which is why it was not added late. It has to pa
 allowlist for chrome classes that are emitted but deliberately undocumented — precisely the
 shape that yields false positives. **Build it when a false positive costs a re-run.**
 
-**The compact-mode event limit is not pinned.** The `totalEventsShown >= maxEvents` boundary
-inside `groupEventsByDay` in `src/utils/events.ts` survives mutation — flipping the comparison
-leaves the suite green. A coverage gap over correct code, not a defect.
+**The compact-mode event limit cannot be pinned, and does not need to be.** The
+`totalEventsShown >= maxEvents` boundary inside `groupEventsByDay` in `src/utils/events.ts`
+survives mutation, and this was previously filed here as a coverage gap. It is not one: it is
+an **equivalent mutant**. `totalEventsShown` is incremented by `slice(0, remainingEvents)`, so
+it can reach `maxEvents` and never exceed it — which makes `>` false exactly where `>=` is
+true. Flipping it only stops the loop breaking early; the remaining days then compute
+`remainingEvents === 0`, push nothing, and the output is byte-identical. The `>=` is a real
+early exit, worth keeping, with no observable consequence. Measured over a 1,279-row
+differential (5 event layouts × 8 budgets × `show_empty_days` × `compact_events_complete_days`
+× 4 `compact_days_to_show` × `isExpanded`): **0 differing rows**, against 281 and 42 for two
+controls in the same block. `totalEventsShown < maxEvents`, `eventsToShow > 0`,
+`remainingEvents > 0` and the break condition's empty-day exemption are equivalent for the
+same reason. No test can close these; do not write one.
+
+The same differential did find two mutants that were real, and they are now closed by
+`tests/compact-single-event-days.test.ts`. The block tests
+`day.events.length === 1 && day.events[0]._isEmptyDay` at three sites, and **the second
+operand is dead today** — placeholders are created after this block, so `_isEmptyDay` is never
+true here, and replacing either operand with `false` at any site changes nothing. That leaves
+the first operand exposed: relaxing either `&&` to `||` makes every _single-event_ day take the
+placeholder path, which stops the budget applying at all in the default branch and drops those
+days entirely in the complete-days branch. Both survived the full suite. The new file pins the
+property that outlives the ordering — a day with one real event counts against
+`compact_events_to_show` like any other — which is precisely the assertion that would fail if
+placeholder creation were ever moved ahead of this block, the change the comment there
+contemplates.
