@@ -128,7 +128,14 @@ export function stripColumnDefaults(
     }
 
     if (key in columnDefaults) {
-      if (deepEqual(columnDefaults[key], value)) continue;
+      // Compare what the key will actually resolve to, not what was typed: the render path
+      // coerces before use, so `"140"` and `140` are the same setting and neither is worth
+      // storing when it matches the default.
+      const resolved = ViewConfig.normalizeColumnValue(
+        key as keyof typeof ViewConfig.COLUMN_DEFAULTS,
+        value,
+      );
+      if (deepEqual(columnDefaults[key], resolved)) continue;
       result[key] = value;
       continue;
     }

@@ -294,15 +294,15 @@ function renderColumnWeekNumber(
  * Build the week-number row for every column, or `nothing` for all of them.
  *
  * @param days - Days to render, already grouped and sorted
+ * @param boundaries - Day boundaries already computed for this render pass
  * @param config - Card configuration, already resolved for the column view
  * @returns One cell per day, or one `nothing` per day when no row is warranted
  */
 function buildWeekRows(
   days: Types.EventsByDay[],
+  boundaries: DayBoundary[],
   config: Types.Config,
 ): Array<TemplateResult | typeof nothing> {
-  const boundaries = computeDayBoundaries(days);
-
   const visible = boundaries.map(
     (boundary, index) => boundary.isNewWeek && !(index === 0 && !config.show_current_week_number),
   );
@@ -340,8 +340,8 @@ export function renderColumnGroupedEvents(
 ): TemplateResult {
   const headerGap = ViewConfig.resolveColumnOption(config, 'day_header_gap');
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
-  const weekRows = buildWeekRows(days, config);
   const boundaries = computeDayBoundaries(days);
+  const weekRows = buildWeekRows(days, boundaries, config);
 
   const separators = boundaries
     .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))
