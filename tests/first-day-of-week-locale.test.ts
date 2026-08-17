@@ -105,12 +105,35 @@ function cldrFirstDay(tag: string): number | undefined {
   return typeof info?.firstDay === 'number' ? info.firstDay % 7 : undefined;
 }
 
+/**
+ * The runtime's own CLDR and ICU versions, named in every failure message below.
+ *
+ * The oracle above is not a fixture — it is data that ships inside whatever Node is running,
+ * and `.nvmrc` pins only the major (`22`), so `actions/setup-node` resolves the newest 22.x
+ * at run time. Those patch releases do not agree: 22.18.0 carries CLDR 47, where Iceland
+ * starts the week on Monday, and 22.23.2 carries CLDR 48, where it starts on Sunday. The
+ * same commit therefore passes or fails depending on which Node 22 you happen to have.
+ *
+ * A bare `is: expected 1, got 0` reads like a table defect, and was diagnosed as one: a
+ * reviewer on 22.18.0 reported this suite as red on a tip where CI was green, and proposed
+ * deleting a correct entry — which would have inverted the failure onto the runtime that
+ * actually gates the branch. Naming the version turns that ten-minute misread into a
+ * one-line one, so run the gates on the *current* 22.x, not merely on some Node 22.
+ */
+const RUNTIME_CLDR = `CLDR ${process.versions.cldr} / ICU ${process.versions.icu} (Node ${process.versions.node})`;
+
+/** Points at the runtime before the table, because that is where the fault usually is. */
+const CLDR_HINT =
+  `runtime is ${RUNTIME_CLDR}. A mismatch here more often means this Node's CLDR differs ` +
+  `from the one CI resolves than that the table is wrong — reproduce on the newest 22.x ` +
+  `before changing FIRST_DAY_BY_LOCALE.`;
+
 describe('CLDR oracle', () => {
   it('is available and correct, so the table comparison below means something', () => {
     // Without this the whole suite below could pass by comparing undefined to undefined.
-    expect(cldrFirstDay('en-US')).toBe(0);
-    expect(cldrFirstDay('de')).toBe(1);
-    expect(cldrFirstDay('ar')).toBe(6);
+    expect(cldrFirstDay('en-US'), CLDR_HINT).toBe(0);
+    expect(cldrFirstDay('de'), CLDR_HINT).toBe(1);
+    expect(cldrFirstDay('ar'), CLDR_HINT).toBe(6);
   });
 });
 
@@ -128,7 +151,7 @@ describe('first_day_of_week: system, resolved from the Home Assistant language',
       }
     }
 
-    expect(mismatches).toEqual([]);
+    expect(mismatches, CLDR_HINT).toEqual([]);
     // The original bug was a uniform answer, so a table that returned 1 everywhere would
     // still satisfy the loop above for the 45 Monday languages. Require real variety.
     expect([...resolved].sort()).toEqual([0, 1, 6]);

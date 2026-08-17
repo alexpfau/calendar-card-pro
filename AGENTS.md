@@ -188,6 +188,19 @@ disagreed, here the developer disagreed with both. Byte counts are reproducible 
 asserted exactly; anything a compressor or a package manager produces needs either the
 pinned runtime or a tolerance.
 
+**Matching the major is not always enough.** `.nvmrc` says `22`, and `setup-node` resolves
+that to the newest 22.x at run time — so a gate whose oracle is data bundled _inside_ Node
+can disagree between two runtimes that are both honestly "Node 22".
+`tests/first-day-of-week-locale.test.ts` reads week-start data from the runtime's own CLDR
+via `Intl.Locale`, and CLDR 48 moved Iceland from Monday to Sunday: Node 22.18.0 ships CLDR
+47 and fails, Node 22.23.2 ships CLDR 48 and passes, on identical source. A reviewer running
+22.18.0 reported the suite red on a tip where CI was green and proposed deleting the correct
+`is: 0` entry — a change that would have turned CI red and shipped the wrong week start to
+Icelandic users. The command above is written as `node@22`, not `node@22.18.0`, precisely
+because the floating form resolves the same way CI does; pinning an exact patch reintroduces
+the problem it looks like it is solving. When a local gate disagrees with a green CI run on
+the same commit, suspect the runtime before the code.
+
 `check:docs` is the one that
 surprises people: it is described under _Documenting a change_ below, which makes it look like a
 docs-only concern, but it gates **every** PR. A change touching no `src/` file at all can
