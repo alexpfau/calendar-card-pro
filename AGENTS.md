@@ -169,7 +169,38 @@ npm run build
 npm run check:bundle   # after the build — it reads dist/
 ```
 
-Those nine are every npm gate CI runs, so a green local run should mean a green PR.
+Those nine are every npm gate CI runs, so a green local run should mean a green PR —
+**provided you run them on the Node version in `.nvmrc`.** CI reads that file, and results
+that pass through zlib or npm are not portable across majors. A gate reconciling the gzipped
+transfer sizes documented in `docs/guide/installation.md` was written and proven green on
+Node 25, then failed in CI on Node 22: Node 24+ ships zlib-ng and Node 22 ships classic
+zlib, so identical bundle bytes compressed to 57,860 and 58,448 — a ~1% spread that happened
+to straddle a kilobyte. Nothing was wrong with the bundle or the figure. `nvm use` first, or
+run the gate under the pin without switching:
+
+```bash
+npx -y -p node@22 node scripts/check-bundle.mjs
+```
+
+This is the same class of failure as the `.nvmrc` / `.node-version` drift described under
+_Docs site deployment_, arriving from the other direction: there the two pinned files
+disagreed, here the developer disagreed with both. Byte counts are reproducible and can be
+asserted exactly; anything a compressor or a package manager produces needs either the
+pinned runtime or a tolerance.
+
+**Matching the major is not always enough.** `.nvmrc` says `22`, and `setup-node` resolves
+that to the newest 22.x at run time — so a gate whose oracle is data bundled _inside_ Node
+can disagree between two runtimes that are both honestly "Node 22".
+`tests/first-day-of-week-locale.test.ts` reads week-start data from the runtime's own CLDR
+via `Intl.Locale`, and CLDR 48 moved Iceland from Monday to Sunday: Node 22.18.0 ships CLDR
+47 and fails, Node 22.23.2 ships CLDR 48 and passes, on identical source. A reviewer running
+22.18.0 reported the suite red on a tip where CI was green and proposed deleting the correct
+`is: 0` entry — a change that would have turned CI red and shipped the wrong week start to
+Icelandic users. The command above is written as `node@22`, not `node@22.18.0`, precisely
+because the floating form resolves the same way CI does; pinning an exact patch reintroduces
+the problem it looks like it is solving. When a local gate disagrees with a green CI run on
+the same commit, suspect the runtime before the code.
+
 `check:docs` is the one that
 surprises people: it is described under _Documenting a change_ below, which makes it look like a
 docs-only concern, but it gates **every** PR. A change touching no `src/` file at all can
@@ -919,6 +950,23 @@ both directions, by importing the schema modules. A new field with no string fai
   CI. `npm run lint` uses `--fix`, so it _repairs_ formatting rather than failing on it.
 - Match the existing module layout: `config/`, `interaction/`, `rendering/`,
   `translations/`, `utils/`.
+
+**Never turn a config value into a JS number inside `src/rendering/`.** Length options are
+documented as CSS length _strings_, so `parseFloat(config.x) + 'px'` silently discards the
+author's unit — `day_spacing: 2em` drew its separators at `2px`, and `calc()` parsed to `NaN`
+and emitted the literal string `NaNpx`. Both defect sites lived in this directory and both
+shipped in v3.6.0, surviving twelve review passes: every default is a px value, so the bug
+and the tests agreed with each other. Scale lengths with `ViewConfig.scaleLength()`, which
+keeps the unit and hands `calc()`/`var()` to the browser; coerce editor form input with
+`Config.toValidNumber()`. A `no-restricted-syntax` rule scoped to `src/rendering/**` now
+enforces this, so it fails at lint rather than at review. Genuine _counts_ (`min_days_to_show`)
+and deliberate px-only reads (`parsePx`, which compares against a measured pixel width) are
+correct and live in `config/` or `utils/`, outside the rule's scope.
+
+**When you add a length option, test it at a non-px unit.** The suite is built from default
+config, and every length default is written in px, so a px-only test agrees with a
+unit-discarding implementation. `custom-property-mapping.test.ts` pinned only `20px → 35px`,
+which is precisely why the bug above survived. Pair every px assertion with an `em`/`rem` one.
 
 **Cite symbols in comments, never line numbers.** A citation into the five-hundreds of
 `render.ts` was accurate when it was written and became a pointer into empty space the moment

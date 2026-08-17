@@ -38,9 +38,13 @@ contributor to ask.
 ## After v4
 
 **Grid view.** The `grid` name is reserved in the view vocabulary; nothing is built.
-Feasibility was assessed and the architecture generalises, with named changes. Rebuild it
-on the seven commits on the frozen `alexpfau-review-339-time-grid` branch so attribution
-survives.
+Feasibility was assessed and the architecture generalises, with named changes. Attribution
+runs through [issue #339](https://github.com/alexpfau/calendar-card-pro/issues/339), from
+@lenaxia — that issue is the durable record and the thing to credit. Do not expect to
+recover code from a branch: both the contributor branch and the adapted review branch have
+since been deleted from `origin`, and no remaining ref resolves either, so a clean clone
+has nothing to rebuild on. Anyone picking this up should plan to build from the issue, and
+should republish an immutable tag first if a history worth keeping is ever recovered.
 
 Day-navigation controls fold in here (maintainer, 2026-08-14) — `«` `‹` Today `›` `»` — as
 a candidate to consider _with_ the grid view rather than ahead of it. Two constraints are

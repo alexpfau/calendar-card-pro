@@ -315,6 +315,15 @@ export function groupEventsByDay(
     // those segments would push real days out of the card.
     if (event._isMultiDaySegment && startDate >= windowEnd) return false;
 
+    // Only the third term below decides anything for events this card can actually
+    // receive. An event starting inside the window, or after it, necessarily also ends
+    // at or after the window start, so `isOngoingEvent` is already true in both cases —
+    // removing the first two leaves the whole suite green. They diverge only for an
+    // event whose end precedes its start: `keepWellFormedEvents` checks that `start` and
+    // `end` are present but not that they are ordered, so a malformed feed can still
+    // produce one, while nothing built here can — every multi-day segment ends at least
+    // a millisecond after it starts. Left in place rather than folded into one condition
+    // because dropping them would silently stop rendering those malformed events.
     const isEventOnOrAfterReference = startDate >= referenceStart && startDate <= referenceEnd;
     const isFutureEvent = startDate > referenceEnd;
     const isOngoingEvent = endDate >= referenceStart;
@@ -507,6 +516,18 @@ export function groupEventsByDay(
     );
   }
 
+  // The `_isEmptyDay` guards below — and the matching term in the filter just above —
+  // are inert for every input this function can receive. Empty-day placeholders are
+  // synthesized further down, after compaction, so no day reaching this point carries
+  // one: both callers pass raw calendar events, never a previous grouping result.
+  // Replacing any of these conditions with a thrower leaves the whole suite green.
+  //
+  // They are kept because the two branches disagree about what should happen if that
+  // ordering ever changes: the complete-days branch drops empty days, since they never
+  // enter `daysStarted`, while the branch below keeps them and exempts them from the
+  // event budget. Deleting them would erase that divergence rather than settle it, so
+  // moving placeholder creation ahead of this block stays a deliberate decision with a
+  // chosen answer instead of a silent change in what the card renders.
   if (compactLimitsApply) {
     const maxEvents = config.compact_events_to_show;
 

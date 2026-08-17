@@ -343,10 +343,23 @@ describe('editor: dead keys are pruned, dormant keys are kept', () => {
     }
   });
 
+  /**
+   * The key has to be re-attached *after* `buildConfig`.
+   *
+   * `normalizeEntities` rebuilds every entity from an allowlist of known
+   * fields, so a deprecated key handed to `buildConfig` is gone before
+   * `toStoredConfig` is ever called. Asserting on that config proves only that
+   * normalization dropped it — the assertion holds with the entity arm of
+   * `pruneDeprecatedKeys` deleted, which is exactly the vacuum this test
+   * existed to prevent. The editor is handed the stored YAML, not a normalized
+   * config, so the key genuinely does reach `toStoredConfig` in production.
+   */
   it('prunes the per-entity key the same cleanup removed', () => {
-    const config = buildConfig({
-      entities: [{ entity: 'calendar.personal', max_events_to_show: 3 } as Types.EntityConfig],
-    });
+    const config = buildConfig({ entities: [{ entity: 'calendar.personal' }] });
+    const entity = (config.entities as unknown as Array<Record<string, unknown>>)[0];
+    entity.max_events_to_show = 3;
+
+    expect(entity).toHaveProperty('max_events_to_show');
 
     const stored = toStoredConfig(config);
     const entities = stored.entities as Array<Record<string, unknown>>;

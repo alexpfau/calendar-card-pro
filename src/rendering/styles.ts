@@ -4,6 +4,7 @@ import { css } from 'lit';
 
 import * as Config from '../config/config';
 import type * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
 
 /**
  * Generate CSS custom properties from card configuration.
@@ -52,7 +53,10 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     // In countdown text placement, an inline time can share a line with the countdown.
     // Clamping switches it to -webkit-box and accepts that trade-off explicitly.
     '--calendar-card-time-display': config.time_max_lines > 0 ? '-webkit-box' : 'inline',
-    '--calendar-card-date-column-width': `${parseFloat(config.day_font_size) * 1.75}px`,
+    // The date column is sized from the day number it holds. `day_font_size` is a CSS
+    // length, so scale it in the author's own unit: parsing it to a number would size an
+    // `em` font's column in `px` and reduce `calc(...)` to `NaN`.
+    '--calendar-card-date-column-width': ViewConfig.scaleLength(config.day_font_size, 1.75),
     '--calendar-card-date-column-vertical-alignment': config.date_vertical_alignment,
     '--calendar-card-event-icon-vertical-alignment':
       config.event_icon_vertical_alignment === 'top'

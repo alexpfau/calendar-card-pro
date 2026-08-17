@@ -1259,7 +1259,10 @@ describe('column view DOM', () => {
       const container = renderColumnContainer(EVENTS, buildConfig());
       const today = container.querySelectorAll('.day-column.today');
 
-      expect(today.length).toBeLessThanOrEqual(1);
+      // Exactly one, not at most one: FROZEN_NOW is Jun 17 and EVENTS covers Jun 17-19, so
+      // today is always in range here. `<= 1` also admits zero, which let a classification
+      // failure that marked no column as today pass this test unnoticed.
+      expect(today.length).toBe(1);
       for (const column of Array.from(container.querySelectorAll('.day-column'))) {
         // Every column is exactly one of today or future-day; the two are complements,
         // so a column that is neither means the classification silently failed.

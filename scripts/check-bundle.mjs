@@ -9,9 +9,10 @@
  * Usage: `npm run check:bundle` — after `npm run build` or `npx rollup -c`.
  */
 
-import { readdirSync, readFileSync, statSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { basename, join } from 'path';
 import { fileURLToPath } from 'url';
+import { gzipSync } from 'zlib';
 
 import { parseAst } from 'rollup/parseAst';
 
@@ -257,6 +258,199 @@ function findVariant(jsFiles) {
 }
 
 /**
+ * The four transfer sizes `docs/guide/installation.md` quotes.
+ *
+ * The page tells someone deciding whether to gzip by hand exactly what they save, so the
+ * numbers have to be the numbers this build actually emits. They are prose, and prose does
+ * not fail: both raw figures sat a kilobyte low because the bundle had grown since they
+ * were written, and nothing anywhere noticed. Deriving them here means the build that
+ * changes a size is the build that reports the stale sentence.
+ *
+ * Each entry names the sentence to read the pair out of and how to weigh the files. A
+ * pattern that stops matching is itself a failure: reword the page and this check would
+ * otherwise go quiet while still reporting success.
+ *
+ * The two claims are held to different standards, because only one of them is reproducible.
+ * A build's byte count is the same everywhere, so the uncompressed pair is exact. Deflate
+ * output is not: the same bytes at the same level measured 57,860 under Node 25 (zlib-ng)
+ * and 58,448 under the pinned Node 22 (zlib 1.3.1), and the page's own `gzip -9` gave 57,881
+ * under Apple gzip — a ~1% spread that happens to straddle a kilobyte, so the honest figure
+ * is 57 or 58 depending on who is asking. The published pair is the one a Linux host gives,
+ * since that is what Home Assistant runs on; the tolerance absorbs the rest. This is not
+ * slack for drift — a bundle that grows past a kilobyte of headroom still fails.
+ */
+const DOC_SIZES = {
+  path: join(ROOT, 'docs', 'guide', 'installation.md'),
+  files: ['calendar-card-pro.js', 'editor.js'],
+  claims: [
+    {
+      what: 'uncompressed',
+      pattern: /the card transfers at its full\s+(\d+)\s*KB and the editor at\s+(\d+)\s*KB/,
+      tolerance: 0,
+      measure: (file) => statSync(join(DIST, file)).size,
+    },
+    {
+      what: 'gzipped',
+      pattern: /brings the card to\s+(\d+)\s*KB and the editor to\s+(\d+)\s*KB/,
+      tolerance: 1,
+      measure: (file) => gzipSync(readFileSync(join(DIST, file)), { level: 9 }).length,
+    },
+  ],
+};
+
+/**
+ * Check the installation page's transfer sizes against the emitted files.
+ *
+ * Quoted in whole kilobytes, truncated — 191,767 bytes reads as 191 KB — so a change has to
+ * cross a kilobyte before it is worth reporting.
+ *
+ * @returns Nothing; failures are collected in `errors`
+ */
+function checkDocumentedSizes() {
+  const label = 'docs/guide/installation.md';
+
+  // The page quotes the released pair; a dev-only build has nothing to compare against.
+  if (!DOC_SIZES.files.every((file) => existsSync(join(DIST, file)))) return;
+
+  let page;
+  try {
+    page = readFileSync(DOC_SIZES.path, 'utf8');
+  } catch {
+    error(label, 'is missing, so the transfer sizes it publishes cannot be checked');
+    return;
+  }
+
+  for (const { what, pattern, tolerance, measure } of DOC_SIZES.claims) {
+    const found = page.match(pattern);
+    if (!found) {
+      error(
+        label,
+        `no longer states the ${what} size of both files in a form this check can read. The ` +
+          'sentence moved or was reworded — update the matching pattern in ' +
+          'scripts/check-bundle.mjs, because a check that cannot find its subject reports ' +
+          'success forever',
+      );
+      continue;
+    }
+
+    for (const [index, file] of DOC_SIZES.files.entries()) {
+      const claimed = Number(found[index + 1]);
+      const actual = Math.floor(measure(file) / 1000);
+      if (Math.abs(claimed - actual) > tolerance) {
+        error(
+          label,
+          `says ${file} is ${claimed} KB ${what}; this build emits ${actual} KB` +
+            (tolerance > 0 ? `, beyond the ${tolerance} KB allowed for compressor spread` : '') +
+            `. Change the figure to ${actual}`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * The headline size reductions the release surfaces quote against v3.6.0.
+ *
+ * Splitting the editor out is the release's marketing claim, so four surfaces put a
+ * percentage in front of the reader — the README bullet HACS renders, the same bullet in the
+ * archive, and the release notes twice. Unlike the installation page's kilobytes, nothing
+ * derived them: they were measured by hand once and typed in. That is exactly how they went
+ * stale. The gzip figure was 41.78% when it was written and read `42`; the card has grown
+ * several hundred compressed bytes since, dropping it just below 41 while all four surfaces
+ * still said 42 — overstating the benefit, which is the direction that misleads.
+ *
+ * The baseline is v3.6.0's published asset. It is tagged and released, so its bytes can never
+ * change and are frozen here rather than downloaded: 351,905 raw, 98,613 compressed.
+ *
+ * That compressed baseline is deliberately Node's own zlib at level 9 — the identical call
+ * this check makes on the new build — because a percentage only means anything when both of
+ * its numbers come from one compressor. Deflate output is not reproducible across zlib
+ * builds: that same v3.6.0 file is 98,613 bytes under Node 22's zlib and 98,184 under Apple's
+ * gzip. Divide one implementation's baseline into another's build and the answer moves a full
+ * point, which is enough to change the published figure. Measured consistently, every
+ * implementation agrees on 41%, so the point of tolerance below is headroom for a zlib this
+ * check has not met yet — not slack for pairing two of them.
+ *
+ * Percentages round rather than truncate, matching how the published figures were written.
+ * Raw byte counts are identical everywhere, so that arm is exact — note it sits at 45.51%,
+ * a hair above the 45.5 that rounds to 46, so a few dozen bytes of growth will flip it to 45
+ * and this check will say so. That is the check working.
+ */
+const SIZE_CLAIMS = {
+  baseline: { version: 'v3.6.0', raw: 351905, gzip: 98613 },
+  file: 'calendar-card-pro.js',
+  claims: [
+    {
+      what: 'compressed',
+      tolerance: 1,
+      measure: (file) => gzipSync(readFileSync(join(DIST, file)), { level: 9 }).length,
+      against: (b) => b.gzip,
+      sites: [
+        ['README.md', /\*\*(\d+)% Smaller to Download\*\*/],
+        ['docs/guide/whats-new.md', /\*\*(\d+)% Smaller to Download\*\*/],
+        ['docs/RELEASE_NOTES.md', /a card file (\d+)% smaller to download/],
+        ['docs/RELEASE_NOTES.md', /The Card File Is (\d+)% Smaller to Download/],
+        ['docs/RELEASE_NOTES.md', /every dashboard downloads is \*\*(\d+)% smaller\*\* compressed/],
+      ],
+    },
+    {
+      what: 'on disk',
+      tolerance: 0,
+      measure: (file) => statSync(join(DIST, file)).size,
+      against: (b) => b.raw,
+      sites: [['docs/RELEASE_NOTES.md', /the reduction is larger still, at \*\*(\d+)%\*\*/]],
+    },
+  ],
+};
+
+/**
+ * Check the published reduction percentages against what this build actually saves.
+ *
+ * @returns Nothing; failures are collected in `errors`
+ */
+function checkSizeClaims() {
+  // The claims compare the released card; a dev-only build has nothing to compare against.
+  if (!existsSync(join(DIST, SIZE_CLAIMS.file))) return;
+
+  for (const { what, tolerance, measure, against, sites } of SIZE_CLAIMS.claims) {
+    const before = against(SIZE_CLAIMS.baseline);
+    const actual = Math.round(((before - measure(SIZE_CLAIMS.file)) / before) * 100);
+
+    for (const [relative, pattern] of sites) {
+      let page;
+      try {
+        page = readFileSync(join(ROOT, relative), 'utf8');
+      } catch {
+        error(relative, `is missing, so the ${what} reduction it publishes cannot be checked`);
+        continue;
+      }
+
+      const found = page.match(pattern);
+      if (!found) {
+        error(
+          relative,
+          `no longer states the ${what} reduction in a form this check can read. The sentence ` +
+            'moved or was reworded — update the matching pattern in scripts/check-bundle.mjs, ' +
+            'because a check that cannot find its subject reports success forever',
+        );
+        continue;
+      }
+
+      const claimed = Number(found[1]);
+      if (Math.abs(claimed - actual) > tolerance) {
+        error(
+          relative,
+          `claims the card is ${claimed}% smaller ${what} than ${SIZE_CLAIMS.baseline.version}; ` +
+            `this build measures ${actual}%` +
+            (tolerance > 0 ? `, beyond the ${tolerance} point allowed for compressor spread` : '') +
+            `. Change the figure to ${actual}`,
+        );
+      }
+    }
+  }
+}
+
+/**
  * Run every check.
  *
  * @returns Nothing; failures are collected in `errors`
@@ -389,6 +583,9 @@ function main() {
       );
     }
   }
+
+  checkDocumentedSizes();
+  checkSizeClaims();
 
   if (errors.length > 0) {
     for (const message of errors) {

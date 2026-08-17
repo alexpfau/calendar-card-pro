@@ -13,10 +13,16 @@
  * reads the parts back off the constructed date, which is the only way to distinguish a
  * real date from one the runtime moved.
  *
- * The two controls matter as much as the table. February 28 in a common year and
- * February 29 in a leap year are the dates a naive "day must be ≤ 28" guard would
- * wrongly reject, so they pin that the fix rejects impossible dates rather than merely
- * unusual ones.
+ * The controls matter as much as the table. February 28 in a common year and February 29
+ * in a leap year are the dates a naive "day must be ≤ 28" guard would wrongly reject, so
+ * they pin that the fix rejects impossible dates rather than merely unusual ones.
+ *
+ * December 31 and January 1 are there for the other half of the guard: they are the only
+ * dates that hold its month bounds down. Every other keeper sits mid-year, so narrowing
+ * `month >= 1` or `month <= 12` by one would leave the whole suite green while silently
+ * sending every January or December `start_date` to today. Neither is redundant with the
+ * other — each pins one end — and neither is redundant with the day bounds, which the
+ * mid-month dates already cover.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -49,6 +55,7 @@ describe('impossible fixed start dates', () => {
     ['2025-02-28', 'the last day of a common February'],
     ['2024-02-29', 'the leap day of a leap year'],
     ['2025-12-31', 'the last day of a year'],
+    ['2025-01-01', 'the first day of a year'],
   ])('keeps %s, %s', (input) => {
     expect(resolvedStart(input)).toBe(input);
   });

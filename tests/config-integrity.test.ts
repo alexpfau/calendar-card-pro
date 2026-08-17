@@ -173,4 +173,16 @@ describe('malformed cache entries are rejected rather than rendered', () => {
     expect(EventUtils.getValidCacheEntry(KEY)).toBeNull();
     expect(storage.getItem(KEY)).toBeNull();
   });
+
+  /**
+   * `NaN` and `Infinity` cannot be written through `JSON.stringify` — it emits
+   * `null` for both, which the `typeof !== 'number'` half already rejects. Raw
+   * JSON is the only way a non-finite timestamp reaches the parsed entry, and
+   * `1e999` is how it gets there in practice: it overflows to `Infinity`.
+   */
+  it('rejects and evicts an entry whose timestamp overflows to Infinity', () => {
+    storage.setItem(KEY, '{"events":[],"timestamp":1e999}');
+    expect(EventUtils.getValidCacheEntry(KEY)).toBeNull();
+    expect(storage.getItem(KEY)).toBeNull();
+  });
 });

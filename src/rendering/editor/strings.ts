@@ -210,7 +210,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   start_date_fixed: 'Date',
   start_date_offset: 'Expression',
   'start_date_offset.helper':
-    'An anchor — today, start_of_week, or a weekday name — followed by any number of ' +
+    'An anchor — today, start_of_week, or a weekday name — followed by up to eight ' +
     '+N or -N day offsets, +Nw week offsets, or +weekday jumps. For example today+7, ' +
     '-3, start_of_week, saturday, monday+1w.',
   first_day_of_week: 'First Day Of Week',
