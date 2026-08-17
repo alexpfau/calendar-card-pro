@@ -272,7 +272,10 @@ type ColumnOptionValue<K extends keyof typeof COLUMN_DEFAULTS> =
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
  * @returns A value of the key's declared type
  */
-function normalizeColumnValue(key: keyof typeof COLUMN_DEFAULTS, value: unknown): string | number {
+export function normalizeColumnValue(
+  key: keyof typeof COLUMN_DEFAULTS,
+  value: unknown,
+): string | number {
   const fallback = COLUMN_DEFAULTS[key];
 
   if (typeof fallback === 'number') {

@@ -129,18 +129,25 @@ function anyMatches(candidates: ReadonlyArray<string | undefined>, query: string
  * @param node - Schema node
  * @param path - Enclosing group names, outermost first
  * @param ctx - Matching context
+ * @param dataPath - Enclosing configuration keys, outermost first
  * @returns Text to search, in no particular order
  */
 function searchableText(
   node: HaFormSchema,
   path: ReadonlyArray<string>,
   ctx: FilterCtx,
+  dataPath: ReadonlyArray<string>,
 ): Array<string | undefined> {
   if ('type' in node && node.type === 'grid') {
     return [];
   }
 
   const text: Array<string | undefined> = [node.name, EditorLocalize.qualifiedKey(node.name, path)];
+
+  // The label path and the configuration path diverge wherever a group nests data without
+  // nesting labels, so searching for the key as written in YAML has to match too.
+  const dataKey = EditorLocalize.qualifiedKey(node.name, dataPath);
+  if (dataKey !== text[1]) text.push(dataKey);
 
   if ('titleKey' in node && node.titleKey !== undefined) {
     text.push(node.title, EditorLocalize.lookup(ctx.language, `${node.titleKey}.helper`));
@@ -175,17 +182,20 @@ function searchableText(
  * @param node - Schema node
  * @param path - Enclosing group names, outermost first
  * @param ctx - Matching context
+ * @param dataPath - Enclosing configuration keys, outermost first. Defaults to `path`, which is
+ *   correct everywhere the two agree.
  * @returns `true` when the node matches, or when nothing was typed
  */
 export function matchesQuery(
   node: HaFormSchema,
   path: ReadonlyArray<string>,
   ctx: FilterCtx,
+  dataPath: ReadonlyArray<string> = path,
 ): boolean {
   const query = queryOf(ctx);
   if (query === '') return true;
 
-  return anyMatches(searchableText(node, path, ctx), query);
+  return anyMatches(searchableText(node, path, ctx, dataPath), query);
 }
 
 /**
@@ -270,10 +280,14 @@ export function isCustomized(
     );
   }
 
-  return !deepEqual(
-    valueAt(normalized(ctx.config), dataPath, name),
-    valueAt(Config.DEFAULT_CONFIG, dataPath, name),
-  );
+  const value = valueAt(normalized(ctx.config), dataPath, name);
+
+  // `setConfig` merges only the top level, so a nested block the user wrote partly — say a
+  // `weather:` holding just `entity:` — leaves its remaining keys absent rather than filled in
+  // from the defaults. Absent is not customized; the card still falls back to its own default.
+  if (value === undefined) return false;
+
+  return !deepEqual(value, valueAt(Config.DEFAULT_CONFIG, dataPath, name));
 }
 
 type LeafPredicate = (
@@ -311,7 +325,9 @@ function filterNodes(
     const nestsData = node.name !== '' && node.flatten !== true;
 
     const wholeGroup =
-      !ctx.criteria.customizedOnly && queryOf(ctx) !== '' && matchesQuery(node, path, ctx);
+      !ctx.criteria.customizedOnly &&
+      queryOf(ctx) !== '' &&
+      matchesQuery(node, path, ctx, dataPath);
 
     const children = wholeGroup
       ? [...node.schema]
@@ -352,7 +368,7 @@ export function filterSchema(
     schema,
     ctx,
     (node, nodePath, nodeDataPath) =>
-      matchesQuery(node, nodePath, ctx) &&
+      matchesQuery(node, nodePath, ctx, nodeDataPath) &&
       (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx)),
     path,
     dataPath,

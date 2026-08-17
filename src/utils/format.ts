@@ -4,6 +4,7 @@
  */
 
 import * as Helpers from './helpers';
+import * as Logger from './logger';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import { getRelativeTimeString } from '../translations/dayjs';
@@ -144,6 +145,42 @@ export function getCountdownString(
 }
 
 /**
+ * Compiled `remove_location_country` patterns, including the ones that failed to compile.
+ *
+ * The option is free text in the editor and unvalidated in YAML, so the expression it
+ * holds may not be a valid regular expression at all. Compiling is therefore attempted
+ * once per distinct pattern and the outcome remembered — a `null` entry marks a pattern
+ * known to be broken. Without the cache a malformed pattern would warn once per event per
+ * render; with it, the warning is emitted once and the failed compile is not retried.
+ */
+const countryPatternCache = new Map<string, RegExp | null>();
+
+/**
+ * Compiles a country-removal pattern, tolerating an invalid one.
+ *
+ * @param removeCountry - User-supplied pattern
+ * @returns The compiled expression, or `null` when it is not a valid regular expression
+ */
+function compileCountryPattern(removeCountry: string): RegExp | null {
+  if (countryPatternCache.has(removeCountry)) return countryPatternCache.get(removeCountry) ?? null;
+
+  let compiled: RegExp | null = null;
+
+  try {
+    compiled = new RegExp(`(${removeCountry})\\s*$`, 'i');
+  } catch {
+    Logger.warn(
+      `Ignoring "remove_location_country": ${JSON.stringify(removeCountry)} is not a valid ` +
+        `regular expression. Locations are shown unchanged.`,
+    );
+  }
+
+  countryPatternCache.set(removeCountry, compiled);
+
+  return compiled;
+}
+
+/**
  * Format location string, optionally removing country code
  *
  * @param location - Location string to format
@@ -157,7 +194,12 @@ export function formatLocation(location: string, removeCountry: boolean | string
   const locationText = location.trim();
 
   if (typeof removeCountry === 'string' && removeCountry !== 'true') {
-    const pattern = new RegExp(`(${removeCountry})\\s*$`, 'i');
+    const pattern = compileCountryPattern(removeCountry);
+
+    // A pattern that does not compile leaves the location alone. Falling through to the
+    // built-in country list instead would strip a country the user never asked about.
+    if (pattern === null) return locationText;
+
     return locationText.replace(pattern, '').replace(/,?\s*$/, '');
   }
 
