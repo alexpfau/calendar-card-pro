@@ -315,6 +315,15 @@ export function groupEventsByDay(
     // those segments would push real days out of the card.
     if (event._isMultiDaySegment && startDate >= windowEnd) return false;
 
+    // Only the third term below decides anything for events this card can actually
+    // receive. An event starting inside the window, or after it, necessarily also ends
+    // at or after the window start, so `isOngoingEvent` is already true in both cases —
+    // removing the first two leaves the whole suite green. They diverge only for an
+    // event whose end precedes its start: `keepWellFormedEvents` checks that `start` and
+    // `end` are present but not that they are ordered, so a malformed feed can still
+    // produce one, while nothing built here can — every multi-day segment ends at least
+    // a millisecond after it starts. Left in place rather than folded into one condition
+    // because dropping them would silently stop rendering those malformed events.
     const isEventOnOrAfterReference = startDate >= referenceStart && startDate <= referenceEnd;
     const isFutureEvent = startDate > referenceEnd;
     const isOngoingEvent = endDate >= referenceStart;
