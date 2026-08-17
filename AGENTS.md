@@ -1127,7 +1127,24 @@ different artefacts.
 
   A commit offered as proof that a report predates it, yet timestamped _after_ that report,
   was caused by it. Corroborate with `git show --stat <sha>`, which should land on the files
-  the report named — timing alone can coincide, timing plus overlapping files does not.
+  the report named — timing alone can coincide, timing plus overlapping files does not. Read
+  its message too: a fix written from a report tends to paraphrase the finding, and that is
+  the one corroborator a bundled commit cannot fake by touching a file for another reason.
+
+  Dates only order two commits. Whether the fix was in the tree the reporter actually read
+  is a question about ancestry, so ask it directly:
+
+  ```bash
+  git merge-base --is-ancestor <cited-fix-sha> <reviewed-base-sha>
+  ```
+
+  A negative answer invalidates the reasoning, not automatically the conclusion, and the two
+  need separating before anything is withdrawn. Where the verdict also carries a measurement
+  of its own taken at the tip — a bare linter run, a probe, a grep of the shipped text — the
+  citation was decoration and the technical call still stands on the measurement. Where the
+  citation _was_ the verdict, nothing was ever measured and the finding has to be retested
+  from scratch. Sweeping the back-catalogue and retracting every hit alike would trade a set
+  of unfounded dismissals for a set of equally unfounded reversals.
 
 - **Equal sizes are not identity, and a bundle figure needs its compression level _and_ its
   build variant.** Hash instead.
