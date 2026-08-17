@@ -1159,6 +1159,17 @@ different artefacts.
   in any version; the remedy inverted from documenting it to deleting it and the pair of tests
   that were its only caller. Where a remedy is to write documentation, first establish that its
   subject exists for users at all.
+- **A surviving mutant means the suite cannot see the code, not that production cannot reach
+  it.** The natural inference — delete what nothing pins — fails whenever a sibling branch
+  absorbs the mutation, leaving the two mutually masking so that each looks individually dead.
+  Disabling the exact-hour lookup in `findForecastForEvent` left the suite green; disabling the
+  closest-hour fallback instead left it green; disabling both turned it red. Every fixture's
+  event began on an exact hourly key, so neither branch was ever the only one able to answer,
+  and deleting either on that evidence would have dropped live behaviour. Mutate surviving
+  siblings _together_ before concluding anything, and where the pair proves jointly load-bearing
+  the remedy is a fixture that separates them — an event whose start hour is deliberately not a
+  key — rather than a deletion. With those fixtures added the once-invisible single mutation
+  fails 5 of 17, so the same probe that proved the gap now proves it closed.
 - **"Already fixed at the tip" does not establish that a report was stale.** A triage run
   against a tip that has already absorbed the report cannot detect the report: it reports
   _already fixed, no action needed_ whether the finding was genuine prior art or was live
