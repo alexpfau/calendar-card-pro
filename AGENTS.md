@@ -573,7 +573,11 @@ adding a new heading — each entry covers its whole minor line.
 When linking **into** the docs page, mind the anchor: the site's `slugify` strips dots, so
 `## v2.1` anchors as `#v21`, not `#v2-1`. These links are written as absolute URLs to the
 live site, so VitePress's dead-link check — which only resolves relative links — cannot
-see them; `check:docs` validates them instead.
+see them; check 29 in `check-docs.mjs` resolves every absolute
+`https://calendar-card-pro.alexpfau.com/…` link, fragment included, against the real
+headings instead. It covers the README and `CONTRIBUTING.md` as well as `docs/`, because
+those two _must_ use absolute URLs — they also render on GitHub and in HACS, where a
+relative docs path does not resolve.
 
 The README list is a **highlights reel, not a changelog** — the full notes are linked
 directly above it, so anything left out is one click away. Select on relevance rather than

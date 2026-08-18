@@ -708,11 +708,20 @@ function readHeadings(file) {
  *
  * So resolve both forms here, against the real page set and the real heading slugs.
  */
-function checkInternalLinks(docs) {
+/**
+ * Every published route, mapped to the anchors its headings generate.
+ *
+ * Shared by the relative-link check and the absolute-link check below, so the two cannot
+ * disagree about what exists — the second was added precisely because a link the first
+ * could not see went unvalidated for a whole release.
+ *
+ * @param docs - Every markdown page under `docs/`
+ * @returns route -> set of anchors, e.g. "/features/weather" -> { "weather-integration", … }
+ */
+function buildAnchorMap(docs) {
   const published = docs.filter((f) => !isExcluded(f, ['development/']));
-
-  // route -> set of anchors, e.g. "/features/weather" -> { "weather-integration", ... }
   const anchors = new Map();
+
   for (const file of published) {
     const route =
       '/' +
@@ -727,9 +736,15 @@ function checkInternalLinks(docs) {
       seen.set(base, n + 1);
       slugs.add(n === 0 ? base : `${base}-${n}`);
     }
-    anchors.set(route, slugs);
+    anchors.set(route === '/index' ? '/' : route, slugs);
   }
+
   assertFound(anchors, 'published routes', DOCS_DIR);
+  return { published, anchors };
+}
+
+function checkInternalLinks(docs) {
+  const { published, anchors } = buildAnchorMap(docs);
 
   const LINK = /\[[^\]]*\]\((\/[^)\s]*)\)|<a\s[^>]*href="(\/[^"]*)"/g;
   let checked = 0;
@@ -1554,6 +1569,7 @@ function report(counts) {
     `${counts.defaults} defaults in code, ${counts.rows} rows in the reference, ` +
       `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} complete examples, ` +
       `${counts.releases} release lines documented, ${counts.links} internal links resolved, ` +
+      `${counts.siteLinks} absolute site links resolved, ` +
       `${counts.gates} CI gates documented, ` +
       `${counts.enums} enumerated options fully listed, ` +
       `${counts.removed} removed options migrated, ` +
@@ -2293,6 +2309,77 @@ function checkReadmeFragmentLinks() {
   return checked;
 }
 
+// ---------------------------------------------------------------------------
+// Check 29 — absolute links into the docs site resolve to a real page and heading
+// ---------------------------------------------------------------------------
+
+/**
+ * Absolute links into the docs site resolve to a real page and heading.
+ *
+ * Check 7 only sees root-relative markdown links inside `docs/`, and VitePress's own
+ * dead-link check sees the same set — so an absolute
+ * `https://calendar-card-pro.alexpfau.com/features/weather#some-anchor` was validated by
+ * nothing at all. That is not a rare shape: the README and RELEASE_NOTES *must* use
+ * absolute URLs, because both also render on GitHub and in HACS where a relative docs
+ * path does not resolve. v4 added dozens of them, and a renamed heading anywhere would
+ * have shipped as a link into the void from the two most-read pages the project has.
+ *
+ * Trailing sentence punctuation is trimmed before resolving: these appear in prose, and
+ * `…/features/weather.` is a link to the weather page, not to a page called `weather.`.
+ *
+ * @param docs - Every markdown page under `docs/`
+ * @returns How many absolute site links were resolved
+ */
+function checkAbsoluteSiteLinks(docs) {
+  const { anchors } = buildAnchorMap(docs);
+
+  const surfaces = [...docs];
+  for (const name of ['README.md', 'CONTRIBUTING.md']) {
+    const full = join(ROOT, name);
+    if (existsSync(full)) surfaces.push(full);
+  }
+  assertFound(surfaces, 'surfaces that can carry absolute site links', ROOT);
+
+  const SITE = 'https://calendar-card-pro.alexpfau.com';
+  const pattern = new RegExp(`${SITE.replace(/\./g, '\\.')}([^)\\s"'\\]]*)`, 'g');
+  let checked = 0;
+
+  for (const file of surfaces) {
+    readFileSync(file, 'utf8')
+      .split('\n')
+      .forEach((line, i) => {
+        for (const match of line.matchAll(pattern)) {
+          const target = match[1].replace(/[.,;:!?]+$/, '');
+          const [rawPath, anchor] = target.split('#');
+          const path = rawPath.replace(/\/$/, '') || '/';
+          checked += 1;
+
+          const where = `${relative(ROOT, file)}:${i + 1}`;
+
+          if (!anchors.has(path)) {
+            error(`${where} links to ${SITE}${target}, but no page publishes at ${path}.`);
+            continue;
+          }
+          if (anchor && !anchors.get(path).has(anchor)) {
+            error(
+              `${where} links to ${SITE}${target}, but #${anchor} is not a heading on ` +
+                `that page. Note the site's slugify strips emoji and dots.`,
+            );
+          }
+        }
+      });
+  }
+
+  // A regex that silently stopped matching would turn this into a no-op, and the README
+  // alone carries more than a dozen of these.
+  if (checked < 20) {
+    console.error(`Found only ${checked} absolute links to ${SITE}. The link pattern is stale.`);
+    process.exit(2);
+  }
+
+  return checked;
+}
+
 function main() {
   const defaults = readDefaults();
   const rows = readReferenceRows();
@@ -2311,6 +2398,7 @@ function main() {
   checkReadmeExample();
   const releases = checkWhatsNewCoverage();
   const links = checkInternalLinks(docs);
+  const siteLinks = checkAbsoluteSiteLinks(docs);
   checkDesignDocLinks(docs);
   checkNoRawHtml(docs);
   checkAdmonitions(docs);
@@ -2341,6 +2429,7 @@ function main() {
       complete,
       releases,
       links,
+      siteLinks,
       gates,
       enums,
       removed,
