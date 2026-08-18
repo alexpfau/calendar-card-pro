@@ -12,7 +12,7 @@
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, dirname, basename } from 'node:path';
+import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
@@ -1300,6 +1300,70 @@ async function checkRunningTextWeekdayCase(languages) {
   }
 }
 
+/**
+ * Editor string keys written as literals in code, rather than derived from the schema.
+ *
+ * `checkEditorStrings` reconciles the keys the *schema* implies — every field label,
+ * every panel heading. But a panel can also resolve a string directly, and the width
+ * table does: `lookup(ctx.language, 'width_table.at_least')` is a literal that no schema
+ * walk can see, so those eight keys were reachable by no check at all.
+ *
+ * Missing, they now render humanized rather than as the raw key — but "At least" where a
+ * sentence belongs is still wrong, and it is the kind of wrong nobody notices in a
+ * language they do not read. Cheap to reconcile, so reconcile it.
+ *
+ * Only fully-literal keys are collected. A composed key — `` `${blockKey}.density` `` —
+ * has no single spelling to look up, and those are already covered by the schema walk.
+ */
+async function checkEditorKeysUsedInCode() {
+  const { EDITOR_STRINGS } = await loadEditor();
+
+  const dir = join(ROOT, 'src/rendering/editor');
+  const sources = [];
+  const walk = (at) => {
+    for (const entry of readdirSync(at, { withFileTypes: true })) {
+      const full = join(at, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.ts')) sources.push(full);
+    }
+  };
+  walk(dir);
+  assertFound(sources, 'any editor sources', dir);
+
+  // The idiom these appear in: a panel-local `t('literal')` helper wrapping `lookup`, or
+  // a direct `lookup(<lang>, 'literal')`. Only fully-literal keys — a composed key such
+  // as `` `${blockKey}.density` `` has no single spelling to reconcile, and the schema
+  // walk already covers the fields those build.
+  const PATTERNS = [/\bt\(\s*'([^'`${}]+)'/g, /\blookup\(\s*[^,()]+,\s*'([^'`${}]+)'\s*[),]/g];
+  const found = new Map();
+
+  for (const file of sources) {
+    if (file.endsWith('/strings.ts')) continue;
+
+    const text = read(file);
+
+    for (const pattern of PATTERNS) {
+      for (const match of text.matchAll(pattern)) {
+        if (!found.has(match[1])) found.set(match[1], `editor/${relative(dir, file)}`);
+      }
+    }
+  }
+
+  assertFound([...found.keys()], 'any literal translation keys', dir);
+
+  for (const [key, where] of [...found].sort()) {
+    if (!(key in EDITOR_STRINGS)) {
+      error(
+        where,
+        `looks up \`${key}\`, which no English string defines — it renders as ` +
+          `"${humanKey(key)}" in every language, including English`,
+      );
+    }
+  }
+
+  return found.size;
+}
+
 async function main() {
   const languages = readLanguageFiles();
   const localize = readLocalizeWiring();
@@ -1311,6 +1375,7 @@ async function main() {
   checkDayjsWiring(localize.entries, dayjsWiring);
 
   const fieldCount = await checkEditorStrings();
+  await checkEditorKeysUsedInCode();
   await checkEditorTranslations(languages);
   await checkEnGbDerivation();
   const glossary = readGlossary();

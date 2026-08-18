@@ -192,6 +192,28 @@ export function buildLayoutSchema(ctx: SchemaCtx): HaFormSchema[] {
 }
 
 /**
+ * Resolves and interpolates one string for a schema context.
+ *
+ * Falls back to {@link humanize} rather than to the raw key, matching `computeLabel` and
+ * every other resolution in the editor. A missing key is then a slightly awkward label
+ * instead of `width_table.at_least` rendered verbatim in the UI — and the two are not
+ * equally likely to be noticed, because a raw key looks like a broken card while a
+ * humanized one looks like a label somebody has not polished yet.
+ *
+ * @param ctx - Schema context, for the language
+ * @param key - String key to resolve
+ * @param values - Interpolation values
+ * @returns The resolved string
+ */
+function translate(
+  ctx: SchemaCtx,
+  key: string,
+  values: Record<string, string | number> = {},
+): string {
+  return interpolate(lookup(ctx.language, key) ?? humanize(key), values);
+}
+
+/**
  * Formats the layout staircase as table rows.
  *
  * @param ctx - Schema context
@@ -199,7 +221,7 @@ export function buildLayoutSchema(ctx: SchemaCtx): HaFormSchema[] {
  */
 export function widthTableRows(ctx: SchemaCtx): WidthTableRow[] {
   const t = (key: string, values: Record<string, string | number> = {}): string =>
-    interpolate(lookup(ctx.language, key) ?? key, values);
+    translate(ctx, key, values);
 
   const bands = ViewConfig.describeColumnLayoutBands(ctx.config);
 
@@ -234,7 +256,7 @@ export function layoutExtras(ctx: SchemaCtx): PanelExtra[] {
   }
 
   const t = (key: string, values: Record<string, string | number> = {}): string =>
-    interpolate(lookup(ctx.language, key) ?? key, values);
+    translate(ctx, key, values);
 
   return [
     {
