@@ -5,10 +5,9 @@
 
 import * as Constants from '../config/constants';
 
-// Add a flag to ensure the banner only shows once per session
 let BANNER_SHOWN = false;
 
-// Different log levels - keeping enum in logger-utils.ts
+/** Numeric log levels ordered from least to most verbose. */
 export enum LogLevel {
   ERROR = 0,
   WARN = 1,
@@ -16,12 +15,32 @@ export enum LogLevel {
   DEBUG = 3,
 }
 
-// Use the constant from constants.ts as the default value
-let currentLogLevel = Constants.LOGGING.CURRENT_LOG_LEVEL;
+const currentLogLevel = Constants.LOGGING.CURRENT_LOG_LEVEL;
 
-// Styling for log messages - keeping in logger-utils.ts
+interface LogLevelOverrideHost {
+  calendarCardProDebug?: unknown;
+  calendarCardProLogLevel?: unknown;
+}
+
+function effectiveLogLevel(): LogLevel {
+  const host = globalThis as unknown as LogLevelOverrideHost;
+
+  const explicit = host.calendarCardProLogLevel;
+  if (
+    typeof explicit === 'number' &&
+    Number.isInteger(explicit) &&
+    explicit >= LogLevel.ERROR &&
+    explicit <= LogLevel.DEBUG
+  ) {
+    return explicit;
+  }
+
+  if (host.calendarCardProDebug === true) return LogLevel.DEBUG;
+
+  return currentLogLevel;
+}
+
 const LOG_STYLES = {
-  // Title pill (left side - dark grey with emoji)
   title: [
     'background: #424242',
     'color: white',
@@ -35,7 +54,6 @@ const LOG_STYLES = {
     'margin: 5px 0',
   ].join(';'),
 
-  // Version pill (right side - pale blue)
   version: [
     'background: #4fc3f7',
     'color: white',
@@ -49,13 +67,10 @@ const LOG_STYLES = {
     'margin: 5px 0',
   ].join(';'),
 
-  // Standard prefix (non-pill version for regular logs)
   prefix: ['color: #4fc3f7', 'font-weight: bold'].join(';'),
 
-  // Error styling
   error: ['color: #f44336', 'font-weight: bold'].join(';'),
 
-  // Warning styling
   warn: ['color: #ff9800', 'font-weight: bold'].join(';'),
 };
 
@@ -65,19 +80,19 @@ const LOG_STYLES = {
 
 /**
  * Initialize the logger with the component version
+ *
  * @param version Current component version
  */
 export function initializeLogger(version: string): void {
-  // Show version banner (always show this regardless of log level)
   printVersionBanner(version);
 }
 
 /**
- * Print the welcome banner with version info
- * @param version Component version
+ * Print the startup banner once per page session.
+ *
+ * @param version Current component version
  */
 export function printVersionBanner(version: string): void {
-  // Only show banner once per browser session
   if (BANNER_SHOWN) return;
 
   console.groupCollapsed(
@@ -97,7 +112,6 @@ export function printVersionBanner(version: string): void {
   );
   console.groupEnd();
 
-  // Mark banner as shown
   BANNER_SHOWN = true;
 }
 
@@ -107,7 +121,6 @@ export function printVersionBanner(version: string): void {
 
 /**
  * Enhanced error logging that handles different error types and contexts
- * Consolidates error, logError and handleApiError into a single flexible function
  *
  * @param messageOrError - Error object, message string, or other value
  * @param context - Optional context (string, object, or unknown)
@@ -118,14 +131,11 @@ export function error(
   context?: string | Record<string, unknown> | unknown,
   ...data: unknown[]
 ): void {
-  if (currentLogLevel < LogLevel.ERROR) return;
+  if (effectiveLogLevel() < LogLevel.ERROR) return;
 
-  // Convert unknown context to a safe format
   const safeContext = formatUnknownContext(context);
 
-  // Process based on error type and context type
   if (messageOrError instanceof Error) {
-    // Case 1: Error object
     const errorMessage = messageOrError.message || 'Unknown error';
     const contextInfo = typeof safeContext === 'string' ? ` during ${safeContext}` : '';
     const [formattedMsg, style] = formatLogMessage(
@@ -135,12 +145,10 @@ export function error(
 
     console.error(formattedMsg, style);
 
-    // Always log stack trace for Error objects
     if (messageOrError.stack) {
       console.error(messageOrError.stack);
     }
 
-    // Add context object if provided
     if (safeContext && typeof safeContext === 'object') {
       console.error('Context:', {
         ...safeContext,
@@ -148,12 +156,10 @@ export function error(
       });
     }
 
-    // Include any additional data
     if (data.length > 0) {
       console.error('Additional data:', ...data);
     }
   } else if (typeof messageOrError === 'string') {
-    // Case 2: String message
     const contextInfo = typeof safeContext === 'string' ? ` during ${safeContext}` : '';
     const [formattedMsg, style] = formatLogMessage(
       `${messageOrError}${contextInfo}`,
@@ -161,7 +167,6 @@ export function error(
     );
 
     if (safeContext && typeof safeContext === 'object') {
-      // If context is an object, include it in the log
       console.error(formattedMsg, style, {
         context: {
           ...safeContext,
@@ -170,14 +175,11 @@ export function error(
         ...(data.length > 0 ? { additionalData: data } : {}),
       });
     } else if (data.length > 0) {
-      // Just include additional data
       console.error(formattedMsg, style, ...data);
     } else {
-      // Simple error message
       console.error(formattedMsg, style);
     }
   } else {
-    // Case 3: Unknown error type
     const contextInfo = typeof safeContext === 'string' ? ` during ${safeContext}` : '';
     const [formattedMsg, style] = formatLogMessage(
       `Unknown error${contextInfo}:`,
@@ -186,7 +188,6 @@ export function error(
 
     console.error(formattedMsg, style, messageOrError);
 
-    // Add context object if provided
     if (safeContext && typeof safeContext === 'object') {
       console.error('Context:', {
         ...safeContext,
@@ -194,7 +195,6 @@ export function error(
       });
     }
 
-    // Include any additional data
     if (data.length > 0) {
       console.error('Additional data:', ...data);
     }
@@ -209,18 +209,7 @@ export function warn(message: string, ...data: unknown[]): void {
 }
 
 /**
- * Log a configuration deprecation notice.
- *
- * Deliberately ungated, unlike `warn`. Production builds ship with the log level
- * pinned to ERROR (`rollup.config.mjs` rewrites `CURRENT_LOG_LEVEL` to 0), so a
- * `warn` call reaches nobody outside a dev build. That is the right trade for the
- * running commentary — a stale cache entry or a failed unsubscribe is not the user's
- * problem — but it is the wrong trade here: this message reports a setting the user
- * wrote by hand that the card is throwing away, and they cannot act on advice they
- * never see.
- *
- * Routed through `console.warn` rather than `error` because it is not an error: the
- * card renders correctly, just not as configured.
+ * Log a configuration deprecation notice
  */
 export function deprecation(message: string, ...data: unknown[]): void {
   const [formattedMsg, styleArg] = formatLogMessage(message, LOG_STYLES.warn);
@@ -249,14 +238,6 @@ export function debug(message: string, ...data: unknown[]): void {
 // INTERNAL HELPER FUNCTIONS
 //-----------------------------------------------------------------------------
 
-/**
- * Internal helper for basic log levels (warn, info, debug)
- * @param level - Log level for filtering
- * @param message - Message to log
- * @param style - Style to apply to the message
- * @param consoleMethod - Console method to use
- * @param data - Additional data to log
- */
 function simpleLog(
   level: LogLevel,
   message: string,
@@ -264,7 +245,7 @@ function simpleLog(
   consoleMethod: (...args: unknown[]) => void,
   ...data: unknown[]
 ): void {
-  if (currentLogLevel < level) return;
+  if (effectiveLogLevel() < level) return;
 
   const [formattedMsg, styleArg] = formatLogMessage(message, style);
   if (data.length > 0) {
@@ -274,21 +255,10 @@ function simpleLog(
   }
 }
 
-/**
- * Format a log message with consistent prefix and styling
- * @param message The message to format
- * @param style The style to apply
- * @returns Tuple of [formattedMessage, style] for console methods
- */
 function formatLogMessage(message: string, style: string): [string, string] {
   return [`%c[${Constants.LOGGING.PREFIX}] ${message}`, style];
 }
 
-/**
- * Process unknown context into a usable format for logging
- * @param context - Any context value that might be provided
- * @returns A string, object, or undefined that can be safely used in logs
- */
 function formatUnknownContext(context: unknown): string | Record<string, unknown> | undefined {
   if (context === undefined || context === null) {
     return undefined;
@@ -300,10 +270,8 @@ function formatUnknownContext(context: unknown): string | Record<string, unknown
 
   if (typeof context === 'object') {
     try {
-      // Try to safely convert to Record<string, unknown>
       return { ...(context as Record<string, unknown>) };
     } catch {
-      // If conversion fails, stringify it
       try {
         return { value: JSON.stringify(context) };
       } catch {
@@ -312,6 +280,5 @@ function formatUnknownContext(context: unknown): string | Record<string, unknown
     }
   }
 
-  // For primitive values, just convert to string
   return String(context);
 }

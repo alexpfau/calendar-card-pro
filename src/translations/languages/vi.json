@@ -1,6 +1,6 @@
 {
   "daysOfWeek": ["CN", "T.2", "T.3", "T.4", "T.5", "T.6", "T.7"],
-  "fullDaysOfWeek": ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"],
+  "fullDaysOfWeek": ["chủ nhật", "thứ hai", "thứ ba", "thứ tư", "thứ năm", "thứ sáu", "thứ bảy"],
   "months": ["Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"],
   "allDay": "cả ngày",
   "multiDay": "đến",

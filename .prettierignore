@@ -2,3 +2,8 @@
 /.vscode
 package-lock.json
 package.json
+
+# Cloudflare deployment config. Prettier would add trailing commas ("trailingComma":
+# "all"). Wrangler parses those fine, but VS Code flags them as jsonc(519) errors, so
+# the only effect is red squiggles in the one file whose breakage CI cannot see.
+wrangler.jsonc

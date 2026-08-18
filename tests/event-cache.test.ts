@@ -9,10 +9,9 @@ import * as EventUtils from '../src/utils/events';
  *
  * These pin the boundary between what is *fetched* and what is *processed*.
  * `fetchEventData` used to cache the output of `processEvents`, while
- * `getBaseCacheKey` only covered fetch inputs — entity ids, window,
- * `show_past_events`, `filter_duplicates`. Every other config key that
- * `processEvents` reads was therefore invisible to the cache, so changing one
- * returned the previous result until the entry expired.
+ * `getBaseCacheKey` only covered fetch inputs — entity ids and window. Every
+ * other config key that `processEvents` reads was therefore invisible to the
+ * cache, so changing one returned the previous result until the entry expired.
  *
  * Two distinct defects fell out of that, and they need separate tests because
  * they had different mechanisms and could be half-fixed:
@@ -149,18 +148,27 @@ describe('fetchEventData caching', () => {
     };
     const { hass } = fakeHass([multiDay]);
 
+    // Splitting is view-scoped and happens in `groupEventsByDay`, so the fetch
+    // result is the single unsplit event either way. Read the override the way
+    // the renderer does — the point of this test is that a cache hit re-derives
+    // it from the live config rather than freezing the first fetch's answer.
+    const daysShowing = (config: Types.Config, events: Types.CalendarEventData[]) =>
+      EventUtils.groupEventsByDay(events, config, false, 'en').filter((day) =>
+        day.events.some((event) => event.summary === 'Conference'),
+      ).length;
+
     const split = buildConfig({
       entities: [{ entity: 'calendar.personal', split_multiday_events: true }],
     });
     const first = await EventUtils.fetchEventData(hass, split, 'inst');
-    expect(first.events.length).toBeGreaterThan(1);
+    expect(daysShowing(split, first.events)).toBeGreaterThan(1);
 
     const unsplit = buildConfig({
       entities: [{ entity: 'calendar.personal', split_multiday_events: false }],
     });
     const second = await EventUtils.fetchEventData(hass, unsplit, 'inst');
 
-    expect(second.events).toHaveLength(1);
+    expect(daysShowing(unsplit, second.events)).toBe(1);
   });
 
   it('keeps _matchedConfig identical to the live config entity object', async () => {

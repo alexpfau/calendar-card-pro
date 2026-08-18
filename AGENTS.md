@@ -7,7 +7,8 @@ agent-facing summary plus the things that are easy to get wrong.
 ## Project
 
 Calendar Card Pro is a custom Lovelace card for Home Assistant, written in TypeScript
-with Lit 3 and bundled with Rollup into a single ES module. It is distributed via HACS.
+with Lit 3 and bundled with Rollup into two ES modules — the card and its editor. It is
+distributed via HACS.
 
 There is **no runtime framework beyond Lit** — no React, no state library. Keep it that
 way; bundle size is a design constraint.
@@ -23,28 +24,134 @@ production bundle by 3 bytes, all of which were a bug fix.
 These are the npm scripts. Do not invent others — add one only when a command is run often
 enough that people will otherwise get it wrong.
 
-| Command              | Output                          | Element name            | Logging |
-| -------------------- | ------------------------------- | ----------------------- | ------- |
-| `npm run dev`        | `dist/calendar-card-pro-dev.js` | `calendar-card-pro-dev` | verbose |
-| `npm run build`      | `dist/calendar-card-pro.js`     | `calendar-card-pro`     | silent  |
-| `npm run lint`       | — (eslint, `--fix`)             |                         |         |
-| `npm run format`     | — (prettier, `--write`)         |                         |         |
-| `npm test`           | — (vitest, single run)          |                         |         |
-| `npm run check:i18n` | — (translation wiring check)    |                         |         |
+| Command                | Output                                                 | Element names                                           | Logging |
+| ---------------------- | ------------------------------------------------------ | ------------------------------------------------------- | ------- |
+| `npm run dev`          | `dist/calendar-card-pro-dev.js` + `dist/editor-dev.js` | `calendar-card-pro-dev`, `calendar-card-pro-dev-editor` | verbose |
+| `npm run build`        | `dist/calendar-card-pro.js` + `dist/editor.js`         | `calendar-card-pro`, `calendar-card-pro-editor`         | silent  |
+| `npm run lint`         | — (eslint, `--fix`)                                    |                                                         |         |
+| `npm run format`       | — (prettier, `--write`)                                |                                                         |         |
+| `npm test`             | — (vitest, single run)                                 |                                                         |         |
+| `npm run check:format` | — (prettier, `--check`)                                |                                                         |         |
+| `npm run check:i18n`   | — (translation wiring check)                           |                                                         |         |
+| `npm run check:docs`   | — (docs/config parity check)                           |                                                         |         |
+| `npm run check:bundle` | — (emitted-file check)                                 |                                                         |         |
+
+`lint` covers **`src/`, `tests/` and `scripts/`**; `format` and `check:format` cover the
+**whole repo**. `scripts/` was outside both until v4 — 220 KB of logic that gates every PR,
+watched by nothing, which is how three of those files drifted out of prettier style
+unnoticed and how a typo'd global shipped in a gate. It is linted under a **second, weaker
+config block**, because
+these are plain Node ESM rather than TypeScript: prettier plus a handful of core correctness
+rules, no type-aware rules, and deliberately **no `no-undef`** — the scripts legitimately use
+Node globals, and declaring them would mean depending on a package that is not a direct
+devDependency. So a typo in a global reads as valid in `scripts/` where `tsc` would have
+caught it in `src/`.
+
+**`check:format` is the only step that actually gates formatting**, and it exists because
+the obvious-looking enforcement was never real. `prettier/prettier` is an eslint _error_
+rule, but `lint` runs with `--fix`: in CI a misformatted file is rewritten in the throwaway
+checkout and the step exits 0. Meanwhile eslint never saw markdown, YAML or JSON at all.
+Both holes were open until v4, by which point ten documentation files had drifted — the
+README and the release notes among them. Run `npm run format` before committing; the gate
+fails the PR if you forget. `wrangler.jsonc` is the one deliberate exclusion, for the reason
+recorded in `.prettierignore`.
 
 Three further scripts build the documentation site (see _Documenting a change_):
 `docs:dev` (dev server), `docs:build` (static build into `docs/.vitepress/dist/`, the
 command Cloudflare runs), and `docs:preview` (serve the built output).
 
+**The card ships as two files.** `rollup.config.mjs` exports an **array of two configs**,
+so each build emits the pair named in the table above, and the editor is fetched only when
+someone opens it — which keeps it and its
+translations off every dashboard load. Both files are self-contained bundles with stable,
+human-readable names. `hacs.json` names the card and needs no change; HACS downloads every
+asset attached to a release, and `filename` only selects which one becomes the Lovelace
+resource. Four consequences worth holding on to: **neither file may import the other**,
+**every emitted file must sit directly in `dist/`** because HACS fetches no
+subdirectories, **`import.meta` must survive into the output** (below), and **both files
+stamp the same version** so the card can warn when a stale editor is paired with a fresh
+card. `npm run check:bundle` enforces all four.
+
+**Why two builds and not one build with code-splitting.** Rollup, given one entry and a
+dynamic `import()`, puts the modules the card and editor share into a chunk that the
+editor imports _back from the card_. That is the one thing which cannot work here: the
+import would read `./calendar-card-pro.js` while HACS had loaded that very file as
+`./calendar-card-pro.js?hacstag=…`, and a browser treats those as two different modules.
+The card evaluates twice, the second `customElements.define` throws, and the editor is
+dead — possibly the card too. Two entries remove the trap at its root rather than working
+around it: no emitted file imports another at all, so there is nothing for the query to
+be dropped from. The card names the editor through a URL it computes at runtime
+(`src/utils/editor-url.ts`), which is invisible to both module graphs.
+
+The cost is that the shared modules are **duplicated into the editor** — measured at
++16.8 KB gzip, paid only by people who open it. Two things make that acceptable rather
+than merely tolerable. The eager path got _smaller_: a split entry has to export its
+shared modules, and exported symbols resist mangling and inlining, so collapsing the card
+into one self-contained file saved 1.1 KB gzip on the file everyone loads. And the
+duplicated module state is inert — the card never reads a string the editor registered,
+the editor resolves its own; `CURRENT_LOG_LEVEL` is a build-time constant and identical in
+both; and the once-per-session banner flag is only ever touched card-side. Check that
+this still holds before moving anything shared and mutable across the boundary.
+
+🚨 **Quote the compression level with any gzip figure, or the number is not comparable.**
+Two sessions reported the eager chunk at 56,792 and 56,932 bytes gzip and both were right —
+the file was byte-identical, `sha256:9d5724202bbb…` in both cases. The same bundle measures
+three ways:
+
+| tool                             | bytes  |
+| -------------------------------- | ------ |
+| `gzip -9 -c`                     | 56,792 |
+| `node zlib.gzipSync` (default)   | 56,907 |
+| `gzip -c` (level 6, the default) | 56,932 |
+
+A 140-byte spread is the same order as several real optimisations recorded in this file, so
+an unqualified figure can manufacture a regression or hide one. **Raw size plus a hash is the
+comparison that cannot drift**; gzip is for reporting, and only against another figure taken
+the same way. Note also that equal raw sizes do not prove identity — hash them.
+
+**And the build variant is a second axis, which is easier to get wrong than the first.**
+The dev bundle is what a session has to hand; the production bundle is what users load.
+Same source, all nine languages, four legitimate answers for one chunk:
+
+|                 | `gzip -6` | `gzip -9` |
+| --------------- | --------: | --------: |
+| `editor-dev.js` |    82,772 |    81,979 |
+| `editor.js`     |    82,768 |    81,975 |
+
+Two sessions reported 81,979 and 82,768 for the same commit, and both were right. Say
+which build and which level, or the number is only comparable to itself.
+
+**Cache-busting is by query propagation, not by content hash.** `/hacsfiles/**` is served
+`max-age=2678400` — one month — and HACS appends `?hacstag=` to the _registered resource
+only_, so a sibling file gets no cache-buster of its own. `getConfigElement()` therefore
+copies the card's own query onto the editor's URL, making the editor bust exactly when the
+card busts. It is strictly better than the content hashes it replaced, which never
+responded to the dev deploy's `?v=` bump at all: a hash only changes when the editor
+itself changes, so a shared-module change reloaded the card and left a stale editor.
+
+🚨 **`import.meta` compiles to `{}` under esbuild `target: 'es2017'`.** That makes
+`import.meta.url` `undefined` and the editor unloadable, and it is invisible to every
+other gate — it typechecks, builds, lints and tests clean. `supported: { 'import-meta':
+true }` in the `esbuild()` options is what prevents it, and `check:bundle` asserts the
+result. Do not remove either.
+
 **The two builds are not interchangeable.** `rollup.config.mjs` switches on `NODE_ENV`
-and rewrites both the output filename _and_ the custom element name, so a dev build
-registers as `calendar-card-pro-dev` / `calendar-card-pro-dev-editor`. This is
-deliberate: it lets a dev build run side by side with the HACS-installed release in the
-same Home Assistant instance. Never hand someone a `npm run build` artifact for local
-testing — they need the `-dev` one.
+and rewrites both output filenames _and_ the custom element names, so a dev build
+registers as `calendar-card-pro-dev` / `calendar-card-pro-dev-editor` and emits
+`-dev`-suffixed files. This is deliberate: it lets a dev build run side by side with the
+HACS-installed release in the same Home Assistant instance. Never hand someone a
+`npm run build` artifact for local testing — they need the `-dev` one. The editor filename
+the card names follows the same `replace()` mechanism as the element names; a mismatch
+there is a dead editor that builds perfectly and 404s only when someone opens it.
 
 `npm run dev` runs `rollup -c --watch` and does not exit. For a one-shot dev build in
-automation, use `npx rollup -c` (same config, no watcher).
+automation, use `npx rollup -c` (same config, no watcher). Either way the build first
+removes anything in `dist/` it will not itself write — not the whole directory, because
+the watcher rebuilds only the config whose inputs moved and a wipe would delete the editor
+on every card-only edit. What it is guarding against is the _other_ variant's output: dev
+and production files have different names, so without it a `npm run build` after a
+`npm run dev` would leave the dev pair behind for `release.yml`'s `dist/*.js` glob to
+publish.
 
 There **is** a test suite — Vitest with happy-dom, in `tests/`. It does not aim at coverage;
 it pins the things that have actually broken (the translation wiring, config normalization)
@@ -54,10 +161,58 @@ changes with:
 ```bash
 npx tsc --noEmit   # typecheck — not exposed as an npm script
 npm run lint
+npm run check:format
 npm test
 npm run check:i18n
+npm run check:docs
+npm run docs:build
 npm run build
+npm run check:bundle   # after the build — it reads dist/
 ```
+
+Those nine are every npm gate CI runs, so a green local run should mean a green PR —
+**provided you run them on the Node version in `.nvmrc`.** CI reads that file, and results
+that pass through zlib or npm are not portable across majors. A gate reconciling the gzipped
+transfer sizes documented in `docs/guide/installation.md` was written and proven green on
+Node 25, then failed in CI on Node 22: Node 24+ ships zlib-ng and Node 22 ships classic
+zlib, so identical bundle bytes compressed to 57,860 and 58,448 — a ~1% spread that happened
+to straddle a kilobyte. Nothing was wrong with the bundle or the figure. `nvm use` first, or
+run the gate under the pin without switching:
+
+```bash
+npx -y -p node@22 node scripts/check-bundle.mjs
+```
+
+This is the same class of failure as the `.nvmrc` / `.node-version` drift described under
+_Docs site deployment_, arriving from the other direction: there the two pinned files
+disagreed, here the developer disagreed with both. Byte counts are reproducible and can be
+asserted exactly; anything a compressor or a package manager produces needs either the
+pinned runtime or a tolerance.
+
+**Matching the major is not always enough.** `.nvmrc` says `22`, and `setup-node` resolves
+that to the newest 22.x at run time — so a gate whose oracle is data bundled _inside_ Node
+can disagree between two runtimes that are both honestly "Node 22".
+`tests/first-day-of-week-locale.test.ts` reads week-start data from the runtime's own CLDR
+via `Intl.Locale`, and CLDR 48 moved Iceland from Monday to Sunday: Node 22.18.0 ships CLDR
+47 and fails, Node 22.23.2 ships CLDR 48 and passes, on identical source. A reviewer running
+22.18.0 reported the suite red on a tip where CI was green and proposed deleting the correct
+`is: 0` entry — a change that would have turned CI red and shipped the wrong week start to
+Icelandic users. The command above is written as `node@22`, not `node@22.18.0`, precisely
+because the floating form resolves the same way CI does; pinning an exact patch reintroduces
+the problem it looks like it is solving. When a local gate disagrees with a green CI run on
+the same commit, suspect the runtime before the code.
+
+`check:docs` is the one that
+surprises people: it is described under _Documenting a change_ below, which makes it look like a
+docs-only concern, but it gates **every** PR. A change touching no `src/` file at all can
+still fail it. Adding a config option without a reference-table row fails it too — which is the
+point.
+
+`docs:build` is not redundant with it. `check:docs` reads the Markdown as text; `docs:build`
+compiles it, so it is the only gate that sees a page VitePress cannot parse. A stray `{{ … }}`
+in prose — easy to write in a Home Assistant card's docs, where that is Jinja rather than Vue —
+passes `check:docs` and fails the build. Check 20 in `check-docs.mjs` reconciles this list
+against `ci.yml`, because it silently went stale once when `docs:build` was added to CI.
 
 Two things to know before trusting it. `tests/list-dom.test.ts` snapshots serialized DOM, so
 an intentional markup change means **reading** the snapshot diff and committing it, not
@@ -66,7 +221,155 @@ defaulting to `false` renders nothing and is invisible to it unless a test sets 
 branches were missed that way, including two the suite existed to protect. When you add a
 config option, add a test that turns it on.
 
+🚨 **A test that walks a table's own keys cannot notice a key leaving it.** The idiom
+`for (const key of Object.keys(TABLE)) expect(somethingAbout(key)).toBeDefined()` reads
+like coverage and is not: delete an entry and the loop runs one fewer time, so the suite
+stays green while the table quietly shrinks. This has been found three times — 24 of 54
+`COLUMN_OVERRIDE_KEYS` entries, 2 of 6 `VIEW_SCOPE` entries and 4 of 5
+`DEPRECATED_CONFIG_MAP` entries were each removable with every gate passing. The damage is
+always silent, because these tables describe what the card tells the user rather than what
+it renders: an editor field stops saying an option is inert in this view, or a removed
+option stops being reported at all. **Pin the whole table by value** (`toEqual` on a
+normalized copy) or reconcile it against a second surface, so both directions — a dropped
+entry and an unexplained new one — fail. When sweeping for this, blank one line at a time,
+run `npx tsc --noEmit` first as a cheap kill, and restore with `cp` from a backup, never
+`git checkout --`.
+
+### The suite runs as four projects, and the split is load-bearing
+
+`vitest.config.mjs` defines a `projects` array, so `npm test` runs the same files under
+more than one timezone:
+
+| Project        | `TZ`               | Files                                               |
+| -------------- | ------------------ | --------------------------------------------------- |
+| `unit`         | `UTC`              | `tests/**/*.test.ts`, **excluding** `*.dst.test.ts` |
+| `dst-berlin`   | `Europe/Berlin`    | `tests/**/*.dst.test.ts`                            |
+| `dst-sydney`   | `Australia/Sydney` | `tests/**/*.dst.test.ts`                            |
+| `dst-new_york` | `America/New_York` | `tests/**/*.dst.test.ts`                            |
+
+The UTC pin on `unit` is deliberate and must stay — without it a date renders one way
+locally and another in CI. But UTC is also the **only zone with no DST transitions**, so any
+arithmetic that assumes every day is 24 hours long is unconditionally correct there and can
+be wrong everywhere else. Both week-number functions shipped broken that way for every
+release up to v4: wrong on roughly one date in seven under real zones, with a green suite
+and a dedicated `tests/column-week-numbers.test.ts` that was structurally incapable of
+seeing it.
+
+Hence the three extra projects, and **each is required for a different reason**. Berlin and
+Sydney cover the hemispheres: the drift is negative north of the equator and positive south
+of it, so `Math.floor` and `Math.ceil` fail in _opposite_ hemispheres. Berlin alone proves
+nothing about a `ceil`; Sydney alone proves nothing about a `floor`. Reverting either fix in
+`src/utils/format.ts` turns exactly one of those two projects red and leaves the other, and
+`unit`, green.
+
+New York covers the **offset sign**, which the other two cannot. Berlin and Sydney are both
+_ahead_ of UTC, so parsing a date-only string as UTC midnight rather than local midnight
+still lands on the correct local calendar day in both — the exact one-line "simplification"
+that would render every all-day event a day early for every user in the Americas. Planting
+it fails `tests/all-day-parse.dst.test.ts` twice under Berlin, twice under Sydney, and
+**seventeen times** under New York, while all of `unit` stays green. When you add a zone,
+say which failure mode it is the only one able to see.
+
+So: **name any timezone-sensitive test `*.dst.test.ts`** and it picks up all three zones
+automatically. Give it a guard test asserting the January and July offsets differ, so it
+fails loudly instead of silently proving nothing if it is ever run under UTC —
+`tests/week-number-dst.dst.test.ts` has one to copy. The `exclude` on the `unit` project is
+what stops those files running a fourth time under UTC; do not drop it.
+
+**A snapshot diff you did not intend is usually a whitespace error, not a rendering
+change.** The serializer normalises whitespace _between tags only_; whitespace adjacent to
+a text node survives verbatim, so the literal source indentation inside an `html` template
+is part of the oracle. Moving a template therefore means **preserving its original absolute
+indentation**, even where that looks wrong at the new nesting depth — which is why
+`leaves.ts` carries function bodies indented as though they were still nested.
+
+**Prettier _does_ reformat inside `html` tagged templates, and it will fight you here.**
+An earlier version of this file claimed the opposite, and that claim was wrong: run
+`npm run format` on a single-line template and it reflows the embedded HTML, re-indenting
+and breaking lines. The reason the claim survived so long is an asymmetry worth knowing —
+**Prettier preserves significant whitespace it already finds, so existing templates
+round-trip unchanged**, and it breaks as `</span\n><span` so no new text node appears
+between inline elements. But a template deliberately written to have _none_ gets the
+indentation put back. **Deliberate whitespace needs `// prettier-ignore`**; `leaves.ts`
+uses it at **three** sites — the day-header weather badge, the event weather badge, and
+the folded time/countdown spans — each added after `npm run format` reintroduced the
+exact spaces a fix had just removed and turned five tests red. Locate them with
+`grep -n "prettier-ignore" src/rendering/leaves.ts` rather than by line number; two of
+the three moved the last time someone edited a comment above them. If you find one and
+wonder whether it is still needed, it is — delete it, **run `npm run format`**, then
+`npm test`. The format step is the whole experiment: without it the directive's removal
+changes nothing and the whole suite still passes, which reads as "safe to delete" and
+is not.
+
+**Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
+and the gate's entire value is that it is the one artefact the person doing the refactor
+does not get to edit. Fix the indentation, or — if the markup genuinely changed — read the
+diff line by line and commit it deliberately.
+
+**If you believe a snapshot diff is whitespace-only, prove it in one line rather than by
+eye.** The serializer touches whitespace _between tags only_, which makes the claim
+falsifiable:
+
+```js
+const norm = (s) => s.replace(/>\s+</g, '><');
+norm(before) === norm(after); // true  =>  inter-tag whitespace and nothing else
+```
+
+Because that collapses only what the serializer already normalises, a `true` proves there
+is no text change, **no text-adjacent indentation change**, and no attribute, class or
+element change — across the whole file, not just the hunks you looked at. Do **not**
+substitute `replace(/\s+/g, '')`: stripping _all_ whitespace also discards the significant
+kind, so it will call a real text-adjacent regression clean. Check the entry count too
+(`^exports\[`), since `-u` prunes as well as rewrites and a silently dropped case looks
+like nothing at all.
+
+One deliberate exception, and it is not a typo to fix: `tests/column-dom.test.ts` carries
+**two independent normalisers**, one per comparison — neither calls the other.
+`serialize()` uses `>\s+<`, as `list-dom` does, and backs the strict default-config
+comparison where no placement fires and the stronger assertion costs nothing.
+`eventContentsAtCommonPlacement()`, which folds the column's progress-bar row back to the
+inline position, does its own marker-stripping and its own `>\s*<` — wider by one character
+because reattaching a node leaves it flush against its new closing tag where the list view
+has a newline, so zero whitespace has to compare equal to some, which `\s+` will not do.
+Both are correct; the difference is the point, and the reasoning is at the helper's
+docblock.
+
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
+
+### `scripts/`
+
+Ten files, and only three are reachable through `package.json`, so the rest are easy to
+mistake for leftovers. They are not. What each one is:
+
+| Script                      | Kind           | How it runs                          |
+| --------------------------- | -------------- | ------------------------------------ |
+| `check-bundle.mjs`          | gate           | `npm run check:bundle`               |
+| `check-docs.mjs`            | gate           | `npm run check:docs`                 |
+| `check-i18n.mjs`            | gate           | `npm run check:i18n`                 |
+| `extract-release-notes.mjs` | release        | `release.yml`, stdout → release body |
+| `generate-en-gb.mjs`        | generator      | by hand — see below                  |
+| `editor-glossary.mjs`       | data           | imported by the i18n gate            |
+| `en-gb.mjs`                 | data           | imported by gate + generator         |
+| `load-editor-schema.mjs`    | library        | imported by the i18n gate            |
+| `l10n-oracle.mjs`           | authoring tool | by hand, needs an HA frontend wheel  |
+| `l10n-handoff.mjs`          | authoring tool | by hand, needs an HA frontend wheel  |
+
+**`generate-en-gb.mjs` is the one with a trap in it.** `src/rendering/editor/translations/en-GB.json`
+is generated, not maintained — `en-gb.mjs` holds the substitution list, the generator writes
+the file, and `check:i18n` recomputes the same data and fails on any difference. Nothing runs
+the generator for you. So editing `strings.ts` in a way that touches a substituted spelling
+fails the i18n gate, and the fix is not to hand-edit the JSON the error points at:
+
+```bash
+node scripts/generate-en-gb.mjs   # then re-run npm run check:i18n
+```
+
+The two `l10n-*` tools are deliberately outside CI. They need `HA_FRONTEND_TRANSLATIONS`
+pointed at an unpacked, pinned `home-assistant-frontend` wheel, which is why they are run by
+hand and why neither has an npm script. `l10n-oracle.mjs` gathers the evidence a glossary
+decision cites; `l10n-handoff.mjs` writes per-language starting files for editor translation
+work into a gitignored `l10n-handoff/`. Absence from `package.json` is the design, not an
+oversight — do not "fix" it by wiring them into the gates.
 
 ## Branch model
 
@@ -80,6 +383,71 @@ passing status checks; `dev` only blocks deletion.
 
 External contributors frequently open PRs against `main` by mistake. Retarget them to
 `dev` (`gh pr edit <n> --base dev`) rather than merging into `main`.
+
+**Never name a branch so that it ends in `tags`** — `validate-hacs` fails on it, and the
+failure accuses the repository rather than the name. HACS reads `hacs.json` and the README
+over the network from `raw.githubusercontent.com/{repo}/{ref}/{file}`, and
+`custom_components/hacs/base.py` strips `tags/` out of that URL unconditionally, to
+normalise release refs like `tags/v1.2.3`. A branch called `fix/void-element-end-tags`
+therefore requests `…-tags/hacs.json`, HACS rewrites it to `…-hacs.json`, and both fetches 404. The two content checks then report _"invalid 'hacs.json' file"_ and _"does not have
+images in the Readme file"_ while the six metadata checks pass, because those need no file
+fetch — **that 6-pass/2-fail split is the signature**, and the generic wording is the second
+tell, since a genuinely malformed `hacs.json` produces a humanized schema error instead.
+Both files were byte-identical to `main` throughout. Ten hypotheses were falsified before
+the branch name was suspected; the fix is to rename it and re-open the PR. Only reachable
+since v4 added the `pull_request` trigger below.
+
+**Run the workflow against `main` before you believe any of that, because a GitHub incident
+wears the same costume.** Those two content checks are the only ones that need a network
+fetch, so anything degrading `raw.githubusercontent.com` fails exactly what the branch name
+fails. On 2026-08-17 — _"archive downloads and raw repository content downloads … approximate
+50% error rate"_ — `validate-hacs` reported _"Repository structure for `<branch>` is not
+compliant"_ on a pull request touching only `src/`, `tests/` and `docs/development/`, none of
+which HACS reads.
+
+```bash
+gh workflow run hacs-validate.yml --ref main
+```
+
+`main` is the ref HACS ships from, so it cannot be structurally non-compliant; if it reports
+the same thing, the problem is not your branch. During that incident it did — _"…for
+`refs/heads/main` is not compliant"_ — and one run settled what retrying had not.
+
+**Retrying is the obvious discriminator and it is not good enough.** This document said
+"re-run once" for about ten minutes, until the job failed **three times running** on one
+unchanged commit — at a 50% error rate, two consecutive failures are a one-in-four
+coincidence, so "it failed twice, it must be real" is worth nothing. That matters because the
+remedy above is self-confirming under an outage: rename, re-open, watch it pass, and the
+rename takes credit that belonged to the weather.
+
+**When several branches feed one integration branch, "merged" has to name which branch.**
+Merging the integration branch _into_ your own, or merging your work into a peer's, leaves
+a local state indistinguishable from being integrated: `git status` is clean, local equals
+remote, your commit is in your own history, and the log reads correctly. Across one evening
+of nine parallel branches feeding `feature/column-view-v4`, that produced **eight** reports
+of work as merged while it sat unintegrated — by three different sessions, each honestly.
+Only ancestry against the integration branch answers the question — and **the `git fetch` is
+the load-bearing line, not boilerplate**. `origin/feature/column-view-v4` is a _local_
+remote-tracking ref that moves only when you fetch, so the right command against a stale ref
+returns an honest count of a reference from an hour ago, and nothing in the output says
+which. That was the mechanism behind all eight reports: the command was correct every time.
+**`ahead` and `pushed` are different questions**, and a report that answers only the first
+reads as finished either way: a merge commit sitting unpushed gives `ahead: 0` with the work
+nowhere anyone else can see it. That surfaced twice in three checks once the fetch was added,
+so it belongs in the command rather than in the habit.
+
+```bash
+git fetch origin
+git merge-base --is-ancestor <sha> origin/feature/column-view-v4 && echo merged
+git rev-list --count origin/feature/column-view-v4..origin/<branch>   # 0 == nothing outstanding
+git rev-list --count @{u}..HEAD                                      # 0 == nothing unpushed
+```
+
+And **check the content, not only the count**: the count going to zero proves the merge
+happened, while a grep for the thing you actually cared about proves it survived the
+conflict resolution. Those came apart twice here — once where a cell-wise union was needed
+because two branches had filled different columns of the same table, and once where a
+paragraph was restored that had been superseded in code.
 
 Because `main` is the default branch, `Fixes #123` in a PR merged to `dev` will **not**
 auto-close the issue — closing keywords only fire on the default branch. Issues close
@@ -126,6 +494,13 @@ deployed by Cloudflare on every push to `main`. `README.md` is now only a landin
 badges, overview, installation, a quick-start example, What's New, and contributing.
 Everything else moved to `docs/`.
 
+The screenshots under `.github/img/` are **not** captured by anything in this repo. They
+come from a Home Assistant instance only the maintainer has, so they cannot be regenerated
+from a PR. Two consequences: a change that alters how the card renders by default — spacing,
+alignment, what a row shows — silently invalidates them, so **say so in the PR** rather than
+assuming someone will notice; and they are referenced by `main`-branch raw URLs, so a
+replacement is only live once it reaches `main`.
+
 **In a feature or fix PR** (targeting `dev`), document the change in `docs/`, not the README:
 
 - the **config table** row in `docs/reference/configuration.md` for any new or changed
@@ -134,12 +509,24 @@ Everything else moved to `docs/`.
   nearest existing one, with a real YAML snippet. A table row alone is not documentation:
   `show_countdown_allday` shipped in v3.4 as a table row only, and was undiscoverable.
 - for a new language: the supported-languages list in `docs/contributing.md` **and all
-  three hardcoded counts**. Derive them rather than incrementing by hand — they are prose,
-  so nothing fails when they drift, and they were wrong for three consecutive releases:
+  three hardcoded counts**. Derive them rather than incrementing by hand — they were wrong
+  for four consecutive releases before `check:docs` grew a gate for them, which reconciles
+  every published count against the files on disk:
+
   ```bash
-  ls src/translations/languages/*.json | wc -l                 # total languages
-  grep -l '"editor"' src/translations/languages/*.json | wc -l # editor languages
+  ls src/translations/languages/*.json | wc -l                            # card languages
+  echo $(( $(ls src/rendering/editor/translations/*.json | wc -l) + 1 ))  # editor languages
   ```
+
+  **The `+ 1` is not a rounding error, and the editor count is the one that keeps going
+  wrong.** US English has no file — it lives in `src/rendering/editor/strings.ts` — so
+  counting the directory undercounts by one. `en-GB.json` is a _delta_ of ~36 strings
+  rather than a full translation, so it is easy to skip as well, and the nine complete
+  files are easy to mistake for the whole set. All three are languages the editor renders
+  in, and the total is **11**: US English in code, British English as a delta, and nine
+  translated in full. Do not write "nine editor languages" — that is the count of the
+  files that happen to be complete, not the count of languages a user can get.
+  `docs/contributing.md` states the breakdown correctly; check against it.
 
 Run `npm run docs:build` before pushing. `ignoreDeadLinks` is deliberately **off**, so an
 internal link to a heading you renamed fails the build instead of shipping broken.
@@ -153,7 +540,7 @@ The README's quick-start YAML block is the one **deliberate** duplicate in the p
 is the HACS landing page, so it has to show a working config without sending the reader
 elsewhere first. `check:docs` pins it byte-for-byte to the first example in
 `docs/guide/usage.md`. Do not resolve that failure by deleting either copy — edit both.
-Anything that *teaches* (multiple calendars, per-calendar colours, compact mode) belongs
+Anything that _teaches_ (multiple calendars, per-calendar colours, compact mode) belongs
 only in `docs/`, never in the README.
 
 ### The two "What's New" surfaces
@@ -161,11 +548,11 @@ only in `docs/`, never in the README.
 There are **two** of them and they follow **different rules**. Updating only one is the
 most likely way for a release to drift:
 
-| | `README.md` `## 4️⃣ What's New` | `docs/guide/whats-new.md` |
-| --- | --- | --- |
-| Purpose | highlights reel for the HACS landing page | the card's full history |
-| Span | current major only, capped at 8 entries | **every** minor line, back to v1.0 |
-| Selection | ruthless — relevance only | fuller, but still curated |
+|           | `README.md` `## 4️⃣ What's New`            | `docs/guide/whats-new.md`          |
+| --------- | ----------------------------------------- | ---------------------------------- |
+| Purpose   | highlights reel for the HACS landing page | the card's full history            |
+| Span      | current major only, capped at 8 entries   | **every** minor line, back to v1.0 |
+| Selection | ruthless — relevance only                 | fuller, but still curated          |
 
 **Do not touch either in a feature PR.** They are organised by release, so a feature
 branch cannot know which version it will land in, and concurrent branches conflict in them.
@@ -186,7 +573,11 @@ adding a new heading — each entry covers its whole minor line.
 When linking **into** the docs page, mind the anchor: the site's `slugify` strips dots, so
 `## v2.1` anchors as `#v21`, not `#v2-1`. These links are written as absolute URLs to the
 live site, so VitePress's dead-link check — which only resolves relative links — cannot
-see them; `check:docs` validates them instead.
+see them; check 29 in `check-docs.mjs` resolves every absolute
+`https://calendar-card-pro.alexpfau.com/…` link, fragment included, against the real
+headings instead. It covers the README and `CONTRIBUTING.md` as well as `docs/`, because
+those two _must_ use absolute URLs — they also render on GitHub and in HACS, where a
+relative docs path does not resolve.
 
 The README list is a **highlights reel, not a changelog** — the full notes are linked
 directly above it, so anything left out is one click away. Select on relevance rather than
@@ -199,7 +590,7 @@ age. Deep-link each bullet to the relevant docs page where one exists.
 ## Docs style
 
 These conventions are **enforced by `npm run check:docs`**, so this section is a
-reference for *why*, not a checklist to police by hand. Run it before pushing docs
+reference for _why_, not a checklist to police by hand. Run it before pushing docs
 changes; CI runs it too.
 
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
@@ -288,26 +679,171 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    8 of the 10 releases from v3.0.1 through v3.4.0 shipped with a stale lock version — 31
    of 37 tags overall. `ci.yml` now checks all three, so skipping this fails the release PR
    rather than shipping quietly.
+
+   **When the bump lands.** Historically 0–48 h before the tag, because a minor release is
+   prepared and cut from `dev` in one sitting. A major developed on a long-lived
+   integration branch is the exception and the bump lands early by necessity — the release
+   notes, the two "What's New" surfaces and the docs all name the version, so they cannot
+   be written against a placeholder. `feature/column-view-v4` carried `4.0.0` for two days
+   and 146 commits, which is the same lead time v3.2.0 had. Do not file this as premature:
+   the version's only consumers are the event cache key (a change self-heals), the
+   card↔editor mismatch warning (both halves are built from the same value) and the logger
+   banner. A review pass raised it as a finding purely because this paragraph did not exist.
+
 2. Update `docs/RELEASE_NOTES.md`, the README's `## 4️⃣ What's New` section, **and**
    `docs/guide/whats-new.md` — see _The two "What's New" surfaces_ for the differing rules.
+
+   **A fix belongs in the notes only if the defect it fixes was ever released.** Check each
+   one against the previous tag with `git show <tag>:<path>` — not against the diff, and
+   never against the commit message, which was written mid-branch and describes its bug as
+   live because to its author it was. Two conditions must both hold: the defective code
+   existed in the released tree, _and_ a user of that release could reach it with a
+   configuration that release supported. The second is what disqualifies a fix to code that
+   only a new feature can reach. Two shapes fail it, and a long-lived branch produces both —
+   a defect introduced and repaired inside unreleased work, and a fix that already shipped,
+   which happens whenever a release is cut from `dev` while the branch is open and its tag
+   becomes an ancestor (`git merge-base --is-ancestor <tag> HEAD`). The v4.0.0 draft listed
+   37 fixes and **16 failed this**; six of them re-announced v3.6.0 fixes, one under a
+   heading identical to the one in the section below it. No gate catches this.
+
+   Two editorial rules the v4 draft also needed. **Open a feature on what it does for the
+   reader, then earn the mechanism** — the editor section led with `<ha-form>` and schemas
+   and reached the point three sentences later. Fixes are the exception and stay
+   symptom-first, because there the symptom _is_ the value. And **weigh the sections against
+   each other before shipping**: the v4 draft put 5,971 words into 🐛 Bug Fixes against 1,943
+   into 🎉 New Features, in the release headlined by two features, with single bullets at 350
+   words against a 113-word high in v3.5/v3.6. A fix needing 300 words is carrying its own
+   post-mortem; that belongs in the commit message, not the notes.
+
+   `check:docs` now reads `package.json` and requires all three to name that exact
+   version: a `# Calendar Card Pro vX.Y.Z` section in the release notes, a `## vX.Y`
+   entry in the archive, and `vX.Y` somewhere in the README's What's New. Before this
+   existed, nothing tied the release docs to the shipped version — a bump could leave
+   every surface describing the _previous_ release, and the only thing that would ever
+   notice was `extract-release-notes.mjs` failing the release workflow after the tag was
+   already pushed. So step 1 and step 2 are now a single commit whether you like it or
+   not; bumping the version alone fails the PR.
+
 3. Open a PR from `dev` into `main` and merge it. `main`'s ruleset requires an approving
    review that you cannot give yourself, so this needs `gh pr merge <n> --merge --admin`.
+
+   **This merge is also the docs deploy.** The moment it lands, the site and the README
+   advertise the new version and — since the two-file split — tell manual installers to
+   download both files "from the latest release", while `releases/latest` still resolves
+   to the _previous_ release, which carries only one of them. Steps 3–6 are therefore one
+   operation rather than a merge now and a publish when convenient: the gap between them
+   is a window in which the published install instructions describe a release that does
+   not exist yet.
+
 4. **Fast-forward `dev` back onto `main`** — `git push origin origin/main:dev`. The merge
    commit from step 3 exists only on `main`; without this, `dev` starts the next cycle a
    commit behind. See _`dev` must never fall behind `main`_.
-5. Tag `main` with `vX.Y.Z` and push the tag.
-6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release with
-   `dist/calendar-card-pro.js` attached. Publish it manually.
+5. Tag `main` with `vX.Y.Z` and push the tag. It has to be `main`: the workflow triggers
+   on any `v*` tag, so it now refuses to build unless the tagged commit is an ancestor of
+   `origin/main`. Tagging `dev` — which carries the same bumped version and therefore
+   passes the tag/`package.json` check — would otherwise have produced a complete,
+   publishable draft release built from code that never went through the release PR.
+6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
+   attaches `dist/*.js` and nothing else — since the two-file split that is **both**
+   `calendar-card-pro.js` and `editor.js`. Publish it manually.
 
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
+HACS downloads every asset attached to a release, so it gets the editor without being told
+about it; `filename` only selects which asset becomes the Lovelace resource.
+
+**Every asset you attach is downloaded by every HACS user. Price a new one that way
+before adding it.** This is the constraint that shapes the whole release, and it is
+asymmetric: an asset that helps a minority is paid for by everyone.
+
+**Manual installers must copy both files, and nothing in the tooling enforces that** —
+only the documentation does. Copying only `calendar-card-pro.js` into `www/` yields a card
+that renders perfectly and then reports a missing file the first time someone opens the
+visual editor, a failure that appears nowhere near the omission that caused it. So
+`README.md` and `docs/guide/installation.md` both say "both files, in a folder of their
+own" in as many words. If the file layout ever changes again, those two pages are the fix;
+there is no packaging step to lean on.
+
+**The convenience zip was removed, deliberately, before v4 shipped.** Up to that point the
+release also attached a flat `calendar-card-pro.zip` holding the same two files plus a
+`.gz` beside each. It was genuinely useful — it made "extract both" the path of least
+resistance, and the `.gz` siblings are why a hand-copied card could cost 57 KB and 82 KB
+over the wire instead of 190 KB and 293 KB, Home Assistant serving a pre-compressed file
+when it finds one and never compressing on the fly. It was dropped anyway, because HACS
+downloaded it too: ~274 KB into every user's `www/community/calendar-card-pro/` that
+nothing ever loads. Waste for the many against convenience for the few, and the few can be
+served by prose. Do not re-add it without re-making that trade explicitly; the cost side
+has not changed.
+
+**Note which way round the gzip benefit ran, because it is easy to state backwards.** HACS
+has no compression logic anywhere in its source, and Home Assistant's `http` component
+serves static files through aiohttp's `FileResponse` without enabling compression. aiohttp
+will serve a `.gz` sibling when one is already on disk, and nothing in either project ever
+creates one. So the `.gz` files came from the zip and from nowhere else: **manual**
+installers had the compressed transfer and HACS users never did. After the removal nobody
+does. Any sentence claiming HACS delivers pre-compressed files is false, and one shipped in
+`README.md` and `docs/guide/installation.md` before being corrected — check the direction
+before repeating the claim.
+
+**How other multi-file cards handle this, surveyed across ten popular ones.** The short
+answer is that almost none of them face it, because almost none code-split:
+
+- **One bundled file** — mushroom, button-card, apexcharts-card, plotly-graph-card,
+  mini-graph-card, light-entity-card. A single asset, so the problem never arises. This is
+  the overwhelming majority, and it is worth remembering that splitting the editor out put
+  this card in a minority of two.
+- **Attach everything and absorb the cost** — advanced-camera-card ships **53** assets: the
+  card, a zip, and 51 hashed chunks (`editor-*.js`, `engine-frigate-*.js`, `lang-de-*.js`
+  …). Every HACS user downloads all 53. Its `hacs.json` is minimal. It simply does not
+  optimize this.
+- **Deliver through the repository tree and attach nothing** — Bubble-Card commits `dist/`
+  (66 files) and publishes releases with **zero** assets. `gather_files_to_download()`
+  appends assets then returns `if files:` — _conditionally_ — so a release with no assets
+  falls through to the tree path, which for a `plugin` walks `dist/` and downloads every
+  file in it with no extension filter.
+
+That third route is the only one that would put `.gz` files in front of HACS users, since
+the tree path does not filter by extension. It costs a committed `dist/`, zero release
+assets, and a clumsier manual download — GitHub offers no way to fetch one folder. It was
+considered and not taken; reopen it only with those three costs in hand.
+
+**Never add `content_in_root` to `hacs.json`.** Its absence is load-bearing, and the
+failure it prevents is invisible from the manifest — which is why this warning lives here
+rather than as a comment in the file, JSON having nowhere to put one. Today HACS reaches
+`gather_files_to_download()` with releases in play, appends _every_ asset and returns, so
+both `.js` files arrive. Setting `content_in_root: true` makes `update_filenames()` skip
+the release-asset branch entirely and resolve `filename` against the repository tree, and
+the download narrows to that one file. `editor.js` would stop being delivered. The card
+would still render for every HACS user; it would 404 only when someone opens the visual
+editor, so the break would look like an editor bug and not a packaging change.
+
+**No manifest option can narrow what HACS downloads.** The full schema is
+`content_in_root`, `country`, `filename`, `hacs`, `hide_default_branch`, `homeassistant`,
+`manifest`, `name`, `persistent_directory`, `render_readme`, `zip_release` — there is no
+asset filter among them, and the release branch of `gather_files_to_download()` appends
+every asset and returns without consulting any of them. The only lever is the `files:`
+list in `release.yml`, which is why that list is the whole story and why the comment above
+it is long.
+
+`zip_release: true` is not the escape hatch it appears to be, so do not reach for it if a
+bundled download is ever wanted again. It does make HACS download a single archive and
+extract it — but only when `filename` ends in `.zip`, and `filename` is the same field
+`generate_dashboard_resource_url()` builds the Lovelace resource from. The registered
+resource would become `…/calendar-card-pro.zip?hacstag=…`. That option is built for
+categories that do not register a JS resource; for a `plugin` it is unusable. A bundled
+download would have to live outside the release assets entirely.
 
 ## CI
 
-- `ci.yml` — lint + build on every PR to `main` or `dev`. Also guards the two release-infra
+- `ci.yml` — lint + build on every PR to `main`, `dev` or a `feature/**` branch. Also guards
+  the two release-infra
   drifts nothing else can see: `package.json` disagreeing with either version field in
   `package-lock.json`, and `.nvmrc` disagreeing with `.node-version`. Both run before the
-  install, so they fail in seconds.
-- `hacs-validate.yml` — HACS validation on `main` and nightly.
+  install, so they fail in seconds. It also runs `docs:build`, so the site's own build
+  command is exercised on a pull request rather than first on `main` — see _Docs site
+  deployment_.
+- `hacs-validate.yml` — HACS validation on the same PR branches, plus `main` and nightly.
+  Everything it validates is decided before a merge, so running it only on `main` meant a
+  packaging mistake could only be found once `main` already carried it.
 - `release.yml` — tag-triggered draft release.
 
 ## Docs site deployment
@@ -319,6 +855,13 @@ and serves `docs/.vitepress/dist` as static assets.
 - **It builds only on push to `main`.** Pushing to `dev` produces no Workers check run at
   all, so nothing on `dev` is ever live. **Merging the `dev` → `main` PR _is_ the deploy** —
   there is no separate publish step and no tag involved.
+- **`ci.yml` runs `docs:build` so a pull request exercises the deploy's own command.** It
+  did not always, and the gap was invisible: a broken `docs/.vitepress/config.mts` passes
+  `check:docs`, `lint` and `tsc --noEmit` — `docs/` sits outside the tsconfig include — so
+  every check went green, the PR merged, and the Cloudflare build was the first thing to
+  run it. The two docs checks are complementary rather than redundant, and each catches
+  what the other misses: a link to a heading that does not exist fails `check:docs` and
+  builds cleanly under VitePress, while a config error fails only the build. Keep both.
 - `wrangler.jsonc` defines the Worker: no `main` script, `assets.directory` pointing at the
   VitePress output, and the custom domain declared as a route so the hostname binding stays
   in version control.
@@ -341,6 +884,7 @@ and serves `docs/.vitepress/dist` as static assets.
 
   A non-zero exit here means the next merge to `main` will fail to deploy. Fix it with
   `npx npm@10.9.2 install --package-lock-only` and commit the result.
+
 - A green `validate-hacs` check does **not** mean the site deployed. The Workers build is a
   separate check run named `Workers Builds: calendar-card-pro`. Confirm a deploy by
   fetching the live page, not by reading check names:
@@ -361,38 +905,63 @@ This is the most error-prone area of the codebase; the same mistake has shipped
 repeatedly. A language is only fully wired up when **all** of these are done:
 
 1. `src/translations/languages/<code>.json` — must contain every **top-level** key present
-   in `en.json`. `en.json` is the reference.
+   in `en.json`. `en.json` is the reference. **Card strings only.** An `editor` section
+   here is now a `check:i18n` error, because these files are imported statically for all
+   35 languages and land on every dashboard load.
 
-   The `editor` section is the exception, and it is **all-or-nothing**. Only 11 of the 35
-   language files translate it; the other 24 omit it entirely and the editor renders in
-   English. That is supported and correct — `_getTranslation()` in `editor.ts` calls
-   `hasEditorTranslations()` and swaps the whole language to `en` for editor keys when the
-   section is absent.
+2. `src/rendering/editor/translations/<code>.json` — the editor's strings, **optional and
+   may be partial**. Ten of the 35 languages translate the editor; the other 25 have no
+   file here at all and the editor renders in English. Both are supported — `lookup()` in
+   `src/rendering/editor/localize.ts` resolves each key on its own, falling back
+   **requested language → English**, where English is `strings.ts`.
 
-   But `hasEditorTranslations()` returns true when the section has **one or more** keys, so
-   a _partially_ translated `editor` section defeats that fallback: the keys you did
-   translate render fine, and every key you missed renders as the **raw key name**
-   (`show_end_time`) in the UI, not as English. So either omit `editor` completely, or
-   copy every key from `en.json`. Never leave it half-done.
+   **There is deliberately no `en.json` here.** English lives in `strings.ts` and nowhere
+   else, so the two can never disagree; `check:i18n` errors on an `en.json` in this
+   directory. Keys match `EDITOR_STRINGS` exactly, and a key that is not in that table is
+   an error too — nothing would ever look it up.
 
-2. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
+   That per-key chain is deliberate and is the maintainer's stated preference: show the
+   language, and fall back to English only for the individual strings it is missing. A
+   partial file is safe to ship, so translate as much as you like and leave the rest.
+   `check:i18n` reports coverage as an informational line, not as a failure.
+
+   These files are reachable **only** from `src/rendering/editor/`, so they are built into
+   `editor.js` rather than loaded on every dashboard load, and they may not go back into
+   `languages/`. A new file also needs an `import` **and** an `EDITOR_LANGUAGE_STRINGS`
+   entry in `translations/index.ts`, under a lowercase key naming a language that already
+   exists — a file nothing imports is silently never registered.
+
+3. `src/translations/localize.ts` — the `import` **and** an entry in the `TRANSLATIONS`
    map. **The map key must be lowercase** (`'en-gb'`, `'zh-cn'`), because lookups
    lowercase the configured value before matching.
-3. `src/translations/dayjs.ts` — **two separate edits**, both required:
+4. `src/translations/dayjs.ts` — **two separate edits**, both required:
    - `import 'dayjs/locale/<code>';`
    - add the base code to the `supportedLocales` array inside `mapLocale()`
-4. `docs/contributing.md` — the supported-languages list **and the three hardcoded counts**
-   (see _Documenting a change_). The counts are prose, so nothing fails when they
-   are wrong; they drifted for three releases before anyone noticed.
+5. `docs/contributing.md` — the supported-languages list **and the three hardcoded counts**
+   (see _Documenting a change_). `check:docs` reconciles these against the
+   files on disk, so a wrong count now fails the build instead of shipping. Count the editor
+   languages as files **+ 1**, because US English lives in `strings.ts` and not in
+   `translations/`; the answer is 11, not 9 and not 10.
 
-Omitting the `supportedLocales` entry (3b) is a **silent failure**: the language works
+Omitting the `supportedLocales` entry (4b) is a **silent failure**: the language works
 everywhere except relative times, which quietly fall back to English. Catalan and
 Romanian shipped broken this way for months. If you add a locale import, add the array
 entry in the same edit.
 
-`npm run check:i18n` now catches all four wiring mistakes mechanically, including that one,
-and runs in CI. Run it before you claim a language is done — but note it verifies **wiring**,
-not translation quality, and it cannot tell you whether `pēc 2 dienām` is correct Latvian.
+`npm run check:i18n` catches every one of these wiring mistakes mechanically, including
+that one, and runs in CI. Run it before you claim a language is done — but note it
+verifies **wiring**, not translation quality, and it cannot tell you whether
+`pēc 2 dienām` is correct Latvian.
+
+**The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
+It records, per language, the decided form of each UI term and the forms rejected for it,
+and `check:i18n` enforces both: a rejected form anywhere in a governed key is an error, and
+a key whose English _is_ a term is warned about when it does not use the decided form.
+Rejected entries are the stronger statement, because they match at a word start and so
+catch compounds — roughly half the terms have no key whose English matches them exactly,
+and for those the decided form is documentation only. Every run prints which half is which.
+Edit that file when a decision changes; it is data the checker imports, so a shape change
+is a load error rather than a check that silently enforces nothing.
 
 Regional variants usually need no `dayjs.ts` change at all, because `mapLocale()`
 reduces them to their base code (`en-gb` → `en`). Only `zh-cn` / `zh-tw` are
@@ -405,37 +974,323 @@ getEffectiveLanguage('lv', undefined); // -> 'lv'
 getRelativeTimeString(futureDate, 'lv'); // -> 'pēc 2 dienām', not 'in 2 days'
 ```
 
-## Editor (`src/rendering/editor.ts`)
+## Editor (`src/rendering/editor/`)
 
-The visual editor renders Home Assistant's own components (`ha-select`, `ha-formfield`,
-`ha-entity-picker`, `ha-icon-picker`, `ha-switch`, …). These are **not our components**
-and Home Assistant removes and renames them without notice — this has broken the editor
-before.
+The visual editor is **schema-driven**: each panel is an `<ha-form>` fed by an array of
+plain schema objects, and a schema names a **selector** rather than an element. That is
+the whole point — Home Assistant renames its input components without notice (`ha-textfield`
+became `ha-input` in 2026.5 and cost us a runtime-detection shim), and a card that names
+selectors is not exposed to it. The element names three Home Assistant components in total:
+`ha-form`, `ha-expansion-panel` and `ha-svg-icon`.
 
-- Text inputs go through `getInputTag()`, which resolves `ha-input` (HA 2026.5+) or
-  `ha-textfield` (older) at render time via `customElements.get()` and emits it with
-  lit's `static-html`. Do not hardcode either tag. The detection deliberately does not
-  cache a result when neither element is registered yet, because the bundle can evaluate
-  before HA registers its components.
-- `_valueChanged` contains **field-specific guards keyed on `event.type`**. Changing a
-  listener (`@input` / `@change` / `@keyup`) can silently disable one. The
-  `start_date_offset` guard exists so the field does not vanish mid-edit while the value
-  is an intermediate string like `-`. Re-check these guards whenever you touch event
-  wiring.
+**Never name an HA input element in a schema.** If a panel seems to need one, that is the
+signal to stop, not to reach for `static-html`.
+
+Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM. That is
+load-bearing, not tidiness: it is what lets both the test suite and `check:i18n` import a
+schema and read it, rather than scraping the source that produces it. Keep it that way.
+
+Three things are easy to get wrong:
+
+- **`ha-form` hands back the whole merged data object on every keystroke.** `value.ts`
+  narrows it again on the way out. Anything that bypasses `toStoredConfig` writes ninety
+  defaults into the user's YAML — the bug the nearest comparable card shipped twice, the
+  second time introduced by its own move to `ha-form`.
+- **`ha-form` fires one event for the whole form and never says which field moved**, so
+  there is no place for a per-field `event.type` guard. Values that are invalid _while
+  being typed_ — `start_date_offset` passing through `-` — are held in `synthetic.ts` and
+  committed only once they parse. Do not "simplify" that into a direct write.
+- **Colours are `text`, not `ui_color`.** HA's colour selector emits a theme token that
+  cards pass through `computeCssColor()`; this card writes colours straight into CSS
+  custom properties and has no such step. See the note in `ha-form.ts`.
+
+`npm run check:i18n` reconciles `strings.ts` against the fields the schemas reference, in
+both directions, by importing the schema modules. A new field with no string fails it.
 
 ## Style
 
 - Strict TypeScript; keep it strict.
 - JSDoc on public functions.
-- Run `npm run format` (prettier) before committing; `npm run lint` uses `--fix`.
+- Run `npm run format` (prettier, whole repo) before committing — `check:format` gates it in
+  CI. `npm run lint` uses `--fix`, so it _repairs_ formatting rather than failing on it.
 - Match the existing module layout: `config/`, `interaction/`, `rendering/`,
   `translations/`, `utils/`.
+
+**Never turn a config value into a JS number inside `src/rendering/`.** Length options are
+documented as CSS length _strings_, so `parseFloat(config.x) + 'px'` silently discards the
+author's unit — `day_spacing: 2em` drew its separators at `2px`, and `calc()` parsed to `NaN`
+and emitted the literal string `NaNpx`. Both defect sites lived in this directory and both
+shipped in v3.6.0, surviving twelve review passes: every default is a px value, so the bug
+and the tests agreed with each other. Scale lengths with `ViewConfig.scaleLength()`, which
+keeps the unit and hands `calc()`/`var()` to the browser; coerce editor form input with
+`Config.toValidNumber()`. A `no-restricted-syntax` rule scoped to `src/rendering/**` now
+enforces this, so it fails at lint rather than at review. Genuine _counts_ (`min_days_to_show`)
+and deliberate px-only reads (`parsePx`, which compares against a measured pixel width) are
+correct and live in `config/` or `utils/`, outside the rule's scope.
+
+**When you add a length option, test it at a non-px unit.** The suite is built from default
+config, and every length default is written in px, so a px-only test agrees with a
+unit-discarding implementation. `custom-property-mapping.test.ts` pinned only `20px → 35px`,
+which is precisely why the bug above survived. Pair every px assertion with an `em`/`rem` one.
+
+**Cite symbols in comments, never line numbers.** A citation into the five-hundreds of
+`render.ts` was accurate when it was written and became a pointer into empty space the moment
+the v4 refactor cut that file from roughly a thousand lines to five hundred. Six such citations shipped in the test suite, one of them
+naming a README line four times past the end of the file, and nothing failed because no tool
+reads prose. A symbol name — `renderDateWeather` in `leaves.ts` — is greppable, survives
+every edit above it, and tells the reader what to look for rather than where it used to sit.
+`check:docs` now flags any comment citation that points beyond the end of the file it names;
+citations that quote a released tag, such as `v3.6.0 leaves.ts:324`, are exempt because a tag
+is immutable.
+
+**When a planning document is retired, grep for its vocabulary.** `docs/development/column-view.md`
+was deleted once the column view shipped, and nineteen references to its phases survived in
+four test files — still written in the future tense, still describing work as upcoming that
+had already landed. Comments that name a document outlive the document, so deleting one is
+not finished until `grep -rn "Phase [0-9]" src tests` comes back empty.
+
+**A JSDoc block touches the thing it documents — no blank line between them.** This is the
+one style rule in the project that nothing mechanical enforces, so it is the one that
+silently rots. TypeScript still associates a doc comment and its `@param` tags across a
+blank line, so hover text and signature help keep working; no ESLint rule governs the gap;
+and Prettier does not close it. Every gate stays green while the comments drift away from
+the code.
+
+It rots in bulk rather than one comment at a time, because the cause is an automated edit
+sweeping a whole file: v4 accumulated **80 detached blocks across 10 files**, with 8 of the
+10 detached in their entirety, against zero on `dev`. Reattaching them is a pure whitespace
+change — 80 deletions, no insertions.
+
+The exception is a block that documents the file rather than a declaration. A module header
+or a section banner is _followed_ by a blank line and then an `import` or another comment,
+and that blank line is correct — do not close it. The distinction to apply when in doubt:
+if the next non-blank line is a declaration, the comment belongs against it; if it is an
+`import` or a comment, the block is a header and the gap stays.
+
+<!-- prettier-ignore -->
+```ts
+/** Return the card's configured view. */    // ✅ attached to the declaration
+export function getView(config: Config): View {
+
+/** Return the card's configured view. */    // ❌ detached — nothing will flag this
+                                             //    (blank line here)
+export function getView(config: Config): View {
+```
+
+**Comment the stylesheets as freely as the TypeScript.** A `css` tagged template's contents
+are a string literal, so no minifier looks inside one — comments there used to ship to every
+user, and 46% of the stylesheet was comment. That is fixed at build time by the
+`strip-css-comments` plugin in `rollup.config.mjs`, which removes them from both
+`rendering/styles.ts` and `rendering/editor/styles.ts` and cost 15,214 raw / 5,889 gzip
+bytes off the eager path when it landed.
+
+This is worth stating because the alternative is worse than it looks: without knowing the
+plugin exists, the reasonable move is to keep CSS comments terse, and the reasoning in
+`styles.ts` is exactly where terse comments have already cost this project twice. Write the
+explanation. It does not ship.
+
+One syntax trap comes with that freedom: **a CSS comment lives inside a template literal, so
+a backtick in one ends the literal.** Quoting a property as `` `align-self` `` — the habit
+every other comment in the codebase rewards — turns the rest of the stylesheet into
+TypeScript and produces parse errors pointing at whatever line the compiler gave up on,
+nowhere near the backtick. Write property names bare in CSS comments.
 
 ## Reference
 
 - [`docs/architecture.md`](./docs/architecture.md) — module responsibilities, data flow,
-  caching and performance design. Read before making structural changes.
-- [`docs/development/column-view.md`](./docs/development/column-view.md) — in-progress design
-  and phased implementation plan for the column view (`view: 'column'`, targeting v4.0.0).
-  Read before touching the rendering pipeline, the view dispatch, or any view-dependent
-  config key, so in-flight work stays compatible with it.
+  caching and performance design. Read before making structural changes. Its _Two Views,
+  One Agenda_ and _Two Files, One Card_ sections are the current description of the view
+  split and the two-bundle build.
+- [`docs/features/column-view.md`](./docs/features/column-view.md) — what column view does,
+  which options it overrides per view, and which it deliberately ignores. Read before
+  touching the rendering pipeline, the view dispatch, or any view-dependent config key.
+
+## Verification
+
+These documents lean hard on the word _verified_, so it is worth saying what it has to mean.
+**A claim that no available case could have falsified has not been verified; it has been
+untested** — and "verified, not assumed" is the label most likely to end up attached to
+exactly that. So say **how** you checked, and prefer a claim that ships with its own
+falsifier: _"delete a `prettier-ignore` in `leaves.ts`, run `npm run format`, then
+`npm test`"_ cannot go quietly stale the way _"prettier does not reformat templates"_ did.
+
+**A falsifier is itself a claim, and it can rot in two ways.** This one did both. It
+cited `leaves.ts:122`, a line that has since become three lines none of which is 122 —
+so write the `grep` that finds the site, not the number. And it omitted the `format`
+step, so anyone who ran it exactly as written saw the whole suite pass and would
+reasonably have concluded the directive was dead. Note that neither sentence quotes a
+test count: an absolute total is the same rot-prone citation as a line number, and this
+one had already drifted by several hundred before anyone reading it noticed.
+**Re-run your own falsifiers before quoting them**; a falsifier that no longer falsifies
+is worse than none, because it launders an untested claim as a verified one.
+
+**Four ways a check passes while proving nothing.** Each was found here, twice, against
+different artefacts.
+
+| #   | Failure                                                                                                                                                                                                                                         | Falsifier                                                                                                          |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 1   | **A metric derived from the fix's own hypothesis cannot falsify it.**                                                                                                                                                                           | Look at the artefact once with the metric switched off.                                                            |
+| 2   | **The representative input passes cleanly every time.** Pick the case most likely to _break_ the claim — and note that right language, right script and right class still cleared the rule once, because the property that mattered was length. | Name the input you would least like to run.                                                                        |
+| 3   | **A probe can be correct, correctly configured, honestly reported — and measuring the wrong thing.**                                                                                                                                            | Have someone derive it a second way; two independent derivations agreeing is worth more than either being careful. |
+| 4   | **A probe whose own structure supplies the finding** — the nastiest, because it yields a _positive claim that looks like evidence_ rather than a null.                                                                                          | Ask what result the probe is incapable of returning.                                                               |
+
+**Rules that follow from those.**
+
+- **A null must prove it can be non-zero — and so must a passing control.** Print the
+  denominator _beside_ the verdict, not as a separate step: `CONTROL x -> old:true new:true`
+  cannot expose a corpus defect, whereas the same line carrying the size of what it looked
+  at makes a short count something you catch by reading rather than by luck. Compare
+  `ls src/rendering/editor/*.ts` with `find src/rendering/editor -name '*.ts'` for a live
+  flat glob that silently drops most of a nested tree. Plant a real violation and confirm
+  it is caught _before_ mutating. A mutation that changes no observable behaviour is
+  evidence about the corpus, not the code.
+- **A denominator bounds the corpus, not the search.** "0 of 1,939 lines" is a true,
+  well-formed null that still misses every defect its pattern cannot express — a truncation
+  probe matching only lines that end in a comma reported zero across the whole tree while
+  `resolveLabelType`'s summary ended in the stranded word "what". Enlarging the corpus makes
+  such a null more confident without making it more correct, so quote the match set beside
+  the count.
+- **A gate's normal state is having no instance — judge its pattern against the runtime,
+  not the corpus.** "Nothing in the tree violates it today" is what a working validator
+  looks like, so applying _no instance ⇒ null_ to one retires the check that would have
+  caught tomorrow's regression. Ask instead whether its pattern can express what it claims
+  to validate: `check-i18n.mjs` matched placeholders as `/\{[a-z_]+\}/g` while
+  `interpolate()` substitutes `/\{(\w+)\}/g`, exempting every `{maxCount}` from validation
+  while the corpus sat clean at zero. Widening a gate to the runtime's own class cannot
+  yield false positives by construction — a property of the pattern, not of the tree it
+  happened to be measured against.
+- **A string match is a location, not a verdict.** `grep` tells you which line to read; only
+  reading tells you whether the claim holds. Four false conclusions here stopped at the
+  match. A _paraphrase_ — `ReadonlyArray<...>` for the source's
+  `ReadonlyArray<keyof Types.ColumnOverrides & keyof Types.Config>` — returned zero at a commit
+  where the annotation demonstrably existed, and was called invented. A hit on "structurally
+  incapable" was called an overstatement without reading its subject — _the parity tests_,
+  not the suite — or the bound stated on the next line. And `shallow`, a word lifted from a
+  commit _subject_ and never present in the file body it described, returned zero twice:
+  once against the wrong file, nearly landing an unneeded commit on a release branch, and
+  once against the right one, nearly reporting merged content as lost. Wrong form, wrong
+  unit, wrong file, wrong token. Take the file from the commit's own `--stat` and the wording
+  from the source — not from a subject line, and not from memory — then verify the sentence
+  rather than the token.
+- **`grep` exits 1 on no match — read the status, not the count.** `grep -c` saturates at 1
+  after flattening; use `grep -o … | wc -l`.
+- **Regex a file for its _shape_, import it for its _values_.** And when the machine reads a
+  table, ask whether it reads that _field_, and whether that field's consumer can match
+  anything at all — read, acted upon, reachable are three different things.
+- **Normalise every dimension the writer does not control**, in this order: line-leading
+  markup per line, then emphasis and code spans, then whitespace. Flattening first destroys
+  the boundary the prefix rule needs. A markup-free fragment does _not_ survive reflow.
+
+  ```js
+  const norm = (s) =>
+    s
+      .replace(/^\s*>\s?/gm, ' ')
+      .replace(/[`*_]/g, '')
+      .replace(/\s+/g, ' ');
+  ```
+
+  Self-test both directions — a sentinel that must not match is blind to the false negative,
+  which is the direction that provokes an unnecessary restore.
+
+- **When you withdraw a finding, grep for its _consequences_, not its wording.** The
+  expensive half is every place it was already turned into a rule: an imperative three
+  sections away, a parsed table cell, a test that pins it, or the code a document describes.
+  A document-to-document audit cannot see the last of those.
+- **Independent agreement is evidence about the code both reviewers read, not about the tip.**
+  Two reviewers converging is the strongest corroboration available, and it held here — on a
+  defect the intervening 47 and 50 commits had already fixed. Convergence localises _when_,
+  not _whether_, so measure the reviewed SHA's distance before the finding and re-measure
+  before acting — `git fetch` first, then `git rev-list --count <sha>..origin/<branch>`, never
+  against a SHA quoted in a brief. Two passes here did that arithmetic correctly and still
+  reported 25 commits of drift where there were 38, because the tip they had been handed was
+  itself 13 stale; a worktree sitting at that SHA answers `0` to `<sha>..HEAD` and reads as
+  current. A remote-tracking ref goes stale just as silently: a third pass ran the
+  `origin/<branch>` form without fetching first, inherited that same tip, and reported 18 where
+  there were 33 — having itself noted the newer commit was missing from its fetch. The fetch is
+  the load-bearing half, not the ref, and three passes agreeing on a denominator is this
+  bullet's own headline one level up: they agreed because they shared a brief, not because they
+  measured. Report the figure with both endpoints — `<reviewed>..<tip> = N`, never a bare `N`:
+  that staleness took a separate investigation to uncover, and would have stated itself on its
+  face as `db91d09..b4eb8bf = 18`. The anchor is what makes a denominator checkable, and it
+  binds the corrector equally — the `33` sent in that correction was `34` before it arrived,
+  because the session issuing it was itself committing. The cheapest re-measurement is often
+  the comment beside the suspected line: a fix written from a real report tends to restate the
+  defect in the reporter's own terms, which separates _fixed_ from _still broken_ without a
+  probe. Where it does not, the regression test usually carries the reporter's scenario in its
+  name.
+- **Verifying the checkable half of a claim does not verify the claim.** A report that pairs
+  code facts with a behavioural result invites you to check the facts, find them exact, and
+  carry the result across on that credit. A sibling pass's control-design example cited two
+  lines that proved correct to the character, and the asymmetry built on them did not
+  reproduce: the constant it described as harmlessly absorbed killed nearly as many tests as
+  the expression it described as load-bearing, where its argument required zero. The half
+  cheap enough to check is rarely the half doing the work, so reproduce the result or drop
+  the example — this document is the wrong place to discover which.
+- **"Emitted but undocumented" is a claim about the production call site, not the producer.**
+  The natural evidence — the code that emits the thing, plus a test pinning it — can both hold
+  while the finding is false, because a test may call the producer directly and supply the very
+  condition said to occur. Trace the path production actually takes, and check the released
+  branch as well as the tip. A class reported here as a missing theming hook proved gated on a
+  parameter no production caller ever set — passed explicitly as `false` on the branch under
+  review, and left to its `false` default on the released one — so it had never reached a user
+  in any version; the remedy inverted from documenting it to deleting it and the pair of tests
+  that were its only caller. Where a remedy is to write documentation, first establish that its
+  subject exists for users at all.
+- **A surviving mutant means the suite cannot see the code, not that production cannot reach
+  it.** The natural inference — delete what nothing pins — fails whenever a sibling branch
+  absorbs the mutation, leaving the two mutually masking so that each looks individually dead.
+  Disabling the exact-hour lookup in `findForecastForEvent` left the suite green; disabling the
+  closest-hour fallback instead left it green; disabling both turned it red. Every fixture's
+  event began on an exact hourly key, so neither branch was ever the only one able to answer,
+  and deleting either on that evidence would have dropped live behaviour. Mutate surviving
+  siblings _together_ before concluding anything, and where the pair proves jointly load-bearing
+  the remedy is a fixture that separates them — an event whose start hour is deliberately not a
+  key — rather than a deletion. With those fixtures added the once-invisible single mutation
+  fails 5 of 17, so the same probe that proved the gap now proves it closed.
+- **"Already fixed at the tip" does not establish that a report was stale.** A triage run
+  against a tip that has already absorbed the report cannot detect the report: it reports
+  _already fixed, no action needed_ whether the finding was genuine prior art or was live
+  and provoked the very commit being cited back at it. Those two cases are indistinguishable
+  from the triage side, and under parallel passes the second is the common one — so the
+  author of a live finding is told their pass produced nothing. Date the evidence before
+  trusting it:
+
+  ```bash
+  git log -1 --format=%ad --date=iso <cited-fix-sha>
+  ```
+
+  A commit offered as proof that a report predates it, yet timestamped _after_ that report,
+  was caused by it. Corroborate with `git show --stat <sha>`, which should land on the files
+  the report named — timing alone can coincide, timing plus overlapping files does not. Read
+  its message too: a fix written from a report tends to paraphrase the finding, and that is
+  the one corroborator a bundled commit cannot fake by touching a file for another reason.
+
+  Dates only order two commits. Whether the fix was in the tree the reporter actually read
+  is a question about ancestry, so ask it directly:
+
+  ```bash
+  git merge-base --is-ancestor <cited-fix-sha> <reviewed-base-sha>
+  ```
+
+  A negative answer invalidates the reasoning, not automatically the conclusion, and the two
+  need separating before anything is withdrawn. Where the verdict also carries a measurement
+  of its own taken at the tip — a bare linter run, a probe, a grep of the shipped text — the
+  citation was decoration and the technical call still stands on the measurement. Where the
+  citation _was_ the verdict, nothing was ever measured and the finding has to be retested
+  from scratch. Sweeping the back-catalogue and retracting every hit alike would trade a set
+  of unfounded dismissals for a set of equally unfounded reversals.
+
+  Aim the check at what the verdict asserted, rather than at the bare fact that it names a
+  commit. A note phrased as _"the sibling's finding and its fix"_ has already placed that
+  fix after the report, so a positive trigger corroborates the reading instead of upsetting
+  it — I flagged one of my own rows as unsound on the trigger alone and had to reverse that
+  within the hour. Only a claim of staleness is falsified here; nothing wider.
+
+  A silent commit message is likewise not evidence of prior art. Some fixes arrive from
+  neither direction: work aimed at something else can sweep up the reported line as
+  collateral, leaving a finding that was live when filed, resolved before triage, and never
+  once addressed on purpose. Reach for that reading when ancestry puts the fix later but
+  nothing in it acknowledges the report.
+
+- **Equal sizes are not identity, and a bundle figure needs its compression level _and_ its
+  build variant.** Hash instead.

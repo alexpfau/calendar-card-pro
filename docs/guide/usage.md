@@ -19,6 +19,8 @@ Once **Calendar Card Pro** is [installed](/guide/installation), this page takes 
 
 ::: tip Shortcut (Home Assistant 2026.6+)
 In the card picker, switch to the **By entity** tab and pick any `calendar.*` entity. Calendar Card Pro is offered under **Community**, already pointed at that calendar and previewed with its real events — so you can skip straight to step 4. Nothing needs to be enabled for this.
+
+Two starting points are offered: **Calendar Card Pro** for the default [list layout](/features/layout-appearance), and **Calendar Card Pro - Columns** for the [column layout](/features/column-view), which shows the same days side by side. They are otherwise identical, so picking either and changing your mind later costs nothing more than switching `view`.
 :::
 
 ## 🚀 Your First Card

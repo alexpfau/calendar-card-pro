@@ -2,39 +2,32 @@
 /**
  * i18n integrity check for Calendar Card Pro.
  *
- * Adding a language touches four places, and three of the four fail *silently*:
- *
- *   1. src/translations/languages/<code>.json  — missing keys render as raw key names
- *   2. src/translations/localize.ts            — import + a LOWERCASE TRANSLATIONS key
- *   3. src/translations/dayjs.ts               — a locale import AND a supportedLocales entry
- *   4. README.md                               — prose, not checked here
- *
- * Omitting 3b is the worst of them: everything works except relative times, which quietly
- * fall back to English. Catalan and Romanian shipped that way for months. Nothing in the
- * build, the type checker or the linter can see any of it, because every one of these is a
- * runtime lookup with a fallback.
- *
- * This script has no dependencies and is not part of the bundle. Run it with:
+ * Validates language wiring, dayjs locale wiring, editor string coverage, editor
+ * translation reachability and glossary-based translation checks.
  *
  *   node scripts/check-i18n.mjs            # errors are fatal, warnings are advisory
  *   node scripts/check-i18n.mjs --strict   # warnings are fatal too
  *
- * Design note: the wiring in localize.ts and dayjs.ts is read out of the TypeScript source
- * with regexes rather than by importing it, so the check stays dependency-free and needs no
- * build step. That is only safe because every extraction below fails *loudly* when it cannot
- * find what it expects — see assertFound(). A regex that silently matched nothing would
- * report a clean run over an empty set, which is the one outcome worse than a false alarm.
+ * Source-shape checks use regexes and fail loudly when a pattern stops matching.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, dirname, basename } from 'node:path';
+import { join, dirname, basename, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { GLOSSARY_TERMS, NOUN_CAPS_LANGUAGES } from './editor-glossary.mjs';
+import { deriveEnGb } from './en-gb.mjs';
+import { loadEditorModule } from './load-editor-schema.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const LANG_DIR = join(ROOT, 'src/translations/languages');
+const EDITOR_T9N_DIR = join(ROOT, 'src/rendering/editor/translations');
+const EDITOR_T9N_INDEX_TS = join(ROOT, 'src/rendering/editor/translations/index.ts');
 const LOCALIZE_TS = join(ROOT, 'src/translations/localize.ts');
 const DAYJS_TS = join(ROOT, 'src/translations/dayjs.ts');
-const EDITOR_TS = join(ROOT, 'src/rendering/editor.ts');
+const PANELS_TS = join(ROOT, 'src/rendering/editor/panels.ts');
+const STRINGS_TS = join(ROOT, 'src/rendering/editor/strings.ts');
+const GLOSSARY_SOURCE = 'scripts/editor-glossary.mjs';
 const REFERENCE_LANG = 'en.json';
 
 const STRICT = process.argv.includes('--strict');
@@ -42,17 +35,21 @@ const IN_CI = Boolean(process.env.GITHUB_ACTIONS);
 
 const errors = [];
 const warnings = [];
+const notes = [];
+const glossaryNotes = [];
 const error = (where, msg) => errors.push({ where, msg });
 const warn = (where, msg) => warnings.push({ where, msg });
 
 const read = (path) => readFileSync(path, 'utf-8');
 
 /**
+ * The editor's modules, bundled once per run.
+ */
+let editorModule;
+const loadEditor = async () => (editorModule ??= await loadEditorModule(ROOT));
+
+/**
  * Guard against a stale regex silently matching nothing.
- *
- * Every extraction in this file goes through here. If the source is refactored such that a
- * pattern no longer matches, the script says so and exits non-zero instead of reporting a
- * clean run over an empty set.
  */
 function assertFound(value, what, file) {
   const empty = value === null || value === undefined || value.length === 0;
@@ -145,28 +142,162 @@ function mapLocale(locale, specialCased) {
 }
 
 /**
- * Editor translation keys referenced as string literals: `this._getTranslation('foo')` and
- * `this._getTranslation('editor.foo')`, normalised to the bare key.
+ * Editor string keys the schemas reference, and the panels' own.
  *
- * Seven call sites pass a variable instead (`_getTranslation(name)` in the addXField helpers,
- * where `name` is the config key). Those are unresolvable statically, so the config keys
- * passed to those helpers are collected separately below and treated as reachable.
+ * The schema is the field registry, so panels are built and walked instead of parsed from
+ * source. Each node has both group-qualified and bare label candidates.
  */
-function readEditorKeyUsage() {
-  const src = read(EDITOR_TS);
+async function readEditorSchemaKeys() {
+  const editor = await loadEditor();
+  const {
+    PANELS,
+    walkSchema,
+    panelSubforms,
+    chassisSubforms,
+    CHASSIS_STRINGS,
+    EDITOR_STRINGS,
+    DEFAULT_CONFIG,
+    VIEWS,
+    VIEW_SCOPE,
+    ENTITY_VIEW_SCOPE,
+    DEFAULT_OVERRIDES_BY_VIEW,
+  } = editor;
 
-  const literal = new Set(
-    [...src.matchAll(/_getTranslation\('([^']+)'/g)].map((m) => m[1].replace(/^editor\./, '')),
-  );
-  assertFound([...literal], '_getTranslation() calls', EDITOR_TS);
+  assertFound(PANELS, 'any registered editor panels', PANELS_TS);
+  assertFound(Object.keys(EDITOR_STRINGS), 'any editor strings', STRINGS_TS);
 
-  // First argument of the addXField helpers — the config key, which those helpers fall back
-  // to as a translation key when no explicit label is given.
-  const viaFieldName = new Set(
-    [...src.matchAll(/\bthis\.add[A-Za-z]*Field\(\s*'([^']+)'/g)].map((m) => m[1]),
-  );
+  /** Label keys, each as the pair of candidates `computeLabel` would try. */
+  const labels = new Map();
+  /** Title keys for collapsible groups, which resolve their own headings. */
+  const titles = new Set();
+  /** Every key a `.helper` string could actually be looked up under. */
+  const helpers = new Set();
+  /** Every key that is legitimately the root of a table entry. */
+  const roots = new Set();
 
-  return { literal, viaFieldName };
+  /**
+   * Records the keys one schema will look up.
+   *
+   * @param schema - Schema to walk
+   * @param path - Label path it is rendered under
+   * @param bareHelper - Whether an unqualified `.helper` can be reached from it
+   */
+  const collect = (schema, path, bareHelper) => {
+    for (const { node, path: nodePath } of walkSchema(schema, path)) {
+      // A grid is layout, not a label scope.
+      if (node.type === 'grid' || !node.name) continue;
+
+      // A group uses `titleKey` for its heading and helper.
+      if (node.titleKey !== undefined) {
+        titles.add(node.titleKey);
+        helpers.add(node.titleKey);
+        roots.add(node.titleKey);
+        roots.add(node.name);
+        continue;
+      }
+
+      const qualified = [...nodePath, node.name].join('.');
+      labels.set(qualified, node.name);
+      helpers.add(qualified);
+      roots.add(qualified);
+      roots.add(node.name);
+
+      // Hand-rendered sub-forms resolve helpers by qualified key only.
+      if (bareHelper) helpers.add(node.name);
+    }
+  };
+
+  for (const panel of PANELS) {
+    roots.add(panel.titleKey);
+    titles.add(panel.titleKey);
+    helpers.add(panel.titleKey);
+    for (const prefix of panel.strings ?? []) roots.add(prefix);
+  }
+
+  // The chassis declares schema and text outside the panels.
+  for (const subform of chassisSubforms()) collect(subform.schema, subform.path, true);
+  for (const prefix of CHASSIS_STRINGS) roots.add(prefix);
+
+  for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
+    for (const panel of PANELS) {
+      const ctx = { view: config.view, config, language: 'en' };
+
+      collect(panel.build(ctx), [], true);
+
+      // Hand-rendered panel subforms still expose schema to reconcile.
+      for (const subform of panelSubforms(panel, ctx)) {
+        collect(subform.schema, subform.path, false);
+      }
+    }
+  }
+
+  return {
+    labels,
+    titles,
+    helpers,
+    roots,
+    strings: EDITOR_STRINGS,
+    // Both scope tables make the same promise on different surfaces.
+    viewScope: { ...VIEW_SCOPE, ...ENTITY_VIEW_SCOPE },
+    defaultOverridesByView: DEFAULT_OVERRIDES_BY_VIEW,
+  };
+}
+
+/**
+ * Configurations chosen to open every conditional branch in every panel.
+ *
+ * Defaults alone hide conditional fields, so booleans and view-derived modes are swept.
+ *
+ * @param defaults - The card's default configuration
+ * @param views - Every view the card can render
+ * @returns Configurations to build each panel against
+ */
+function probeConfigs(defaults, views) {
+  const booleans = Object.entries(defaults)
+    .filter(([, value]) => typeof value === 'boolean')
+    .map(([key]) => key);
+
+  const allOn = Object.fromEntries(booleans.map((key) => [key, true]));
+  const allOff = Object.fromEntries(booleans.map((key) => [key, false]));
+
+  const variants = [
+    {},
+    allOn,
+    allOff,
+    { height: '300px' },
+    { max_height: '300px' },
+    { start_date: '2026-01-01' },
+    { start_date: 'today+7' },
+    { language: 'de' },
+    { time_24h: true },
+    { show_week_numbers: 'iso' },
+    { remove_location_country: true },
+    { remove_location_country: 'Germany' },
+    { today_indicator: 'pulse' },
+    { today_indicator: 'mdi:star' },
+    { today_indicator: '⭐' },
+    // The compact event limit is a number with no default, so no boolean sweep reaches
+    // it, and the modifier it reveals would be invisible to this check without it.
+    { compact_events_to_show: 3 },
+    { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
+    {
+      weather: {
+        ...defaults.weather,
+        entity: 'weather.home',
+        position: 'both',
+        date: { ...defaults.weather.date, show_uv_index: true },
+        event: { ...defaults.weather.event, show_uv_index: true },
+      },
+    },
+  ];
+
+  const configs = [];
+  for (const view of views) {
+    for (const variant of variants) {
+      configs.push({ ...defaults, view, ...variant });
+    }
+  }
+  return configs;
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +307,9 @@ function readEditorKeyUsage() {
 /**
  * Every language file must carry every top-level key in en.json, with matching value shapes.
  *
- * `editor` is the documented exception and is checked separately: it is all-or-nothing.
+ * `editor` is skipped throughout. Those sections are dormant — they belong to the editor
+ * that was replaced, and are kept to be mined during the translation pass — so neither
+ * their presence, their absence nor their completeness says anything about the card.
  */
 function checkLanguageParity(languages) {
   const reference = languages.get('en');
@@ -189,11 +322,7 @@ function checkLanguageParity(languages) {
   }
 
   const refKeys = Object.keys(reference.data).filter((k) => k !== 'editor');
-  const refEditorKeys = Object.keys(reference.data.editor ?? {});
-
-  if (refEditorKeys.length === 0) {
-    error(REFERENCE_LANG, 'has no `editor` section; it is the reference for all editor keys');
-  }
+  assertFound(refKeys, 'any translatable keys', join(LANG_DIR, REFERENCE_LANG));
 
   for (const [code, { file, data }] of languages) {
     if (code === 'en') continue;
@@ -240,54 +369,26 @@ function checkLanguageParity(languages) {
         );
       }
     }
-
-    checkEditorSection(file, data, refEditorKeys);
   }
 }
 
 /**
- * The `editor` section is all-or-nothing.
+ * No language file may carry an `editor` section.
  *
- * hasEditorTranslations() returns true when the section has one *or more* keys, and
- * _getTranslation() uses it to decide whether to swap the whole language to English. So a
- * partially translated section defeats that fallback: the keys present render fine, and every
- * key missing renders as its own raw name (`show_end_time`) in the UI. Omitting the section
- * entirely is fully supported and correct — 24 of the language files do exactly that.
+ * `localize.ts` is eager; editor strings belong in the editor chunk.
+ *
+ * @param languages - Language files on disk, keyed by lowercased code
  */
-function checkEditorSection(file, data, refEditorKeys) {
-  const editor = data.editor;
-  if (editor === undefined) return; // Supported: the whole language falls back to English.
-
-  if (typeof editor !== 'object' || editor === null || Array.isArray(editor)) {
-    error(file, '`editor` must be an object');
-    return;
-  }
-
-  const present = Object.keys(editor);
-  const missing = refEditorKeys.filter((k) => !(k in editor));
-
-  if (missing.length > 0) {
-    error(
-      file,
-      `\`editor\` is partially translated: ${missing.length} of ${refEditorKeys.length} keys ` +
-        `missing (${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ', …' : ''}). ` +
-        `A partial section defeats the English fallback — each missing key renders as its own ` +
-        `raw key name. Either translate all ${refEditorKeys.length} or remove \`editor\` entirely.`,
-    );
-  }
-
-  const extra = present.filter((k) => !refEditorKeys.includes(k));
-  if (extra.length > 0) {
-    warn(
-      file,
-      `\`editor\` has ${extra.length} key(s) not in ${REFERENCE_LANG}: ` +
-        `${extra.slice(0, 5).join(', ')}${extra.length > 5 ? ', …' : ''}`,
-    );
-  }
-
-  const blank = present.filter((k) => typeof editor[k] !== 'string' || editor[k].trim() === '');
-  if (blank.length > 0) {
-    error(file, `\`editor\` has empty or non-string value(s): ${blank.slice(0, 5).join(', ')}`);
+function checkNoEditorSectionsOnEagerPath(languages) {
+  for (const [code, { file, data }] of languages) {
+    if ('editor' in data) {
+      error(
+        file,
+        'carries an `editor` section again — it is on the eager path, where every user ' +
+          'downloads and parses it on every dashboard load. Move it to ' +
+          `src/rendering/editor/translations/${file} (${code})`,
+      );
+    }
   }
 }
 
@@ -396,41 +497,704 @@ function checkDayjsWiring(entries, { imports, supported, specialCased }) {
   }
 }
 
-/** Editor keys referenced in code must exist in en.json, or they render as their own name. */
-function checkEditorKeyUsage(languages) {
-  const reference = languages.get('en');
-  if (!reference?.data?.editor) return;
+/**
+ * The editor's string table must cover every field, and hold nothing else.
+ *
+ * Missing labels render humanised keys; unused strings become translation work for keys
+ * that label nothing. Helper text remains optional.
+ */
+async function checkEditorStrings() {
+  const { labels, titles, helpers, roots, strings, viewScope, defaultOverridesByView } =
+    await readEditorSchemaKeys();
 
-  const defined = new Set(Object.keys(reference.data.editor));
-  const { literal, viaFieldName } = readEditorKeyUsage();
+  assertFound([...labels.keys()], 'any labelled fields in the editor panels', PANELS_TS);
+  assertFound([...titles], 'any panel or group headings', PANELS_TS);
 
-  for (const key of literal) {
-    if (!defined.has(key)) {
+  for (const [qualified, bare] of labels) {
+    if (!(qualified in strings) && !(bare in strings)) {
       error(
-        'editor.ts',
-        `_getTranslation('${key}') has no matching key in ${REFERENCE_LANG} — it will render ` +
-          `as the literal string "${key}"`,
+        'strings.ts',
+        `\`${qualified}\` has no label — the field will render as "${humanKey(bare)}"`,
       );
     }
   }
 
-  const reachable = new Set([...literal, ...viaFieldName]);
-  const unused = [...defined].filter((k) => !reachable.has(k));
-  if (unused.length > 0) {
-    warn(
-      REFERENCE_LANG,
-      `${unused.length} editor key(s) are never referenced: ` +
-        `${unused.slice(0, 8).join(', ')}${unused.length > 8 ? ', …' : ''} ` +
-        `(each one is dead weight in every language file that translates \`editor\`)`,
+  for (const key of titles) {
+    if (!(key in strings)) {
+      error(
+        'strings.ts',
+        `\`${key}\` has no heading — the section will be titled "${humanKey(key)}"`,
+      );
+    }
+  }
+
+  // Applicability notes are keyed by the scope they describe, so they reconcile
+  // against VIEW_SCOPE rather than against the schema: a scoped option with no note
+  // says nothing about which layout it applies to, which is the whole point of scoping
+  // it. `scope.<id>_only` is the shared wording, `scope.<id>_only.<key>` the specific.
+  for (const [key, views] of Object.entries(viewScope)) {
+    const scopeId = [...views].sort().join('_');
+    const general = `scope.${scopeId}_only`;
+
+    roots.add(general);
+    roots.add(`${general}.${key}`);
+
+    if (!(general in strings) && !(`${general}.${key}` in strings)) {
+      error(
+        'strings.ts',
+        `\`${key}\` is scoped to ${[...views].join(', ')} but has no applicability note — ` +
+          `the editor would say nothing about which layout it applies to`,
+      );
+    }
+  }
+
+  // An option a view has already decided for the user needs saying so beside the
+  // shared control, or the control appears to be lying about what the card renders.
+  for (const [view, defaults] of Object.entries(defaultOverridesByView)) {
+    for (const key of Object.keys(defaults)) {
+      const note = `view_default.${view}.${key}`;
+      roots.add(note);
+
+      if (!(note in strings)) {
+        error(
+          'strings.ts',
+          `\`${key}\` defaults differently in ${view} view but has no note — the shared ` +
+            `control would describe something the card is not doing`,
+        );
+      }
+    }
+  }
+
+  for (const key of Object.keys(strings)) {
+    // Helper text is checked exactly rather than by prefix. A prefix test would accept
+    // `weather.date.helper` on the strength of the `weather.date` heading existing,
+    // which is precisely the string nothing can look up: a group's helper is asked for
+    // under its own key, so one written against a config key it does not share is dead.
+    if (key.endsWith('.helper')) {
+      if (!helpers.has(key.slice(0, -'.helper'.length))) {
+        error(
+          'strings.ts',
+          `\`${key}\` can never be looked up — no field or heading resolves its helper ` +
+            `under that key`,
+        );
+      }
+      continue;
+    }
+
+    if (!isReachable(key, roots)) {
+      error(
+        'strings.ts',
+        `\`${key}\` is not referenced by any panel — no field, panel title or declared ` +
+          `panel prefix owns it`,
+      );
+    }
+  }
+
+  return new Set(labels.keys()).size;
+}
+
+/**
+ * Editor translation files on disk, plus how `translations/index.ts` wires them up.
+ *
+ * @returns Files on disk, and the imports and map entries in the index module
+ */
+function readEditorTranslationWiring() {
+  const files = readdirSync(EDITOR_T9N_DIR).filter((f) => f.endsWith('.json'));
+  assertFound(files, 'any editor translation JSON files', EDITOR_T9N_DIR);
+
+  const src = read(EDITOR_T9N_INDEX_TS);
+
+  const imports = new Map(); // identifier -> filename
+  for (const m of src.matchAll(/import\s+(\w+)\s+from\s+'\.\/([^']+\.json)'/g)) {
+    imports.set(m[1], m[2]);
+  }
+  assertFound([...imports.keys()], 'editor translation JSON imports', EDITOR_T9N_INDEX_TS);
+
+  const block = src.match(/export const EDITOR_LANGUAGE_STRINGS[^=]*=\s*\{([\s\S]*?)\n\};/);
+  assertFound(block, 'the EDITOR_LANGUAGE_STRINGS map', EDITOR_T9N_INDEX_TS);
+
+  const entries = new Map(); // map key (as written) -> identifier
+  for (const m of block[1].matchAll(/^\s*'?([A-Za-z][A-Za-z-]*)'?\s*:\s*(\w+)\s*,/gm)) {
+    entries.set(m[1], m[2]);
+  }
+  assertFound([...entries.keys()], 'entries in EDITOR_LANGUAGE_STRINGS', EDITOR_T9N_INDEX_TS);
+
+  return { files, imports, entries };
+}
+
+/**
+ * The live editor's translations: wired up, and — the point of this check — reachable.
+ *
+ * Every translation key must exist in `EDITOR_STRINGS`, and `lookup()` must return the
+ * translated value. Coverage is reported rather than enforced because fallback is per key.
+ *
+ * @param languages - Language files on disk, keyed by lowercased code
+ */
+async function checkEditorTranslations(languages) {
+  const { files, imports, entries } = readEditorTranslationWiring();
+  const { EDITOR_STRINGS, EDITOR_LANGUAGE_STRINGS, lookup } = await loadEditor();
+
+  assertFound(Object.keys(EDITOR_STRINGS), 'any editor strings', STRINGS_TS);
+
+  const imported = new Set(imports.values());
+  const total = Object.keys(EDITOR_STRINGS).length;
+
+  for (const file of files.sort()) {
+    const code = basename(file, '.json').toLowerCase();
+    const where = `editor/translations/${file}`;
+
+    if (code === 'en') {
+      error(
+        where,
+        'English belongs in strings.ts and nowhere else — two English tables can ' +
+          'disagree, and the one that loses does so silently',
+      );
+      continue;
+    }
+
+    if (!imported.has(file)) {
+      error(
+        where,
+        'exists but is never imported by translations/index.ts — the language renders ' +
+          'in English with nothing raised anywhere',
+      );
+      continue;
+    }
+
+    if (!languages.has(code)) {
+      error(
+        where,
+        `no card translations exist for '${code}' — add src/translations/languages/` +
+          `${file} and wire it into localize.ts`,
+      );
+    }
+
+    let data;
+    try {
+      data = JSON.parse(read(join(EDITOR_T9N_DIR, file)));
+    } catch (err) {
+      error(where, `is not valid JSON: ${err.message}`);
+      continue;
+    }
+
+    if (EDITOR_LANGUAGE_STRINGS[code] === undefined) {
+      error(
+        'editor/translations/index.ts',
+        `${file} is imported but '${code}' is not a key of EDITOR_LANGUAGE_STRINGS, or ` +
+          'is spelled with a capital — lookups lowercase before matching, so the ' +
+          'language renders English',
+      );
+      continue;
+    }
+
+    const keys = Object.keys(data);
+    let sound = true;
+
+    for (const key of keys) {
+      if (typeof data[key] !== 'string' || data[key].trim() === '') {
+        error(where, `\`${key}\` is not a non-empty string`);
+        sound = false;
+        continue;
+      }
+
+      if (!(key in EDITOR_STRINGS)) {
+        error(
+          where,
+          `\`${key}\` is not a key in strings.ts — nothing in the editor looks it up, ` +
+            'so this translation can never be shown',
+        );
+        sound = false;
+      }
+    }
+
+    // The end-to-end assertion. Everything above can pass while the resolution order
+    // still hands back English, which is precisely what shipped.
+    if (sound) {
+      for (const key of keys) {
+        const resolved = lookup(code, key);
+        if (resolved !== data[key]) {
+          error(
+            where,
+            `lookup('${code}', '${key}') returns ${JSON.stringify(resolved)} rather than ` +
+              `${JSON.stringify(data[key])} — the translation is unreachable at runtime`,
+          );
+          break;
+        }
+      }
+    }
+
+    notes.push(
+      `  ${code.padEnd(6)} ${String(keys.length).padStart(3)} / ${total} strings ` +
+        `(${String(Math.round((keys.length / total) * 100)).padStart(2)}%)`,
     );
   }
+
+  for (const [key, identifier] of entries) {
+    if (key !== key.toLowerCase()) {
+      error(
+        'editor/translations/index.ts',
+        `EDITOR_LANGUAGE_STRINGS key '${key}' is not lowercase — lookups lowercase ` +
+          'before matching, so it can never be found',
+      );
+    }
+    if (!imports.has(identifier)) {
+      error(
+        'editor/translations/index.ts',
+        `EDITOR_LANGUAGE_STRINGS entry '${key}' names \`${identifier}\`, which is not imported`,
+      );
+      continue;
+    }
+
+    // A key may only name the file for its *own* language. Nothing else in this gate
+    // relates the two: the checks above accept any imported identifier, and the loop
+    // below only asks that each import is used *somewhere*. So `nl: deEditor` — a key
+    // with no file of its own, aliased onto another language's — passes both, and every
+    // Dutch user silently gets the German editor. Aliasing is never what was meant: a
+    // language with no editor file is supposed to be absent from this map entirely, so
+    // that `lookup()` finds no entry for it and falls each key through to EDITOR_STRINGS,
+    // which is English.
+    const expected = basename(imports.get(identifier), '.json').toLowerCase();
+    if (expected !== key) {
+      error(
+        'editor/translations/index.ts',
+        `EDITOR_LANGUAGE_STRINGS key '${key}' names \`${identifier}\`, which is ` +
+          `'${expected}' — '${key}' would render the editor in ${expected}. Either add ` +
+          `${key}.json, or remove the entry so '${key}' falls back to English`,
+      );
+    }
+  }
+
+  for (const [identifier, file] of imports) {
+    if (![...entries.values()].includes(identifier)) {
+      error(
+        'editor/translations/index.ts',
+        `imports ${file} as \`${identifier}\` but never adds it to EDITOR_LANGUAGE_STRINGS`,
+      );
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Translation quality — structure, orthography and terminology
+// ---------------------------------------------------------------------------
+
+/**
+ * Keys whose value is the same in every language, because it is not language at all.
+ *
+ * Keep this to symbols, numerals and proper names of standards. Words that happen to match
+ * English belong in the per-language allow-list below.
+ */
+const IDENTICAL_TO_ENGLISH_ANY_LANGUAGE = new Set([
+  'width_table.at_least',
+  'width_table.below',
+  'week_number_mode.option.iso.label',
+]);
+
+/**
+ * Values that are legitimately byte-identical to their English.
+ *
+ * Keyed `lang:key`. Each entry is a loanword the language genuinely uses, not a gap.
+ */
+const IDENTICAL_TO_ENGLISH_OK = new Set([
+  'de:panel.layout',
+  'it:panel.layout',
+  'nb:panel.layout',
+  'sv:panel.layout',
+
+  // `Label` is a German loanword in Home Assistant's own UI.
+  'de:entity.label',
+  'de:view',
+
+  // `Layout` is the Italian term chosen by the glossary.
+  'it:view',
+
+  // `Layout` is the ordinary Swedish and Norwegian word.
+  'sv:view',
+  'nb:view',
+]);
+
+/**
+ * Keys where the decided term is deliberately *qualified* rather than used bare.
+ *
+ * The term is still used, with a word added so two settings stay distinguishable.
+ */
+const GLOSSARY_QUALIFIED_OK = new Set([
+  // `Ikona` alone collides with two picker options that mean `An Icon`.
+  'pl:today_indicator_icon',
+
+  // Same collision and resolution as Polish.
+  'sk:today_indicator_icon',
+  // Same collision; the sibling fields are already qualified.
+  'et:today_indicator_icon',
+  'lt:today_indicator_icon',
+  'lv:today_indicator_icon',
+]);
+
+/**
+ * Characters whose loss changes what a string means, rather than how it looks.
+ *
+ * Non-ASCII symbols like `—` and `≥` qualify; letters and localized quotes do not.
+ */
+const structuralGlyphs = (text) =>
+  [...text].filter(
+    (ch) => ch.codePointAt(0) > 127 && !/[\p{L}\p{M}]/u.test(ch) && !/["'“”‘’„«»]/u.test(ch),
+  );
+
+/**
+ * Placeholders the runtime will substitute.
+ *
+ * Must mirror `interpolate()` in `src/rendering/editor/strings.ts`, which matches
+ * `/\{(\w+)\}/g`. A narrower pattern here exempts any placeholder carrying an uppercase
+ * letter or a digit from validation entirely — `{maxCount}` dropped from a translation
+ * passed this check silently until the two were reconciled.
+ */
+const placeholders = (text) => (text.match(/\{\w+\}/g) ?? []).sort();
+
+/**
+ * Structural integrity, orthography and terminology, per language.
+ *
+ * Each axis keeps its own case-sensitive comparison.
+ *
+ * @param languages - Language files on disk, keyed by lowercased code
+ * @param glossary - The parsed termbase
+ */
+async function checkTranslationQuality(languages, glossary) {
+  const { EDITOR_STRINGS } = await loadEditor();
+
+  for (const file of readdirSync(EDITOR_T9N_DIR)
+    .filter((f) => f.endsWith('.json'))
+    .sort()) {
+    const code = basename(file, '.json').toLowerCase();
+    if (code === 'en' || code === 'en-gb') continue; // en-GB is generated and asserted whole
+    if (!languages.has(code)) continue;
+
+    const where = `editor/translations/${file}`;
+    let data;
+    try {
+      data = JSON.parse(read(join(EDITOR_T9N_DIR, file)));
+    } catch {
+      continue; // already reported by checkEditorTranslations
+    }
+
+    const multiWordLabels = [];
+    let calques = 0;
+
+    for (const [key, value] of Object.entries(data)) {
+      const english = EDITOR_STRINGS[key];
+      if (typeof english !== 'string' || typeof value !== 'string') continue;
+
+      // --- placeholders ---------------------------------------------------
+      const want = placeholders(english);
+      const got = placeholders(value);
+      if (want.join('|') !== got.join('|')) {
+        error(
+          where,
+          `\`${key}\` has placeholders ${JSON.stringify(got)} but the English has ` +
+            `${JSON.stringify(want)} — a renamed or dropped placeholder renders as ` +
+            'literal text to the user',
+        );
+      }
+
+      // --- structural glyphs ----------------------------------------------
+      for (const glyph of new Set(structuralGlyphs(english))) {
+        if (!value.includes(glyph)) {
+          error(
+            where,
+            `\`${key}\` drops ${JSON.stringify(glyph)}, which the English uses ` +
+              'structurally — an ASCII substitute changes what the string says',
+          );
+        }
+      }
+
+      // --- typographic quotes ASCII-ified ---------------------------------
+      if (/[“”‘’]/u.test(english) && /["']/.test(value)) {
+        warn(
+          where,
+          `\`${key}\` uses an ASCII quote where the English is typographic — use the ` +
+            "target language's own quotation marks rather than \" or '",
+        );
+      }
+
+      // --- untranslated English -------------------------------------------
+      if (
+        value === english &&
+        !IDENTICAL_TO_ENGLISH_ANY_LANGUAGE.has(key) &&
+        !IDENTICAL_TO_ENGLISH_OK.has(`${code}:${key}`)
+      ) {
+        error(
+          where,
+          `\`${key}\` is byte-identical to the English — either translate it, or add ` +
+            `'${code}:${key}' to IDENTICAL_TO_ENGLISH_OK with a reason if the word is ` +
+            'genuinely the same in this language',
+        );
+      }
+
+      // --- length ceiling (advisory) --------------------------------------
+      if (!key.endsWith('.helper') && value.length > 24 && value.length > english.length * 2.2) {
+        warn(
+          where,
+          `\`${key}\` is ${value.length} characters against the English's ` +
+            `${english.length} — long labels break the editor's layout before they ` +
+            'break anything else',
+        );
+      }
+
+      // --- orthography: the Title Case calque ------------------------------
+      if (!key.endsWith('.helper') && value.trim().split(/\s+/).length > 1) {
+        multiWordLabels.push(key);
+        const rest = value.trim().split(/\s+/).slice(1);
+        const capitalised = rest.filter((word) => {
+          const bare = word.replace(/^[(["'«„-]+/, '').replace(/[)\].,:;!?"'»“”-]+$/, '');
+          if (!bare) return false;
+          if (/^[A-Z0-9]{2,}$/.test(bare)) return false; // UV, CSS — correct as-is
+          return bare[0] === bare[0].toUpperCase() && bare[0] !== bare[0].toLowerCase();
+        });
+        if (capitalised.length > 0) calques += 1;
+      }
+    }
+
+    // Reported per language rather than per string: one string with a capital is noise,
+    // four in five is a systematic calque of English orthography.
+    if (!glossary.nounCapsLanguages.has(code) && multiWordLabels.length >= 20) {
+      const rate = Math.round((calques / multiWordLabels.length) * 100);
+      if (rate > 15) {
+        warn(
+          where,
+          `${rate}% of multi-word labels capitalise a non-initial word ` +
+            `(${calques} of ${multiWordLabels.length}). ${code} uses sentence case — ` +
+            'this is English orthography calqued onto it, not a translation choice',
+        );
+      }
+    }
+
+    checkGlossaryAdherence(where, code, data, EDITOR_STRINGS, glossary);
+    checkCollapsedLabels(where, data, EDITOR_STRINGS);
+  }
+}
+
+/**
+ * Two different settings rendered with the same label.
+ *
+ * Distinct English collapsing to one translation makes two controls indistinguishable.
+ * Warning only: a panel can supply context that makes the shorter label right.
+ */
+function checkCollapsedLabels(where, data, strings) {
+  const byValue = new Map();
+  for (const key of Object.keys(data)) {
+    if (key.endsWith('.helper') || !(key in strings)) continue;
+    const list = byValue.get(data[key]) ?? [];
+    list.push(key);
+    byValue.set(data[key], list);
+  }
+
+  for (const [value, keys] of byValue) {
+    if (keys.length < 2) continue;
+    const englishes = [...new Set(keys.map((k) => strings[k]))];
+    if (englishes.length < 2) continue;
+    // Same English aside from capitalisation is an English-table issue.
+    if (new Set(englishes.map((e) => e.toLowerCase())).size < 2) continue;
+    warn(
+      where,
+      `${keys.join(', ')} all render as ${JSON.stringify(value)}, but their English ` +
+        `differs (${englishes.map((e) => JSON.stringify(e)).join(' vs ')}) — settings ` +
+        'the user cannot tell apart',
+    );
+  }
+}
+
+/**
+ * The decided termbase, enforced.
+ *
+ * Rejected forms are matched case-insensitively at a word start, including compounds, and
+ * only inside keys governed by the term. Missing decided forms are warnings because
+ * inflection makes exact equality too strict.
+ */
+function checkGlossaryAdherence(where, code, data, strings, glossary) {
+  for (const term of glossary.terms) {
+    const governed = Object.keys(strings).filter((k) =>
+      new RegExp(`\\b${term.name.replace(/\s+/g, '\\s+')}`, 'i').test(strings[k]),
+    );
+
+    for (const form of term.rejected[code] ?? []) {
+      // Word-start, case-insensitive. See the docblock: this is deliberately not a
+      // whole-word match (compounds) and deliberately not a bare substring (`Uhrzeit`).
+      const pattern = new RegExp(
+        `(^|[^\\p{L}])${form.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`,
+        'iu',
+      );
+      for (const key of governed) {
+        const value = data[key];
+        if (typeof value !== 'string') continue;
+        if (!pattern.test(value)) continue;
+        error(
+          where,
+          `\`${key}\` uses ${JSON.stringify(form)}, which the glossary rejects for ` +
+            `'${term.name}' in ${code} — the decided term is ` +
+            `${JSON.stringify(term.decided[code] ?? '(undecided)')}. See ` +
+            GLOSSARY_SOURCE,
+        );
+      }
+    }
+
+    const decided = term.decided[code];
+    if (!decided) continue;
+    for (const key of Object.keys(strings)) {
+      if (strings[key].trim().toLowerCase() !== term.name) continue;
+      if (GLOSSARY_QUALIFIED_OK.has(`${code}:${key}`)) continue;
+      const value = data[key];
+      if (typeof value === 'string' && value !== decided) {
+        warn(
+          where,
+          `\`${key}\` renders '${term.name}' as ${JSON.stringify(value)} where the ` +
+            `glossary decided ${JSON.stringify(decided)}`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * Which glossary decisions the checker can actually enforce, reported every run.
+ *
+ * A `decided` form is only ever compared against keys whose English *is* the term —
+ * `strings[key] === term.name` — so a term with no such key is documentation only unless a
+ * `rejected` entry enforces it through substring checks.
+ *
+ * @param glossary - The termbase
+ * @param strings - `EDITOR_STRINGS`
+ */
+function reportGlossaryReach(glossary, strings) {
+  const englishes = new Map();
+  for (const [key, value] of Object.entries(strings)) {
+    const normalised = value.trim().toLowerCase();
+    if (!englishes.has(normalised)) englishes.set(normalised, key);
+  }
+
+  const enforced = [];
+  const inert = [];
+  for (const term of glossary.terms) {
+    if (Object.keys(term.decided).length === 0) continue;
+    (englishes.has(term.name) ? enforced : inert).push(term.name);
+  }
+
+  const total = enforced.length + inert.length;
+  assertFound(total ? ['ok'] : [], 'any decided glossary terms to report on', GLOSSARY_SOURCE);
+
+  glossaryNotes.push(
+    `  ${enforced.length} of ${total} decided terms are enforced by their \`decided\` forms ` +
+      '(a key exists whose English is exactly the term).',
+  );
+  if (inert.length > 0) {
+    glossaryNotes.push(
+      `  ${inert.length} are documentation only — no such key, so editing the decided form ` +
+        `changes nothing. A \`rejected\` entry in ${GLOSSARY_SOURCE} would enforce them, ` +
+        'because it matches compounds:',
+    );
+    glossaryNotes.push(`    ${inert.join(', ')}`);
+    glossaryNotes.push(
+      '  This is a standing invitation for a native speaker, NOT a mechanical task. A rejected ' +
+        'form is an ERROR, so a guessed one fails CI on a perfectly good translation. Only add ' +
+        'a form somebody actually considered and turned down for that language — the way ' +
+        '`event` carries de:Ereignis and pl:Zdarzenia. Leaving a term documentation-only is the ' +
+        'correct outcome when nobody has made that call yet.',
+    );
+  }
+}
+
+/**
+ * The termbase, as data.
+ *
+ * Imported rather than parsed out of a document: the whole point of a glossary is that one
+ * decision exists in one place, and a checker that reads prose can be left enforcing
+ * nothing by an edit that looks purely editorial. A shape change here is a load error.
+ *
+ * @returns Decided and rejected forms per term, plus the languages exempt from the
+ *   sentence-case rule
+ */
+function readGlossary() {
+  assertFound(GLOSSARY_TERMS, 'any decided glossary terms', GLOSSARY_SOURCE);
+  return { terms: GLOSSARY_TERMS, nounCapsLanguages: new Set(NOUN_CAPS_LANGUAGES) };
+}
+
+/**
+ * en-GB, recomputed and compared whole.
+ *
+ * The file is derived, so the only correct way to change it is to run the generator.
+ */
+async function checkEnGbDerivation() {
+  const { EDITOR_STRINGS } = await loadEditor();
+  const expected = deriveEnGb(EDITOR_STRINGS);
+  const where = 'editor/translations/en-GB.json';
+
+  let actual;
+  try {
+    actual = JSON.parse(read(join(EDITOR_T9N_DIR, 'en-GB.json')));
+  } catch (err) {
+    error(
+      where,
+      `is missing or not valid JSON (${err.message}) — run \`node scripts/generate-en-gb.mjs\``,
+    );
+    return;
+  }
+
+  const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+  const wrong = [];
+  for (const key of keys) {
+    if (expected[key] === actual[key]) continue;
+    if (actual[key] === undefined) wrong.push(`${key} is missing`);
+    else if (expected[key] === undefined)
+      wrong.push(`${key} is not a British spelling variant and must not be overridden`);
+    else
+      wrong.push(
+        `${key} is ${JSON.stringify(actual[key])}, derived ${JSON.stringify(expected[key])}`,
+      );
+  }
+
+  if (wrong.length > 0) {
+    error(
+      where,
+      `${wrong.length} entr${wrong.length === 1 ? 'y differs' : 'ies differ'} from the ` +
+        'derivation — run `node scripts/generate-en-gb.mjs`. ' +
+        wrong.slice(0, 4).join('; ') +
+        (wrong.length > 4 ? `; and ${wrong.length - 4} more` : ''),
+    );
+  }
+}
+
+/**
+ * Whether a string key belongs to something the editor actually renders.
+ *
+ * A key is owned by the longest prefix of its dotted path that names a field, panel title
+ * or declared prefix.
+ *
+ * @param key - String key from the table
+ * @param roots - Every key something in the editor references
+ * @returns `true` when some prefix of the key is referenced
+ */
+function isReachable(key, roots) {
+  const parts = key.split('.');
+  for (let end = parts.length; end > 0; end -= 1) {
+    if (roots.has(parts.slice(0, end).join('.'))) return true;
+  }
+  return false;
+}
+
+/**
+ * Mirrors `humanize()` from the editor, for the message that names what a user would see.
+ *
+ * @param key - Config key
+ * @returns The key as the editor would render it with no string defined
+ */
+function humanKey(key) {
+  const words = key.split('.').pop().replace(/_/g, ' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 // ---------------------------------------------------------------------------
 // Report
 // ---------------------------------------------------------------------------
 
-function report(languageCount, editorCount) {
+function report(languageCount, fieldCount) {
   const line = (kind, { where, msg }) => {
     if (IN_CI) console.log(`::${kind === 'error' ? 'error' : 'warning'}::${where}: ${msg}`);
     else console.log(`  ${kind === 'error' ? '✖' : '⚠'} ${where}: ${msg}`);
@@ -445,8 +1209,18 @@ function report(languageCount, editorCount) {
     warnings.forEach((w) => line('warn', w));
   }
 
+  if (notes.length > 0) {
+    console.log('\nEditor translation coverage (English fills the rest, per key):');
+    notes.forEach((n) => console.log(n));
+  }
+
+  if (glossaryNotes.length > 0) {
+    console.log('\nGlossary enforcement:');
+    glossaryNotes.forEach((n) => console.log(n));
+  }
+
   const summary =
-    `\n${languageCount} languages, ${editorCount} with editor translations — ` +
+    `\n${languageCount} languages, ${fieldCount} editor fields — ` +
     `${errors.length} error(s), ${warnings.length} warning(s).`;
   console.log(summary);
 
@@ -455,24 +1229,161 @@ function report(languageCount, editorCount) {
     console.log('Failing because --strict was passed.');
     return 1;
   }
-  console.log('i18n wiring is consistent.');
+  console.log('i18n wiring and editor strings are consistent.');
   return 0;
 }
 
 // ---------------------------------------------------------------------------
 
-function main() {
+/**
+ * `fullDaysOfWeek` is always running text after `multiDay`, so dayjs locale casing is a
+ * useful oracle. `months` spans both running-text and standalone contexts and is not checked.
+ *
+ * A warning rather than an error: these are native-contributed files in the eager path,
+ * so the fix wants the contributor, not CI.
+ */
+async function checkRunningTextWeekdayCase(languages) {
+  const { createRequire } = await import('node:module');
+  const require = createRequire(import.meta.url);
+  const upper = (v) =>
+    typeof v === 'string' &&
+    v.length > 0 &&
+    v[0] === v[0].toUpperCase() &&
+    v[0] !== v[0].toLowerCase();
+
+  let compared = 0;
+  const mismatched = [];
+
+  for (const [code, { file, data }] of languages) {
+    let locale;
+    for (const candidate of [code, code.split('-')[0]]) {
+      try {
+        locale = require(`dayjs/locale/${candidate}`);
+        break;
+      } catch {
+        /* not shipped under that spelling -- try the base code */
+      }
+    }
+    if (!locale) continue;
+
+    const oracle = Array.isArray(locale.weekdays) ? locale.weekdays : locale.weekdays?.standalone;
+    if (!Array.isArray(oracle) || oracle.length !== 7) continue;
+    if (!Array.isArray(data.fullDaysOfWeek) || data.fullDaysOfWeek.length !== 7) continue;
+
+    compared += 1;
+    const differing = data.fullDaysOfWeek
+      .map((value, i) => [value, oracle[i]])
+      .filter(([value, want]) => upper(value) !== upper(want));
+    if (differing.length) mismatched.push([file, differing[0]]);
+  }
+
+  // A zero must mean "all agree", never "nothing was examined".
+  if (compared === 0) {
+    error(
+      'languages/',
+      'weekday-case check compared no languages -- the dayjs oracle never resolved',
+    );
+    return;
+  }
+
+  for (const [file, [got, want]] of mismatched) {
+    warn(
+      `languages/${file}`,
+      `fullDaysOfWeek is capitalised (${got}); dayjs has ${want} -- that array is only ever ` +
+        `rendered mid-sentence after multiDay, so it wants the running-text form. ` +
+        `DO NOT simply copy the dayjs value: it is the NOMINATIVE, and multiDay governs ` +
+        `case in cs/hr/pl/sk (do), lt (iki) and lv (lidz) -- Polish wants "do poniedzialku", ` +
+        `not "do poniedzialek". Lowercasing is half the fix at most; the inflected form is a ` +
+        `native-speaker question. The months array spans multiple casing contexts, so it is deliberately not checked ` +
+        `and must not be "fixed" alongside it`,
+    );
+  }
+}
+
+/**
+ * Editor string keys written as literals in code, rather than derived from the schema.
+ *
+ * `checkEditorStrings` reconciles the keys the *schema* implies — every field label,
+ * every panel heading. But a panel can also resolve a string directly, and the width
+ * table does: `lookup(ctx.language, 'width_table.at_least')` is a literal that no schema
+ * walk can see, so those eight keys were reachable by no check at all.
+ *
+ * Missing, they now render humanized rather than as the raw key — but "At least" where a
+ * sentence belongs is still wrong, and it is the kind of wrong nobody notices in a
+ * language they do not read. Cheap to reconcile, so reconcile it.
+ *
+ * Only fully-literal keys are collected. A composed key — `` `${blockKey}.density` `` —
+ * has no single spelling to look up, and those are already covered by the schema walk.
+ */
+async function checkEditorKeysUsedInCode() {
+  const { EDITOR_STRINGS } = await loadEditor();
+
+  const dir = join(ROOT, 'src/rendering/editor');
+  const sources = [];
+  const walk = (at) => {
+    for (const entry of readdirSync(at, { withFileTypes: true })) {
+      const full = join(at, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.ts')) sources.push(full);
+    }
+  };
+  walk(dir);
+  assertFound(sources, 'any editor sources', dir);
+
+  // The idiom these appear in: a panel-local `t('literal')` helper wrapping `lookup`, or
+  // a direct `lookup(<lang>, 'literal')`. Only fully-literal keys — a composed key such
+  // as `` `${blockKey}.density` `` has no single spelling to reconcile, and the schema
+  // walk already covers the fields those build.
+  const PATTERNS = [/\bt\(\s*'([^'`${}]+)'/g, /\blookup\(\s*[^,()]+,\s*'([^'`${}]+)'\s*[),]/g];
+  const found = new Map();
+
+  for (const file of sources) {
+    if (file.endsWith('/strings.ts')) continue;
+
+    const text = read(file);
+
+    for (const pattern of PATTERNS) {
+      for (const match of text.matchAll(pattern)) {
+        if (!found.has(match[1])) found.set(match[1], `editor/${relative(dir, file)}`);
+      }
+    }
+  }
+
+  assertFound([...found.keys()], 'any literal translation keys', dir);
+
+  for (const [key, where] of [...found].sort()) {
+    if (!(key in EDITOR_STRINGS)) {
+      error(
+        where,
+        `looks up \`${key}\`, which no English string defines — it renders as ` +
+          `"${humanKey(key)}" in every language, including English`,
+      );
+    }
+  }
+
+  return found.size;
+}
+
+async function main() {
   const languages = readLanguageFiles();
   const localize = readLocalizeWiring();
   const dayjsWiring = readDayjsWiring();
 
   checkLanguageParity(languages);
   checkLocalizeWiring(languages, localize);
+  checkNoEditorSectionsOnEagerPath(languages);
   checkDayjsWiring(localize.entries, dayjsWiring);
-  checkEditorKeyUsage(languages);
 
-  const editorCount = [...languages.values()].filter((l) => l.data.editor !== undefined).length;
-  process.exit(report(languages.size, editorCount));
+  const fieldCount = await checkEditorStrings();
+  await checkEditorKeysUsedInCode();
+  await checkEditorTranslations(languages);
+  await checkEnGbDerivation();
+  const glossary = readGlossary();
+  await checkTranslationQuality(languages, glossary);
+  reportGlossaryReach(glossary, (await loadEditor()).EDITOR_STRINGS);
+  await checkRunningTextWeekdayCase(languages);
+
+  process.exit(report(languages.size, fieldCount));
 }
 
 main();

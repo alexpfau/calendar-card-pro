@@ -11,11 +11,42 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history, so the ancestry check below has something to walk. The default
+          # shallow fetch hands it a single commit with no relationship to any branch.
+          fetch-depth: 0
 
+      # A `v*` tag on *any* commit reaches this workflow — the trigger cannot tell a
+      # release tag on main from one pushed to a feature branch by mistake, and the
+      # version check below compares the tag text to package.json, which a release
+      # branch carrying the bumped version passes cleanly. So without this step,
+      # tagging the wrong branch produces a complete, publishable draft release whose
+      # two assets are built from unreviewed code, and the only signal that anything is
+      # wrong is a draft appearing where you expected one.
+      #
+      # Placed before the install so it costs seconds, and stated as ancestry rather
+      # than "is the tag on main" so that tagging an older commit that main has since
+      # moved past still passes — that is a legitimate patch release.
+      - name: Verify tag is on main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "${GITHUB_SHA}" origin/main; then
+            echo "::error::Tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not an ancestor of origin/main. Release tags are created on main after the dev -> main release PR has merged; see AGENTS.md § Release process."
+            exit 1
+          fi
+          echo "Ancestry check passed: ${GITHUB_SHA} is reachable from main."
+
+      # Read the Node version from .nvmrc, exactly as ci.yml does. This job is the one
+      # that runs `npm ci` against the lockfile and publishes what every user downloads,
+      # so it is the last place that should run a runtime nothing else tested on. It
+      # hardcoded Node 24 while .nvmrc pinned 22, which is the same npm-major drift
+      # recorded at ci.yml's pinning check (#404): npm 11 tolerates a package-lock.json
+      # that npm 10 rejects, so the mismatch stays invisible until the install it breaks
+      # is the one building the release.
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -50,9 +81,47 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The release is the only thing users ever download, and this is the build that
+      # produces it — so the multi-file assertions run here too, not only on pull
+      # requests. A file importing another, a card that names the wrong editor, an
+      # `import.meta` lowered to `{}` by esbuild, or a stale file left over from an
+      # earlier build would otherwise be published and then downloaded by every user.
+      - name: Verify bundle integrity
+        run: npm run check:bundle
+
+      # Assets are deliberately just the two .js files, and this is a constraint rather
+      # than a preference: HACS downloads *every* asset attached to a release. Its
+      # gather_files_to_download() appends the whole asset list and returns before any
+      # filtering — `filename` in hacs.json only selects which of them becomes the
+      # Lovelace resource, and there is no exclude option anywhere in the manifest
+      # schema. So anything attached here lands in every user's
+      # <config>/www/community/calendar-card-pro/, whether it is useful to them or not.
+      #
+      # That is why there is no convenience zip. An earlier version of this workflow
+      # attached one, with a .gz beside each file, for people who install by copying —
+      # worth ~130 KB apiece over the wire, since Home Assistant serves a pre-compressed
+      # sibling when it finds one and does not compress on the fly. It also made
+      # "extract both files" the obvious path, which matters because the card is not a
+      # single file: it fetches the editor by URL, so copying only the .js named in
+      # hacs.json yields a card that renders but cannot be configured. All of that was
+      # real, and it was still the wrong trade — it charged every HACS user ~274 KB of
+      # download they never load, to save a much smaller group a manual step that the
+      # installation docs can simply describe instead.
+      #
+      # zip_release in hacs.json is not the way around this. It only takes effect when
+      # `filename` ends in .zip, and `filename` is the same field the Lovelace resource
+      # URL is built from, so it would register the archive itself as the card.
+      #
+      # If you are tempted to re-add an asset here, price it at "every HACS user
+      # downloads this" first. See AGENTS.md § Release process.
+      #
+      # dist/*.js deliberately, not dist/* — the glob does not match *.js.map, so the
+      # sourcemap decision (still off, see rollup.config.mjs) is unaffected by this. It
+      # matches exactly two files, and `check:bundle` above has already asserted that.
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
           draft: true
           body_path: release-body.md
-          files: dist/calendar-card-pro.js
+          files: |
+            dist/*.js

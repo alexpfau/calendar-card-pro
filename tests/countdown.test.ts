@@ -18,7 +18,6 @@ import * as FormatUtils from '../src/utils/format';
  * passed happily on the broken code: the sequence was correct before noon and
  * wrong after it.
  */
-
 const TIMED_MULTI_DAY = {
   summary: 'Sommerferie',
   start: { dateTime: '2026-08-17T07:00:00.000Z' },

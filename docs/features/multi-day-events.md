@@ -33,3 +33,20 @@ Because each row stands for a day rather than for the event as a whole, a [count
 The setting can be applied globally to all calendars or controlled separately for each calendar entity.
 
 This is the `split_multiday_events` option — see [Event Column in the configuration reference](/reference/configuration#event-column).
+
+::: tip Column View Splits by Default
+In the [column layout](/features/column-view) this option starts from `true` rather than
+from your top-level value, because a column _is_ a day — an unsplit event would leave every
+later column it spans looking empty. Setting `split_multiday_events: false` at the top level
+therefore changes the list layout only. To keep multi-day events whole in columns too, say so
+in the block:
+
+```yaml
+split_multiday_events: false
+column:
+  split_multiday_events: false
+```
+
+The per-calendar form of this option is read in list view only, for the same reason — see
+[Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view).
+:::

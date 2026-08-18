@@ -1,4 +1,3 @@
-/* eslint-disable import/order */
 /**
  * Calendar Card Pro
  *
@@ -22,34 +21,34 @@
  * This package includes lit/LitElement (BSD-3-Clause License)
  */
 
-// Import Lit libraries
 import { LitElement, PropertyValues, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
-// Import all types via namespace for cleaner imports
 import * as Config from './config/config';
 import * as Constants from './config/constants';
 import * as Types from './config/types';
-import * as Localize from './translations/localize';
-import * as EventUtils from './utils/events';
+import * as ViewConfig from './config/view';
 import * as Actions from './interaction/actions';
+import * as Feedback from './interaction/feedback';
+import type * as Editor from './rendering/editor/index';
+import * as Render from './rendering/render';
+import * as Styles from './rendering/styles';
+import * as Localize from './translations/localize';
+import { editorModuleUrl } from './utils/editor-url';
+import * as EventUtils from './utils/events';
+import * as FormatUtils from './utils/format';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
-import * as Styles from './rendering/styles';
-import * as Feedback from './interaction/feedback';
-import * as Render from './rendering/render';
-import * as Weather from './utils/weather';
 import * as Templates from './utils/templates';
-import * as Editor from './rendering/editor';
+import * as Weather from './utils/weather';
+import * as WeatherI18n from './utils/weather-i18n';
 
 //-----------------------------------------------------------------------------
 // GLOBAL TYPE DECLARATIONS
 //-----------------------------------------------------------------------------
 
-// Ensure this file is treated as a module
 export {};
 
-// Add global type declarations
 declare global {
   interface Window {
     customCards: Array<Types.CustomCard>;
@@ -63,13 +62,54 @@ declare global {
 }
 
 //-----------------------------------------------------------------------------
+// EDITOR ADOPTION
+//-----------------------------------------------------------------------------
+
+/**
+ * Registers the editor component out of a freshly imported editor module.
+ *
+ * @param module - Whatever the dynamic import resolved to
+ * @param tagName - Element name to register the editor under
+ * @throws When the module does not carry a usable editor component
+ */
+export function adoptEditorComponent(module: unknown, tagName: string): void {
+  const editorModule = module as Partial<typeof Editor> | undefined | null;
+  const component = editorModule?.CalendarCardProEditor;
+
+  if (typeof component !== 'function') {
+    throw new Error(
+      'Calendar Card Pro: the editor file was found but is not the card’s editor. ' +
+        'This usually means another file of the same name is installed alongside it — ' +
+        'put the card’s files in a folder of their own, or reinstall through HACS, ' +
+        'which does that for you. The card itself is unaffected.',
+    );
+  }
+
+  const editorVersion = editorModule?.EDITOR_VERSION;
+  if (editorVersion !== Constants.VERSION.CURRENT) {
+    Logger.warn(
+      `Editor file is v${editorVersion ?? 'unknown'} but the card is v${Constants.VERSION.CURRENT}. ` +
+        // Deliberately names the two roles rather than the two filenames: this string is
+        // emitted into both bundles, and the dev build's files carry a `-dev` suffix, so
+        // any literal filename here is wrong in one of the two builds. `tests/
+        // editor-adoption.test.ts` holds that line.
+        'Both files come from the same release, so one of them is stale — hard-refresh the ' +
+        'browser, and if that does not help, reinstall so the card and editor files are ' +
+        'replaced together.',
+    );
+  }
+
+  if (!customElements.get(tagName)) {
+    customElements.define(tagName, component as CustomElementConstructor);
+  }
+}
+
+//-----------------------------------------------------------------------------
 // MAIN COMPONENT CLASS
 //-----------------------------------------------------------------------------
 
 /**
- * The main Calendar Card Pro component that extends LitElement
- * This class orchestrates the different modules to create a complete
- * calendar card for Home Assistant
+ * Main Calendar Card Pro custom element.
  */
 @customElement('calendar-card-pro-dev')
 class CalendarCardPro extends LitElement {
@@ -90,51 +130,75 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Latest value rendered by Home Assistant for a templated `title`.
-   *
-   * Only meaningful when `config.title` contains a template. Undefined until
-   * the first render arrives, and deliberately left at its last good value when
-   * a later render fails, so a transient template error does not blank the
-   * heading.
    */
   @property({ attribute: false }) renderedTitle?: string;
 
   /**
-   * Set by Home Assistant's `hui-card` wrapper while the dashboard is in edit
-   * mode or the card is shown in the card picker. The card must never hide
-   * itself in these states, otherwise it becomes impossible to select and
-   * configure. `editMode` is the legacy alias used by older HA versions.
+   * Set while the dashboard is editable or the card picker preview is rendering.
    */
   @property({ type: Boolean }) preview = false;
   @property({ type: Boolean }) editMode = false;
 
   /**
    * Tells `hui-card` to keep this element in the DOM while it is hidden.
-   * Without this Home Assistant detaches the element, which runs
-   * `disconnectedCallback()` and tears down the refresh timer — the card would
-   * then never re-fetch events and stay hidden forever once it went empty.
    */
   public connectedWhileHidden = true;
 
   /**
-   * Static method that returns a new instance of the editor
-   * This is how Home Assistant discovers and loads the editor
+   * Load the editor on demand.
+   *
+   * The computed URL preserves the card's own cache-busting query string for the
+   * separately built editor file.
+   *
+   * @returns The editor element, once its file has loaded
    */
-  static getConfigElement() {
+  static async getConfigElement(): Promise<HTMLElement> {
+    if (!customElements.get('calendar-card-pro-dev-editor')) {
+      try {
+        const editor = (await import(editorModuleUrl(import.meta.url))) as typeof Editor;
+
+        adoptEditorComponent(editor, 'calendar-card-pro-dev-editor');
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        Logger.error(error, 'loading the editor file');
+
+        throw new Error(
+          'Calendar Card Pro: the editor could not be loaded because one of the card’s ' +
+            'files is missing. Reinstalling the card in HACS restores it. The card ' +
+            `itself is unaffected. (${detail})`,
+        );
+      }
+    }
+
     return document.createElement('calendar-card-pro-dev-editor');
   }
 
   static getStubConfig = Config.getStubConfig;
 
-  // Private, non-reactive properties
+  /**
+   * Declares the card's default size to a Home Assistant sections dashboard.
+   *
+   * @returns Default grid sizing for a sections-view dashboard
+   */
+  public getGridOptions(): { columns: 'full'; rows: 'auto' } {
+    return { columns: 'full', rows: 'auto' };
+  }
+
   private _instanceId = Helpers.generateInstanceId();
   /**
    * The `_instanceId` the events currently held in `events` were fetched for.
-   *
-   * Lets a failed refresh tell "these events are a few minutes old" apart from
-   * "these events answer a question the card is no longer asking", so previous
-   * events are only ever preserved for an unchanged configuration.
    */
   private _eventsInstanceId = '';
+  /**
+   * Monotonic ticket for in-flight event requests.
+   *
+   * `updateEvents()` awaits the API, and `setConfig()` can regenerate `_instanceId` and
+   * start a second request during that await. The two requests go to different
+   * calendars, so their latencies are unrelated and the older one can settle last.
+   * Comparing the ticket a request started with against the current value is what tells
+   * a superseded response to discard itself instead of committing.
+   */
+  private _eventRequestGeneration = 0;
   private _language = '';
   private _refreshTimerId?: number;
   private _lastUpdateTime = 0;
@@ -144,34 +208,54 @@ class CalendarCardPro extends LitElement {
   private _weatherSetupPending = false;
   /**
    * Subscription that keeps `renderedTitle` in step with a templated `title`.
-   *
-   * Created lazily so cards with a plain string title never open a websocket
-   * subscription at all.
    */
   private _titleSubscription?: Templates.TemplateSubscription;
   /**
    * True when the most recent fetch could not read at least one calendar.
-   *
-   * Kept separate from `events` because a failed request and an empty calendar
-   * both leave the event list empty, yet they mean opposite things. This flag is
-   * what lets the card tell them apart, and it drives three behaviours:
-   * keeping the card visible under `hide_when_empty` (`_applyVisibility`),
-   * keeping already-rendered events instead of blanking them (`updateEvents`),
-   * and showing the error state rather than "no upcoming events" (`render`).
    */
   private _hasFetchError = false;
   private _visibleCountCache?: {
     events: Types.CalendarEventData[];
     config: Types.Config;
+    view: Types.EffectiveView;
     language: string;
+    /**
+     * Resolved first weekday. `config` alone does not cover it: under
+     * `first_day_of_week: 'system'` the weekday comes from the user's Home Assistant
+     * profile, so it can move while the config object stays identical.
+     */
+    firstWeekday: number;
     count: number;
   };
+  private _effectiveConfigCache?: {
+    config: Types.Config;
+    view: Types.EffectiveView;
+    resolved: Types.Config;
+  };
 
-  // Interaction state
   private _activePointerId: number | null = null;
   private _holdTriggered = false;
   private _holdTimer: number | null = null;
   private _holdIndicator: HTMLElement | null = null;
+
+  /**
+   * Card width in CSS pixels, as most recently measured.
+   */
+  private _measuredWidthPx: number | null = null;
+
+  private _effectiveView: Types.EffectiveView = 'list';
+
+  /**
+   * Day columns actually rendered, after any width-driven reduction.
+   */
+  private _columnCount = 0;
+
+  private _resizeObserver: ResizeObserver | null = null;
+
+  /**
+   * Pending trailing timer for the last width measurement.
+   */
+  private _widthSettleTimerId: number | null = null;
 
   //-----------------------------------------------------------------------------
   // COMPUTED GETTERS
@@ -200,17 +284,52 @@ class CalendarCardPro extends LitElement {
   get groupedEvents(): Types.EventsByDay[] {
     return EventUtils.groupEventsByDay(
       this.events,
-      this.config,
+      this.effectiveConfig,
       this.isExpanded,
       this.effectiveLanguage,
+      this.effectiveView,
+      this.hass?.locale,
     );
   }
 
   /**
+   * The view the user asked for, before any width-based fallback.
+   */
+  get requestedView(): Types.EffectiveView {
+    return this.config.view;
+  }
+
+  /**
+   * The view that will actually render.
+   */
+  get effectiveView(): Types.EffectiveView {
+    if (this.preview || this.editMode) {
+      return this.requestedView;
+    }
+
+    return this._effectiveView;
+  }
+
+  /**
+   * The configuration as it applies to the view currently on screen.
+   */
+  get effectiveConfig(): Types.Config {
+    const view = this.effectiveView;
+    const cache = this._effectiveConfigCache;
+
+    if (cache && cache.config === this.config && cache.view === view) {
+      return cache.resolved;
+    }
+
+    const resolved = ViewConfig.resolveEffectiveConfig(this.config, view);
+
+    this._effectiveConfigCache = { config: this.config, view, resolved };
+
+    return resolved;
+  }
+
+  /**
    * Title to display, with templates resolved.
-   *
-   * A templated title renders as empty until Home Assistant returns its first
-   * value, so raw Jinja is never shown to the user.
    */
   get effectiveTitle(): string | undefined {
     if (!Templates.isTemplate(this.config.title)) {
@@ -222,9 +341,6 @@ class CalendarCardPro extends LitElement {
 
   /**
    * True while a templated title is waiting for its first rendered value.
-   *
-   * Lets the header keep a stable element identity across the round-trip
-   * instead of swapping the placeholder for an `h1` once the value lands.
    */
   get isTitlePending(): boolean {
     return Templates.isTemplate(this.config.title) && this.renderedTitle === undefined;
@@ -232,47 +348,46 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Number of real events the card would show across its full configured range.
-   *
-   * Deliberately evaluated as if the card were expanded so that compact mode
-   * limits can never make the card look empty — `compact_events_to_show: 0` is
-   * a valid configuration meaning "show nothing until tapped", and a card
-   * hidden in that state could never be expanded again.
-   *
-   * Placeholder entries generated for empty days are excluded, so this counts
-   * only events that survive filtering (past events, blocklist/allowlist,
-   * duplicates) and therefore matches what the user actually sees.
-   *
-   * That exclusion is the mechanism behind a deliberate precedence rule:
-   * hiding wins over anything that merely *decorates* an empty day. Neither
-   * `show_empty_days` nor any future custom empty-day text (#279) makes a card
-   * count as non-empty — a placeholder is not content. Anything added to the
-   * empty-day placeholder must stay filtered out here.
-   *
-   * Memoized against the inputs it depends on, because `updated()` runs on
-   * every `hass` change and grouping the whole event list each time would be
-   * needless work.
    */
   get visibleEventCount(): number {
     const language = this.effectiveLanguage;
+    const view = this.effectiveView;
+    const firstWeekday = FormatUtils.getFirstDayOfWeek(
+      this.config.first_day_of_week,
+      this.hass?.locale,
+    );
     const cache = this._visibleCountCache;
 
     if (
       cache &&
       cache.events === this.events &&
       cache.config === this.config &&
-      cache.language === language
+      cache.view === view &&
+      cache.language === language &&
+      cache.firstWeekday === firstWeekday
     ) {
       return cache.count;
     }
 
     const count = this.events.length
-      ? EventUtils.groupEventsByDay(this.events, this.config, true, language).reduce(
-          (total, day) => total + day.events.filter((event) => !event._isEmptyDay).length,
-          0,
-        )
+      ? EventUtils.groupEventsByDay(
+          this.events,
+          this.effectiveConfig,
+          true,
+          language,
+          view,
+          this.hass?.locale,
+        ).reduce((total, day) => total + day.events.filter((event) => !event._isEmptyDay).length, 0)
       : 0;
 
-    this._visibleCountCache = { events: this.events, config: this.config, language, count };
+    this._visibleCountCache = {
+      events: this.events,
+      config: this.config,
+      view,
+      language,
+      firstWeekday,
+      count,
+    };
 
     return count;
   }
@@ -299,37 +414,32 @@ class CalendarCardPro extends LitElement {
     super.connectedCallback();
     Logger.debug('Component connected');
 
-    // Set up refresh timer
     this.startRefreshTimer();
 
-    // Load events on initial connection
     this.updateEvents();
 
-    // Set up weather subscriptions if configured
     this._scheduleWeatherSetup();
 
-    // Resolve the title if it contains a template
     this._updateTitleSubscription();
 
-    // Set up visibility listener
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
+
+    this._startWidthObserver();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
 
-    // Invalidate any in-flight or pending weather subscription setup
+    this._stopWidthObserver();
+
     this._weatherSetupVersion++;
     this._weatherSetupPending = false;
 
-    // Clean up weather subscriptions
     this._cleanupWeatherSubscriptions();
 
-    // Clean up the title template subscription
     this._titleSubscription?.destroy();
     this._titleSubscription = undefined;
 
-    // Clean up timers
     if (this._refreshTimerId) {
       clearTimeout(this._refreshTimerId);
     }
@@ -344,25 +454,100 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = null;
     }
 
-    // Clean up hold indicator if it exists
     if (this._holdIndicator) {
       Feedback.removeHoldIndicator(this._holdIndicator);
       this._holdIndicator = null;
     }
 
-    // Remove listeners
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
     Logger.debug('Component disconnected');
   }
 
+  //-----------------------------------------------------------------------------
+  // WIDTH MEASUREMENT
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Begins observing the card's own width.
+   */
+  private _startWidthObserver(): void {
+    if (this._resizeObserver || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    this._resizeObserver = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect?.width;
+
+      if (typeof width === 'number' && width > 0) {
+        this._scheduleWidthMeasurement(width);
+      }
+    });
+
+    this._resizeObserver.observe(this);
+  }
+
+  /**
+   * Defers acting on a measured width until the measurements stop arriving.
+   *
+   * @param widthPx - Measured content width in CSS pixels
+   */
+  private _scheduleWidthMeasurement(widthPx: number): void {
+    if (this._widthSettleTimerId !== null) {
+      clearTimeout(this._widthSettleTimerId);
+    }
+
+    this._widthSettleTimerId = window.setTimeout(() => {
+      this._widthSettleTimerId = null;
+      this._handleWidthMeasured(widthPx);
+    }, Constants.TIMING.WIDTH_SETTLE_DELAY);
+  }
+
+  private _stopWidthObserver(): void {
+    this._resizeObserver?.disconnect();
+    this._resizeObserver = null;
+
+    if (this._widthSettleTimerId !== null) {
+      clearTimeout(this._widthSettleTimerId);
+      this._widthSettleTimerId = null;
+    }
+  }
+
+  /**
+   * Records a new width and re-renders if it changes the layout.
+   *
+   * @param widthPx - Measured content width in CSS pixels
+   */
+  private _handleWidthMeasured(widthPx: number): void {
+    const next = ViewConfig.resolveColumnFitOnMeasurement(
+      this.requestedView,
+      this.config,
+      this._measuredWidthPx,
+      widthPx,
+      { view: this._effectiveView, columns: this._columnCount },
+    );
+
+    this._measuredWidthPx = widthPx;
+
+    if (next.view === this._effectiveView && next.columns === this._columnCount) {
+      return;
+    }
+
+    Logger.debug(
+      `Layout changed from ${this._effectiveView}/${this._columnCount} to ` +
+        `${next.view}/${next.columns} at ${Math.round(widthPx)}px`,
+    );
+
+    this._effectiveView = next.view;
+    this._columnCount = next.columns;
+    this.requestUpdate();
+  }
+
   updated(changedProps: PropertyValues) {
-    // If hass becomes available after initial connection, load events immediately
     if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
       this.updateEvents(true);
     }
 
-    // Update language if locale or config language changed
     if (
       (changedProps.has('hass') && this.hass?.locale) ||
       (changedProps.has('config') && changedProps.get('config')?.language !== this.config.language)
@@ -370,24 +555,39 @@ class CalendarCardPro extends LitElement {
       this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
     }
 
-    // Set up weather subscriptions when hass becomes available or weather config changes
     const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');
     const prevConfig = changedProps.get('config') as Types.Config | undefined;
+    const weatherEntityChanged =
+      changedProps.has('config') && this.config?.weather?.entity !== prevConfig?.weather?.entity;
     const weatherConfigChanged =
-      changedProps.has('config') &&
-      (this.config?.weather?.entity !== prevConfig?.weather?.entity ||
+      weatherEntityChanged ||
+      (changedProps.has('config') &&
         this.config?.weather?.position !== prevConfig?.weather?.position);
+
+    // The forecast we are holding belongs to the entity we are leaving. Tearing down its
+    // subscription does not remove the data, so without this the old entity's forecast is
+    // drawn under the new configuration until the replacement subscription emits — and if
+    // the new entity never supplies that forecast type, indefinitely. Deliberately not
+    // done for other weather edits: the entity is unchanged there, so blanking the
+    // forecast would only produce a flicker.
+    if (weatherEntityChanged) {
+      this.weatherForecasts = { daily: {}, hourly: {} };
+    }
 
     if (hassJustAvailable || weatherConfigChanged) {
       this._scheduleWeatherSetup();
     }
 
-    // Keep the title template subscription in step with hass and config
+    if (this.config?.weather?.entity) {
+      WeatherI18n.ensureConditionTranslations(this.hass, this.config.language, () =>
+        this.requestUpdate(),
+      );
+    }
+
     if (changedProps.has('hass') || changedProps.has('config')) {
       this._updateTitleSubscription();
     }
 
-    // Hide or reveal the whole card when `hide_when_empty` is enabled
     this._applyVisibility();
   }
 
@@ -397,19 +597,11 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Keep the title template subscription aligned with the current config.
-   *
-   * `title` is deliberately absent from `hasConfigChanged`'s data-affecting
-   * keys, so changing it never triggers a re-fetch — this is the only thing
-   * that has to react to it. The subscription itself no-ops unless the template
-   * text or the connection actually changed, so this is safe to call on every
-   * `hass` update.
    */
   private _updateTitleSubscription(): void {
     const isTemplated = Templates.isTemplate(this.config.title);
 
     if (!isTemplated) {
-      // Drop a stale rendered value so switching back to a plain title, or
-      // clearing the field entirely, does not leave the old heading on screen
       if (this._titleSubscription) {
         this._titleSubscription.destroy();
         this._titleSubscription = undefined;
@@ -425,9 +617,6 @@ class CalendarCardPro extends LitElement {
           this.renderedTitle = result;
         },
         onError: () => {
-          // Keep the last good value rather than blanking the heading; the
-          // error itself is logged by the template utility and surfaced in the
-          // visual editor, which is where a user can act on it.
           if (this.renderedTitle === undefined) {
             this.renderedTitle = '';
           }
@@ -440,26 +629,11 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Hide the card entirely when it has no events and `hide_when_empty` is on.
-   *
-   * Home Assistant's `hui-card` wrapper watches its child for a
-   * `card-visibility-changed` event and mirrors `element.hidden` onto itself,
-   * which is what lets the surrounding grid or masonry column collapse rather
-   * than leaving an empty slot. The inline `display` is set as well so the card
-   * still disappears on older HA versions that predate that wrapper, and
-   * because the card's own `:host { display: block }` rule would otherwise
-   * override the browser default styling for the `hidden` attribute.
    */
   private _applyVisibility(): void {
-    // Missing hass or entities renders the error card — never hide that, or the
-    // user is left with no indication of why the card vanished. During the
-    // initial load neither is treated as an error yet (see `render()`).
     const isErrorState =
       !this.isInitialLoad && (!this.safeHass || this.config.entities.length === 0);
 
-    // A calendar that could not be read looks identical to an empty one: both
-    // leave `events` empty. Hiding on that would make a transient API error
-    // silently delete the card from the dashboard, so a failed fetch keeps the
-    // card on screen and only a genuine empty result hides it.
     const shouldHide =
       this.config.hide_when_empty === true &&
       !this.preview &&
@@ -487,12 +661,10 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Generate style properties from configuration
-   * Returns a style object for use with styleMap
+   * Generate style properties from configuration. Returns a style object for use with styleMap.
    */
   private getCustomStyles(): Record<string, string> {
-    // Convert CSS custom properties to a style object
-    return Styles.generateCustomPropertiesObject(this.config);
+    return Styles.generateCustomPropertiesObject(this.effectiveConfig);
   }
 
   /**
@@ -501,7 +673,6 @@ class CalendarCardPro extends LitElement {
   private _handleVisibilityChange = () => {
     if (document.visibilityState === 'visible') {
       const now = Date.now();
-      // Only refresh if it's been a while
       if (now - this._lastUpdateTime > Constants.TIMING.VISIBILITY_REFRESH_THRESHOLD) {
         Logger.debug('Visibility changed to visible, updating events');
         this.updateEvents();
@@ -530,8 +701,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Schedule weather subscription setup, debounced to collapse multiple calls
-   * within the same microtask into a single setup.
+   * Schedule weather subscription setup, debounced to collapse multiple calls within the same microtask into a single setup.
    */
   private _scheduleWeatherSetup(): void {
     if (this._weatherSetupPending) return;
@@ -547,23 +717,17 @@ class CalendarCardPro extends LitElement {
    * Set up weather forecast subscriptions
    */
   private async _setupWeatherSubscriptions(): Promise<void> {
-    // Increment version to invalidate any in-flight setup from a previous call
     const version = ++this._weatherSetupVersion;
 
-    // Clean up existing subscriptions
     this._cleanupWeatherSubscriptions();
 
-    // Skip if no weather configuration or no entity
     if (!this.config?.weather?.entity || !this.hass) {
       return;
     }
 
-    // Determine which forecast types to subscribe to
     const forecastTypes = Weather.getRequiredForecastTypes(this.config.weather);
 
-    // Subscribe to each required forecast type
     for (const type of forecastTypes) {
-      // If a newer setup call was initiated, abandon this one
       if (this._weatherSetupVersion !== version) {
         return;
       }
@@ -573,7 +737,6 @@ class CalendarCardPro extends LitElement {
         this.config,
         type,
         (forecasts) => {
-          // Update the appropriate forecast type
           this.weatherForecasts = {
             ...this.weatherForecasts,
             [type]: forecasts,
@@ -582,7 +745,6 @@ class CalendarCardPro extends LitElement {
         },
       );
 
-      // Check again after await — a newer call may have superseded this one
       if (this._weatherSetupVersion !== version) {
         if (unsubscribe) unsubscribe();
         return;
@@ -618,23 +780,24 @@ class CalendarCardPro extends LitElement {
    * Handle pointer down events for hold detection
    */
   private _handlePointerDown(ev: PointerEvent) {
-    // Store this pointer ID to track if it's the same pointer throughout
     this._activePointerId = ev.pointerId;
     this._holdTriggered = false;
 
-    // Only set up hold timer if hold action is configured
-    if (this.config.hold_action?.action !== 'none') {
-      // Clear any existing timer
+    // Both operands are load-bearing, and the second alone was the defect: optional
+    // chaining makes `null?.action !== 'none'` true, so a bare `hold_action:` in YAML —
+    // which the user wrote to mean "nothing on hold" — armed the timer and drew a hold
+    // indicator for an action `_handlePointerUp` would then refuse to run, swallowing
+    // the tap with it. Requiring the block to exist makes this agree with the release
+    // branch there, and with the documented `hold_action: none`.
+    if (this.config.hold_action && this.config.hold_action.action !== 'none') {
       if (this._holdTimer) {
         clearTimeout(this._holdTimer);
       }
 
-      // Start a new hold timer
       this._holdTimer = window.setTimeout(() => {
         if (this._activePointerId === ev.pointerId) {
           this._holdTriggered = true;
 
-          // Create hold indicator for visual feedback
           this._holdIndicator = Feedback.createHoldIndicator(ev, this.config);
         }
       }, Constants.TIMING.HOLD_THRESHOLD);
@@ -645,16 +808,13 @@ class CalendarCardPro extends LitElement {
    * Handle pointer up events to execute actions
    */
   private _handlePointerUp(ev: PointerEvent) {
-    // Only process if this is the pointer we've been tracking
     if (ev.pointerId !== this._activePointerId) return;
 
-    // Clear hold timer
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
       this._holdTimer = null;
     }
 
-    // Execute the appropriate action based on whether hold was triggered
     if (this._holdTriggered && this.config.hold_action) {
       Logger.debug('Executing hold action');
       Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
@@ -663,11 +823,9 @@ class CalendarCardPro extends LitElement {
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
 
-    // Reset state
     this._activePointerId = null;
     this._holdTriggered = false;
 
-    // Remove hold indicator if it exists
     if (this._holdIndicator) {
       Feedback.removeHoldIndicator(this._holdIndicator);
       this._holdIndicator = null;
@@ -678,17 +836,14 @@ class CalendarCardPro extends LitElement {
    * Handle pointer cancel/leave events to clean up
    */
   private _handlePointerCancel() {
-    // Clear hold timer
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
       this._holdTimer = null;
     }
 
-    // Reset state
     this._activePointerId = null;
     this._holdTriggered = false;
 
-    // Remove hold indicator if it exists
     if (this._holdIndicator) {
       Feedback.removeHoldIndicator(this._holdIndicator);
       this._holdIndicator = null;
@@ -715,49 +870,94 @@ class CalendarCardPro extends LitElement {
   setConfig(config: Partial<Types.Config>): void {
     const previousConfig = this.config;
 
-    // Inspect the raw config before the merge — afterwards every key is present and a
-    // removed one can no longer be told apart from one the user never wrote.
     for (const message of Config.findDeprecatedKeys(config)) {
       Logger.deprecation(message);
     }
 
-    const mergedConfig = { ...Config.DEFAULT_CONFIG, ...config };
+    // Deep rather than a plain spread: a nested block the user writes partly — a
+    // `weather:` naming only `entity:` — must keep the defaults for everything it does
+    // not mention, instead of blanking them. `mergeConfig` replaces arrays wholesale, so
+    // `entities:` still overwrites rather than merging into the default list.
+    const mergedConfig = Config.mergeConfig(
+      Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
+      config as Record<string, unknown>,
+    ) as unknown as Types.Config;
 
     this.config = mergedConfig;
     this.config.entities = Config.normalizeEntities(this.config.entities);
     Config.normalizeNumericOptions(this.config);
+    Config.normalizeLengthOptions(this.config);
+    ViewConfig.validateView(this.config);
+    ViewConfig.validateColumnOverrides(this.config);
 
-    // Generate deterministic ID for caching
+    // Column fitting is hysteretic: it holds the current answer inside a band so
+    // the layout does not oscillate. Discarding that state on every setConfig()
+    // re-fit the card from scratch, so an edit unrelated to layout could drop a
+    // measured column card back to the list view at an unchanged width and leave
+    // it there until the next resize. Only seed from a fit that a real
+    // measurement produced — the optimistic pre-measurement answer must not.
+    const seededFit = ViewConfig.resolveColumnFit(
+      this.config.view,
+      this.config,
+      this._measuredWidthPx,
+      this._measuredWidthPx === null
+        ? null
+        : { view: this._effectiveView, columns: this._columnCount },
+    );
+
+    this._effectiveView = seededFit.view;
+    this._columnCount = seededFit.columns;
+
     this._instanceId = Helpers.generateDeterministicId(
       this.config.entities,
       this.config.days_to_show,
-      this.config.show_past_events,
       this.config.start_date,
+      this.config.first_day_of_week,
     );
 
-    // Check if we need to reload data
     const configChanged = Config.hasConfigChanged(previousConfig, this.config);
     if (configChanged) {
       Logger.debug('Configuration changed, refreshing data');
       this.updateEvents(true);
+    } else if (Config.hasEntityProcessingChanged(previousConfig, this.config)) {
+      // A per-calendar edit that left every entity ID alone. The API request is
+      // unchanged, but the decoration derived from it — label, color, filters — is
+      // stamped onto each event at fetch time and shadows the live config, so the
+      // cached payload has to be run through processing again. `false` keeps this on
+      // the cache-hit path; without it a color tweak in the editor would appear to do
+      // nothing until the next scheduled refresh.
+      Logger.debug('Per-calendar configuration changed, reprocessing cached data');
+      this.updateEvents(false);
     }
 
-    // Restart the timer with new config
     this.startRefreshTimer();
   }
 
   /**
-   * Update calendar events from API or cache
-   * Simplified for card-mod compatibility
+   * Update calendar events from API or cache. Simplified for card-mod compatibility.
    */
   async updateEvents(force = false): Promise<void> {
     Logger.debug(`Updating events (force=${force})`);
 
-    // Skip update if no Home Assistant connection or no entities
+    // Take a ticket before anything can await. Any call that starts after this one
+    // supersedes it, and a superseded response must not touch card state — committing
+    // it would both show the previous calendar's events and stamp them with the current
+    // `_instanceId`, which makes `eventsMatchCurrentQuery` report true for a payload the
+    // current query never asked for.
+    const generation = ++this._eventRequestGeneration;
+    const isSuperseded = (): boolean => generation !== this._eventRequestGeneration;
+
+    // A retry is only ever armed because `hass` was missing. Now that it is present the
+    // retry has nothing left to do, and it would fire with `force = true` — bypassing the
+    // cache — 1.5 seconds after the card has already rendered.
+    if (this.safeHass && this._initialLoadRetryId) {
+      clearTimeout(this._initialLoadRetryId);
+      this._initialLoadRetryId = undefined;
+    }
+
     if (!this.safeHass || !this.config.entities.length) {
       this.isLoading = false;
       if (!this.safeHass) {
-        // Retry shortly to handle hass initialization timing
         if (this._initialLoadRetryId) {
           clearTimeout(this._initialLoadRetryId);
         }
@@ -765,26 +965,26 @@ class CalendarCardPro extends LitElement {
           this.updateEvents(true);
         }, 1500);
       } else {
-        // Home Assistant is available but no entities are configured, so no data
-        // will ever arrive. Leave the initial load state so `render()` falls
-        // through to the error card instead of showing "loading" indefinitely.
         this.isInitialLoad = false;
       }
       return;
     }
 
     try {
-      // Signal loading — initial load shows loading screen; background refresh shows spinner
       this.isLoading = true;
       await this.updateComplete;
 
-      // Get event data (from cache or API) using modularized function
       const { events: eventData, failedEntities } = await EventUtils.fetchEventData(
         this.safeHass,
         this.config,
         this._instanceId,
         force,
       );
+
+      if (isSuperseded()) {
+        Logger.debug('Discarding a superseded event response');
+        return;
+      }
 
       this._hasFetchError = failedEntities.length > 0;
       if (this._hasFetchError) {
@@ -795,17 +995,11 @@ class CalendarCardPro extends LitElement {
       this.isInitialLoad = false;
       await this.updateComplete;
 
-      // Keep whatever is already on screen when a refresh could not read any
-      // calendar and came back empty. Replacing good data with a blank card is a
-      // worse outcome than showing events that are a few minutes stale, and the
-      // next successful refresh overwrites them anyway. An empty result is only
-      // taken at face value when every calendar actually answered.
-      //
-      // Preserving is only valid while the events still answer the current
-      // question: `_instanceId` covers the entities, date range and past-event
-      // settings, so a config change makes the previous events stop counting as
-      // stale and start counting as wrong. Without that check, pointing a card at
-      // a broken entity would leave the old entity's events on screen forever.
+      if (isSuperseded()) {
+        Logger.debug('Discarding a superseded event response');
+        return;
+      }
+
       const eventsMatchCurrentQuery = this._eventsInstanceId === this._instanceId;
       const keepPreviousEvents =
         this._hasFetchError &&
@@ -820,14 +1014,15 @@ class CalendarCardPro extends LitElement {
         this._eventsInstanceId = this._instanceId;
       }
 
-      // Only a clean fetch counts as a completed update. Leaving the timestamp
-      // alone after a failure lets the visibility handler retry straight away
-      // instead of waiting out the refresh threshold.
       if (!this._hasFetchError) {
         this._lastUpdateTime = Date.now();
         Logger.info('Event update completed successfully');
       }
     } catch (error) {
+      if (isSuperseded()) {
+        Logger.debug('Ignoring a failure from a superseded event request');
+        return;
+      }
       Logger.error('Failed to update events:', error);
       this._hasFetchError = true;
       this.isLoading = false;
@@ -837,13 +1032,12 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Determine whether compact mode is actually limiting what the card renders.
-   *
-   * Mirrors the guards in `groupEventsByDay`: a limit counts as set when it is a
-   * finite number, not merely truthy. `compact_events_to_show: 0` is a valid
-   * configuration meaning "show nothing until expanded", and per-entity limits
-   * constrain the compact view even when no global limit is set.
    */
   private hasCompactModeLimits(): boolean {
+    if (!ViewConfig.viewAppliesCompactLimits(this.effectiveView)) {
+      return false;
+    }
+
     const isLimit = (value: unknown): boolean =>
       typeof value === 'number' && Number.isFinite(value);
 
@@ -870,7 +1064,6 @@ class CalendarCardPro extends LitElement {
    * Handle user action
    */
   handleAction(actionConfig: Types.ActionConfig): void {
-    // Determine action type based on which config matches
     const action = actionConfig === this.config.hold_action ? 'hold' : 'tap';
     Actions.handleAction(this, this.config, action, () => this.toggleExpanded());
   }
@@ -885,7 +1078,6 @@ class CalendarCardPro extends LitElement {
   render() {
     const customStyles = this.getCustomStyles();
 
-    // Create event handlers object for the card
     const handlers = {
       keyDown: (ev: KeyboardEvent) => this._handleKeyDown(ev),
       pointerDown: (ev: PointerEvent) => this._handlePointerDown(ev),
@@ -894,57 +1086,49 @@ class CalendarCardPro extends LitElement {
       pointerLeave: () => this._handlePointerCancel(),
     };
 
-    // Determine card content based on state
     let content: TemplateResult;
 
+    const renderDays = (days: Types.EventsByDay[]): TemplateResult =>
+      this.effectiveView === 'column'
+        ? Render.renderColumnGroupedEvents(
+            this._columnCount > 0 && this._columnCount < days.length
+              ? days.slice(0, this._columnCount)
+              : days,
+            this.effectiveConfig,
+            this.effectiveLanguage,
+            this.weatherForecasts,
+            this.safeHass,
+          )
+        : Render.renderGroupedEvents(
+            days,
+            this.effectiveConfig,
+            this.effectiveLanguage,
+            this.weatherForecasts,
+            this.safeHass,
+          );
+
     if (this.isInitialLoad) {
-      // Initial load — no data yet, show minimal loading screen
       content = Render.renderCardContent('loading', this.effectiveLanguage);
     } else if (!this.safeHass || !this.config.entities.length) {
-      // Error state - missing entities
       content = Render.renderCardContent('error', this.effectiveLanguage);
     } else if (this.events.length === 0 && this._hasFetchError) {
-      // Calendars could not be read and there is nothing to fall back on.
-      // "No upcoming events" would be a claim about the calendar's contents,
-      // which is precisely what the card failed to find out — so say that the
-      // calendar could not be read instead.
       content = Render.renderCardContent('error', this.effectiveLanguage);
-    } else if (this.events.length === 0) {
-      // Even with no events, use the regular groupEventsByDay function
-      // which now handles empty API results correctly
-      const groupedEmptyDays = EventUtils.groupEventsByDay(
-        [], // Empty events array
-        this.config,
-        this.isExpanded,
-        this.effectiveLanguage,
-      );
-      content = Render.renderGroupedEvents(
-        groupedEmptyDays,
-        this.config,
-        this.effectiveLanguage,
-        this.weatherForecasts,
-        this.safeHass,
-      );
     } else {
-      // Normal state with events - use renderGroupedEvents to handle week numbers and separators
-      content = Render.renderGroupedEvents(
-        this.groupedEvents,
-        this.config,
-        this.effectiveLanguage,
-        this.weatherForecasts,
-        this.safeHass,
-      );
+      // No separate empty-events branch: `groupedEvents` groups `this.events`, which is
+      // already the empty array in that case, with exactly the arguments a dedicated
+      // branch would pass. Column view's `show_empty_days` default still fills the card
+      // with empty day columns from here.
+      content = renderDays(this.groupedEvents);
     }
 
-    // Render main card structure with content
     return Render.renderMainCardStructure(
       customStyles,
       this.effectiveTitle,
       content,
       handlers,
-      false,
       this.isLoading,
       this.isTitlePending,
+      this.effectiveView,
     );
   }
 }
@@ -953,21 +1137,15 @@ class CalendarCardPro extends LitElement {
 // ELEMENT REGISTRATION
 //-----------------------------------------------------------------------------
 
-// Register the editor - main component registered by decorator
-customElements.define('calendar-card-pro-dev-editor', Editor.CalendarCardProEditor);
-
-// Create interface extending CustomElementConstructor to allow getStubConfig property
 interface CalendarCardConstructor extends CustomElementConstructor {
   getStubConfig?: typeof Config.getStubConfig;
 }
 
-// Expose getStubConfig for Home Assistant card picker preview
 const element = customElements.get('calendar-card-pro-dev');
 if (element) {
   (element as CalendarCardConstructor).getStubConfig = Config.getStubConfig;
 }
 
-// Register with HACS
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: 'calendar-card-pro-dev',
@@ -975,7 +1153,5 @@ window.customCards.push({
   preview: true,
   description: 'A calendar card that supports multiple calendars with individual styling.',
   documentationURL: 'https://github.com/alexpfau/calendar-card-pro',
-  // Offer this card in the picker's community suggestions for calendar entities.
-  // Ignored by Home Assistant versions older than 2026.6.
   getEntitySuggestion: Config.getEntitySuggestion,
 });

@@ -1,9 +1,8 @@
 /**
- * Action handling for Calendar Card Pro
+ * Action handling for Calendar Card Pro.
  *
- * Delegates standard actions to HA's built-in handler via `hass-action` event,
- * matching the approach used by Mushroom and other well-known custom cards.
- * Only card-specific actions (expand) are handled locally.
+ * Standard actions are delegated to Home Assistant via `hass-action`; only
+ * card-specific actions are handled locally.
  */
 
 import * as Types from '../config/types';
@@ -19,9 +18,7 @@ import * as Logger from '../utils/logger';
  * @param entities - Entity configuration array
  * @returns The primary entity ID or undefined if not available
  */
-export function getPrimaryEntityId(
-  entities: Array<string | Types.EntityConfig>,
-): string | undefined {
+function getPrimaryEntityId(entities: Array<string | Types.EntityConfig>): string | undefined {
   if (!entities || !entities.length) return undefined;
 
   const firstEntity = entities[0];
@@ -30,11 +27,6 @@ export function getPrimaryEntityId(
 
 /**
  * Handle an action by delegating to HA's native action handler.
- *
- * Card-specific actions like `expand` are handled locally.
- * All standard HA actions (more-info, navigate, url, call-service,
- * fire-dom-event, toggle, etc.) are forwarded via the `hass-action` event
- * so HA handles them natively — including browser_mod compatibility.
  *
  * @param node - Element that triggered the action
  * @param config - Card config containing tap_action, hold_action, and entity
@@ -50,14 +42,12 @@ export function handleAction(
   const actionConfig = action === 'hold' ? config.hold_action : config.tap_action;
   if (!actionConfig) return;
 
-  // Handle card-specific actions locally
   if (actionConfig.action === 'expand') {
     if (expandCallback) expandCallback();
     Logger.debug('Executed expand action');
     return;
   }
 
-  // Delegate all standard actions to HA's built-in handler
   const entityId = getPrimaryEntityId(config.entities);
   const hassActionConfig = {
     entity: entityId,

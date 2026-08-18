@@ -1,15 +1,17 @@
 {
-  "name": "calendar-card-pro-dev",
-  "version": "3.6.0",
+  "name": "calendar-card-pro",
+  "version": "4.0.0",
   "description": "Custom Home Assistant calendar card",
   "main": "dist/calendar-card-pro.js",
   "scripts": {
     "dev": "rollup -c --watch",
     "build": "cross-env NODE_ENV=prod rollup -c",
-    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' --fix --format stylish",
-    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
+    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts' 'scripts/**/*.mjs' --fix --format stylish",
+    "format": "prettier --write .",
+    "check:format": "prettier --check .",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:docs": "node scripts/check-docs.mjs",
+    "check:bundle": "node scripts/check-bundle.mjs",
     "test": "vitest run",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
@@ -17,7 +19,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/alexpfau/calendar-card-pro-dev.git"
+    "url": "https://github.com/alexpfau/calendar-card-pro.git"
   },
   "keywords": [
     "calendar",
@@ -31,7 +33,7 @@
   "author": "Alex Pfau",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/alexpfau/calendar-card-pro-dev/issues"
+    "url": "https://github.com/alexpfau/calendar-card-pro/issues"
   },
   "homepage": "https://calendar-card-pro.alexpfau.com",
   "devDependencies": {
@@ -61,7 +63,6 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "@material/web": "^2.4.1",
     "@mdi/js": "^7.4.47",
     "dayjs": "^1.11.20",
     "lit": "^3.3.2"

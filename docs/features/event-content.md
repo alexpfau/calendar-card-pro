@@ -131,6 +131,25 @@ entities:
     show_description: false # Hide descriptions for personal events
 ```
 
+## ✂️ Limiting Lines Per Field
+
+Long titles, times, locations and descriptions can each be capped to a fixed number of lines, after which the text is truncated with `...`. Each field has its own option, and `0` means unlimited (no clamp):
+
+```yaml
+title_max_lines: 1 # Keep every event title to a single line
+time_max_lines: 1 # Keep the time on one line
+location_max_lines: 2 # Allow locations up to two lines
+description_max_lines: 3 # Allow descriptions up to three lines
+```
+
+Each option is a line count, not a toggle: `1` shows one line then an ellipsis, `2` shows two lines, and so on. All four work in both list and column view, and each can be overridden inside a `column:` block to clamp differently per view:
+
+```yaml
+title_max_lines: 0 # Unlimited in list view
+column:
+  title_max_lines: 1 # But single-line in the denser column view
+```
+
 ## ⏳ Countdown Display
 
 Show how much time remains until an event starts with the countdown display feature:
@@ -156,7 +175,7 @@ When [`split_multiday_events`](/features/multi-day-events) is on, a multi-day ev
 Control visibility of events that have already occurred:
 
 ```yaml
-show_past_events: true # Show today's events that have already ended
+show_past_events: true # Show events that have already ended
 ```
 
 When enabled, past events appear with reduced opacity (60%) to visually distinguish them from upcoming events.
@@ -187,7 +206,7 @@ This styling helps users quickly distinguish weekend days from weekdays, making 
 
 Calendar Card Pro can display a progress bar for events that are currently running, showing how much of the event has completed.
 
-The progress bar appears in the same space as the countdown display (they're mutually exclusive - a countdown shows for future events, while a progress bar shows for running events). This provides a clean, visual indication of your event's progress without taking up additional space.
+A countdown and a progress bar are mutually exclusive: a countdown shows for events that have not started yet, a progress bar for events that are running now. No event ever shows both, which is why the two can share the same space in list view without competing.
 
 **To enable progress bars:**
 
@@ -202,6 +221,15 @@ show_progress_bar: true
 progress_bar_color: '#03a9f4'
 progress_bar_height: '10px'
 progress_bar_width: '80px'
+```
+
+`progress_bar_width` has no shipped default. Left unset, the bar sizes itself to where it is drawn: `60px` on the time row in list view, and 80% of the column width in [column view](/features/column-view#progress-bar-countdown), where it takes a row of its own. Setting a width replaces both, so a single value applies to every view — and a [column exception](/features/column-view#overriding-options-in-column-view) gives the two views different widths.
+
+```yaml
+show_progress_bar: true
+progress_bar_width: '80px' # list view
+column:
+  progress_bar_width: '100%' # column view only
 ```
 
 The progress bar is especially useful for tracking ongoing meetings, webinars, or appointments, giving you a quick visual reference of how much time remains.
