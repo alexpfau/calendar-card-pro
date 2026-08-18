@@ -1,5 +1,5 @@
 /**
- * Y18 — the multi-day all-day predicate.
+ * The multi-day all-day predicate.
  *
  * `presentation.ts` used to answer "is this a multi-day all-day event?" by searching the
  * *formatted* time string for a translated token (`multiDay` / `endsToday` /
@@ -63,7 +63,7 @@ function isoDaysFromToday(n: number): string {
   ).padStart(2, '0')}`;
 }
 
-describe('Y18: isMultiDayAllDayEvent', () => {
+describe('isMultiDayAllDayEvent', () => {
   it('has languages to test against (denominator)', () => {
     // A differential over an empty language list passes vacuously. Prove it is not empty
     // before believing any agreement it reports.
@@ -120,7 +120,8 @@ describe('Y18: isMultiDayAllDayEvent', () => {
       const single = allDay(isoDaysFromToday(0), isoDaysFromToday(1));
 
       // Reproduce the old matcher against a time string polluted with ordinary event text,
-      // which is exactly what `event.time` could contain in the shapes that motivated Y18.
+      // which is exactly what `event.time` could contain in the shapes that motivated
+      // replacing the string search with a structural predicate.
       const polluted = `${FormatUtils.formatEventTime(single, config, language)} ${t.multiDay}`;
       expect(polluted.includes(t.multiDay)).toBe(true); // old logic => true (wrong)
 

@@ -39,7 +39,8 @@ enough that people will otherwise get it wrong.
 `lint` covers **`src/`, `tests/` and `scripts/`**; `format` and `check:format` cover the
 **whole repo**. `scripts/` was outside both until v4 — 220 KB of logic that gates every PR,
 watched by nothing, which is how three of those files drifted out of prettier style
-unnoticed and how Y22 shipped. It is linted under a **second, weaker config block**, because
+unnoticed and how a typo'd global shipped in a gate. It is linted under a **second, weaker
+config block**, because
 these are plain Node ESM rather than TypeScript: prettier plus a handful of core correctness
 rules, no type-aware rules, and deliberately **no `no-undef`** — the scripts legitimately use
 Node globals, and declaring them would mean depending on a package that is not a direct

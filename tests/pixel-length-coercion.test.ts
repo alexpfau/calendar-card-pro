@@ -1,5 +1,5 @@
 /**
- * Y21 — a bare number written against a length-valued option.
+ * A bare number written against a length-valued option.
  *
  * Home Assistant's YAML parser types `day_spacing: 4` as a number. A number is not a CSS
  * length, so it reaches `styleMap` as `"4"`, the browser rejects the declaration, and the
@@ -53,7 +53,7 @@ const COLUMN_PIXEL_KEYS = Object.entries(View.COLUMN_DEFAULTS as unknown as Reco
   .filter(([, v]) => typeof v === 'string' && /^-?\d+(?:\.\d+)?px$/.test(v as string))
   .map(([k]) => k);
 
-describe('Y21 — pixel-length coercion', () => {
+describe('pixel-length coercion', () => {
   it('has a non-empty key set to test against', () => {
     // The denominator. Without this, every assertion below could pass over an empty list.
     expect(PIXEL_KEYS.length).toBeGreaterThan(10);
@@ -269,11 +269,11 @@ describe('Y21 — pixel-length coercion', () => {
 });
 
 /**
- * Y21b — the same bare number, reached through the visual editor rather than YAML.
+ * The same bare number, reached through the visual editor rather than YAML.
  *
- * Y21 fixed the YAML path only, because it assumed a bare number arrives typed as a
- * number. The editor renders these options as free-text fields, and `ha-form` hands a
- * text field's value back as a **string**. So typing `10` into Day Spacing stores
+ * The first fix covered the YAML path only, because it assumed a bare number arrives
+ * typed as a number. The editor renders these options as free-text fields, and `ha-form`
+ * hands a text field's value back as a **string**. So typing `10` into Day Spacing stores
  * `"10"`, which the number-only guard let straight through — the identical silent
  * failure, on the input path most users actually use, in a card whose own fix was
  * already in the file.
@@ -419,7 +419,7 @@ describe('Y21b — a bare number typed into an editor text field', () => {
   it('reaches the column override block', () => {
     // The override path resolves separately from `setConfig`, so a fix applied only to
     // normalization would leave `column: {day_spacing: "10"}` broken — which is the exact
-    // shape of the split that Y21 existed to close.
+    // shape of the split this file exists to close.
     const config = buildConfig({
       view: 'column',
       column: { day_spacing: '10' },

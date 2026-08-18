@@ -1,5 +1,5 @@
 /**
- * Y20 — the card's outer wrapper.
+ * The card's outer wrapper.
  *
  * `tests/list-dom.test.ts` renders `renderGroupedEvents`, which is the events table and
  * nothing around it. The wrapper `renderMainCardStructure` produces — the `ha-card`, its
@@ -65,7 +65,7 @@ function classes(el: Element): string[] {
   return (el.getAttribute('class') ?? '').split(/\s+/).filter((c) => c !== '');
 }
 
-describe('Y20 — the card wrapper', () => {
+describe('the card wrapper', () => {
   it('renders an ha-card containing the content it was given', () => {
     // The denominator: everything below asserts on this element, so prove it exists and
     // that the content argument actually reaches the DOM.

@@ -7,7 +7,7 @@ import { toStoredConfig } from '../src/rendering/editor/value';
 import { generateCustomPropertiesObject } from '../src/rendering/styles';
 
 /**
- * `progress_bar_width`, and why its default had to become absent (C5).
+ * `progress_bar_width`, and why its default had to become absent.
  *
  * The bar has two placements with genuinely different right answers. Sharing the time
  * row it wants to be small and fixed; owning a row of its own it wants to span that row.
@@ -83,7 +83,8 @@ describe('progress_bar_width', () => {
     });
 
     it('is eligible for a column override in the first place', () => {
-      // The mechanism the three cases above rest on, and the reason C5 needed no new
+      // The mechanism the three cases above rest on, and the reason the per-view
+      // placement needed no new
       // plumbing. The editor derives its exceptions widget from this list too, so
       // removing the key would take the option out of the UI as well as out of YAML.
       expect(COLUMN_OVERRIDE_KEYS).toContain('progress_bar_width');
