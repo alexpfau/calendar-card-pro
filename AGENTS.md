@@ -933,8 +933,8 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    - `import 'dayjs/locale/<code>';`
    - add the base code to the `supportedLocales` array inside `mapLocale()`
 5. `docs/contributing.md` — the supported-languages list **and the three hardcoded counts**
-   (see _Documenting a change_). The counts are prose, so nothing fails when they
-   are wrong; they drifted for three releases before anyone noticed. Count the editor
+   (see _Documenting a change_). `check:docs` reconciles these against the
+   files on disk, so a wrong count now fails the build instead of shipping. Count the editor
    languages as files **+ 1**, because US English lives in `strings.ts` and not in
    `translations/`; the answer is 11, not 9 and not 10.
 
