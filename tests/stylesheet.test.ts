@@ -230,6 +230,32 @@ describe('card stylesheet', () => {
       expect(declared('.summary', 'font-size')).toBe(declared('.event-title', 'font-size'));
       expect(declared('.summary', 'line-height')).toBe(declared('.event-title', 'line-height'));
     });
+
+    it('gives back the leading the strut used to contribute, in em', () => {
+      /*
+       * Tightening the strut also removed the only thing separating the title
+       * from the time row beneath it and from the top of the event -- measured
+       * against v3.6.0, 7.0px -> 4.0px above and 5.4px -> 2.8px below. The
+       * padding restores it: 0.2em is half of (22.4 - 16.8) at the v3.x default
+       * font, so a one-line title occupies what it always did while a wrapped
+       * one still gets shorter.
+       *
+       * The unit is load-bearing. A px value here would reinstate exactly the
+       * defect this section exists to fix -- spacing that does not track
+       * event_font_size -- so assert that it scales, not merely that it exists.
+       */
+      const pad = declared('.summary', 'padding-block');
+      expect(pad).toBe('0.2em');
+    });
+
+    it('compensates with padding-block, not the padding shorthand', () => {
+      // The :has() rules set padding-inline-start for glyph labels. The
+      // shorthand would reset it and un-hang every icon and image label.
+      expect(declared('.summary', 'padding')).toBe('');
+      for (const sel of ['.summary:has(> .label-icon)', '.summary:has(> .label-emoji)']) {
+        expect(declared(sel, 'padding-inline-start')).not.toBe('');
+      }
+    });
   });
 
   describe('per-field line clamping', () => {

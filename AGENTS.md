@@ -1079,10 +1079,11 @@ export function getView(config: Config): View {
 
 **Comment the stylesheets as freely as the TypeScript.** A `css` tagged template's contents
 are a string literal, so no minifier looks inside one — comments there used to ship to every
-user, and 46% of the stylesheet was comment. That is fixed at build time by the
+user, and half the stylesheet was comment. That is fixed at build time by the
 `strip-css-comments` plugin in `rollup.config.mjs`, which removes them from both
-`rendering/styles.ts` and `rendering/editor/styles.ts` and cost 15,214 raw / 5,889 gzip
-bytes off the eager path when it landed.
+`rendering/styles.ts` and `rendering/editor/styles.ts` and takes 18,176 raw / 7,016 gzip
+bytes off the eager path (51% of the stylesheet, measured at v4.0.0 by building with the
+plugin and again without it).
 
 This is worth stating because the alternative is worse than it looks: without knowing the
 plugin exists, the reasonable move is to keep CSS comments terse, and the reasoning in
