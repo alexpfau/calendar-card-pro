@@ -1,25 +1,38 @@
-/* eslint-disable import/order */
 /**
  * Event utilities for Calendar Card Pro
- *
  * Functions for fetching, processing, caching, and organizing calendar events
  */
 
-import * as Types from '../config/types';
-import * as Localize from '../translations/localize';
 import * as FormatUtils from './format';
-import * as Logger from './logger';
-import * as Constants from '../config/constants';
 import * as Helpers from './helpers';
-import { parseStartDateExpression } from './start-date';
+import * as Logger from './logger';
+import { isWeekRelative, parseStartDateExpression } from './start-date';
+import * as Constants from '../config/constants';
+import * as Types from '../config/types';
+import * as ViewConfig from '../config/view';
+import * as Localize from '../translations/localize';
 
 //-----------------------------------------------------------------------------
 // HIGH-LEVEL API FUNCTIONS
 //-----------------------------------------------------------------------------
 
 /**
+ * Raw fetches that have been started but not yet settled, keyed by cache key.
+ *
+ * Three independent paths start the first load — `setConfig()`, `connectedCallback()`
+ * and the `updated()` arm that fires when `hass` arrives — and Home Assistant assigns
+ * both the config and `hass` before it appends the card, so all three run before any
+ * of them has written the cache. Without this map one configured calendar produced
+ * three round-trips. The editor's two live previews are the same shape: they share a
+ * cache key by design, but a shared key only helps once an entry exists.
+ *
+ * Only the raw payload is shared. Each caller still processes it against its own live
+ * config, so joining a request never leaks another caller's display options.
+ */
+const inFlightRawFetches = new Map<string, Promise<Types.EventFetchResult>>();
+
+/**
  * Fetch calendar event data with caching support
- * This function handles both API fetching and cache retrieval
  *
  * @param hass Home Assistant instance
  * @param config Calendar card configuration
@@ -33,26 +46,20 @@ export async function fetchEventData(
   instanceId: string,
   force = false,
 ): Promise<Types.EventFetchResult> {
-  // The cache holds the *raw* API payload, so the key describes only what
-  // determines that payload: which calendars, over which window. Per-entity
-  // presentation (labels, colours, per-entity toggles) and processing options
-  // (filter_duplicates, allowlist/blocklist) are deliberately absent, because
-  // they are reapplied on every read below. A cache hit therefore reflects the
-  // live config rather than the config that happened to be active when the
-  // fetch ran.
+  // Resolved before the key is built, not after. `first_day_of_week: 'system'` is a
+  // single config string that resolves to a different weekday per user profile, so
+  // keying on the raw value gave a Sunday-start and a Monday-start week one shared
+  // cache entry whenever `start_date` was week-relative.
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hass.locale);
+
   const cacheKey = getBaseCacheKey(
     instanceId,
     config.entities,
     config.days_to_show,
-    config.show_past_events,
     config.start_date,
+    firstDayOfWeek,
   );
 
-  // Resolved before the cache check because both paths need them.
-  const language = Localize.getEffectiveLanguage(config.language, hass.locale);
-  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language);
-
-  // Try cache first
   const isManualPageReload = isManualPageLoad();
   if (!force) {
     const cachedEvents = getCachedEvents(cacheKey, config, isManualPageReload);
@@ -65,71 +72,79 @@ export async function fetchEventData(
     }
   }
 
-  // Fetch from API if needed
-  Logger.info('Fetching events from API');
-  const entities = config.entities.map((e) =>
-    typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
-  );
-
-  const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
-  const { events: fetchedEvents, failedEntities } = await fetchEvents(hass, entities, timeWindow);
-
-  // Cache the raw payload. This branch keys on the raw count rather than the
-  // processed one: an empty *fetch* is what warrants a short retry TTL, whereas
-  // a fetch that returned events which the current config happens to filter
-  // away is a complete answer and caches normally.
-  if (fetchedEvents.length > 0) {
-    cacheEvents(cacheKey, fetchedEvents);
-  } else if (failedEntities.length > 0) {
-    // Every event we might have had could be sitting behind a failed request.
-    // Caching this empty result would make a transient outage look like a
-    // genuinely empty calendar for the whole TTL, so leave the cache alone and
-    // let the next refresh retry the API.
-    Logger.warn(
-      `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
-    );
+  let rawFetch = inFlightRawFetches.get(cacheKey);
+  if (rawFetch) {
+    Logger.info('Joining an in-flight request for the same calendars and window');
   } else {
-    const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
-    Logger.info(
-      `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
-    );
-    cacheEvents(cacheKey, fetchedEvents, emptyTtlMs);
+    rawFetch = fetchRawEvents(hass, config, cacheKey, firstDayOfWeek);
+    inFlightRawFetches.set(cacheKey, rawFetch);
   }
+
+  const { events: fetchedEvents, failedEntities } = await rawFetch;
 
   return { events: processRawEvents(fetchedEvents, config, firstDayOfWeek), failedEntities };
 }
 
 /**
- * Apply the current configuration to a raw calendar payload.
+ * Perform one API round-trip and cache its raw payload.
  *
- * Both the cache-hit path and the freshly-fetched path route through here, so
- * the two provably agree: what the user sees after a refetch is what they see
- * on the next cache hit. Keeping this in one place is the whole point — the
- * previous shape cached *processed* events, which froze per-entity config into
- * the cache and left edits to labels, colours and per-entity toggles with no
- * visible effect until the entry expired.
+ * Returns the events exactly as the API supplied them; callers apply their own config.
+ * The in-flight entry is cleared in `finally` so a failure cannot pin a stale promise
+ * and block every later attempt at the same window.
  *
- * @param rawEvents Raw events, straight from the API or from the cache
+ * @param hass Home Assistant instance
  * @param config Calendar card configuration
- * @param firstDayOfWeek Resolved first day of week, used for the reference date
- * @returns Processed events, limited to the days_to_show window
+ * @param cacheKey Key under which to cache the raw payload
+ * @param firstDayOfWeek Resolved first day of the week, used to build the time window
+ * @returns Promise resolving to the raw events and any entities that failed
  */
+async function fetchRawEvents(
+  hass: Types.Hass,
+  config: Types.Config,
+  cacheKey: string,
+  firstDayOfWeek: number,
+): Promise<Types.EventFetchResult> {
+  try {
+    Logger.info('Fetching events from API');
+    const entities = config.entities.map((e) =>
+      typeof e === 'string' ? { entity: e, color: 'var(--primary-text-color)' } : e,
+    );
+
+    const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
+    const { events: fetchedEvents, failedEntities } = await fetchEvents(hass, entities, timeWindow);
+
+    if (fetchedEvents.length > 0) {
+      cacheEvents(cacheKey, fetchedEvents);
+    } else if (failedEntities.length > 0) {
+      Logger.warn(
+        `No events returned and ${failedEntities.length} calendar(s) failed to load; not caching empty result`,
+      );
+    } else {
+      const emptyTtlMs = Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS * 1000;
+      Logger.info(
+        `No events returned; caching empty result briefly (${Constants.CACHE.EMPTY_RESULTS_CACHE_DURATION_SECONDS}s)`,
+      );
+      cacheEvents(cacheKey, fetchedEvents, emptyTtlMs);
+    }
+
+    return { events: fetchedEvents, failedEntities };
+  } finally {
+    inFlightRawFetches.delete(cacheKey);
+  }
+}
+
 function processRawEvents(
   rawEvents: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
   firstDayOfWeek: number,
 ): Types.CalendarEventData[] {
-  // Process events according to configuration rules
   const processedEvents = processEvents(rawEvents, config);
 
-  // Additional check to enforce days_to_show as a hard limit from reference date
   const referenceDate = getStartDateReference(config, firstDayOfWeek);
   const limitDate = new Date(referenceDate);
   limitDate.setDate(limitDate.getDate() + config.days_to_show);
 
-  // Filter events to only include those within the days_to_show range
   return processedEvents.filter((event) => {
-    // Skip if event has no start information
     if (!event.start) return false;
 
     let eventDate: Date;
@@ -141,40 +156,134 @@ function processRawEvents(
       return false;
     }
 
-    // Include event only if it starts before the limit date
     return eventDate < limitDate;
   });
 }
 
 /**
- * Group events by day for display
+ * Drop events that are missing a start or an end.
  *
- * @param events - Calendar events to group
- * @param config - Card configuration
- * @param isExpanded - Whether the card is in expanded mode
- * @param language - Language code for translations
- * @returns Array of day objects containing grouped events
+ * Everything downstream — deduplication, grouping, multi-day splitting, sorting — reads
+ * `start` and `end` without checking they are there, because Home Assistant's calendar API
+ * is supposed to supply both. Whichever integration backs the entity actually produces the
+ * payload, though, so a malformed event does reach us in practice, and an exception thrown
+ * while grouping does not cost that one event a row: it costs the whole card, taking every
+ * other calendar's events down with it.
+ *
+ * Applied at both entry points, because they are reachable independently: the fetch path
+ * processes events before they are ever grouped, while `groupEventsByDay` deduplicates
+ * whatever it is handed before any of that filtering has run.
+ *
+ * @param events Events to check
+ * @returns Only those events with both a start and an end
  */
-export function groupEventsByDay(
+function keepWellFormedEvents(
+  events: ReadonlyArray<Types.CalendarEventData>,
+): Types.CalendarEventData[] {
+  return events.filter((event) => Boolean(event.start) && Boolean(event.end));
+}
+
+function deduplicateEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
+  enabled: boolean,
+): Types.CalendarEventData[] {
+  if (!enabled || events.length < 2) {
+    return events;
+  }
+
+  const seen = new Set<string>();
+  const keep = new Set<Types.CalendarEventData>();
+
+  for (const entityConfig of config.entities) {
+    const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
+
+    for (const event of events) {
+      if (event._entityId !== entityId) continue;
+
+      const signature = generateEventSignature(event);
+      if (seen.has(signature)) continue;
+
+      seen.add(signature);
+      keep.add(event);
+    }
+  }
+
+  return events.filter((event) => keep.has(event) || !seen.has(generateEventSignature(event)));
+}
+
+/**
+ * Group events by display day.
+ *
+ * @param rawEvents Calendar events to group
+ * @param rawConfig Card configuration, with or without the `column:` block applied
+ * @param isExpanded Whether the card is in expanded mode
+ * @param language Language code for date calculations
+ * @param effectiveView View currently being rendered
+ * @param hassLocale Home Assistant locale, so `first_day_of_week: system` can follow it
+ * @returns Day buckets containing the matching events
+ */
+export function groupEventsByDay(
+  rawEvents: Types.CalendarEventData[],
+  rawConfig: Types.Config,
   isExpanded: boolean,
   language: string,
+  effectiveView: Types.EffectiveView = 'list',
+  hassLocale?: { language?: string; first_weekday?: string },
 ): Types.EventsByDay[] {
-  // Use reference date from configuration instead of hardcoded "today"
+  // Resolved once, at the boundary, so every read below is view-aware without each
+  // one having to remember to ask for itself. Roughly a dozen override-capable
+  // options are read in this function and its helpers; when only some of them went
+  // through a resolver, the rest silently ignored the `column:` block for any caller
+  // that had not already applied it. Callers in `calendar-card-pro.ts` do pass the
+  // effective config, and this is a no-op on one — the resolver re-reads the same
+  // block and reaches the same answer — so this is here to make the function correct
+  // on its own terms rather than to fix a live defect.
+  const config = ViewConfig.resolveEffectiveConfig(rawConfig, effectiveView);
+
+  const events = deduplicateEvents(
+    keepWellFormedEvents(rawEvents),
+    config,
+    config.filter_duplicates,
+  );
+
+  const showEmptyDays = config.show_empty_days;
+
+  const compactLimitsApply = !isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
+
+  // Always run the splitter and let `shouldSplitEvent` decide per event, rather
+  // than gating the call on the card-level value. A per-entity
+  // `split_multiday_events: true` has to win over a card-level `false`, and a
+  // gate here would never consult it. In column view `viewForcesMultidaySplit`
+  // ignores the per-entity opt-out instead, so later days of a multi-day event
+  // cannot vanish from their columns.
+  const splitEvents = processMultiDayEvents(
+    events,
+    config,
+    ViewConfig.viewForcesMultidaySplit(effectiveView),
+  );
+
   const referenceDate = getStartDateReference(
     config,
-    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language),
+    FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale),
   );
   const referenceStart = new Date(referenceDate);
   const referenceEnd = new Date(referenceStart);
   referenceEnd.setHours(23, 59, 59, 999);
 
-  // Current time is still needed for past event filtering
+  // Upper bound of the configured window. Multi-day events are split into
+  // per-day segments just above, and a segment can land past the window when an
+  // event starts inside it but runs beyond. Splitting used to happen at fetch
+  // time, where `processRawEvents` trimmed those segments before they were ever
+  // grouped; now that it is view-scoped and happens here, the same bound has to
+  // be applied here. Without it `days_to_show` — a `.slice()` over days that
+  // have events, not a date range — would fill with days past the window.
+  const windowEnd = new Date(referenceStart);
+  windowEnd.setDate(windowEnd.getDate() + config.days_to_show);
+
   const now = new Date();
 
-  // Process events into initial days structure
-  const upcomingEvents = events.filter((event) => {
+  const upcomingEvents = splitEvents.filter((event) => {
     if (!event?.start || !event?.end) return false;
 
     const isAllDayEvent = !event.start.dateTime;
@@ -183,11 +292,9 @@ export function groupEventsByDay(
     let endDate: Date | null;
 
     if (isAllDayEvent) {
-      // Use special parsing for all-day events that preserves correct day
       startDate = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) : null;
       endDate = event.end.date ? FormatUtils.parseAllDayDate(event.end.date) : null;
 
-      // Adjust end date for all-day events (which is exclusive in iCal format)
       if (endDate) {
         const adjustedEndDate = new Date(endDate);
         adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
@@ -200,19 +307,31 @@ export function groupEventsByDay(
 
     if (!startDate || !endDate) return false;
 
-    // Use reference date instead of today for event filtering
+    // Upper window bound, segments only. Whole events are already bounded at
+    // fetch time by `processRawEvents`; segments are not, because they are
+    // created here rather than there. An event starting inside the window but
+    // running past it yields segments beyond the window, and `days_to_show` is
+    // a `.slice()` over days that have events rather than a date range, so
+    // those segments would push real days out of the card.
+    if (event._isMultiDaySegment && startDate >= windowEnd) return false;
+
+    // Only the third term below decides anything for events this card can actually
+    // receive. An event starting inside the window, or after it, necessarily also ends
+    // at or after the window start, so `isOngoingEvent` is already true in both cases —
+    // removing the first two leaves the whole suite green. They diverge only for an
+    // event whose end precedes its start: `keepWellFormedEvents` checks that `start` and
+    // `end` are present but not that they are ordered, so a malformed feed can still
+    // produce one, while nothing built here can — every multi-day segment ends at least
+    // a millisecond after it starts. Left in place rather than folded into one condition
+    // because dropping them would silently stop rendering those malformed events.
     const isEventOnOrAfterReference = startDate >= referenceStart && startDate <= referenceEnd;
     const isFutureEvent = startDate > referenceEnd;
     const isOngoingEvent = endDate >= referenceStart;
 
-    // Include events that:
-    // 1. Start on or after the reference date, OR
-    // 2. Started before reference date BUT are still ongoing
     if (!(isEventOnOrAfterReference || isFutureEvent || isOngoingEvent)) {
       return false;
     }
 
-    // Filter out ended events if not showing past events
     if (!config.show_past_events) {
       if (!isAllDayEvent && endDate < now) {
         return false;
@@ -222,10 +341,8 @@ export function groupEventsByDay(
     return true;
   });
 
-  // Always initialize the eventsByDay structure, regardless of whether we have events
   const eventsByDay: Record<string, Types.EventsByDay> = {};
 
-  // Process events into days (if any exist)
   if (upcomingEvents.length > 0) {
     upcomingEvents.forEach((event) => {
       const isAllDayEvent = !event.start.dateTime;
@@ -237,7 +354,6 @@ export function groupEventsByDay(
         startDate = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) : null;
         endDate = event.end.date ? FormatUtils.parseAllDayDate(event.end.date) : null;
 
-        // For all-day events, end date is exclusive in iCal format
         if (endDate) {
           const adjustedEndDate = new Date(endDate);
           adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
@@ -250,25 +366,18 @@ export function groupEventsByDay(
 
       if (!startDate || !endDate) return;
 
-      // Determine which day to display this event on, using reference date instead of today
       let displayDate: Date;
 
       if (startDate >= referenceStart) {
-        // Event starts on or after reference date: Display on start date
         displayDate = startDate;
       } else if (endDate.toDateString() === referenceStart.toDateString()) {
-        // Event ends on reference date: Display on reference date
         displayDate = referenceStart;
       } else if (startDate < referenceStart && endDate > referenceStart) {
-        // Multi-day event that started before reference date and continues after:
-        // Display on reference date
         displayDate = referenceStart;
       } else {
-        // Fallback (shouldn't happen given our filter): Display on start date
         displayDate = startDate;
       }
 
-      // Use displayDate for grouping instead of startDate
       const eventDateKey = FormatUtils.getLocalDateKey(displayDate);
       const translations = Localize.getTranslations(language);
 
@@ -306,33 +415,21 @@ export function groupEventsByDay(
     });
   }
 
-  // After creating eventsByDay, add week/month metadata
-  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, language);
+  const firstDayOfWeek = FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale);
 
-  // Add week and month metadata to each day
   Object.values(eventsByDay).forEach((day) => {
     const dayDate = new Date(day.timestamp);
 
-    // Use helper function to calculate week number with majority rule
     day.weekNumber = calculateWeekNumberWithMajorityRule(dayDate, config, firstDayOfWeek);
 
-    // Store month number for boundary detection
     day.monthNumber = dayDate.getMonth();
-
-    // Check if this is the first day of a month
-    day.isFirstDayOfMonth = dayDate.getDate() === 1;
-
-    // Check if this is the first day of a week
-    day.isFirstDayOfWeek = dayDate.getDay() === firstDayOfWeek;
   });
 
-  // Sort events within each day
   Object.values(eventsByDay).forEach((day) => {
     day.events.sort((a, b) => {
       const aIsAllDay = !a.start.dateTime;
       const bIsAllDay = !b.start.dateTime;
 
-      // All-day events should appear before timed events
       if (aIsAllDay && !bIsAllDay) return -1;
       if (!aIsAllDay && bIsAllDay) return 1;
 
@@ -350,40 +447,30 @@ export function groupEventsByDay(
         bStart = b.start.dateTime ? new Date(b.start.dateTime).getTime() : 0;
       }
 
-      // If both events are all-day events with the same start date, check entity order first
       if (aIsAllDay && bIsAllDay && aStart === bStart) {
-        // First, respect entity order from configuration
         const aEntityIndex = getEntityIndex(a._entityId, config);
         const bEntityIndex = getEntityIndex(b._entityId, config);
 
         if (aEntityIndex !== bEntityIndex) {
-          // Sort by entity order first
           return aEntityIndex - bEntityIndex;
         }
 
-        // For events from the same entity, sort alphabetically by summary (case insensitive)
         return (a.summary || '').localeCompare(b.summary || '', undefined, { sensitivity: 'base' });
       }
 
-      // Otherwise sort by start time
       return aStart - bStart;
     });
   });
 
-  // Sort days and determine effective days to show based on mode
-  const effectiveDaysToShow = isExpanded
-    ? config.days_to_show
-    : Math.min(config.compact_days_to_show || config.days_to_show, config.days_to_show);
+  const effectiveDaysToShow = compactLimitsApply
+    ? Math.min(config.compact_days_to_show || config.days_to_show, config.days_to_show)
+    : config.days_to_show;
 
-  // Get days in chronological order limited to effective days to show
   let days = Object.values(eventsByDay)
     .sort((a, b) => a.timestamp - b.timestamp)
     .slice(0, effectiveDaysToShow || 3);
 
-  // Apply entity-specific event limits first (pre-filtering)
-  // This happens before the global compact_events_to_show limit is applied
-  if (!isExpanded) {
-    // Use a map with a unique key per entity config (entityId + config index)
+  if (compactLimitsApply) {
     const entityConfigEventCounts = new Map<string, number>();
 
     for (const day of days) {
@@ -393,10 +480,8 @@ export function groupEventsByDay(
           filteredEvents.push(event);
           continue;
         }
-        // Use both entityId and config index for uniqueness
         const entityId = event._entityId;
         const matchedConfig = event._matchedConfig;
-        // Find the config index for this matchedConfig
         let configIdx = -1;
         if (matchedConfig) {
           configIdx = config.entities.findIndex(
@@ -406,9 +491,6 @@ export function groupEventsByDay(
           configIdx = config.entities.findIndex((e) => typeof e === 'string' && e === entityId);
         }
         const configKey = configIdx !== -1 ? `${entityId}__${configIdx}` : entityId || '';
-        // Get entity-specific compact_events_to_show (if set)
-        // Guard on the type rather than `=== undefined`: a non-numeric value would
-        // otherwise coerce to 0 below and drop every event for this entity (issue #327).
         const entityMaxEvents = matchedConfig?.compact_events_to_show;
         if (typeof entityMaxEvents !== 'number' || !Number.isFinite(entityMaxEvents)) {
           filteredEvents.push(event);
@@ -419,66 +501,78 @@ export function groupEventsByDay(
           filteredEvents.push(event);
           entityConfigEventCounts.set(configKey, currentCount + 1);
         }
-        // If limit reached, skip
       }
       day.events = filteredEvents;
     }
-    // Filter out days with no visible events unless show_empty_days is true
-    if (!config.show_empty_days) {
-      days = days.filter(
-        (day) => day.events.length > 0 && !(day.events.length === 1 && day.events[0]._isEmptyDay),
-      );
-    }
   }
 
-  // Apply events limit if configured and not expanded (compact mode event limiting)
-  if (!isExpanded) {
-    // Get the effective max events setting
+  if (!isExpanded && !showEmptyDays) {
+    days = days.filter(
+      (day) => day.events.length > 0 && !(day.events.length === 1 && day.events[0]._isEmptyDay),
+    );
+  }
+
+  // The `_isEmptyDay` guards below — and the matching term in the filter just above —
+  // are inert for every input this function can receive. Empty-day placeholders are
+  // synthesized further down, after compaction, so no day reaching this point carries
+  // one: both callers pass raw calendar events, never a previous grouping result.
+  // Replacing any of these conditions with a thrower leaves the whole suite green.
+  //
+  // They are kept because the two branches disagree about what should happen if that
+  // ordering ever changes: the complete-days branch drops empty days, since they never
+  // enter `daysStarted`, while the branch below keeps them and exempts them from the
+  // event budget. Deleting them would erase that divergence rather than settle it, so
+  // moving placeholder creation ahead of this block stays a deliberate decision with a
+  // chosen answer instead of a silent change in what the card renders.
+  if (compactLimitsApply) {
     const maxEvents = config.compact_events_to_show;
 
-    // Type guard mirrors the per-entity check above (issue #327): a non-numeric value
-    // must mean "no limit" rather than collapsing to 0 in the comparisons below.
     if (typeof maxEvents === 'number' && Number.isFinite(maxEvents)) {
       let filteredDays: Types.EventsByDay[] = [];
       let totalEventsShown = 0;
 
-      // Handle soft limit (complete days) mode
       if (config.compact_events_complete_days) {
         const daysStarted = new Set<string>();
 
-        // First pass - identify which days have at least one event that would be shown
         for (const day of days) {
-          // Skip empty days for counting purposes
           if (day.events.length === 1 && day.events[0]._isEmptyDay) {
             continue;
           }
 
-          // If we can show at least one event from this day
           if (totalEventsShown < maxEvents && day.events.length > 0) {
-            // Calculate how many events we would show from this day
             const eventsToShow = Math.min(day.events.length, maxEvents - totalEventsShown);
 
             if (eventsToShow > 0) {
-              // Mark this day as "started" and update our event counter
               daysStarted.add(FormatUtils.getLocalDateKey(new Date(day.timestamp)));
               totalEventsShown += eventsToShow;
             }
           }
         }
 
-        // Second pass - keep only the days we've started showing
         filteredDays = days.filter((day) => {
           const dayKey = FormatUtils.getLocalDateKey(new Date(day.timestamp));
           return daysStarted.has(dayKey);
         });
-      }
-      // Handle hard limit mode (standard behavior)
-      else {
+      } else {
         filteredDays = [];
 
-        // Process days until we hit our event limit
+        // The comparisons in this block are early exits, not decisions, and mutating
+        // them is unobservable — `totalEventsShown` is incremented by
+        // `slice(0, remainingEvents)`, so it reaches `maxEvents` and never exceeds it,
+        // which makes `>` false exactly where `>=` is true. Flipping one only stops the
+        // loop breaking early; the remaining days then compute `remainingEvents === 0`,
+        // push nothing, and the output is byte-identical. `totalEventsShown < maxEvents`
+        // above, `eventsToShow > 0`, `remainingEvents > 0` and the break's empty-day
+        // exemption are all equivalent for the same reason. Measured over a 1,279-row
+        // differential — 5 event layouts x 8 budgets x `show_empty_days` x
+        // `compact_events_complete_days` x 4 `compact_days_to_show` x `isExpanded` — at
+        // 0 differing rows, against 281 and 42 for two controls in the same block.
+        // Worth keeping as a real early exit; **no test can close them, so do not write
+        // one.** The `_isEmptyDay` operands are a separate matter: placeholders are
+        // created after this block, so that operand is dead today, and the tests in
+        // `compact-single-event-days.test.ts` pin the property that outlives the
+        // ordering rather than the ordering itself.
         for (const day of days) {
-          // If already at limit and this isn't an empty day, skip
           if (
             totalEventsShown >= maxEvents &&
             !(day.events.length === 1 && day.events[0]._isEmptyDay)
@@ -486,125 +580,84 @@ export function groupEventsByDay(
             break;
           }
 
-          // If this is an empty day with just a placeholder event, add it without counting
           if (day.events.length === 1 && day.events[0]._isEmptyDay) {
             filteredDays.push(day);
             continue;
           }
 
-          // Calculate how many more events we can show
           const remainingEvents = maxEvents - totalEventsShown;
 
-          // If we can show at least some events from this day
           if (remainingEvents > 0 && day.events.length > 0) {
-            // Create a copy of the day with only the events we can show
             const limitedDay: Types.EventsByDay = {
               ...day,
               events: day.events.slice(0, remainingEvents),
             };
 
-            // Add the limited day to our result and update our counter
             filteredDays.push(limitedDay);
             totalEventsShown += limitedDay.events.length;
           }
         }
       }
 
-      // Replace our days array with the filtered version
       days = filteredDays;
     }
   }
 
-  // Empty days generation - this section needs to handle BOTH cases:
-  // 1. When show_empty_days is true AND we have some events
-  // 2. When API returns no events (days array is empty)
-  if (config.show_empty_days || days.length === 0) {
+  if (showEmptyDays || days.length === 0) {
     const translations = Localize.getTranslations(language);
 
-    // Pick the placeholder text for every empty day the card renders.
-    //
-    // One option covers every empty state, because they are all the same thing
-    // underneath: a day row carrying an `_isEmptyDay` placeholder. That holds
-    // whether the placeholders fill gaps between event days, span the whole
-    // range because nothing is scheduled, or collapse to the single reference
-    // date row when `show_empty_days` is off (see the range logic below).
-    //
-    // Falls back to the translated default, so no new translation key is needed
-    // in any of the language files.
     const customEmptyText = config.empty_day_text;
     const hasCustomEmptyText = Boolean(customEmptyText);
     const emptyDayText = customEmptyText || translations.noEvents;
 
-    // Always start from the configured reference date
     const startDateForEmptyDays = new Date(referenceDate);
 
-    // Determine the end date for empty days generation based on mode and parameters
     let endDateForEmptyDays: Date;
 
-    // Generate start and end dates based on current mode
     if (isExpanded) {
-      // In expanded mode, always use the full configured range
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
     } else if (days.length === 0) {
-      // In compact mode with NO events at all:
-      // - If show_empty_days is true: Show empty days for full range
-      // - If show_empty_days is false: Show only reference date
-      if (config.show_empty_days) {
+      if (showEmptyDays) {
         endDateForEmptyDays = new Date(referenceDate);
         endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
       } else {
-        // When show_empty_days is false and there are no events,
-        // just show an empty day for the reference date
         endDateForEmptyDays = new Date(referenceDate);
       }
-    } else if (config.compact_days_to_show && !config.compact_events_to_show) {
-      // In compact mode with compact_days_to_show but no event limit
-      endDateForEmptyDays = new Date(referenceDate);
-      endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
-    } else if (config.compact_events_to_show) {
-      // In compact mode with events and compact_events_to_show
-      // Only generate empty days up to the last visible day with events
+    } else if (compactLimitsApply && config.compact_events_to_show) {
       if (days.length > 0) {
         const lastDayTimestamp = Math.max(...days.map((d) => d.timestamp));
         endDateForEmptyDays = new Date(lastDayTimestamp);
       } else {
-        // If no days with events, default to reference date
         endDateForEmptyDays = new Date(referenceDate);
       }
     } else {
-      // Default to full range
+      // Everything else pads to the full window, including a compact day limit with no
+      // event limit: `effectiveDaysToShow` has already been narrowed to that limit above,
+      // so that case needs no branch of its own. It used to have one, whose body was a
+      // byte-for-byte copy of this block, which read as a special case while doing nothing
+      // a reader could distinguish from the default.
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
     }
 
-    // Create a set of existing day keys for quick lookup
     const existingDayKeys = new Set(
       days.map((day) => FormatUtils.getLocalDateKey(new Date(day.timestamp))),
     );
 
-    // Create a combined array with both existing days and new empty days
     const allDays: Types.EventsByDay[] = [...days];
 
-    // Calculate the number of days between start and end dates
-    const dayDiff = Math.floor(
-      (endDateForEmptyDays.getTime() - startDateForEmptyDays.getTime()) / (24 * 60 * 60 * 1000),
-    );
+    const dayDiff = FormatUtils.getCalendarDayDiff(startDateForEmptyDays, endDateForEmptyDays);
 
-    // Generate empty days for any missing dates in the range
     for (let i = 0; i <= dayDiff; i++) {
       const currentDate = new Date(startDateForEmptyDays);
       currentDate.setDate(startDateForEmptyDays.getDate() + i);
 
-      // Create a date key for this day
       const dateKey = FormatUtils.getLocalDateKey(currentDate);
 
-      // Only add if we don't already have events for this day
       if (!existingDayKeys.has(dateKey)) {
-        // Use helper function to calculate week number with majority rule
         const weekNumber = calculateWeekNumberWithMajorityRule(currentDate, config, firstDayOfWeek);
 
-        // Create an empty day with a "fake" event
         const dayObj: Types.EventsByDay = {
           weekday: translations.daysOfWeek[currentDate.getDay()],
           day: currentDate.getDate(),
@@ -623,40 +676,26 @@ export function groupEventsByDay(
           ],
           weekNumber,
           monthNumber: currentDate.getMonth(),
-          isFirstDayOfMonth: currentDate.getDate() === 1,
-          isFirstDayOfWeek: currentDate.getDay() === firstDayOfWeek,
         };
 
         allDays.push(dayObj);
       }
     }
 
-    // Sort the combined days and limit to the effective days to show
     allDays.sort((a, b) => a.timestamp - b.timestamp);
     days = allDays;
   }
 
-  // Final limit to ensure we don't exceed effectiveDaysToShow
   return days.slice(0, effectiveDaysToShow);
 }
 
-/**
- * Helper function to get the entity index from the configuration
- * Used to maintain the order of events based on the entity order in the configuration
- *
- * @param entityId - Entity ID to find
- * @param config - Card configuration
- * @returns Numeric index of entity in the config (lower = higher priority)
- */
 function getEntityIndex(entityId: string | undefined, config: Types.Config): number {
   if (!entityId) return Number.MAX_SAFE_INTEGER;
 
-  // Find the entity in the configuration
   const index = config.entities.findIndex((e) =>
     typeof e === 'string' ? e === entityId : e.entity === entityId,
   );
 
-  // Return the found index or a large number if not found
   return index !== -1 ? index : Number.MAX_SAFE_INTEGER;
 }
 
@@ -664,53 +703,27 @@ function getEntityIndex(entityId: string | undefined, config: Types.Config): num
 // EVENT PROCESSING & FILTERING
 //-----------------------------------------------------------------------------
 
-/**
- * Process events according to configuration - handles duplicates and applies filters
- *
- * @param events Raw calendar events fetched from API
- * @param config Calendar card configuration
- * @returns Processed events with filters and duplicate handling applied
- */
 function processEvents(
   events: ReadonlyArray<Types.CalendarEventData>,
   config: Types.Config,
 ): Types.CalendarEventData[] {
   const processedEvents: Types.CalendarEventData[] = [];
-  // Set to track already handled events when filter_duplicates is true
-  const handledEventSignatures = config.filter_duplicates ? new Set<string>() : undefined;
 
-  // For each entity config (even if same entity), process independently
+  const wellFormed = keepWellFormedEvents(events);
+  const malformedCount = events.length - wellFormed.length;
+  if (malformedCount > 0) {
+    Logger.warn(
+      `Ignoring ${malformedCount} calendar event(s) missing a start or end; the calendar integration returned an incomplete payload`,
+    );
+  }
+
   config.entities.forEach((entityConfig) => {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
-    // Only consider events for this entity
-    const entityEvents = events.filter((event) => event._entityId === entityId);
+    const entityEvents = wellFormed.filter((event) => event._entityId === entityId);
     if (entityEvents.length === 0) return;
 
-    // Apply allowlist/blocklist for this config
-    let matchedEvents = filterEventsForEntity(entityEvents, entityConfig);
+    const matchedEvents = filterEventsForEntity(entityEvents, entityConfig);
 
-    // Remove events already handled by previous configs (if filter_duplicates)
-    matchedEvents = matchedEvents.filter((event) => {
-      if (!handledEventSignatures) return true;
-      const signature = generateEventSignature(event);
-      if (handledEventSignatures.has(signature)) return false;
-      handledEventSignatures.add(signature);
-      return true;
-    });
-
-    // Assign matched config and label for rendering.
-    //
-    // Copied rather than mutated. The input may be the raw payload held in the
-    // cache, and writing to it would bake this render's config into the cached
-    // events — reintroducing exactly the staleness that processing-on-read
-    // exists to remove. The `ReadonlyArray` parameter already declares this
-    // function does not own its input; that only covers the array, so the
-    // elements are copied here to make it true of them too.
-    //
-    // `_matchedConfig` is set on the copy *before* the label is derived from
-    // it, because `getEntityLabel` reads `event._matchedConfig` first
-    // (`getEntityLabel`, below). Deriving the label from `event` instead would
-    // silently read the previous config.
     const decoratedEvents = matchedEvents.map((event) => {
       const decorated: Types.CalendarEventData = {
         ...event,
@@ -723,36 +736,35 @@ function processEvents(
     processedEvents.push(...decoratedEvents);
   });
 
-  // Split multi-day events after all processing is complete
-  const finalEvents = processMultiDayEvents(processedEvents, config);
-
-  Logger.debug(`Processed ${finalEvents.length} events after filtering and splitting`);
-  return finalEvents;
+  // Multi-day splitting deliberately does NOT happen here. This runs against the
+  // raw card config, before the effective view is known, so splitting at this
+  // point bakes the top-level `split_multiday_events` into `this.events` and a
+  // view-scoped override can never undo it — `column: { split_multiday_events:
+  // false }` was silently defeated whenever the top-level value was `true`.
+  // `groupEventsByDay` resolves the option per view and splits there instead,
+  // which also avoids materialising segments that fall outside the window.
+  Logger.debug(`Processed ${processedEvents.length} events after filtering`);
+  return processedEvents;
 }
 
-/**
- * Process and split multi-day events based on configuration
- */
 function processMultiDayEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
+  ignorePerEntityOverride = false,
 ): Types.CalendarEventData[] {
   const result: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    // Skip if we shouldn't split this event
-    if (!shouldSplitEvent(event, config)) {
+    if (!shouldSplitEvent(event, config, ignorePerEntityOverride)) {
       result.push(event);
       continue;
     }
 
-    // Skip if not a multi-day event
     if (!isMultiDayEvent(event)) {
       result.push(event);
       continue;
     }
 
-    // Split multi-day event into segments
     const segments = splitMultiDayEvent(event);
     result.push(...segments);
   }
@@ -760,23 +772,17 @@ function processMultiDayEvents(
   return result;
 }
 
-/**
- * Check if an event spans multiple days
- */
 function isMultiDayEvent(event: Types.CalendarEventData): boolean {
   if (!event.start || !event.end) return false;
 
-  // Handle all-day events
   if (event.start.date && event.end.date) {
     const startDate = new Date(event.start.date);
-    // For all-day events, end date is exclusive in iCal format
     const endDate = new Date(event.end.date);
     endDate.setDate(endDate.getDate() - 1);
 
     return startDate.toDateString() !== endDate.toDateString();
   }
 
-  // Handle timed events
   if (event.start.dateTime && event.end.dateTime) {
     const startDate = new Date(event.start.dateTime);
     const endDate = new Date(event.end.dateTime);
@@ -787,12 +793,13 @@ function isMultiDayEvent(event: Types.CalendarEventData): boolean {
   return false;
 }
 
-/**
- * Check if event splitting should be applied based on configuration
- */
-function shouldSplitEvent(event: Types.CalendarEventData, config: Types.Config): boolean {
-  // Check entity-specific setting if available
+function shouldSplitEvent(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  ignorePerEntityOverride = false,
+): boolean {
   if (
+    !ignorePerEntityOverride &&
     event._entityId &&
     event._matchedConfig &&
     typeof event._matchedConfig.split_multiday_events !== 'undefined'
@@ -800,14 +807,9 @@ function shouldSplitEvent(event: Types.CalendarEventData, config: Types.Config):
     return event._matchedConfig.split_multiday_events;
   }
 
-  // Otherwise use global setting
   return config.split_multiday_events;
 }
 
-/**
- * Format a Date object to YYYY-MM-DD string format
- * This is the inverse of parseAllDayDate and preserves local date values
- */
 function formatAllDayDate(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -815,30 +817,21 @@ function formatAllDayDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/**
- * Split a multi-day event into daily segments
- */
 function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEventData[] {
   const segments: Types.CalendarEventData[] = [];
 
-  // Handle all-day events
   if (event.start.date && event.end.date) {
-    // Parse dates using the helper function that handles local dates properly
     const startDate = FormatUtils.parseAllDayDate(event.start.date);
     const endDate = FormatUtils.parseAllDayDate(event.end.date);
     endDate.setDate(endDate.getDate() - 1); // Adjust end date (exclusive in iCal)
 
-    // For each day in the range, create a segment
     for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-      // Format dates using our local-aware formatter
       const currentDateStr = formatAllDayDate(date);
 
-      // Create the next day for end date (exclusive end date)
       const nextDate = new Date(date);
       nextDate.setDate(nextDate.getDate() + 1);
       const nextDateStr = formatAllDayDate(nextDate);
 
-      // Create segment with proper all-day format
       const segment: Types.CalendarEventData = {
         ...event,
         start: { date: currentDateStr },
@@ -848,18 +841,22 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
 
       segments.push(segment);
     }
-  }
-  // Handle timed events
-  else if (event.start.dateTime && event.end.dateTime) {
+  } else if (event.start.dateTime && event.end.dateTime) {
     const startDateTime = new Date(event.start.dateTime);
     const endDateTime = new Date(event.end.dateTime);
 
-    // First day: start time to end of day
     const firstDayEnd = new Date(startDateTime);
     firstDayEnd.setHours(23, 59, 59, 999);
 
-    if (firstDayEnd < endDateTime) {
-      // First day segment
+    // An event that ends at exactly local midnight occupies no time on the following
+    // day, so it is not multi-day. Testing against the last millisecond of the start
+    // day treated it as one and pushed a zero-length segment (start === end) into the
+    // next day's bucket, which surfaced as a phantom entry there. Testing against the
+    // next day's first millisecond instead keeps the event whole and preserves the end
+    // time the user actually set, rather than truncating it to 23:59:59.999.
+    const nextDayStart = new Date(firstDayEnd.getTime() + 1);
+
+    if (nextDayStart < endDateTime) {
       const firstDaySegment: Types.CalendarEventData = {
         ...event,
         start: { dateTime: startDateTime.toISOString() },
@@ -868,7 +865,6 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
       };
       segments.push(firstDaySegment);
 
-      // Middle days: full days (if any)
       const middleStart = new Date(startDateTime);
       middleStart.setDate(middleStart.getDate() + 1);
       middleStart.setHours(0, 0, 0, 0);
@@ -881,7 +877,6 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         date < lastDayStart;
         date.setDate(date.getDate() + 1)
       ) {
-        // Format middle days as all-day events using our local-aware formatter
         const currentDateStr = formatAllDayDate(date);
         const nextDate = new Date(date);
         nextDate.setDate(nextDate.getDate() + 1);
@@ -889,7 +884,6 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
 
         const middleDaySegment: Types.CalendarEventData = {
           ...event,
-          // Create all-day event for middle days
           start: { date: currentDateStr },
           end: { date: nextDateStr },
           _isMultiDaySegment: true,
@@ -898,7 +892,6 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         segments.push(middleDaySegment);
       }
 
-      // Last day: start of day to end time
       const lastDaySegment: Types.CalendarEventData = {
         ...event,
         start: { dateTime: lastDayStart.toISOString() },
@@ -907,7 +900,6 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
       };
       segments.push(lastDaySegment);
     } else {
-      // Event doesn't cross midnight, keep as is
       segments.push({ ...event });
     }
   }
@@ -915,23 +907,16 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
   return segments;
 }
 
-/**
- * Filter events for a specific entity configuration
- * Applies allowlist/blocklist filters
- */
 function filterEventsForEntity(
   events: Types.CalendarEventData[],
   entityConfig: string | Types.EntityConfig,
 ): Types.CalendarEventData[] {
-  // Simple entity ID format has no filters
   if (typeof entityConfig === 'string') {
     return [...events];
   }
 
-  // Start with all events
   let matchedEvents = [...events];
 
-  // Apply allowlist if specified (has precedence over blocklist)
   if (entityConfig.allowlist) {
     try {
       const allowPattern = new RegExp(entityConfig.allowlist, 'i');
@@ -941,9 +926,7 @@ function filterEventsForEntity(
     } catch (error) {
       Logger.warn(`Invalid allowlist pattern: ${entityConfig.allowlist}`, error);
     }
-  }
-  // Apply blocklist if no allowlist was specified
-  else if (entityConfig.blocklist) {
+  } else if (entityConfig.blocklist) {
     try {
       const blockPattern = new RegExp(entityConfig.blocklist, 'i');
       matchedEvents = matchedEvents.filter(
@@ -957,30 +940,20 @@ function filterEventsForEntity(
   return matchedEvents;
 }
 
-/**
- * Generate a unique signature for an event based on summary, time, and location
- *
- * @param event Calendar event to generate signature for
- * @returns Unique string signature
- */
 function generateEventSignature(event: Types.CalendarEventData): string {
   const summary = event.summary || '';
   const location = event.location || '';
 
-  // Different handling for all-day vs timed events
   let timeSignature = '';
 
   if (event.start.dateTime) {
-    // For timed events, use ISO string representation
     const startTime = new Date(event.start.dateTime).getTime();
     const endTime = event.end.dateTime ? new Date(event.end.dateTime).getTime() : 0;
     timeSignature = `${startTime}|${endTime}`;
   } else {
-    // For all-day events, use date strings directly
     timeSignature = `${event.start.date || ''}|${event.end.date || ''}`;
   }
 
-  // Combine summary, time signature, and location into a unique signature
   return `${summary}|${timeSignature}|${location}`;
 }
 
@@ -989,41 +962,7 @@ function generateEventSignature(event: Types.CalendarEventData): string {
 //-----------------------------------------------------------------------------
 
 /**
- * Get entity color from configuration based on entity ID
- *
- * @param entityId - The entity ID to find color for
- * @param config - Current card configuration
- * @param event - Optional event data containing matched configuration
- * @returns Color string from entity config or default
- */
-export function getEntityColor(
-  entityId: string | undefined,
-  config: Types.Config,
-  event?: Types.CalendarEventData,
-): string {
-  if (!entityId) return 'var(--primary-text-color)';
-
-  // Check if we have a matched config stored directly on the event
-  if (event && event._matchedConfig) {
-    const matchedConfig = event._matchedConfig;
-    return matchedConfig.color || 'var(--primary-text-color)';
-  }
-
-  const entityConfig = config.entities.find(
-    (e) =>
-      (typeof e === 'string' && e === entityId) || (typeof e === 'object' && e.entity === entityId),
-  );
-
-  if (!entityConfig) return 'var(--primary-text-color)';
-
-  return typeof entityConfig === 'string'
-    ? 'var(--primary-text-color)'
-    : entityConfig.color || 'var(--primary-text-color)';
-}
-
-/**
  * Get entity accent color with applied opacity
- * Retrieves accent color from entity config and converts it to RGBA in one step
  *
  * @param entityId - The entity ID to find color for
  * @param config - Current card configuration
@@ -1039,12 +978,10 @@ export function getEntityAccentColorWithOpacity(
 ): string {
   if (!entityId) return 'var(--calendar-card-line-color-vertical)';
 
-  // Check if we have a matched config stored directly on the event
   let entityConfig;
   if (event && event._matchedConfig) {
     entityConfig = event._matchedConfig;
   } else {
-    // Find entity config the traditional way
     entityConfig = config.entities.find(
       (e) =>
         (typeof e === 'string' && e === entityId) ||
@@ -1052,19 +989,15 @@ export function getEntityAccentColorWithOpacity(
     );
   }
 
-  // Get base color - whether from entity config or from accent_color config
   const baseColor =
     typeof entityConfig === 'string'
       ? config.accent_color // Use accent_color for simple entity strings
       : entityConfig?.accent_color || config.accent_color;
 
-  // Explicitly check if opacity is undefined or 0
-  // If opacity is undefined, 0, or NaN, return the base color with no transparency
   if (opacity === undefined || opacity === 0 || isNaN(opacity)) {
     return baseColor;
   }
 
-  // Convert to RGBA with the specified opacity
   return Helpers.convertToRGBA(baseColor, opacity);
 }
 
@@ -1083,7 +1016,6 @@ export function getEntityLabel(
 ): string | undefined {
   if (!entityId) return undefined;
 
-  // Check if we have a matched config stored directly on the event
   if (event && event._matchedConfig) {
     return event._matchedConfig.label;
   }
@@ -1115,21 +1047,17 @@ export function getEntitySetting<K extends keyof Types.EntityConfig>(
 ): Types.EntityConfig[K] | undefined {
   if (!entityId) return undefined;
 
-  // Check if we have a matched config stored directly on the event
   if (event && event._matchedConfig) {
     return event._matchedConfig[settingName];
   }
 
-  // Find entity configuration
   const entityConfig = config.entities.find(
     (e) =>
       (typeof e === 'string' && e === entityId) || (typeof e === 'object' && e.entity === entityId),
   );
 
-  // Only object configurations can have entity-specific settings
   if (!entityConfig || typeof entityConfig === 'string') return undefined;
 
-  // Return the entity-specific setting
   return entityConfig[settingName];
 }
 
@@ -1145,7 +1073,6 @@ export function isEventCurrentlyRunning(event: Types.CalendarEventData): boolean
   const now = new Date();
   const isAllDayEvent = !event.start.dateTime;
 
-  // All-day events don't show a progress bar
   if (isAllDayEvent) return false;
 
   const startDateTime = event.start.dateTime ? new Date(event.start.dateTime) : null;
@@ -1153,7 +1080,6 @@ export function isEventCurrentlyRunning(event: Types.CalendarEventData): boolean
 
   if (!startDateTime || !endDateTime) return false;
 
-  // Event is running if current time is between start and end
   return now >= startDateTime && now < endDateTime;
 }
 
@@ -1173,7 +1099,6 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
   const totalDuration = endDateTime.getTime() - startDateTime.getTime();
   const elapsedTime = now.getTime() - startDateTime.getTime();
 
-  // Calculate percentage and ensure it's between 0-100
   const progressPercentage = Math.min(
     100,
     Math.max(0, Math.floor((elapsedTime / totalDuration) * 100)),
@@ -1188,13 +1113,6 @@ export function calculateEventProgress(event: Types.CalendarEventData): number |
 
 /**
  * Fetch calendar events from Home Assistant API
- *
- * A failure on one entity is logged and skipped rather than aborting the whole
- * fetch, so a single broken calendar cannot blank out the others. The entity
- * IDs that failed are returned alongside the events so callers can distinguish
- * "this calendar is empty" from "this calendar could not be read".
- *
- * @private Internal utility used by fetchEventData
  */
 export async function fetchEvents(
   hass: Types.Hass,
@@ -1204,11 +1122,9 @@ export async function fetchEvents(
   const allEvents: Types.CalendarEventData[] = [];
   const failedEntities: string[] = [];
 
-  // Create a Set to track which entity IDs we've already fetched
   const fetchedEntityIds = new Set<string>();
 
   for (const entityConfig of entities) {
-    // Skip entities we already fetched
     if (fetchedEntityIds.has(entityConfig.entity)) {
       continue;
     }
@@ -1234,7 +1150,6 @@ export async function fetchEvents(
 
       allEvents.push(...processedEvents);
 
-      // Mark this entity as fetched
       fetchedEntityIds.add(entityConfig.entity);
     } catch (error) {
       Logger.error(`Failed to fetch events for ${entityConfig.entity}:`, error);
@@ -1245,9 +1160,7 @@ export async function fetchEvents(
           'Available hass API methods:',
           Object.keys(hass).filter((k) => typeof hass[k as keyof Types.Hass] === 'function'),
         );
-      } catch {
-        // Silent
-      }
+      } catch {}
     }
   }
 
@@ -1276,48 +1189,51 @@ export function getTimeWindow(
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   };
 
-  // YAML turns an unquoted `start_date: +7` into the number 7, so coerce before
-  // doing any string work rather than throwing into the catch below.
   const rawStartDate = startDate === undefined || startDate === null ? '' : String(startDate);
 
-  // Parse custom start date if provided
   if (rawStartDate.trim() !== '') {
     try {
       const trimmed = rawStartDate.trim();
 
-      // First try the relative expression grammar (today+n, start_of_week, monday, …)
       const parsed = parseStartDateExpression(trimmed, firstDayOfWeek, new Date());
 
       if (parsed.kind === 'ok') {
         start = parsed.date;
-        Logger.info(`Resolved start_date "${trimmed}" to ${FormatUtils.getLocalDateKey(start)}`);
+
+        if (isNaN(start.getTime())) {
+          Logger.warn(
+            `start_date "${trimmed}" resolved outside the supported date range. Falling back to today.`,
+          );
+          start = today();
+        } else {
+          Logger.info(`Resolved start_date "${trimmed}" to ${FormatUtils.getLocalDateKey(start)}`);
+        }
       } else if (parsed.kind === 'error') {
-        // Recognised as our grammar but malformed — report precisely instead of
-        // letting it fall through and be mislabelled as a bad YYYY-MM-DD date.
         Logger.warn(`Invalid start_date "${trimmed}": ${parsed.message}. Falling back to today.`);
         start = today();
-      }
-      // Check if it's an ISO date string (which HA converts to when saving)
-      else if (trimmed.includes('T')) {
-        // Handle ISO format (e.g. "2025-03-14T00:00:00.000Z")
+      } else if (trimmed.includes('T')) {
         start = new Date(trimmed);
 
-        // Check if valid date
         if (isNaN(start.getTime())) {
           Logger.warn(`Invalid ISO date: ${trimmed}, falling back to today`);
           start = today();
         }
       } else {
-        // Handle YYYY-MM-DD format
         const [year, month, day] = trimmed.split('-').map(Number);
 
-        // Validate date components (month is 1-indexed in input, but 0-indexed in Date constructor)
         if (year && month && day && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
           start = new Date(year, month - 1, day);
 
-          // Double-check if date is valid (e.g., not Feb 30)
-          if (isNaN(start.getTime())) {
-            Logger.warn(`Invalid date: ${trimmed}, falling back to today`);
+          // `new Date(y, m - 1, d)` cannot fail on numbers this guard already bounded —
+          // it rolls a day past the end of its month forward instead, so `2025-02-30`
+          // becomes March 2 and an `isNaN` check here never fires. Reading the parts back
+          // is the only way to tell a real date from one JavaScript quietly moved.
+          if (
+            start.getFullYear() !== year ||
+            start.getMonth() !== month - 1 ||
+            start.getDate() !== day
+          ) {
+            Logger.warn(`Impossible date: ${trimmed}, falling back to today`);
             start = today();
           }
         } else {
@@ -1330,14 +1246,11 @@ export function getTimeWindow(
       start = today();
     }
   } else {
-    // Default to today if no valid start date provided
     start = today();
   }
 
-  // Make sure time is set to 00:00:00
   start.setHours(0, 0, 0, 0);
 
-  // Calculate end date based on start date
   const end = new Date(start);
   const days = parseInt(daysToShow.toString()) || 3;
   end.setDate(start.getDate() + days);
@@ -1347,19 +1260,15 @@ export function getTimeWindow(
 }
 
 /**
- * Determine if this is likely a manual page reload rather than an automatic refresh
- * Uses performance API to check navigation type when available
+ * Determine whether the current page load is a manual reload.
  *
- * @returns True if this appears to be a manual page load/reload
+ * @returns True when browser navigation metadata identifies a reload
  */
 export function isManualPageLoad(): boolean {
-  // Use the Performance Navigation API when available
   if (window.performance && window.performance.navigation) {
-    // navigation.type: 0=navigate, 1=reload, 2=back/forward
     return window.performance.navigation.type === 1; // reload
   }
 
-  // For newer browsers using Navigation API
   if (window.performance && window.performance.getEntriesByType) {
     const navEntries = window.performance.getEntriesByType('navigation');
     if (navEntries.length > 0 && 'type' in navEntries[0]) {
@@ -1367,7 +1276,6 @@ export function isManualPageLoad(): boolean {
     }
   }
 
-  // Default to false if we can't determine
   return false;
 }
 
@@ -1376,12 +1284,12 @@ export function isManualPageLoad(): boolean {
 //-----------------------------------------------------------------------------
 
 /**
- * Get cached event data if available and not expired
+ * Read cached event data if it is still valid.
  *
- * @param key - Cache key
- * @param config - Card configuration
- * @param isManualPageReload - Whether this check is during a manual page reload
- * @returns Cached events or null if expired/unavailable
+ * @param key Cache key
+ * @param config Card configuration
+ * @param isManualPageReload Whether this check happens during a manual reload
+ * @returns Cached events, or null when absent or expired
  */
 export function getCachedEvents(
   key: string,
@@ -1396,11 +1304,12 @@ export function getCachedEvents(
 }
 
 /**
- * Cache event data in localStorage
+ * Store event data in localStorage.
  *
- * @param key - Cache key
- * @param events - Calendar event data to cache
- * @returns Boolean indicating if caching was successful
+ * @param key Cache key
+ * @param events Calendar event data to cache
+ * @param ttlMs Optional entry-specific TTL in milliseconds
+ * @returns True when the entry can be read back
  */
 export function cacheEvents(
   key: string,
@@ -1429,34 +1338,36 @@ export function cacheEvents(
 
 /**
  * Generate a base cache key from configuration
- * This function creates a stable cache key that depends only on data-affecting parameters
+ * The key includes only API payload inputs; presentation and filtering options are
+ * reapplied after every cache read.
  *
  * @param instanceId - Component instance ID for uniqueness
  * @param entities - Calendar entities
  * @param daysToShow - Number of days to display
- * @param showPastEvents - Whether to show past events
- * @param startDate - Optional start date in YYYY-MM-DD format or ISO format
- * @param filterDuplicates - Whether duplicate filtering is enabled
+ * @param startDate - Optional start date in YYYY-MM-DD format, ISO format, or the
+ *   relative grammar (`start_of_week`, `monday+1w`, …)
+ * @param firstDayOfWeek - Resolved numeric first day of week (0 = Sunday), which moves
+ *   the window whenever `startDate` uses a week-relative expression. Numeric, not the
+ *   raw `first_day_of_week` string: `'system'` resolves to a different weekday per user
+ *   profile, so keying on the raw value gave two different windows one cache entry.
  * @returns Base cache key
  */
 export function getBaseCacheKey(
   instanceId: string,
   entities: Array<string | Types.EntityConfig>,
   daysToShow: number,
-  showPastEvents: boolean,
   startDate?: string,
+  firstDayOfWeek?: number,
 ): string {
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
     .sort()
     .join('_');
 
-  // Normalize ISO date format to YYYY-MM-DD for caching
   let normalizedStartDate = '';
   if (startDate) {
     try {
       if (startDate.includes('T')) {
-        // It's an ISO date, extract just the date part
         normalizedStartDate = startDate.split('T')[0];
       } else {
         normalizedStartDate = startDate;
@@ -1466,20 +1377,50 @@ export function getBaseCacheKey(
     }
   }
 
-  // Include the normalized startDate in the cache key
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
 
-  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}${Constants.VERSION.CURRENT}`;
+  // Asked of the grammar rather than restated here. A regex over the raw value drifted
+  // both ways: it matched `end_of_week`, which is not an anchor, and missed anything
+  // carrying whitespace, because `getTimeWindow` trims before parsing and this did not —
+  // so a quoted `" start_of_week"` was keyed as absolute while its window moved.
+  //
+  // Explicitly against `undefined`, not truthiness: Sunday resolves to 0, so a truthy
+  // test would drop it from the key and collide a Sunday-start week with "no weekday".
+  const firstDayPart =
+    isWeekRelative(normalizedStartDate) && firstDayOfWeek !== undefined
+      ? `_fdw${firstDayOfWeek}`
+      : '';
+
+  return `${Constants.CACHE.EVENT_CACHE_KEY_PREFIX}${instanceId}_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}${Constants.VERSION.CURRENT}`;
 }
 
 /**
- * Parse and validate cache entry
- * Helper function to ensure consistent cache validation
+ * Verify that a parsed cache payload has the shape the render path assumes.
  *
- * @param key - Cache key
- * @param config - Card configuration
- * @param isManualPageReload - Whether this check is during a manual page reload
- * @returns Valid cache entry or null if invalid/expired
+ * @param value Value parsed from localStorage
+ * @returns True when the value is a usable cache entry
+ */
+function isCacheEntryShape(value: unknown): value is Types.CacheEntry {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+
+  const candidate = value as Partial<Types.CacheEntry>;
+
+  if (typeof candidate.timestamp !== 'number' || !Number.isFinite(candidate.timestamp))
+    return false;
+  if (!Array.isArray(candidate.events)) return false;
+
+  return candidate.events.every(
+    (event) => typeof event === 'object' && event !== null && !Array.isArray(event),
+  );
+}
+
+/**
+ * Parse and validate a cache entry.
+ *
+ * @param key Cache key
+ * @param config Card configuration
+ * @param isManualPageReload Whether this validation happens during a manual reload
+ * @returns Valid cache entry, or null when missing, malformed or expired
  */
 export function getValidCacheEntry(
   key: string,
@@ -1490,20 +1431,31 @@ export function getValidCacheEntry(
     const item = localStorage.getItem(key);
     if (!item) return null;
 
-    const cache = JSON.parse(item) as Types.CacheEntry;
+    const parsed: unknown = JSON.parse(item);
+
+    // The cast alone trusted whatever the key held. Anything that survived
+    // JSON.parse was treated as an entry, so a stale shape from an older
+    // version — or a value written by something else — reached the render path.
+    // A string `events` was the worst of them: iterating it yields characters,
+    // so the card rendered garbage *and* counted the entry as a hit, which
+    // suppressed the refetch that would have repaired it. Reject the entry so
+    // the normal miss path refetches instead.
+    if (!isCacheEntryShape(parsed)) {
+      localStorage.removeItem(key);
+      Logger.warn(`Malformed cache entry removed for ${key}`);
+      return null;
+    }
+
+    const cache = parsed;
     const now = Date.now();
 
-    // Determine cache duration based on context
     let cacheDuration;
 
     if (typeof cache.ttlMs === 'number' && cache.ttlMs > 0) {
       cacheDuration = cache.ttlMs;
     } else if (isManualPageReload && config?.refresh_on_navigate) {
-      // Only apply short cache duration if refresh_on_navigate is enabled
-      // and this is a manual page reload/navigation
       cacheDuration = Constants.CACHE.MANUAL_RELOAD_CACHE_DURATION_SECONDS * 1000;
     } else {
-      // Otherwise use normal cache duration
       cacheDuration = getCacheDuration(config);
     }
 
@@ -1526,9 +1478,9 @@ export function getValidCacheEntry(
 }
 
 /**
- * Get refresh interval from config or use default
+ * Resolve the configured cache duration.
  *
- * @param config - Card configuration
+ * @param config Card configuration
  * @returns Cache duration in milliseconds
  */
 export function getCacheDuration(config?: Types.Config): number {
@@ -1539,48 +1491,31 @@ export function getCacheDuration(config?: Types.Config): number {
 // DATE HANDLING HELPERS
 //-----------------------------------------------------------------------------
 
-/**
- * Get the reference start date based on configuration or today
- * Used for both empty days generation and time window calculations
- *
- * @param config - Card configuration with optional start_date
- * @param firstDayOfWeek - Resolved first day of week (0 = Sunday, 1 = Monday)
- * @returns Date object representing the starting reference date
- */
 function getStartDateReference(config: Types.Config, firstDayOfWeek: number): Date {
-  // If start_date is configured, use it
   if (config.start_date && String(config.start_date).trim() !== '') {
-    // Reuse existing getTimeWindow function which already has date parsing logic
     const timeWindow = getTimeWindow(config.days_to_show, config.start_date, firstDayOfWeek);
     return timeWindow.start;
   }
 
-  // Otherwise use today as fallback
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
 }
 
 /**
- * Calculate week number with majority rule adjustment applied
- * Handles special case for ISO week numbers when Sunday is the first day of week
+ * Calculate the week number using the majority-day rule.
  *
- * @param date Date to calculate week number for
- * @param config Card configuration
- * @param firstDayOfWeek First day of week (0 = Sunday, 1 = Monday)
- * @returns Calculated week number with majority rule applied
+ * @param date Date to calculate from
+ * @param firstDayOfWeek First day of the week, where 0 is Sunday
+ * @returns Week number adjusted for majority ownership
  */
 export function calculateWeekNumberWithMajorityRule(
   date: Date,
   config: Types.Config,
   firstDayOfWeek: number,
 ): number | null {
-  // Basic week number calculation
   let weekNumber = FormatUtils.getWeekNumber(date, config.show_week_numbers, firstDayOfWeek);
 
-  // Apply "majority rule" for ISO week numbers when first day is Sunday
   if (config.show_week_numbers === 'iso' && firstDayOfWeek === 0 && date.getDay() === 0) {
-    // For Sunday with ISO week numbering, get the week number of the next day (Monday)
-    // This ensures we display the week number that applies to most days in the visible week
     const nextDay = new Date(date);
     nextDay.setDate(nextDay.getDate() + 1);
     weekNumber = FormatUtils.getISOWeekNumber(nextDay);

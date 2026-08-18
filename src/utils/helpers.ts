@@ -1,32 +1,20 @@
 /**
  * Helper utilities for Calendar Card Pro
  *
- * General purpose utility functions for debouncing, memoization,
- * performance monitoring, and other common tasks.
+ * General purpose utilities: color conversion, indicator and label type
+ * detection, ID generation and hashing, locale-aware formatting, config
+ * default filtering, and single-entry memoization.
  */
 
 //-----------------------------------------------------------------------------
 // COLOR UTILITIES
 //-----------------------------------------------------------------------------
 
-/**
- * Cache of resolved RGBA strings, keyed by `${color}|${opacity}`.
- *
- * Resolving a color requires a synchronous layout flush (see computeRGBA), which is
- * far too expensive to repeat for every event on every render. Colors and opacity both
- * come from the card configuration, so the number of distinct keys stays very small.
- *
- * Theme-dependent colors are not cached by value here: `var(...)` colors short-circuit
- * before any computed-style lookup and resolve to a CSS expression that the browser
- * re-evaluates itself, so a theme switch is still picked up correctly.
- */
+/** Resolved RGBA cache keyed by `${color}|${opacity}`; avoids repeated computed-style lookups. */
 const rgbaCache = new Map<string, string>();
 
 /**
  * Convert any color format to RGBA with specific opacity
- *
- * Results are memoized because the underlying color resolution forces a synchronous
- * reflow and this is called once per rendered event.
  *
  * @param color - Color in any valid CSS format
  * @param opacity - Opacity value (0-100)
@@ -45,52 +33,50 @@ export function convertToRGBA(color: string, opacity: number): string {
   return result;
 }
 
-/**
- * Resolve a color to RGBA, without caching.
- *
- * @param color - Color in any valid CSS format
- * @param opacity - Opacity value (0-100)
- * @returns RGBA color string
- */
 function computeRGBA(color: string, opacity: number): string {
-  // If color is a CSS variable, we need to handle it specially
   if (color.startsWith('var(')) {
-    // Create a temporary CSS variable with opacity
-    return `rgba(var(--calendar-color-rgb, 3, 169, 244), ${opacity / 100})`;
+    // `color-mix` rather than `rgba(...)`, because a `var()` reference cannot be taken
+    // apart into the three channel values `rgba()` needs. The previous form emitted
+    // `rgba(var(--calendar-color-rgb, 3, 169, 244), …)` against a variable this card
+    // defines nowhere and no theme knows about, so the literal fallback — which is the
+    // default `accent_color` `#03a9f4` — won every time. A themed `var(--primary-color)`
+    // silently rendered as the shipped blue, and the failure was invisible on a default
+    // config precisely because the two agree there.
+    //
+    // Mixing with `transparent` keeps the whole expression live, so it still follows a
+    // theme switch: nothing is resolved at call time, which matters because `rgbaCache`
+    // is module-level and never evicted. The stylesheet already applies transparency this
+    // way (the progress bar's track and the today outline), so this is the idiom the card
+    // uses everywhere else rather than a new dependency.
+    return `color-mix(in srgb, ${color} ${opacity}%, transparent)`;
   }
 
   if (color === 'transparent') {
     return color;
   }
 
-  // Create temporary element to compute the color
   const tempElement = document.createElement('div');
   tempElement.style.display = 'none';
   tempElement.style.color = color;
   document.body.appendChild(tempElement);
 
-  // Get computed color in RGB format
   const computedColor = getComputedStyle(tempElement).color;
   document.body.removeChild(tempElement);
 
-  // If computation failed, return original color
   if (!computedColor) return color;
 
-  // Handle RGB format (rgb(r, g, b))
   const rgbMatch = computedColor.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
   if (rgbMatch) {
     const [, r, g, b] = rgbMatch;
     return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
   }
 
-  // If already RGBA, replace the alpha component
   const rgbaMatch = computedColor.match(/^rgba\((\d+),\s*(\d+),\s*(\d+),\s*[\d.]+\)$/);
   if (rgbaMatch) {
     const [, r, g, b] = rgbaMatch;
     return `rgba(${r}, ${g}, ${b}, ${opacity / 100})`;
   }
 
-  // Fallback to original color if parsing fails
   return color;
 }
 
@@ -109,25 +95,12 @@ export function isIconValue(value: string): boolean {
 }
 
 /**
- * Checks if a string is an emoji
- *
- * @param str String to check
- * @returns True if the string is an emoji
- */
-export function isEmoji(str: string): boolean {
-  // Basic emoji detection using Unicode ranges
-  const emojiRegex = /[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/u;
-  return str.length <= 2 && emojiRegex.test(str);
-}
-
-/**
  * Determine the type of today indicator based on the value
  *
  * @param value The today_indicator value from config
  * @returns Type of indicator ('dot', 'pulse', 'glow', 'mdi', 'image', 'emoji', 'none')
  */
 export function getTodayIndicatorType(value: string | boolean): string {
-  // Handle boolean/undefined cases
   if (value === undefined || value === false) {
     return 'none';
   }
@@ -136,19 +109,15 @@ export function getTodayIndicatorType(value: string | boolean): string {
     return 'dot';
   }
 
-  // Handle string values
   if (typeof value === 'string') {
-    // Check for special values
     if (value === 'pulse' || value === 'glow') {
       return value;
     }
 
-    // Check for icon format (mdi:, phu:, fas:, hass:, etc.)
     if (isIconValue(value)) {
       return 'mdi';
     }
 
-    // Check for image path
     if (
       value.startsWith('/') ||
       value.includes('.png') ||
@@ -160,23 +129,65 @@ export function getTodayIndicatorType(value: string | boolean): string {
       return 'image';
     }
 
-    // Check if it's an emoji (this is an approximation)
-    // More sophisticated emoji detection could be added if needed
     const emojiRegex = /[\p{Emoji}]/u;
     if (emojiRegex.test(value)) {
       return 'emoji';
     }
 
-    // Default to dot for other strings
     return 'dot';
   }
 
   return 'none';
 }
 
-//-----------------------------------------------------------------------------
-// ID GENERATION FUNCTIONS
-//-----------------------------------------------------------------------------
+/**
+ * The four shapes a calendar's label can take
+ */
+export type LabelType = 'none' | 'icon' | 'image' | 'text';
+
+/**
+ * Narrow an unknown configuration value to a supported label shape.
+ *
+ * @param value Value read from the configuration
+ * @returns True when the value names one of the four label shapes
+ */
+export function isLabelType(value: unknown): value is LabelType {
+  return value === 'none' || value === 'icon' || value === 'image' || value === 'text';
+}
+
+/**
+ * Determine which of the four shapes a calendar's label value looks like
+ *
+ * @param label Label value from a calendar's configuration
+ * @returns Shape the value looks like ('none', 'icon', 'image' or 'text')
+ */
+export function getLabelType(label: unknown): LabelType {
+  if (typeof label !== 'string' || label === '') {
+    return 'none';
+  }
+
+  if (isIconValue(label)) {
+    return 'icon';
+  }
+
+  if (label.startsWith('/local/') || /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(label)) {
+    return 'image';
+  }
+
+  return 'text';
+}
+
+/**
+ * The shape a calendar's label holds, preferring what the configuration says over what
+ * the value itself looks like.
+ *
+ * @param label Label value from a calendar's configuration
+ * @param labelType Shape the configuration names, if it names one
+ * @returns The shape to render and to offer in the editor
+ */
+export function resolveLabelType(label: unknown, labelType?: unknown): LabelType {
+  return isLabelType(labelType) ? labelType : getLabelType(label);
+}
 
 /**
  * Generate a random instance ID
@@ -189,33 +200,31 @@ export function generateInstanceId(): string {
 
 /**
  * Generate a deterministic ID based on calendar config
- * Creates a stable ID that persists across page reloads
- * but changes when the data requirements change
  *
  * @param entities Array of calendar entities
  * @param daysToShow Number of days to display
- * @param showPastEvents Whether to show past events
  * @param startDate Optional custom start date
+ * @param firstDayOfWeek Raw `first_day_of_week` setting. Included because
+ *   `hasConfigChanged` treats it as fetch-affecting — a week-relative `startDate`
+ *   resolves to a different window when it changes — and the two must agree, or a
+ *   failed refresh keeps the previous window's events under the new identity.
  * @returns Deterministic ID string based on input parameters
  */
 export function generateDeterministicId(
   entities: Array<string | { entity: string; color?: string }>,
   daysToShow: number,
-  showPastEvents: boolean,
   startDate?: string,
+  firstDayOfWeek?: string,
 ): string {
-  // Extract just the entity IDs, normalized for comparison
   const entityIds = entities
     .map((e) => (typeof e === 'string' ? e : e.entity))
     .sort()
     .join('_');
 
-  // Normalize ISO date format to YYYY-MM-DD for caching
   let normalizedStartDate = '';
   if (startDate) {
     try {
       if (startDate.includes('T')) {
-        // It's an ISO date, extract just the date part
         normalizedStartDate = startDate.split('T')[0];
       } else {
         normalizedStartDate = startDate;
@@ -225,22 +234,19 @@ export function generateDeterministicId(
     }
   }
 
-  // Include the normalized startDate in the ID
   const startDatePart = normalizedStartDate ? `_${normalizedStartDate}` : '';
+  const firstDayPart = firstDayOfWeek ? `_fdw${firstDayOfWeek}` : '';
 
-  // Create a base string with all data-affecting parameters
-  const baseString = `calendar_${entityIds}_${daysToShow}_${showPastEvents ? 1 : 0}${startDatePart}`;
+  const baseString = `calendar_${entityIds}_${daysToShow}${startDatePart}${firstDayPart}`;
 
-  // Hash it for a compact, consistent ID
   return hashString(baseString);
 }
 
 /**
- * Simple string hash function for creating deterministic IDs
- * Converts a string into a stable hash value for use as an identifier
+ * Hash a string into a deterministic hexadecimal value.
  *
- * @param str - Input string to hash
- * @returns Alphanumeric hash string
+ * @param str String to hash
+ * @returns Hexadecimal hash string
  */
 export function hashString(str: string): string {
   let hash = 0;
@@ -249,7 +255,6 @@ export function hashString(str: string): string {
     hash = (hash << 5) - hash + char;
     hash = hash & hash; // Convert to 32bit integer
   }
-  // Convert to alphanumeric string
   return Math.abs(hash).toString(36);
 }
 
@@ -258,11 +263,39 @@ export function hashString(str: string): string {
 //-----------------------------------------------------------------------------
 
 /**
- * Determines whether to use 24-hour time format based on Home Assistant settings
+ * Instant used to probe a locale's hour cycle
  *
- * This function examines Home Assistant locale settings to determine the
- * appropriate time format. It handles explicit settings (24h/12h), language-based
- * preferences, and system preferences by checking browser/OS settings.
+ * 13:00 is the only hour that renders unambiguously: a 12-hour locale must emit
+ * a day period to distinguish it from 01:00, while a 24-hour locale never does.
+ */
+const HOUR_CYCLE_PROBE = new Date(2000, 0, 1, 13, 0, 0);
+
+/**
+ * Resolve whether a locale uses a 24-hour clock, using the platform's CLDR data
+ *
+ * Asks `Intl` whether formatting an afternoon hour emits a day period, rather
+ * than maintaining a language allowlist. This keeps regional variants correct
+ * (`en-GB` is 24-hour while `en-US` is not) and detects day periods written in
+ * non-Latin scripts (`el` renders `1 μ.μ.`, `zh-TW` renders `下午1時`), both of
+ * which a hand-maintained list and an `/AM|PM/` regex get wrong.
+ *
+ * @param locale - BCP 47 language tag
+ * @returns True for 24-hour, false for 12-hour, or undefined if detection failed
+ */
+function resolveIs24Hour(locale: string): boolean | undefined {
+  try {
+    const parts = new Intl.DateTimeFormat(locale, { hour: 'numeric' }).formatToParts(
+      HOUR_CYCLE_PROBE,
+    );
+
+    return !parts.some((part) => part.type === 'dayPeriod');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Determines whether to use 24-hour time format based on Home Assistant settings
  *
  * @param locale - Home Assistant locale object
  * @param fallbackTo24h - Whether to default to 24h format if detection fails
@@ -274,73 +307,44 @@ export function getTimeFormat24h(
 ): boolean {
   if (!locale) return fallbackTo24h;
 
-  // Handle different time_format values
+  const byLanguage = (): boolean =>
+    locale.language ? (resolveIs24Hour(locale.language) ?? fallbackTo24h) : fallbackTo24h;
+
   if (locale.time_format === '24') {
     return true;
   } else if (locale.time_format === '12') {
     return false;
   } else if (locale.time_format === 'language' && locale.language) {
-    // Use language to determine format
-    return is24HourByLanguage(locale.language);
+    return byLanguage();
   } else if (locale.time_format === 'system') {
-    // Handle 'system' setting by detecting browser/OS preference
-    try {
-      // Create a formatter without specifying hour12 option
-      const formatter = new Intl.DateTimeFormat(navigator.language, {
-        hour: 'numeric',
-      });
-      // Format afternoon time (13:00) and check if it has AM/PM markers
-      const formattedTime = formatter.format(new Date(2000, 0, 1, 13, 0, 0));
-      return !formattedTime.match(/AM|PM|am|pm/);
-    } catch {
-      // Default to language-based detection on error
-      return locale.language ? is24HourByLanguage(locale.language) : fallbackTo24h;
-    }
+    const systemLocale = typeof navigator === 'undefined' ? undefined : navigator.language;
+
+    return (systemLocale ? resolveIs24Hour(systemLocale) : undefined) ?? byLanguage();
   }
 
-  // Default to fallback value for other cases
   return fallbackTo24h;
+}
 
-  // Internal helper function for language-based detection
-  function is24HourByLanguage(language: string): boolean {
-    // Languages/locales that typically use 24h format
-    const likely24hLanguages = [
-      'de',
-      'fr',
-      'es',
-      'it',
-      'pt',
-      'nl',
-      'ru',
-      'pl',
-      'sv',
-      'no',
-      'fi',
-      'da',
-      'cs',
-      'sk',
-      'sl',
-      'hr',
-      'hu',
-      'ro',
-      'bg',
-      'el',
-      'tr',
-      'zh',
-      'ja',
-      'ko',
-    ];
-
-    // Extract base language code (e.g., 'de-AT' -> 'de')
-    const baseLanguage = language.split('-')[0].toLowerCase();
-
-    return likely24hLanguages.includes(baseLanguage);
-  }
+/**
+ * Narrows a value to a configuration block we can safely enumerate.
+ *
+ * YAML turns a key written with nothing after it into `null`, so `date:` alone on its
+ * line — an easy way to start a nested block and not finish it — reaches us as `null`
+ * rather than as a missing key, and a mistyped block arrives as a bare scalar. Arrays
+ * are objects too, so a `typeof` test alone lets one through to a walk that expects
+ * string keys. `Object.entries` throws on the first, silently enumerates the characters
+ * of the second and yields indices for the third, so all three have to be rejected
+ * before the value is walked.
+ *
+ * @param value - Any value read from a user-supplied configuration
+ * @returns True when the value is a plain object safe to enumerate
+ */
+export function isConfigBlock(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /**
  * Filter out default values from configuration
- * This helps avoid bloated YAML configuration by removing unnecessary properties
  *
  * @param config User configuration to filter
  * @param defaultConfig Default configuration to compare against
@@ -350,46 +354,34 @@ export function filterDefaultValues(
   config: Record<string, unknown>,
   defaultConfig: Record<string, unknown>,
 ): Record<string, unknown> {
-  // Skip filtering if config is not an object
-  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+  if (!isConfigBlock(config)) {
     return config;
   }
 
-  // Make a copy of the config to avoid mutating the original
-  const result = Array.isArray(config)
-    ? ([] as unknown as Record<string, unknown>)
-    : ({} as Record<string, unknown>);
+  const result: Record<string, unknown> = {};
 
-  // Process each property in the config
   for (const [key, value] of Object.entries(config)) {
-    // Skip undefined values
     if (value === undefined) {
       continue;
     }
 
-    // Special handling for show_week_numbers to allow null value through
     if (key === 'show_week_numbers' && (value === null || value === '')) {
       continue; // Filter out both null and empty string values for show_week_numbers
     }
 
-    // Special handling for entity arrays
     if (key === 'entities' && Array.isArray(value)) {
       result[key] = value;
       continue;
     }
 
-    // Special handling for weather config - preserve entire structure once defined
     if (key === 'weather' && typeof value === 'object' && value !== null) {
-      // Deep clone the weather config to preserve the full structure
       result[key] = structuredClone ? structuredClone(value) : JSON.parse(JSON.stringify(value));
       continue;
     }
 
-    // Check if this is a default value
     const isDefaultValue = defaultConfig && key in defaultConfig && defaultConfig[key] === value;
 
     if (!isDefaultValue) {
-      // For nested objects, recursively filter
       if (
         value !== null &&
         typeof value === 'object' &&
@@ -403,16 +395,48 @@ export function filterDefaultValues(
           defaultConfig[key] as Record<string, unknown>,
         );
 
-        // Only add the nested object if it has properties
         if (Object.keys(nestedResult).length > 0) {
           result[key] = nestedResult;
         }
       } else {
-        // Otherwise add the value directly
         result[key] = value;
       }
     }
   }
 
   return result;
+}
+
+//-----------------------------------------------------------------------------
+// MEMOIZATION
+//-----------------------------------------------------------------------------
+
+/**
+ * Wraps a function so it recomputes only when its arguments change
+ *
+ * @param fn - Function to memoize
+ * @returns A function returning `fn`'s last result while its arguments are unchanged
+ */
+export function memoizeLast<Args extends readonly unknown[], Result>(
+  fn: (...args: Args) => Result,
+): (...args: Args) => Result {
+  let lastArgs: Args | undefined;
+  let lastResult: Result;
+
+  return (...args: Args): Result => {
+    if (
+      lastArgs !== undefined &&
+      lastArgs.length === args.length &&
+      args.every((arg, index) => Object.is(arg, lastArgs![index]))
+    ) {
+      return lastResult;
+    }
+
+    const result = fn(...args);
+
+    lastArgs = args;
+    lastResult = result;
+
+    return result;
+  };
 }

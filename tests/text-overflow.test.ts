@@ -14,10 +14,10 @@ import { cardStyles } from '../src/rendering/styles';
  *    `.summary`'s min-content became `longestWord + 12px`, and every width inside that
  *    12px window rendered a full, untruncated title with a trailing ellipsis anyway.
  *
- * 2. `.description span` carries `overflow: hidden` unconditionally, for a
- *    `-webkit-line-clamp` that is `none` at the default. As a flex item that collapses
- *    `min-width: auto` to 0 (Flexbox 4.5), so it shrank below its longest word and
- *    clipped it mid-glyph -- with no ellipsis at all.
+ * 2. `.time span` / `.location span` / `.description span` carry `overflow: hidden`
+ *    unconditionally, for a `-webkit-line-clamp` that is `none` at the default. As flex
+ *    items that collapses `min-width: auto` to 0 (Flexbox 4.5), so they shrank below
+ *    their longest word and clipped it mid-glyph -- with no ellipsis at all.
  *
  * These assertions read the stylesheet rather than the DOM on purpose -- happy-dom does
  * no layout, so the overflow itself is not observable here. What is observable, and what
@@ -51,8 +51,8 @@ describe('title overflow', () => {
   });
 
   it('does not ellipsise .summary', () => {
-    // Titles are unbounded, so there is no limit for an ellipsis to signal. The card's
-    // one real truncation, description_max_lines, clamps instead -- see below.
+    // At the default title_max_lines there is no limit for an ellipsis to signal, and
+    // when it is set the ellipsis comes from -webkit-line-clamp on .event-title instead.
     expect(ruleBody('.summary')).not.toMatch(/text-overflow/);
   });
 
@@ -66,12 +66,20 @@ describe('title overflow', () => {
     expect(ruleBody('.summary')).toMatch(/overflow:\s*hidden/);
   });
 
-  it('leaves the description clamp -- the one real truncation -- intact', () => {
+  it('leaves the description clamp -- a real truncation -- intact', () => {
     // Not rule-scoped: .description span is declared twice, and all this needs to know
     // is that the clamp survives somewhere.
     expect(cardStyles.cssText).toMatch(
       /-webkit-line-clamp:\s*var\(--calendar-card-description-max-lines\)/,
     );
+  });
+
+  it('still clamps on .event-title when title_max_lines is set', () => {
+    // The clamp is the only remaining truncation path for a title, so it has to stay
+    // intact -- dropping text-overflow must not disable intentional truncation.
+    const body = ruleBody('.event-title');
+    expect(body).toMatch(/-webkit-line-clamp:\s*var\(--calendar-card-title-max-lines\)/);
+    expect(body).toMatch(/display:\s*var\(--calendar-card-title-display\)/);
   });
 });
 
@@ -79,11 +87,19 @@ describe('metadata row overflow', () => {
   const SHARED = '.time span,\n  .location span,\n  .description span';
 
   it('breaks an over-long word in time, location and description', () => {
-    // .description span is a flex item carrying overflow: hidden, which per Flexbox 4.5
-    // collapses min-width: auto to 0. Without break-word it shrinks below its longest
-    // word and clips it mid-glyph, with no ellipsis to signal the loss. .time and
-    // .location share the declaration so the three rows wrap alike.
+    // These spans are flex items carrying overflow: hidden, which per Flexbox 4.5
+    // collapses min-width: auto to 0. Without break-word they shrink below their longest
+    // word and clip it mid-glyph, with no ellipsis to signal the loss.
     expect(ruleBody(SHARED)).toMatch(/overflow-wrap:\s*break-word/);
+  });
+
+  it('still clamps each field when its max_lines option is set', () => {
+    // The clamps are what overflow: hidden is actually there for, and break-word must
+    // not disturb them. Unscoped on purpose: .description span is declared twice.
+    for (const field of ['time', 'location', 'description'])
+      expect(cardStyles.cssText).toMatch(
+        new RegExp(`-webkit-line-clamp:\\s*var\\(--calendar-card-${field}-max-lines\\)`),
+      );
   });
 
   it('keeps the gutter on the flex row, not on the span', () => {

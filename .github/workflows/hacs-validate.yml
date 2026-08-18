@@ -1,6 +1,48 @@
 name: HACS Validation
 
+# Runs on PRs as well as on `main`, because everything HACS validates is decided before a
+# merge and not after it. `hacs.json`, the repository description and topics, the release
+# assets' names — a mistake in any of them is a failed install for every user, and until
+# this ran pre-merge it could only be discovered once `main` already carried it. The
+# two-file split is the case that made this concrete: which files a release ships is now a
+# thing a PR can get wrong.
+#
+# The branch list mirrors ci.yml, for the reason documented there.
+#
+# A branch whose name ends in `tags` fails this workflow for a reason that has nothing to do
+# with the repository. HACS reads `hacs.json` and the README over the network from
+# raw.githubusercontent.com/{repo}/{ref}/{file}, and hacs/integration's base.py strips
+# `tags/` out of that URL unconditionally, to normalise release refs like `tags/v1.2.3`. The
+# fetch then 404s and both content checks report generic "invalid hacs.json" / "no images in
+# Readme" errors while the six metadata checks pass. Rename the branch — see AGENTS.md,
+# "Branch model".
+#
+# A GitHub incident produces the same shape, and that is the trap: those two content checks
+# are the only ones that need a network fetch, so anything degrading raw.githubusercontent.com
+# fails exactly what the branch-name bug fails. On 2026-08-17 — "archive downloads and raw
+# repository content downloads … approximate 50% error rate" — this workflow reported
+# "Repository structure for <branch> is not compliant" on a pull request touching only `src/`,
+# `tests/` and `docs/development/`, none of which HACS reads.
+#
+# **Settle it by running this workflow against `main`**, not by re-running the failed job:
+#
+#     gh workflow run hacs-validate.yml --ref main
+#
+# `main` is the ref HACS actually ships from, so it cannot be structurally non-compliant. If it
+# reports the same thing, the problem is not your branch. During that incident it did — "…for
+# refs/heads/main is not compliant" — which settled the question in one run.
+#
+# Retrying is the obvious move and it is not good enough: at a 50% error rate two consecutive
+# failures are a one-in-four coincidence, and this job failed **three times running** on one
+# unchanged commit that afternoon before the `main` control was tried. So "it failed twice, it
+# must be real" is worth nothing here. Renaming a branch is the expensive wrong move, because it
+# appears to work — the next run passes on its own and the rename takes the credit.
 on:
+  pull_request:
+    branches:
+      - main
+      - dev
+      - 'feature/**'
   push:
     branches:
       - main

@@ -5,6 +5,7 @@ import {
   DEPRECATED_CONFIG_MAP,
   findDeprecatedKeys,
   hasConfigChanged,
+  mergeConfig,
   normalizeEntities,
   normalizeNumericOptions,
   toValidNumber,
@@ -21,7 +22,6 @@ import type * as Types from '../src/config/types';
  * whole days. The failure is invisible — the card renders successfully, just
  * empty — so it is exactly the class of bug that needs a test rather than a soak.
  */
-
 describe('toValidNumber', () => {
   it('accepts plain numbers at or above the minimum', () => {
     expect(toValidNumber(5)).toBe(5);
@@ -226,12 +226,20 @@ describe('hasConfigChanged', () => {
   it.each([
     ['days_to_show', { days_to_show: 7 }],
     ['start_date', { start_date: '2026-01-01' }],
-    ['show_past_events', { show_past_events: true }],
-    ['filter_duplicates', { filter_duplicates: true }],
     ['refresh_interval', { refresh_interval: 60 }],
     ['entities', { entities: ['calendar.other'] }],
   ])('detects a change to %s', (_label, patch) => {
     expect(hasConfigChanged(base, { ...base, ...patch } as Types.Config)).toBe(true);
+  });
+
+  // Both are applied inside `groupEventsByDay`, which runs from an unmemoized getter
+  // on every render, and neither reaches `getTimeWindow`. Asking for a refresh spent a
+  // round-trip and a loading state to re-fetch a byte-identical payload.
+  it.each([
+    ['show_past_events', { show_past_events: true }],
+    ['filter_duplicates', { filter_duplicates: true }],
+  ])('does not request a refetch for the render-only option %s', (_label, patch) => {
+    expect(hasConfigChanged(base, { ...base, ...patch } as Types.Config)).toBe(false);
   });
 
   it('ignores entity reordering, which does not change the data fetched', () => {
@@ -306,5 +314,84 @@ describe('findDeprecatedKeys', () => {
   it('reports a top-level key set to a falsy value', () => {
     // `in` rather than truthiness: `row_spacing: 0` is still a setting being discarded.
     expect(findDeprecatedKeys({ row_spacing: 0 } as unknown as Types.Config)).toHaveLength(1);
+  });
+});
+
+/**
+ * Nested config blocks are filled in key by key, not replaced wholesale.
+ *
+ * `setConfig` used to build the effective config with `{ ...DEFAULT_CONFIG, ...config }`, so
+ * a `weather:` block naming only `entity:` arrived with `position`, `date` and `event` all
+ * `undefined` — even though each is published with a default. That produced two defects in
+ * v4 review and both were fixed at the symptom: `resolveWeatherPosition` centralised a
+ * `position` default the subscribe and render halves were resolving differently, and
+ * `isCustomized` had to treat an absent value as not-customized so the editor's Customized
+ * Only filter stopped flagging keys the user never wrote.
+ *
+ * The dangerous half of fixing the cause is the write path. `toStoredConfig` strips defaults
+ * back out when the editor saves, so filling them in on read without a matching strip would
+ * write every default into the user's YAML. That round trip is asserted here rather than
+ * assumed, because it is the failure that would be discovered by users rather than by CI.
+ */
+describe('mergeConfig fills nested blocks from the defaults', () => {
+  it('keeps the defaults a partial block does not mention', () => {
+    const merged = mergeConfig(DEFAULT_CONFIG as unknown as Record<string, unknown>, {
+      weather: { entity: 'weather.home' },
+    }) as unknown as Types.Config;
+
+    expect(merged.weather?.entity).toBe('weather.home');
+    expect(merged.weather?.position).toBe(DEFAULT_CONFIG.weather?.position);
+    expect(merged.weather?.date).toEqual(DEFAULT_CONFIG.weather?.date);
+    expect(merged.weather?.event).toEqual(DEFAULT_CONFIG.weather?.event);
+  });
+
+  it('fills a nested group in around the one option that was written', () => {
+    // Two levels down. The group has to survive as a whole, not be replaced by the single
+    // key the user named inside it.
+    const merged = mergeConfig(DEFAULT_CONFIG as unknown as Record<string, unknown>, {
+      weather: { entity: 'weather.home', event: { show_temp: false } },
+    }) as unknown as Types.Config;
+
+    expect(merged.weather?.event?.show_temp).toBe(false);
+    expect(merged.weather?.event?.icon_size).toBe(DEFAULT_CONFIG.weather?.event?.icon_size);
+    expect(merged.weather?.date).toEqual(DEFAULT_CONFIG.weather?.date);
+  });
+
+  it('replaces arrays wholesale instead of merging them', () => {
+    // The control that keeps the recursion honest. Merging `entities` element by element
+    // would leave a calendar the user deleted still configured.
+    const merged = mergeConfig({ entities: ['a', 'b', 'c'] }, { entities: ['x'] });
+
+    expect(merged.entities).toEqual(['x']);
+  });
+
+  it('lets a non-object value clear a block outright', () => {
+    // `weather: null` is a thing a user can write, and it has to mean "no weather" rather
+    // than "merge null into the defaults".
+    expect(
+      mergeConfig({ weather: { entity: undefined, position: 'date' } }, { weather: null }).weather,
+    ).toBeNull();
+  });
+
+  it('mutates neither input', () => {
+    const defaults = { weather: { position: 'date' } };
+    const overrides = { weather: { entity: 'weather.home' } };
+
+    mergeConfig(defaults, overrides);
+
+    expect(defaults).toEqual({ weather: { position: 'date' } });
+    expect(overrides).toEqual({ weather: { entity: 'weather.home' } });
+  });
+
+  it('rebuilds a block the user also wrote, so a frozen one is safe to normalize', () => {
+    // Home Assistant hands cards a frozen config. Before the merge went deep, a user's
+    // `weather:` reached the merged object by reference and writing into it threw.
+    const overrides = Object.freeze({ weather: Object.freeze({ entity: 'weather.home' }) });
+    const merged = mergeConfig(
+      DEFAULT_CONFIG as unknown as Record<string, unknown>,
+      overrides as unknown as Record<string, unknown>,
+    );
+
+    expect(Object.isFrozen(merged.weather)).toBe(false);
   });
 });

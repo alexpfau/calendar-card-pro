@@ -1,13 +1,13 @@
 {
   "daysOfWeek": ["Sun", "Mán", "Þri", "Mið", "Fim", "Fös", "Lau"],
   "fullDaysOfWeek": [
-    "Sunnudagur",
-    "Mánudagur",
-    "Þriðjudagur",
-    "Miðvikudagur",
-    "Fimmtudagur",
-    "Föstudagur",
-    "Laugardagur"
+    "sunnudagur",
+    "mánudagur",
+    "þriðjudagur",
+    "miðvikudagur",
+    "fimmtudagur",
+    "föstudagur",
+    "laugardagur"
   ],
   "months": ["Jan", "Feb", "Mar", "Apr", "Maí", "Jún", "Júl", "Ágú", "Sep", "Okt", "Nóv", "Des"],
   "allDay": "Allur dagurinn",

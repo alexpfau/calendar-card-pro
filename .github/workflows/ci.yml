@@ -1,10 +1,23 @@
 name: Build & Lint Checks
 
+# `main` and `dev` are the two branches the model in AGENTS.md says receive PRs, and for
+# a long time they were the only two listed here. That left long-lived integration
+# branches — the ones a release's worth of work is assembled on before it reaches `dev` —
+# taking PRs with no checks at all. `feature/column-view-v4` took 390 commits that way;
+# merged PR #409 into it has `check-runs=0`. Nothing in the PR UI says a branch is
+# unchecked, so the gap is invisible from exactly the place you would look for it.
+#
+# `feature/**` matches on the PR's *base* branch, so this covers PRs into any such branch
+# without depending on what the head branch is called. Note the residual case: an
+# integration branch named outside that prefix is still unchecked, and if one is ever
+# created the fix is to add it here, or to drop the filter entirely — under the branch
+# model this list can only ever exclude PRs that should have been checked.
 on:
   pull_request:
     branches:
       - main
       - dev
+      - 'feature/**'
 
 jobs:
   lint-build:
@@ -26,11 +39,57 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
 
+      # Two release-infra drifts that every other check is blind to, guarded before the
+      # install so they fail in seconds. `npm ci` validates dependencies but never the root
+      # version, and exits 0 when package.json and package-lock.json disagree — so a release
+      # that bumps package.json alone passes lint, tsc, the tests and the build (8 of the 10
+      # releases from v3.0.1 through v3.4.0 shipped with a stale lock version that way, and
+      # 31 of 37 tags overall). And CI pins Node from .nvmrc while the Cloudflare build image
+      # reads .node-version: two files that must
+      # agree for the pin above to mean anything. When they drift, CI and the deploy run
+      # different npm majors and the #404 failure returns invisibly — CI green, docs site
+      # stale, the only log in the Cloudflare dashboard.
+      - name: Check version and Node pinning consistency
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          LOCK=$(node -p "require('./package-lock.json').version")
+          LOCK_ROOT=$(node -p "require('./package-lock.json').packages[''].version")
+          if [ "$PKG" != "$LOCK" ] || [ "$PKG" != "$LOCK_ROOT" ]; then
+            echo "::error::Version drift — package.json=$PKG, package-lock.json=$LOCK, packages['']=$LOCK_ROOT. Fix with: npx npm@10.9.2 install --package-lock-only"
+            exit 1
+          fi
+          NVMRC=$(tr -d ' \r\n' < .nvmrc)
+          NODEVER=$(tr -d ' \r\n' < .node-version)
+          if [ "$NVMRC" != "$NODEVER" ]; then
+            echo "::error::.nvmrc ($NVMRC) and .node-version ($NODEVER) disagree. CI pins from .nvmrc, the Cloudflare build image reads .node-version; drift between them reintroduces the #404 npm-version mismatch."
+            exit 1
+          fi
+          # The two pin files agreeing is only worth something if every workflow actually
+          # reads them. release.yml hardcoded `node-version: 24` against a .nvmrc of 22 and
+          # nothing noticed, because the check above compares the files to each other and
+          # never to the workflows — so the job that runs `npm ci` and publishes the release
+          # was the one job on an untested npm major.
+          HARDCODED=$(grep -rlE '^[[:space:]]*node-version:' .github/workflows/ || true)
+          if [ -n "$HARDCODED" ]; then
+            echo "::error::Workflow(s) hardcode a Node version instead of node-version-file: .nvmrc — $HARDCODED. Pin from .nvmrc so every job runs the npm major the lockfile is maintained under."
+            exit 1
+          fi
+          echo "Consistent: v$PKG on Node $NVMRC"
+
       - name: Install dependencies
         run: npm ci
 
       - name: Lint
         run: npm run lint
+
+      # `npm run lint` runs eslint with `--fix`, and `prettier/prettier` is a fixable
+      # error rule — so a misformatted file is silently rewritten in the CI checkout and
+      # the step exits 0. Formatting has therefore never been gated, and eslint covers
+      # only `src/`, `tests/` and `scripts/` anyway: markdown, YAML and JSON were outside
+      # every check. Ten docs files had drifted, including the README and the release
+      # notes. This is the same failure that hit `scripts/` before v4 pulled it in.
+      - name: Check formatting
+        run: npm run check:format
 
       # AGENTS.md prescribes tsc --noEmit as a validation step, but it was never
       # enforced in CI. Rollup strips types without checking them, so a type error
@@ -65,21 +124,39 @@ jobs:
       - name: Check docs integrity
         run: npm run check:docs
 
+      # The converse of the step above, and the reason both exist. check:docs reads the
+      # markdown; this compiles the site the way Cloudflare does. Neither subsumes the
+      # other: a link to a heading that does not exist is caught here by check:docs and
+      # sails through vitepress build, while a broken docs/.vitepress/config.mts is
+      # invisible to check:docs, to lint, and to tsc --noEmit — docs/ is outside the
+      # tsconfig include — and fails only the real build.
+      #
+      # That gap mattered because the site deploys on push to main and nowhere else, so
+      # no pull request ever ran this command. A config error would pass every check
+      # here, merge, fail the Cloudflare build, and leave the site quietly serving the
+      # previous version — the same silent-stale-docs failure recorded in AGENTS.md for
+      # the npm-major drift, which the .nvmrc pinning check above now guards. Running
+      # the deploy's own build command is the strongest form of that guarantee, and it
+      # costs about two seconds.
+      - name: Build docs site
+        run: npm run docs:build
+
       - name: Build
         run: npm run build
 
-      # A sourceMappingURL comment in the bundle points at a .map that is never shipped
-      # (release.yml attaches only the .js, hacs.json pins that one filename), so every
-      # user's browser resolves it to a 404. This shipped for several releases before
-      # anyone traced it (#315, #358); the check is cheap, the symptom is silent.
-      - name: Verify no sourcemap references in bundle
-        run: |
-          if grep -q 'sourceMappingURL' dist/calendar-card-pro.js; then
-            echo "::error::dist/calendar-card-pro.js contains a sourceMappingURL comment. The .map file is not distributed, so this 404s in every user's browser. Check output.sourcemap in rollup.config.mjs."
-            exit 1
-          fi
-          if compgen -G 'dist/*.map' > /dev/null; then
-            echo "::error::Build emitted a sourcemap into dist/. Sourcemaps are not distributed; check output.sourcemap in rollup.config.mjs."
-            exit 1
-          fi
-          echo "Bundle is free of sourcemap references."
+      # The card ships as two self-contained files, and every way that can go wrong is
+      # silent at build time and fatal in a browser. Two matter most. HACS appends
+      # ?hacstag= to the registered resource and relative specifiers resolve with the
+      # query dropped, so a file importing the card back makes the browser evaluate the
+      # whole card twice — "NotSupportedError: the name has already been used with this
+      # registry", dead editor. Separate builds prevent it; merging them back into one
+      # with code-splitting brings it straight back, which is why this is a check and not
+      # a comment — the reference card that hit it first documented it as a comment in its
+      # Rollup config. And esbuild's target: 'es2017' lowers import.meta to `{}` unless
+      # told otherwise, which leaves the editor unloadable while typecheck, lint, tests
+      # and the build itself all pass.
+      #
+      # Also carries the sourcemap assertions this step used to hold inline (#315, #358):
+      # same rule, that we never ship a reference to a file we do not publish.
+      - name: Verify bundle integrity
+        run: npm run check:bundle

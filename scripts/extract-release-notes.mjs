@@ -2,10 +2,7 @@
 /**
  * Extract the release-notes section for a given version out of docs/RELEASE_NOTES.md.
  *
- * docs/RELEASE_NOTES.md is the curated, human-reviewed source of truth for what ships
- * in a release. The release workflow feeds this script's stdout straight into the
- * GitHub release body, so the notes maintainers actually wrote are the notes users
- * actually read — no copy-paste step, no divergence between the two.
+ * The release workflow feeds this script's stdout straight into the GitHub release body.
  *
  * The file is a reverse-chronological list of sections, each shaped like:
  *
@@ -18,13 +15,12 @@
  *   node scripts/extract-release-notes.mjs v3.2.1
  *   node scripts/extract-release-notes.mjs 3.2.1     # leading "v" optional
  *
- * Exits non-zero when the requested version has no section, so a release can never
- * silently ship with empty or wrong notes.
+ * Exits non-zero when the requested version has no section.
  */
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const HEADING = /^#\s+Calendar Card Pro\s+v(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\s*$/;
 
@@ -57,9 +53,7 @@ export function parseSections(markdown) {
 }
 
 /**
- * Drop the trailing `---` separator that divides one release from the next, plus any
- * surrounding blank lines. The separator is a file-level formatting artifact and has no
- * place in a standalone GitHub release body.
+ * Drop the trailing `---` separator and surrounding blank lines.
  *
  * @param {string[]} lines Raw lines of a single section, heading included.
  * @returns {string} Cleaned section body.

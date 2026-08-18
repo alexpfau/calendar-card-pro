@@ -43,7 +43,7 @@ The `start_date` option can be configured in multiple ways:
 
 ### Relative Expression Syntax
 
-Relative expressions are built from an **anchor** followed by any number of **operators**:
+Relative expressions are built from an **anchor** followed by up to eight **operators**:
 
 ```text
 <anchor>[<operator>...]

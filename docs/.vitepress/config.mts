@@ -42,10 +42,9 @@ export default defineConfig({
   // is worth having: the README's anchors could only ever be checked by hand.
   ignoreDeadLinks: false,
 
-  // Internal engineering docs live in the repo for contributors but must not
-  // deploy to the public site. column-view.md is a v4.0.0 design plan that
-  // states up front it is "not user documentation"; published, it was reachable
-  // and indexable, describing an unbuilt feature as though it existed.
+  // Internal engineering docs live in the repo for contributors but must not deploy to
+  // the public site: they are working notes, not user documentation, and a published one
+  // was reachable and indexable while describing an unbuilt feature as though it existed.
   srcExclude: ['development/**'],
 
   markdown: {
@@ -114,6 +113,7 @@ export default defineConfig({
         items: [
           { text: 'Visual Configuration Editor', link: '/features/editor' },
           { text: 'Core Settings', link: '/features/core-settings' },
+          { text: 'Column View', link: '/features/column-view' },
           { text: 'Event Content & Display', link: '/features/event-content' },
           { text: 'Layout & Appearance', link: '/features/layout-appearance' },
         ],

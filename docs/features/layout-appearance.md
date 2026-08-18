@@ -29,6 +29,33 @@ Both options provide:
 - Modern, clean scrollbars that only appear during hover/scrolling
 - Consistent behavior across desktop and mobile browsers
 
+### Height in Column View
+
+Both options work the same way when the card renders as columns, and both may be
+overridden inside a `column:` block. That matters more here than it looks: the same events
+laid out side by side are far shorter than they are stacked, so a `max_height` tuned for
+the list layout often never comes into play in column view — and one tuned for columns
+would truncate the list badly.
+
+```yaml
+view: column
+max_height: '600px'
+column:
+  max_height: '320px'
+```
+
+What scrolls is the **whole card**, not an individual day. The columns sit inside one
+scrolling area, so the day headers move together with their events and nothing scrolls out
+of alignment with its neighbors. The grid is exactly as tall as its tallest day, which
+means a quiet day leaves empty space beneath its last event rather than stretching to
+match — the events stay anchored under their header.
+
+::: tip Sizing From The Dashboard Instead
+Home Assistant's own layout controls (⋮ → **Edit** → **Layout**) can constrain the card
+too, and they scroll it the same way. Use them when a row height is precise enough;
+reach for `max_height` when you want an exact pixel value, or a different limit per view.
+:::
+
 ## 🎨 Visual Styling & Colors
 
 Customize the appearance of your calendar with various styling options:
@@ -66,12 +93,16 @@ event_spacing: '6px' # Internal padding within each event
 date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
 
 # Event icon alignment
-event_icon_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
+event_icon_vertical_alignment: 'middle' # Options: 'top', 'middle', 'bottom'
 ```
 
 The `date_vertical_alignment` option controls how dates align with their events, which is especially noticeable when a day has many events. The default `middle` option centers the date between its events, while `top` aligns it with the first event and `bottom` with the last event.
 
-`event_icon_vertical_alignment` does the same job one level down, for the small icons on an event's time, location and description rows. It only becomes visible when one of those wraps onto a second line: the default `middle` centers the icon against the whole block, while `top` lines it up with the first line of text.
+`event_icon_vertical_alignment` does the same job one level down, for the small icons on an event's time, location and description rows. It only becomes visible when one of those wraps onto a second line: the default `top` lines the icon up with the first line of text, while `middle` centers it against the whole block and `bottom` against the last line.
+
+::: warning Changed In v4
+This option defaulted to `middle` before v4. Rows wrap often enough — a long address, a description, or a time row carrying a [countdown](/features/column-view#progress-bar-countdown) in a narrow column — that centering left the icon level with neither line of text. Add `event_icon_vertical_alignment: 'middle'` to your card to keep the old behavior.
+:::
 
 ## 📅 Week Numbers & Visual Separators
 
@@ -114,6 +145,82 @@ Week numbers can be displayed using either:
 
 - **ISO Week Numbering**: Weeks start on Monday, and the first week of the year is the one containing the first Thursday (ISO 8601 standard)
 - **Simple Week Numbering**: Counts weeks starting from January 1st
+
+`first_day_of_week` decides where a week begins, which in turn drives week numbers, week separators and the `start_of_week` [start date](/features/start-date-offset). Its default, `system`, follows Home Assistant rather than the card: it uses the **First day of week** setting in your Home Assistant user profile, and when that is left at _Auto_ it falls back to the convention for your Home Assistant language — Monday for most, Sunday for languages such as English, Japanese, Hebrew and Brazilian Portuguese, Saturday for Arabic and Persian. Set `monday` or `sunday` explicitly to override Home Assistant for this card alone.
+
+::: warning Changed In v4
+Before v4, `system` always resolved to Monday and never consulted Home Assistant. If your Home Assistant profile or language implies a different week start, your week numbers and `start_of_week` anchor will shift once you upgrade. Set `first_day_of_week: 'monday'` to keep the old behavior.
+:::
+
+### Week Numbers in Column View
+
+In column view the badge moves into the day header, on its own row directly above the
+weekday, and each column answers for itself: a column that opens a week shows its number,
+and the rest show nothing. That is what makes the option coherent in a grid — a seven-day
+window can straddle two weeks, so a single badge spanning the card would have nowhere
+sensible to sit.
+
+The row is reserved in **every** column, not only the ones that start a week, so the
+weekday, day number and events below stay aligned across the whole card. When
+`show_week_numbers` is `null` — the default — no row is added at all.
+
+`show_current_week_number` keeps its meaning: set it to `false` to hide the badge on the
+first column, which is usually a partial week. All three styling options carry over
+unchanged, so a badge you have already tuned looks the same in both views.
+
+::: tip Per-View Week Numbers
+Every option in this section may be set inside a `column:` block, so you can leave week
+numbers off in the list layout and switch them on only when the card renders as columns.
+
+```yaml
+show_week_numbers: null
+column:
+  show_week_numbers: iso
+```
+
+:::
+
+### Separators in Column View
+
+The three separators keep their meaning in column view, but rotate: instead of horizontal
+lines between stacked days, they are **vertical rules in the gaps between day columns**.
+The precedence is unchanged — month beats week beats day — and every width still defaults
+to `0px`, so a card that shows no lines in the list layout shows none as columns either.
+
+Each rule runs the full height of the grid, from the top of the day headers to the bottom
+of the busiest column, so a run of them reads as a set of dividers rather than as ragged
+marks of differing lengths. Switching week numbers on is the one exception, covered below.
+
+Two details differ from the list layout:
+
+- **Spacing multipliers are not applied.** In the list a week separator carries more
+  breathing room than a day separator, and a month separator more again. In a grid the gap
+  between columns is a single uniform `day_spacing`, so a rule sits centered in that gap
+  whatever its kind. Use width and color to signal the hierarchy.
+- **Week numbers do not imply a week separator, but they do shorten the day rule.** In the
+  list layout, switching week numbers on suppresses the day line at a week boundary,
+  because the week-number row physically occupies that slot. Column view has no such
+  collision — the badges sit in a band of their own above the columns, the rules sit
+  between columns — so the day rule stays put and the run of dividers remains regular.
+
+  What does change is how far up each rule reaches. A week number labels a whole week, so
+  a day rule carried past it would appear to cut one day out of the label it belongs to.
+  Day rules therefore stop level with the top of the weekday names, while week and month
+  rules continue up through the badge — which is the boundary they actually mark. With
+  week numbers off the badge row has no height and all three kinds are the same length
+  again.
+
+::: tip Heavier Rules Between Columns
+A hairline reads well between stacked rows but can disappear against a full-height column.
+Set the widths independently per view when that happens:
+
+```yaml
+day_separator_width: '1px'
+column:
+  day_separator_width: '2px'
+```
+
+:::
 
 ## 📆 Date Column Customization
 
@@ -187,6 +294,10 @@ Available indicator types:
 - Image path: Any image URL or local path
 
 The `today_indicator_position` option accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
+
+::: tip Column View Places It For You
+`today_indicator_position` applies in list view only. A column header is as wide as the whole column with its date flush left, so a percentage that works beside a narrow date column lands on top of the day number instead — and a value far enough right ends up closer to the next day than to today. Rather than ask you to calibrate a percentage against your column width, column view puts the indicator immediately before the weekday, giving an unmistakable marker whatever the column measures. Every other indicator option — the type, `today_indicator_size` and `today_indicator_color` — works the same in both views.
+:::
 
 `today_indicator_size` scales every indicator type — it sets the icon size, the emoji font size and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors.
 

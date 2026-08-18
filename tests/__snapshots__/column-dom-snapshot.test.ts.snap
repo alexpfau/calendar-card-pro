@@ -1,0 +1,2119 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`column view DOM > renders a single day 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>"
+`;
+
+exports[`column view DOM > renders a single event 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>"
+`;
+
+exports[`column view DOM > renders day, week and month separators 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(20, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day weekend " style="grid-column:4;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Sat
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      20
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day weekend " style="grid-column:5;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Sun
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      21
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:6;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Mon
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      22
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:7;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Tue
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      23
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:8;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      24
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:9;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      25
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:10;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      26
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day weekend " style="grid-column:11;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Sat
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      27
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day weekend " style="grid-column:12;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Sun
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      28
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:13;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Mon
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      29
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:14;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Tue
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      30
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:15;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      1
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jul
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:16;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      2
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jul
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:17;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      3
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jul
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day weekend " style="grid-column:18;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Sat
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      4
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jul
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day weekend " style="grid-column:19;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Sun
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      5
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jul
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:20;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Mon
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      6
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jul
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="column-separator column-separator-day" style="grid-column:2;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:3;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:4;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:5;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-week" style="grid-column:6;grid-row:1 / -1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:7;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:8;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:9;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:10;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:11;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:12;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-week" style="grid-column:13;grid-row:1 / -1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:14;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-month" style="grid-column:15;grid-row:1 / -1;width:3px;background-color:var(--primary-text-color);margin-inline-start:calc(-0.5 * (10px + 3px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:16;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:17;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:18;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-day" style="grid-column:19;grid-row:2;width:1px;background-color:var(--secondary-text-color);margin-inline-start:calc(-0.5 * (10px + 1px));"></div>
+<div class="column-separator column-separator-week" style="grid-column:20;grid-row:1 / -1;width:2px;background-color:#03a9f450;margin-inline-start:calc(-0.5 * (10px + 2px));"></div>
+</div>"
+`;
+
+exports[`column view DOM > renders past events 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle past-event " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Past standup
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>8:00 AM - 9:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>"
+`;
+
+exports[`column view DOM > renders the default configuration 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>"
+`;
+
+exports[`column view DOM > renders the optional content rows 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class="column-week-number" style="grid-column:1;grid-row:1;">
+<div class="week-number">25</div>
+</div>
+<div class="column-week-number" style="grid-column:2;grid-row:1;visibility:hidden;">
+<div class="week-number">25</div>
+</div>
+<div class="column-week-number" style="grid-column:3;grid-row:1;visibility:hidden;">
+<div class="week-number">25</div>
+</div>
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="progress-bar progress-bar-row">
+<div class="progress-bar-filled" style="width: 33%"></div>
+</div>
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span class="time-text"><span>2:00 PM - 3:00 PM</span><span class="time-countdown">in 4 hours</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span class="time-text"><span>4:00 PM - 5:00 PM</span><span class="time-countdown">in 6 hours</span></span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span class="time-text"><span>All day</span><span class="time-countdown">in a day</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span class="time-text"><span>All day</span><span class="time-countdown">in 2 days</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span class="time-text"><span>10:00 AM - 10:30 AM</span><span class="time-countdown">in 2 days</span></span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>"
+`;
+
+exports[`column view DOM > renders unsplit multi-day events 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day, until Friday, Jun 19</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>"
+`;
+
+exports[`column view DOM > renders weather on both surfaces 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span></div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Public holiday
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>24°</span></span></div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Currently running review
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>9:30 AM - 11:00 AM</span>
+</div>
+</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>17°</span></span></div>
+</div>
+</div>
+</div>
+<div class=" event event-middle " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>24°</span></span></div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Dentist
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>4:00 PM - 5:00 PM</span>
+</div>
+</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>23°</span></span></div>
+<div class="location">
+<ha-icon icon="mdi:map-marker-outline"></ha-icon>
+<span>12 High Street</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span></div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>21°</span></span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span></div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>17°</span></span></div>
+</div>
+</div>
+</div>
+<div class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Delivery window
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>10:00 AM - 10:30 AM</span>
+</div>
+</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>16°</span></span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>"
+`;
+
+exports[`column view DOM > renders with no events 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(3, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column tomorrow future-day " style="grid-column:2;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Thu
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      18
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class=" day-column future-day " style="grid-column:3;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Fri
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      19
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title empty-day-title" style="color: var(--calendar-card-empty-day-color)">
+          ✓ No upcoming events
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>"
+`;
+
+exports[`column view DOM > suppresses empty day columns 1`] = `
+"<div class="column-grid" style="grid-template-columns:repeat(1, minmax(0, 1fr));column-gap:10px;--calendar-card-column-header-gap:8px;">
+<div class=" day-column today " style="grid-column:1;grid-row:2;">
+<div class="column-day-header">
+<div class=" column-date-content ">
+<div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
+      Wed
+    </div>
+<div class="day" style="font-size:26px;color:var(--primary-text-color);">
+      17
+    </div>
+<div class="month" style="font-size:12px;color:var(--primary-text-color);">
+            Jun
+          </div>
+</div>
+</div>
+<div class="column-events">
+<div class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Upcoming one-to-one
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>2:00 PM - 3:00 PM</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>"
+`;

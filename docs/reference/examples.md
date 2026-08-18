@@ -25,10 +25,10 @@ show_month: false
 
 This setup includes **multiple calendars**, each with a **custom color**. The **compact mode** ensures that only a limited number of events are shown at once. Screenshots again showing the **[iOS Theme](https://github.com/basnijholt/lovelace-ios-themes)** (ios-dark-mode-blue-red-alternative).
 
-**Compact view**:  
+**Compact mode**:  
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_2_advanced_compact.png" alt="Advanced Configuration" width="600">
 
-**After tap ➡️ expanded view**:  
+**After tap ➡️ expanded mode**:  
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_2_advanced_expanded.png" alt="Advanced Configuration" width="600">
 
 ```yaml
@@ -92,6 +92,49 @@ week_separator_color: '#03a9f450'
 month_separator_width: 1.5px
 month_separator_color: var(--secondary-text-color)
 ```
+
+## 🗓️ A Week Side by Side, in Column View
+
+The [column layout](/features/column-view) rotates the same agenda so each day gets its own
+column. Two things are worth setting deliberately here. `show_empty_days` already defaults
+to `true` in this layout, which is what keeps the columns corresponding to consecutive days.
+And `min_day_width` decides how many columns actually fit — at the default `140`, seven
+columns need **1,088 px** of card. This example raises it to `150`, because the titles below
+would otherwise wrap in a narrower column, and seven columns then need **1,158 px** — a
+full-width dashboard view rather than a single dashboard column. Below that the card gives up
+one column at a time, at 998, 838 and 678 px, and reaches the `min_days_to_show: 3` floor at
+**518 px**.
+
+The `column:` block below tightens the type and hides the location, both of which cost more
+in a narrow column than they do in a full-width row.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week.png" alt="A Week Side by Side, in Column View"><br>
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.family
+    color: '#e67c73'
+  - entity: calendar.work
+    color: '#03a9f4'
+view: column
+days_to_show: 7
+show_week_numbers: iso
+today_indicator: true
+empty_day_text: '✔ All done'
+column:
+  min_day_width: 150
+  min_days_to_show: 3
+  min_days_fallback: list
+  show_location: false
+  event_font_size: 12px
+  day_header_separator_width: 1px
+```
+
+So that card shows seven columns on a wide dashboard, steps down to three as it narrows, and
+becomes an ordinary list below 518 px — see [Falling Back to the List
+Layout](/features/column-view#falling-back-to-the-list-layout). The visual editor shows this
+same table for whatever you configure.
 
 ## 🎨 Full Configuration
 

@@ -1,23 +1,18 @@
-/* eslint-disable import/order */
+/* eslint-disable import/order -- the annotated language list below is separated by a blank line on purpose; see the comment above it. */
 /**
- * Localization module for Calendar Card Pro
- *
- * This module handles loading and accessing translations
- * for different languages in the Calendar Card Pro.
+ * Localization module for Calendar Card Pro.
  */
 
 import * as Types from '../config/types';
-import * as Logger from '../utils/logger';
 
-// Import language files (sorted alphabetically by language code)
 import bgTranslations from './languages/bg.json';
-import csTranslations from './languages/cs.json';
 import caTranslations from './languages/ca.json';
+import csTranslations from './languages/cs.json';
 import daTranslations from './languages/da.json';
 import deTranslations from './languages/de.json';
 import elTranslations from './languages/el.json';
-import enTranslations from './languages/en.json';
 import enGBTranslations from './languages/en-GB.json';
+import enTranslations from './languages/en.json';
 import esTranslations from './languages/es.json';
 import etTranslations from './languages/et.json';
 import fiTranslations from './languages/fi.json';
@@ -36,21 +31,20 @@ import plTranslations from './languages/pl.json';
 import ptTranslations from './languages/pt.json';
 import roTranslations from './languages/ro.json';
 import ruTranslations from './languages/ru.json';
-import slTranslations from './languages/sl.json';
 import skTranslations from './languages/sk.json';
+import slTranslations from './languages/sl.json';
 import svTranslations from './languages/sv.json';
-import ukTranslations from './languages/uk.json';
-import viTranslations from './languages/vi.json';
 import thTranslations from './languages/th.json';
 import trTranslations from './languages/tr.json';
+import ukTranslations from './languages/uk.json';
+import viTranslations from './languages/vi.json';
 import zhCNTranslations from './languages/zh-CN.json';
 import zhTWTranslations from './languages/zh-TW.json';
 
 /**
- * Available translations keyed by language code
+ * Available translations keyed by language code.
  */
 export const TRANSLATIONS: Record<string, Types.Translations> = {
-  // Sorted alphabetically by language code
   bg: bgTranslations,
   cs: csTranslations,
   ca: caTranslations,
@@ -88,16 +82,12 @@ export const TRANSLATIONS: Record<string, Types.Translations> = {
   'zh-tw': zhTWTranslations,
 };
 
-/**
- * Default language to use if requested language is not available
- */
 export const DEFAULT_LANGUAGE = 'en';
 
 //-----------------------------------------------------------------------------
 // HIGH-LEVEL API FUNCTIONS
 //-----------------------------------------------------------------------------
 
-// Cache for already determined languages to prevent repeated calculations
 const languageCache = new Map<string, string>();
 
 /**
@@ -114,17 +104,14 @@ export function getEffectiveLanguage(
   configLanguage?: string,
   hassLocale?: { language: string },
 ): string {
-  // Create cache key from inputs
   const cacheKey = `${configLanguage || ''}:${hassLocale?.language || ''}`;
 
-  // Return cached result if available
   if (languageCache.has(cacheKey)) {
     return languageCache.get(cacheKey)!;
   }
 
   let effectiveLanguage: string;
 
-  // Priority 1: Use config language if specified and supported
   if (configLanguage && configLanguage.trim() !== '') {
     const configLang = configLanguage.toLowerCase();
     if (TRANSLATIONS[configLang]) {
@@ -134,7 +121,6 @@ export function getEffectiveLanguage(
     }
   }
 
-  // Priority 2: Use HA system language if available and supported
   if (hassLocale?.language) {
     const sysLang = hassLocale.language.toLowerCase();
     if (TRANSLATIONS[sysLang]) {
@@ -143,7 +129,6 @@ export function getEffectiveLanguage(
       return effectiveLanguage;
     }
 
-    // Check for language part only (e.g., "de" from "de-DE")
     const langPart = sysLang.split(/[-_]/)[0];
     if (langPart !== sysLang && TRANSLATIONS[langPart]) {
       effectiveLanguage = langPart;
@@ -152,7 +137,6 @@ export function getEffectiveLanguage(
     }
   }
 
-  // Priority 3: Use default language as fallback
   effectiveLanguage = DEFAULT_LANGUAGE;
   languageCache.set(cacheKey, effectiveLanguage);
   return effectiveLanguage;
@@ -185,42 +169,22 @@ export function translate(
 ): string | string[] {
   const translations = getTranslations(language);
 
-  // Handle editor translations which use dot notation (editor.some_key)
+  // Dotted keys belong to the editor chunk; this eager translation table is flat.
   if (typeof key === 'string' && key.includes('.')) {
-    const [section, subKey] = key.split('.');
-    if (section === 'editor' && translations.editor && subKey in translations.editor) {
-      const editorValue = translations.editor[subKey];
-      // Explicitly check and return only string or string[] values
-      if (typeof editorValue === 'string' || Array.isArray(editorValue)) {
-        return editorValue;
-      }
-    }
-    // If nested path doesn't exist or is wrong type, use fallback or subKey
+    const [, ...rest] = key.split('.');
+    const subKey = rest.join('.');
+
     return fallback !== undefined ? fallback : subKey;
   }
 
-  // Handle direct keys in the translations object
   if (key in translations) {
     const value = translations[key as keyof Types.Translations];
-    // Handle the value safely to ensure return type matches
     if (typeof value === 'string' || Array.isArray(value)) {
       return value;
     }
   }
 
-  // Use fallback or key name if translation is missing
   return fallback !== undefined ? fallback : (key as string);
-}
-
-/**
- * Check if the specified language has editor translations
- *
- * @param language - Language code to check
- * @returns True if the language has editor translations
- */
-export function hasEditorTranslations(language: string): boolean {
-  const translations = getTranslations(language);
-  return Boolean(translations?.editor && Object.keys(translations.editor).length > 0);
 }
 
 //-----------------------------------------------------------------------------
@@ -248,105 +212,4 @@ export function getDateFormatStyle(language: string): 'day-dot-month' | 'month-d
 
   // Default for most other languages: day then month without dot (e.g., "17 Mar")
   return 'day-month';
-}
-
-/**
- * Get day name from translations based on day index
- *
- * @param language - Language code
- * @param dayIndex - Day index (0 = Sunday, 6 = Saturday)
- * @param full - Whether to use full day names
- * @returns Translated day name
- */
-export function getDayName(language: string, dayIndex: number, full = false): string {
-  const translations = getTranslations(language);
-  const key = full ? 'fullDaysOfWeek' : 'daysOfWeek';
-
-  if (dayIndex < 0 || dayIndex > 6) {
-    Logger.warn(`Invalid day index ${dayIndex}. Using default.`);
-    dayIndex = 0; // Default to Sunday if invalid
-  }
-
-  return translations[key][dayIndex];
-}
-
-/**
- * Get month name from translations based on month index
- *
- * @param language - Language code
- * @param monthIndex - Month index (0 = January, 11 = December)
- * @returns Translated month name
- */
-export function getMonthName(language: string, monthIndex: number): string {
-  const translations = getTranslations(language);
-
-  if (monthIndex < 0 || monthIndex > 11) {
-    Logger.warn(`Invalid month index ${monthIndex}. Using default.`);
-    monthIndex = 0; // Default to January if invalid
-  }
-
-  return translations.months[monthIndex];
-}
-
-/**
- * Format a date according to the locale
- * Shows just the day and month name in the selected language
- *
- * @param language - Language code
- * @param date - Date to format
- * @returns Formatted date string
- */
-export function formatDateShort(language: string, date: Date): string {
-  const day = date.getDate();
-  const month = getMonthName(language, date.getMonth());
-  const formatStyle = getDateFormatStyle(language);
-
-  switch (formatStyle) {
-    case 'day-dot-month':
-      return `${day}. ${month}`;
-    case 'month-day':
-      return `${month} ${day}`;
-    case 'day-month':
-    default:
-      return `${day} ${month}`;
-  }
-}
-
-//-----------------------------------------------------------------------------
-// LANGUAGE MANAGEMENT UTILITIES
-//-----------------------------------------------------------------------------
-
-/**
- * Get all supported languages
- *
- * @returns Array of supported language codes
- */
-export function getSupportedLanguages(): string[] {
-  return Object.keys(TRANSLATIONS);
-}
-
-/**
- * Check if a language is supported
- *
- * @param language - Language code to check
- * @returns True if language is supported, false otherwise
- */
-export function isLanguageSupported(language: string): boolean {
-  return language?.toLowerCase() in TRANSLATIONS;
-}
-
-/**
- * Add a new translation set for a language
- * This can be used for dynamic registration of new languages
- *
- * @param language - Language code
- * @param translations - Translations object
- */
-export function addTranslations(language: string, translations: Types.Translations): void {
-  if (!language) {
-    Logger.error('Cannot add translations without a language code');
-    return;
-  }
-
-  TRANSLATIONS[language.toLowerCase()] = translations;
 }

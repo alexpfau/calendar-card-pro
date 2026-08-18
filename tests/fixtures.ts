@@ -4,8 +4,8 @@ import type * as Types from '../src/config/types';
 /**
  * Fixtures and helpers for the list-view DOM equality gate (`tests/list-dom.test.ts`).
  *
- * Kept separate from the test so that Phase 1's shared leaf renderers, and later the
- * column view, can reuse exactly the same event data. The whole point of the gate is
+ * Kept separate from the test so that the shared leaf renderers and the column view can
+ * reuse exactly the same event data. The whole point of the gate is
  * that both views are fed identical input; that only holds if the input has one home.
  */
 
@@ -34,15 +34,20 @@ export const FROZEN_NOW = new Date('2026-06-17T10:00:00.000Z');
  * Builds a config the same way `setConfig` does, so fixtures exercise the real
  * normalization path rather than a hand-assembled object that happens to look right.
  *
- * Mirrors `calendar-card-pro.ts` `setConfig`: merge over defaults, then normalize
- * entities and numeric options in that order.
+ * Mirrors `calendar-card-pro.ts` `setConfig`: deep-merge over the defaults, then normalize
+ * entities and numeric options in that order. The merge has to be the real one — a plain
+ * spread here would hand every fixture a `weather:` block stripped of its nested defaults,
+ * which is precisely the shape production no longer produces.
  */
 export function buildConfig(overrides: Partial<Types.Config> = {}): Types.Config {
-  const config: Types.Config = {
-    ...Config.DEFAULT_CONFIG,
-    entities: ['calendar.personal'],
-    ...overrides,
-  };
+  const config = Config.mergeConfig(
+    Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
+    {
+      entities: ['calendar.personal'],
+      ...overrides,
+    } as Record<string, unknown>,
+  ) as unknown as Types.Config;
+
   config.entities = Config.normalizeEntities(config.entities);
   Config.normalizeNumericOptions(config);
   return config;
@@ -118,8 +123,8 @@ export const SINGLE_EVENT: Types.CalendarEventData[] = [
 /**
  * Weather forecasts covering the fixture dates.
  *
- * Included because Phase 1's **first** extraction is weather (`render.ts:526-575`), and
- * a gate that passes no forecasts leaves that step unprotected — `weatherForecasts` is
+ * Included because weather is drawn by shared leaves (`renderDateWeather` in `leaves.ts`),
+ * and a gate that passes no forecasts leaves it unprotected — `weatherForecasts` is
  * optional, so every weather branch short-circuits to `nothing` and the snapshots would
  * agree perfectly with a broken extraction.
  *
@@ -177,5 +182,5 @@ function hour(
   temperature: number,
   h: number,
 ): Types.WeatherData {
-  return { icon, condition, temperature, datetime, hour: h, precipitation_probability: 20 };
+  return { icon, condition, temperature, datetime, hour: h };
 }

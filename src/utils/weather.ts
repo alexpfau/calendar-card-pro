@@ -1,17 +1,42 @@
-/* eslint-disable import/order */
 /**
  * Weather utilities for Calendar Card Pro
- *
  * Processes and formats weather data from Home Assistant for use in the calendar card.
  */
 
-import * as Types from '../config/types';
-import * as Logger from './logger';
 import * as FormatUtils from './format';
+import * as Logger from './logger';
+import * as WeatherI18n from './weather-i18n';
+import * as Types from '../config/types';
 
 //-----------------------------------------------------------------------------
 // CORE WEATHER DATA PROCESSING
 //-----------------------------------------------------------------------------
+
+/**
+ * Resolve the effective weather position, applying the documented `date` default.
+ *
+ * `setConfig` fills a partial `weather:` block in from the defaults, so `position` normally
+ * arrives set. This still resolves it, because the config reaching these helpers does not
+ * always come through `setConfig`: the editor builds preview configs of its own, and both
+ * halves of the weather pipeline are called directly from tests. Reading
+ * `weather.position` raw is exactly how the subscribe and render halves drifted apart —
+ * the card subscribed to the daily forecast and then drew nothing — so the default is
+ * resolved in one place rather than assumed to have been filled in upstream.
+ *
+ * This resolves a *missing* value only; it deliberately does not validate. Config
+ * arrives from YAML unvalidated, so `position` can hold something outside its declared
+ * union at runtime, and `getRequiredForecastTypes` pins that case to subscribing to
+ * everything rather than dropping it. Clamping an unknown value to `date` here would
+ * quietly break that.
+ *
+ * @param weatherConfig Weather configuration options, if any
+ * @returns The position every consumer should act on
+ */
+export function resolveWeatherPosition(
+  weatherConfig?: Types.WeatherConfig,
+): NonNullable<Types.WeatherConfig['position']> {
+  return weatherConfig?.position || 'date';
+}
 
 /**
  * Determine which forecast types (daily, hourly) are required based on configuration
@@ -26,31 +51,24 @@ export function getRequiredForecastTypes(
     return [];
   }
 
-  // Determine required forecast types based on position
-  const position = weatherConfig.position || 'date';
+  const position = resolveWeatherPosition(weatherConfig);
 
-  // Date position only needs daily forecasts
+  // 'none' renders nothing anywhere, so subscribing to a forecast would pay the
+  // cost of a stream nobody reads. Without this arm it falls through to the
+  // `['daily', 'hourly']` return below and becomes the most expensive option.
+  if (position === 'none') {
+    return [];
+  }
+
   if (position === 'date') {
     return ['daily'];
   }
 
-  // Event position needs both hourly (for timed events) and daily (for all-day events)
-  if (position === 'event') {
-    return ['daily', 'hourly'];
-  }
-
-  // Both positions need both forecast types
+  // 'event' and 'both' both render a per-event forecast, which needs hourly data;
+  // 'both' additionally keeps the daily forecast on the day header.
   return ['daily', 'hourly'];
 }
 
-/**
- * Process raw forecast data from Home Assistant
- *
- * @param forecast Raw forecast data from Home Assistant
- * @param entityId Weather entity ID
- * @param forecastType Type of forecast ('daily' or 'hourly')
- * @returns Processed forecast data indexed by date/time
- */
 function processForecastData(
   forecast: Array<Types.WeatherForecast>,
   forecastType: 'daily' | 'hourly',
@@ -66,28 +84,22 @@ function processForecastData(
       return;
     }
 
-    // Process date/time based on forecast type
     let key: string;
     let hour: number | undefined;
     let date: Date;
 
     if (forecastType === 'hourly') {
-      // Parse full ISO datetime for hourly forecasts
       date = new Date(item.datetime);
       hour = date.getHours();
 
-      // Use ISO format with hour as key
       key = `${FormatUtils.getLocalDateKey(date)}_${hour}`;
     } else {
-      // For daily forecasts, just use the date as key
       date = new Date(item.datetime);
       key = FormatUtils.getLocalDateKey(date);
     }
 
-    // Get icon based on condition
     const icon = getWeatherIcon(item.condition, hour);
 
-    // Store processed forecast
     processedForecasts[key] = {
       icon,
       condition: item.condition,
@@ -95,8 +107,6 @@ function processForecastData(
       templow: item.templow !== undefined ? Math.round(item.templow) : undefined,
       datetime: item.datetime,
       hour,
-      precipitation: item.precipitation,
-      precipitation_probability: item.precipitation_probability,
       uv_index: item.uv_index !== undefined ? Math.round(item.uv_index) : undefined,
     };
   });
@@ -123,22 +133,13 @@ export function findDailyForecast(
     return undefined;
   }
 
-  // Convert date to key format (YYYY-MM-DD)
   const dateKey = FormatUtils.getLocalDateKey(date);
 
-  // Return the forecast for this date if available
   return dailyForecasts[dateKey];
 }
 
 /**
  * Find the appropriate forecast for an event
- * Uses hourly forecast for timed events, daily forecast for all-day events
- *
- * Home Assistant's hourly forecast typically only spans about two days, while the
- * daily forecast reaches considerably further. When `dailyFallback` is enabled,
- * timed events beyond the hourly horizon fall back to that date's daily forecast
- * instead of rendering nothing. This also covers weather entities that provide no
- * hourly forecast at all.
  *
  * @param event Calendar event
  * @param hourlyForecasts Hourly forecasts record
@@ -152,44 +153,35 @@ export function findForecastForEvent(
   dailyForecasts?: Record<string, Types.WeatherData>,
   dailyFallback = false,
 ): Types.WeatherData | undefined {
-  // For all-day events (with start.date but no start.dateTime)
   if (event.start.date && !event.start.dateTime && dailyForecasts) {
-    // Use the daily forecast for the event date
     const eventDate = FormatUtils.parseAllDayDate(event.start.date);
     const dateKey = FormatUtils.getLocalDateKey(eventDate);
     return dailyForecasts[dateKey];
   }
 
-  // For regular events with start.dateTime
   if (!event.start.dateTime) {
     return undefined;
   }
 
-  // Get the event start time
   const eventStart = new Date(event.start.dateTime);
   const eventDate = FormatUtils.getLocalDateKey(eventStart);
   const eventHour = eventStart.getHours();
 
   if (hourlyForecasts) {
-    // Try to find the exact hour
     const exactMatch = hourlyForecasts[`${eventDate}_${eventHour}`];
     if (exactMatch) {
       return exactMatch;
     }
 
-    // Find the closest hour forecast
     let closestHour = -1;
     let minDiff = 24;
 
-    // Look through all hourly forecasts for this date
     Object.keys(hourlyForecasts).forEach((key) => {
       if (key.startsWith(eventDate)) {
-        // Extract hour from the key
         const hourPart = key.split('_')[1];
         const hour = parseInt(hourPart);
 
         if (!isNaN(hour)) {
-          // Calculate difference, accounting for hour wrapping
           const diff = Math.abs(hour - eventHour);
 
           if (diff < minDiff) {
@@ -200,13 +192,11 @@ export function findForecastForEvent(
       }
     });
 
-    // Return the closest forecast if found
     if (closestHour >= 0) {
       return hourlyForecasts[`${eventDate}_${closestHour}`];
     }
   }
 
-  // No hourly data for this date - fall back to the daily forecast if enabled
   if (dailyFallback && dailyForecasts) {
     return dailyForecasts[eventDate];
   }
@@ -218,8 +208,10 @@ export function findForecastForEvent(
 // WEATHER DATA FORMATTING
 //-----------------------------------------------------------------------------
 
-// Map of weather condition codes to MDI icons
-const CONDITION_ICON_MAP: Record<string, string> = {
+/**
+ * Map of weather condition codes to MDI icons
+ */
+export const CONDITION_ICON_MAP: Record<string, string> = {
   'clear-night': 'mdi:weather-night',
   cloudy: 'mdi:weather-cloudy',
   fog: 'mdi:weather-fog',
@@ -237,31 +229,79 @@ const CONDITION_ICON_MAP: Record<string, string> = {
   exceptional: 'mdi:weather-cloudy-alert',
 };
 
-// Night-specific icon overrides
 const NIGHT_ICONS: Record<string, string> = {
   sunny: 'mdi:weather-night',
   partlycloudy: 'mdi:weather-night-partly-cloudy',
   'lightning-rainy': 'mdi:weather-lightning',
 };
 
-/**
- * Get MDI icon name for a weather condition
- *
- * @param condition Weather condition string
- * @param hour Optional hour (0-23) to determine day/night
- * @returns MDI icon name
- */
 function getWeatherIcon(condition: string, hour?: number): string {
-  // Determine if it's night (between 18:00 and 6:00)
   const isNight = hour !== undefined && (hour >= 18 || hour < 6);
 
-  // If it's night and we have a night-specific override, use it
   if (isNight && NIGHT_ICONS[condition]) {
     return NIGHT_ICONS[condition];
   }
 
-  // Otherwise use standard icon or default to cloudy alert
   return CONDITION_ICON_MAP[condition] || 'mdi:weather-cloudy-alert';
+}
+
+const untranslatedConditions = new Set<string>();
+
+/**
+ * Localize a forecast condition into the words Home Assistant would use for it.
+ *
+ * @param hass Home Assistant instance, if one is available
+ * @param entityId Weather entity the forecast came from
+ * @param condition Raw condition token, e.g. `partlycloudy`
+ * @param configLanguage The card's configured `language`, if any
+ * @returns The localized condition, or `undefined` when it cannot be resolved
+ */
+export function formatCondition(
+  hass: Types.Hass | null | undefined,
+  entityId: string | undefined,
+  condition: string | undefined,
+  configLanguage?: string,
+): string | undefined {
+  if (!hass || !entityId || !condition) {
+    return undefined;
+  }
+
+  const haLanguage = WeatherI18n.conditionLanguage(hass, configLanguage);
+  if (haLanguage) {
+    const translated = WeatherI18n.lookupCondition(haLanguage, condition);
+    if (translated) {
+      return translated;
+    }
+  }
+
+  const stateObj = hass.states?.[entityId];
+
+  if (!stateObj || typeof hass.formatEntityState !== 'function') {
+    return undefined;
+  }
+
+  const text = hass.formatEntityState(stateObj, condition);
+
+  if (!text) {
+    return undefined;
+  }
+
+  if (text === condition && !untranslatedConditions.has(condition)) {
+    untranslatedConditions.add(condition);
+    Logger.debug(
+      `Weather condition "${condition}" came back untranslated from ${entityId}; ` +
+        'Home Assistant returned the raw token, so the row will show it as-is',
+    );
+  }
+
+  return text;
+}
+
+/**
+ * Forget which conditions have been reported
+ */
+export function resetUntranslatedConditions(): void {
+  untranslatedConditions.clear();
 }
 
 //-----------------------------------------------------------------------------
@@ -290,14 +330,11 @@ export async function subscribeToWeatherForecast(
   const entityId = config.weather.entity;
 
   try {
-    // Set up subscription to weather forecast data
     const unsubscribe = await hass.connection.subscribeMessage(
       (message: { forecast: Array<Types.WeatherForecast> }) => {
         if (message && Array.isArray(message.forecast)) {
-          // Process forecast data
           const processedForecasts = processForecastData(message.forecast, forecastType);
 
-          // Call callback with processed data
           callback(processedForecasts);
         }
       },

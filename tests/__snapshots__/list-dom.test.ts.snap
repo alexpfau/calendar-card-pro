@@ -137,7 +137,7 @@ exports[`list view DOM > renders a custom today indicator position 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -472,7 +472,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 <div class="time-countdown">in a day</div>
 </div>
@@ -748,7 +748,7 @@ exports[`list view DOM > renders in a non-English language 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>Ganztägig, bis 19. Jun</span>
+<span>Ganztägig, bis Freitag, 19. Jun</span>
 </div>
 </div>
 </div>
@@ -926,7 +926,7 @@ exports[`list view DOM > renders location and end time when enabled 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -1126,7 +1126,7 @@ exports[`list view DOM > renders past events when show_past_events is on 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -1304,7 +1304,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day</span>
 </div>
 </div>
 </div>
@@ -1314,7 +1314,7 @@ exports[`list view DOM > renders split multi-day events 1`] = `
 </table>
 <table class=" day-table future-day ">
 <tr>
-<td style="position: relative;" class="date-column " rowspan="1">
+<td style="position: relative;" class="date-column " rowspan="2">
 <div class="weekday" style="font-size:14px;color:var(--primary-text-color);">
       Fri
     </div>
@@ -1325,7 +1325,29 @@ exports[`list view DOM > renders split multi-day events 1`] = `
             Jun
           </div>
 </td>
-<td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
+<div class="event-content">
+<div class="summary-row">
+<div class="summary">
+<span class="event-title " style="color: var(--primary-text-color)">
+          Conference
+        </span>
+</div>
+<!--?-->
+</div>
+<div class="time-location">
+<div class="time">
+<div class="time-actual">
+<ha-icon icon="mdi:clock-outline"></ha-icon>
+<span>All day</span>
+</div>
+</div>
+</div>
+</div>
+</td>
+</tr>
+<tr>
+<td class=" event event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
 <div class="summary-row">
 <div class="summary">
@@ -1482,7 +1504,7 @@ exports[`list view DOM > renders the default configuration 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -1664,7 +1686,7 @@ exports[`list view DOM > renders the today indicator 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -1722,11 +1744,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
-<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span class="weather-temp-high">24°</span>
-<span class="weather-temp-low">/13°</span>
-</div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span><span class="weather-temp-low">/13°</span></div>
 </td>
 <td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
@@ -1736,12 +1754,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
           Public holiday
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            24°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>24°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -1763,12 +1776,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
           Currently running review
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            17°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>17°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -1790,12 +1798,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
           Upcoming one-to-one
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            24°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>24°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -1817,12 +1820,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
           Dentist
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            23°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>23°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -1852,11 +1850,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
-<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span class="weather-temp-high">21°</span>
-<span class="weather-temp-low">/12°</span>
-</div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span><span class="weather-temp-low">/12°</span></div>
 </td>
 <td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
@@ -1866,18 +1860,13 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
           Conference
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            21°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>21°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -1897,11 +1886,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
-<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span class="weather-temp-high">17°</span>
-<span class="weather-temp-low">/11°</span>
-</div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span><span class="weather-temp-low">/11°</span></div>
 </td>
 <td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
@@ -1911,12 +1896,7 @@ exports[`list view DOM > renders weather in both positions with the opt-in field
           Delivery window
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            16°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>16°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -1954,12 +1934,7 @@ exports[`list view DOM > renders weather on events 1`] = `
           Public holiday
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            24°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>24°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -1981,12 +1956,7 @@ exports[`list view DOM > renders weather on events 1`] = `
           Currently running review
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            17°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>17°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -2008,12 +1978,7 @@ exports[`list view DOM > renders weather on events 1`] = `
           Upcoming one-to-one
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            24°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>24°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -2035,12 +2000,7 @@ exports[`list view DOM > renders weather on events 1`] = `
           Dentist
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            23°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>23°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -2079,18 +2039,13 @@ exports[`list view DOM > renders weather on events 1`] = `
           Conference
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            21°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>21°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -2119,12 +2074,7 @@ exports[`list view DOM > renders weather on events 1`] = `
           Delivery window
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            16°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>16°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -2153,10 +2103,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
-<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span class="weather-temp-high">24°</span>
-</div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span></div>
 </td>
 <td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
@@ -2262,10 +2209,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
-<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span class="weather-temp-high">21°</span>
-</div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span></div>
 </td>
 <td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
@@ -2281,7 +2225,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -2301,10 +2245,7 @@ exports[`list view DOM > renders weather on the date column 1`] = `
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
-<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span class="weather-temp-high">17°</span>
-</div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span></div>
 </td>
 <td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
@@ -2474,7 +2415,7 @@ exports[`list view DOM > renders week numbers and separators when enabled 1`] = 
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -2533,11 +2474,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
-<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span class="weather-temp-high">24°</span>
-<span class="weather-uv-index">UV7</span>
-</div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">24°</span><span class="weather-uv-index">UV7</span></div>
 </td>
 <td class=" event event-first " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
@@ -2547,15 +2484,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
           Public holiday
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            24°
-          </span>
-<span class="weather-uv-index" style="font-size: 12px; color: var(--secondary-text-color);">
-            UV7
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>24°</span><span class="weather-uv-index">UV7</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -2577,12 +2506,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
           Currently running review
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            17°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>17°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -2604,12 +2528,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
           Upcoming one-to-one
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            24°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>24°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -2631,12 +2550,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
           Dentist
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            23°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>23°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
@@ -2666,11 +2580,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
-<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span class="weather-temp-high">21°</span>
-<span class="weather-uv-index">UV4</span>
-</div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">21°</span><span class="weather-uv-index">UV4</span></div>
 </td>
 <td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
@@ -2680,21 +2590,13 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
           Conference
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            21°
-          </span>
-<span class="weather-uv-index" style="font-size: 12px; color: var(--secondary-text-color);">
-            UV4
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>21°</span><span class="weather-uv-index">UV4</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span>All day, until Jun 19</span>
+<span>All day, until Friday, Jun 19</span>
 </div>
 </div>
 </div>
@@ -2714,11 +2616,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
 <div class="month" style="font-size:12px;color:var(--primary-text-color);">
             Jun
           </div>
-<div class="weather" style="font-size: 12px; color: var(--primary-text-color);">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span class="weather-temp-high">17°</span>
-<span class="weather-uv-index">UV2</span>
-</div>
+<div class="weather"><ha-icon></ha-icon><span class="weather-temp-high">17°</span><span class="weather-uv-index">UV2</span></div>
 </td>
 <td class=" event event-first event-last " style="border-inline-start: var(--calendar-card-line-width-vertical) solid #03a9f4; background-color: ;">
 <div class="event-content">
@@ -2728,12 +2626,7 @@ exports[`list view DOM > suppresses the low temp when a UV index is shown 1`] = 
           Delivery window
         </span>
 </div>
-<div class="event-weather">
-<ha-icon style="--mdc-icon-size: 14px;"></ha-icon>
-<span style="font-size: 12px; color: var(--secondary-text-color);">
-            16°
-          </span>
-</div>
+<div class="event-weather"><ha-icon></ha-icon><span class="event-weather-text"><span>16°</span></span></div>
 </div>
 <div class="time-location">
 <div class="time">

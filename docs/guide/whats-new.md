@@ -6,7 +6,20 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v3.6
+## Latest Release: v4.0
+
+- 🗓️ **Column View**: Lay the days [side by side, one column each](/features/column-view), instead of stacking them — the same agenda, rotated, with its own per-view overrides and a responsive fallback to the list layout
+- ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with a [search box that finds any setting by name or YAML key](/features/editor#search-customized-only), a customized-only filter, per-calendar settings, and [per-view exceptions](/features/editor#column-view-exceptions)
+- ⚡ **41% Smaller to Download**: The editor moved into a file the card fetches only when you open it, taking it and all its translations off the path every dashboard pays for
+- ⚡ **Fewer Round-Trips on Every Page Load**: One card load asked Home Assistant for the same events up to four times; requests are now deduplicated, and two display-only switches no longer discard a valid cache entry
+- 🌍 **Eleven Editor Languages**: Nine newly translated in full — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — alongside US and British English, with per-string fallback so a partial translation still renders
+- 📏 **Per-Field Line Limits**: Cap the lines used by a title, time or location with [`title_max_lines`, `time_max_lines` and `location_max_lines`](/features/event-content#limiting-lines-per-field)
+- 🌦️ **Weather in Column View**: A row of its own beneath the time, optionally [stating the condition in words](/features/weather#weather-in-the-column-layout) in your language
+- 🐛 **Dates, Clocks and Week Numbers**: [Week numbers](/features/layout-appearance#week-numbers-visual-separators) were wrong for one date in seven outside UTC, the clock format disagreed with Home Assistant's own locale data for 33 of its 64 languages, and `first_day_of_week: system` returned Monday to everyone
+- 🩺 **Diagnosable Released Builds**: Turn the card's full logging back on from the browser console when [reporting a bug](/contributing#reporting-a-bug)
+- ⚠️ **Breaking**: Manual installs now copy [two files](/guide/installation#manual-installation), `event_icon_vertical_alignment` defaults to `top`, and weather badges are styled through [custom properties](/features/theming#weather-custom-properties) instead of inline styles
+
+## v3.6
 
 - 📚 **A Documentation Site**: The full manual moved to its own searchable site — a page per feature, a [complete configuration reference](/reference/configuration) listing every option with its type and default, and [ready-made examples](/reference/examples). The README is now a landing page that points at it
 - 🐛 **One Stray Line of YAML Broke the Card**: A bare `-` left in the `entities:` list parses to null, which threw before the card rendered and replaced the whole calendar with a red error box; malformed entries are now discarded
@@ -73,7 +86,7 @@ public release in January 2025 to today.
 - 🎨 **Today's Date Styling**: Customize the [appearance of today's date](/features/layout-appearance#date-column-customization) with dedicated color options (`today_weekday_color`, `today_day_color`, `today_month_color`)
 - 🚦 **Event Progress Bars**: Visualise how far a running event has progressed with optional [progress bars](/features/event-content#progress-bar-display)
 - ✂️ **Split Multi-Day Events**: Display [multi-day events on every day they cover](/features/multi-day-events#split-multi-day-events)
-- 🧠 **Enhanced Compact Mode Controls**: More precise control over [what appears in compact vs expanded views](/features/core-settings#compact-view-management-event-limits)
+- 🧠 **Enhanced Compact Mode Controls**: More precise control over [what appears in compact vs expanded mode](/features/core-settings#compact-mode-event-limits)
 
 ## v2.3
 

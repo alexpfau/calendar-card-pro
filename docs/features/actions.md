@@ -2,12 +2,12 @@
 
 Calendar Card Pro is interactive: you can let users expand a compact card to reveal more events, and bind your own tap and hold actions to the card — navigating to another view, calling a service, or opening a URL.
 
-## 🔄 Expandable Calendar View
+## 🔄 Expandable Calendar Card
 
-One of Calendar Card Pro's most powerful features is the ability to toggle between compact and expanded views:
+One of Calendar Card Pro's most powerful features is the ability to toggle between compact and expanded mode:
 
 ```yaml
-# Limit events in compact view
+# Limit events in compact mode
 compact_events_to_show: 5
 
 # Enable expand/collapse with tap
@@ -15,13 +15,21 @@ tap_action:
   action: expand
 ```
 
-When a `compact_events_to_show` limit is set, the card displays that number of events initially, adding a subtle indicator when more events are available. The `expand` action then allows users to toggle between this compact view and the full list of events.
+When a `compact_events_to_show` limit is set, the card displays that number of events initially, adding a subtle indicator when more events are available. The `expand` action then allows users to toggle between this compact mode and the full set of events.
+
+::: warning List View Only
+The whole compact family is inert in column view — `compact_events_to_show`, its per-calendar form, `compact_days_to_show`, `compact_events_complete_days`, and the `expand` action that drives them. A column card with `tap_action: expand` does nothing when tapped.
+
+This is deliberate rather than an omission. Compact mode caps events **across the card**, not per day, so a limit of three would truncate a seven-day grid after the third event and leave the remaining columns empty — the layout would stop corresponding to consecutive days, which is the one thing a column view has to get right.
+
+Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events.
+:::
 
 When using expansion with both global and per-calendar limits:
 
-- In compact view: Both global and per-calendar limits are enforced
-- In expanded view: Only per-calendar limits remain active, while the global limit is removed
-- Entity-specific limits are always respected in both views
+- In compact mode: Both global and per-calendar limits are enforced
+- In expanded mode: Only per-calendar limits remain active, while the global limit is removed
+- Entity-specific limits are always respected in both modes
 - The expand/collapse state persists until manually toggled or the page is reloaded
 
 **Example scenario**: If you have a configuration like this:
