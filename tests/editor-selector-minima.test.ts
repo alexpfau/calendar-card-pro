@@ -25,9 +25,11 @@ import { describe, expect, it } from 'vitest';
 import { buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import * as Types from '../src/config/types';
+import * as ViewConfig from '../src/config/view';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { buildContentSchema } from '../src/rendering/editor/schemas/content';
 import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
+import { buildLayoutSchema } from '../src/rendering/editor/schemas/layout';
 
 const config = buildConfig({});
 const ctx = { view: config.view, config, language: 'en' };
@@ -53,6 +55,40 @@ function numericMinima(schema: ReadonlyArray<HaFormSchema>): Map<string, number>
       const name = (entry as { name?: string }).name;
       if (typeof min === 'number' && name) {
         found.set(name, min);
+      }
+    }
+  };
+
+  walk(schema);
+  return found;
+}
+
+/**
+ * Collect every numeric selector ceiling a schema declares, including nested rows.
+ *
+ * The mirror of {@link numericMinima}, and the direction this file did not originally
+ * check. A ceiling is the more dangerous half: a floor set too high refuses the value
+ * outright, which a user notices, while a ceiling silently clamps a larger one down to
+ * the bound.
+ *
+ * @param schema - Schema entries to walk
+ * @returns Map of option name to declared maximum
+ */
+function numericMaxima(schema: ReadonlyArray<HaFormSchema>): Map<string, number> {
+  const found = new Map<string, number>();
+
+  const walk = (entries: ReadonlyArray<HaFormSchema>): void => {
+    for (const entry of entries) {
+      const nested = (entry as { schema?: ReadonlyArray<HaFormSchema> }).schema;
+      if (nested) {
+        walk(nested);
+        continue;
+      }
+
+      const max = (entry as { selector?: { number?: { max?: number } } }).selector?.number?.max;
+      const name = (entry as { name?: string }).name;
+      if (typeof max === 'number' && name) {
+        found.set(name, max);
       }
     }
   };
@@ -113,5 +149,58 @@ describe('editor numeric floors match the runtime', () => {
     // it is the control proving these floors are not simply all being lowered.
     expect(cardMinima.get('compact_days_to_show')).toBe(1);
     expect(cardMinima.get('compact_events_to_show')).toBe(0);
+  });
+});
+
+/**
+ * The same parity question asked upward, against the schema this file used to skip.
+ *
+ * Two blind spots met here. The walks above cover the content and entity schemas only, so
+ * nothing ever read the layout schema's selectors — and only `min` was collected, so a
+ * ceiling was invisible from either direction. `column.min_day_width` carried
+ * `max: 400` while `normalizeColumnValue` enforced no ceiling at all and no docs page
+ * stated a range, which made a wide-card `min_day_width: 500` authorable in YAML and not
+ * in the editor.
+ *
+ * A ceiling is only legitimate here when it is derived from the config rather than
+ * chosen: `min_days_to_show` cannot exceed `days_to_show`, and its `max` tracks it.
+ */
+describe('editor numeric ceilings have a basis', () => {
+  // The density group is emitted only when the view has an override block, so a
+  // list-view context yields no layout selectors at all — which is itself part of why
+  // this schema went unchecked.
+  const columnConfig = buildConfig({ view: 'column' });
+  const columnCtx = { view: columnConfig.view, config: columnConfig, language: 'en' };
+
+  const layoutMinima = numericMinima(buildLayoutSchema(columnCtx));
+  const layoutMaxima = numericMaxima(buildLayoutSchema(columnCtx));
+
+  it('finds the layout selectors it means to check', () => {
+    // Denominator. This walk returning nothing is exactly the state that hid both
+    // defects, so it has to fail loudly rather than pass vacuously.
+    expect(layoutMinima.has('min_day_width')).toBe(true);
+    expect(layoutMinima.has('min_days_to_show')).toBe(true);
+  });
+
+  it('min_day_width declares no ceiling, because the runtime has none', () => {
+    expect(layoutMaxima.has('min_day_width')).toBe(false);
+  });
+
+  it('min_day_width admits a value the old cap refused', () => {
+    // The behavioural half. Asserting the selector alone would pass if the runtime
+    // grew a ceiling of its own later; this pins the pair.
+    const floor = layoutMinima.get('min_day_width') as number;
+
+    expect(ViewConfig.normalizeColumnValue('min_day_width', 500)).toBe(500);
+    expect(ViewConfig.normalizeColumnValue('min_day_width', floor)).toBe(floor);
+    // And the floor is real, not merely low: one step below it falls back.
+    expect(ViewConfig.normalizeColumnValue('min_day_width', floor - 1)).not.toBe(floor - 1);
+  });
+
+  it('the maxima walk can find a ceiling when one is declared (control)', () => {
+    // Without this, "min_day_width has no max" would also pass for a walk that
+    // silently collected nothing. min_days_to_show's ceiling is derived from
+    // days_to_show, which is the one basis that makes a ceiling legitimate.
+    expect(layoutMaxima.get('min_days_to_show')).toBe(Math.floor(columnConfig.days_to_show));
   });
 });

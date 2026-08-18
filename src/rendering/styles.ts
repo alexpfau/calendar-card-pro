@@ -581,12 +581,24 @@ export const cardStyles = css`
   /* Summary-row weather placement. These unscoped rules are the list-view
    * counterpart to the more specific time-location placement below. Both
    * placements use the same secondary-text fallback so event weather color
-   * stays consistent unless the user overrides it. */
+   * stays consistent unless the user overrides it.
+   *
+   * font-size sits on the wrapper rather than on its child spans. The chips
+   * render at the same size either way, since they inherit it, but a wrapper
+   * left at the inherited 14px event font builds its line box from 14px and
+   * the badge measures 4px taller than its contents. Nothing reflows - the
+   * row is unchanged and no text moves relative to its neighbors - but the
+   * glyphs sit 1px lower than they did in v3.6.0.
+   *
+   * This is safe to leave unscoped even though the row placement below also
+   * matches it: that placement declares the same font-size on the container
+   * at .time-location .event-weather, so the wrapper already computed this
+   * value by inheritance and the explicit declaration changes nothing there.
+   * Column view is unaffected for a second, independent reason - it always
+   * passes weatherPlacement: 'row', which leaves the title forecasts
+   * undefined, so it never emits this badge at all. */
   .event-weather .event-weather-text {
     color: var(--calendar-card-weather-event-color, var(--secondary-text-color));
-  }
-
-  .event-weather .event-weather-text > span {
     font-size: var(--calendar-card-weather-event-font-size, 12px);
   }
 

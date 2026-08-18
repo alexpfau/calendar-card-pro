@@ -1878,7 +1878,6 @@ function checkDeprecatedTable(maps) {
 /** Routes deliberately absent from the nav and sidebar. */
 const UNLISTED_ROUTES = new Set([
   '/', // home page, reached through the logo and the hero buttons
-  '/development/backlog', // internal planning notes, not user documentation
 ]);
 
 /**

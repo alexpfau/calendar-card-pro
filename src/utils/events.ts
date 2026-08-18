@@ -556,6 +556,22 @@ export function groupEventsByDay(
       } else {
         filteredDays = [];
 
+        // The comparisons in this block are early exits, not decisions, and mutating
+        // them is unobservable — `totalEventsShown` is incremented by
+        // `slice(0, remainingEvents)`, so it reaches `maxEvents` and never exceeds it,
+        // which makes `>` false exactly where `>=` is true. Flipping one only stops the
+        // loop breaking early; the remaining days then compute `remainingEvents === 0`,
+        // push nothing, and the output is byte-identical. `totalEventsShown < maxEvents`
+        // above, `eventsToShow > 0`, `remainingEvents > 0` and the break's empty-day
+        // exemption are all equivalent for the same reason. Measured over a 1,279-row
+        // differential — 5 event layouts x 8 budgets x `show_empty_days` x
+        // `compact_events_complete_days` x 4 `compact_days_to_show` x `isExpanded` — at
+        // 0 differing rows, against 281 and 42 for two controls in the same block.
+        // Worth keeping as a real early exit; **no test can close them, so do not write
+        // one.** The `_isEmptyDay` operands are a separate matter: placeholders are
+        // created after this block, so that operand is dead today, and the tests in
+        // `compact-single-event-days.test.ts` pin the property that outlives the
+        // ordering rather than the ordering itself.
         for (const day of days) {
           if (
             totalEventsShown >= maxEvents &&

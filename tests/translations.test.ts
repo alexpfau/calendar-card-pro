@@ -193,7 +193,7 @@ describe('the weekday casing split is intentional and stays that way', () => {
   // `till måndag, 5 jan`. Five contributors encoded exactly that — lower-case running
   // text against a capitalised label.
   //
-  // Backlog Y13 recorded 17 of 35 languages getting it wrong. Ten are now fixed and are
+  // A review of all 35 languages found 17 getting it wrong. Ten are now fixed and are
   // pinned here alongside the original five. The remaining seven are deliberately absent:
   // `cs` `hr` `lt` `lv` `sk` need an oblique form their `multiDay` governs and no
   // in-repo evidence supplies, and `fi` `hu` need a template change no edit to this array

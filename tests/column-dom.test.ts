@@ -93,10 +93,11 @@ function eventContents(container: ParentNode): string[] {
  *
  * The contract this serves is "identical except for documented per-view placements", and
  * that is a widening of the original "identical", not an abandonment of it. It was
- * already true in spirit: the weather badge has had a per-view placement since C2, and
- * the byte-identity gate survived only because its configs happen to leave weather off.
- * C5 gives the progress bar the same treatment, and `show_progress_bar` *is* turned on in
- * one of those configs — so the exception has to become explicit rather than incidental.
+ * already true in spirit: the weather badge has had a per-view placement since the badge
+ * gained one, and the byte-identity gate survived only because its configs happen to
+ * leave weather off. The progress bar now gets the same treatment, and
+ * `show_progress_bar` *is* turned on in one of those configs — so the exception has to
+ * become explicit rather than incidental.
  *
  * Folding rather than deleting is what keeps the assertion strong. The bar is moved back
  * to the inline placement's position and stripped of its modifier class, so its presence,
@@ -993,7 +994,8 @@ describe('column view DOM', () => {
       // proves less than it appears to. This turns them on.
       //
       // Compared through `eventContentsAtCommonPlacement` rather than `eventContents`,
-      // and that is the deliberate widening C5 owes this gate. `show_progress_bar` is on
+      // and that is the deliberate widening the progress-bar row owes this gate.
+      // `show_progress_bar` is on
       // here and the fixture set contains a currently-running event, so the bar renders
       // in both views — inline in the list, in its own row in the column. The contract
       // becomes "identical except for documented per-view placements": the helper folds
@@ -1032,7 +1034,8 @@ describe('column view DOM', () => {
     });
 
     it('moves the progress bar off the time row and into its own row', () => {
-      // The column half of C5, and the reason the gate above had to widen. Written as a
+      // The column half of the progress-bar placement, and the reason the gate above had
+      // to widen. Written as a
       // differential against the list view for the same reason the weather-row test is:
       // the placement only means anything relative to the other view, and asserting the
       // column side alone would still pass if the list view drifted to match it.
@@ -1074,7 +1077,8 @@ describe('column view DOM', () => {
     });
 
     it('folds the countdown into the time text in the column view, and only there', () => {
-      // The other half of C5 was CSS-only, and this test pinned that. It is now a markup
+      // The countdown fold was once CSS-only, and this test pinned that. It is now a
+      // markup
       // decision, and this is the differential that states it — written against the list
       // view rather than as a column-side assertion, for the same reason the weather-row
       // and progress-bar tests are: a placement only means anything relative to the other

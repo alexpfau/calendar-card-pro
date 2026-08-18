@@ -11,7 +11,7 @@ import { cardStyles } from '../src/rendering/styles';
 import * as EventUtils from '../src/utils/events';
 
 /**
- * How the weather badge presents itself — C6.
+ * How the weather badge presents itself.
  *
  * Three defects found on a live build, all in the same few lines, and all invisible to
  * every gate that existed. `list-dom.test.ts` freezes the list view, which is the one

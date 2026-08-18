@@ -38,6 +38,8 @@ interface CardUnderTest extends HTMLElement {
   updateComplete: Promise<boolean>;
   _setupWeatherSubscriptions(): Promise<void>;
   _weatherUnsubscribers: Array<() => void>;
+  renderedTitle?: string;
+  readonly shadowRoot: ShadowRoot | null;
 }
 
 /** Resolve pending microtasks and the macrotask queue. */
@@ -183,5 +185,154 @@ describe('the card reports an unusable configuration', () => {
     await element.updateComplete;
 
     expect(element.shadowRoot?.textContent ?? '').not.toMatch(/error/i);
+  });
+});
+
+/**
+ * `isTitlePending` decides which element the header container holds, and nothing drove it.
+ *
+ * `render.ts` renders `<h1 class="card-header">` when the title is non-empty **or** the
+ * title is pending, and a `.card-header-placeholder` div otherwise. `card-wrapper-dom`
+ * pins that renderer, but it calls `renderMainCardStructure` directly and supplies
+ * `titlePending` itself — so the argument was covered and the getter computing it was
+ * not. Relaxing `isTemplate(title) && renderedTitle === undefined` to `||` therefore
+ * survived all of `npm test`.
+ *
+ * The observable is a card with **no title at all**, which is the default config: under
+ * `||` the second operand is true on its own, so an empty header renders an empty `<h1>`
+ * where it should render the placeholder.
+ */
+describe('the header element tracks the title state', () => {
+  /** Mount a card and return its header container's first element child. */
+  async function headerChild(config: Record<string, unknown>): Promise<Element | null> {
+    const element = card(config);
+    document.body.appendChild(element);
+    element.hass = { states: {}, callService: () => {}, locale: { language: 'en' } };
+    element.events = [];
+    await element.updateComplete;
+
+    return element.shadowRoot?.querySelector('.header-container')?.firstElementChild ?? null;
+  }
+
+  it('renders the placeholder when there is no title', async () => {
+    // The kill. `title` is absent in DEFAULT_CONFIG, so this is the ordinary card.
+    const child = await headerChild({});
+
+    expect(child?.tagName.toLowerCase()).toBe('div');
+    expect(child?.classList.contains('card-header-placeholder')).toBe(true);
+  });
+
+  it('renders a heading when there is a plain title (control)', async () => {
+    // Without this the assertion above would also pass for a header container that never
+    // renders a heading under any configuration.
+    const child = await headerChild({ title: 'Agenda' });
+
+    expect(child?.tagName.toLowerCase()).toBe('h1');
+    expect(child?.textContent?.trim()).toBe('Agenda');
+  });
+
+  it('collapses back to the placeholder when a template resolves to empty', async () => {
+    // The third mutant on this getter: dropping the `renderedTitle` operand leaves
+    // `isTemplate(title)` alone, which keeps the heading open forever. It differs from
+    // the real thing in exactly one place — a template that resolved to an empty string
+    // — so nothing above can see it.
+    //
+    // The placeholder is `height: 0` while `.card-header` carries a 16px bottom margin,
+    // so holding the heading open here would reserve header space for a title that
+    // renders nothing. Once a value is in hand the header must behave as it would for a
+    // static title of the same text, which for '' means the placeholder.
+    const element = card({ title: '{{ states("sensor.x") }}' });
+    document.body.appendChild(element);
+    element.hass = { states: {}, callService: () => {}, locale: { language: 'en' } };
+    element.events = [];
+    await element.updateComplete;
+
+    element.renderedTitle = '';
+    await element.updateComplete;
+
+    const child = element.shadowRoot?.querySelector('.header-container')?.firstElementChild;
+    expect(child?.classList.contains('card-header-placeholder')).toBe(true);
+  });
+
+  it('holds the heading open while a templated title is still resolving', async () => {
+    // The reason the getter exists: `renderedTitle` is undefined until the subscription
+    // delivers, and the heading has to be there from first paint so the card does not
+    // jump when the value arrives. Without `hass.connection` nothing ever resolves, which
+    // is precisely the pending state.
+    const child = await headerChild({ title: '{{ states("sensor.x") }}' });
+
+    expect(child?.tagName.toLowerCase()).toBe('h1');
+    expect(child?.textContent?.trim()).toBe('');
+  });
+});
+
+/**
+ * A bare `hold_action:` in YAML must behave like `hold_action: none`, and did not.
+ *
+ * `_handlePointerDown` arms the hold timer when `hold_action?.action !== 'none'`. Optional
+ * chaining makes that **true** for a null `hold_action`, because `null?.action` is
+ * `undefined` and `undefined !== 'none'` — so a key the user wrote to mean "nothing on
+ * hold" armed a timer, set `_holdTriggered`, and drew a hold indicator. `_handlePointerUp`
+ * then disagreed with it: its hold branch needs `this.config.hold_action` to be truthy, so
+ * the hold did nothing, and its tap branch needs `!this._holdTriggered`, so the tap was
+ * swallowed too. A long press produced a ripple and no action, and the user's `tap_action`
+ * never ran.
+ *
+ * This was the last untriaged survivor from the host sweep. The earlier note filed it as
+ * reachable only through the shallow merge in `setConfig`, and that reading was wrong:
+ * `mergeConfig` replaces a non-object value wholesale, exactly as the spread did, so
+ * `hold_action: null` still arrives as `null` and the deep merge changed nothing here.
+ * The mismatch is between the two pointer handlers, not in the merge.
+ *
+ * With the guard on line 786 tightened to match, `_holdTriggered` can no longer be true
+ * while `hold_action` is falsy, which turns the `!this._holdTriggered` operand in the tap
+ * branch into defensive duplication rather than a coverage gap.
+ */
+describe('a hold action the user disabled', () => {
+  /** Press, hold past the threshold, release; return the actions HA was asked to run. */
+  async function pressAndHold(config: Record<string, unknown>): Promise<string[]> {
+    const element = card({ tap_action: { action: 'more-info' }, ...config });
+    document.body.appendChild(element);
+    element.hass = { states: {}, callService: () => {}, locale: { language: 'en' } };
+    element.events = [];
+    await element.updateComplete;
+
+    const seen: string[] = [];
+    element.addEventListener('hass-action', (ev) => {
+      seen.push((ev as unknown as { detail: { action: string } }).detail.action);
+    });
+
+    const target = element.shadowRoot?.querySelector('ha-card') ?? element;
+    const opts = { bubbles: true, composed: true };
+    target.dispatchEvent(Object.assign(new Event('pointerdown', opts), { pointerId: 1 }));
+    vi.advanceTimersByTime(600);
+    target.dispatchEvent(Object.assign(new Event('pointerup', opts), { pointerId: 1 }));
+
+    return seen;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('runs the tap action on release, as an explicit none does', async () => {
+    expect(await pressAndHold({ hold_action: null })).toEqual(['tap']);
+  });
+
+  it('agrees with the explicit form (reference)', async () => {
+    // `hold_action: none` is the documented way to say this, and it already worked. The
+    // two must not disagree, which is the whole claim.
+    expect(await pressAndHold({ hold_action: { action: 'none' } })).toEqual(['tap']);
+  });
+
+  it('still runs a configured hold action instead of the tap (control)', async () => {
+    // Without this, both assertions above would also pass for a card that had simply
+    // stopped detecting holds at all.
+    expect(await pressAndHold({ hold_action: { action: 'more-info' } })).toEqual(['hold']);
   });
 });

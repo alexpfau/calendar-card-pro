@@ -327,7 +327,7 @@ describe('card stylesheet', () => {
     });
 
     /*
-     * The separators — C6, corrected twice. The row is one composed string that breaks
+     * The separators, corrected twice. The row is one composed string that breaks
      * like running text: the middot ends a line and the words that follow it start the
      * next one. Getting that means the separator has to be *in* the text, which is the
      * opposite of what the previous version did, so the three tests below pin the three
@@ -608,7 +608,7 @@ describe('card stylesheet', () => {
 
   describe('the progress bar and countdown in column view', () => {
     /*
-     * C5. The two are strictly mutually exclusive -- `getCountdownString` returns null
+     * The two are strictly mutually exclusive -- `getCountdownString` returns null
      * once the event has started, `progressPercentage` is non-null only while it is
      * running -- which is what lets them be treated asymmetrically without ever
      * producing a visually inconsistent event. The countdown stays inline with the
@@ -645,7 +645,7 @@ describe('card stylesheet', () => {
       // decides. `.progress-bar` sets `margin-inline-start: auto` and a 60px width; the
       // modifier overrides both. Declared first it would silently lose, and the symptom
       // would be a right-aligned 60px bar sitting on its own row -- which reads as the
-      // bug C5 exists to fix rather than as a regression.
+      // bug the row placement exists to fix rather than as a regression.
       const base = RULES.findIndex((rule) => rule.selectors.includes('.progress-bar'));
       const modifier = RULES.findIndex((rule) => rule.selectors.includes('.progress-bar-row'));
 
@@ -657,7 +657,7 @@ describe('card stylesheet', () => {
       // `.progress-bar-row` is emitted by a placement parameter, so it must be styled
       // unqualified. Scoping it under `.column-events` would tie a *placement* to a
       // *view*, and a future layout that asks for the row would silently get the inline
-      // styling. Same reasoning as C3's named view predicates, one level down.
+      // styling. Same reasoning as the named view predicates, one level down.
       const rules = RULES.filter((rule) =>
         rule.selectors.some((selector) => selector.includes('progress-bar-row')),
       );
@@ -684,7 +684,7 @@ describe('card stylesheet', () => {
     });
 
     it('hangs the wrapped countdown under the time text, not under the icon', () => {
-      // Left-aligning it was the C5 fix and it landed the countdown under the *icon*.
+      // Left-aligning it was the original fix and it landed the countdown under the *icon*.
       // The maintainer wants the middot directly below the first digit of the time, so
       // the row reserves the icon gutter as padding on every line and the wrapper that
       // holds the icon is pulled back by exactly that much -- the icon still paints in
@@ -757,7 +757,7 @@ describe('card stylesheet', () => {
     /*
      * 🚨 The alignment trap, and a correction to the specification that describes it.
      *
-     * C5 §1 proposed dropping `display: flex` from `.time` in column view so the time and
+     * The column-view design proposed dropping `display: flex` from `.time` so the time and
      * countdown would participate in inline flow, and warned that inline flow ignores
      * `align-items`, so `--calendar-card-event-icon-vertical-alignment` would stop
      * reaching this row and would have to be re-expressed as `vertical-align`.
@@ -767,14 +767,14 @@ describe('card stylesheet', () => {
      * own later rule -- same specificity, so source order wins -- hardcodes
      * `align-items: center` straight over the top. So the value is already inert on this
      * row, in both views, and has been. That is pre-existing and deliberately left alone:
-     * changing it would move the list view, which C5 may not do.
+     * changing it would move the list view, which the column work may not do.
      *
      * The larger one: the icon is not a child of `.time` at all, it is nested inside
      * `.time-actual`. Nothing declared on `.time` has ever positioned the time icon
      * against the time text. Where the property genuinely works is `.location`,
-     * `.description` and -- since Y5 -- `.time-actual`, whose icon and text are direct
-     * flex children. That is what the first assertion below pins, and the Y5 block further
-     * down pins the third.
+     * `.description` and -- since the time row gained its own flex wrapper --
+     * `.time-actual`, whose icon and text are direct flex children. That is what the first
+     * assertion below pins, and the icon-alignment block further down pins the third.
      *
      * What dropping the flex would actually have broken is worse than the trap named:
      * `.time-actual` is a block-level flex container, so in inline flow it and the
@@ -798,7 +798,7 @@ describe('card stylesheet', () => {
     });
 
     it('changes neither the layout mode nor the alignment of the time row', () => {
-      // The C5 invariant: column view adds no `display` or `align-items` override, so the
+      // The invariant: column view adds no `display` or `align-items` override, so the
       // row resolves identically in both views and whatever the shared rules decide keeps
       // deciding. This is what fails if a future change reaches for inline flow.
       expect(declared('.time', 'display')).toBe('flex');
@@ -939,7 +939,7 @@ describe('card stylesheet', () => {
 
   describe('event icon vertical alignment reaches every row', () => {
     /*
-     * Y5. `event_icon_vertical_alignment` was inert on the time row in both views, so a
+     * `event_icon_vertical_alignment` was inert on the time row in both views, so a
      * user setting `top` or `bottom` got two rows out of three and no indication why.
      *
      * Two things had to be true at once for that to hide. The shared
@@ -980,7 +980,8 @@ describe('card stylesheet', () => {
 
   describe('date column vertical alignment reaches the date cell', () => {
     /*
-     * The sibling of the Y5 bug above, and the half nobody guarded. When the icon option
+     * The sibling of the icon-alignment bug above, and the half nobody guarded. When the
+     * icon option
      * was pinned end to end, `date_vertical_alignment` -- the older option the icon one
      * was modelled on -- kept a single assertion on its default value and nothing at all
      * on its wiring.
@@ -998,7 +999,7 @@ describe('card stylesheet', () => {
     });
 
     it('does not hardcode the alignment it is supposed to read', () => {
-      // The Y5 failure mode in its general form. Worth asserting separately here because
+      // That failure mode in its general form. Worth asserting separately here because
       // `.date-column` is a table cell, whose initial `vertical-align` is `baseline`: a
       // literal `middle` would look like a sensible default and silently pin every
       // list-view row to one alignment.
