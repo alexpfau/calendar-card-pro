@@ -4,6 +4,8 @@ title: Release Notes
 
 # Calendar Card Pro v4.0.0
 
+![Calendar Card Pro v4 — the week, side by side](https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_column_view.png)
+
 **This is a big one.** 🎉
 
 Two days after this card's first public release, someone opened [#14](https://github.com/alexpfau/calendar-card-pro/issues/14) and asked whether the days could sit side by side instead of stacked on top of each other. That was March 2025. It was asked again in June, again in July, and again in November — the most-requested thing in this project's history, and the one I never had a good answer for. Last year did not leave me the time this card deserved, and some of you waited a lot longer than you should have for it.
@@ -101,6 +103,7 @@ None of what follows is opt-in. It applies to every card on every dashboard, inc
 
 - **A Themed `accent_color` Never Reached the Card** - An `accent_color` written as a CSS variable — `var(--primary-color)`, or anything a theme defines — was composited for `event_background_opacity` by emitting `rgba(var(--calendar-color-rgb, 3, 169, 244), …)`, against a variable this project defines nowhere and no theme knows about. The fallback therefore won every time, and the fallback is `#03a9f4`, the default `accent_color` — so a themed card never looked broken, it looked like it had ignored your theme. Both the background tint and the progress bar now use `color-mix()`, which carries the configured color through without having to resolve it
 - **Entity Labels Broke the Alignment of Wrapped Titles** - A glyph or emoji label before an event title left continuation lines starting under the label rather than under the title text; the label now hangs so wrapped titles align
+- **Wrapped Event Titles Ignored `event_font_size`** - The block holding an event title declared no line height of its own, so a title that wrapped was spaced on Home Assistant's leading — a fixed 22.4px — instead of the card's. Lowering `event_font_size` then made it look worse rather than better, because the pitch stayed where it was while the glyphs shrank away from it, opening a gap wider than the lines it separated. Column view showed it most, since narrow columns wrap titles routinely. Wrapped titles now use the card's own leading and tighten as the font does; a single-line title keeps the spacing it had in 3.x
 - **Sizes Written in `em`, `rem` or `calc()` Were Silently Read as Pixels** - `day_spacing` and `day_font_size` are CSS lengths, and the card honored them as written in most places while quietly converting them to pixels in the few sizes derived from them. `day_spacing: 2em` spaced the day blocks by `2em` but the rules between them by `2px`, so the separators collapsed into the content they divide; `day_font_size: 2em` gave a day number a `3.5px` column to sit in, and a `calc()` value produced no size at all. Derived lengths now scale in the unit they were written in, and anything the card cannot resolve is handed to the browser, which can. Pixel values — the defaults, and what nearly every configuration uses — render exactly as before
 
 ### Dates & Times

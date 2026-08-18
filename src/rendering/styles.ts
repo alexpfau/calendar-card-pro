@@ -48,7 +48,10 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       config.time_max_lines > 0 ? String(config.time_max_lines) : 'none',
     '--calendar-card-location-max-lines':
       config.location_max_lines > 0 ? String(config.location_max_lines) : 'none',
-    // Keep the title inline until clamped; blockifying it tightens event rows.
+    // Keep the title inline until clamped, so a glyph label can share its first
+    // line and the hanging indent on .summary applies. The row-height difference
+    // this once showed against the blockified form was the .summary strut, not a
+    // property of inline layout; .summary now carries a matching strut.
     '--calendar-card-title-display': config.title_max_lines > 0 ? '-webkit-box' : 'inline',
     // In countdown text placement, an inline time can share a line with the countdown.
     // Clamping switches it to -webkit-box and accepts that trade-off explicitly.
@@ -505,6 +508,24 @@ export const cardStyles = css`
     margin-right: 12px;
     overflow: hidden;
     overflow-wrap: break-word;
+    /* The title is inline, so each line box is max(this block's strut, the
+     * inline box). Unstyled, the strut came from Home Assistant -- 22.4px --
+     * against the title's own 14px x 1.2 = 16.8px, so it won every line and
+     * wrapped titles were pinned to Home Assistant's leading whatever
+     * event_font_size said. It belongs here and not on .event-title: an inline
+     * element cannot shrink its container's strut, and blockifying the title is
+     * ruled out by the trap above.
+     *
+     * That strut was also all that separated the title from the time below it
+     * and the top of the event, so tightening it alone pulled the block
+     * together (v3.6.0: 7.0px -> 4.0px above, 5.4px -> 2.8px below).
+     * padding-block gives that back, half each side; 0.2em is that half at the
+     * v3.x default and, unlike the strut, it scales. So a one-line title
+     * occupies what it did in 3.x and only a wrapped one gets shorter. Not the
+     * shorthand -- the :has() rules below set padding-inline-start. */
+    font-size: var(--calendar-card-font-size-event);
+    line-height: 1.2;
+    padding-block: 0.2em;
   }
 
   .event-title {
