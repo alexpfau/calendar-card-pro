@@ -48,7 +48,10 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       config.time_max_lines > 0 ? String(config.time_max_lines) : 'none',
     '--calendar-card-location-max-lines':
       config.location_max_lines > 0 ? String(config.location_max_lines) : 'none',
-    // Keep the title inline until clamped; blockifying it tightens event rows.
+    // Keep the title inline until clamped, so a glyph label can share its first
+    // line and the hanging indent on .summary applies. The row-height difference
+    // this once showed against the blockified form was the .summary strut, not a
+    // property of inline layout; .summary now carries a matching strut.
     '--calendar-card-title-display': config.title_max_lines > 0 ? '-webkit-box' : 'inline',
     // In countdown text placement, an inline time can share a line with the countdown.
     // Clamping switches it to -webkit-box and accepts that trade-off explicitly.
@@ -505,6 +508,18 @@ export const cardStyles = css`
     margin-right: 12px;
     overflow: hidden;
     overflow-wrap: break-word;
+    /* The title is an inline span, so each line box is max(this block's strut,
+     * the inline box). Set unstyled, the strut came from Home Assistant's base
+     * typography -- 14px at --ha-line-height-normal, about 22px -- which is
+     * taller than the title's own 14px x 1.2 = 16.8px, so it won every line.
+     * Wrapped titles were therefore pinned to Home Assistant's line height at
+     * every font size, and shrinking event_font_size only widened the gap,
+     * because the pitch stayed put while the glyphs got smaller. Matching the
+     * strut to the title here fixes the spacing while leaving the title inline,
+     * which is what lets a glyph label share its first line and keeps the
+     * hanging indent below working. */
+    font-size: var(--calendar-card-font-size-event);
+    line-height: 1.2;
   }
 
   .event-title {

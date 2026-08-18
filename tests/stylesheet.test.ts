@@ -202,6 +202,36 @@ describe('card stylesheet', () => {
     });
   });
 
+  describe('the strut behind an inline title', () => {
+    /*
+     * `.event-title` is inline, so each of its line boxes is the taller of its
+     * own inline box and the strut of `.summary`, the block that contains it.
+     * `.summary` used to declare neither font-size nor line-height, so its strut
+     * came from Home Assistant's base typography -- roughly 14px at
+     * --ha-line-height-normal, about 22px -- against the title's own 14px x 1.2
+     * = 16.8px. The strut won at every supported font size, so a wrapped title
+     * was spaced on Home Assistant's line height rather than the card's, and
+     * lowering `event_font_size` made it worse rather than better: the pitch
+     * stayed where it was while the glyphs shrank away from it. The demo
+     * screenshots were shot with reduced font sizes and show it clearly.
+     *
+     * The fix has to live on `.summary` rather than on `.event-title`, because
+     * an inline element cannot shrink its container's strut, and blockifying the
+     * title is ruled out by the trap above.
+     */
+    it('.summary carries a strut matching the title it contains', () => {
+      expect(declared('.summary', 'font-size')).toBe('var(--calendar-card-font-size-event)');
+      expect(declared('.summary', 'line-height')).toBe('1.2');
+    });
+
+    it('the strut and the title cannot drift apart', () => {
+      // Asserted as an invariant rather than as two literals, so changing the
+      // title's size or leading has to move both or fail here.
+      expect(declared('.summary', 'font-size')).toBe(declared('.event-title', 'font-size'));
+      expect(declared('.summary', 'line-height')).toBe(declared('.event-title', 'line-height'));
+    });
+  });
+
   describe('per-field line clamping', () => {
     it.each([
       ['.event-title', '--calendar-card-title-max-lines'],
