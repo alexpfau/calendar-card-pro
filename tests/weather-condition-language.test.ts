@@ -16,7 +16,7 @@ import {
 } from '../src/utils/weather-i18n';
 
 /**
- * Condition text in the **card's** language rather than the instance's (backlog Y7).
+ * Condition text in the **card's** language rather than the instance's.
  *
  * `formatEntityState` resolves against whatever translations Home Assistant loaded for
  * the signed-in user, and takes no language parameter, so a `language: en` card on a

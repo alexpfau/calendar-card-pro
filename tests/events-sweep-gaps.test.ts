@@ -16,6 +16,22 @@
  *    distinguish a counter that increments by one from one that increments by two;
  *  - every per-entity fixture has a single object entity, so an index lookup that
  *    matches the wrong one still returns the same index.
+ *
+ * The 43 survivors left over are not defects, and the reasons cluster. Nine paired-null
+ * guards (`!a || !b` relaxed to `!a && !b`) are unreachable on the production path
+ * because `keepWellFormedEvents` runs first and guarantees both are present; four
+ * all-day detection pairs stay reachable only from a feed mixing `date` and `dateTime`
+ * on one event, which is already broken input where either operator gives an arbitrary
+ * answer. Five are `length > 0` guards around a loop or a log over nothing. Two sit
+ * behind `toValidNumber`, which has already reduced the value to `number | undefined`.
+ * Six are reached only when `configIdx` is `-1`, which needs `matchedConfig` absent —
+ * and the branch above returns before the key is used. The compact-budget arms and the
+ * two subsumed day-inclusion disjuncts are documented at their own sites in
+ * `events.ts`, both carrying the measurement and an explicit "do not write a test".
+ *
+ * That leaves seven — the display-date branches, the all-day sort keys and the empty-day
+ * range end — which are recorded here as **not individually re-derived**, which is not
+ * the same claim as equivalent.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
