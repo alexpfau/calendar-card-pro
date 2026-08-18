@@ -1464,6 +1464,91 @@ function checkAgentsDuplication() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Check 28 — the published language counts match the translations that ship
+// ---------------------------------------------------------------------------
+
+/**
+ * Reconcile every prose language count against the files on disk.
+ *
+ * These counts are prose, so nothing failed when they drifted — and they drifted through
+ * four consecutive releases. The editor count is the one that keeps going wrong, because
+ * the obvious derivation is wrong twice over: US English has no translation file (it lives
+ * in `src/rendering/editor/strings.ts`), and `en-GB.json` is a ~36-string delta rather than
+ * a full translation. Counting the directory undercounts by one; counting only the complete
+ * files undercounts by two. The v4 notes shipped "nine editor languages" on exactly that.
+ *
+ * Two things this deliberately does not do.
+ *
+ * `RELEASE_NOTES.md` and `guide/whats-new.md` are excluded: they are historical records, and
+ * v2.x announcing "8 languages" is a true statement about v2.x. Rewriting them to today's
+ * totals would falsify the archive.
+ *
+ * And it pins named sentences rather than hunting every count, because the docs legitimately
+ * count somebody else's languages too — "33 of the 64 languages Home Assistant ships" is
+ * about HA's locale data, not this card's translations. Each site must match at least once,
+ * so rewording past the pattern fails the gate rather than silently retiring it, which is
+ * the contract `check-bundle.mjs` uses for its size claims.
+ */
+const LANGUAGE_COUNT_SITES = [
+  ['README.md', /\[Available in (\d+) languages\]/g, 'card'],
+  ['README.md', /The card speaks \[(\d+) languages\]/g, 'card'],
+  ['README.md', /and the visual editor (\d+)\b/g, 'editor'],
+  ['docs/index.md', /\[Available in (\d+) languages\]/g, 'card'],
+  ['docs/architecture.md', /\((\d+) supported languages\)/g, 'card'],
+  ['docs/features/editor.md', /available in \*\*(\d+) languages\*\*/g, 'editor'],
+  ['docs/features/editor.md', /the calendar itself in \*\*(\d+)\*\*/g, 'card'],
+  ['docs/features/editor.md', /not among the (\d+) the editor/g, 'editor'],
+  ['docs/features/editor.md', /all (\d+) supported languages/g, 'card'],
+  ['docs/contributing.md', /editor is available in (\d+) of the/g, 'editor'],
+  ['docs/contributing.md', /^(\d+) languages: English, which lives in code/gm, 'card'],
+];
+
+function checkLanguageCounts() {
+  const cardDir = join(ROOT, 'src/translations/languages');
+  const editorDir = join(ROOT, 'src/rendering/editor/translations');
+  const cardFiles = readdirSync(cardDir).filter((f) => f.endsWith('.json'));
+  const editorFiles = readdirSync(editorDir).filter((f) => f.endsWith('.json'));
+  assertFound(cardFiles, 'card translation files', cardDir);
+  assertFound(editorFiles, 'editor translation files', editorDir);
+
+  // +1 for US English, which lives in strings.ts and has no file of its own.
+  const truth = { card: cardFiles.length, editor: editorFiles.length + 1 };
+  let checked = 0;
+
+  for (const [name, pattern, which] of LANGUAGE_COUNT_SITES) {
+    const file = join(ROOT, name);
+    if (!existsSync(file)) {
+      error(`${name} is missing, so the ${which} language count it publishes cannot be checked.`);
+      continue;
+    }
+    const matches = [...readFileSync(file, 'utf8').matchAll(pattern)];
+    if (!matches.length) {
+      error(
+        `${name} no longer states its ${which} language count in a form this check can read. ` +
+          `Update the pattern in LANGUAGE_COUNT_SITES rather than dropping the check — these ` +
+          `counts are prose and drifted through four releases unnoticed.`,
+      );
+      continue;
+    }
+    for (const match of matches) {
+      checked += 1;
+      const found = Number(match[1]);
+      if (found !== truth[which]) {
+        error(
+          `${name} says ${found} ${which} languages, but ${truth[which]} ship. ` +
+            (which === 'editor'
+              ? `That is ${editorFiles.length} translation files plus US English, which lives in ` +
+                `src/rendering/editor/strings.ts. en-GB.json is a delta, not a full translation, ` +
+                `so the complete-file count is lower again and is not the number to publish.`
+              : `Counted from src/translations/languages/*.json.`),
+        );
+      }
+    }
+  }
+  return checked;
+}
+
 function report(counts) {
   console.log(
     `${counts.defaults} defaults in code, ${counts.rows} rows in the reference, ` +
@@ -1475,6 +1560,7 @@ function report(counts) {
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
       `${counts.citations} line citations resolved, ` +
+      `${counts.languages} language counts reconciled, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
       `release surfaces agree on v${counts.version}.\n`,
   );
@@ -2244,6 +2330,7 @@ function main() {
   const reachable = checkPageReachability(docs, readNavRoutes());
   const themed = checkThemeDefaults(readThemeTable());
   const citations = checkCitations();
+  const languages = checkLanguageCounts();
 
   process.exit(
     report({
@@ -2260,6 +2347,7 @@ function main() {
       reachable,
       themed,
       citations,
+      languages,
       readmeAnchors,
       version,
     }),

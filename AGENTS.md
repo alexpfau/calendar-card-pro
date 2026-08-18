@@ -509,8 +509,9 @@ replacement is only live once it reaches `main`.
   nearest existing one, with a real YAML snippet. A table row alone is not documentation:
   `show_countdown_allday` shipped in v3.4 as a table row only, and was undiscoverable.
 - for a new language: the supported-languages list in `docs/contributing.md` **and all
-  three hardcoded counts**. Derive them rather than incrementing by hand — they are prose,
-  so nothing fails when they drift, and they were wrong for three consecutive releases:
+  three hardcoded counts**. Derive them rather than incrementing by hand — they were wrong
+  for four consecutive releases before `check:docs` grew a gate for them, which reconciles
+  every published count against the files on disk:
 
   ```bash
   ls src/translations/languages/*.json | wc -l                            # card languages
