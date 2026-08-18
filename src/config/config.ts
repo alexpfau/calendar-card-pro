@@ -299,7 +299,8 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
  * whole declaration rather than the offending part: `additional_card_spacing: 8` takes the
  * card's `padding: calc(var(--…) + 16px) 16px` down to `0`, losing the base padding too.
  *
- * Length-ness is inferred from the shipped default instead of a hand-maintained list.
+ * Length-ness is inferred from the shipped default, falling back to {@link
+ * LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT} for the options whose default cannot express it.
  * Values that carry no bare number, and genuinely numeric options, pass through untouched
  * — except a missing one. A blank YAML value parses as `null`, which means "no value
  * supplied" rather than a value to preserve, so a length-valued option falls back to what
@@ -314,6 +315,7 @@ export function coercePixelLength(key: string, value: unknown): unknown {
   return coercePixelLengthAgainst(
     (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key],
     value,
+    key,
   );
 }
 
@@ -329,10 +331,18 @@ export function coercePixelLength(key: string, value: unknown): unknown {
  *
  * @param shippedDefault - The value this option ships with, at the same nesting level
  * @param value - Raw configured value, which YAML or the editor may have typed as a number
+ * @param key - Top-level option name, where one applies. Only consulted for the options in
+ *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT}, whose default cannot mark them itself.
  * @returns The value, with a bare number turned into a pixel length and a missing one
  *   replaced by the shipped default, where appropriate
  */
-export function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown): unknown {
+export function coercePixelLengthAgainst(
+  shippedDefault: unknown,
+  value: unknown,
+  key?: string,
+): unknown {
+  const lengthValued = isLengthValued(shippedDefault, key);
+
   // A blank YAML value — `day_separator_width:` with nothing after the colon — parses as
   // `null`, and a key written explicitly as `undefined` survives `setConfig`'s merge the
   // same way. Both mean "no value supplied", so a length-valued option has to
@@ -345,7 +355,7 @@ export function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown
   // pinned as pass-through by `tests/pixel-length-coercion.test.ts`: none of them throws,
   // and substituting a default for them would replace a dead rule with a guess.
   if (value === null || value === undefined) {
-    return isPixelLengthDefault(shippedDefault) ? shippedDefault : value;
+    return lengthValued ? shippedDefault : value;
   }
 
   const bare = bareNumber(value);
@@ -353,18 +363,73 @@ export function coercePixelLengthAgainst(shippedDefault: unknown, value: unknown
     return value;
   }
 
-  return isPixelLengthDefault(shippedDefault) ? `${bare}px` : value;
+  return lengthValued ? `${bare}px` : value;
+}
+
+/**
+ * Length-valued options whose shipped default cannot mark them as such.
+ *
+ * Inferring length-ness from the default is right for almost every option and is what
+ * keeps this from being a list somebody has to remember to update — but it can only work
+ * when the default *is* a pixel length. These five ship something else, so the inference
+ * reads them as ordinary strings and returns every value untouched:
+ *
+ * | Option                | Ships          | Why it is not a pixel length          |
+ * | --------------------- | -------------- | ------------------------------------- |
+ * | `title_font_size`     | `undefined`    | unset means "inherit the HA card size" |
+ * | `progress_bar_width`  | `undefined`    | unset means "per placement" — 60px in list view, 80% in column |
+ * | `progress_bar_height` | `calc(…)`      | derived from the time font size       |
+ * | `height`              | `'auto'`       | a CSS keyword                         |
+ * | `max_height`          | `'none'`       | a CSS keyword                         |
+ *
+ * All five reach CSS where a length is expected, so a bare number breaks them exactly as
+ * it breaks `day_spacing`: `font-size: var(--calendar-card-font-size-title, …)` given a
+ * unitless `24` **substitutes** rather than falling back, so the declaration goes invalid
+ * at computed-value time and the title silently drops to its inherited size — worse than
+ * never setting the option. Three of the five are free-text fields in the visual editor,
+ * where typing `24` is the natural thing to do.
+ *
+ * `today_indicator_position` is deliberately absent. It ships `'15% 50%'`, which is a
+ * background-position *pair* rather than a length, so a bare number there is genuinely
+ * ambiguous — `20` could mean `20%` or `20px`, and it is parsed by
+ * `parseIndicatorPosition` rather than handed to CSS. Appending a unit would be a guess.
+ *
+ * Only consulted at the top level of the walk, so a nested key that happens to share one
+ * of these names cannot pick up the exception by accident.
+ */
+export const LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT: ReadonlySet<string> = new Set([
+  'title_font_size',
+  'progress_bar_width',
+  'progress_bar_height',
+  'height',
+  'max_height',
+]);
+
+/**
+ * Whether an option takes a CSS length.
+ *
+ * The single place the inference lives, so the bare-number coercion and the missing-value
+ * fallback above read the same answer and cannot drift apart.
+ *
+ * @param shippedDefault - The value an option ships with
+ * @param key - Top-level option name, where one applies
+ * @returns `true` when the option takes a CSS length
+ */
+function isLengthValued(shippedDefault: unknown, key?: string): boolean {
+  return (
+    isPixelLengthDefault(shippedDefault) ||
+    (key !== undefined && LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT.has(key))
+  );
 }
 
 /**
  * Whether a shipped default marks its option as length-valued.
  *
- * Length-ness is inferred from the default rather than a hand-maintained list, so this is
- * the single place that inference lives — both the bare-number coercion and the
- * missing-value fallback above read it, and cannot drift apart.
+ * The primary half of the inference, covering every option that ships a pixel length —
+ * which is nearly all of them. {@link isLengthValued} pairs it with the named exceptions.
  *
  * @param shippedDefault - The value an option ships with
- * @returns `true` when the option takes a CSS length
+ * @returns `true` when the default is a plain pixel length
  */
 function isPixelLengthDefault(shippedDefault: unknown): boolean {
   return typeof shippedDefault === 'string' && /^-?\d+(?:\.\d+)?px$/.test(shippedDefault);
@@ -423,6 +488,7 @@ export function normalizeLengthOptions(config: Types.Config): Types.Config {
   coerceLengthsAgainst(
     config as unknown as Record<string, unknown>,
     DEFAULT_CONFIG as unknown as Record<string, unknown>,
+    true,
   );
 
   return config;
@@ -436,11 +502,14 @@ export function normalizeLengthOptions(config: Types.Config): Types.Config {
  *
  * @param target - Configuration level to normalize in place
  * @param defaults - The matching level of `DEFAULT_CONFIG`
+ * @param topLevel - Whether this is the outermost level, where option names are the ones
+ *   {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT} names
  * @returns Whether anything at or below this level changed
  */
 function coerceLengthsAgainst(
   target: Record<string, unknown>,
   defaults: Record<string, unknown>,
+  topLevel = false,
 ): boolean {
   let changed = false;
 
@@ -459,7 +528,7 @@ function coerceLengthsAgainst(
       continue;
     }
 
-    const coerced = coercePixelLengthAgainst(shipped, value);
+    const coerced = coercePixelLengthAgainst(shipped, value, topLevel ? key : undefined);
 
     if (coerced !== value) {
       target[key] = coerced;

@@ -53,6 +53,50 @@ const COLUMN_PIXEL_KEYS = Object.entries(View.COLUMN_DEFAULTS as unknown as Reco
   .filter(([, v]) => typeof v === 'string' && /^-?\d+(?:\.\d+)?px$/.test(v as string))
   .map(([k]) => k);
 
+/**
+ * Fields the editor renders as free text, across every panel and both views.
+ *
+ * A `text` selector carrying a `type` (`date`, `number`, …) is excluded: those do not
+ * hand back a bare numeric string.
+ *
+ * Walked over several configurations, not just the defaults. Panels reveal options only
+ * when they apply, so a field behind a switch that ships `false` is invisible to a walk
+ * of `buildConfig({view})` alone — `progress_bar_width` and `progress_bar_height` sit
+ * behind `show_progress_bar`, and both were length options the coercion missed. A gate
+ * that cannot see conditional fields has a hole exactly where the bugs were.
+ *
+ * Module-scoped because two suites need it: the pixel-defaulted subset below, and the
+ * accounted-for gate at the end of the file that has to see *every* text field.
+ */
+const TEXT_FIELDS = (() => {
+  const names = new Set<string>();
+
+  const variants: Array<Partial<Types.Config>> = [
+    {},
+    { show_progress_bar: true, show_countdown: true } as Partial<Types.Config>,
+    { show_week_numbers: 'iso', show_month: true } as unknown as Partial<Types.Config>,
+  ];
+
+  for (const panel of PANELS) {
+    for (const view of ['list', 'column'] as const) {
+      for (const variant of variants) {
+        const config = buildConfig({ view, ...variant }) as Types.Config;
+
+        for (const { node } of walkSchema(panel.build({ view, config, language: 'en' }))) {
+          if ('schema' in node || node.name === '') continue;
+
+          const text = (node as { selector?: { text?: unknown } }).selector?.text;
+          if (typeof text === 'object' && text !== null && !('type' in text)) {
+            names.add(node.name);
+          }
+        }
+      }
+    }
+  }
+
+  return [...names];
+})();
+
 describe('pixel-length coercion', () => {
   it('has a non-empty key set to test against', () => {
     // The denominator. Without this, every assertion below could pass over an empty list.
@@ -295,33 +339,6 @@ describe('pixel-length coercion', () => {
  * anyone remembering to add it.
  */
 describe('Y21b — a bare number typed into an editor text field', () => {
-  /**
-   * Fields the editor renders as free text, across every panel and both views.
-   *
-   * A `text` selector carrying a `type` (`date`, `number`, …) is excluded: those do not
-   * hand back a bare numeric string.
-   */
-  const TEXT_FIELDS = (() => {
-    const names = new Set<string>();
-
-    for (const panel of PANELS) {
-      for (const view of ['list', 'column'] as const) {
-        const config = buildConfig({ view }) as Types.Config;
-
-        for (const { node } of walkSchema(panel.build({ view, config, language: 'en' }))) {
-          if ('schema' in node || node.name === '') continue;
-
-          const text = (node as { selector?: { text?: unknown } }).selector?.text;
-          if (typeof text === 'object' && text !== null && !('type' in text)) {
-            names.add(node.name);
-          }
-        }
-      }
-    }
-
-    return [...names];
-  })();
-
   /** The affected set: rendered as free text, and defaulting to a pixel length. */
   const TYPED_LENGTH_FIELDS = TEXT_FIELDS.filter((name) => PIXEL_KEYS.includes(name));
 
@@ -428,5 +445,176 @@ describe('Y21b — a bare number typed into an editor text field', () => {
     const resolved = resolveEffectiveConfig(config, 'column');
 
     expect((resolved as unknown as Record<string, unknown>).day_spacing).toBe('10px');
+  });
+});
+
+/**
+ * The options a pixel-shaped default cannot speak for.
+ *
+ * Every derivation above starts from "the shipped default looks like `12px`", which is
+ * what makes them self-maintaining — and is also exactly why they could not see this.
+ * `title_font_size`, `progress_bar_width`, `progress_bar_height`, `height` and
+ * `max_height` are CSS lengths that ship `undefined`, a `calc()` or a keyword, so
+ * `PIXEL_KEYS` filtered them out of its own test set and every assertion passed over a
+ * list that had quietly excluded the broken cases.
+ *
+ * `title_font_size` is the one that bites hardest, and not merely by being ignored:
+ * `font-size: var(--calendar-card-font-size-title, var(--ha-card-header-font-size, 24px))`
+ * *substitutes* a unitless `24` rather than falling back to it, so the declaration is
+ * invalid at computed-value time and the title drops to its inherited body size. Setting
+ * the option leaves the card worse than never having touched it — and v4's release notes
+ * send people to that field by name.
+ */
+describe('length options whose default cannot mark them', () => {
+  const NAMED = [...Config.LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT];
+
+  it('names the options that need it, and none that do not', () => {
+    // The denominator again. Also pins the exclusion: `today_indicator_position` ships
+    // `'15% 50%'`, a position pair parsed by `parseIndicatorPosition` rather than handed
+    // to CSS, so `20` is genuinely ambiguous there and appending a unit would be a guess.
+    expect(NAMED).toEqual(
+      expect.arrayContaining([
+        'title_font_size',
+        'progress_bar_width',
+        'progress_bar_height',
+        'height',
+        'max_height',
+      ]),
+    );
+    expect(NAMED).not.toContain('today_indicator_position');
+  });
+
+  it.each(NAMED)('coerces a bare number written against %s', (key) => {
+    expect(Config.coercePixelLength(key, 24)).toBe('24px');
+    expect(Config.coercePixelLength(key, '24')).toBe('24px');
+    expect(Config.coercePixelLength(key, ' 0 ')).toBe('0px');
+  });
+
+  it.each(NAMED)('leaves an already-valid value for %s alone', (key) => {
+    // The over-reach control for the named set: these accept units and keywords that the
+    // pixel-defaulted options never see, and a percentage is the documented way to write
+    // `progress_bar_width` in column view.
+    for (const value of ['24px', '2em', '80%', 'auto', 'none', 'calc(1px + 2px)']) {
+      expect(Config.coercePixelLength(key, value)).toBe(value);
+    }
+  });
+
+  it('reaches them through setConfig, not just the helper', () => {
+    // The helper being right is not the same as the card being right: `normalizeLengthOptions`
+    // is what `setConfig` actually calls, and it walks keys rather than asking per option.
+    const config = {
+      ...Config.DEFAULT_CONFIG,
+      entities: ['calendar.family'],
+      title_font_size: 24,
+      progress_bar_width: 100,
+      progress_bar_height: 8,
+      height: 300,
+      max_height: 500,
+    } as unknown as Types.Config;
+
+    Config.normalizeLengthOptions(config);
+
+    const out = config as unknown as Record<string, unknown>;
+    expect(out.title_font_size).toBe('24px');
+    expect(out.progress_bar_width).toBe('100px');
+    expect(out.progress_bar_height).toBe('8px');
+    expect(out.height).toBe('300px');
+    expect(out.max_height).toBe('500px');
+  });
+
+  it('reaches them through a column override too', () => {
+    // Four of the five are in `COLUMN_OVERRIDE_KEYS`, so the same value can be written
+    // twice. The two paths coerce separately, which is how `day_spacing` once worked in
+    // one and not the other. Derived rather than listed: `title_font_size` is deliberately
+    // not overridable — the card title sits outside the columns and has one value — and
+    // this should follow that list if it ever changes.
+    const overridable = [...Config.LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT].filter((key) =>
+      (View.COLUMN_OVERRIDE_KEYS as readonly string[]).includes(key),
+    );
+
+    expect(overridable).toEqual(
+      expect.arrayContaining(['progress_bar_width', 'progress_bar_height', 'height', 'max_height']),
+    );
+
+    for (const key of overridable) {
+      const config = buildConfig({
+        view: 'column',
+        column: { [key]: '24' },
+      } as unknown as Partial<Types.Config>) as Types.Config;
+
+      const resolved = resolveEffectiveConfig(config, 'column') as unknown as Record<
+        string,
+        unknown
+      >;
+
+      expect(resolved[key], `column override for ${key}`).toBe('24px');
+    }
+  });
+
+  it('only applies the exception at the top level', () => {
+    // The named set holds bare option names, and the walk descends into nested groups. A
+    // nested key that happened to share one of these names must not inherit the exception
+    // — the guard is positional, so this pins it rather than relying on today's shape.
+    expect(Config.coercePixelLengthAgainst(undefined, 24)).toBe(24);
+    expect(Config.coercePixelLengthAgainst(undefined, 24, 'title_font_size')).toBe('24px');
+  });
+});
+
+/**
+ * The gate that closes the class rather than the instance.
+ *
+ * Both bugs here had the same shape: an option the editor renders as free text, whose
+ * length-ness no derivation could see. So rather than list the five and move on, require
+ * every free-text field to be *accounted for* — either it is length-valued by the code's
+ * own reckoning, or it is named below as deliberately not a length. A new text field
+ * added with an `undefined` default fails here instead of shipping silently.
+ */
+describe('every free-text editor field is accounted for', () => {
+  /**
+   * Free-text fields that genuinely do not take a CSS length.
+   *
+   * Colors are matched by suffix rather than listed. There are nineteen of them, every
+   * per-calendar override adds more, and a list of that shape is one someone eventually
+   * forgets to extend — which is the failure this whole suite exists to prevent.
+   */
+  const NOT_LENGTHS = new Set([
+    'allowlist',
+    'blocklist',
+    'empty_day_text',
+    'label',
+    'language',
+    'location_country_pattern',
+    'start_date_offset',
+    'title',
+    'today_indicator_custom',
+    'today_indicator_position',
+  ]);
+
+  const isColor = (name: string) => name === 'color' || name.endsWith('_color');
+
+  const isLength = (name: string) =>
+    PIXEL_KEYS.includes(name) ||
+    COLUMN_PIXEL_KEYS.includes(name) ||
+    Config.LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT.has(name);
+
+  it('classifies every one of them as a length or explicitly not', () => {
+    const unaccounted = TEXT_FIELDS.filter(
+      (name) => !isLength(name) && !isColor(name) && !NOT_LENGTHS.has(name),
+    );
+
+    expect(
+      unaccounted,
+      `These editor text fields are neither length-valued nor listed as non-lengths. ` +
+        `A text field hands its value back as a string, so if any of these reaches CSS ` +
+        `as a length, typing "10" into it silently kills the declaration. Add it to ` +
+        `LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT in src/config/config.ts, or to NOT_LENGTHS here.`,
+    ).toEqual([]);
+  });
+
+  it('has something to classify', () => {
+    // Guards against the walk returning nothing and the assertion above passing vacuously.
+    expect(TEXT_FIELDS.length).toBeGreaterThan(20);
+    expect(TEXT_FIELDS.filter(isLength).length).toBeGreaterThan(10);
+    expect(TEXT_FIELDS.filter(isColor).length).toBeGreaterThan(10);
   });
 });
