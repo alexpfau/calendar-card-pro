@@ -5,14 +5,14 @@ rather than down it. It is the same agenda the list layout shows, rotated — yo
 labels and colors carry over as they are, apart from
 [two options that start from a different default](#options-that-start-from-a-different-default).
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_column_view.png" alt="Calendar Card Pro v4 — the week, side by side"><br>
+
 Set it with `view`. The default, `list`, stacks each day above the next.
 
 ```yaml
 view: column
 days_to_show: 5
 ```
-
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_basic.png" alt="Three days side by side in column view"><br>
 
 In the [visual editor](/features/editor) the layout is the first control in the **Layout**
 panel. Choosing **Columns** reveals the column-only options below it, and adds a

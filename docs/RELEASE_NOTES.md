@@ -4,6 +4,8 @@ title: Release Notes
 
 # Calendar Card Pro v4.0.0
 
+![Calendar Card Pro v4 — the week, side by side](https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_column_view.png)
+
 **This is a big one.** 🎉
 
 Two days after this card's first public release, someone opened [#14](https://github.com/alexpfau/calendar-card-pro/issues/14) and asked whether the days could sit side by side instead of stacked on top of each other. That was March 2025. It was asked again in June, again in July, and again in November — the most-requested thing in this project's history, and the one I never had a good answer for. Last year did not leave me the time this card deserved, and some of you waited a lot longer than you should have for it.
