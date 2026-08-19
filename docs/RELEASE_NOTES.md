@@ -128,8 +128,10 @@ None of what follows is opt-in. It applies to every card on every dashboard, inc
 ## Related Issues
 
 - [#14](https://github.com/alexpfau/calendar-card-pro/issues/14) - Add Column View to Calendar-Card-Pro by @chrannen
+- [#190](https://github.com/alexpfau/calendar-card-pro/issues/190) - Location length selector by @joaopequeno-git — answered by `location_max_lines`, a line cap rather than the character cap requested
 - [#253](https://github.com/alexpfau/calendar-card-pro/issues/253) - Landscape mode - days next to each other on desktop and tablet by @fugazzy
 - [#263](https://github.com/alexpfau/calendar-card-pro/issues/263) - Horizontal mode by @wsw70
+- [#290](https://github.com/alexpfau/calendar-card-pro/issues/290) - Navigation path autocomplete by @oerix — the rebuilt editor uses Home Assistant's action selector, which supplies the dashboard-path picker
 - [#300](https://github.com/alexpfau/calendar-card-pro/issues/300) - Time grid + seven days view (columns) by @rozrabiak — the columns half only; the time grid is a separate view and is not in this release
 - [#377](https://github.com/alexpfau/calendar-card-pro/issues/377) - [Epic] Column view — days side by side by @alexpfau
 
