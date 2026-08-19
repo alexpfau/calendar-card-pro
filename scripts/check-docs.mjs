@@ -2005,13 +2005,21 @@ function readNavRoutes() {
  * links to still ships - reachable only by guessing the URL. Neither `docs:build` nor
  * any other check notices, which is how a documented option can still be undiscoverable.
  *
- * @param {string[]} docs absolute paths to every published markdown page
+ * `development/` is the exception, and it has to be excluded rather than listed in
+ * UNLISTED_ROUTES: `srcExclude: ['development/**']` keeps those files out of the build
+ * entirely, so they have no route to be unreachable from. Demanding a sidebar entry for
+ * one would ask the nav to link a page the site never publishes. This was latent until
+ * the first design doc since the check was written - the folder was empty, so the check
+ * had no instance to be wrong about. Verified by building: `docs:build` emits no
+ * `dist/development/` directory at all.
+ *
+ * @param {string[]} docs absolute paths to every markdown page under docs/
  * @param {Set<string>} routes routes referenced by the navigation
  * @returns {number} pages reachable from the navigation
  */
 function checkPageReachability(docs, routes) {
   const published = new Map();
-  for (const file of docs) {
+  for (const file of docs.filter((f) => !isExcluded(f, ['development/']))) {
     const route = `/${relative(DOCS_DIR, file)
       .split(sep)
       .join('/')
