@@ -5,8 +5,8 @@ registry. [Issue #314](https://github.com/alexpfau/calendar-card-pro/issues/314)
 the core contributor who landed the feature — asks Calendar Card Pro to pick it up. This
 file specifies how.
 
-**Status:** specification, awaiting implementation. **Target release:** undecided, see
-[Open Questions](#open-questions-for-the-maintainer).
+**Status:** approved, in implementation. The settled design decisions are recorded under
+[Decisions](#decisions).
 
 Like [column-view.md](https://github.com/alexpfau/calendar-card-pro/blob/dd73f37d2c76cf324571b2bd44aae02060f7bb0a/docs/development/column-view.md)
 before it, this is a working document with a lifecycle: it is deleted once the feature ships
@@ -194,12 +194,12 @@ that fetches once and never subscribes goes stale until the page reloads.
 **Widen the grammar of `accent_color` with a sentinel value. Add no new config key.**
 
 ```yaml
-accent_color: entity # every calendar follows its own Home Assistant color
+accent_color: home-assistant # every calendar follows its own Home Assistant color
 
 entities:
   - calendar.personal # unchanged: inherits the card
   - entity: calendar.work
-    accent_color: entity # this calendar follows Home Assistant
+    accent_color: home-assistant # this calendar follows Home Assistant
   - entity: calendar.trash
     accent_color: '#43a047' # unchanged: an explicit color
 ```
@@ -207,11 +207,11 @@ entities:
 `accent_color` stays typed `string`. Its default stays `#03a9f4`. The three modes are
 **readings of one value**, not a second key:
 
-| Stored value    | Mode    | Meaning                                                                                        |
-| --------------- | ------- | ---------------------------------------------------------------------------------------------- |
-| absent or empty | inherit | Per calendar: use the card's `accent_color`. Card-wide: use the default. **Today's behavior.** |
-| `entity`        | follow  | Use Home Assistant's color for that calendar                                                   |
-| anything else   | custom  | Use it as a CSS color. **Today's behavior.**                                                   |
+| Stored value     | Mode    | Meaning                                                                                        |
+| ---------------- | ------- | ---------------------------------------------------------------------------------------------- |
+| absent or empty  | inherit | Per calendar: use the card's `accent_color`. Card-wide: use the default. **Today's behavior.** |
+| `home-assistant` | follow  | Use Home Assistant's color for that calendar                                                   |
+| anything else    | custom  | Use it as a CSS color. **Today's behavior.**                                                   |
 
 ### 2.2 Why This Shape
 
@@ -259,9 +259,9 @@ without a second per-calendar mechanism, which is where the mode key came from.
 existing card renders the moment a user sets a color in HA for an unrelated reason. The issue
 asks for the card to be _able_ to pick the color up, not to be governed by it.
 
-**A fallback list — `accent_color: entity, #ff0000`.** Deferred, not rejected. It answers
+**A fallback list — `accent_color: home-assistant, #ff0000`.** Deferred, not rejected. It answers
 [2.4](#24-what-happens-when-home-assistant-has-no-color)'s limitation cleanly and can be
-added later **without a breaking change**, because `entity` alone stays valid. Not worth the
+added later **without a breaking change**, because `home-assistant` alone stays valid. Not worth the
 parser on day one.
 
 **Applying the sentinel to per-calendar `color`, the event title color.** Rejected on
@@ -276,11 +276,11 @@ Given [1.5](#15-which-integrations-populate-it) this is the common path, not an 
 an event from entity `E`:
 
 1. Per-calendar `accent_color`
-   - `entity` → HA's color for `E` if present → **use it**; otherwise fall to 2
+   - `home-assistant` → HA's color for `E` if present → **use it**; otherwise fall to 2
    - a literal → use it
    - absent → fall to 2
 2. Card-wide `accent_color`
-   - `entity` → HA's color for `E` if present → **use it**; otherwise
+   - `home-assistant` → HA's color for `E` if present → **use it**; otherwise
      `DEFAULT_CONFIG.accent_color`
    - a literal → use it
 
@@ -301,15 +301,42 @@ silently repaint the card — and introduces a second palette the card does not 
 
 ### 2.5 The Sentinel Token
 
-`entity`. It is not a CSS named color, not one of the 28 HA tokens, and cannot collide with
-the existing grammar. It reads correctly at both levels: take this from the entity.
+`home-assistant`. It is not a CSS named color, not one of the 28 HA tokens, and cannot
+collide with the existing grammar. Hyphenated lowercase also matches the vocabulary the
+value sits beside: `deep-purple`, `light-grey`.
 
-Considered and rejected: `auto` (says nothing about where the value comes from, and the card
-already uses `auto` for `height` in a different sense); `ha` (terse to the point of opaque);
-`registry` (accurate jargon nobody outside this document uses); `home-assistant`
-(unambiguous but long). The one real argument for `home-assistant` is that `entity` reads
-oddly _inside_ an entity block, two lines below `entity: calendar.work` — carried to
-[Open Questions](#open-questions-for-the-maintainer).
+`entity` was the first proposal and was rejected. It reads badly two lines below
+`entity: calendar.work`, where the same word means two different things in adjacent lines.
+
+Also considered: `home_assistant` — the in-repo sentinel precedent is
+`vertical_line_color: 'accent_color'` in `config/config.ts`, but that snake*case names a
+\_config key*, whereas this names an external product, so the precedent does not bind.
+`auto` says nothing about where the value comes from, and the card already uses `auto` for
+`height` in a different sense. `ha` is cryptic. `registry` is accurate jargon nobody outside
+this document uses.
+
+### 2.6 Token Resolution Applies To Registry Values Only
+
+**This is a hard constraint, not an implementation detail.** Sixteen of Home Assistant's 25
+theme tokens are simultaneously valid CSS color names: `red`, `blue`, `green`, `orange`,
+`pink`, `purple`, `teal`, `cyan`, `amber`, `lime`, `indigo`, `brown`, `grey`, `black`,
+`white`, `yellow`.
+
+`rendering/styles.ts` writes `config.accent_color` **raw** into CSS custom properties, so
+`accent_color: red` renders as CSS red, `#FF0000`, today. If token resolution were ever
+applied to the user's own `accent_color` string, that identical config would silently become
+`var(--red-color)` — Home Assistant's Material red, a visibly different shade — for every
+user who typed a bare color name. Nothing would error; the card would just change color on
+upgrade.
+
+So: **resolve tokens only for values read out of the entity registry. Never for
+user-authored `accent_color` strings.** Exposure is limited today because the docs teach hex
+everywhere and contain no bare-name examples, but the field is free text and the rule has to
+hold regardless. Pinned by [test 11](#part-7-test-plan).
+
+The three `YAML_ONLY_THEMES_COLORS` (`primary-text`, `secondary-text`, `disabled`) are
+handled as cheap insurance rather than as a live case: HA's own `isValidColorString` checks
+`THEME_COLORS` and not those three, so they cannot arrive through any validated path.
 
 ---
 
@@ -354,7 +381,7 @@ ships the phrase _"Follow the card"_:
 | Option                    | Stored                             |
 | ------------------------- | ---------------------------------- |
 | Follow the card (default) | key absent                         |
-| Follow Home Assistant     | `entity`                           |
+| Follow Home Assistant     | `home-assistant`                   |
 | Custom color              | the literal, in a text field below |
 
 **Card-wide** — two. Nothing sits above the card to inherit from, so an "inherit" option
@@ -363,7 +390,7 @@ would be a synonym for "custom, at the default value":
 | Option                 | Stored                               |
 | ---------------------- | ------------------------------------ |
 | Custom color (default) | the literal, stripped when `#03a9f4` |
-| Follow Home Assistant  | `entity`                             |
+| Follow Home Assistant  | `home-assistant`                     |
 
 Offering three card-wide options would be the mistake: an entry that behaves identically to
 another reads as a bug.
@@ -407,7 +434,7 @@ for the editor to persist, so the v4 failure shape cannot recur — that bug nee
 with a real default to write.
 
 **2. Every existing value keeps its meaning.** The grammar today is "any CSS color, or
-empty". `entity` was not a valid CSS color before this change, so no existing config can
+empty". `home-assistant` was not a valid CSS color before this change, so no existing config can
 contain it. Absent stays inherit; a literal stays a literal. Only a value that was previously
 meaningless gains meaning — the same argument that made `start_date`'s grammar safe to widen.
 
@@ -513,18 +540,19 @@ injectable for tests rather than reached for as a module singleton.
 The suite is built from default config, so an option that is off by default is invisible to
 it unless a test turns it on. Every test below turns something on.
 
-| #   | What                     | Pins                                                                                                                                                                |
-| --- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Resolution chain         | Sentinel at each level, times HA color present or absent, including the card-wide-falls-to-default case in 2.4                                                      |
-| 2   | Token table **by value** | `toEqual` on the whole 28-entry map, so a dropped entry fails. Not an `Object.keys()` walk — that idiom has silently shrunk three tables in this repo already       |
-| 3   | Opacity and token        | `entity` plus a token plus `event_background_opacity: 30` yields `color-mix(in srgb, var(--red-color) 30%, transparent)`. The 1.3 claim, tested rather than assumed |
-| 4   | Editor round-trip        | A config with a hex `accent_color` survives `toStoredConfig` byte-identical, and changing an _unrelated_ field introduces no new key                                |
-| 5   | Per-calendar round-trip  | `fromEntityFormData` never writes the mode key, in any of the three modes                                                                                           |
-| 6   | Mode derivation          | Each stored shape maps to its mode, at both levels                                                                                                                  |
-| 7   | Mode toggle carries      | custom, then follow, then custom preserves the typed literal                                                                                                        |
-| 8   | Degradation              | No `callWS`, no `connection`, HA older than 2026.2, a junk color value, an unknown entity — no throw, falls back                                                    |
-| 9   | DOM, feature **on**      | `list-dom` and `column-dom` with the sentinel and a stubbed registry. Plus a **control**: a config with no sentinel produces byte-identical DOM to today            |
-| 10  | Gate predicate           | `usesEntityColor` false means nothing fetched and nothing subscribed                                                                                                |
+| #   | What                     | Pins                                                                                                                                                                        |
+| --- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Resolution chain         | Sentinel at each level, times HA color present or absent, including the card-wide-falls-to-default case in 2.4                                                              |
+| 2   | Token table **by value** | `toEqual` on the whole 28-entry map, so a dropped entry fails. Not an `Object.keys()` walk — that idiom has silently shrunk three tables in this repo already               |
+| 3   | Opacity and token        | `home-assistant` plus a token plus `event_background_opacity: 30` yields `color-mix(in srgb, var(--red-color) 30%, transparent)`. The 1.3 claim, tested rather than assumed |
+| 4   | Editor round-trip        | A config with a hex `accent_color` survives `toStoredConfig` byte-identical, and changing an _unrelated_ field introduces no new key                                        |
+| 5   | Per-calendar round-trip  | `fromEntityFormData` never writes the mode key, in any of the three modes                                                                                                   |
+| 6   | Mode derivation          | Each stored shape maps to its mode, at both levels                                                                                                                          |
+| 7   | Mode toggle carries      | custom, then follow, then custom preserves the typed literal                                                                                                                |
+| 8   | Degradation              | No `callWS`, no `connection`, HA older than 2026.2, a junk color value, an unknown entity — no throw, falls back                                                            |
+| 9   | DOM, feature **on**      | `list-dom` and `column-dom` with the sentinel and a stubbed registry. Plus a **control**: a config with no sentinel produces byte-identical DOM to today                    |
+| 10  | Gate predicate           | `usesEntityColor` false means nothing fetched and nothing subscribed                                                                                                        |
+| 11  | **CSS names stay CSS**   | `accent_color: red` still resolves to the CSS keyword, not `var(--red-color)`, at both levels. The [2.6](#26-token-resolution-applies-to-registry-values-only) constraint   |
 
 Test 9's control is what would catch a regression in Part 4's claim, so it is not optional.
 Test 2's phrasing matters: pin the table, do not iterate it.
@@ -539,17 +567,23 @@ A user-facing change is not done until `docs/` documents it in the same PR.
 
 | File                                 | Change                                                                                                |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `docs/reference/configuration.md`    | The `accent_color` row names the `entity` value, in both the card-wide and per-entity tables          |
+| `docs/reference/configuration.md`    | The `accent_color` row names the `home-assistant` value, in both the card-wide and per-entity tables  |
 | `docs/features/core-settings.md`     | The per-entity `accent_color` row, plus a prose section with real YAML and the HA 2026.2 requirement  |
 | `docs/features/layout-appearance.md` | A sentence where `accent_color` and `event_background_opacity` are already discussed together         |
 | Cross-link footers                   | `**→ [Feature page](/features/…)**` from the reference section, and a link back from the feature page |
 
-::: warning No Gate Catches The Reference Row
+::: warning Check 21 Is Structurally Blind Here, So Widen It
 Check 21 forces a reference row to name every value an option accepts — but only for
-**string-literal unions in `types.ts`**. `accent_color` stays `string`, so check 21 never
-fires, check 2 passes because the option is already documented, and check 1 passes because
-the default is unchanged. **A silently undocumented sentinel is a green build.** This is the
-`show_countdown_allday` failure mode: shipped as a table row only, and undiscoverable.
+**string-literal unions in `types.ts`**. At `check-docs.mjs`, `values` comes from
+`type.includes('|') ? … : aliases.get(type) || []` and the field is only registered
+`if (values.length > 1)`, so a `string`-typed field yields `[]` and is never checked.
+`accent_color` stays `string`, so a reference row that never mentions `home-assistant`
+is a green build — check 2 passes because the option is already documented, and check 1
+passes because the default is unchanged. This is the `show_countdown_allday` failure mode.
+
+Documenting it by hand is necessary but not sufficient. **Widen check 21 in the same PR** to
+cover sentinel values on `string`-typed options, so the rule is mechanical rather than
+another written convention that the next person has to remember.
 :::
 
 The prose must state that the feature requires **Home Assistant 2026.2 or newer**; that in
@@ -557,6 +591,11 @@ core only **Google Calendar** sets a color automatically; that everyone else set
 calendar under Settings, then Devices & Services, then Entities; and what happens when it is
 unset ([2.4](#24-what-happens-when-home-assistant-has-no-color)). Without that last part the
 feature reads as broken to the majority described in 1.5.
+
+**The mixed-source sentence is required, not optional.** A user running Google alongside
+Local Calendar gets real colors for the Google calendars and `#03a9f4` for the rest, and
+without a sentence saying so that reads as a bug rather than as the documented fallback. Say
+it where the card-wide switch is introduced, not in a footnote.
 
 Not touched in the feature PR: `README.md` and both "What's New" surfaces. Those are
 release-PR work.
@@ -575,25 +614,33 @@ Each step is independently reviewable and leaves the suite green.
 4. **Editor, card-wide** — synthetic field, schema, strings. Tests 4, 6, 7.
 5. **Editor, per calendar** — tristate, `entitySchemaFor` narrowing, strings. Test 5.
 6. **DOM tests and the control.** Test 9.
-7. **Documentation.**
+7. **Documentation**, including the mixed-source sentence, and the check 21 widening so the
+   sentinel's reference row is enforced mechanically.
 8. **Full gate run** on the `.nvmrc` Node major, then a live check against a real instance for
-   the two [6.5](#65-risks) risks only a browser can answer.
+   the two [6.5](#65-risks) risks only a browser can answer, plus the
+   [2.6](#26-token-resolution-applies-to-registry-values-only) regression: a card with
+   `accent_color: red` must still render CSS red.
 
 ---
 
-## Open Questions For The Maintainer
+## Decisions
 
-1. **Sentinel spelling** — `entity`, or something that reads better inside an entity block
-   such as `home-assistant`? [2.5](#25-the-sentinel-token) recommends `entity`; the
-   counter-argument is `entity: calendar.work` sitting two lines above `accent_color: entity`.
-2. **Card-wide mode count** — [3.2](#32-three-modes-per-calendar-two-card-wide) argues for two
-   options card-wide and three per calendar, against a uniform three. Agreed?
-3. **The card-wide fallback limitation** —
-   [2.4](#24-what-happens-when-home-assistant-has-no-color) accepts that a card-wide sentinel
-   falls back to `#03a9f4` rather than to a color of the user's choosing, and defers the
-   `entity, #ff0000` grammar. Acceptable, or should the fallback list land in the same
-   release?
-4. **Target release**, which decides whether this rides an existing branch or takes its own.
-5. **Minimum version handling** — the card does not gate on a Home Assistant version anywhere
-   today. Should the docs simply state 2026.2, or should the editor surface a hint when it
-   detects an older instance?
+Settled by the maintainer. Recorded here because the reasoning is not recoverable from the
+code.
+
+1. **Sentinel spelling: `home-assistant`.** `entity` rejected — see
+   [2.5](#25-the-sentinel-token).
+2. **Two card-wide modes, three per calendar**, as
+   [3.2](#32-three-modes-per-calendar-two-card-wide) argues.
+3. **The `home-assistant, #ff0000` fallback grammar is deferred**, with one rider: because
+   Google Calendar is the only core integration that populates the color, a user mixing
+   Google with Local Calendar gets real colors for some calendars and `#03a9f4` for the
+   rest, which reads as broken rather than deliberate. That needs a docs sentence now, even
+   though the grammar waits. Carried into [Part 8](#part-8-documentation).
+4. **Target release:** next feature release, off this branch.
+5. **Minimum version: a docs statement only, no editor hint.** The card gates on no Home
+   Assistant version anywhere, and this would be the only one.
+
+A sixth decision, arrived at during implementation planning rather than from a question:
+**this spec never reaches `dev`.** It lives on the feature branch and is deleted before the
+feature PR opens — one finished feature, one PR, no working notes inside it.

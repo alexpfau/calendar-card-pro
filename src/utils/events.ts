@@ -3,10 +3,12 @@
  * Functions for fetching, processing, caching, and organizing calendar events
  */
 
+import * as EntityColors from './entity-colors';
 import * as FormatUtils from './format';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
 import { isWeekRelative, parseStartDateExpression } from './start-date';
+import * as Config from '../config/config';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -964,10 +966,17 @@ function generateEventSignature(event: Types.CalendarEventData): string {
 /**
  * Get entity accent color with applied opacity
  *
+ * The sentinel adds one step above the existing chain rather than restructuring it: a
+ * calendar deferring to Home Assistant uses the color the registry holds, and falls through
+ * to whatever it would have rendered anyway when the registry holds none. That fall-through
+ * is the common path, not the edge case — Google Calendar is the only integration in core
+ * that populates a color, so most calendars have none until someone sets one by hand.
+ *
  * @param entityId - The entity ID to find color for
  * @param config - Current card configuration
  * @param opacity - Opacity value (0-100), if omitted returns solid color
  * @param event - Optional event data containing matched configuration
+ * @param registryColors - Colors Home Assistant holds, keyed by entity ID
  * @returns Color string ready for use in CSS with opacity applied if requested
  */
 export function getEntityAccentColorWithOpacity(
@@ -975,6 +984,7 @@ export function getEntityAccentColorWithOpacity(
   config: Types.Config,
   opacity?: number,
   event?: Types.CalendarEventData,
+  registryColors?: ReadonlyMap<string, string>,
 ): string {
   if (!entityId) return 'var(--calendar-card-line-color-vertical)';
 
@@ -989,16 +999,47 @@ export function getEntityAccentColorWithOpacity(
     );
   }
 
-  const baseColor =
-    typeof entityConfig === 'string'
-      ? config.accent_color // Use accent_color for simple entity strings
-      : entityConfig?.accent_color || config.accent_color;
+  const baseColor = resolveAccentColor(entityId, config, entityConfig, registryColors);
 
   if (opacity === undefined || opacity === 0 || isNaN(opacity)) {
     return baseColor;
   }
 
   return Helpers.convertToRGBA(baseColor, opacity);
+}
+
+/**
+ * Walk the accent-color chain for one calendar.
+ *
+ * @param entityId - Calendar the event came from
+ * @param config - Current card configuration
+ * @param entityConfig - That calendar's own settings, where it has any
+ * @param registryColors - Colors Home Assistant holds, keyed by entity ID
+ * @returns The color to draw, before any opacity is applied
+ */
+function resolveAccentColor(
+  entityId: string,
+  config: Types.Config,
+  entityConfig: string | Types.EntityConfig | undefined,
+  registryColors?: ReadonlyMap<string, string>,
+): string {
+  const fromHomeAssistant = registryColors?.get(entityId);
+
+  const perCalendar = typeof entityConfig === 'string' ? undefined : entityConfig?.accent_color;
+
+  if (EntityColors.isEntityColorSentinel(perCalendar)) {
+    if (fromHomeAssistant) return fromHomeAssistant;
+  } else if (perCalendar) {
+    return perCalendar;
+  }
+
+  if (EntityColors.isEntityColorSentinel(config.accent_color)) {
+    // Nothing to fall back to at this level: the sentinel is occupying the slot the
+    // card-wide literal would have held, so the shipped default is the floor.
+    return fromHomeAssistant ?? Config.DEFAULT_CONFIG.accent_color;
+  }
+
+  return config.accent_color;
 }
 
 /**

@@ -3,13 +3,16 @@
  */
 
 import {
+  ACCENT_COLOR_MODE,
   ENTITY_TRISTATE_STORED,
   ENTITY_TRISTATE_VALUES,
   INHERIT,
   LABEL_TYPE,
+  accentColorModeOf,
 } from './schemas/entity';
 import { entityIdOf, isSet } from './synthetic';
 import * as Types from '../../config/types';
+import { ENTITY_COLOR_SENTINEL } from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 
 const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
@@ -85,7 +88,11 @@ function fitsShape(type: string, value: unknown): boolean {
  */
 export function toEntityFormData(entry: string | Types.EntityConfig): Record<string, unknown> {
   const config = asEntityConfig(entry) as unknown as Record<string, unknown>;
-  const data: Record<string, unknown> = { ...config, [LABEL_TYPE]: labelTypeOf(entry) };
+  const data: Record<string, unknown> = {
+    ...config,
+    [LABEL_TYPE]: labelTypeOf(entry),
+    [ACCENT_COLOR_MODE]: accentColorModeOf(config.accent_color),
+  };
 
   for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
     const stored = config[name];
@@ -117,8 +124,14 @@ export function fromEntityFormData(
 
   const moved = chosenType !== labelTypeOf(previous);
 
+  // The accent mode is a form field, never a stored one: it is read back off the value's
+  // shape. Writing it would put a key in the user's YAML that the card never reads.
+  const accentMode = String(
+    data[ACCENT_COLOR_MODE] ?? accentColorModeOf(asEntityConfig(previous).accent_color),
+  );
+
   for (const [key, value] of Object.entries(data)) {
-    if (key === 'entity' || key === LABEL_TYPE) continue;
+    if (key === 'entity' || key === LABEL_TYPE || key === ACCENT_COLOR_MODE) continue;
 
     if (key === 'label') {
       if (chosenType === 'none') continue;
@@ -127,6 +140,12 @@ export function fromEntityFormData(
     }
 
     if (key === 'label_icon_color' && moved && chosenType !== 'icon') continue;
+
+    if (key === 'accent_color') {
+      // Only the custom mode has a colour to store. The other two are the sentinel and
+      // nothing at all, both written below rather than carried through from the form.
+      continue;
+    }
 
     if (key in ENTITY_TRISTATE_VALUES) {
       const stored = ENTITY_TRISTATE_STORED[String(value)];
@@ -145,11 +164,30 @@ export function fromEntityFormData(
     entry[key] = value;
   }
 
+  const accentColor = accentColorFor(accentMode, data.accent_color);
+  if (accentColor !== undefined) {
+    entry.accent_color = accentColor;
+  }
+
   if (needsExplicitType(chosenType, entry.label)) {
     entry.label_type = chosenType;
   }
 
   return Object.keys(entry).length === 1 ? entityId : (entry as unknown as Types.EntityConfig);
+}
+
+/**
+ * The `accent_color` one calendar should store for the mode it is in.
+ *
+ * @param mode - Mode the dropdown names
+ * @param value - Colour as the form holds it
+ * @returns The value to store, or `undefined` to store nothing
+ */
+function accentColorFor(mode: string, value: unknown): string | undefined {
+  if (mode === 'home_assistant') return ENTITY_COLOR_SENTINEL;
+  if (mode !== 'custom') return undefined;
+
+  return isSet(value) ? String(value) : undefined;
 }
 
 /**

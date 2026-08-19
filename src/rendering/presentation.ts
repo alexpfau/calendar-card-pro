@@ -6,6 +6,7 @@
 
 import type { EventContentParts } from './leaves';
 import * as Types from '../config/types';
+import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
 
@@ -65,11 +66,14 @@ export function buildEventPresentation(
     }
   }
 
+  const registryColors = EntityColors.entityColors();
+
   const entityAccentColor = EventUtils.getEntityAccentColorWithOpacity(
     event._entityId,
     config,
     undefined,
     event,
+    registryColors,
   );
 
   const backgroundOpacity =
@@ -81,6 +85,7 @@ export function buildEventPresentation(
           config,
           backgroundOpacity,
           event,
+          registryColors,
         )
       : ''; // Empty string for no background
 

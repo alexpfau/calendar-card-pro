@@ -2,6 +2,7 @@
  * Per-calendar entity schema rows.
  */
 
+import { isEntityColorSentinel } from '../../../utils/entity-colors';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
 import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
@@ -47,6 +48,25 @@ function inheritable(language: string, name: string): SelectorSchema {
 }
 
 export const LABEL_TYPE = 'label_type';
+
+export const ACCENT_COLOR_MODE = 'accent_color_mode';
+
+/**
+ * Per-calendar accent modes. Three here, unlike the card-wide control: a calendar can defer
+ * to the card, which the card itself has nothing to do.
+ */
+const ACCENT_COLOR_MODES: ReadonlyArray<string> = [INHERIT, 'home_assistant', 'custom'];
+
+/**
+ * The mode one calendar's accent color is in, read off the value's shape.
+ *
+ * @param accentColor - The calendar's stored `accent_color`
+ * @returns Which accent control that calendar renders
+ */
+export function accentColorModeOf(accentColor: unknown): string {
+  if (accentColor === undefined || accentColor === null || accentColor === '') return INHERIT;
+  return isEntityColorSentinel(accentColor) ? 'home_assistant' : 'custom';
+}
 
 const LABEL_TYPES: ReadonlyArray<'none' | 'text' | 'icon' | 'image'> = [
   'none',
@@ -111,7 +131,8 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     labelType(ctx.language),
     text('label'),
     text('label_icon_color'),
-    row(text('color'), text('accent_color')),
+    row(text('color'), accentColorMode(ctx.language)),
+    text('accent_color'),
 
     inheritable(ctx.language, 'show_time'),
     inheritable(ctx.language, 'show_location'),
@@ -129,17 +150,48 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
 }
 
 /**
- * Narrows the declared schema to the label fields one calendar's shape calls for.
+ * The dropdown naming where a calendar's accent color comes from.
+ *
+ * @param language - Effective language code
+ * @returns The field
+ */
+function accentColorMode(language: string): SelectorSchema {
+  return {
+    name: ACCENT_COLOR_MODE,
+    selector: {
+      select: {
+        mode: 'dropdown',
+        options: ACCENT_COLOR_MODES.map((value) => ({
+          value,
+          label:
+            lookup(language, `entity.${ACCENT_COLOR_MODE}.option.${value}.label`) ??
+            humanize(value),
+        })),
+      },
+    },
+  };
+}
+
+/**
+ * Narrows the declared schema to the fields one calendar's choices call for.
  *
  * @param schema - The per-calendar schema, as declared
  * @param type - Shape this calendar's label holds
+ * @param accentMode - Where this calendar's accent color comes from
  * @returns The schema this calendar renders
  */
-export function entitySchemaFor(schema: ReadonlyArray<HaFormSchema>, type: string): HaFormSchema[] {
+export function entitySchemaFor(
+  schema: ReadonlyArray<HaFormSchema>,
+  type: string,
+  accentMode: string = 'custom',
+): HaFormSchema[] {
   const replaced = new Set(['label', 'label_icon_color']);
   let inserted = false;
 
   return schema.flatMap((node) => {
+    // The colour field only means anything when this calendar names its own colour.
+    if (node.name === 'accent_color') return accentMode === 'custom' ? [node] : [];
+
     if (!replaced.has(node.name)) return [node];
     if (inserted) return [];
 
