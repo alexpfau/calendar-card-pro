@@ -96,6 +96,7 @@ const contentSchema = Helpers.memoizeLast(
         bool('hide_when_empty'),
         bool('filter_duplicates'),
         bool('split_multiday_events'),
+        select(language, 'event_type', ['all', 'timed', 'all_day']),
       ]),
 
       group(language, 'locale', LANGUAGE_ICON, [

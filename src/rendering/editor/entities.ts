@@ -97,7 +97,7 @@ export function toEntityFormData(entry: string | Types.EntityConfig): Record<str
 
   for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
     const stored = config[name];
-    const match = values.find((value) => ENTITY_TRISTATE_STORED[value] === stored);
+    const match = values.find((value) => ENTITY_TRISTATE_STORED[name][value] === stored);
     data[name] = match ?? INHERIT;
   }
 
@@ -152,7 +152,7 @@ export function fromEntityFormData(
     }
 
     if (key in ENTITY_TRISTATE_VALUES) {
-      const stored = ENTITY_TRISTATE_STORED[String(value)];
+      const stored = ENTITY_TRISTATE_STORED[key][String(value)];
       if (stored !== undefined) entry[key] = stored;
       continue;
     }

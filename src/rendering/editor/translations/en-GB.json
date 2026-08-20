@@ -7,6 +7,7 @@
   "entity.accent_color_mode.helper": "Home Assistant can hold a colour for each calendar, under Settings, Devices & Services, Entities. Calendars it has no colour for fall back to the card.",
   "entity.accent_color_mode.option.custom.label": "Custom colour",
   "entity.label_icon_color": "Label Icon Colour",
+  "entity.event_type.helper": "List the same calendar twice — once on each of the last two — to give its all-day and timed events different colours.",
   "empty_day_color": "Empty Day Colour",
   "filter_duplicates.helper": "Hides an event whose title, start, end and location all match another. The copy from the calendar listed first is the one kept, along with its label and colour.",
   "title_color": "Title Colour",

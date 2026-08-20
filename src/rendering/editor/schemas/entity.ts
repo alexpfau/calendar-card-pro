@@ -15,14 +15,33 @@ export const ENTITY_TRISTATE_VALUES: Readonly<Record<string, ReadonlyArray<strin
   show_location: [INHERIT, 'show', 'hide'],
   show_description: [INHERIT, 'show', 'hide'],
   split_multiday_events: [INHERIT, 'split', 'whole'],
+  event_type: [INHERIT, 'all', 'timed', 'all_day'],
 };
 
-export const ENTITY_TRISTATE_STORED: Readonly<Record<string, boolean | undefined>> = {
-  [INHERIT]: undefined,
-  show: true,
-  hide: false,
-  split: true,
-  whole: false,
+/**
+ * What each dropdown value stores, per option.
+ *
+ * 🚨 Keyed by option first, and it has to stay that way. A single flat value→stored table
+ * works only while every option stores a boolean; `event_type` stores strings, so a flat
+ * table would have to widen to `boolean | string | undefined` — and at that width the
+ * dropdown values become a shared namespace across unrelated options.
+ *
+ * The hazard is not hypothetical. `hide` already means `false` to three options above, and
+ * this key was first drafted with the values `all` / `only` / `hide`. Flat, its `hide`
+ * would have resolved to `false`, `toEntityFormData` would have found no value whose
+ * stored form matched, fallen back to `inherit`, and the next write would have dropped the
+ * key — so a configured filter would vanish from the user's YAML the first time they
+ * opened the editor. The values changed before shipping; the shape is what keeps the next
+ * string-valued option safe.
+ */
+export const ENTITY_TRISTATE_STORED: Readonly<
+  Record<string, Readonly<Record<string, boolean | string | undefined>>>
+> = {
+  show_time: { [INHERIT]: undefined, show: true, hide: false },
+  show_location: { [INHERIT]: undefined, show: true, hide: false },
+  show_description: { [INHERIT]: undefined, show: true, hide: false },
+  split_multiday_events: { [INHERIT]: undefined, split: true, whole: false },
+  event_type: { [INHERIT]: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
 };
 
 /**
@@ -138,6 +157,7 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     inheritable(ctx.language, 'show_location'),
     inheritable(ctx.language, 'show_description'),
     inheritable(ctx.language, 'split_multiday_events'),
+    inheritable(ctx.language, 'event_type'),
 
     {
       name: 'compact_events_to_show',

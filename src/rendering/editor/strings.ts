@@ -154,6 +154,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.split_multiday_events.option.split.label': 'Split across each day',
   'entity.split_multiday_events.option.whole.label': 'Keep as one event',
 
+  'entity.event_type': 'Event Type',
+  'entity.event_type.option.inherit.label': 'Follow the card',
+  'entity.event_type.option.all.label': 'All events',
+  'entity.event_type.option.timed.label': 'Only events with a time',
+  'entity.event_type.option.all_day.label': 'Only all-day events',
+  'entity.event_type.helper':
+    'List the same calendar twice \u2014 once on each of the last two \u2014 to give ' +
+    'its all-day and timed events different colors.',
+
   'entity.compact_events_to_show': 'Compact Events to Show',
   'entity.compact_events_to_show.helper':
     'How many of this calendar\u2019s events compact mode keeps. Left empty, the card ' +
@@ -251,6 +260,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   split_multiday_events: 'Split Multi-Day Events',
   'split_multiday_events.helper':
     'Show an event on every day it covers rather than only on the day it starts.',
+  event_type: 'Event Type',
+  'event_type.option.all.label': 'All events',
+  'event_type.option.timed.label': 'Only events with a time',
+  'event_type.option.all_day.label': 'Only all-day events',
+  'event_type.helper':
+    'Whether the card shows every event, only those with a time, or only all-day ones. ' +
+    'This is about the kind of event, not how long it lasts. Individual calendars can ' +
+    'depart from it below.',
 
   locale: 'Language & Time Format',
   language_mode: 'Language',
