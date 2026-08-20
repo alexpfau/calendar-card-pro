@@ -500,6 +500,23 @@ deployed by Cloudflare on every push to `main`. `README.md` is now only a landin
 badges, overview, installation, a quick-start example, What's New, and contributing.
 Everything else moved to `docs/`.
 
+**A spec is working state, not a deliverable, and never reaches `dev`.** Design documents —
+a specification, an implementation plan, the reasoning behind a large change — live under
+`docs/development/` for the life of the feature branch that needs them, and are **deleted
+there before the single PR into `dev` is opened**. One finished feature, one PR, no working
+notes inside it. A spec is reviewed on its branch; it does not get a PR of its own.
+
+Verify the deletion rather than remembering it:
+
+```bash
+git diff --name-only origin/dev...HEAD | grep '^docs/development/'
+```
+
+No output is the passing case. Nothing else will catch this: `docs/development/` is
+`srcExclude`d from the VitePress build and exempt from the docs-coverage checks, so a spec
+that slips through never appears on the site and simply ships as a repository file
+describing work as though it were still pending.
+
 The screenshots under `.github/img/` are **not** captured by anything in this repo. They
 come from a Home Assistant instance only the maintainer has, so they cannot be regenerated
 from a PR. Two consequences: a change that alters how the card renders by default — spacing,
@@ -1073,10 +1090,12 @@ citations that quote a released tag, such as `v3.6.0 leaves.ts:324`, are exempt 
 is immutable.
 
 **When a planning document is retired, grep for its vocabulary.** `docs/development/column-view.md`
-was deleted once the column view shipped, and nineteen references to its phases survived in
-four test files — still written in the future tense, still describing work as upcoming that
-had already landed. Comments that name a document outlive the document, so deleting one is
-not finished until `grep -rn "Phase [0-9]" src tests` comes back empty.
+was deleted once the column view shipped — late, under the older workflow that let a spec
+reach `dev` at all, where the rule under _Documenting a change_ now retires one on its own
+branch — and nineteen references to its phases survived in four test files, still written in
+the future tense, still describing work as upcoming that had already landed. Comments that
+name a document outlive the document whenever it goes, so deleting one is not finished until
+`grep -rn "Phase [0-9]" src tests` comes back empty.
 
 **A JSDoc block touches the thing it documents — no blank line between them.** This is the
 one style rule in the project that nothing mechanical enforces, so it is the one that
