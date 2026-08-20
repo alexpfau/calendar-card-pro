@@ -11,7 +11,8 @@ public release in January 2025 to today.
 - 🎨 **Follow Home Assistant's Calendar Colors**: Set `accent_color` to `home-assistant` and each calendar takes [the color Home Assistant already holds for it](/features/core-settings), so it looks the same on every card — whether you picked that color by hand or Google Calendar imported it
 - 🗂️ **Split One Calendar by Event Type**: [`event_type`](/features/core-settings) takes `all`, `timed` or `all_day`, card-wide or per calendar — list one calendar twice, once each way, for a color on each, and [**Duplicate** in the editor](/features/editor#per-calendar-panels-actions) builds it for you
 - ⚙️ **Clearer Editor Layout**: The panels deciding what the card shows now group their settings under sub-headings, and both order them the same way
-- 🗑️ **All-Day Events That Clear During the Day**: [`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) gives one calendar's all-day events the end time they lack, so a bin emptied this morning stops sitting on the card until midnight
+- 🗑️ **All-Day Events That Clear During the Day**: [`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) moves the moment one calendar's all-day events count as past earlier into the final day, so a bin emptied this morning stops sitting on the card until midnight
+- 🐛 **Finished All-Day Events Stayed on the Card**: with past events hidden, an all-day event that had already ended kept its row on any card whose window reached backwards, while timed events beside it were correctly gone
 - 📅 **A Calendar on Weekdays Only**: [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only) takes `weekdays` or `weekends` for a single calendar, judged on the day each row lands on, while every other calendar keeps its weekend
 
 ## v4.0

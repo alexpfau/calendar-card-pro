@@ -282,27 +282,39 @@ function parseTimeOfDay(
 }
 
 /**
- * Whether an all-day event has passed the time of day its calendar retires it at.
+ * The instant an all-day event stops counting as upcoming.
  *
- * All-day events are exempt from expiry by construction: the test beside this one compares
- * `endDate < now`, and an all-day event's end is a date rather than an instant, so it can
- * only fall past once the calendar day itself has. `allday_expires_at` supplies the missing
- * instant — the configured clock time on the event's **last** day, so a Monday-to-Wednesday
- * holiday retires on Wednesday morning rather than on Monday's.
+ * 🚨 The **default matters as much as the option**, and supplying it is what closes the
+ * older defect this function also fixes. An all-day event has no end instant — its end is a
+ * date — so the timed test beside this one could not be applied to it: `endDate` is local
+ * midnight *at the start* of the last day, so from 00:00:01 onward every all-day event
+ * happening **today** would have read as past. The card therefore exempted all-day events
+ * from expiry altogether, which is right for today and wrong for every day before it. With
+ * `show_past_events: false` and a window reaching backwards — `start_date: 'today-7'`, or
+ * `start_of_week` mid-week — a finished all-day event kept its row while every timed event
+ * beside it was correctly hidden.
  *
- * An unparseable value expires nothing, on the same principle as `resolveEventType`: a typo
- * should show too much, never too little. It is reported once per distinct value, because
- * this runs per event and a silent typo is a support question nobody can answer.
+ * Supplying the missing instant fixes both at once. An all-day event is past at **midnight
+ * after its last day**, so today's survives the whole day and last Saturday's does not, and
+ * `allday_expires_at` moves that instant earlier *within* the final day. The option and the
+ * default are then one rule at two settings rather than two mechanisms.
  *
- * 🚨 Nothing schedules a render at the configured time. The card's only timer is the
+ * The last day is the event's own, not today's, so a Monday-to-Wednesday holiday retires on
+ * Wednesday night rather than on Monday's.
+ *
+ * An unparseable value falls back to midnight rather than to never, on the same principle
+ * as `resolveEventType`: a typo should leave the card behaving as though the option were
+ * absent. It is reported once per distinct value, because this runs per event and a silent
+ * typo is a support question nobody can answer.
+ *
+ * 🚨 Nothing schedules a render at the returned instant. The card's only timer is the
  * refresh interval, so an event retires on the first render after its moment passes.
  *
  * @param endDate Last day the event covers, at local midnight
  * @param configured The calendar's `allday_expires_at`, unvalidated
- * @param now Instant the card is rendering at
- * @returns True when the event should count as past
+ * @returns The local instant from which the event counts as past
  */
-function allDayEventHasExpired(endDate: Date, configured: unknown, now: Date): boolean {
+function allDayExpiryInstant(endDate: Date, configured: unknown): Date {
   const time = parseTimeOfDay(configured);
 
   if (!time) {
@@ -314,13 +326,19 @@ function allDayEventHasExpired(endDate: Date, configured: unknown, now: Date): b
       }
     }
 
-    return false;
+    // Midnight after the last day, built by adding a calendar day rather than by naming
+    // 24:00, so a DST transition on that night shifts it correctly.
+    const midnight = new Date(endDate);
+    midnight.setDate(midnight.getDate() + 1);
+    midnight.setHours(0, 0, 0, 0);
+
+    return midnight;
   }
 
   const expiresAt = new Date(endDate);
   expiresAt.setHours(time.hours, time.minutes, time.seconds, 0);
 
-  return now >= expiresAt;
+  return expiresAt;
 }
 
 /**
@@ -482,18 +500,17 @@ export function groupEventsByDay(
         return false;
       }
 
-      // The all-day half of the same rule. Read here rather than beside the timed test
-      // above because it is per-calendar: `show_past_events` decides *whether* past events
-      // are shown, and this decides *when* one of this calendar's all-day events becomes
-      // past. With `show_past_events: true` there is nothing for it to do, which is why it
-      // sits inside this branch rather than beside it.
+      // The all-day half of the same rule, and the half that needs an instant computed for
+      // it. `show_past_events` decides *whether* past events are shown; the expiry decides
+      // *when* an all-day event becomes past. With `show_past_events: true` there is
+      // nothing for either to do, which is why both sit inside this branch.
       if (
         isAllDayEvent &&
-        allDayEventHasExpired(
-          endDate,
-          getEntitySetting(event._entityId, 'allday_expires_at', config, event),
-          now,
-        )
+        now >=
+          allDayExpiryInstant(
+            endDate,
+            getEntitySetting(event._entityId, 'allday_expires_at', config, event),
+          )
       ) {
         return false;
       }

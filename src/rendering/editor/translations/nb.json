@@ -126,7 +126,7 @@
   "compact_events_complete_days": "Gjør den siste dagen ferdig",
   "compact_events_complete_days.helper": "I stedet for å stoppe midt i en dag ved hendelsesgrensen, vis resten av den dagen også.",
   "content": "Hva kortet viser",
-  "show_past_events": "Vis dagens passerte hendelser",
+  "show_past_events": "Vis passerte hendelser",
   "show_empty_days": "Vis tomme dager",
   "empty_day_text": "Tekst for tomme dager",
   "empty_day_text.helper": "Erstatter den oversatte standardteksten, og fjerner haken foran den.",

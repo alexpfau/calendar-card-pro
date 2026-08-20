@@ -126,7 +126,7 @@
   "compact_events_complete_days": "Pabeigt pēdējo dienu",
   "compact_events_complete_days.helper": "Tā vietā, lai apstātos pie notikumu ierobežojuma dienas vidū, parādīt arī atlikušo tās dienas daļu.",
   "content": "Ko karte rāda",
-  "show_past_events": "Rādīt šodienas pagājušos notikumus",
+  "show_past_events": "Rādīt pagājušos notikumus",
   "show_empty_days": "Rādīt tukšas dienas",
   "empty_day_text": "Tukšas dienas teksts",
   "empty_day_text.helper": "Aizstāj tulkoto noklusējuma tekstu un noņem ķeksīti tā priekšā.",

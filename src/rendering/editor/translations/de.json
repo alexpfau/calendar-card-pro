@@ -126,7 +126,7 @@
   "compact_events_complete_days": "Letzten Tag vollständig zeigen",
   "compact_events_complete_days.helper": "Statt am Terminlimit mitten im Tag aufzuhören, wird der Rest dieses Tages ebenfalls angezeigt.",
   "content": "Was die Karte zeigt",
-  "show_past_events": "Vergangene Termine von heute anzeigen",
+  "show_past_events": "Vergangene Termine anzeigen",
   "show_empty_days": "Leere Tage anzeigen",
   "empty_day_text": "Text für leere Tage",
   "empty_day_text.helper": "Ersetzt den übersetzten Standardtext und lässt das Häkchen davor weg.",

@@ -276,7 +276,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Rather than stopping mid-day at the event limit, show the rest of that day too.',
 
   content: 'What The Card Shows',
-  show_past_events: "Show Today's Past Events",
+  show_past_events: 'Show Past Events',
   show_empty_days: 'Show Empty Days',
   empty_day_text: 'Empty Day Text',
   'empty_day_text.helper': 'Replaces the translated default, and drops the check mark before it.',

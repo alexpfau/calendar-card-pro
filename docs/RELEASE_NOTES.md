@@ -20,7 +20,7 @@ It names the kind of event, not how long one lasts: a dinner running from 23:30 
 
 ### 🗑️ All-Day Events That Clear Partway Through the Day
 
-**A bin that was emptied this morning no longer sits on your card until midnight.** All-day events have no end time, only an end date, so the card cannot tell one is over until the day itself is — which is right for a birthday and wrong for a waste-collection feed published by a council you cannot edit. The new per-calendar `allday_expires_at` gives that one calendar the end time it lacks: set `'10:00'` and its all-day events count as past from mid-morning, while your birthdays and holidays stay up all day.
+**A bin that was emptied this morning no longer sits on your card until midnight.** All-day events have no end time, only an end date, so the card retires one at midnight after the last day it covers — right for a birthday, wrong for a waste-collection feed published by a council you cannot edit. The new per-calendar `allday_expires_at` moves that moment earlier within the final day: set `'10:00'` and this one calendar's all-day events count as past from mid-morning, while your birthdays and holidays stay up all day.
 
 The time is read against the last day an event covers, so a three-day trip clears on the morning it ends rather than the morning it began. Nothing schedules a redraw at the time you name, so the row goes on the card's next refresh rather than exactly on the minute. (#163)
 
@@ -46,6 +46,8 @@ Both panels for one calendar carry the same heading, because they name the same 
 
 ## 🐛 Bug Fixes
 
+- **Finished All-Day Events Stayed on the Card** - With `show_past_events: false`, a timed event vanished when it ended but an all-day one never did: an all-day event has no end _time_, only an end _date_, so the card had nothing to compare against and exempted them all. Any card whose window reached backwards therefore kept showing all-day events from days that were over — `start_date: 'today-7'`, or `start_of_week` read on a Thursday, which the start-date docs actively recommend pairing with past events hidden. All-day events are now past at midnight after the last day they cover, so a finished one goes and today's stays up all day. If you use a backward-looking window, expect finished all-day entries to disappear from it
+- **The Editor Called `show_past_events` "Show Today's Past Events"** - It shows every past event inside the card's configured window, not only today's, so on a card starting a week back the label described a fraction of what the switch did. Corrected in English and in all nine translated editor languages
 - **A Calendar's Panel Named It Differently From the Picker Directly Above It** - Home Assistant's entity picker moved to friendly names some time ago, so the Calendars row read _Calendar card pro - family_ while the settings panel a few pixels below it read `calendar.calendar_card_pro_family`. An entity id need not resemble its name at all, which left no reliable way to tell which panel belonged to which row on a card listing several calendars. Panels are now headed with the same name Home Assistant shows. A calendar that has been removed from Home Assistant keeps its entity id, since that is the only thing left identifying it
 
 ## Related Issues

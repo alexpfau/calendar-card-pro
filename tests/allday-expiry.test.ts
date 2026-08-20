@@ -1,12 +1,17 @@
 /**
  * `allday_expires_at` retires a calendar's all-day events partway through the day.
  *
- * All-day events are exempt from expiry **by construction**, which is the fact this option
- * exists to change. The past-events test compares `endDate < now`, and an all-day event's
- * end is a date rather than an instant, so it cannot fall past until the calendar day
- * itself has. The request behind it (#163) is a waste-collection feed published by a
- * council: its entries are all-day events, so the bin sits on the card until midnight,
- * hours after it was emptied, and the reporter cannot edit the feed.
+ * All-day events had no end **instant**, only an end date, so the past-events test —
+ * `endDate < now` — could not be applied to them and they were exempt from expiry
+ * altogether. `allday_expires_at` supplies that instant. The request behind it (#163) is a
+ * waste-collection feed published by a council: its entries are all-day events, so the bin
+ * sits on the card all day, hours after it was emptied, and the reporter cannot edit
+ * the feed.
+ *
+ * The option and its **default** are one rule at two settings, which is why the first
+ * describe block below tests the default rather than the option. An all-day event is past
+ * at midnight after its last day; `allday_expires_at` moves that instant earlier within the
+ * final day.
  *
  * Four properties are pinned here, and each one has been wrong in some draft:
  *
@@ -16,8 +21,8 @@
  *   past events are shown and this one decides *when* an event becomes past. Two
  *   independent visibility rules over the same events is a card nobody can predict.
  * - It leaves timed events alone, which already have an end instant and already expire.
- * - An unparseable value expires nothing, so a typo shows too much rather than emptying a
- *   calendar silently.
+ * - An unparseable value falls back to the default rather than to never, so a typo leaves
+ *   the card behaving as though the option were absent.
  *
  * The suite is built from `DEFAULT_CONFIG`, where the option is unset, so every case here
  * sets it deliberately — without that this option would be invisible to the whole suite.
@@ -91,6 +96,102 @@ function render(
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+/**
+ * The defect the option's **default** fixes, which is separate from the option itself.
+ *
+ * Reported during review of this branch. `show_past_events: false` hid every timed event
+ * that had ended and left finished **all-day** events on the card indefinitely, because
+ * all-day events were exempt from the past test by construction. From a user's point of
+ * view that is simply wrong: an event that finished last Saturday is past, whatever shape
+ * its dates take.
+ *
+ * It is invisible at the default `start_date`, which is why it shipped: the window filter
+ * requires `endDate >= referenceStart`, so with the window opening today a finished all-day
+ * event is dropped for being outside the window rather than for being past, and the two
+ * reasons cannot be told apart. Only a window reaching **backwards** separates them —
+ * `start_date: 'today-7'`, or `start_of_week` read mid-week, which the start-date docs
+ * actively recommend. Every case below therefore uses one, and the timed control proves the
+ * window itself is not what hides the event.
+ *
+ * The fix is the same instant `allday_expires_at` names, defaulted: an all-day event is
+ * past at midnight after its last day.
+ */
+describe('a finished all-day event is past, with no option set', () => {
+  /** Saturday 13 June, four days before the frozen Wednesday. */
+  const lastSaturday = (): Types.CalendarEventData[] => [
+    allDay('Disneyland', '2026-06-13', '2026-06-14'),
+  ];
+
+  /** A window reaching back a week, which is the only thing that exposes this. */
+  const BACKWARDS = { start_date: '2026-06-10', days_to_show: 12 } as Partial<Types.Config>;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(AT_1100);
+  });
+
+  it('hides it', () => {
+    expect(render(lastSaturday(), {}, BACKWARDS)).toEqual([]);
+  });
+
+  /**
+   * The denominator, and the assertion that makes the one above mean something. The event
+   * is inside the window — it renders the moment past events are shown — so its absence is
+   * the past test doing its job rather than the window excluding it.
+   */
+  it('control: the same event is inside the window', () => {
+    expect(render(lastSaturday(), {}, { ...BACKWARDS, show_past_events: true })).toEqual([
+      'Disneyland',
+    ]);
+  });
+
+  /**
+   * The second control, and the one that states the inconsistency the report was about: a
+   * timed event on the same past day was already hidden. Before the fix these two answered
+   * differently, side by side, on the same card.
+   */
+  it('control: a timed event on that same day was already hidden', () => {
+    const timed: Types.CalendarEventData[] = [
+      {
+        summary: 'Timed',
+        start: { dateTime: '2026-06-13T09:00:00.000Z' },
+        end: { dateTime: '2026-06-13T10:00:00.000Z' },
+        _entityId: 'calendar.waste',
+      },
+    ];
+
+    expect(render(timed, {}, BACKWARDS)).toEqual([]);
+  });
+
+  /**
+   * The over-correction guard, and the reason the exemption existed in the first place.
+   * `endDate` for an all-day event is local midnight at the *start* of its last day, so a
+   * naive `endDate < now` retires today's event at 00:00:01. Midnight-after-the-last-day is
+   * what keeps it up all day.
+   */
+  it('keeps today\u2019s all-day event, late in the day', () => {
+    vi.setSystemTime(new Date('2026-06-17T23:30:00.000Z'));
+
+    expect(render([allDay('Today', TODAY, TOMORROW)], {}, BACKWARDS)).toEqual(['Today']);
+  });
+
+  /** And retires it the moment that midnight passes, rather than at some later point. */
+  it('retires it once midnight has passed', () => {
+    vi.setSystemTime(new Date('2026-06-18T00:00:00.000Z'));
+
+    expect(render([allDay('Today', TODAY, TOMORROW)], {}, BACKWARDS)).toEqual([]);
+  });
+
+  /** A multi-day event is judged on its last day, not its first. */
+  it('keeps a multi-day event that is still running', () => {
+    expect(render([allDay('Away', '2026-06-15', '2026-06-19')], {}, BACKWARDS)).toEqual(['Away']);
+  });
+
+  it('hides a multi-day event that finished yesterday', () => {
+    expect(render([allDay('Away', '2026-06-14', '2026-06-17')], {}, BACKWARDS)).toEqual([]);
+  });
 });
 
 describe('allday_expires_at: a single-day all-day event', () => {
@@ -287,12 +388,15 @@ describe('allday_expires_at: values it accepts and values it refuses', () => {
   });
 
   /**
-   * A typo shows too much, never too little — the principle `resolveEventType` follows.
-   * The alternative is a calendar that silently empties because someone wrote `10am`, with
-   * nothing on screen to say why.
+   * A typo falls back to the default — the principle `resolveEventType` follows, adapted to
+   * an option whose absent state is no longer "never". The card behaves as though the key
+   * were not there, rather than silently emptying a calendar because someone wrote `10am`.
+   *
+   * The fixture is today's event, so falling back to midnight leaves it showing; the
+   * default's own behaviour is pinned separately in the first describe block.
    */
   it.each(['10am', '24:00', '10:60', '10', 'morning', '', '1000'])(
-    '%s expires nothing',
+    '%s falls back to the default',
     (value) => {
       expect(render(bin(), { allday_expires_at: value })).toEqual(['Green bin']);
     },

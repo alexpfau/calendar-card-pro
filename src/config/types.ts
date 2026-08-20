@@ -285,10 +285,11 @@ export interface EntityConfig {
   /**
    * Clock time at which this calendar's all-day events start counting as past, `HH:MM`.
    *
-   * All-day events are exempt from expiry by construction — the `show_past_events` test
-   * compares an end *instant*, and an all-day event has none — so without this they sit on
-   * the card until midnight. Unset keeps that. Read only while `show_past_events` is
-   * `false`; it decides *when* an all-day event becomes past, not whether past events show.
+   * An all-day event has no end *instant*, only an end date, so the `show_past_events` test
+   * cannot be applied to it directly. It is therefore past at **midnight after its last
+   * day**, and this option moves that instant earlier within the final day. Unset keeps
+   * midnight. Read only while `show_past_events` is `false`; it decides *when* an all-day
+   * event becomes past, not whether past events show.
    */
   allday_expires_at?: string;
 }
