@@ -569,6 +569,8 @@ export function normalizeEntities(
         allowlist?: string;
         split_multiday_events?: boolean;
         event_type?: Types.EventType;
+        days_of_week?: Types.DaysOfWeekFilter;
+        allday_expires_at?: string;
       }
   >,
 ): Array<Types.EntityConfig> {
@@ -604,6 +606,8 @@ export function normalizeEntities(
           allowlist: item.allowlist,
           split_multiday_events: item.split_multiday_events,
           event_type: item.event_type,
+          days_of_week: item.days_of_week,
+          allday_expires_at: item.allday_expires_at,
         };
       }
       return null;

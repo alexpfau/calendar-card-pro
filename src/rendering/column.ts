@@ -16,6 +16,7 @@ import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
+import * as FormatUtils from '../utils/format';
 
 //-----------------------------------------------------------------------------
 // DAY BOUNDARIES
@@ -215,7 +216,7 @@ function renderDayColumn(
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
-  const isWeekendDay = Leaves.isWeekendDate(dayDate);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate);
 
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
 

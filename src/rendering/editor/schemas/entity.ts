@@ -16,6 +16,7 @@ export const ENTITY_TRISTATE_VALUES: Readonly<Record<string, ReadonlyArray<strin
   show_description: [INHERIT, 'show', 'hide'],
   split_multiday_events: [INHERIT, 'split', 'whole'],
   event_type: [INHERIT, 'all', 'timed', 'all_day'],
+  days_of_week: [INHERIT, 'weekdays', 'weekends'],
 };
 
 /**
@@ -42,6 +43,10 @@ export const ENTITY_TRISTATE_STORED: Readonly<
   show_description: { [INHERIT]: undefined, show: true, hide: false },
   split_multiday_events: { [INHERIT]: undefined, split: true, whole: false },
   event_type: { [INHERIT]: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
+  // Its own mapping rather than a share of `event_type`'s, which is what the note above
+  // is for: both store `all`, and a shared table would then have to agree on `weekdays`
+  // and `all_day` too. Keyed per option, the two cannot collide however they are spelled.
+  days_of_week: { [INHERIT]: undefined, weekdays: 'weekdays', weekends: 'weekends' },
 };
 
 /**
@@ -173,11 +178,15 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
 
     // Predicates first, then the budget. `compact_events_to_show` decides how many of the
     // survivors fit rather than whether any one of them qualifies, so it reads last — the
-    // order the card applies them in.
+    // order the card applies them in. The two render-time predicates sit after the two
+    // processing-time ones for the same reason, which is also why the pair of dropdowns is
+    // split by the pair of pattern fields rather than kept visually together.
     heading('heading_filters'),
     inheritable(ctx.language, 'event_type'),
     text('blocklist'),
     text('allowlist'),
+    { name: 'allday_expires_at', selector: { text: { type: 'time' } } },
+    inheritable(ctx.language, 'days_of_week'),
     {
       name: 'compact_events_to_show',
       selector: { number: { min: 0, mode: 'box' } },

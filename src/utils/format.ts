@@ -262,6 +262,28 @@ export function getLocalDateKey(date: Date): string {
 }
 
 /**
+ * Check whether a date falls on a weekend.
+ *
+ * Saturday and Sunday, deliberately fixed rather than derived from the locale or from
+ * `first_day_of_week`. This is the card's **one** answer to the question, and it is read
+ * by two features that have to agree: the weekend day-header colors, and the per-calendar
+ * `days_of_week` filter. Were the filter locale-aware while the colors were not, a Friday
+ * in a Friday–Saturday weekend would be filtered as a weekend day and colored as a
+ * weekday — two visible answers to one question on the same row.
+ *
+ * Lives here rather than beside its first caller in `rendering/leaves.ts` for that reason:
+ * `leaves.ts` imports `utils/events.ts`, so the filter could not have reached it without
+ * a cycle, and a second copy is what this comment exists to prevent.
+ *
+ * @param date Date to check
+ * @returns True when the date is a Saturday or Sunday
+ */
+export function isWeekendDate(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+}
+
+/**
  * Count whole calendar days from one date to another.
  *
  * Both arguments are reduced to their local calendar date and differenced in

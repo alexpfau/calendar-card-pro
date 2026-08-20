@@ -18,6 +18,18 @@ The color has to exist in Home Assistant first, and most do not yet: Google Cale
 
 It names the kind of event, not how long one lasts: a dinner running from 23:30 to 00:30 is `timed`, however many dates it touches. The two blocks are built with **Duplicate** on the calendar's own panel in the visual editor — see below. (#132)
 
+### 🗑️ All-Day Events That Clear Partway Through the Day
+
+**A bin that was emptied this morning no longer sits on your card until midnight.** All-day events have no end time, only an end date, so the card cannot tell one is over until the day itself is — which is right for a birthday and wrong for a waste-collection feed published by a council you cannot edit. The new per-calendar `allday_expires_at` gives that one calendar the end time it lacks: set `'10:00'` and its all-day events count as past from mid-morning, while your birthdays and holidays stay up all day.
+
+The time is read against the last day an event covers, so a three-day trip clears on the morning it ends rather than the morning it began. Nothing schedules a redraw at the time you name, so the row goes on the card's next refresh rather than exactly on the minute. (#163)
+
+### 📅 A Calendar That Only Shows on Weekdays
+
+**One calendar can stop at Friday while the rest of the card keeps its weekend.** A school-holidays calendar whose entries run through the weekend has always dragged those weekend days onto the card with it, and narrowing the card's date window is no answer — the window belongs to the card, so it would take the weekend away from every calendar at once. The new per-calendar `days_of_week` takes `weekdays` or `weekends` and settles it for that calendar alone.
+
+It judges the day a row actually lands on rather than the day the event began, which is what lets it work on holidays spanning weeks. Pair it with [`split_multiday_events`](/features/multi-day-events) on a calendar of long events — that turns a fortnight's holiday into a row per day, each judged on its own, which is the Monday-to-Friday view the request was for. Column view already splits by default. (#225)
+
 ### ⚙️ Editor Settings Grouped Under Sub-Headings
 
 **The panels that decide what the card shows now group their settings under sub-headings, and both order them the same way.** Which events appear comes first, then how events spanning several days are handled, then what each row carries — the order the card itself works in. The per-calendar panel still opens with its label and colors, because those name the calendar you are editing rather than configure it.
@@ -39,6 +51,8 @@ Both panels for one calendar carry the same heading, because they name the same 
 ## Related Issues
 
 - [#132](https://github.com/alexpfau/calendar-card-pro/issues/132) - Filter based on all-day events by @syst3x
+- [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765
+- [#225](https://github.com/alexpfau/calendar-card-pro/issues/225) - Show only Monday to Friday entries for some calendars by @nytram-md
 - [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
 - [#533](https://github.com/alexpfau/calendar-card-pro/issues/533) - Duplicate a calendar block from the visual editor by @alexpfau
 

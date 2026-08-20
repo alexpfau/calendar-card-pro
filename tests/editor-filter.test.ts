@@ -827,6 +827,8 @@ describe('editor: the order of the two panels', () => {
       'event_type',
       'blocklist',
       'allowlist',
+      'allday_expires_at',
+      'days_of_week',
       'compact_events_to_show',
       '# heading_multiday',
       'split_multiday_events',

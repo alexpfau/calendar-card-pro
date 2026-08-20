@@ -68,7 +68,8 @@ the card-wide settings for that one calendar:
 
 `entity` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
 `show_time` · `show_location` · `show_description` · `compact_events_to_show` ·
-`blocklist` · `allowlist` · `split_multiday_events` · `event_type`
+`blocklist` · `allowlist` · `split_multiday_events` · `event_type` ·
+`allday_expires_at` · `days_of_week`
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
 **→ [Choosing how a label is read](/features/core-settings#choosing-how-a-label-is-read)** — when `label_type` is needed, and when it is not.

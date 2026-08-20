@@ -152,6 +152,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 - 🎨 **Follow Home Assistant's Calendar Colors**: Set `accent_color` to `home-assistant` and each calendar takes [the color Home Assistant already holds for it](https://calendar-card-pro.alexpfau.com/features/core-settings), so it looks the same on every card — whether you picked that color by hand or Google Calendar imported it
 - 🗂️ **Split One Calendar by Event Type**: [`event_type`](https://calendar-card-pro.alexpfau.com/features/core-settings) takes `all`, `timed` or `all_day`, card-wide or per calendar — list one calendar twice, once each way, for a color on each, and [**Duplicate** in the editor](https://calendar-card-pro.alexpfau.com/features/editor#per-calendar-panels-actions) builds it for you
+- 🔍 **Two New Per-Calendar Filters**: [`allday_expires_at`](https://calendar-card-pro.alexpfau.com/features/core-settings#retiring-all-day-events-during-the-day) gives one calendar's all-day events the end time they lack, so a bin collection stops sitting on the card until midnight, and [`days_of_week`](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-on-weekdays-only) keeps a single calendar to weekdays or weekends while every other one keeps its weekend
 
 ### v4.0
 

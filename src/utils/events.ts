@@ -214,6 +214,149 @@ function deduplicateEvents(
   return events.filter((event) => keep.has(event) || !seen.has(generateEventSignature(event)));
 }
 
+//-----------------------------------------------------------------------------
+// RENDER-TIME PER-CALENDAR FILTERS
+//-----------------------------------------------------------------------------
+//
+// Both of the filters below are read from the `_matchedConfig` stamp while events are
+// **grouped**, not while they are processed, which is what keeps them out of
+// `PROCESSING_TIME_KEYS`: nothing about them is baked into `this.events`, so an edit
+// reaches the screen on the next render. They are also per-calendar only, so the entity
+// list changes whenever either does and `serializeEntities` already forces a reprocess —
+// belt and braces, but the render-time read is the load-bearing half.
+//
+// They run **after** `processMultiDayEvents`, which is the opposite of where
+// `filterEventsByType` has to sit and for a related reason. Splitting rewrites the middle
+// days of a timed multi-day event as `start: { date }`, so a filter reading an event's
+// *class* must precede it. These two read an event's *day* instead, which only exists once
+// the splitter has decided how many days the event occupies.
+
+/**
+ * Which day a grouped event is drawn on.
+ *
+ * Extracted so the weekday filter and the grouping pass cannot disagree about it. The
+ * distinction matters most for an event already in progress when the window opens: it is
+ * clamped to the window's first day, so its row lands on a day its own `start` never
+ * names. Filtering on the start date would then hide — or fail to hide — the wrong row.
+ *
+ * The second and third tests are reached only when `startDate < referenceStart`, since the
+ * first returned otherwise; the original inline form repeated that as an explicit conjunct.
+ *
+ * @param startDate Event start, as the caller resolved it for its all-day-ness
+ * @param endDate Event end, likewise, with the all-day exclusive day already removed
+ * @param referenceStart Local midnight on the window's first day
+ * @returns The day the event's row belongs to
+ */
+function resolveDisplayDate(startDate: Date, endDate: Date, referenceStart: Date): Date {
+  if (startDate >= referenceStart) return startDate;
+  if (endDate.toDateString() === referenceStart.toDateString()) return referenceStart;
+  if (endDate > referenceStart) return referenceStart;
+
+  return startDate;
+}
+
+/** `HH:MM`, or `HH:MM:SS`. A single-digit hour is accepted; 24 and above is not. */
+const TIME_OF_DAY_PATTERN = /^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/;
+
+/** Values already reported as unparseable, so one typo warns once rather than per event. */
+const reportedExpiryValues = new Set<string>();
+
+/**
+ * Read a wall-clock time of day out of a configured string.
+ *
+ * @param value Configured value, from a calendar's `allday_expires_at`
+ * @returns The time, or `null` when the value is absent or not a time
+ */
+function parseTimeOfDay(
+  value: unknown,
+): { hours: number; minutes: number; seconds: number } | null {
+  if (typeof value !== 'string') return null;
+
+  const match = TIME_OF_DAY_PATTERN.exec(value.trim());
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  if (hours > 23) return null;
+
+  return { hours, minutes: Number(match[2]), seconds: match[3] ? Number(match[3]) : 0 };
+}
+
+/**
+ * Whether an all-day event has passed the time of day its calendar retires it at.
+ *
+ * All-day events are exempt from expiry by construction: the test beside this one compares
+ * `endDate < now`, and an all-day event's end is a date rather than an instant, so it can
+ * only fall past once the calendar day itself has. `allday_expires_at` supplies the missing
+ * instant — the configured clock time on the event's **last** day, so a Monday-to-Wednesday
+ * holiday retires on Wednesday morning rather than on Monday's.
+ *
+ * An unparseable value expires nothing, on the same principle as `resolveEventType`: a typo
+ * should show too much, never too little. It is reported once per distinct value, because
+ * this runs per event and a silent typo is a support question nobody can answer.
+ *
+ * 🚨 Nothing schedules a render at the configured time. The card's only timer is the
+ * refresh interval, so an event retires on the first render after its moment passes.
+ *
+ * @param endDate Last day the event covers, at local midnight
+ * @param configured The calendar's `allday_expires_at`, unvalidated
+ * @param now Instant the card is rendering at
+ * @returns True when the event should count as past
+ */
+function allDayEventHasExpired(endDate: Date, configured: unknown, now: Date): boolean {
+  const time = parseTimeOfDay(configured);
+
+  if (!time) {
+    if (typeof configured === 'string' && configured.trim() !== '') {
+      const value = configured.trim();
+      if (!reportedExpiryValues.has(value)) {
+        reportedExpiryValues.add(value);
+        Logger.warn(`Invalid allday_expires_at value "${value}" — expected a time such as 10:00`);
+      }
+    }
+
+    return false;
+  }
+
+  const expiresAt = new Date(endDate);
+  expiresAt.setHours(time.hours, time.minutes, time.seconds, 0);
+
+  return now >= expiresAt;
+}
+
+/**
+ * Which days of the week one calendar may put a row on.
+ *
+ * Per-calendar only, and deliberately so. The request behind it (#225) is a school-holidays
+ * calendar whose entries run through the weekend, on a card that must keep showing every
+ * *other* calendar's weekend events — so a card-wide value would answer a question nobody
+ * asked, and narrowing the card's date window cannot express it at all.
+ *
+ * An unrecognized value filters nothing, so a typo shows too much rather than too little —
+ * the same principle `resolveEventType` follows, and the reason this returns `undefined`
+ * rather than throwing on a value the union does not name.
+ *
+ * @param entityConfig The calendar's own settings, where it has any
+ * @returns The days that calendar's events may land on, or `undefined` for every day
+ */
+function resolveDaysOfWeek(
+  entityConfig: Types.EntityConfig | undefined,
+): Types.DaysOfWeekFilter | undefined {
+  const configured = entityConfig?.days_of_week;
+
+  return configured === 'weekdays' || configured === 'weekends' ? configured : undefined;
+}
+
+/**
+ * Whether a day satisfies one calendar's `days_of_week`.
+ *
+ * @param displayDate The day the row would land on
+ * @param filter The calendar's resolved filter
+ * @returns True when the row may stay
+ */
+function dayPassesWeekFilter(displayDate: Date, filter: Types.DaysOfWeekFilter): boolean {
+  return FormatUtils.isWeekendDate(displayDate) === (filter === 'weekends');
+}
+
 /**
  * Group events by display day.
  *
@@ -338,6 +481,31 @@ export function groupEventsByDay(
       if (!isAllDayEvent && endDate < now) {
         return false;
       }
+
+      // The all-day half of the same rule. Read here rather than beside the timed test
+      // above because it is per-calendar: `show_past_events` decides *whether* past events
+      // are shown, and this decides *when* one of this calendar's all-day events becomes
+      // past. With `show_past_events: true` there is nothing for it to do, which is why it
+      // sits inside this branch rather than beside it.
+      if (
+        isAllDayEvent &&
+        allDayEventHasExpired(
+          endDate,
+          getEntitySetting(event._entityId, 'allday_expires_at', config, event),
+          now,
+        )
+      ) {
+        return false;
+      }
+    }
+
+    const daysOfWeek = resolveDaysOfWeek(event._matchedConfig);
+
+    if (
+      daysOfWeek &&
+      !dayPassesWeekFilter(resolveDisplayDate(startDate, endDate, referenceStart), daysOfWeek)
+    ) {
+      return false;
     }
 
     return true;
@@ -368,17 +536,7 @@ export function groupEventsByDay(
 
       if (!startDate || !endDate) return;
 
-      let displayDate: Date;
-
-      if (startDate >= referenceStart) {
-        displayDate = startDate;
-      } else if (endDate.toDateString() === referenceStart.toDateString()) {
-        displayDate = referenceStart;
-      } else if (startDate < referenceStart && endDate > referenceStart) {
-        displayDate = referenceStart;
-      } else {
-        displayDate = startDate;
-      }
+      const displayDate = resolveDisplayDate(startDate, endDate, referenceStart);
 
       const eventDateKey = FormatUtils.getLocalDateKey(displayDate);
       const translations = Localize.getTranslations(language);
