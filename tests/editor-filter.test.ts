@@ -824,11 +824,11 @@ describe('editor: the order of the two panels', () => {
       'accent_color_mode',
       'accent_color',
       '# heading_filters',
+      'days_of_week',
       'event_type',
+      'allday_expires_at',
       'blocklist',
       'allowlist',
-      'allday_expires_at',
-      'days_of_week',
       'compact_events_to_show',
       '# heading_multiday',
       'split_multiday_events',
@@ -887,14 +887,54 @@ describe('editor: the order of the two panels', () => {
 
     expect(content.filter((name) => shared.includes(name))).toEqual(shared);
 
-    // And the shared categories must start with the same key, since `event_type` is the
-    // one option both panels put under `heading_filters`.
-    const firstUnder = (schema: ReadonlyArray<HaFormSchema>, name: string) => {
+    /**
+     * The options a panel lists under one heading, in render order.
+     *
+     * @param schema - Panel or group schema
+     * @param name - Heading key to read under
+     * @returns The option names between that heading and the next one
+     */
+    const optionsUnder = (schema: ReadonlyArray<HaFormSchema>, name: string) => {
       const seq = sequence(schema);
-      return seq[seq.indexOf(`# ${name}`) + 1];
+      const from = seq.indexOf(`# ${name}`) + 1;
+      const rest = seq.slice(from);
+      const until = rest.findIndex((entry) => entry.startsWith('# '));
+
+      return (until === -1 ? rest : rest.slice(0, until)).filter(Boolean);
     };
 
-    expect(firstUnder(entitySchema(), 'heading_filters')).toBe('event_type');
-    expect(firstUnder(contentSchema(), 'heading_filters')).toBe('event_type');
+    // What the two panels put under `heading_filters`, pinned by value so a key joining or
+    // leaving either side is a deliberate edit rather than a silently smaller comparison.
+    const entityFilters = optionsUnder(entitySchema(), 'heading_filters');
+    const contentFilters = optionsUnder(contentSchema(), 'heading_filters');
+
+    expect(entityFilters).toEqual([
+      'days_of_week',
+      'event_type',
+      'allday_expires_at',
+      'blocklist',
+      'allowlist',
+      'compact_events_to_show',
+    ]);
+    expect(contentFilters).toEqual(['event_type', 'show_past_events', 'filter_duplicates']);
+
+    /**
+     * The invariant, stated over the options the two panels actually share.
+     *
+     * This replaces a "both panels start `heading_filters` with the same key" assertion,
+     * which was a **proxy** that held only while `event_type` was the sole shared option
+     * and every other key sat after it. The per-calendar panel now opens with
+     * `days_of_week`, which is per-calendar only — there is no card-level counterpart to
+     * disagree with — so the proxy went false without anything being wrong. Relative order
+     * over the intersection is the property that was actually meant.
+     *
+     * At one shared option this is trivially satisfied, which is why the set is pinned
+     * above: the assertion becomes real the moment a second key is shared, and cannot go
+     * quietly vacuous by one panel dropping a key in the meantime.
+     */
+    const sharedFilters = entityFilters.filter((name) => contentFilters.includes(name));
+
+    expect(sharedFilters).toEqual(['event_type']);
+    expect(contentFilters.filter((name) => sharedFilters.includes(name))).toEqual(sharedFilters);
   });
 });

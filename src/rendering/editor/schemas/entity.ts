@@ -176,17 +176,29 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     row(text('color'), accentColorMode(ctx.language)),
     text('accent_color'),
 
-    // Predicates first, then the budget. `compact_events_to_show` decides how many of the
-    // survivors fit rather than whether any one of them qualifies, so it reads last — the
-    // order the card applies them in. The two render-time predicates sit after the two
-    // processing-time ones for the same reason, which is also why the pair of dropdowns is
-    // split by the pair of pattern fields rather than kept visually together.
+    // Ordered coarse-to-fine by **scope**, not by the order the card applies them in.
+    // Which days qualify at all → which class of event → when those events stop counting
+    // → which titles survive → how many of the survivors fit. An earlier draft used
+    // pipeline order, which put both new options after the pattern fields: defensible, and
+    // wrong for a reader, who is narrowing a set rather than tracing an implementation.
+    //
+    // `compact_events_to_show` stays last under either reading, because it is a budget
+    // rather than a predicate — it decides how many survivors fit, not whether any one of
+    // them qualifies.
+    //
+    // 🚨 A new option's **position inside its section is a decision, not a default**. Do
+    // not append it and treat placement as settled by having chosen the right category;
+    // say where it sits on this scale and why, as you would for its name and its default.
+    //
+    // The card-level group leads with `event_type` rather than diverging: it has no
+    // `days_of_week` or `allday_expires_at` to precede it, so it too opens with the
+    // coarsest option it actually carries.
     heading('heading_filters'),
+    inheritable(ctx.language, 'days_of_week'),
     inheritable(ctx.language, 'event_type'),
+    { name: 'allday_expires_at', selector: { text: { type: 'time' } } },
     text('blocklist'),
     text('allowlist'),
-    { name: 'allday_expires_at', selector: { text: { type: 'time' } } },
-    inheritable(ctx.language, 'days_of_week'),
     {
       name: 'compact_events_to_show',
       selector: { number: { min: 0, mode: 'box' } },
