@@ -26,7 +26,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { fromEntityFormData, toEntityFormData } from '../src/rendering/editor/entities';
+import {
+  asEntityConfig,
+  fromEntityFormData,
+  toEntityFormData,
+} from '../src/rendering/editor/entities';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { walkSchema } from '../src/rendering/editor/panels';
 import {
@@ -35,7 +39,7 @@ import {
   entitySchemaFor,
 } from '../src/rendering/editor/schemas/entity';
 import { buildEventsSchema } from '../src/rendering/editor/schemas/events';
-import { accentColorMode } from '../src/rendering/editor/synthetic';
+import { accentColorMode, applySyntheticChange } from '../src/rendering/editor/synthetic';
 import * as Render from '../src/rendering/render';
 import * as EntityColors from '../src/utils/entity-colors';
 import * as EventUtils from '../src/utils/events';
@@ -506,6 +510,196 @@ describe('entity colours: mode derivation', () => {
     expect(accentColorModeOf('#ff0000')).toBe('custom');
     // A CSS colour name that is also a theme token is still just a custom colour.
     expect(accentColorModeOf('red')).toBe('custom');
+  });
+});
+
+describe('entity colours: every per-calendar dropdown round-trips', () => {
+  /**
+   * The generalisation, and the guard against the next control rather than this one.
+   *
+   * A class-level invariant for the **card-wide** synthetic dropdowns already exists in
+   * `editor-schema.test.ts` — it walks `SYNTHETIC_FIELDS`, covers `accent_color_mode`, and
+   * passed throughout this defect, because the card-wide control was never broken. Its
+   * corpus is the gap: the per-calendar dropdowns are not in `SYNTHETIC_FIELDS` at all,
+   * they round-trip through `toEntityFormData` / `fromEntityFormData`, and nothing
+   * enforced the same invariant on them. That is why a bug of exactly the shape that test
+   * exists to catch reached a user.
+   *
+   * The invariant: **the value stored for a mode must derive back to that mode.** Break it
+   * and a dropdown becomes unselectable, whichever transition happens to expose it.
+   *
+   * `accent_color` is the one dropdown here whose valueless state means a *different* mode
+   * — empty derives to `inherit` — so `custom` is the only mode that must be positively
+   * represented by a value. Every other per-calendar dropdown maps each option to a
+   * distinct stored value, which is why none of them needed a seed and none of them broke.
+   */
+  const ctx = { view: 'list' as const, config: buildConfig(), language: 'en' };
+
+  /** Discovered from the schema, so a dropdown added later is covered the day it lands. */
+  function entityDropdowns(): Array<[string, string[]]> {
+    const found: Array<[string, string[]]> = [];
+
+    for (const { node } of walkSchema(buildEntitySchema(ctx))) {
+      const options = (node as { selector?: { select?: { options?: Array<{ value: string }> } } })
+        .selector?.select?.options;
+      if (node.name && options?.length) {
+        found.push([node.name, options.map((o) => o.value)]);
+      }
+    }
+
+    return found;
+  }
+
+  it('finds exactly the per-calendar dropdowns that exist', () => {
+    // Membership, pinned by value. Walking the schema to assert something about each
+    // dropdown cannot notice one leaving — the loop simply runs one fewer time — so a
+    // deleted control would silently stop being covered while this file stayed green.
+    expect(
+      entityDropdowns()
+        .map(([name]) => name)
+        .sort(),
+    ).toEqual([
+      'accent_color_mode',
+      'label_type',
+      'show_description',
+      'show_location',
+      'show_time',
+      'split_multiday_events',
+    ]);
+  });
+
+  it.each(entityDropdowns())('%s returns to every value it offers', (field, values) => {
+    for (const from of values) {
+      for (const to of values) {
+        const entered = fromEntityFormData(
+          'calendar.work',
+          { ...toEntityFormData('calendar.work'), [field]: from },
+          'calendar.work',
+          '#ff6c92',
+        );
+
+        // Without this the loop would compare every transition against the starting state
+        // and would still pass with half the control broken.
+        expect(toEntityFormData(entered)[field], `${field} never reached ${from}`).toBe(from);
+
+        const moved = fromEntityFormData(
+          'calendar.work',
+          { ...toEntityFormData(entered), [field]: to },
+          entered,
+          '#ff6c92',
+        );
+
+        expect(toEntityFormData(moved)[field], `${field}: picking ${to} while on ${from}`).toBe(to);
+      }
+    }
+  });
+});
+
+describe('entity colours: every mode transition survives the round trip', () => {
+  /**
+   * The defect this exists for: from "Follow Home Assistant" you could not reach "Custom
+   * color". The stored value in that mode *is* the sentinel, so the form handed it back as
+   * `accent_color`, `accentColorFor` carried it as though it were a colour, and the next
+   * derivation read it straight back as `home_assistant`. From `inherit` the value is
+   * genuinely unset, so it fell through to the seed and worked — which is why a test suite
+   * covering only "custom with no value" missed it.
+   *
+   * A three-mode control has six ordered transitions and the previous tests covered a
+   * subset that happened to exclude the broken one. Enumerate them instead of choosing
+   * them: a hand-picked list is exactly what let this through, and it would miss a fourth
+   * mode added later too.
+   */
+  const MODES = ['inherit', 'home_assistant', 'custom'] as const;
+
+  const ENTRY: Record<string, Types.EntityConfig> = {
+    inherit: { entity: 'calendar.work' },
+    home_assistant: { entity: 'calendar.work', accent_color: SENTINEL },
+    custom: { entity: 'calendar.work', accent_color: '#ff6347' },
+  };
+
+  /** One edit, exactly as the form performs it: the whole merged object, one field moved. */
+  function move(from: string, to: string, inherited: unknown = '#ff6c92') {
+    const previous = ENTRY[from];
+    const data = { ...toEntityFormData(previous), accent_color_mode: to };
+
+    return fromEntityFormData('calendar.work', data, previous, inherited);
+  }
+
+  const transitions = MODES.flatMap((from) =>
+    MODES.filter((to) => to !== from).map((to) => [from, to] as const),
+  );
+
+  it('has all six ordered transitions', () => {
+    // The denominator. A matrix that quietly shrank would still pass every case it ran.
+    expect(transitions).toHaveLength(6);
+  });
+
+  it.each(transitions)('goes from %s to %s and stays there', (from, to) => {
+    expect(toEntityFormData(move(from, to)).accent_color_mode).toBe(to);
+  });
+
+  it.each(MODES)('stays in %s when nothing is moved', (mode) => {
+    const previous = ENTRY[mode];
+    const stored = fromEntityFormData(
+      'calendar.work',
+      toEntityFormData(previous),
+      previous,
+      '#ff6c92',
+    );
+
+    expect(toEntityFormData(stored).accent_color_mode).toBe(mode);
+  });
+
+  /**
+   * The invariant underneath all nine cases above, and the one worth keeping: whatever
+   * value a mode stores must derive back to that mode. Anything that breaks this makes a
+   * dropdown unselectable, whichever transition happens to expose it.
+   */
+  it.each(MODES)('stores a value for %s that re-derives to %s', (mode) => {
+    const stored = asEntityConfig(move(mode === 'inherit' ? 'custom' : 'inherit', mode));
+
+    expect(accentColorModeOf(stored.accent_color)).toBe(mode);
+  });
+
+  it('never carries the sentinel into a custom colour', () => {
+    // The one-line cause, asserted directly rather than only through its symptom.
+    const stored = asEntityConfig(move('home_assistant', 'custom'));
+
+    expect(stored.accent_color).not.toBe(SENTINEL);
+    expect(stored.accent_color).toBe('#ff6c92');
+  });
+});
+
+describe('entity colours: the card-wide control has no such hole', () => {
+  /**
+   * Confirmed rather than assumed. Its `apply` rejects the sentinel before carrying, so
+   * the two-mode equivalent of the matrix above holds.
+   */
+  const CARD_MODES = ['custom', 'home_assistant'] as const;
+
+  function moveCardWide(from: string, to: string) {
+    const config = buildConfig({
+      accent_color: from === 'home_assistant' ? SENTINEL : '#ff6347',
+    });
+    const { changes } = applySyntheticChange('accent_color_mode', to, config);
+
+    return { ...config, ...changes } as Types.Config;
+  }
+
+  const cardTransitions = CARD_MODES.flatMap((from) =>
+    CARD_MODES.filter((to) => to !== from).map((to) => [from, to] as const),
+  );
+
+  it('has both ordered transitions', () => {
+    expect(cardTransitions).toHaveLength(2);
+  });
+
+  it.each(cardTransitions)('goes from %s to %s and stays there', (from, to) => {
+    expect(accentColorMode(moveCardWide(from, to))).toBe(to);
+  });
+
+  it('never carries the sentinel into a custom colour', () => {
+    expect(moveCardWide('home_assistant', 'custom').accent_color).not.toBe(SENTINEL);
   });
 });
 

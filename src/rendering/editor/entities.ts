@@ -204,11 +204,17 @@ export function fromEntityFormData(
 function accentColorFor(mode: string, value: unknown, inherited: unknown): string | undefined {
   if (mode === 'home_assistant') return ENTITY_COLOR_SENTINEL;
   if (mode !== 'custom') return undefined;
-  if (isSet(value)) return String(value);
+
+  // The sentinel is not a colour and cannot be carried — and it arrives here, because a
+  // calendar leaving `home_assistant` hands back its stored value, which *is* the
+  // sentinel. Carrying it stored the sentinel again, the next derivation read that as
+  // `home_assistant`, and the dropdown snapped back: custom was reachable from `inherit`,
+  // where the value is genuinely unset, and from nowhere else.
+  if (isSet(value) && !isEntityColorSentinel(value)) return String(value);
 
   // Start from the colour on screen, so picking custom changes nothing until the user
-  // says so. The sentinel is not a colour and cannot be carried: which colour it resolves
-  // to is per-calendar and lives in the render path's registry map, not in the editor.
+  // says so. The sentinel is rejected on this side for the same reason: which colour it
+  // resolves to is per-calendar and lives in the render path's registry map, not here.
   return isSet(inherited) && !isEntityColorSentinel(inherited)
     ? String(inherited)
     : Config.DEFAULT_CONFIG.accent_color;
