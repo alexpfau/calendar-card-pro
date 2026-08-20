@@ -445,7 +445,12 @@ export class CalendarCardProEditor extends LitElement {
 
     this._config = {
       ...this._config,
-      entities: Entities.writeEntity(this._config.entities ?? [], index, next),
+      entities: Entities.writeEntity(
+        this._config.entities ?? [],
+        index,
+        next,
+        this._config.accent_color,
+      ),
     };
 
     this._report(this._config);

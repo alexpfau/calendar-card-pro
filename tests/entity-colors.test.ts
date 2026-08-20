@@ -27,7 +27,14 @@ import { FROZEN_NOW, buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { fromEntityFormData, toEntityFormData } from '../src/rendering/editor/entities';
-import { accentColorModeOf } from '../src/rendering/editor/schemas/entity';
+import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { walkSchema } from '../src/rendering/editor/panels';
+import {
+  accentColorModeOf,
+  buildEntitySchema,
+  entitySchemaFor,
+} from '../src/rendering/editor/schemas/entity';
+import { buildEventsSchema } from '../src/rendering/editor/schemas/events';
 import { accentColorMode } from '../src/rendering/editor/synthetic';
 import * as Render from '../src/rendering/render';
 import * as EntityColors from '../src/utils/entity-colors';
@@ -425,6 +432,66 @@ describe('entity colours: the rendered card', () => {
   });
 });
 
+describe('entity colours: the colour field sits with its dropdown', () => {
+  /**
+   * Reported from live testing on a phone: the colour input was separated from the
+   * dropdown that governs it by an unrelated field.
+   *
+   * `row()` is an `ha-form` grid, and a grid collapses to one column on a narrow viewport.
+   * So a conditional field placed *after* a row containing the dropdown reads correctly on
+   * desktop — where the row is two columns and the field lands underneath — and wrongly on
+   * a phone, where the row's second child drops between them.
+   *
+   * Flattened render order is therefore the thing to assert, because that is exactly what
+   * the single-column layout renders. Asserting the field is merely *present* passes in
+   * the broken state and is worth nothing.
+   */
+  const names = (schema: ReadonlyArray<HaFormSchema>) =>
+    [...walkSchema(schema)].map((entry) => entry.node.name).filter(Boolean);
+
+  const eventsSchemaFor = (accent: string) =>
+    buildEventsSchema({
+      view: 'list',
+      config: buildConfig({ accent_color: accent }),
+      language: 'en',
+    });
+
+  it('renders the colour immediately after the mode, card-wide', () => {
+    const order = names(eventsSchemaFor('#ff6c92'));
+    const mode = order.indexOf('accent_color_mode');
+
+    expect(mode).toBeGreaterThanOrEqual(0);
+    expect(order[mode + 1]).toBe('accent_color');
+  });
+
+  it('renders the colour immediately after the mode, per calendar', () => {
+    const declared = buildEntitySchema({
+      view: 'list',
+      config: buildConfig(),
+      language: 'en',
+    });
+    const order = names(entitySchemaFor(declared, 'text', 'custom'));
+    const mode = order.indexOf('accent_color_mode');
+
+    expect(mode).toBeGreaterThanOrEqual(0);
+    expect(order[mode + 1]).toBe('accent_color');
+  });
+
+  it('drops the colour entirely in the other modes, at both levels', () => {
+    // The control: adjacency must not be bought by rendering the field unconditionally.
+    expect(names(eventsSchemaFor(SENTINEL))).not.toContain('accent_color');
+
+    const declared = buildEntitySchema({
+      view: 'list',
+      config: buildConfig(),
+      language: 'en',
+    });
+    for (const mode of ['inherit', 'home_assistant']) {
+      expect(names(entitySchemaFor(declared, 'text', mode))).not.toContain('accent_color');
+    }
+  });
+});
+
 describe('entity colours: mode derivation', () => {
   it('reads the card-wide mode off the value', () => {
     expect(accentColorMode(buildConfig())).toBe('custom');
@@ -443,6 +510,63 @@ describe('entity colours: mode derivation', () => {
 });
 
 describe('entity colours: the per-calendar round trip', () => {
+  /**
+   * Reported from live testing: picking "Custom color" on a calendar snapped straight back
+   * to "Follow the card".
+   *
+   * `custom` is the one mode with no value of its own to be derived from — `inherit` is
+   * the absent key and `home_assistant` is the sentinel, but a custom colour the user has
+   * not typed yet is indistinguishable from no colour at all. Storing nothing therefore
+   * re-derived as `inherit` on the very next render, and the dropdown could never stay
+   * where it was put. The card-wide control never had this because its `apply` always
+   * writes a concrete colour.
+   *
+   * The round trip is the assertion, not the stored value: what the user sees is the
+   * dropdown after the form re-renders.
+   */
+  it('stays in custom mode after picking it, before any colour is typed', () => {
+    const stored = fromEntityFormData('calendar.work', { accent_color_mode: 'custom' });
+
+    expect(toEntityFormData(stored).accent_color_mode).toBe('custom');
+  });
+
+  it('seeds the colour a calendar was already showing', () => {
+    // Picking "custom" starts from what is on screen rather than jumping to the shipped
+    // blue, so the first thing the user sees is the colour they were looking at.
+    const stored = fromEntityFormData(
+      'calendar.work',
+      { accent_color_mode: 'custom' },
+      'calendar.work',
+      '#ff6c92',
+    );
+
+    expect(stored).toEqual({ entity: 'calendar.work', accent_color: '#ff6c92' });
+  });
+
+  it('falls back to the shipped default when the card itself follows Home Assistant', () => {
+    // The editor cannot know which colour Home Assistant holds for this calendar — that
+    // map belongs to the render path — so the sentinel is not a seed and the floor applies.
+    const stored = fromEntityFormData(
+      'calendar.work',
+      { accent_color_mode: 'custom' },
+      'calendar.work',
+      SENTINEL,
+    );
+
+    expect(stored).toEqual({ entity: 'calendar.work', accent_color: DEFAULT_ACCENT });
+  });
+
+  it('keeps a colour the user has already typed rather than reseeding it', () => {
+    const stored = fromEntityFormData(
+      'calendar.work',
+      { accent_color_mode: 'custom', accent_color: '#123456' },
+      'calendar.work',
+      '#ff6c92',
+    );
+
+    expect(stored).toEqual({ entity: 'calendar.work', accent_color: '#123456' });
+  });
+
   it('shows a stored colour back as a custom one', () => {
     const data = toEntityFormData({ entity: 'calendar.work', accent_color: '#ff6347' });
 

@@ -145,8 +145,15 @@ const eventsSchema = Helpers.memoizeLast(
     accentMode: string,
   ): HaFormSchema[] => [
     row(text('event_font_size'), color('event_color')),
-    row(select(language, 'accent_color_mode', ACCENT_COLOR_MODES), text('vertical_line_width')),
-    ...(accentMode === 'custom' ? [color('accent_color')] : []),
+    // The mode and the colour it governs are one control, so they share a row. A grid
+    // collapses to a single column on a narrow viewport, so a conditional field placed
+    // after this row would land below whatever else the row held — which is how the
+    // colour input ended up separated from its dropdown by `vertical_line_width` on a
+    // phone while reading correctly on a desktop.
+    accentMode === 'custom'
+      ? row(select(language, 'accent_color_mode', ACCENT_COLOR_MODES), color('accent_color'))
+      : select(language, 'accent_color_mode', ACCENT_COLOR_MODES),
+    text('vertical_line_width'),
     number('event_background_opacity', 0, 100, '%'),
     number('title_max_lines', 0),
     select(language, 'event_icon_vertical_alignment', ['top', 'middle', 'bottom']),
