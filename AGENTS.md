@@ -1185,6 +1185,28 @@ helpers enumerating _options_ should exclude them, with heading behavior pinned 
 sprinkling heading names through a dozen expectations makes each assertion less about what
 it was for.
 
+### Where a new option goes is a decision, not a default
+
+**Placing a new option at the end of its section is not placement — it is the absence of
+it.** Picking the right section is the first half of the question; the second half is where
+in that section it belongs, and appending answers it by accident. This has been raised on
+two consecutive pull requests, both times because a session chose the category carefully
+and then appended.
+
+The sections are ordered coarse-to-fine by **scope**, and the options inside them follow
+the same rule: what qualifies a whole day, then what qualifies a class of event, then what
+retires an event, then patterns matching one event's text, then the budget capping how many
+survive. That is why `compact_events_to_show` sits last in _Which Events Appear_ — it is a
+budget rather than a predicate, applied to the result set rather than to an event.
+
+Do **not** order a section by the pipeline stage the options run in. It is a real ordering
+and it is invisible to the reader, who cannot tell which options are resolved at fetch time
+and which at render time, and should not have to. `days_of_week` is resolved last of the
+per-calendar filters and belongs first, because it is the broadest question a reader asks.
+
+Treat a new option's position as needing a stated reason, the same way its name and its
+default do. Say in the PR body where it went and why.
+
 `npm run check:i18n` reconciles `strings.ts` against the fields the schemas reference, in
 both directions, by importing the schema modules. A new field with no string fails it.
 
