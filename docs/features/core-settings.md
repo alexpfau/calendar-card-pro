@@ -30,10 +30,12 @@ entities:
 | `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                           |
 | `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                   |
 | `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                                                                                                           |
+| `location_icon`          | string  | `mdi:map-marker-outline` | Icon shown beside this calendar's locations, e.g. `mdi:office-building`. Unset, Microsoft Teams meetings get `mdi:microsoft-teams` and every other location the map marker                                            |
 | `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option)                                                                                                                     |
 | `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                                                                                                      |
 | `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                                                             |
 | `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                                                                           |
+| `filter_field`           | string  | `title`                  | Which field `blocklist` and `allowlist` read: `title`, `location` or `description`. One at a time — list the calendar twice to filter on a second                                                                     |
 | `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                       |
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                            |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false` |
@@ -176,6 +178,67 @@ These filters use regular expressions, allowing for flexible pattern matching:
 - **Blocklist**: Hide events that match specified patterns
 - **Allowlist**: Only show events that match specified patterns
 - **Priority**: When both are specified, allowlist takes precedence
+
+### Matching the Location or Description Instead
+
+By default both lists read the event **title**. `filter_field` points them somewhere else:
+it takes `title`, `location` or `description`, and applies to that calendar's `blocklist`
+and `allowlist` alike.
+
+```yaml
+entities:
+  - entity: calendar.work
+    filter_field: location
+    blocklist: 'zoom\.us' # hide the events whose location is a Zoom link
+```
+
+It selects a field rather than adding one, so a calendar filtering on `location` has
+stopped filtering on the title. To filter on two fields, list the calendar twice — each
+block filters independently.
+
+An event that has no location at all, or no description, counts as not matching: an
+allowlist drops it and a blocklist keeps it. That is the same rule the title filter has
+always applied to an event with no title, and it is what makes the two-block pattern below
+add up.
+
+::: tip Patterns Are Unchanged
+`filter_field` is a separate option rather than a prefix inside the pattern, because the
+lists are plain regular expressions and every character in them already means something.
+`allowlist: 'location:'` still matches the literal text `location:` in a title, exactly as
+it did before.
+:::
+
+::: warning The Description Is Matched Before Its Formatting Is Removed
+The card strips HTML out of descriptions for display, but the filter reads the description
+as your calendar delivered it. With Google Calendar that usually means HTML, so a pattern
+matching a link may need to allow for the anchor markup wrapped around it. The same is true
+of `show_description: false` — hiding descriptions does not stop them being filtered on.
+:::
+
+### Giving Teams Meetings Their Own Icon
+
+Pairing `filter_field: location` with [`location_icon`](/features/event-content#the-location-icon)
+splits one calendar into online and in-person halves, each with its own icon and color:
+
+```yaml
+entities:
+  - entity: calendar.work
+    allowlist: 'Microsoft Teams'
+    filter_field: location
+    accent_color: '#6264a7'
+  - entity: calendar.work
+    blocklist: 'Microsoft Teams'
+    filter_field: location
+    location_icon: mdi:office-building
+```
+
+Because the same pattern is allowed in one block and blocked in the other, every event
+lands in exactly one of them — nothing is lost and nothing appears twice. The visual
+editor's **Duplicate** action on a calendar's panel builds the second block for you.
+
+Teams meetings need no allowlist to get their icon; that happens on its own. This pattern
+is for when you want the two halves styled differently, or want a specific icon on the
+half that is _not_ a Teams call.
 
 ### Separating All-Day From Timed Events
 

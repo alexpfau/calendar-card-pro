@@ -212,6 +212,76 @@ export function formatLocation(location: string, removeCountry: boolean | string
   return locationText;
 }
 
+/** The location row's icon when nothing else applies. */
+export const LOCATION_ICON = 'mdi:map-marker-outline';
+
+/** The location row's icon for a recognised Microsoft Teams meeting. */
+export const TEAMS_LOCATION_ICON = 'mdi:microsoft-teams';
+
+/**
+ * The shapes a Teams meeting's location text takes.
+ *
+ * Two alternatives, because calendars store one of two things. Most write a phrase, and
+ * Teams **localizes** it — `Microsoft Teams-Besprechung` in German, `Réunion Microsoft
+ * Teams` in French, `Reunión de Microsoft Teams` in Spanish, `Microsoft Teams-vergadering`
+ * in Dutch, `Riunione di Microsoft Teams` in Italian. The words around it are translated
+ * and reordered; the brand name is not. Matching `Microsoft Teams` alone therefore covers
+ * every one of them, where matching the full English phrase covers only English. `\s+`
+ * rather than a literal space because some clients emit a non-breaking one, which `\s`
+ * includes. Substring rather than anchored, which also handles the hybrid form Outlook
+ * writes for a room booked alongside a call: `Conference Room A; Microsoft Teams Meeting`.
+ *
+ * Others store the join URL instead — Google Calendar mirrors of a Teams event, CalDAV
+ * bridges, some sync tools. `teams.microsoft.com` is the commercial host; `.us` is the US
+ * government clouds and `teams.live.com` is the consumer product, added because they are
+ * the same product's other front doors and cannot appear in a location that is not a Teams
+ * call.
+ *
+ * 🚨 Known gap, stated rather than papered over: a CJK tenant may render the vendor name
+ * in local script — Microsoft is commonly `微软` in Chinese — and no primary source was
+ * found either way. Such a calendar falls back to the plain marker, which is the pre-4.1
+ * behavior rather than a wrong icon, and its URL form still matches. `location_icon` sets
+ * it right on any calendar this misses.
+ */
+const TEAMS_LOCATION = /microsoft\s+teams|teams\.microsoft\.(?:com|us)|teams\.live\.com/i;
+
+/**
+ * Is this location text a Microsoft Teams meeting?
+ *
+ * @param location - Location text as the card displays it
+ * @returns True when the text names a Teams meeting or carries a Teams join URL
+ */
+export function isTeamsLocation(location: string): boolean {
+  return Boolean(location) && TEAMS_LOCATION.test(location);
+}
+
+/**
+ * The icon the location row draws.
+ *
+ * Only Teams is detected, and the reason is checkable rather than a matter of taste:
+ * **Material Design Icons ships a brand icon for it and for no competitor.** Of
+ * `microsoft-teams`, `zoom`, `google-meet` and `webex`, only the first exists in MDI's
+ * 7,447 icons — so Zoom and Meet could not be given a logo here even if they were
+ * detected. `location_icon` is the answer for everyone else, including anyone who has
+ * installed an icon pack of their own.
+ *
+ * (`mdi:microsoft-teams` carries MDI's `deprecated` flag, along with every one of its 259
+ * brand icons. It still ships and still renders; should a future MDI drop it, this
+ * constant is the single place to change and `location_icon` already overrides it.)
+ *
+ * @param location - Location text as the card displays it
+ * @param configured - This calendar's `location_icon`, where it names one
+ * @returns The icon to render beside the location
+ */
+export function resolveLocationIcon(location: string, configured?: string): string {
+  // An explicit choice wins over the detection, which is also how the detection is turned
+  // off: `location_icon: mdi:map-marker-outline` restores the plain marker, so opting out
+  // needs no second key.
+  if (configured) return configured;
+
+  return isTeamsLocation(location) ? TEAMS_LOCATION_ICON : LOCATION_ICON;
+}
+
 /**
  * Strip HTML tags and decode HTML entities from a string, returning plain text
  */

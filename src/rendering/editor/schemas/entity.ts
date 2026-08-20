@@ -17,6 +17,7 @@ export const ENTITY_TRISTATE_VALUES: Readonly<Record<string, ReadonlyArray<strin
   split_multiday_events: [INHERIT, 'split', 'whole'],
   event_type: [INHERIT, 'all', 'timed', 'all_day'],
   days_of_week: [INHERIT, 'weekdays', 'weekends'],
+  filter_field: ['title', 'location', 'description'],
 };
 
 /**
@@ -47,16 +48,47 @@ export const ENTITY_TRISTATE_STORED: Readonly<
   // is for: both store `all`, and a shared table would then have to agree on `weekdays`
   // and `all_day` too. Keyed per option, the two cannot collide however they are spelled.
   days_of_week: { [INHERIT]: undefined, weekdays: 'weekdays', weekends: 'weekends' },
+  // The absent state is a *named field* here rather than an unfiltered one, so `title`
+  // both stands for it and stores nothing — see `ENTITY_TRISTATE_DEFAULT` below.
+  filter_field: { title: undefined, location: 'location', description: 'description' },
 };
 
 /**
- * A three-way dropdown for an option that may also be left to the card.
+ * The dropdown value each option shows when the calendar stores nothing.
+ *
+ * Almost always `inherit`, which is why it was hardcoded until `filter_field` arrived.
+ * That option has no card to inherit from and its absent state is not an *unfiltered*
+ * state but a real field — the title — that a user may equally well write out. Spelling
+ * it `inherit` would put a fourth entry in a three-way choice; giving `title` a stored
+ * form of its own would write `filter_field: title` into the YAML of every calendar whose
+ * panel is ever opened.
+ *
+ * Naming the fallback per option resolves both at once, and resolves a third case for
+ * free: a calendar that *does* carry an explicit `filter_field: title` matches no stored
+ * form, falls back here, and lands on `title` — the value it actually holds. Under the old
+ * hardcoded fallback it landed on `inherit`, which no longer appears in that dropdown, and
+ * the control would have rendered blank.
+ *
+ * 🚨 This is what keeps the {@link ENTITY_TRISTATE_STORED} docblock's rule intact rather
+ * than bending it: one dropdown entry per behavior, still, in both directions.
+ */
+export const ENTITY_TRISTATE_DEFAULT: Readonly<Record<string, string>> = {
+  filter_field: 'title',
+};
+
+/**
+ * A dropdown over one option's stored states.
+ *
+ * Named for what it builds rather than for `inherit`, which most but no longer all of
+ * these carry: `filter_field` chooses between three real fields and has no card to defer
+ * to. The vocabulary and the stored form both come from the tables above, so a control
+ * with an `inherit` entry and one without differ only in their data.
  *
  * @param language - Effective language code
  * @param name - Per-entity config key
  * @returns The field
  */
-function inheritable(language: string, name: string): SelectorSchema {
+function choice(language: string, name: string): SelectorSchema {
   return {
     name,
     selector: {
@@ -178,7 +210,8 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
 
     // Ordered coarse-to-fine by **scope**, per _Where a new option goes is a decision, not
     // a default_ in `AGENTS.md`: which days qualify at all → which class of event → when
-    // those events stop counting → which titles survive → how many of the survivors fit.
+    // those events stop counting → which field the patterns read → which values survive →
+    // how many of the survivors fit.
     //
     // 🚨 Not pipeline order, which is what an earlier draft of this list used and which put
     // both new options after the pattern fields. `days_of_week` is resolved *last* of these
@@ -187,13 +220,19 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     // that way. `compact_events_to_show` is last under either reading — it is a budget over
     // the result set rather than a predicate over an event.
     //
+    // `filter_field` is the one entry here that is not a predicate at all: it qualifies the
+    // two that follow it, and so has to precede them. A reader who meets `blocklist` first
+    // has already assumed it matches the title — which is precisely the misreading that
+    // gave #205 a title about filtering when its body asked for an icon.
+    //
     // The card-level group leads with `event_type` rather than diverging: it has no
     // `days_of_week` or `allday_expires_at` to precede it, so it too opens with the
     // coarsest option it actually carries.
     heading('heading_filters'),
-    inheritable(ctx.language, 'days_of_week'),
-    inheritable(ctx.language, 'event_type'),
+    choice(ctx.language, 'days_of_week'),
+    choice(ctx.language, 'event_type'),
     { name: 'allday_expires_at', selector: { text: { type: 'time' } } },
+    choice(ctx.language, 'filter_field'),
     text('blocklist'),
     text('allowlist'),
     {
@@ -202,12 +241,17 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     },
 
     heading('heading_multiday'),
-    inheritable(ctx.language, 'split_multiday_events'),
+    choice(ctx.language, 'split_multiday_events'),
 
+    // `location_icon` sits under the switch that decides whether there is a location row
+    // at all, for the same coarse-to-fine reason: whether the row appears, then what it
+    // carries. Appending it after `show_description` would separate it from the only
+    // option it means anything alongside.
     heading('heading_details'),
-    inheritable(ctx.language, 'show_time'),
-    inheritable(ctx.language, 'show_location'),
-    inheritable(ctx.language, 'show_description'),
+    choice(ctx.language, 'show_time'),
+    choice(ctx.language, 'show_location'),
+    { name: 'location_icon', selector: { icon: {} } },
+    choice(ctx.language, 'show_description'),
   ];
 }
 

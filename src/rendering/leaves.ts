@@ -375,6 +375,15 @@ export interface EventContentParts {
 
   eventLocation: string;
 
+  /**
+   * Icon for the location row: this calendar's `location_icon`, the Teams icon where the
+   * location names a Teams meeting, or the default marker.
+   *
+   * Resolved by the container rather than here, so both views draw one answer — and so
+   * that `renderEventContent` stays free of per-calendar config reads.
+   */
+  locationIcon: string;
+
   eventDescription: string;
 
   shouldShowTime: boolean;
@@ -435,6 +444,7 @@ export function renderEventContent(
   const {
     eventTime,
     eventLocation,
+    locationIcon,
     eventDescription,
     shouldShowTime,
     countdownStr,
@@ -519,7 +529,7 @@ export function renderEventContent(
         ${eventLocation
           ? html`
               <div class="location">
-                <ha-icon icon="mdi:map-marker-outline"></ha-icon>
+                <ha-icon icon="${locationIcon}"></ha-icon>
                 <span>${eventLocation}</span>
               </div>
             `

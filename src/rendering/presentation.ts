@@ -118,9 +118,18 @@ export function buildEventPresentation(
   const eventLocation = event.location || '';
   const eventDescription = event.description || '';
 
+  // Read from the location the card is about to draw, not the raw event: this runs after
+  // `groupEventsByDay` has applied `formatLocation`, and there is no raw copy left here.
+  // That is the right text to read anyway — the icon should describe what the row says.
+  const locationIcon = FormatUtils.resolveLocationIcon(
+    eventLocation,
+    EventUtils.getEntitySetting(event._entityId, 'location_icon', config, event),
+  );
+
   const contentParts: EventContentParts = {
     eventTime,
     eventLocation,
+    locationIcon,
     eventDescription,
     shouldShowTime,
     countdownStr,

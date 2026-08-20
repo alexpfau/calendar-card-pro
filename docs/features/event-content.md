@@ -102,6 +102,39 @@ remove_location_country: 'USA|United States|U.S.A.|U.S.'
 
 This would keep location details like "Paris, France" intact while simplifying domestic addresses to just city and state.
 
+### The Location Icon
+
+Locations carry a map marker by default, and Microsoft Teams meetings carry the Teams
+icon instead. That happens on its own, with nothing to configure: the card recognises the
+text Teams writes into an event's location — including its translations, such as
+`Microsoft Teams-Besprechung` or `Réunion Microsoft Teams` — as well as a
+`teams.microsoft.com` join link stored there in place of a phrase.
+
+Teams is the only service detected this way, and the reason is a practical one rather than
+a preference: Material Design Icons, the icon set Home Assistant ships, has a brand icon
+for Teams and none for Zoom, Google Meet or Webex. There is no logo to show for them.
+
+The per-calendar `location_icon` sets the icon for one calendar's events, and takes
+precedence over the detection:
+
+```yaml
+entities:
+  - entity: calendar.work
+    location_icon: mdi:office-building # every location on this calendar
+  - calendar.family # keeps the marker, and the Teams icon where it applies
+```
+
+It is per calendar deliberately, and there is no card-wide version: one icon for every
+location would be a styling choice, while this is a meaning — _these_ events are online
+calls, _those_ are at the office. To split a single calendar that way, pair it with
+[`filter_field`](/features/core-settings#giving-teams-meetings-their-own-icon).
+
+::: tip Turning the Teams Icon Off
+Name the marker explicitly — `location_icon: mdi:map-marker-outline` — and that calendar
+goes back to the plain marker on every event. `location_icon_size` above sizes whichever
+icon ends up being drawn.
+:::
+
 ## 📝 Event Description Display
 
 Display event descriptions below event titles for additional context:

@@ -30,6 +30,24 @@ The time is read against the last day an event covers, so a three-day trip clear
 
 It judges the day a row actually lands on rather than the day the event began, which is what lets it work on holidays spanning weeks. Pair it with [`split_multiday_events`](/features/multi-day-events) on a calendar of long events — that turns a fortnight's holiday into a row per day, each judged on its own, which is the Monday-to-Friday view the request was for. Column view already splits by default. (#225)
 
+### 💬 A Teams Icon on Your Teams Meetings
+
+**Your online meetings now show the Teams logo instead of a map pin, and there is nothing to set up.** The card recognises the location text Teams writes into an event — including its translations, so `Microsoft Teams-Besprechung` and `Réunion Microsoft Teams` are recognised alongside the English wording — as well as a `teams.microsoft.com` join link stored there in place of a phrase. Meetings that are actually somewhere keep the map pin.
+
+**This changes how your card looks the moment you upgrade**, if you have Teams meetings on it. To go back to the map pin on a calendar, give it `location_icon: mdi:map-marker-outline`.
+
+Teams is the only service recognised this way, and the reason is worth stating plainly because the obvious next question is "why not Zoom": Material Design Icons, the set Home Assistant ships, has a brand icon for Teams and none for Zoom, Google Meet or Webex. There is simply no logo to show for the others. The new per-calendar `location_icon` covers every other case — including anyone who has installed an icon pack of their own — by naming the icon one calendar's locations should carry. (#205)
+
+### 🔍 Filter on the Location or the Description
+
+**`blocklist` and `allowlist` can now read an event's location or description instead of its title.** The new per-calendar `filter_field` takes `title`, `location` or `description`, and points both lists at whichever you name. Left alone it means `title`, so every card already out there filters exactly as it did.
+
+That is the answer to a Zoom link sitting in your location field where a room name should be: filter on `location`, block the link, and those events go — or keep them in a second block with `show_location: false` and see the meeting without the URL.
+
+It also splits a calendar by _where_ its events are rather than by what they are called. Listing one calendar twice — allowing `Microsoft Teams` on `location` in one block and blocking it in the other — divides it into online and in-person halves that can carry their own colors and their own `location_icon`, without losing an event or showing one twice. **Duplicate** in the visual editor builds the second block for you.
+
+The field is selected, not added: a calendar filtering on `location` has stopped filtering on titles. Filtering two fields is two blocks. And `filter_field` is a separate option rather than a prefix inside the pattern because the lists are plain regular expressions in which every character already means something — `allowlist: 'location:'` still matches that literal text in a title, exactly as it always did. (#186, #205)
+
 ### ⚙️ Editor Settings Grouped Under Sub-Headings
 
 **The panels that decide what the card shows now group their settings under sub-headings, and both order them the same way.** Which events appear comes first, then how events spanning several days are handled, then what each row carries — the order the card itself works in. The per-calendar panel still opens with its label and colors, because those name the calendar you are editing rather than configure it.
@@ -54,6 +72,8 @@ Both panels for one calendar carry the same heading, because they name the same 
 
 - [#132](https://github.com/alexpfau/calendar-card-pro/issues/132) - Filter based on all-day events by @syst3x
 - [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765
+- [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze
+- [#205](https://github.com/alexpfau/calendar-card-pro/issues/205) - An icon for Microsoft Teams meetings by @loryanstrant
 - [#225](https://github.com/alexpfau/calendar-card-pro/issues/225) - Show only Monday to Friday entries for some calendars by @nytram-md
 - [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
 - [#533](https://github.com/alexpfau/calendar-card-pro/issues/533) - Duplicate a calendar block from the visual editor by @alexpfau

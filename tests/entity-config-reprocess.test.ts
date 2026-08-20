@@ -50,6 +50,11 @@ interface CardUnderTest extends HTMLElement {
  * production comparison is field-agnostic, so a fourteenth option is covered the moment
  * it is added; this table exists so that a regression narrowing the comparison to a
  * hand-written field list fails here instead of shipping.
+ *
+ * 🚨 Reconciled against the interface below rather than trusted, because a table like this
+ * one cannot notice an option that never joined it: `it.each` simply runs one fewer case
+ * and the file stays green. Two options were added in 4.1 and this list did not fail when
+ * they were missing from it.
  */
 const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['label', 'Old label', 'New label'],
@@ -59,15 +64,33 @@ const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['label_icon_color', 'red', 'blue'],
   ['show_time', true, false],
   ['show_location', true, false],
+  ['location_icon', 'mdi:map-marker-outline', 'mdi:microsoft-teams'],
   ['show_description', false, true],
   ['compact_events_to_show', 1, 2],
   ['blocklist', 'standup', 'retro'],
   ['allowlist', 'standup', 'retro'],
+  ['filter_field', 'location', 'description'],
   ['split_multiday_events', true, false],
   ['event_type', 'all_day', 'timed'],
   ['days_of_week', 'weekdays', 'weekends'],
   ['allday_expires_at', '10:00', '18:00'],
 ];
+
+/**
+ * The members of `EntityConfig`, read from the source.
+ *
+ * @returns Every per-calendar key except the entity id itself
+ */
+function entityConfigKeys(): string[] {
+  const source = readFileSync(join(process.cwd(), 'src/config/types.ts'), 'utf-8');
+  const block = source.match(/export interface EntityConfig\s*\{([\s\S]*?)\n\}/);
+
+  if (!block) throw new Error('EntityConfig not found in types.ts — fix this scan');
+
+  return [...block[1].matchAll(/^ {2}([a-z0-9_]+)\??:/gm)]
+    .map((match) => match[1])
+    .filter((name) => name !== 'entity');
+}
 
 /**
  * Apply `first`, then start watching, then apply `second`. The card is deliberately
@@ -101,6 +124,20 @@ describe('per-calendar configuration changes reprocess cached events', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  /**
+   * The reconciliation the table above cannot do for itself.
+   *
+   * Equality in both directions: an option added to `EntityConfig` without a case here
+   * fails, and a case here naming a key the interface no longer has fails too.
+   */
+  it('covers every per-calendar option the interface declares', () => {
+    const declared = entityConfigKeys();
+
+    // The denominator. A scan that matched nothing would agree with an empty table.
+    expect(declared.length, 'the scan found no per-calendar keys at all').toBeGreaterThan(0);
+    expect(PER_CALENDAR_OPTIONS.map(([name]) => name).sort()).toEqual([...declared].sort());
   });
 
   it.each(PER_CALENDAR_OPTIONS)(
