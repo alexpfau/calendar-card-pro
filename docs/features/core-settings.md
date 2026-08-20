@@ -80,15 +80,33 @@ per-calendar `home-assistant` falls back to the card's `accent_color`; a card-wi
 `home-assistant` falls back to the built-in `#03a9f4`.
 
 This matters more than it sounds, because **Google Calendar is currently the only
-integration that fills the color in for you** — it imports each calendar's color the first
-time it is set up. Local Calendar, CalDAV and ICS feeds start with no color at all. So if
-you run Google alongside Local Calendar and switch the card over, expect your Google
-calendars to pick up their colors while the rest stay on the card default until you set a
-color for them by hand. That is the fallback working, not a bug.
+integration that fills the color in for you** — and it does so only at the moment a calendar
+is **first added** to Home Assistant. Local Calendar, CalDAV and ICS feeds start with no
+color at all. So if you run Google alongside Local Calendar and switch the card over, expect
+your Google calendars to pick up their colors while the rest stay on the card default until
+you set a color for them by hand. That is the fallback working, not a bug.
+
+::: warning A Google Integration Older Than 2026.2 Has No Colors, and Nothing Back-Fills Them
+Because the import happens once, when a calendar is first added, a Google integration that
+was set up before Home Assistant 2026.2 has no colors stored — so switching the card over
+shows every calendar on the fallback, which looks exactly like the feature not working.
+
+**Removing and re-adding the integration does not fix this**, and is worth not attempting.
+Home Assistant remembers a removed calendar's settings and restores them when the same
+calendar comes back, so the color returns as empty as it left, and the import that would
+have filled it is skipped precisely because the old settings were found. That is how the
+Google Calendar integration and the entity registry work between them, and nothing Calendar
+Card Pro does on its side can change it.
+
+**Set the colors by hand instead** — see below. It is a moment per calendar, it is the only
+thing that works today, and it leaves your integration, your entity IDs and anything
+referring to them alone.
+:::
 
 ::: tip Setting a Color By Hand
-Any calendar can be given a color, whichever integration it came from. Open **Settings →
-Devices & Services → Entities**, pick the calendar, and use the color field in its settings.
+Any calendar can be given a color, whichever integration it came from, and this is the path
+to prefer for the case above. Open **Settings → Devices & Services → Entities**, pick the
+calendar, and use the color field in its settings.
 :::
 
 ### Choosing How a Label Is Read
