@@ -148,7 +148,11 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v4.0
+### Latest Release: v4.1
+
+- 🎨 **Follow Home Assistant's Calendar Colors**: Set `accent_color` to `home-assistant` and each calendar takes [the color Home Assistant already holds for it](https://calendar-card-pro.alexpfau.com/features/core-settings), so it looks the same on every card — whether you picked that color by hand or Google Calendar imported it
+
+### v4.0
 
 - 🗓️ **Column View**: Lay the days [side by side, one column each](https://calendar-card-pro.alexpfau.com/features/column-view), instead of stacking them — the same agenda, rotated, with its own per-view overrides and a responsive fallback to the list layout
 - ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with a [search box that finds any setting by name or YAML key](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only), a customized-only filter, per-calendar settings, and [per-view exceptions](https://calendar-card-pro.alexpfau.com/features/editor#column-view-exceptions)
