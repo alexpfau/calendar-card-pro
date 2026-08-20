@@ -34,6 +34,140 @@ const NON_TRANSFERABLE_KEYS: ReadonlySet<string> = new Set(['entity']);
 let clipboard: Types.EntityConfig | undefined;
 
 /**
+ * Where one calendar sits among the blocks configuring that same calendar.
+ */
+export interface EntityOccurrence {
+  /** This block's place in that run, counting from one. */
+  position: number;
+  /** How many blocks configure this calendar in total. */
+  total: number;
+}
+
+/**
+ * The name to show for a calendar, matching what Home Assistant's own picker shows.
+ *
+ * The picker moved to friendly names some time ago, so a panel headed with an entity id
+ * sits a few pixels below a row naming the same calendar something else entirely — and an
+ * id need not resemble its name at all, so there was no reading the one off the other.
+ *
+ * This reads `friendly_name` rather than porting Home Assistant's own resolution.
+ * `computeEntityPickerDisplay` reaches through four registries — entities, devices, areas
+ * and floors — none of which this card's `hass` carries, and all of which are internal
+ * frontend shapes of exactly the kind this editor avoids naming. `friendly_name` is a
+ * public state attribute, and for an entity with no device it is the same string the
+ * picker arrives at. Where a device does exist the picker strips the device name off the
+ * front and shows it on a second line instead; this shows the unstripped name, which is
+ * what every other Home Assistant surface calls that entity. Calendars rarely have one.
+ *
+ * The entity id is the fallback for both ways a name can come up empty — a calendar
+ * removed from Home Assistant but still listed in the card, and a state carrying no
+ * `friendly_name` — and it is the picker's own last resort too.
+ *
+ * @param entityId - The calendar's entity id
+ * @param hass - Home Assistant state, absent before the editor is handed one
+ * @returns The name to show, never blank
+ */
+export function entityDisplayName(entityId: string, hass?: Types.Hass): string {
+  const friendly = hass?.states?.[entityId]?.attributes?.friendly_name;
+
+  return typeof friendly === 'string' && friendly.trim() !== '' ? friendly : entityId;
+}
+
+/**
+ * Counts the blocks configuring the same calendar, and finds this one among them.
+ *
+ * Listing a calendar twice gives both panels the same heading, because the heading is the
+ * calendar's name and they name the same calendar. That is the cost of showing the name
+ * rather than the id, and this is what pays it back.
+ *
+ * @param entities - The list as stored
+ * @param index - Position of the calendar being described
+ * @returns Its place among its own duplicates, or zeroes when the index is not in the list
+ */
+export function occurrenceOf(
+  entities: ReadonlyArray<string | Types.EntityConfig>,
+  index: number,
+): EntityOccurrence {
+  if (index < 0 || index >= entities.length) return { position: 0, total: 0 };
+
+  const id = entityIdOf(entities[index]);
+  let position = 0;
+  let total = 0;
+
+  entities.forEach((entry, at) => {
+    if (entityIdOf(entry) !== id) return;
+
+    total += 1;
+    if (at === index) position = total;
+  });
+
+  return { position, total };
+}
+
+/**
+ * Adds a second block for one calendar, carrying the first one's settings.
+ *
+ * Home Assistant's entity picker will not do this: it merges the current value into its
+ * own exclusions, ignores a duplicate added through it, and deletes the row outright when
+ * an existing one is pointed at a calendar already in the list. There is no opt-out in the
+ * selector, so the only way to reach a pattern the card documents — one calendar with two
+ * sets of settings, split by `event_type` — is to write the configuration directly.
+ *
+ * The picker is therefore not asked to represent blocks at all: it lists each calendar
+ * once and decides only which calendars the card shows. See `SYNTHETIC_FIELDS.calendars`.
+ *
+ * The copy is inserted next to its source rather than appended, so it appears where the
+ * user was looking, and because the picker now moves a calendar's blocks as a group there
+ * is nothing to be gained by separating them.
+ *
+ * A spread is a complete copy because `EntityConfig` is flat — every option on it is a
+ * string, number or boolean. An option holding an array or an object would need a deeper
+ * one, or the two blocks would share it and editing either would change both.
+ *
+ * @param entities - The list as stored
+ * @param index - Position of the calendar being duplicated
+ * @returns A new list, or the original when the index is not in it
+ */
+export function duplicateEntity(
+  entities: ReadonlyArray<string | Types.EntityConfig>,
+  index: number,
+): Array<string | Types.EntityConfig> {
+  const next = [...entities];
+
+  if (index < 0 || index >= entities.length) return next;
+
+  const source = entities[index];
+  next.splice(index + 1, 0, typeof source === 'string' ? source : { ...source });
+
+  return next;
+}
+
+/**
+ * Drops one calendar block from the list.
+ *
+ * The picker can take a calendar off the card, but it works one calendar at a time: it
+ * lists each one once, so clearing a row removes every block that calendar has. This is
+ * the only control that removes a single block, which is what makes it the inverse of
+ * Duplicate rather than a shortcut for something the picker already does.
+ *
+ * @param entities - The list as stored
+ * @param index - Position of the block being removed
+ * @returns A new list, or the original when the index is not in it
+ */
+export function removeEntity(
+  entities: ReadonlyArray<string | Types.EntityConfig>,
+  index: number,
+): Array<string | Types.EntityConfig> {
+  const next = [...entities];
+
+  if (index < 0 || index >= entities.length) return next;
+
+  next.splice(index, 1);
+
+  return next;
+}
+
+/**
  * Reads one entry of the `entities` array as an object.
  *
  * @param entry - Entry as stored, either a bare id or a settings object

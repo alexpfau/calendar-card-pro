@@ -87,10 +87,28 @@ export default css`
     margin: 0;
   }
 
+  /* The action row sits above the settings rather than below them, so it is visible when
+     the panel opens instead of after a scroll. That puts the one destructive action where
+     the user lands, so Remove is separated from the three that can be undone by simply
+     doing them again: an auto start margin holds it against the far edge, and on a narrow
+     panel — where the four buttons no longer fit on one line — it wraps onto a line of its
+     own rather than sitting next to Duplicate. */
   .entity-actions {
+    border-bottom: 1px solid var(--divider-color);
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    justify-content: flex-end;
+    padding-bottom: 8px;
+  }
+
+  .entity-actions-safe {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .entity-actions .destructive {
+    margin-inline-start: auto;
   }
 
   .text-button {
@@ -102,6 +120,14 @@ export default css`
     font: inherit;
     font-size: 14px;
     padding: 6px 8px;
+  }
+
+  /* Remove is the only action in this row that discards anything, and the only one with
+     no inverse: a card editor has no undo, and the block's settings go with it. It takes
+     the color Home Assistant gives a destructive action everywhere else rather than
+     sitting in a row of four buttons that all look equally safe. */
+  .text-button.destructive {
+    color: var(--error-color, #db4437);
   }
 
   .text-button:hover:not(:disabled) {

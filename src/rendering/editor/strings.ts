@@ -108,8 +108,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // absent key means "follow the card", which no checkbox can say.
   'entity.customised': 'Configured',
   'entity.unconfigured': 'Using the card settings',
+  // Not "Copy 2 of 2": neither block is the copy once both exist, and which one was
+  // duplicated stops being interesting the moment their settings diverge. What the user
+  // needs is only which of the two panels they are looking at.
+  'entity.occurrence': 'Entry {position} of {total}',
   'entity.copy': 'Copy Settings',
   'entity.paste': 'Paste Settings',
+  'entity.duplicate': 'Duplicate',
+  'entity.remove': 'Remove',
 
   'entity.label_type': 'Label Type',
   'entity.label_type.helper':

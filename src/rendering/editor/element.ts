@@ -370,13 +370,47 @@ export class CalendarCardProEditor extends LitElement {
           <ha-expansion-panel
             outlined
             class="entity-panel"
-            .header=${entityId}
-            .secondary=${this._entitySummary(entry, ctx)}
+            .header=${Entities.entityDisplayName(entityId, this.hass)}
+            .secondary=${this._entitySummary(entries, index, ctx)}
             .leftChevron=${false}
             .expanded=${filtering}
           >
             <ha-svg-icon slot="leading-icon" .path=${ENTITY_ICON}></ha-svg-icon>
             <div class="panel-body">
+              <div class="entity-actions">
+                <div class="entity-actions-safe">
+                  <button
+                    type="button"
+                    class="text-button"
+                    ?disabled=${!Entities.hasSettings(entry)}
+                    @click=${() => this._copyEntitySettings(entry)}
+                  >
+                    ${this._string(ctx, 'entity.copy')}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button"
+                    ?disabled=${Entities.copiedSettings() === undefined}
+                    @click=${() => this._pasteEntitySettings(index)}
+                  >
+                    ${this._string(ctx, 'entity.paste')}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button"
+                    @click=${() => this._duplicateEntity(index)}
+                  >
+                    ${this._string(ctx, 'entity.duplicate')}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="text-button destructive"
+                  @click=${() => this._removeEntity(index)}
+                >
+                  ${this._string(ctx, 'entity.remove')}
+                </button>
+              </div>
               <ha-form
                 class="entity-form"
                 .hass=${this.hass}
@@ -387,24 +421,6 @@ export class CalendarCardProEditor extends LitElement {
                 .localizeValue=${this._localizeValue}
                 @value-changed=${(event: CustomEvent) => this._entityChanged(index, event)}
               ></ha-form>
-              <div class="entity-actions">
-                <button
-                  type="button"
-                  class="text-button"
-                  ?disabled=${!Entities.hasSettings(entry)}
-                  @click=${() => this._copyEntitySettings(entry)}
-                >
-                  ${this._string(ctx, 'entity.copy')}
-                </button>
-                <button
-                  type="button"
-                  class="text-button"
-                  ?disabled=${Entities.copiedSettings() === undefined}
-                  @click=${() => this._pasteEntitySettings(index)}
-                >
-                  ${this._string(ctx, 'entity.paste')}
-                </button>
-              </div>
             </div>
           </ha-expansion-panel>
         `;
@@ -415,20 +431,45 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * The line under a calendar's heading.
    *
-   * @param entry - Entry as stored
+   * The heading is the calendar's name, so two blocks over one calendar carry the same
+   * one. This is where they are told apart, and the order is the useful one: a label the
+   * user wrote wins, because it is their own answer to this exact question, and the
+   * position is prefixed to it either way so that "the same calendar, twice" is never
+   * mistaken for the card having listed something twice by accident.
+   *
+   * It deliberately does not report *which setting* differs between two blocks. Any of the
+   * thirty-odd per-calendar options can be the one, several can differ at once, and a diff
+   * of two configs renders as jargon — `event_type: all_day` means nothing to someone who
+   * set it through a dropdown reading "Only all-day events". The position answers the
+   * question the duplicate actually raises, which is "which of these two am I editing",
+   * and answers it in every case rather than in the neat ones.
+   *
+   * @param entities - The list as stored, for finding this calendar's duplicates
+   * @param index - Position of the calendar being described
    * @param ctx - Schema context
    * @returns Secondary text
    */
-  private _entitySummary(entry: string | Types.EntityConfig, ctx: SchemaCtx): string {
+  private _entitySummary(
+    entities: ReadonlyArray<string | Types.EntityConfig>,
+    index: number,
+    ctx: SchemaCtx,
+  ): string {
+    const entry = entities[index];
     const config = Entities.asEntityConfig(entry);
 
-    if (typeof config.label === 'string' && config.label !== '') {
-      return config.label;
-    }
+    const described =
+      typeof config.label === 'string' && config.label !== ''
+        ? config.label
+        : Entities.hasSettings(entry)
+          ? this._string(ctx, 'entity.customised')
+          : this._string(ctx, 'entity.unconfigured');
 
-    return Entities.hasSettings(entry)
-      ? this._string(ctx, 'entity.customised')
-      : this._string(ctx, 'entity.unconfigured');
+    const { position, total } = Entities.occurrenceOf(entities, index);
+    if (total < 2) return described;
+
+    const occurrence = interpolate(this._string(ctx, 'entity.occurrence'), { position, total });
+
+    return `${occurrence} · ${described}`;
   }
 
   /**
@@ -478,6 +519,38 @@ export class CalendarCardProEditor extends LitElement {
     this._config = {
       ...this._config,
       entities: Entities.pasteSettings(this._config.entities ?? [], index),
+    };
+
+    this._report(this._config);
+  }
+
+  /**
+   * Lists one calendar a second time, with the same settings.
+   *
+   * @param index - Position of the calendar in the list
+   */
+  private _duplicateEntity(index: number): void {
+    if (!this._config) return;
+
+    this._config = {
+      ...this._config,
+      entities: Entities.duplicateEntity(this._config.entities ?? [], index),
+    };
+
+    this._report(this._config);
+  }
+
+  /**
+   * Drops one calendar from the list.
+   *
+   * @param index - Position of the calendar in the list
+   */
+  private _removeEntity(index: number): void {
+    if (!this._config) return;
+
+    this._config = {
+      ...this._config,
+      entities: Entities.removeEntity(this._config.entities ?? [], index),
     };
 
     this._report(this._config);

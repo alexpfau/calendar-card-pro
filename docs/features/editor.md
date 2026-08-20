@@ -62,6 +62,37 @@ Three things follow their own rule under it, for reasons worth knowing:
 The editor only offers the settings your current configuration calls for: a fixed card height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
 :::
 
+## 📋 Per-Calendar Panels & Actions
+
+The Calendars picker lists each calendar **once**, however many times the card uses it. It answers one question — which calendars this card shows — and the panels beneath it answer the other: how many blocks each calendar has, and what is set on each.
+
+Every calendar gets a collapsible panel of its own, headed with the calendar's name as Home Assistant knows it — the same name the picker shows, rather than the entity id underneath it. A calendar that has been removed from Home Assistant keeps its id in the heading, since that is all there is left to identify it by.
+
+The line under the heading says what the panel holds: your own label if you have set one, **Configured** if the calendar carries settings of its own, and **Using the card settings** if it does not.
+
+Each panel opens with four actions:
+
+| Action             | What it does                                                          |
+| ------------------ | --------------------------------------------------------------------- |
+| **Copy Settings**  | Takes this calendar's settings, without taking the calendar itself    |
+| **Paste Settings** | Applies them to this calendar, keeping the calendar it is applied to  |
+| **Duplicate**      | Gives this calendar a second block, carrying the first one's settings |
+| **Remove**         | Drops this block                                                      |
+
+They sit above the settings rather than below them, so they are visible the moment a panel opens. **Remove** is held apart from the other three because it is the only one that discards anything, and a card editor has no undo.
+
+The clipboard behind **Copy Settings** outlives the dialog, so settings copied while editing one card can be pasted into another — useful when several cards list the same calendars.
+
+**Duplicate** is how you give one calendar two sets of settings. That is what [splitting a calendar by event type](/features/core-settings#separating-all-day-from-timed-events) needs, and it cannot be done from the picker, which will not hold the same calendar twice. Both panels then carry the same heading, because they are the same calendar, and their secondary lines are numbered **Entry 1 of 2** and **Entry 2 of 2** so you can tell which is which.
+
+The copy starts out identical to the block it came from, so until you change something on one of them the card shows every event from that calendar **twice** — two blocks, both matching everything. That is expected, and setting **Event Type** on each is usually the change that resolves it.
+
+::: tip Two Ways to Take Something Away, and They Differ
+Clearing a calendar's row in the **picker** removes that calendar from the card altogether, along with every block it had. **Remove** on a panel drops just that one block and leaves the calendar's others alone. The picker is where you decide a calendar is no longer on this card; Remove is where you decide it needs one fewer set of settings.
+:::
+
+**→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — everything a single calendar's panel can set.
+
 ## 🏷️ Per-Calendar Labels
 
 Each calendar under the picker gets its own collapsible form, and the first control in it
