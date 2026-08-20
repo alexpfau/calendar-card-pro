@@ -2,6 +2,22 @@
 title: Release Notes
 ---
 
+# Calendar Card Pro v4.1.0
+
+## 🎉 New Features
+
+### 🎨 Follow the Calendar Colors Home Assistant Holds
+
+**A calendar can look the same everywhere now, instead of being colored twice in two places.** Home Assistant stores a color for each calendar entity — the one the built-in calendar card and the calendar panel already use — and setting `accent_color` to `home-assistant` makes Calendar Card Pro follow it. Set it [card-wide](/features/core-settings) and every calendar picks up its own color, or set it per calendar and mix it freely with colors you choose yourself.
+
+The color has to exist in Home Assistant first, and most do not yet: Google Calendar is the only integration that sets one, and only when it is first added, so calendars from before Home Assistant 2026.2 have none — re-adding the integration will not create them. Set those by hand under **Settings → Devices & Services → Entities**; any calendar still without one falls back to the card's own color rather than losing it. Requires Home Assistant 2026.2 (#314)
+
+## Related Issues
+
+- [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
+
+---
+
 # Calendar Card Pro v4.0.0
 
 ![Calendar Card Pro v4 — the week, side by side](https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/header_column_view.png)
