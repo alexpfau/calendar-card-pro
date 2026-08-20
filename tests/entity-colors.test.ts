@@ -560,6 +560,7 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
         .sort(),
     ).toEqual([
       'accent_color_mode',
+      'event_type',
       'label_type',
       'show_description',
       'show_location',

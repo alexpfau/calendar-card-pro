@@ -724,7 +724,7 @@ function processEvents(
     const entityEvents = wellFormed.filter((event) => event._entityId === entityId);
     if (entityEvents.length === 0) return;
 
-    const matchedEvents = filterEventsForEntity(entityEvents, entityConfig);
+    const matchedEvents = filterEventsForEntity(entityEvents, entityConfig, config);
 
     const decoratedEvents = matchedEvents.map((event) => {
       const decorated: Types.CalendarEventData = {
@@ -909,15 +909,78 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
   return segments;
 }
 
+/**
+ * Which class of event one calendar contributes.
+ *
+ * Per-entity first, card-level second — the same precedence `shouldSplitEvent` gives
+ * `split_multiday_events`. An unrecognized value resolves to `all` rather than hiding
+ * events: a typo should show too much, never too little.
+ *
+ * 🚨 This is the card's only *processing-time* top-level config read. Every other
+ * per-calendar-capable option is applied at render time from the `_matchedConfig` stamp,
+ * which is why they need no cache invalidation and this one does. Anything added here
+ * must be registered in `PROCESSING_TIME_KEYS` in `config.ts`, or a card-level change to
+ * it will render stale until the next refresh.
+ *
+ * @param entityConfig - The calendar's own settings, where it has any
+ * @param config - Current card configuration
+ * @returns The event class to keep for that calendar
+ */
+function resolveEventType(
+  entityConfig: Types.EntityConfig | undefined,
+  config: Types.Config,
+): Types.EventType {
+  const configured = entityConfig?.event_type ?? config.event_type;
+
+  return configured === 'timed' || configured === 'all_day' ? configured : 'all';
+}
+
+/**
+ * Keeps only the requested class of event.
+ *
+ * All-day-ness is read the way the rest of the card reads it — an event with no
+ * `start.dateTime` is all-day — so this agrees with what the row will render rather
+ * than with a second opinion about the same event.
+ *
+ * `timed` and `all_day` are exact complements, which is the property the two-block
+ * pattern depends on: the same calendar listed twice, once each way, yields every event
+ * exactly once.
+ *
+ * 🚨 Runs before `processMultiDayEvents`, and must. Splitting rewrites the middle days of
+ * a *timed* multi-day event as `start: { date }` segments, which read as all-day — so a
+ * filter applied after the split would keep the middle of a three-day meeting under
+ * `all_day`.
+ *
+ * @param events - The calendar's events
+ * @param type - Class to keep
+ * @returns The surviving events, always a new array
+ */
+function filterEventsByType(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  type: Types.EventType,
+): Types.CalendarEventData[] {
+  if (type === 'all') return [...events];
+
+  const wantAllDay = type === 'all_day';
+
+  return events.filter((event) => !event.start.dateTime === wantAllDay);
+}
+
 function filterEventsForEntity(
   events: Types.CalendarEventData[],
   entityConfig: string | Types.EntityConfig,
+  config: Types.Config,
 ): Types.CalendarEventData[] {
+  // Defensive rather than reachable: config normalization rewrites every bare entity id
+  // into an object long before events are processed, so nothing arrives here as a string.
+  // It still filters, so this cannot become the one path that ignores the card.
   if (typeof entityConfig === 'string') {
-    return [...events];
+    return filterEventsByType(events, resolveEventType(undefined, config));
   }
 
-  let matchedEvents = [...events];
+  // Before the title filters, and unconditionally — a calendar that carries no settings
+  // of its own still has to follow the card-level value.
+  let matchedEvents = filterEventsByType(events, resolveEventType(entityConfig, config));
 
   if (entityConfig.allowlist) {
     try {

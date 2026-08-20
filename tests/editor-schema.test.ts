@@ -45,7 +45,11 @@ import {
 import * as Overrides from '../src/rendering/editor/overrides';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildDayHeaderSchema } from '../src/rendering/editor/schemas/day-header';
-import { entitySchemaFor } from '../src/rendering/editor/schemas/entity';
+import {
+  ENTITY_TRISTATE_STORED,
+  ENTITY_TRISTATE_VALUES,
+  entitySchemaFor,
+} from '../src/rendering/editor/schemas/entity';
 import { buildLayoutSchema, widthTableRows } from '../src/rendering/editor/schemas/layout';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { exceptionSubforms } from '../src/rendering/editor/subforms';
@@ -2683,6 +2687,9 @@ describe('editor: per-calendar settings', () => {
 
   it('offers every per-calendar option the card reads', () => {
     const offered = [...walkSchema(entitySchema().schema)]
+      // Section headings are `constant` nodes, not options — they configure nothing and
+      // are never written. The headings themselves are pinned separately below.
+      .filter((entry) => !('type' in entry.node && entry.node.type === 'constant'))
       .map((entry) => entry.node.name)
       .filter(Boolean);
 
@@ -2695,6 +2702,7 @@ describe('editor: per-calendar settings', () => {
       [
         'accent_color',
         'accent_color_mode',
+        'event_type',
         'allowlist',
         'blocklist',
         'color',
@@ -2797,6 +2805,78 @@ describe('editor: per-calendar settings', () => {
         { entity: 'calendar.a', split_multiday_events: stored },
       );
     }
+  });
+
+  /**
+   * Both tristate tables, pinned by value.
+   *
+   * 🚨 The mapping table is keyed by **option** and must stay that way. Flat — one
+   * value→stored map shared by every option — it can only hold booleans, and `event_type`
+   * stores strings; widening it makes the dropdown values a shared namespace across
+   * unrelated options. `hide` already means `false` to three options here, and this key
+   * was first drafted with values `all` / `only` / `hide`: flat, its `hide` would have
+   * read back as `inherit` and the next write would have dropped the key, so a configured
+   * filter would vanish from the user's YAML on their first visit to the editor.
+   *
+   * Pinned by value in both directions rather than walked, because walking a table's own
+   * keys cannot notice a key leaving it: delete an entry and the loop runs one fewer time
+   * while every assertion still passes. That failure is silent here — a dropped option
+   * stops being offered, and a dropped value stops being storable — so `toEqual` on the
+   * whole shape is the only form that fails in both directions.
+   */
+  it('pins the vocabulary and the stored form of every inheritable option', () => {
+    expect(ENTITY_TRISTATE_VALUES).toEqual({
+      show_time: ['inherit', 'show', 'hide'],
+      show_location: ['inherit', 'show', 'hide'],
+      show_description: ['inherit', 'show', 'hide'],
+      split_multiday_events: ['inherit', 'split', 'whole'],
+      event_type: ['inherit', 'all', 'timed', 'all_day'],
+    });
+
+    expect(ENTITY_TRISTATE_STORED).toEqual({
+      show_time: { inherit: undefined, show: true, hide: false },
+      show_location: { inherit: undefined, show: true, hide: false },
+      show_description: { inherit: undefined, show: true, hide: false },
+      split_multiday_events: { inherit: undefined, split: true, whole: false },
+      event_type: { inherit: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
+    });
+
+    // Every offered value must be storable, and nothing may be storable that is not
+    // offered. Two tables describing one control drift apart silently otherwise: an
+    // unmapped value stores nothing and the dropdown snaps back, and a mapped value with
+    // no option is dead weight nobody can reach.
+    for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
+      expect(Object.keys(ENTITY_TRISTATE_STORED[name]).sort(), name).toEqual([...values].sort());
+    }
+  });
+
+  /**
+   * `event_type` is the first inheritable option whose decided states store **strings**
+   * rather than booleans, and the first with four states rather than three. Both are why
+   * the mapping table had to become per-option; this round-trip is what proves each state
+   * survives the trip out to the form and back.
+   */
+  it('round-trips the three decided states of the event type', () => {
+    const cases: Array<[Types.EventType, string]> = [
+      ['all', 'all'],
+      ['timed', 'timed'],
+      ['all_day', 'all_day'],
+    ];
+
+    for (const [stored, offered] of cases) {
+      const entry = { entity: 'calendar.a', event_type: stored } as Types.EntityConfig;
+
+      expect(toEntityFormData(entry).event_type, offered).toBe(offered);
+      expect(fromEntityFormData('calendar.a', { event_type: offered }), offered).toEqual({
+        entity: 'calendar.a',
+        event_type: stored,
+      });
+    }
+
+    // The absent key, which must read back as inheriting and be written as nothing at all
+    // — not as `all`, which would pin the calendar against a later card-level change.
+    expect(toEntityFormData({ entity: 'calendar.a' }).event_type).toBe('inherit');
+    expect(fromEntityFormData('calendar.a', { event_type: 'inherit' })).toBe('calendar.a');
   });
 
   it('writes a bare entity id for a calendar that carries no settings', () => {
@@ -4105,6 +4185,10 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     show_week_numbers: { field: 'week_number_mode', editorOnly: ['none'] },
     position: { field: 'position' },
     min_days_fallback: { field: 'min_days_fallback' },
+    // Card-level and per-calendar share the field name. The per-calendar dropdown adds
+    // `inherit`, which is the absent key rather than a mode of its own, so the card-level
+    // control is the one whose vocabulary must match the union exactly.
+    event_type: { field: 'event_type' },
   };
 
   /**

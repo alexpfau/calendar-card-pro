@@ -29,9 +29,13 @@
  * classification is what was wrong: refetch for a query change, reprocess for a
  * per-calendar change, nothing for a purely presentational one.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import { PROCESSING_TIME_KEYS } from '../src/config/config';
 import '../src/calendar-card-pro';
 
 interface CardUnderTest extends HTMLElement {
@@ -60,7 +64,30 @@ const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['blocklist', 'standup', 'retro'],
   ['allowlist', 'standup', 'retro'],
   ['split_multiday_events', true, false],
+  ['event_type', 'all_day', 'timed'],
 ];
+
+/**
+ * Apply `first`, then start watching, then apply `second`. The card is deliberately
+ * never connected: the decision under test lives entirely in `setConfig`, and leaving
+ * it detached keeps the assertion synchronous and free of fetch scheduling.
+ *
+ * At module scope rather than inside one `describe`, because both the per-calendar and
+ * the card-level suites exercise the same decision and must not drift apart.
+ */
+function reconfigure(
+  first: Record<string, unknown>,
+  second: Record<string, unknown>,
+): ReturnType<typeof vi.fn> {
+  const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+  card.setConfig({ entities: [{ entity: 'calendar.test' }], days_to_show: 3, ...first });
+
+  const spy = vi.fn().mockResolvedValue(undefined);
+  card.updateEvents = spy as unknown as CardUnderTest['updateEvents'];
+
+  card.setConfig({ entities: [{ entity: 'calendar.test' }], days_to_show: 3, ...second });
+  return spy;
+}
 
 describe('per-calendar configuration changes reprocess cached events', () => {
   beforeEach(() => {
@@ -73,25 +100,6 @@ describe('per-calendar configuration changes reprocess cached events', () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
-
-  /**
-   * Apply `first`, then start watching, then apply `second`. The card is deliberately
-   * never connected: the decision under test lives entirely in `setConfig`, and leaving
-   * it detached keeps the assertion synchronous and free of fetch scheduling.
-   */
-  function reconfigure(
-    first: Record<string, unknown>,
-    second: Record<string, unknown>,
-  ): ReturnType<typeof vi.fn> {
-    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
-    card.setConfig({ entities: [{ entity: 'calendar.test' }], days_to_show: 3, ...first });
-
-    const spy = vi.fn().mockResolvedValue(undefined);
-    card.updateEvents = spy as unknown as CardUnderTest['updateEvents'];
-
-    card.setConfig({ entities: [{ entity: 'calendar.test' }], days_to_show: 3, ...second });
-    return spy;
-  }
 
   it.each(PER_CALENDAR_OPTIONS)(
     'reprocesses without refetching when %s changes',
@@ -162,5 +170,100 @@ describe('per-calendar configuration changes reprocess cached events', () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenCalledWith(false);
+  });
+});
+
+/**
+ * The card-level half of a processing-time option.
+ *
+ * `hasEntityProcessingChanged` compared only `serializeEntities(entities)` until
+ * `event_type` arrived, and `hasConfigChanged` covers only the fetch-window keys, so a
+ * card-wide filter change matched neither branch and reprocessed nothing: the events the
+ * user had just excluded stayed on screen until the next scheduled refresh, a reload, or
+ * an unrelated entity edit. The per-calendar half worked throughout, which is exactly why
+ * the gap survived — a table covering only `EntityConfig` cannot see it.
+ *
+ * That asymmetry is the reason this block exists, and the reason it carries controls in
+ * both directions.
+ */
+describe('card-level processing-time options reprocess cached events', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  /** Pinned by value, so an entry leaving fails here rather than running one fewer case. */
+  it('pins the processing-time key table', () => {
+    expect([...PROCESSING_TIME_KEYS]).toEqual(['event_type']);
+  });
+
+  /**
+   * The registration, enforced rather than remembered.
+   *
+   * This is the check that would have caught the original defect. `resolveEventType` is
+   * the card's only processing-time read of top-level config, so every `config.<key>` in
+   * the filter path must be registered — a future option added there without being listed
+   * fails here instead of silently rendering stale.
+   *
+   * A membership cross-check against `PER_CALENDAR_OPTIONS` was considered and is *not*
+   * the right reconciliation: `show_time`, `show_location`, `show_description` and
+   * `split_multiday_events` all exist card-level and per-calendar, and none is
+   * processing-time, so equality between the tables would report four false positives.
+   * The one direction that does hold is asserted separately below.
+   */
+  it('registers every top-level option the filter path reads', () => {
+    const source = readFileSync(join(process.cwd(), 'src/utils/events.ts'), 'utf-8');
+
+    const start = source.indexOf('function resolveEventType(');
+    const end = source.indexOf('function generateEventSignature(');
+    expect(start, 'resolveEventType not found — update this scan').toBeGreaterThan(-1);
+    expect(end, 'end marker not found — update this scan').toBeGreaterThan(start);
+
+    const read = [...source.slice(start, end).matchAll(/\bconfig\.([a-z0-9_]+)/g)].map(
+      (match) => match[1],
+    );
+
+    // The denominator. A scan that matched nothing would "pass" against any registration.
+    expect(read.length, 'the scan found no config reads at all').toBeGreaterThan(0);
+    expect([...new Set(read)].sort()).toEqual([...PROCESSING_TIME_KEYS].sort());
+  });
+
+  /**
+   * The direction of the cross-check that does hold: an option read at processing time
+   * which is *also* per-calendar must appear in the per-calendar table too, or half of it
+   * goes uncovered — which is precisely how this defect shipped, only the other way round.
+   */
+  it('covers the per-calendar half of every processing-time option', () => {
+    const perCalendar = PER_CALENDAR_OPTIONS.map(([name]) => name);
+
+    for (const key of PROCESSING_TIME_KEYS) {
+      expect(perCalendar, `${key} is card-level only in the tests`).toContain(key);
+    }
+  });
+
+  it.each([...PROCESSING_TIME_KEYS])(
+    'reprocesses without refetching when a card-level %s changes',
+    (option) => {
+      const spy = reconfigure({ [option]: 'all_day' }, { [option]: 'timed' });
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      // `false`, not `true`: the payload is still valid, only the filtering derived from
+      // it is stale. A refetch here would spend an API call on a dropdown change.
+      expect(spy).toHaveBeenCalledWith(false);
+    },
+  );
+
+  it('does no work when a card-level processing-time option is reapplied unchanged', () => {
+    // The control that stops the branch above from degenerating into "reprocess on every
+    // setConfig", which would restore correctness by throwing away the memoisation.
+    const spy = reconfigure({ event_type: 'timed' }, { event_type: 'timed' });
+
+    expect(spy).not.toHaveBeenCalled();
   });
 });

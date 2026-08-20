@@ -24,6 +24,7 @@ export interface Config {
   empty_day_text?: string;
   filter_duplicates: boolean;
   split_multiday_events: boolean;
+  event_type: EventType;
   language?: string;
 
   // Header
@@ -129,6 +130,19 @@ export interface Config {
 
 /** Views the card can render. Width fallback belongs to `column`, not a third mode. */
 export type EffectiveView = 'list' | 'column';
+
+/**
+ * Which class of event a calendar contributes.
+ *
+ * Named for the axis rather than for one class, so a second axis can land beside it
+ * symmetrically. It says nothing about how long an event lasts: a 23:30–00:30 dinner is
+ * `timed` however many dates it touches.
+ *
+ * `timed` and `all_day` are exact complements over the same calendar, so listing one
+ * entity twice — once each way — partitions it without overlap, which is what styling
+ * the two classes differently requires.
+ */
+export type EventType = 'all' | 'timed' | 'all_day';
 
 /** What column view does when even its narrowest permitted layout will not fit. */
 export type ColumnMinDaysFallback = 'list' | 'cramp';
@@ -246,6 +260,7 @@ export interface EntityConfig {
   blocklist?: string;
   allowlist?: string;
   split_multiday_events?: boolean;
+  event_type?: EventType;
 }
 
 /** Weather position-specific styling configuration. */

@@ -6,7 +6,7 @@ import { isEntityColorSentinel } from '../../../utils/entity-colors';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
 import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
-import { row, text } from './common';
+import { heading, row, text } from './common';
 
 export const INHERIT = 'inherit';
 
@@ -15,14 +15,33 @@ export const ENTITY_TRISTATE_VALUES: Readonly<Record<string, ReadonlyArray<strin
   show_location: [INHERIT, 'show', 'hide'],
   show_description: [INHERIT, 'show', 'hide'],
   split_multiday_events: [INHERIT, 'split', 'whole'],
+  event_type: [INHERIT, 'all', 'timed', 'all_day'],
 };
 
-export const ENTITY_TRISTATE_STORED: Readonly<Record<string, boolean | undefined>> = {
-  [INHERIT]: undefined,
-  show: true,
-  hide: false,
-  split: true,
-  whole: false,
+/**
+ * What each dropdown value stores, per option.
+ *
+ * 🚨 Keyed by option first, and it has to stay that way. A single flat value→stored table
+ * works only while every option stores a boolean; `event_type` stores strings, so a flat
+ * table would have to widen to `boolean | string | undefined` — and at that width the
+ * dropdown values become a shared namespace across unrelated options.
+ *
+ * The hazard is not hypothetical. `hide` already means `false` to three options above, and
+ * this key was first drafted with the values `all` / `only` / `hide`. Flat, its `hide`
+ * would have resolved to `false`, `toEntityFormData` would have found no value whose
+ * stored form matched, fallen back to `inherit`, and the next write would have dropped the
+ * key — so a configured filter would vanish from the user's YAML the first time they
+ * opened the editor. The values changed before shipping; the shape is what keeps the next
+ * string-valued option safe.
+ */
+export const ENTITY_TRISTATE_STORED: Readonly<
+  Record<string, Readonly<Record<string, boolean | string | undefined>>>
+> = {
+  show_time: { [INHERIT]: undefined, show: true, hide: false },
+  show_location: { [INHERIT]: undefined, show: true, hide: false },
+  show_description: { [INHERIT]: undefined, show: true, hide: false },
+  split_multiday_events: { [INHERIT]: undefined, split: true, whole: false },
+  event_type: { [INHERIT]: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
 };
 
 /**
@@ -126,26 +145,51 @@ function labelFields(type: string): SelectorSchema[] {
  * @param ctx - Schema context
  * @returns The per-calendar schema, with the label fields of every shape
  */
+/**
+ * Builds the schema rendered for each configured calendar.
+ *
+ * Ordered on the same spine as the card-level content group, because the two panels
+ * configure the same pipeline and reading them differently is what made the editor hard
+ * to scan: **which events qualify → how they are arranged across days → what each row
+ * carries**. Every category shared with the card-level panel appears in the same relative
+ * order there, and the keys inside a shared category start the same way.
+ *
+ * `Label & Colors` leads, and is deliberately *outside* that spine rather than an
+ * exception to it. It selects nothing, arranges nothing and populates nothing — it names
+ * which calendar is being edited. Identity precedes configuration, which is also why the
+ * card-level panel has no counterpart: a card is not one of several.
+ *
+ * @param ctx - Schema context
+ * @returns The per-calendar schema, with the label fields of every shape
+ */
 export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
+    heading('heading_appearance'),
     labelType(ctx.language),
     text('label'),
     text('label_icon_color'),
     row(text('color'), accentColorMode(ctx.language)),
     text('accent_color'),
 
-    inheritable(ctx.language, 'show_time'),
-    inheritable(ctx.language, 'show_location'),
-    inheritable(ctx.language, 'show_description'),
-    inheritable(ctx.language, 'split_multiday_events'),
-
+    // Predicates first, then the budget. `compact_events_to_show` decides how many of the
+    // survivors fit rather than whether any one of them qualifies, so it reads last — the
+    // order the card applies them in.
+    heading('heading_filters'),
+    inheritable(ctx.language, 'event_type'),
+    text('blocklist'),
+    text('allowlist'),
     {
       name: 'compact_events_to_show',
       selector: { number: { min: 0, mode: 'box' } },
     },
 
-    text('blocklist'),
-    text('allowlist'),
+    heading('heading_multiday'),
+    inheritable(ctx.language, 'split_multiday_events'),
+
+    heading('heading_details'),
+    inheritable(ctx.language, 'show_time'),
+    inheritable(ctx.language, 'show_location'),
+    inheritable(ctx.language, 'show_description'),
   ];
 }
 
