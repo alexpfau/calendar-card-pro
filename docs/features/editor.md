@@ -81,6 +81,8 @@ The clipboard behind **Copy Settings** outlives the dialog, so settings copied w
 
 **Duplicate** is how you list one calendar twice, each time with its own settings. That is what [splitting a calendar by event type](/features/core-settings#separating-all-day-from-timed-events) needs, and Home Assistant's calendar picker will not do it: the picker hides a calendar you have already chosen, so the second listing has to be made here. Both panels then carry the same heading, because they are the same calendar, and their secondary lines are numbered **Entry 1 of 2** and **Entry 2 of 2** so you can tell which is which.
 
+The copy starts out identical to the block it came from, so until you change something on one of them the card shows every event from that calendar **twice** — two blocks, both matching everything. That is expected, and setting **Event Type** on each is usually the change that resolves it.
+
 ::: tip Remove a Duplicate From Its Panel, Not From the Picker
 Clearing a row in the picker removes **every** listing of that calendar, along with the settings on each — the picker matches rows by which calendar they name, and two duplicates name the same one. **Remove** on the panel drops only that block, so it is the one to use once a calendar is listed more than once.
 :::
