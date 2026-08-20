@@ -90,6 +90,10 @@ const contentSchema = Helpers.memoizeLast(
       group(language, 'compact_mode', COMPACT_ICON, compactFields(hasEventLimit)),
 
       group(language, 'content', CONTENT_GROUP_ICON, [
+        // The shared spine, matched by `buildEntitySchema`: which events qualify → how
+        // they are arranged across days → and then whatever is unique to this panel. The
+        // two panels configure the same pipeline, so reading them in different orders is
+        // what made the editor hard to scan.
         heading('heading_filters'),
         select(language, 'event_type', ['all', 'timed', 'all_day']),
         bool('show_past_events'),
@@ -98,6 +102,7 @@ const contentSchema = Helpers.memoizeLast(
         heading('heading_multiday'),
         bool('split_multiday_events'),
 
+        // Card-level only: the pipeline's terminal state, when nothing survived it.
         heading('heading_nothing'),
         bool('show_empty_days'),
         ...emptyDayFields,

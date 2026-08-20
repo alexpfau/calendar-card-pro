@@ -716,9 +716,9 @@ describe('editor filter: section headings', () => {
     // headings at all.
     expect(headingNames(entitySchema())).toEqual([
       'heading_appearance',
-      'heading_details',
-      'heading_multiday',
       'heading_filters',
+      'heading_multiday',
+      'heading_details',
     ]);
   });
 
@@ -779,5 +779,120 @@ describe('editor filter: section headings', () => {
         { name: 'days_to_show', selector: { number: { min: 1 } } },
       ]),
     ).toBe(true);
+  });
+});
+
+/**
+ * The field and heading order of the two panels, pinned.
+ *
+ * Order was incidental until this change and nothing asserted it: reordering both panels
+ * passed the entire suite. It is now *designed* — the two panels share a spine, which
+ * users see and which the source comments explain — so it needs a gate, or the next
+ * refactor silently undoes the thing the reorder was for.
+ *
+ * Pinned by value, in full, rather than by walking. A test that iterates the schema and
+ * checks something about each node cannot notice a node leaving, and cannot see order at
+ * all; `toEqual` on the whole sequence fails on a move, a drop and an unexplained
+ * addition alike.
+ */
+describe('editor: the order of the two panels', () => {
+  const entitySchema = () =>
+    buildEntitySchema({ view: 'list' as const, config: buildConfig(), language: 'en' });
+
+  const contentSchema = () =>
+    PANELS.find((p) => p.id === 'content')!.build({
+      view: 'list',
+      config: buildConfig({ show_empty_days: true }),
+      language: 'en',
+    });
+
+  /** Headings and fields together, in render order, so a field crossing a heading fails. */
+  const sequence = (schema: ReadonlyArray<HaFormSchema>): string[] =>
+    [...walkSchema(schema)]
+      .filter(({ node }) => !('schema' in node))
+      .map(({ node }) =>
+        'type' in node && node.type === 'constant' ? `# ${node.name}` : node.name,
+      );
+
+  it('pins the per-calendar panel', () => {
+    expect(sequence(entitySchema())).toEqual([
+      '# heading_appearance',
+      'label_type',
+      'label',
+      'label_icon_color',
+      'color',
+      'accent_color_mode',
+      'accent_color',
+      '# heading_filters',
+      'event_type',
+      'blocklist',
+      'allowlist',
+      'compact_events_to_show',
+      '# heading_multiday',
+      'split_multiday_events',
+      '# heading_details',
+      'show_time',
+      'show_location',
+      'show_description',
+    ]);
+  });
+
+  it('pins the card-level content group', () => {
+    // Sequenced from the group's own schema, not sliced out of the panel: a slice to the
+    // end swept in the locale group that follows.
+    const group = [...walkSchema(contentSchema())].find(
+      ({ node }) => 'schema' in node && node.name === 'content',
+    );
+
+    expect(group, 'the content group is gone').toBeDefined();
+
+    expect(sequence((group!.node as { schema: ReadonlyArray<HaFormSchema> }).schema)).toEqual([
+      '# heading_filters',
+      'event_type',
+      'show_past_events',
+      'filter_duplicates',
+      '# heading_multiday',
+      'split_multiday_events',
+      '# heading_nothing',
+      'show_empty_days',
+      'empty_day_text',
+      'empty_day_color',
+      'hide_when_empty',
+    ]);
+  });
+
+  /**
+   * The requirement itself, stated once rather than inferred from the two lists above.
+   *
+   * Those pin each panel independently, so a change that reordered *both* consistently
+   * wrongly would fail them — but a change that reordered only one would fail only one,
+   * and the diff would not say which of the two is now the odd one out. This says what
+   * the invariant is.
+   */
+  it('orders every shared category the same way in both panels', () => {
+    const headingsOf = (schema: ReadonlyArray<HaFormSchema>) =>
+      [...walkSchema(schema)]
+        .filter(({ node }) => 'type' in node && node.type === 'constant')
+        .map(({ node }) => node.name);
+
+    const entity = headingsOf(entitySchema());
+    const content = headingsOf(contentSchema());
+    const shared = entity.filter((name) => content.includes(name));
+
+    // The denominator. With no shared categories the agreement below is vacuous, and it
+    // would go vacuous silently if a heading were renamed on one side only.
+    expect(shared).toEqual(['heading_filters', 'heading_multiday']);
+
+    expect(content.filter((name) => shared.includes(name))).toEqual(shared);
+
+    // And the shared categories must start with the same key, since `event_type` is the
+    // one option both panels put under `heading_filters`.
+    const firstUnder = (schema: ReadonlyArray<HaFormSchema>, name: string) => {
+      const seq = sequence(schema);
+      return seq[seq.indexOf(`# ${name}`) + 1];
+    };
+
+    expect(firstUnder(entitySchema(), 'heading_filters')).toBe('event_type');
+    expect(firstUnder(contentSchema(), 'heading_filters')).toBe('event_type');
   });
 });

@@ -145,6 +145,23 @@ function labelFields(type: string): SelectorSchema[] {
  * @param ctx - Schema context
  * @returns The per-calendar schema, with the label fields of every shape
  */
+/**
+ * Builds the schema rendered for each configured calendar.
+ *
+ * Ordered on the same spine as the card-level content group, because the two panels
+ * configure the same pipeline and reading them differently is what made the editor hard
+ * to scan: **which events qualify → how they are arranged across days → what each row
+ * carries**. Every category shared with the card-level panel appears in the same relative
+ * order there, and the keys inside a shared category start the same way.
+ *
+ * `Label & Colors` leads, and is deliberately *outside* that spine rather than an
+ * exception to it. It selects nothing, arranges nothing and populates nothing — it names
+ * which calendar is being edited. Identity precedes configuration, which is also why the
+ * card-level panel has no counterpart: a card is not one of several.
+ *
+ * @param ctx - Schema context
+ * @returns The per-calendar schema, with the label fields of every shape
+ */
 export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
     heading('heading_appearance'),
@@ -153,14 +170,6 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     text('label_icon_color'),
     row(text('color'), accentColorMode(ctx.language)),
     text('accent_color'),
-
-    heading('heading_details'),
-    inheritable(ctx.language, 'show_time'),
-    inheritable(ctx.language, 'show_location'),
-    inheritable(ctx.language, 'show_description'),
-
-    heading('heading_multiday'),
-    inheritable(ctx.language, 'split_multiday_events'),
 
     // Predicates first, then the budget. `compact_events_to_show` decides how many of the
     // survivors fit rather than whether any one of them qualifies, so it reads last — the
@@ -173,6 +182,14 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
       name: 'compact_events_to_show',
       selector: { number: { min: 0, mode: 'box' } },
     },
+
+    heading('heading_multiday'),
+    inheritable(ctx.language, 'split_multiday_events'),
+
+    heading('heading_details'),
+    inheritable(ctx.language, 'show_time'),
+    inheritable(ctx.language, 'show_location'),
+    inheritable(ctx.language, 'show_description'),
   ];
 }
 
