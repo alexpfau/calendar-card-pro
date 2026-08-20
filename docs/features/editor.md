@@ -24,6 +24,8 @@ The editor is organized into nine panels, each named for what it configures rath
 
 Panels open one at a time, and options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
 
+The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Which Events Appear** comes first, then **Events Across Several Days**. A calendar adds **Label & Colors** above them and **What Each Event Shows** below; the card-level panel adds **When There Is Nothing To Show** at the end. Reading either panel therefore answers the same questions in the same order.
+
 ## ✨ Key Features
 
 - **Live Preview** — see changes immediately as you configure the card
@@ -44,7 +46,7 @@ If your language is not among the 11 the editor is entirely in English. Either w
 
 The editor holds several hundred options, so it opens with a search box above the panels.
 
-Typing filters every panel down to what matches and drops the panels — and the groups inside them — that have nothing left, so a match is never hidden behind a collapsed heading. What survives is expanded for you.
+Typing filters every panel down to what matches and drops the panels — and the groups inside them — that have nothing left, so a match is never hidden behind a collapsed heading. What survives is expanded for you. A sub-heading is never itself a match: it survives only to caption a result beneath it, so searching a word that appears in a heading and nowhere else returns nothing rather than a heading with an empty section under it.
 
 Search matches what is on screen: the name of a setting, the sentence explaining it, and the choices a dropdown offers. Typing `width` finds **Minimum Day Width**; typing `iso` finds the week-number control, because that is where the word appears. It also matches the YAML option name, so a key copied out of the [Configuration Options reference](/reference/configuration) leads straight to its control.
 

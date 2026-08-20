@@ -35,6 +35,7 @@ entities:
 | `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                |
 | `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                              |
 | `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                          |
+| `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)               |
 
 This structure gives you granular control over how information from different calendars is displayed.
 
@@ -173,6 +174,55 @@ These filters use regular expressions, allowing for flexible pattern matching:
 - **Blocklist**: Hide events that match specified patterns
 - **Allowlist**: Only show events that match specified patterns
 - **Priority**: When both are specified, allowlist takes precedence
+
+### Separating All-Day From Timed Events
+
+The `event_type` option decides which class of event a calendar contributes. It takes three
+values: `all` shows everything and is the default, `timed` keeps just the events that have
+a clock time, and `all_day` keeps just the all-day ones.
+
+```yaml
+type: custom:calendar-card-pro
+event_type: timed # Card-wide: no all-day events anywhere
+entities:
+  - calendar.work
+  - entity: calendar.birthdays
+    event_type: all # This one calendar departs from the card
+```
+
+Its more interesting use is as a way of splitting a single calendar in two. Because `timed`
+and `all_day` are exact opposites, listing the same calendar twice — once each way — divides
+its events between the two blocks without losing or repeating any, and each block can then
+carry its own label and colors:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.family
+    event_type: all_day # Birthdays, holidays, trips
+    accent_color: '#9e9e9e'
+  - entity: calendar.family
+    event_type: timed # Appointments, meetings
+    accent_color: '#1e88e5'
+```
+
+This is the same technique as [Advanced Filtering Techniques](#advanced-filtering-techniques)
+below, and it composes with the name filters: a block may set `event_type` and an
+`allowlist` together, and an event has to satisfy both to appear.
+
+::: warning Listing a Calendar Twice Needs YAML
+Home Assistant's calendar picker removes duplicates, so the visual editor cannot add the
+same calendar a second time. Write the two blocks in YAML — three dots → Show code editor —
+and the editor handles them correctly from then on: both blocks are kept, each with its own
+settings, and opening the editor does not collapse them.
+:::
+
+::: tip It Describes the Kind of Event, Not Its Length
+`event_type` says nothing about how long an event lasts. A dinner from 23:30 to 00:30 is
+`timed` even though it touches two dates, and a one-day holiday is `all_day` just as a
+two-week one is. For how the card handles events spanning several days, see
+[Multi-Day Events](/features/multi-day-events).
+:::
 
 ### Filtering Duplicate Events
 

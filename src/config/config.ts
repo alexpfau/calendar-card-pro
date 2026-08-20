@@ -24,6 +24,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   empty_day_text: undefined,
   filter_duplicates: false,
   split_multiday_events: false,
+  event_type: 'all',
   language: undefined,
 
   title: undefined,
@@ -567,6 +568,7 @@ export function normalizeEntities(
         blocklist?: string;
         allowlist?: string;
         split_multiday_events?: boolean;
+        event_type?: Types.EventType;
       }
   >,
 ): Array<Types.EntityConfig> {
@@ -601,6 +603,7 @@ export function normalizeEntities(
           blocklist: item.blocklist,
           allowlist: item.allowlist,
           split_multiday_events: item.split_multiday_events,
+          event_type: item.event_type,
         };
       }
       return null;
@@ -634,6 +637,24 @@ function serializeEntities(entities: Array<string | Types.EntityConfig> | undefi
 }
 
 /**
+ * Top-level options read while events are **processed**, not while they are rendered.
+ *
+ * 🚨 Registering a key here is what makes a card-level change to it take effect. The
+ * distinction is not "is this option also per-calendar" — `show_time`, `show_location`
+ * and `split_multiday_events` are all of those and none belongs here, because they are
+ * applied at render time from the `_matchedConfig` stamp and so need no reprocessing.
+ * What matters is *when the value is read*: an option consulted inside `processEvents`
+ * is baked into `this.events`, and a later edit to it cannot reach the screen until the
+ * payload is run through processing again.
+ *
+ * Forgetting this registration is silent — the card keeps rendering the previous
+ * filter until the next scheduled refresh, a reload, or an unrelated entity edit.
+ * `tests/entity-config-reprocess.test.ts` scans the filter path's source and fails if a
+ * key is read there without being listed here.
+ */
+export const PROCESSING_TIME_KEYS: ReadonlyArray<keyof Types.Config> = ['event_type'];
+
+/**
  * Determine if per-calendar configuration changed without moving the fetch window.
  *
  * Per-calendar options are not applied at render time — they are stamped onto each event
@@ -641,12 +662,17 @@ function serializeEntities(entities: Array<string | Types.EntityConfig> | undefi
  * readers prefer that stamp over the live config. So an edit to a label, a color or a
  * filter needs the raw payload reprocessed even though the API request is unchanged.
  *
+ * The same is true of the card-level half of a processing-time option, which is why
+ * {@link PROCESSING_TIME_KEYS} is consulted here as well as the entity list. Only the
+ * entity list was compared until `event_type` arrived, so a card-wide filter change
+ * reprocessed nothing at all.
+ *
  * Callers should reprocess rather than refetch: neither the event cache key nor the
  * instance ID contains anything but entity IDs, so the cached payload is still valid.
  *
  * @param previous Previous configuration
  * @param current Current configuration
- * @returns True when the entity list changed in any way other than not at all
+ * @returns True when the entity list or a processing-time option changed
  */
 export function hasEntityProcessingChanged(
   previous: Partial<Types.Config> | undefined,
@@ -656,7 +682,11 @@ export function hasEntityProcessingChanged(
     return false;
   }
 
-  return serializeEntities(previous.entities) !== serializeEntities(current.entities);
+  if (serializeEntities(previous.entities) !== serializeEntities(current.entities)) {
+    return true;
+  }
+
+  return PROCESSING_TIME_KEYS.some((key) => previous[key] !== current[key]);
 }
 
 /**

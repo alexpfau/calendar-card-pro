@@ -350,6 +350,58 @@ function filterNodes(
 }
 
 /**
+ * Whether a node is a sub-heading rather than a setting.
+ *
+ * @param node - Schema node to test
+ * @returns `true` for a `constant` node
+ */
+function isHeading(node: HaFormSchema): boolean {
+  return 'type' in node && node.type === 'constant';
+}
+
+/**
+ * Drops headings left with nothing under them.
+ *
+ * A heading is a claim about the fields that follow it, so one whose section the filter
+ * emptied is worse than no heading at all — it labels whatever happens to come next, or
+ * stands alone captioning nothing. Searching "nothing" would otherwise match the text of
+ * "When There Is Nothing To Show" and return it by itself.
+ *
+ * @param schema - Filtered schema
+ * @returns The schema with unaccompanied headings removed
+ */
+function pruneLoneHeadings(schema: ReadonlyArray<HaFormSchema>): HaFormSchema[] {
+  const kept: HaFormSchema[] = [];
+
+  for (let i = 0; i < schema.length; i++) {
+    const node = schema[i];
+
+    if (isGroupSchema(node)) {
+      kept.push({ ...node, schema: pruneLoneHeadings(node.schema) });
+      continue;
+    }
+
+    if (!isHeading(node)) {
+      kept.push(node);
+      continue;
+    }
+
+    // Look ahead to the next heading; keep this one only if a real field sits between.
+    let hasContent = false;
+    for (let j = i + 1; j < schema.length && !isHeading(schema[j]); j++) {
+      if (isGroupSchema(schema[j]) || !isHeading(schema[j])) {
+        hasContent = true;
+        break;
+      }
+    }
+
+    if (hasContent) kept.push(node);
+  }
+
+  return kept;
+}
+
+/**
  * Filters a panel's schema to the options the criteria ask for.
  *
  * @param schema - Schema to filter
@@ -366,26 +418,34 @@ export function filterSchema(
 ): HaFormSchema[] {
   if (!isFiltering(ctx.criteria)) return [...schema];
 
-  return filterNodes(
-    schema,
-    ctx,
-    (node, nodePath, nodeDataPath) =>
-      matchesQuery(node, nodePath, ctx, nodeDataPath) &&
-      (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx)),
-    path,
-    dataPath,
+  return pruneLoneHeadings(
+    filterNodes(
+      schema,
+      ctx,
+      (node, nodePath, nodeDataPath) =>
+        // A heading is not a setting, so it is never a search hit of its own — it rides
+        // along and is pruned above when its section came back empty.
+        isHeading(node) ||
+        (matchesQuery(node, nodePath, ctx, nodeDataPath) &&
+          (!ctx.criteria.customizedOnly || isCustomized(node, nodeDataPath, ctx))),
+      path,
+      dataPath,
+    ),
   );
 }
 
 /**
  * Whether a schema still holds anything a form would render.
  *
+ * Headings do not count: a panel reduced to nothing but its section labels has no
+ * settings left and should not be offered.
+ *
  * @param schema - Filtered schema
  * @returns `true` when at least one field is left
  */
 export function hasFields(schema: ReadonlyArray<HaFormSchema>): boolean {
   for (const { node } of walkSchema(schema)) {
-    if (!isGroupSchema(node)) return true;
+    if (!isGroupSchema(node) && !isHeading(node)) return true;
   }
 
   return false;
@@ -470,14 +530,17 @@ export function filterEntitySchema(
 
   const named = queryOf(ctx) !== '' && matchesEntity(entry, ctx);
 
-  return filterNodes(
-    schema,
-    ctx,
-    (node, nodePath) =>
-      (named || matchesQuery(node, nodePath, ctx)) &&
-      (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node)),
-    path,
-    [],
+  return pruneLoneHeadings(
+    filterNodes(
+      schema,
+      ctx,
+      (node, nodePath) =>
+        isHeading(node) ||
+        ((named || matchesQuery(node, nodePath, ctx)) &&
+          (!ctx.criteria.customizedOnly || isEntityFieldCustomized(entry, node))),
+      path,
+      [],
+    ),
   );
 }
 
