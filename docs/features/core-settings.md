@@ -101,6 +101,10 @@ Card Pro does on its side can change it.
 **Set the colors by hand instead** — see below. It is a moment per calendar, it is the only
 thing that works today, and it leaves your integration, your entity IDs and anything
 referring to them alone.
+
+That work is also safe to do: the same restore that declines to import a color is what
+preserves one you set yourself, so hand-set colors survive removing and re-adding the
+integration later for some unrelated reason.
 :::
 
 ::: tip Setting a Color By Hand
