@@ -20,22 +20,24 @@ entities:
 
 ### Available Options for Entity Configuration Objects
 
-| Option                   | Type    | Default                  | Description                                                                                                                                                              |
-| ------------------------ | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                                                                     |
-| `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`)                                           |
-| `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                          |
-| `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                         |
-| `accent_color`           | string  | `accent_color`           | Custom color for the vertical line and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color |
-| `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                              |
-| `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                      |
-| `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                                                              |
-| `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option)                                                                        |
-| `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                                                         |
-| `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                |
-| `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                              |
-| `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                          |
-| `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)               |
+| Option                   | Type    | Default                  | Description                                                                                                                                                                                                           |
+| ------------------------ | ------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                                                                                                                  |
+| `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`)                                                                                        |
+| `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                                                                       |
+| `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                      |
+| `accent_color`           | string  | `accent_color`           | Custom color for the vertical line and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color                                              |
+| `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                           |
+| `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                   |
+| `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                                                                                                           |
+| `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option)                                                                                                                     |
+| `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                                                                                                      |
+| `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                                                             |
+| `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                                                                           |
+| `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                       |
+| `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                            |
+| `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false` |
+| `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (Monday to Friday) or `weekends` (Saturday and Sunday), judged on the day each row lands on. Unset, every day qualifies                                                         |
 
 This structure gives you granular control over how information from different calendars is displayed.
 
@@ -225,6 +227,97 @@ one option that differs. The two panels are numbered so you can tell them apart,
 two-week one is. For how the card handles events spanning several days, see
 [Multi-Day Events](/features/multi-day-events).
 :::
+
+### Retiring All-Day Events During the Day
+
+An all-day event has no end time, only an end date, so the card treats one as past at
+**midnight after the last day it covers**. That is usually right — a birthday is a birthday
+all day — but it is wrong for a feed describing something that happens at a particular
+hour. A waste-collection calendar is the common case: the bin is emptied in the morning and
+its entry sits on the card until midnight.
+
+`allday_expires_at` moves that moment earlier within the final day. It takes a time of day,
+and from that time onward the card treats the event as past:
+
+```yaml
+entities:
+  - entity: calendar.waste_collection
+    allday_expires_at: '10:00' # gone from mid-morning, once the truck has been
+  - calendar.family # unaffected — birthdays stay up all day
+```
+
+It is per calendar and has no card-wide counterpart, which is the point: your bin feed and
+your birthdays want opposite answers, and only the calendar itself knows which.
+
+The time is read against the **last** day the event covers, so a holiday running Monday to
+Wednesday retires on Wednesday morning rather than Monday's. Split the calendar with
+`split_multiday_events: true` and each day retires on its own morning instead.
+
+Leaving the option out keeps the default, midnight — the option changes _when_ within the
+final day, never _whether_.
+
+::: warning It Only Applies While Past Events Are Hidden
+`allday_expires_at` decides _when_ an all-day event becomes past. Whether past events are
+drawn at all is [`show_past_events`](/reference/configuration#core-settings), which
+defaults to `false`. With `show_past_events: true` the card is being asked to show what is
+over, so this option has nothing left to do and the event stays.
+:::
+
+::: tip It Takes Effect on the Next Refresh, Not on the Minute
+The card has one timer, the refresh interval, and nothing schedules a redraw at the time
+you name here. An event retires on the first render after its moment passes — which may be
+the refresh, a dashboard reload, or any edit that redraws the card. Expect the row to go
+within the refresh interval of the time you set, not exactly on it.
+:::
+
+### Showing a Calendar on Weekdays Only
+
+`days_of_week` restricts one calendar to weekdays or to weekends. It takes `weekdays` for
+Monday to Friday and `weekends` for Saturday and Sunday; leave it out and every day
+qualifies, which is the default.
+
+```yaml
+entities:
+  - entity: calendar.school_holidays
+    days_of_week: weekdays # term dates matter on school days
+    split_multiday_events: true # judge each day of the holiday on its own
+  - calendar.family # keeps its weekend events
+```
+
+Like `event_type`, the two values are exact opposites, so listing one calendar twice — once
+each way — divides it between two blocks that can carry their own labels and colors,
+without losing an event or showing one twice.
+
+::: warning Pair This With `split_multiday_events` on a Calendar of Long Events
+The example above sets both, and on a holidays calendar it needs to. `days_of_week` judges
+the day a row **lands on**, and an event spanning several days is drawn as a single row on
+the first of them unless you split it. So a fortnight's holiday beginning on a Saturday is
+one Saturday row, and `weekdays` hides the whole fortnight rather than showing you its
+weekdays.
+
+With `split_multiday_events: true` that same holiday becomes a row per day, each judged
+separately, and you get the Monday-to-Friday view you asked for. Column view already
+defaults the option to `true`, so this pairing only needs stating for list view.
+:::
+
+::: tip It Filters the Day a Row Lands On, Not the Day It Started
+The same rule explains an event already running when the card's window opens: it is drawn
+on the window's **first day**, whichever weekday that is, so that is the day the filter
+judges — not the date the event began. A calendar of single-day entries never notices the
+distinction, since the two dates are the same.
+:::
+
+::: warning A Day the Filter Empties Follows `show_empty_days`
+Filtering runs before the card pads out its window, so a Saturday whose only entry this
+calendar supplied becomes an empty day like any other. With
+[`show_empty_days`](/reference/configuration#core-settings) off — the default in list view
+— that day is left out entirely and a later one takes its place. With it on, as column
+view defaults to, the day still appears carrying the usual _No upcoming events_ notice.
+:::
+
+Weekend means Saturday and Sunday. That is the same definition the
+[weekend colors](/features/layout-appearance#week-numbers-visual-separators) use, so a day
+this option treats as a weekend is a day the card already colors as one.
 
 ### Filtering Duplicate Events
 

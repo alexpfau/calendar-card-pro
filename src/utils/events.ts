@@ -214,6 +214,167 @@ function deduplicateEvents(
   return events.filter((event) => keep.has(event) || !seen.has(generateEventSignature(event)));
 }
 
+//-----------------------------------------------------------------------------
+// RENDER-TIME PER-CALENDAR FILTERS
+//-----------------------------------------------------------------------------
+//
+// Both of the filters below are read from the `_matchedConfig` stamp while events are
+// **grouped**, not while they are processed, which is what keeps them out of
+// `PROCESSING_TIME_KEYS`: nothing about them is baked into `this.events`, so an edit
+// reaches the screen on the next render. They are also per-calendar only, so the entity
+// list changes whenever either does and `serializeEntities` already forces a reprocess —
+// belt and braces, but the render-time read is the load-bearing half.
+//
+// They run **after** `processMultiDayEvents`, which is the opposite of where
+// `filterEventsByType` has to sit and for a related reason. Splitting rewrites the middle
+// days of a timed multi-day event as `start: { date }`, so a filter reading an event's
+// *class* must precede it. These two read an event's *day* instead, which only exists once
+// the splitter has decided how many days the event occupies.
+
+/**
+ * Which day a grouped event is drawn on.
+ *
+ * Extracted so the weekday filter and the grouping pass cannot disagree about it. The
+ * distinction matters most for an event already in progress when the window opens: it is
+ * clamped to the window's first day, so its row lands on a day its own `start` never
+ * names. Filtering on the start date would then hide — or fail to hide — the wrong row.
+ *
+ * The second and third tests are reached only when `startDate < referenceStart`, since the
+ * first returned otherwise; the original inline form repeated that as an explicit conjunct.
+ *
+ * @param startDate Event start, as the caller resolved it for its all-day-ness
+ * @param endDate Event end, likewise, with the all-day exclusive day already removed
+ * @param referenceStart Local midnight on the window's first day
+ * @returns The day the event's row belongs to
+ */
+function resolveDisplayDate(startDate: Date, endDate: Date, referenceStart: Date): Date {
+  if (startDate >= referenceStart) return startDate;
+  if (endDate.toDateString() === referenceStart.toDateString()) return referenceStart;
+  if (endDate > referenceStart) return referenceStart;
+
+  return startDate;
+}
+
+/** `HH:MM`, or `HH:MM:SS`. A single-digit hour is accepted; 24 and above is not. */
+const TIME_OF_DAY_PATTERN = /^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/;
+
+/** Values already reported as unparseable, so one typo warns once rather than per event. */
+const reportedExpiryValues = new Set<string>();
+
+/**
+ * Read a wall-clock time of day out of a configured string.
+ *
+ * @param value Configured value, from a calendar's `allday_expires_at`
+ * @returns The time, or `null` when the value is absent or not a time
+ */
+function parseTimeOfDay(
+  value: unknown,
+): { hours: number; minutes: number; seconds: number } | null {
+  if (typeof value !== 'string') return null;
+
+  const match = TIME_OF_DAY_PATTERN.exec(value.trim());
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  if (hours > 23) return null;
+
+  return { hours, minutes: Number(match[2]), seconds: match[3] ? Number(match[3]) : 0 };
+}
+
+/**
+ * The instant an all-day event stops counting as upcoming.
+ *
+ * 🚨 The **default matters as much as the option**, and supplying it is what closes the
+ * older defect this function also fixes. An all-day event has no end instant — its end is a
+ * date — so the timed test beside this one could not be applied to it: `endDate` is local
+ * midnight *at the start* of the last day, so from 00:00:01 onward every all-day event
+ * happening **today** would have read as past. The card therefore exempted all-day events
+ * from expiry altogether, which is right for today and wrong for every day before it. With
+ * `show_past_events: false` and a window reaching backwards — `start_date: 'today-7'`, or
+ * `start_of_week` mid-week — a finished all-day event kept its row while every timed event
+ * beside it was correctly hidden.
+ *
+ * Supplying the missing instant fixes both at once. An all-day event is past at **midnight
+ * after its last day**, so today's survives the whole day and last Saturday's does not, and
+ * `allday_expires_at` moves that instant earlier *within* the final day. The option and the
+ * default are then one rule at two settings rather than two mechanisms.
+ *
+ * The last day is the event's own, not today's, so a Monday-to-Wednesday holiday retires on
+ * Wednesday night rather than on Monday's.
+ *
+ * An unparseable value falls back to midnight rather than to never, on the same principle
+ * as `resolveEventType`: a typo should leave the card behaving as though the option were
+ * absent. It is reported once per distinct value, because this runs per event and a silent
+ * typo is a support question nobody can answer.
+ *
+ * 🚨 Nothing schedules a render at the returned instant. The card's only timer is the
+ * refresh interval, so an event retires on the first render after its moment passes.
+ *
+ * @param endDate Last day the event covers, at local midnight
+ * @param configured The calendar's `allday_expires_at`, unvalidated
+ * @returns The local instant from which the event counts as past
+ */
+function allDayExpiryInstant(endDate: Date, configured: unknown): Date {
+  const time = parseTimeOfDay(configured);
+
+  if (!time) {
+    if (typeof configured === 'string' && configured.trim() !== '') {
+      const value = configured.trim();
+      if (!reportedExpiryValues.has(value)) {
+        reportedExpiryValues.add(value);
+        Logger.warn(`Invalid allday_expires_at value "${value}" — expected a time such as 10:00`);
+      }
+    }
+
+    // Midnight after the last day, built by adding a calendar day rather than by naming
+    // 24:00, so a DST transition on that night shifts it correctly.
+    const midnight = new Date(endDate);
+    midnight.setDate(midnight.getDate() + 1);
+    midnight.setHours(0, 0, 0, 0);
+
+    return midnight;
+  }
+
+  const expiresAt = new Date(endDate);
+  expiresAt.setHours(time.hours, time.minutes, time.seconds, 0);
+
+  return expiresAt;
+}
+
+/**
+ * Which days of the week one calendar may put a row on.
+ *
+ * Per-calendar only, and deliberately so. The request behind it (#225) is a school-holidays
+ * calendar whose entries run through the weekend, on a card that must keep showing every
+ * *other* calendar's weekend events — so a card-wide value would answer a question nobody
+ * asked, and narrowing the card's date window cannot express it at all.
+ *
+ * An unrecognized value filters nothing, so a typo shows too much rather than too little —
+ * the same principle `resolveEventType` follows, and the reason this returns `undefined`
+ * rather than throwing on a value the union does not name.
+ *
+ * @param entityConfig The calendar's own settings, where it has any
+ * @returns The days that calendar's events may land on, or `undefined` for every day
+ */
+function resolveDaysOfWeek(
+  entityConfig: Types.EntityConfig | undefined,
+): Types.DaysOfWeekFilter | undefined {
+  const configured = entityConfig?.days_of_week;
+
+  return configured === 'weekdays' || configured === 'weekends' ? configured : undefined;
+}
+
+/**
+ * Whether a day satisfies one calendar's `days_of_week`.
+ *
+ * @param displayDate The day the row would land on
+ * @param filter The calendar's resolved filter
+ * @returns True when the row may stay
+ */
+function dayPassesWeekFilter(displayDate: Date, filter: Types.DaysOfWeekFilter): boolean {
+  return FormatUtils.isWeekendDate(displayDate) === (filter === 'weekends');
+}
+
 /**
  * Group events by display day.
  *
@@ -338,6 +499,30 @@ export function groupEventsByDay(
       if (!isAllDayEvent && endDate < now) {
         return false;
       }
+
+      // The all-day half of the same rule, and the half that needs an instant computed for
+      // it. `show_past_events` decides *whether* past events are shown; the expiry decides
+      // *when* an all-day event becomes past. With `show_past_events: true` there is
+      // nothing for either to do, which is why both sit inside this branch.
+      if (
+        isAllDayEvent &&
+        now >=
+          allDayExpiryInstant(
+            endDate,
+            getEntitySetting(event._entityId, 'allday_expires_at', config, event),
+          )
+      ) {
+        return false;
+      }
+    }
+
+    const daysOfWeek = resolveDaysOfWeek(event._matchedConfig);
+
+    if (
+      daysOfWeek &&
+      !dayPassesWeekFilter(resolveDisplayDate(startDate, endDate, referenceStart), daysOfWeek)
+    ) {
+      return false;
     }
 
     return true;
@@ -368,17 +553,7 @@ export function groupEventsByDay(
 
       if (!startDate || !endDate) return;
 
-      let displayDate: Date;
-
-      if (startDate >= referenceStart) {
-        displayDate = startDate;
-      } else if (endDate.toDateString() === referenceStart.toDateString()) {
-        displayDate = referenceStart;
-      } else if (startDate < referenceStart && endDate > referenceStart) {
-        displayDate = referenceStart;
-      } else {
-        displayDate = startDate;
-      }
+      const displayDate = resolveDisplayDate(startDate, endDate, referenceStart);
 
       const eventDateKey = FormatUtils.getLocalDateKey(displayDate);
       const translations = Localize.getTranslations(language);

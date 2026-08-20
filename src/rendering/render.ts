@@ -13,6 +13,7 @@ import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
+import * as FormatUtils from '../utils/format';
 
 /**
  * Re-exported so the card can dispatch between views through a single import namespace. Keeping both renderers reachable as `Render.*` means the two call sites in the card's view dispatch read as a symmetrical pair rather than pulling from different modules.
@@ -347,7 +348,7 @@ export function renderDay(
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
   // rule targeting weekends should not need to know which view is active. List view also
   // keeps it on `.date-column`, where it drives the built-in date-cell styling.
-  const isWeekendDay = Leaves.isWeekendDate(new Date(day.timestamp));
+  const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp));
 
   let daySeparator: TemplateResult | typeof nothing = nothing;
 
@@ -485,7 +486,7 @@ function renderEvent(
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
 
   const dayDate = new Date(day.timestamp);
-  const isWeekendDay = Leaves.isWeekendDate(dayDate);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate);
 
   const isFirst = index === 0;
   const isLast = index === day.events.length - 1;

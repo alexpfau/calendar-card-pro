@@ -11,6 +11,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
 import * as EventUtils from '../utils/events';
+import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Weather from '../utils/weather';
 
@@ -78,17 +79,6 @@ export function renderDateWeather(
 }
 
 /**
- * Check whether a date falls on a weekend (Saturday or Sunday).
- *
- * @param date Date to check
- * @returns True when the date is a Saturday or Sunday
- */
-export function isWeekendDate(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
-}
-
-/**
  * Classify a day's start-of-day timestamp as today and/or tomorrow.
  *
  * @param timestamp Start-of-day timestamp for the day
@@ -129,7 +119,7 @@ export function renderDateContent(
   isToday: boolean,
   weatherContent: TemplateResult | typeof nothing = nothing,
 ): TemplateResult {
-  const isWeekendDay = isWeekendDate(date);
+  const isWeekendDay = FormatUtils.isWeekendDate(date);
 
   let weekdayColor = config.weekday_color;
   let dayColor = config.day_color;

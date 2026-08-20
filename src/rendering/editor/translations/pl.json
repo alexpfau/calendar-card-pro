@@ -126,7 +126,7 @@
   "compact_events_complete_days": "Dokończ ostatni dzień",
   "compact_events_complete_days.helper": "Zamiast zatrzymywać się w środku dnia po osiągnięciu limitu wydarzeń, pokazuje też resztę tego dnia.",
   "content": "Co pokazuje karta",
-  "show_past_events": "Pokaż minione wydarzenia z dzisiaj",
+  "show_past_events": "Pokaż minione wydarzenia",
   "show_empty_days": "Pokaż puste dni",
   "empty_day_text": "Tekst pustego dnia",
   "empty_day_text.helper": "Zastępuje przetłumaczony tekst domyślny i usuwa poprzedzający go znak zaznaczenia.",
