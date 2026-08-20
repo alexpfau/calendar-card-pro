@@ -210,6 +210,13 @@ This is the same technique as [Advanced Filtering Techniques](#advanced-filterin
 below, and it composes with the name filters: a block may set `event_type` and an
 `allowlist` together, and an event has to satisfy both to appear.
 
+::: warning Listing a Calendar Twice Needs YAML
+Home Assistant's calendar picker removes duplicates, so the visual editor cannot add the
+same calendar a second time. Write the two blocks in YAML — three dots → Show code editor —
+and the editor handles them correctly from then on: both blocks are kept, each with its own
+settings, and opening the editor does not collapse them.
+:::
+
 ::: tip It Describes the Kind of Event, Not Its Length
 `event_type` says nothing about how long an event lasts. A dinner from 23:30 to 00:30 is
 `timed` even though it touches two dates, and a one-day holiday is `all_day` just as a
