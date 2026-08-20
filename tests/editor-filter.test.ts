@@ -13,6 +13,7 @@ import {
   SEARCH_FIELD,
   filterEntitySchema,
   filterSchema,
+  hasFields,
   isCustomized,
   isFiltering,
   matchesPanel,
@@ -54,9 +55,24 @@ function ctxFor(config: Types.Config, criteria: Partial<FilterCriteria> = {}): F
 }
 
 /** Every field a filtered schema would render, groups excluded. */
+/**
+ * Every setting a schema renders, headings excluded.
+ *
+ * A `constant` node is a section label, not a setting, so it is not a "field" for the
+ * purposes of these assertions — every test here is about which *options* survive the
+ * filter. Heading behaviour has its own test below, so excluding them here narrows what
+ * each assertion is about rather than hiding anything.
+ */
 function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
   return [...walkSchema(schema)]
-    .filter(({ node }) => !('schema' in node))
+    .filter(({ node }) => !('schema' in node) && !('type' in node && node.type === 'constant'))
+    .map(({ node }) => node.name);
+}
+
+/** Section headings a schema renders, in order. */
+function headingNames(schema: ReadonlyArray<HaFormSchema>): string[] {
+  return [...walkSchema(schema)]
+    .filter(({ node }) => 'type' in node && node.type === 'constant')
     .map(({ node }) => node.name);
 }
 
@@ -672,5 +688,96 @@ describe('editor filter: the chassis', () => {
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]).toEqual({ entities: ['calendar.a'], days_to_show: 10 });
+  });
+});
+
+/**
+ * Section headings under the filter.
+ *
+ * A heading is a claim about the fields beneath it, which makes it the one node type that
+ * can be actively misleading when the filter runs. Two failure modes, and neither is
+ * visible to a test that only counts fields:
+ *
+ *  - A heading matching the *query* on its own text. "When There Is Nothing To Show"
+ *    contains "nothing", so searching that word would return the heading alone, captioning
+ *    an empty section.
+ *  - A heading whose fields were all filtered out, left stranded above whatever section
+ *    happens to follow — so it silently relabels someone else's options.
+ *
+ * Both are prevented the same way: headings never match, they ride along with their
+ * section, and one whose section came back empty is pruned.
+ */
+describe('editor filter: section headings', () => {
+  const entitySchema = () =>
+    buildEntitySchema({ view: 'list' as const, config: buildConfig(), language: 'en' });
+
+  it('renders its headings when nothing is filtered (denominator)', () => {
+    // Without this, every assertion below could pass against a schema that has no
+    // headings at all.
+    expect(headingNames(entitySchema())).toEqual([
+      'heading_appearance',
+      'heading_details',
+      'heading_multiday',
+      'heading_filters',
+    ]);
+  });
+
+  it('never returns a heading as a search hit of its own', () => {
+    // Isolated deliberately. The real content group cannot express this case: searching
+    // "nothing" *does* legitimately return `heading_nothing`, because `hide_when_empty`'s
+    // helper reads "...while it has nothing to show" and so matches too — the heading is
+    // then correctly kept for the field beneath it. A hand-built schema is the only way to
+    // present a heading whose text matches while nothing under it does.
+    const schema: HaFormSchema[] = [
+      { name: 'heading_nothing', type: 'constant' },
+      { name: 'days_to_show', selector: { number: { min: 1 } } },
+    ];
+
+    const ctx = ctxFor(buildConfig(), { query: 'nothing' });
+
+    // The denominator: the heading's own text really does contain the query, so a filter
+    // that matched on it would keep it.
+    expect(matchesQuery(schema[0], [], ctx)).toBe(true);
+    expect(matchesQuery(schema[1], [], ctx)).toBe(false);
+
+    expect(filterSchema(schema, ctx)).toEqual([]);
+  });
+
+  it('keeps a heading when a field under it matches, even if the heading does not', () => {
+    // The other direction, and the common one: the heading is not itself a hit but must
+    // survive to caption the field that is.
+    const schema: HaFormSchema[] = [
+      { name: 'heading_filters', type: 'constant' },
+      { name: 'days_to_show', selector: { number: { min: 1 } } },
+    ];
+
+    const ctx = ctxFor(buildConfig(), { query: 'days to show' });
+
+    expect(matchesQuery(schema[0], [], ctx)).toBe(false);
+    expect(fieldNames(filterSchema(schema, ctx))).toEqual(['days_to_show']);
+    expect(headingNames(filterSchema(schema, ctx))).toEqual(['heading_filters']);
+  });
+
+  it('keeps a heading whose section still has an option, and drops the rest', () => {
+    // "colour" reaches the appearance fields and nothing else, so exactly one heading
+    // should survive — the one that still has something under it.
+    const entry = { entity: 'calendar.a' };
+    const ctx = ctxFor(buildConfig({ entities: [entry] }), { query: 'accent' });
+    const filtered = filterEntitySchema(entitySchema(), entry, ['entity'], ctx);
+
+    expect(fieldNames(filtered).length).toBeGreaterThan(0);
+    expect(headingNames(filtered)).toEqual(['heading_appearance']);
+  });
+
+  it('does not count a heading as a field when deciding a panel is empty', () => {
+    // `hasFields` gates whether a panel renders at all. Counting a heading as content
+    // would show a panel containing nothing but section labels.
+    expect(hasFields([{ name: 'heading_filters', type: 'constant' }])).toBe(false);
+    expect(
+      hasFields([
+        { name: 'heading_filters', type: 'constant' },
+        { name: 'days_to_show', selector: { number: { min: 1 } } },
+      ]),
+    ).toBe(true);
   });
 });

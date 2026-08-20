@@ -11,7 +11,7 @@ import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
-import { bool, color, group, number, row, select, text } from './common';
+import { bool, color, group, heading, number, row, select, text } from './common';
 
 export const CONTENT_ICON = mdiCalendarRange;
 
@@ -90,13 +90,18 @@ const contentSchema = Helpers.memoizeLast(
       group(language, 'compact_mode', COMPACT_ICON, compactFields(hasEventLimit)),
 
       group(language, 'content', CONTENT_GROUP_ICON, [
+        heading('heading_filters'),
+        select(language, 'event_type', ['all', 'timed', 'all_day']),
         bool('show_past_events'),
+        bool('filter_duplicates'),
+
+        heading('heading_multiday'),
+        bool('split_multiday_events'),
+
+        heading('heading_nothing'),
         bool('show_empty_days'),
         ...emptyDayFields,
         bool('hide_when_empty'),
-        bool('filter_duplicates'),
-        bool('split_multiday_events'),
-        select(language, 'event_type', ['all', 'timed', 'all_day']),
       ]),
 
       group(language, 'locale', LANGUAGE_ICON, [

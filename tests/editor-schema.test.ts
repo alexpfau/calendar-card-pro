@@ -2687,6 +2687,9 @@ describe('editor: per-calendar settings', () => {
 
   it('offers every per-calendar option the card reads', () => {
     const offered = [...walkSchema(entitySchema().schema)]
+      // Section headings are `constant` nodes, not options — they configure nothing and
+      // are never written. The headings themselves are pinned separately below.
+      .filter((entry) => !('type' in entry.node && entry.node.type === 'constant'))
       .map((entry) => entry.node.name)
       .filter(Boolean);
 

@@ -154,6 +154,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.split_multiday_events.option.split.label': 'Split across each day',
   'entity.split_multiday_events.option.whole.label': 'Keep as one event',
 
+  // --- Sub-headings ---------------------------------------------------------
+  //
+  // Rendered by `heading()` as `constant` nodes, which carry no value and no input. The
+  // same key serves both the card-level and per-calendar panels wherever they name the
+  // same category, so the two read with one vocabulary rather than two.
+  heading_filters: 'Which Events Appear',
+  heading_multiday: 'Events Across Several Days',
+  heading_nothing: 'When There Is Nothing To Show',
+  heading_appearance: 'Label & Colors',
+  heading_details: 'What Each Event Shows',
+
   'entity.event_type': 'Event Type',
   'entity.event_type.option.inherit.label': 'Follow the card',
   'entity.event_type.option.all.label': 'All events',

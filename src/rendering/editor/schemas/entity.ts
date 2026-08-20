@@ -6,7 +6,7 @@ import { isEntityColorSentinel } from '../../../utils/entity-colors';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
 import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
-import { row, text } from './common';
+import { heading, row, text } from './common';
 
 export const INHERIT = 'inherit';
 
@@ -147,25 +147,32 @@ function labelFields(type: string): SelectorSchema[] {
  */
 export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
+    heading('heading_appearance'),
     labelType(ctx.language),
     text('label'),
     text('label_icon_color'),
     row(text('color'), accentColorMode(ctx.language)),
     text('accent_color'),
 
+    heading('heading_details'),
     inheritable(ctx.language, 'show_time'),
     inheritable(ctx.language, 'show_location'),
     inheritable(ctx.language, 'show_description'),
-    inheritable(ctx.language, 'split_multiday_events'),
-    inheritable(ctx.language, 'event_type'),
 
+    heading('heading_multiday'),
+    inheritable(ctx.language, 'split_multiday_events'),
+
+    // Predicates first, then the budget. `compact_events_to_show` decides how many of the
+    // survivors fit rather than whether any one of them qualifies, so it reads last — the
+    // order the card applies them in.
+    heading('heading_filters'),
+    inheritable(ctx.language, 'event_type'),
+    text('blocklist'),
+    text('allowlist'),
     {
       name: 'compact_events_to_show',
       selector: { number: { min: 0, mode: 'box' } },
     },
-
-    text('blocklist'),
-    text('allowlist'),
   ];
 }
 
