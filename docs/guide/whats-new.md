@@ -9,6 +9,8 @@ public release in January 2025 to today.
 ## Latest Release: v4.1
 
 - 🎨 **Follow Home Assistant's Calendar Colors**: Set `accent_color` to `home-assistant` and each calendar takes [the color Home Assistant already holds for it](/features/core-settings), so it looks the same on every card — whether you picked that color by hand or Google Calendar imported it
+- 🗂️ **Show All-Day and Timed Events Separately**: [`event_type`](/features/core-settings) takes `all`, `timed` or `all_day`, card-wide or per calendar — list one calendar twice, once each way, and its all-day and timed events get a color each
+- ⚙️ **Clearer Editor Layout**: The panels deciding what the card shows now group their settings under sub-headings, and both order them the same way
 
 ## v4.0
 
