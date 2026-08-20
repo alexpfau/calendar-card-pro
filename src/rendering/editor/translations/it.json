@@ -126,7 +126,7 @@
   "compact_events_complete_days": "Completa l'ultimo giorno",
   "compact_events_complete_days.helper": "Invece di fermarsi a metà giornata al raggiungimento del limite di eventi, mostra anche il resto di quel giorno.",
   "content": "Cosa mostra la scheda",
-  "show_past_events": "Mostra gli eventi passati di oggi",
+  "show_past_events": "Mostra gli eventi passati",
   "show_empty_days": "Mostra giorni vuoti",
   "empty_day_text": "Testo per i giorni vuoti",
   "empty_day_text.helper": "Sostituisce il testo predefinito tradotto e toglie il segno di spunta che lo precede.",

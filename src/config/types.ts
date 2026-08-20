@@ -144,6 +144,26 @@ export type EffectiveView = 'list' | 'column';
  */
 export type EventType = 'all' | 'timed' | 'all_day';
 
+/**
+ * Which days of the week a calendar's events are allowed to land on.
+ *
+ * A **display-date** axis, not an event-property one. `event_type` above asks what an
+ * event *is*; this asks where a row *lands*, which is why it is resolved after multi-day
+ * splitting and after the window clamp rather than from the event's own start date. A
+ * three-week holiday already in progress shows on the window's first day whatever weekday
+ * that is, so reading the start date would answer about a day the card is not drawing.
+ *
+ * Weekend means Saturday and Sunday — {@link isWeekendDate} in `utils/format.ts` is the
+ * single definition, shared with the weekend day-header colors so the two cannot disagree.
+ *
+ * 🚨 There is deliberately no `all` member, unlike `EventType`. This option is
+ * per-calendar only, so it has no card-level value to override and an explicit `all` would
+ * mean exactly what the absent key already means — two dropdown entries with one behavior
+ * and, inevitably, one label between them. Absent is the unfiltered state; the editor
+ * spells that `inherit`, the way it spells `show_week_numbers`' absent value `none`.
+ */
+export type DaysOfWeekFilter = 'weekdays' | 'weekends';
+
 /** What column view does when even its narrowest permitted layout will not fit. */
 export type ColumnMinDaysFallback = 'list' | 'cramp';
 
@@ -261,6 +281,17 @@ export interface EntityConfig {
   allowlist?: string;
   split_multiday_events?: boolean;
   event_type?: EventType;
+  days_of_week?: DaysOfWeekFilter;
+  /**
+   * Clock time at which this calendar's all-day events start counting as past, `HH:MM`.
+   *
+   * An all-day event has no end *instant*, only an end date, so the `show_past_events` test
+   * cannot be applied to it directly. It is therefore past at **midnight after its last
+   * day**, and this option moves that instant earlier within the final day. Unset keeps
+   * midnight. Read only while `show_past_events` is `false`; it decides *when* an all-day
+   * event becomes past, not whether past events show.
+   */
+  allday_expires_at?: string;
 }
 
 /** Weather position-specific styling configuration. */

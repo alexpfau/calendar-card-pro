@@ -65,6 +65,8 @@ const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['allowlist', 'standup', 'retro'],
   ['split_multiday_events', true, false],
   ['event_type', 'all_day', 'timed'],
+  ['days_of_week', 'weekdays', 'weekends'],
+  ['allday_expires_at', '10:00', '18:00'],
 ];
 
 /**

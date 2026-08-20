@@ -19,6 +19,17 @@ const CONSTANTS_TS = join(ROOT, 'src/config/constants.ts');
 const TYPES_TS = join(ROOT, 'src/config/types.ts');
 const DOCS_DIR = join(ROOT, 'docs');
 const REFERENCE_DOC = join(DOCS_DIR, 'reference/configuration.md');
+
+/**
+ * The second table an option's values can be documented in.
+ *
+ * Per-calendar options that have no card-wide counterpart never reach the reference
+ * tables — those describe the card, and the per-entity section there is a bullet list
+ * pointing here. So this page carries the only row `days_of_week` has, and check 21 has
+ * to read both or an enumerated option documented only here goes unchecked while the
+ * gate reports a clean run.
+ */
+const ENTITY_OPTIONS_DOC = join(DOCS_DIR, 'features/core-settings.md');
 const VITEPRESS_CONFIG = join(DOCS_DIR, '.vitepress/config.mts');
 const STYLES_TS = join(ROOT, 'src/rendering/styles.ts');
 const THEMING_DOC = join(DOCS_DIR, 'features/theming.md');
@@ -1845,21 +1856,26 @@ function readEnumOptions() {
  * which is how a reader learns an option cannot do something it can.
  */
 function checkEnumValues(enums) {
-  const lines = readFileSync(REFERENCE_DOC, 'utf8').split('\n');
+  const sources = [REFERENCE_DOC, ENTITY_OPTIONS_DOC].map((file) => ({
+    file,
+    lines: readFileSync(file, 'utf8').split('\n'),
+  }));
   let described = 0;
 
   for (const [field, values] of enums) {
-    const rows = lines.filter((line) =>
-      new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line),
+    const found = sources.flatMap(({ file, lines }) =>
+      lines
+        .filter((line) => new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line))
+        .map((row) => ({ file, row })),
     );
     // Check 2 already requires every option to be documented somewhere.
-    if (!rows.length) continue;
+    if (!found.length) continue;
     described++;
-    for (const row of rows) {
+    for (const { file, row } of found) {
       const missing = values.filter((value) => !new RegExp(`\\b${value}\\b`).test(row));
       if (missing.length) {
         error(
-          `${relative(ROOT, REFERENCE_DOC)}: the \`${field}\` row never mentions ` +
+          `${relative(ROOT, file)}: the \`${field}\` row never mentions ` +
             `${missing.map((v) => `\`${v}\``).join(', ')}, so a reader cannot discover ` +
             `${missing.length > 1 ? 'those values' : 'that value'}. The type accepts ` +
             `${values.map((v) => `\`${v}\``).join(' | ')}.`,

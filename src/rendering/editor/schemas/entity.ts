@@ -16,6 +16,7 @@ export const ENTITY_TRISTATE_VALUES: Readonly<Record<string, ReadonlyArray<strin
   show_description: [INHERIT, 'show', 'hide'],
   split_multiday_events: [INHERIT, 'split', 'whole'],
   event_type: [INHERIT, 'all', 'timed', 'all_day'],
+  days_of_week: [INHERIT, 'weekdays', 'weekends'],
 };
 
 /**
@@ -42,6 +43,10 @@ export const ENTITY_TRISTATE_STORED: Readonly<
   show_description: { [INHERIT]: undefined, show: true, hide: false },
   split_multiday_events: { [INHERIT]: undefined, split: true, whole: false },
   event_type: { [INHERIT]: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
+  // Its own mapping rather than a share of `event_type`'s, which is what the note above
+  // is for: both store `all`, and a shared table would then have to agree on `weekdays`
+  // and `all_day` too. Keyed per option, the two cannot collide however they are spelled.
+  days_of_week: { [INHERIT]: undefined, weekdays: 'weekdays', weekends: 'weekends' },
 };
 
 /**
@@ -171,11 +176,24 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     row(text('color'), accentColorMode(ctx.language)),
     text('accent_color'),
 
-    // Predicates first, then the budget. `compact_events_to_show` decides how many of the
-    // survivors fit rather than whether any one of them qualifies, so it reads last — the
-    // order the card applies them in.
+    // Ordered coarse-to-fine by **scope**, per _Where a new option goes is a decision, not
+    // a default_ in `AGENTS.md`: which days qualify at all → which class of event → when
+    // those events stop counting → which titles survive → how many of the survivors fit.
+    //
+    // 🚨 Not pipeline order, which is what an earlier draft of this list used and which put
+    // both new options after the pattern fields. `days_of_week` is resolved *last* of these
+    // and belongs *first*, because it is the broadest question a reader asks; which options
+    // resolve at fetch time and which at render time is invisible to them and should stay
+    // that way. `compact_events_to_show` is last under either reading — it is a budget over
+    // the result set rather than a predicate over an event.
+    //
+    // The card-level group leads with `event_type` rather than diverging: it has no
+    // `days_of_week` or `allday_expires_at` to precede it, so it too opens with the
+    // coarsest option it actually carries.
     heading('heading_filters'),
+    inheritable(ctx.language, 'days_of_week'),
     inheritable(ctx.language, 'event_type'),
+    { name: 'allday_expires_at', selector: { text: { type: 'time' } } },
     text('blocklist'),
     text('allowlist'),
     {

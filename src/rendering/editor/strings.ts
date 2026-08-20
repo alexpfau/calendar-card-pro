@@ -192,6 +192,20 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.allowlist.helper':
     'Show only events whose title contains one of these terms, separated by | . Left ' +
     'empty, every event is shown.',
+  'entity.allday_expires_at': 'All-Day Events Expire At',
+  'entity.allday_expires_at.helper':
+    'Time of day this calendar\u2019s all-day events stop counting as upcoming, on the ' +
+    'last day they cover. Left empty they last until midnight. Only applies while past ' +
+    'events are hidden, and takes effect on the card\u2019s next refresh rather than on ' +
+    'the minute.',
+  'entity.days_of_week': 'Days of the Week',
+  'entity.days_of_week.option.inherit.label': 'Every day',
+  'entity.days_of_week.option.weekdays.label': 'Monday to Friday only',
+  'entity.days_of_week.option.weekends.label': 'Saturday and Sunday only',
+  'entity.days_of_week.helper':
+    'Which days this calendar may put events on. A multi-day event keeps only the days ' +
+    'that qualify, so a holiday running through a weekend still shows on the weekdays ' +
+    'around it.',
 
   // --- Exceptions -----------------------------------------------------------
   //
@@ -262,7 +276,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Rather than stopping mid-day at the event limit, show the rest of that day too.',
 
   content: 'What The Card Shows',
-  show_past_events: "Show Today's Past Events",
+  show_past_events: 'Show Past Events',
   show_empty_days: 'Show Empty Days',
   empty_day_text: 'Empty Day Text',
   'empty_day_text.helper': 'Replaces the translated default, and drops the check mark before it.',

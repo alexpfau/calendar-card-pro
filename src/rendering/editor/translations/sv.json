@@ -126,7 +126,7 @@
   "compact_events_complete_days": "Visa dagen färdig",
   "compact_events_complete_days.helper": "I stället för att sluta mitt i en dag vid händelsegränsen, visa resten av den dagen också.",
   "content": "Vad kortet visar",
-  "show_past_events": "Visa dagens passerade händelser",
+  "show_past_events": "Visa passerade händelser",
   "show_empty_days": "Visa tomma dagar",
   "empty_day_text": "Text för tomma dagar",
   "empty_day_text.helper": "Ersätter den översatta standardtexten och tar bort bocken före den.",

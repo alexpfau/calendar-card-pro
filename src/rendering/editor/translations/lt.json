@@ -126,7 +126,7 @@
   "compact_events_complete_days": "Užbaigti paskutinę dieną",
   "compact_events_complete_days.helper": "Užuot sustojus ties įvykių riba dienos viduryje, parodyti ir likusią tos dienos dalį.",
   "content": "Ką kortelė rodo",
-  "show_past_events": "Rodyti šiandienos praėjusius įvykius",
+  "show_past_events": "Rodyti praėjusius įvykius",
   "show_empty_days": "Rodyti tuščias dienas",
   "empty_day_text": "Tuščios dienos tekstas",
   "empty_day_text.helper": "Pakeičia išverstą numatytąjį tekstą ir panaikina prieš jį esančią varnelę.",

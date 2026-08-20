@@ -126,7 +126,7 @@
   "compact_events_complete_days": "Lõpeta viimane päev",
   "compact_events_complete_days.helper": "Selle asemel et peatuda sündmuste piiri juures keset päeva, näita ka ülejäänud päeva.",
   "content": "Mida kaart näitab",
-  "show_past_events": "Näita tänaseid möödunud sündmusi",
+  "show_past_events": "Näita möödunud sündmusi",
   "show_empty_days": "Näita tühje päevi",
   "empty_day_text": "Tühja päeva tekst",
   "empty_day_text.helper": "Asendab tõlgitud vaikeväärtuse ja jätab ära selle ees oleva linnukese.",

@@ -2702,11 +2702,13 @@ describe('editor: per-calendar settings', () => {
       [
         'accent_color',
         'accent_color_mode',
+        'allday_expires_at',
         'event_type',
         'allowlist',
         'blocklist',
         'color',
         'compact_events_to_show',
+        'days_of_week',
         'label',
         'label_icon_color',
         'label_type',
@@ -2831,6 +2833,7 @@ describe('editor: per-calendar settings', () => {
       show_description: ['inherit', 'show', 'hide'],
       split_multiday_events: ['inherit', 'split', 'whole'],
       event_type: ['inherit', 'all', 'timed', 'all_day'],
+      days_of_week: ['inherit', 'weekdays', 'weekends'],
     });
 
     expect(ENTITY_TRISTATE_STORED).toEqual({
@@ -2839,6 +2842,7 @@ describe('editor: per-calendar settings', () => {
       show_description: { inherit: undefined, show: true, hide: false },
       split_multiday_events: { inherit: undefined, split: true, whole: false },
       event_type: { inherit: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
+      days_of_week: { inherit: undefined, weekdays: 'weekdays', weekends: 'weekends' },
     });
 
     // Every offered value must be storable, and nothing may be storable that is not
@@ -4141,7 +4145,14 @@ describe('editor: exceptions for the union-typed options', () => {
  * A panel only offers what the configuration in front of it calls for, so the weather
  * and column dropdowns exist only once those features are configured.
  *
- * @returns Each dropdown's field name mapped to the values it offers
+ * Sub-forms are walked too, and their fields are keyed by path — `entity.days_of_week`
+ * rather than `days_of_week`. Without the prefix a per-calendar dropdown would overwrite
+ * the card-level one of the same name, silently swapping which surface each case below
+ * asserts about; `event_type` exists on both, and the per-calendar copy carries an extra
+ * `inherit`. Sub-forms went unwalked entirely until a per-calendar-only option needed
+ * checking, so `event_type` was passing on its card-level dropdown alone.
+ *
+ * @returns Each dropdown's field name, path-qualified for sub-forms, mapped to its values
  */
 function editorOptions(): Map<string, string[]> {
   const configs = [
@@ -4152,20 +4163,30 @@ function editorOptions(): Map<string, string[]> {
   ] as Types.Config[];
 
   const found = new Map<string, string[]>();
-  for (const config of configs) {
-    for (const panel of PANELS) {
-      const schema = panel.build({ view: config.view, config, language: 'en' });
-      for (const { node } of walkSchema(schema)) {
-        const options = (node as { selector?: { select?: { options?: unknown[] } } }).selector
-          ?.select?.options;
-        if (!node.name || !options) continue;
 
-        found.set(
-          node.name,
-          options.map((option) =>
-            typeof option === 'string' ? option : (option as SelectOption).value,
-          ),
-        );
+  const collect = (schema: ReadonlyArray<HaFormSchema>, prefix: string) => {
+    for (const { node } of walkSchema(schema)) {
+      const options = (node as { selector?: { select?: { options?: unknown[] } } }).selector?.select
+        ?.options;
+      if (!node.name || !options) continue;
+
+      found.set(
+        prefix + node.name,
+        options.map((option) =>
+          typeof option === 'string' ? option : (option as SelectOption).value,
+        ),
+      );
+    }
+  };
+
+  for (const config of configs) {
+    const ctx = { view: config.view, config, language: 'en' };
+
+    for (const panel of PANELS) {
+      collect(panel.build(ctx), '');
+
+      for (const subform of panel.subforms?.(ctx) ?? []) {
+        collect(subform.schema, `${subform.path.join('.')}.`);
       }
     }
   }
@@ -4189,6 +4210,11 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // `inherit`, which is the absent key rather than a mode of its own, so the card-level
     // control is the one whose vocabulary must match the union exactly.
     event_type: { field: 'event_type' },
+    // Per-calendar only, so the only dropdown of this name is the one carrying `inherit`.
+    // Unlike `event_type` there is no card-level control to compare against, and unlike
+    // `event_type` the union has no `all`: absent *is* every day, and `inherit` is how a
+    // dropdown spells absent — the same accommodation `show_week_numbers` needs for `null`.
+    days_of_week: { field: 'entity.days_of_week', editorOnly: ['inherit'] },
   };
 
   /**
