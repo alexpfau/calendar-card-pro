@@ -3,7 +3,9 @@
  * Pending values preserve text that is invalid while being typed, so the field does not disappear mid-edit.
  */
 
+import * as Config from '../../config/config';
 import * as Types from '../../config/types';
+import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as StartDate from '../../utils/start-date';
 
@@ -46,6 +48,9 @@ const INITIAL_LANGUAGE = 'en';
 const INITIAL_INDICATOR_ICON = 'mdi:calendar-today';
 
 const INITIAL_INDICATOR_CUSTOM = '⭐';
+
+/** What "Custom color" starts from when the card was following Home Assistant. */
+const INITIAL_ACCENT_COLOR = Config.DEFAULT_CONFIG.accent_color;
 
 const BUILT_IN_INDICATORS = ['dot', 'pulse', 'glow'] as const;
 
@@ -159,6 +164,19 @@ export function locationCountryMode(config: Readonly<Types.Config>): 'keep' | 'b
   if (value === true || value === 'true') return 'builtin';
   if (value === false || value === 'false' || value === undefined) return 'keep';
   return 'custom';
+}
+
+/**
+ * Derives whether the card names its own accent color or defers to Home Assistant.
+ *
+ * Two modes rather than three, unlike the per-calendar control: nothing sits above the card
+ * to inherit from, so an "inherit" option would be a synonym for "custom, at the default".
+ *
+ * @param config - Current configuration
+ * @returns Which accent-color control applies
+ */
+export function accentColorMode(config: Readonly<Types.Config>): 'custom' | 'home_assistant' {
+  return EntityColors.isEntityColorSentinel(config.accent_color) ? 'home_assistant' : 'custom';
 }
 
 /**
@@ -321,6 +339,22 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       }
 
       return { changes: { remove_location_country: undefined } };
+    },
+  },
+
+  accent_color_mode: {
+    derive: (config) => accentColorMode(config),
+    apply: (value, config) => {
+      if (value === 'home_assistant') {
+        return { changes: { accent_color: EntityColors.ENTITY_COLOR_SENTINEL } };
+      }
+
+      // Carry the current value when it is already a color, the way `start_date_mode`
+      // carries an offset: only a value that cannot survive the move is replaced.
+      const current = String(config.accent_color ?? '');
+      const carried = EntityColors.isEntityColorSentinel(current) ? INITIAL_ACCENT_COLOR : current;
+
+      return { changes: { accent_color: carried || INITIAL_ACCENT_COLOR } };
     },
   },
 

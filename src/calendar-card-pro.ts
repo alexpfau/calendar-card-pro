@@ -35,6 +35,7 @@ import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
 import * as Localize from './translations/localize';
 import { editorModuleUrl } from './utils/editor-url';
+import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
 import * as FormatUtils from './utils/format';
 import * as Helpers from './utils/helpers';
@@ -461,6 +462,8 @@ class CalendarCardPro extends LitElement {
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
+    EntityColors.releaseEntityColors(this._onEntityColorsChanged);
+
     Logger.debug('Component disconnected');
   }
 
@@ -584,6 +587,12 @@ class CalendarCardPro extends LitElement {
       );
     }
 
+    if (EntityColors.usesEntityColor(this.config)) {
+      EntityColors.ensureEntityColors(this.hass, this._onEntityColorsChanged);
+    } else {
+      EntityColors.releaseEntityColors(this._onEntityColorsChanged);
+    }
+
     if (changedProps.has('hass') || changedProps.has('config')) {
       this._updateTitleSubscription();
     }
@@ -678,6 +687,16 @@ class CalendarCardPro extends LitElement {
         this.updateEvents();
       }
     }
+  };
+
+  /**
+   * Repaint when a calendar's color changes in Home Assistant.
+   *
+   * A stable field rather than an inline arrow, so registering is idempotent and
+   * `disconnectedCallback` can deregister the same function it added.
+   */
+  private _onEntityColorsChanged = () => {
+    this.requestUpdate();
   };
 
   /**

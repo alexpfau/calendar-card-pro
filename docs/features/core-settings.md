@@ -20,25 +20,98 @@ entities:
 
 ### Available Options for Entity Configuration Objects
 
-| Option                   | Type    | Default                  | Description                                                                                                                     |
-| ------------------------ | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                            |
-| `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`)  |
-| `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind |
-| `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                |
-| `accent_color`           | string  | `accent_color`           | Custom color for the vertical line and event background (when `event_background_opacity` is >0)                                 |
-| `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                     |
-| `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                             |
-| `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                     |
-| `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option)                               |
-| `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                |
-| `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                       |
-| `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                     |
-| `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                 |
+| Option                   | Type    | Default                  | Description                                                                                                                                                              |
+| ------------------------ | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                                                                     |
+| `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`)                                           |
+| `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                          |
+| `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                         |
+| `accent_color`           | string  | `accent_color`           | Custom color for the vertical line and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color |
+| `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                              |
+| `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                      |
+| `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                                                              |
+| `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option)                                                                        |
+| `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                                                         |
+| `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                |
+| `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                              |
+| `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                          |
 
 This structure gives you granular control over how information from different calendars is displayed.
 
 These options are per calendar. For the card-wide options they override, see [Core Settings in the configuration reference](/reference/configuration#core-settings).
+
+### Using the Colors From Home Assistant
+
+Home Assistant holds a color for each calendar entity, which you set under **Settings →
+Devices & Services → Entities**, and which the built-in calendar card and calendar panel
+already use. Setting `accent_color` to `home-assistant` makes Calendar Card Pro follow it,
+so a calendar keeps the same color everywhere.
+
+Set it card-wide and every calendar follows its own color:
+
+```yaml
+type: custom:calendar-card-pro
+accent_color: home-assistant
+entities:
+  - calendar.work
+  - calendar.family
+  - calendar.trash
+```
+
+Or per calendar, mixing it freely with your own colors:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.work
+    accent_color: home-assistant # follows Home Assistant
+  - entity: calendar.family
+    accent_color: '#43a047' # your own color wins
+  - calendar.trash # follows the card
+```
+
+::: warning Requires Home Assistant 2026.2
+Calendar colors were added in Home Assistant 2026.2. On an older version there is nothing to
+read, and every calendar falls back exactly as described below.
+:::
+
+**Calendars Home Assistant has no color for fall back rather than losing their color.** A
+per-calendar `home-assistant` falls back to the card's `accent_color`; a card-wide
+`home-assistant` falls back to the built-in `#03a9f4`.
+
+This matters more than it sounds, because **Google Calendar is currently the only
+integration that fills the color in for you** — and it does so only at the moment a calendar
+is **first added** to Home Assistant. Local Calendar, CalDAV and ICS feeds start with no
+color at all. So if you run Google alongside Local Calendar and switch the card over, expect
+your Google calendars to pick up their colors while the rest stay on the card default until
+you set a color for them by hand. That is the fallback working, not a bug.
+
+::: warning A Google Integration Older Than 2026.2 Has No Colors, and Nothing Back-Fills Them
+Because the import happens once, when a calendar is first added, a Google integration that
+was set up before Home Assistant 2026.2 has no colors stored — so switching the card over
+shows every calendar on the fallback, which looks exactly like the feature not working.
+
+**Removing and re-adding the integration does not fix this**, and is worth not attempting.
+Home Assistant remembers a removed calendar's settings and restores them when the same
+calendar comes back, so the color returns as empty as it left, and the import that would
+have filled it is skipped precisely because the old settings were found. That is how the
+Google Calendar integration and the entity registry work between them, and nothing Calendar
+Card Pro does on its side can change it.
+
+**Set the colors by hand instead** — see below. It is a moment per calendar, it is the only
+thing that works today, and it leaves your integration, your entity IDs and anything
+referring to them alone.
+
+That work is also safe to do: the same restore that declines to import a color is what
+preserves one you set yourself, so hand-set colors survive removing and re-adding the
+integration later for some unrelated reason.
+:::
+
+::: tip Setting a Color By Hand
+Any calendar can be given a color, whichever integration it came from, and this is the path
+to prefer for the case above. Open **Settings → Devices & Services → Entities**, pick the
+calendar, and use the color field in its settings.
+:::
 
 ### Choosing How a Label Is Read
 

@@ -453,6 +453,23 @@ export interface TranslationsResponse {
 }
 
 /**
+ * One entry of Home Assistant's reply to `config/entity_registry/list`.
+ *
+ * Only the two fields the card reads are declared. A calendar's color lives in the
+ * generic per-domain `options` blob rather than in a field of its own, and it is absent
+ * from the compressed `list_for_display` shape that feeds `hass.entities` — so this
+ * command is the only way to reach it.
+ */
+export interface EntityRegistryEntry {
+  entity_id: string;
+  options?: {
+    calendar?: {
+      color?: string | null;
+    } | null;
+  } | null;
+}
+
+/**
  * Successful `render_template` result pushed by Home Assistant.
  *
  * `result` is not necessarily a string: Home Assistant renders templates with

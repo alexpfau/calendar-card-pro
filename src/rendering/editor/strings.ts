@@ -126,6 +126,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.accent_color.helper':
     'The vertical line beside each event, and its background where the background ' +
     'opacity is above zero.',
+  'entity.accent_color_mode': 'Accent Color',
+  'entity.accent_color_mode.helper':
+    'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
+    'Services, Entities. Calendars it has no color for fall back to the card.',
+  'entity.accent_color_mode.option.inherit.label': 'Follow the card',
+  'entity.accent_color_mode.option.home_assistant.label': 'Follow Home Assistant',
+  'entity.accent_color_mode.option.custom.label': 'Custom color',
   'entity.label_icon_color': 'Label Icon Color',
   'entity.label_icon_color.helper': 'Left empty, the icon takes the text colour around it.',
 
@@ -334,6 +341,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   accent_color: 'Accent Color',
   'accent_color.helper':
     'The bar beside each event. A calendar can override it for its own events.',
+  accent_color_mode: 'Accent Color',
+  'accent_color_mode.helper':
+    'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
+    'Services, Entities. Calendars it has no color for keep the card default.',
+  'accent_color_mode.option.custom.label': 'Custom color',
+  'accent_color_mode.option.home_assistant.label': 'Follow Home Assistant',
   vertical_line_width: 'Accent Bar Width',
   event_background_opacity: 'Event Background Opacity',
   'event_background_opacity.helper':

@@ -20,6 +20,9 @@ const LOCATION_ICON =
 const DESCRIPTION_ICON = 'M3 5h18v2H3V5m0 6h18v2H3v-2m0 6h12v2H3v-2Z';
 const PROGRESS_ICON = 'M2 10h20v4H2v-4m2 2h8v0H4v0Z';
 
+/** Card-wide accent modes. No "inherit": nothing sits above the card to inherit from. */
+const ACCENT_COLOR_MODES = ['custom', 'home_assistant'] as const;
+
 /**
  * The time group, and the seven fields it holds once times are shown at all.
  *
@@ -139,9 +142,18 @@ const eventsSchema = Helpers.memoizeLast(
     countryMode: string,
     showCountdown: boolean,
     showProgressBar: boolean,
+    accentMode: string,
   ): HaFormSchema[] => [
     row(text('event_font_size'), color('event_color')),
-    row(color('accent_color'), text('vertical_line_width')),
+    // The mode and the colour it governs are one control, so they share a row. A grid
+    // collapses to a single column on a narrow viewport, so a conditional field placed
+    // after this row would land below whatever else the row held — which is how the
+    // colour input ended up separated from its dropdown by `vertical_line_width` on a
+    // phone while reading correctly on a desktop.
+    accentMode === 'custom'
+      ? row(select(language, 'accent_color_mode', ACCENT_COLOR_MODES), color('accent_color'))
+      : select(language, 'accent_color_mode', ACCENT_COLOR_MODES),
+    text('vertical_line_width'),
     number('event_background_opacity', 0, 100, '%'),
     number('title_max_lines', 0),
     select(language, 'event_icon_vertical_alignment', ['top', 'middle', 'bottom']),
@@ -168,5 +180,6 @@ export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
     Synthetic.locationCountryMode(ctx.config),
     ctx.config.show_countdown,
     ctx.config.show_progress_bar,
+    Synthetic.accentColorMode(ctx.config),
   );
 }

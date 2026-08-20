@@ -700,6 +700,7 @@ describe('editor: change detection', () => {
    */
   it('holds the exact set of synthetic keys', () => {
     expect(Object.keys(SYNTHETIC_FIELDS).sort()).toEqual([
+      'accent_color_mode',
       'calendars',
       'card_height',
       'card_max_height',
@@ -2686,12 +2687,14 @@ describe('editor: per-calendar settings', () => {
       .filter(Boolean);
 
     // Every member of `EntityConfig` except the entity id itself, which is the
-    // picker's business rather than a setting of the calendar's — plus `label_type`,
-    // which is not a config key at all: the label holds four shapes in one value and
-    // this names which, exactly as `today_indicator_style` does at card level.
+    // picker's business rather than a setting of the calendar's — plus `label_type`
+    // and `accent_color_mode`, which are not config keys at all. Each names which of
+    // several shapes one value holds, exactly as `today_indicator_style` does at card
+    // level, and neither is ever written to the stored configuration.
     expect(offered.sort()).toEqual(
       [
         'accent_color',
+        'accent_color_mode',
         'allowlist',
         'blocklist',
         'color',
@@ -4201,6 +4204,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
         .map(([name]) => name)
         .sort(),
     ).toEqual([
+      'accent_color_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',
