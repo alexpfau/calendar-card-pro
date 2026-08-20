@@ -176,19 +176,16 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     row(text('color'), accentColorMode(ctx.language)),
     text('accent_color'),
 
-    // Ordered coarse-to-fine by **scope**, not by the order the card applies them in.
-    // Which days qualify at all → which class of event → when those events stop counting
-    // → which titles survive → how many of the survivors fit. An earlier draft used
-    // pipeline order, which put both new options after the pattern fields: defensible, and
-    // wrong for a reader, who is narrowing a set rather than tracing an implementation.
+    // Ordered coarse-to-fine by **scope**, per _Where a new option goes is a decision, not
+    // a default_ in `AGENTS.md`: which days qualify at all → which class of event → when
+    // those events stop counting → which titles survive → how many of the survivors fit.
     //
-    // `compact_events_to_show` stays last under either reading, because it is a budget
-    // rather than a predicate — it decides how many survivors fit, not whether any one of
-    // them qualifies.
-    //
-    // 🚨 A new option's **position inside its section is a decision, not a default**. Do
-    // not append it and treat placement as settled by having chosen the right category;
-    // say where it sits on this scale and why, as you would for its name and its default.
+    // 🚨 Not pipeline order, which is what an earlier draft of this list used and which put
+    // both new options after the pattern fields. `days_of_week` is resolved *last* of these
+    // and belongs *first*, because it is the broadest question a reader asks; which options
+    // resolve at fetch time and which at render time is invisible to them and should stay
+    // that way. `compact_events_to_show` is last under either reading — it is a budget over
+    // the result set rather than a predicate over an event.
     //
     // The card-level group leads with `event_type` rather than diverging: it has no
     // `days_of_week` or `allday_expires_at` to precede it, so it too opens with the
