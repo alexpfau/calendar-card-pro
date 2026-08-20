@@ -16,7 +16,7 @@ The color has to exist in Home Assistant first, and most do not yet: Google Cale
 
 **A calendar can now show only its all-day events, only its timed ones, or both in colors you can tell apart.** The new `event_type` option takes `all`, `timed` or `all_day`, and works card-wide or per calendar. Because `timed` and `all_day` are exact complements, listing the same calendar twice — once each way, with a different `accent_color` on each block — splits it into two colors without showing anything twice or losing anything.
 
-It names the kind of event, not how long one lasts: a dinner running from 23:30 to 00:30 is `timed`, however many dates it touches. The two-block pattern has to be written in YAML, because Home Assistant's calendar picker will not offer the same calendar twice; the editor reads and edits it correctly once it exists. (#132)
+It names the kind of event, not how long one lasts: a dinner running from 23:30 to 00:30 is `timed`, however many dates it touches. The two blocks are built with **Duplicate** on the calendar's own panel in the visual editor — see below. (#132)
 
 ### ⚙️ Editor Settings Grouped Under Sub-Headings
 
@@ -24,10 +24,23 @@ It names the kind of event, not how long one lasts: a dinner running from 23:30 
 
 Until now the two panels ordered the same settings differently, and neither said what a run of settings was for.
 
+### 📑 List One Calendar Twice, Without Leaving the Editor
+
+**Splitting a calendar in two no longer means dropping into YAML.** Every calendar's panel now carries **Duplicate**, which lists that calendar a second time with the settings it already has — so giving a calendar's all-day events their own color is a click and then one dropdown, rather than hand-writing a second block. It is the pattern `event_type` above describes, now reachable where you were already standing.
+
+Home Assistant's calendar picker cannot do this: it hides a calendar you have already chosen, ignores a duplicate added through it, and deletes the row outright when an existing one is pointed at a calendar already in the list. Rendering a separate single-calendar picker per block would sidestep all three, but it would also cost the drag-reordering the list depends on, so the card writes the second block itself and leaves the picker alone.
+
+Two things come with it. Both panels for one calendar carry the same heading, because they name the same calendar, so their second line is numbered **Entry 1 of 2** and **Entry 2 of 2**. And each panel gains **Remove**, which is not merely a shortcut for clearing the picker row — the picker matches rows by which calendar they name, so clearing one takes every block for that calendar, along with the settings on each (#533)
+
+## 🐛 Bug Fixes
+
+- **A Calendar's Panel Named It Differently From the Picker Directly Above It** - Home Assistant's entity picker moved to friendly names some time ago, so the Calendars row read _Calendar card pro - family_ while the settings panel a few pixels below it read `calendar.calendar_card_pro_family`. An entity id need not resemble its name at all, which left no reliable way to tell which panel belonged to which row on a card listing several calendars. Panels are now headed with the same name Home Assistant shows. A calendar that has been removed from Home Assistant keeps its entity id, since that is the only thing left identifying it
+
 ## Related Issues
 
 - [#132](https://github.com/alexpfau/calendar-card-pro/issues/132) - Filter based on all-day events by @syst3x
 - [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
+- [#533](https://github.com/alexpfau/calendar-card-pro/issues/533) - Duplicate a calendar block from the visual editor by @alexpfau
 
 ---
 

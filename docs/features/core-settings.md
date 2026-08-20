@@ -210,11 +210,13 @@ This is the same technique as [Advanced Filtering Techniques](#advanced-filterin
 below, and it composes with the name filters: a block may set `event_type` and an
 `allowlist` together, and an event has to satisfy both to appear.
 
-::: warning Listing a Calendar Twice Needs YAML
-Home Assistant's calendar picker removes duplicates, so the visual editor cannot add the
-same calendar a second time. Write the two blocks in YAML — three dots → Show code editor —
-and the editor handles them correctly from then on: both blocks are kept, each with its own
-settings, and opening the editor does not collapse them.
+::: tip Listing a Calendar Twice in the Visual Editor
+Home Assistant's calendar picker hides a calendar you have already chosen, so the second
+listing cannot be added there. Use **Duplicate** at the foot of the calendar's own panel
+instead: it lists the calendar again with the same settings, ready for you to change the
+one option that differs. The two panels are numbered so you can tell them apart, and
+**Remove** on the panel drops one block without taking the other — see
+[Per-Calendar Panels & Actions](/features/editor#per-calendar-panels-actions).
 :::
 
 ::: tip It Describes the Kind of Event, Not Its Length
@@ -291,6 +293,10 @@ This technique lets you:
 - Create category-based visual organization without needing multiple calendar sources
 - Use accent colors with backgrounds (when event_background_opacity > 0) for even more distinction
 - Avoid needing to create separate calendars for different event categories
+
+In the visual editor, build this with **Duplicate** at the foot of the calendar's panel —
+once for each extra block — and then give each copy its own filter, label and color. See
+[Per-Calendar Panels & Actions](/features/editor#per-calendar-panels-actions).
 
 ## 📊 Compact Mode & Event Limits
 

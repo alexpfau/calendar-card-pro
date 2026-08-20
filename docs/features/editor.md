@@ -62,6 +62,31 @@ Three things follow their own rule under it, for reasons worth knowing:
 The editor only offers the settings your current configuration calls for: a fixed card height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
 :::
 
+## 📋 Per-Calendar Panels & Actions
+
+Each calendar you pick gets a collapsible panel of its own beneath the picker, headed with the calendar's name as Home Assistant knows it — the same name the picker itself shows, rather than the entity id underneath it. A calendar that has been removed from Home Assistant keeps its id in the heading, since that is all there is left to identify it by.
+
+The line under the heading says what the panel holds: your own label if you have set one, **Configured** if the calendar carries settings of its own, and **Using the card settings** if it does not.
+
+At the foot of every panel are four actions:
+
+| Action             | What it does                                                             |
+| ------------------ | ------------------------------------------------------------------------ |
+| **Copy Settings**  | Takes this calendar's settings, without taking the calendar itself       |
+| **Paste Settings** | Applies them to this calendar, keeping the calendar it is applied to     |
+| **Duplicate**      | Lists the same calendar a second time, carrying the first one's settings |
+| **Remove**         | Drops this calendar from the card                                        |
+
+The clipboard behind **Copy Settings** outlives the dialog, so settings copied while editing one card can be pasted into another — useful when several cards list the same calendars.
+
+**Duplicate** is how you list one calendar twice, each time with its own settings. That is what [splitting a calendar by event type](/features/core-settings#separating-all-day-from-timed-events) needs, and Home Assistant's calendar picker will not do it: the picker hides a calendar you have already chosen, so the second listing has to be made here. Both panels then carry the same heading, because they are the same calendar, and their secondary lines are numbered **Entry 1 of 2** and **Entry 2 of 2** so you can tell which is which.
+
+::: tip Remove a Duplicate From Its Panel, Not From the Picker
+Clearing a row in the picker removes **every** listing of that calendar, along with the settings on each — the picker matches rows by which calendar they name, and two duplicates name the same one. **Remove** on the panel drops only that block, so it is the one to use once a calendar is listed more than once.
+:::
+
+**→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — everything a single calendar's panel can set.
+
 ## 🏷️ Per-Calendar Labels
 
 Each calendar under the picker gets its own collapsible form, and the first control in it

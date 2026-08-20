@@ -89,6 +89,7 @@ export default css`
 
   .entity-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     justify-content: flex-end;
   }
@@ -102,6 +103,14 @@ export default css`
     font: inherit;
     font-size: 14px;
     padding: 6px 8px;
+  }
+
+  /* Remove is the only action in this row that discards anything, and the only one with
+     no inverse: a card editor has no undo, and the block's settings go with it. It takes
+     the color Home Assistant gives a destructive action everywhere else rather than
+     sitting in a row of four buttons that all look equally safe. */
+  .text-button.destructive {
+    color: var(--error-color, #db4437);
   }
 
   .text-button:hover:not(:disabled) {
