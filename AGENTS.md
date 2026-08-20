@@ -1116,6 +1116,45 @@ Three things are easy to get wrong:
   cards pass through `computeCssColor()`; this card writes colours straight into CSS
   custom properties and has no such step. See the note in `ha-form.ts`.
 
+### The picker shows calendars; the panel list shows blocks
+
+`SYNTHETIC_FIELDS.calendars` derives **one row per calendar**, not one per entry in
+`config.entities`. A calendar listed twice — the pattern `event_type` needs, and what
+**Duplicate** creates — is one picker row and two panels. That split is deliberate: the
+picker decides _which calendars are on this card_, the panels decide _how many blocks each
+has and what is on them_. Deriving 1:1 made the picker answer both and agree with itself on
+neither, because Home Assistant's picker refuses to hold one entity twice — so a duplicate
+could be **seen** there and **cleared** there, but never **added** there.
+
+**`derive` and `apply` cannot be changed apart.** `apply` used to shift one block off a
+per-id queue per row, which is correct only when rows and blocks are 1:1. Deduplicating
+`derive` alone therefore loses every block after the first, silently, on the next thing the
+user touches in the picker. Each row emits its calendar's **whole** queue.
+
+**Collapsing duplicates costs no ordering, and this is provable rather than probable** —
+worth knowing before anyone "restores" interleaving. Only three things read the order of
+`config.entities`, and none can see block multiplicity:
+
+- `deduplicateEvents` walks `config.entities` and matches `event._entityId === entityId`.
+  A second block of the same id finds every signature already in `seen` and contributes
+  nothing, **whatever its `event_type`** — so priority under `filter_duplicates` is fixed
+  by where an id **first** appears, and multiplicity is structurally invisible to it.
+- `fetchEvents` skips an id already in `fetchedEntityIds`.
+- `getPrimaryEntityId` reads `entities[0]`.
+
+First-occurrence order preserves all three, so `[a, b, c, b]` collapsing to `[a, b, b, c]`
+changes nothing observable. Note the trap in the weaker version of this argument, which is
+the one that comes to mind first: _"two blocks split by complementary `event_type` never
+carry the same event"_ is true but far narrower, and it would stop holding the moment
+someone duplicated a calendar without differentiating it. The id-matching argument does not
+depend on the blocks differing at all.
+
+**Removal splits along the same seam.** Clearing a picker row drops every block for that
+calendar, because the row stands for the calendar; **Remove** on a panel drops one block,
+and is the only control that can. Its earlier justification — that `_entityChanged`
+upstream filters by value, so clearing one of two identical rows took both — described a
+picker that no longer exists here, and should not be restored as the reason.
+
 ### Sub-headings are `constant` nodes, and they can lie
 
 A section heading is a `constant` schema node **with no `value`** — that renders as a bare
@@ -1280,6 +1319,21 @@ different artefacts.
 | 4   | **A probe whose own structure supplies the finding** — the nastiest, because it yields a _positive claim that looks like evidence_ rather than a null.                                                                                          | Ask what result the probe is incapable of returning.                                                               |
 
 **Rules that follow from those.**
+
+- **A mutation sweep is a probe, so it lies in both directions — and the same session
+  produced one of each within an hour.** Row 4 above is the sweep manufacturing a
+  _positive_: twelve mutations reported "caught (build error)", uniformly, because
+  `execSync` throws on vitest's non-zero exit and the catch never read stdout, so a
+  generic `/error/` test relabelled every genuine test failure. The answer happened to be
+  right and the evidence was worthless. The **inverse** is nastier, because it reads as a
+  gap in the tests rather than a gap in the probe: a mutation that "moves" a template by
+  adding an attribute changes nothing observable, reports SURVIVED, and invites you to
+  delete or rewrite a test that was working. Both are caught by the same two habits —
+  **run an unmutated control that must report a non-zero pass count and zero failures**,
+  and **read what each mutation actually did to the source**, not what it was named. A
+  sweep whose rows all report the same verdict has usually measured itself; genuine
+  detection gives _different_ failure counts per mutation, because different mutations
+  break different tests.
 
 - **A null must prove it can be non-zero — and so must a passing control.** Print the
   denominator _beside_ the verdict, not as a separate step: `CONTROL x -> old:true new:true`
