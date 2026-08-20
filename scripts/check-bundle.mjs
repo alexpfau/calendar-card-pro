@@ -375,10 +375,41 @@ function checkDocumentedSizes() {
  * Raw byte counts are identical everywhere, so that arm is exact — note it sits at 45.51%,
  * a hair above the 45.5 that rounds to 46, so a few dozen bytes of growth will flip it to 45
  * and this check will say so. That is the check working.
+ *
+ * 🚨 **`published` is what stops a moving oracle rewriting history.** These five sentences
+ * describe the bundle that shipped as one particular version, and that bundle can never
+ * change: `release.yml` fed this very file through `extract-release-notes.mjs` into a
+ * GitHub release body which is now frozen and public. Measuring them against the working
+ * tree made every later bundle growth demand an edit to a shipped release's notes — the
+ * docs site would say 39% while the published release permanently said 41%, and v4.0.0's
+ * notes would stop being true about v4.0.0. AGENTS.md says both halves outright:
+ * RELEASE_NOTES.md is "a record of what was announced at the time; not rewritten", and the
+ * two What's New surfaces are release-PR work that a feature PR must not touch.
+ *
+ * So while `published` is set the figures are asserted against it and the build is never
+ * measured. The check keeps its teeth — an accidental edit to any of the five still fails —
+ * but against a constant rather than against whatever the tree happens to weigh today.
+ *
+ * The measuring path is not gone, because it is genuinely valuable exactly once: while a
+ * release is being prepared and the figure is being written. Set `published: null` then,
+ * and every site is verified against the build being released. Freeze it again, with the
+ * measured numbers, as part of cutting that release.
+ *
+ * Living figures are a different thing and deliberately still measured: the kilobyte sizes
+ * on the installation page describe what a user downloads *today*, so they track the
+ * bundle. Historical claims freeze; current figures track. That is the whole distinction.
  */
 const SIZE_CLAIMS = {
   baseline: { version: 'v3.6.0', raw: 351905, gzip: 98613 },
   file: 'calendar-card-pro.js',
+
+  /**
+   * The version these five sentences describe, and the figures it shipped with.
+   *
+   * `null` means that release is still being prepared — measure the build instead.
+   */
+  published: { version: 'v4.0.0', compressed: 41, 'on disk': 45 },
+
   claims: [
     {
       what: 'compressed',
@@ -404,7 +435,11 @@ const SIZE_CLAIMS = {
 };
 
 /**
- * Check the published reduction percentages against what this build actually saves.
+ * Check the published reduction percentages.
+ *
+ * Against the frozen figures once the release they describe has shipped, and against the
+ * build itself while that release is still being prepared. See the note on
+ * {@link SIZE_CLAIMS} for why the two cases cannot be the same case.
  *
  * @returns Nothing; failures are collected in `errors`
  */
@@ -412,9 +447,24 @@ function checkSizeClaims() {
   // The claims compare the released card; a dev-only build has nothing to compare against.
   if (!existsSync(join(DIST, SIZE_CLAIMS.file))) return;
 
+  const frozen = SIZE_CLAIMS.published;
+  let sitesRead = 0;
+
   for (const { what, tolerance, measure, against, sites } of SIZE_CLAIMS.claims) {
     const before = against(SIZE_CLAIMS.baseline);
-    const actual = Math.round(((before - measure(SIZE_CLAIMS.file)) / before) * 100);
+    const measured = Math.round(((before - measure(SIZE_CLAIMS.file)) / before) * 100);
+
+    // A shipped figure is checked against what shipped, never against today's bundle.
+    const expected = frozen ? frozen[what] : measured;
+    const allowed = frozen ? 0 : tolerance;
+
+    if (frozen && expected === undefined) {
+      error(
+        'scripts/check-bundle.mjs',
+        `SIZE_CLAIMS.published has no "${what}" figure, so that arm silently checks nothing`,
+      );
+      continue;
+    }
 
     for (const [relative, pattern] of sites) {
       let page;
@@ -436,17 +486,33 @@ function checkSizeClaims() {
         continue;
       }
 
+      sitesRead++;
       const claimed = Number(found[1]);
-      if (Math.abs(claimed - actual) > tolerance) {
+      if (Math.abs(claimed - expected) > allowed) {
         error(
           relative,
-          `claims the card is ${claimed}% smaller ${what} than ${SIZE_CLAIMS.baseline.version}; ` +
-            `this build measures ${actual}%` +
-            (tolerance > 0 ? `, beyond the ${tolerance} point allowed for compressor spread` : '') +
-            `. Change the figure to ${actual}`,
+          frozen
+            ? `says the card is ${claimed}% smaller ${what} than ${SIZE_CLAIMS.baseline.version}, ` +
+                `but ${frozen.version} shipped with ${expected}% and its release notes are ` +
+                `published — that sentence is a record of what was announced, not a live ` +
+                `measurement. Restore ${expected}. If the bundle has grown, that is expected ` +
+                `and belongs in the next release's notes, not in this one`
+            : `claims the card is ${claimed}% smaller ${what} than ${SIZE_CLAIMS.baseline.version}; ` +
+                `this build measures ${measured}%` +
+                (allowed > 0 ? `, beyond the ${allowed} point allowed for compressor spread` : '') +
+                `. Change the figure to ${measured}`,
         );
       }
     }
+  }
+
+  // A narrowed corpus that quietly went empty passes CI exactly like a healthy one.
+  if (sitesRead === 0) {
+    error(
+      'scripts/check-bundle.mjs',
+      'matched no size-claim sentence at all, so this check proved nothing. Either every ' +
+        'pattern went stale at once, or the site list was emptied',
+    );
   }
 }
 

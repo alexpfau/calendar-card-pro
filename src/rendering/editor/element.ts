@@ -14,7 +14,7 @@ import * as EditorLocalize from './localize';
 import * as Overrides from './overrides';
 import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
 import { ENTITY_PATH } from './schemas/calendars';
-import { entitySchemaFor } from './schemas/entity';
+import { accentColorModeOf, entitySchemaFor } from './schemas/entity';
 import { interpolate } from './strings';
 import styles from './styles';
 import { EXCEPTION_PICKER } from './subforms';
@@ -336,7 +336,11 @@ export class CalendarCardProEditor extends LitElement {
         entry,
         index,
         schema: Filter.filterEntitySchema(
-          entitySchemaFor(subform.schema, Entities.labelTypeOf(entry)),
+          entitySchemaFor(
+            subform.schema,
+            Entities.labelTypeOf(entry),
+            accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
+          ),
           entry,
           subform.path,
           filterCtx,
@@ -441,7 +445,12 @@ export class CalendarCardProEditor extends LitElement {
 
     this._config = {
       ...this._config,
-      entities: Entities.writeEntity(this._config.entities ?? [], index, next),
+      entities: Entities.writeEntity(
+        this._config.entities ?? [],
+        index,
+        next,
+        this._config.accent_color,
+      ),
     };
 
     this._report(this._config);

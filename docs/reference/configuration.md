@@ -84,16 +84,18 @@ the card-wide settings for that one calendar:
 
 ## 📏 Layout & Spacing
 
-| Option                    | Type   | Default                | Description                                                                                                   |
-| ------------------------- | ------ | ---------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `background_color`        | string | `--ha-card-background` | Card background color                                                                                         |
-| `accent_color`            | string | `#03a9f4`              | Vertical line separator color                                                                                 |
-| `vertical_line_width`     | string | `2px`                  | Vertical line separator width                                                                                 |
-| `day_spacing`             | string | `10px`                 | Space between days — vertical in list view, the gap between columns in column view (replaces `row_spacing`)   |
-| `event_spacing`           | string | `4px`                  | Vertical padding within each event                                                                            |
-| `additional_card_spacing` | string | `0px`                  | Additional top/bottom padding for the card                                                                    |
-| `height`                  | string | `auto`                 | Sets a fixed, exact height for the card regardless of content amount (always this height, never more or less) |
-| `max_height`              | string | `none`                 | Allows the card to grow with content up to this maximum height limit                                          |
+| Option                    | Type   | Default                | Description                                                                                                        |
+| ------------------------- | ------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `background_color`        | string | `--ha-card-background` | Card background color                                                                                              |
+| `accent_color`            | string | `#03a9f4`              | Vertical line separator color. Accepts `home-assistant` to follow the color Home Assistant holds for each calendar |
+| `vertical_line_width`     | string | `2px`                  | Vertical line separator width                                                                                      |
+| `day_spacing`             | string | `10px`                 | Space between days — vertical in list view, the gap between columns in column view (replaces `row_spacing`)        |
+| `event_spacing`           | string | `4px`                  | Vertical padding within each event                                                                                 |
+| `additional_card_spacing` | string | `0px`                  | Additional top/bottom padding for the card                                                                         |
+| `height`                  | string | `auto`                 | Sets a fixed, exact height for the card regardless of content amount (always this height, never more or less)      |
+| `max_height`              | string | `none`                 | Allows the card to grow with content up to this maximum height limit                                               |
+
+**→ [Using the Colors From Home Assistant](/features/core-settings#using-the-colors-from-home-assistant)** — what `accent_color: home-assistant` follows, and what calendars without a color fall back to.
 
 Both height options may be overridden inside a `column:` block, and usually should be — see
 [Height in Column View](/features/layout-appearance#height-in-column-view).

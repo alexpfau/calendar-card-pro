@@ -80,6 +80,12 @@ When styling your calendar, you can use:
 - Home Assistant theme variables (`var(--primary-color)`)
 - Named colors (`red`, `blue`)
 
+`accent_color` accepts one more value: `home-assistant`, which follows the color Home
+Assistant holds for each calendar instead of a color you pick here. Named colors such as
+`red` are unaffected and still mean the CSS color.
+
+**→ [Using the Colors From Home Assistant](/features/core-settings#using-the-colors-from-home-assistant)** — how to set it, and what happens for calendars that have no color.
+
 ## 📏 Spacing & Alignment
 
 Fine-tune the spacing and alignment of your calendar elements:

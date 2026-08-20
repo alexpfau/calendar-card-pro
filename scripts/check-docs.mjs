@@ -1572,6 +1572,7 @@ function report(counts) {
       `${counts.siteLinks} absolute site links resolved, ` +
       `${counts.gates} CI gates documented, ` +
       `${counts.enums} enumerated options fully listed, ` +
+      `${counts.sentinels} sentinel rows checked, ` +
       `${counts.removed} removed options migrated, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
@@ -1872,6 +1873,106 @@ function checkEnumValues(enums) {
     process.exit(2);
   }
   return described;
+}
+
+// ---------------------------------------------------------------------------
+// Check 21b — sentinel values on `string` options are named in the reference
+// ---------------------------------------------------------------------------
+
+/**
+ * Options whose grammar carries a reserved word, and the module that defines it.
+ *
+ * Check 21 cannot see these. It reads string-literal unions out of `types.ts`, and a
+ * sentinel lives inside an option that stays typed `string` precisely so that widening
+ * its grammar needs no new key — so `values` comes back empty and the option is never
+ * registered. Every other gate passes too: the option is already documented, so check 2
+ * is satisfied, and its default is unchanged, so check 1 is. An undocumented sentinel is
+ * a completely green build, which is how `show_countdown_allday` once shipped as a table
+ * row nobody could find.
+ *
+ * The literal is read from the source rather than repeated here, so renaming the sentinel
+ * in code fails this check instead of silently outdating the docs. Only the pairing of
+ * option to module is written down.
+ */
+const SENTINEL_OPTIONS = [
+  {
+    fields: ['accent_color'],
+    file: 'src/utils/entity-colors.ts',
+    constant: 'ENTITY_COLOR_SENTINEL',
+  },
+];
+
+/**
+ * Read each declared sentinel's value out of the module that owns it.
+ *
+ * @returns {Map<string, string[]>} option name -> the reserved words it accepts
+ */
+function readSentinelOptions() {
+  const out = new Map();
+
+  for (const { fields, file, constant } of SENTINEL_OPTIONS) {
+    const src = readFileSync(join(ROOT, file), 'utf8');
+    const match = src.match(new RegExp(`export const ${constant}\\s*=\\s*'([^']+)'`));
+
+    if (!match) {
+      console.error(`\n✗ FATAL: ${constant} not found in ${file} — fix the parser.\n`);
+      process.exit(2);
+    }
+
+    for (const field of fields) {
+      out.set(field, [...(out.get(field) ?? []), match[1]]);
+    }
+  }
+
+  assertFound(out, 'sentinel options', TYPES_TS);
+  return out;
+}
+
+/**
+ * Every reference row for an option with a sentinel has to name that sentinel.
+ *
+ * Rows are matched the same way check 21 matches them, so a per-entity row written
+ * `` `entity → accent_color` `` is covered as well as the card-wide one.
+ *
+ * @param {Map<string, string[]>} sentinels option name -> reserved words
+ * @returns {number} rows checked
+ */
+function checkSentinelValues(sentinels) {
+  const lines = readFileSync(REFERENCE_DOC, 'utf8').split('\n');
+  let checked = 0;
+
+  for (const [field, values] of sentinels) {
+    const rows = lines.filter((line) =>
+      new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line),
+    );
+
+    if (!rows.length) {
+      error(
+        `${relative(ROOT, REFERENCE_DOC)}: no row documents \`${field}\`, which accepts ` +
+          `${values.map((v) => `\`${v}\``).join(', ')}.`,
+      );
+      continue;
+    }
+
+    for (const row of rows) {
+      checked++;
+      const named = values.filter((value) => row.includes(value));
+      if (named.length !== values.length) {
+        error(
+          `${relative(ROOT, REFERENCE_DOC)}: the \`${field}\` row never mentions ` +
+            `${values.map((v) => `\`${v}\``).join(', ')}, so a reader cannot discover that ` +
+            `the option accepts it. It is a reserved word, not a color — nothing else in ` +
+            `the type system can advertise it.`,
+        );
+      }
+    }
+  }
+
+  if (checked === 0) {
+    console.error(`\n✗ FATAL: no sentinel option matched a reference row — fix the parser.\n`);
+    process.exit(2);
+  }
+  return checked;
 }
 
 // ---------------------------------------------------------------------------
@@ -2422,6 +2523,7 @@ function main() {
   const readmeAnchors = checkReadmeFragmentLinks();
   const version = checkReleaseVersion();
   const enums = checkEnumValues(readEnumOptions());
+  const sentinels = checkSentinelValues(readSentinelOptions());
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
   const themed = checkThemeDefaults(readThemeTable());
@@ -2440,6 +2542,7 @@ function main() {
       siteLinks,
       gates,
       enums,
+      sentinels,
       removed,
       reachable,
       themed,

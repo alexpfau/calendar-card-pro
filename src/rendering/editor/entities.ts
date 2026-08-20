@@ -3,13 +3,17 @@
  */
 
 import {
+  ACCENT_COLOR_MODE,
   ENTITY_TRISTATE_STORED,
   ENTITY_TRISTATE_VALUES,
   INHERIT,
   LABEL_TYPE,
+  accentColorModeOf,
 } from './schemas/entity';
 import { entityIdOf, isSet } from './synthetic';
+import * as Config from '../../config/config';
 import * as Types from '../../config/types';
+import { ENTITY_COLOR_SENTINEL, isEntityColorSentinel } from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 
 const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
@@ -85,7 +89,11 @@ function fitsShape(type: string, value: unknown): boolean {
  */
 export function toEntityFormData(entry: string | Types.EntityConfig): Record<string, unknown> {
   const config = asEntityConfig(entry) as unknown as Record<string, unknown>;
-  const data: Record<string, unknown> = { ...config, [LABEL_TYPE]: labelTypeOf(entry) };
+  const data: Record<string, unknown> = {
+    ...config,
+    [LABEL_TYPE]: labelTypeOf(entry),
+    [ACCENT_COLOR_MODE]: accentColorModeOf(config.accent_color),
+  };
 
   for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
     const stored = config[name];
@@ -102,12 +110,15 @@ export function toEntityFormData(entry: string | Types.EntityConfig): Record<str
  * @param entityId - The calendar this configures
  * @param data - Form data as the form returned it
  * @param previous - The entry as stored before this edit
+ * @param inheritedAccent - The card-wide `accent_color`, which this calendar shows until
+ *   it names one of its own
  * @returns The entry to store, as a bare id when it carries no settings
  */
 export function fromEntityFormData(
   entityId: string,
   data: Readonly<Record<string, unknown>>,
   previous: string | Types.EntityConfig = entityId,
+  inheritedAccent?: unknown,
 ): string | Types.EntityConfig {
   const entry: Record<string, unknown> = { entity: entityId };
 
@@ -117,8 +128,14 @@ export function fromEntityFormData(
 
   const moved = chosenType !== labelTypeOf(previous);
 
+  // The accent mode is a form field, never a stored one: it is read back off the value's
+  // shape. Writing it would put a key in the user's YAML that the card never reads.
+  const accentMode = String(
+    data[ACCENT_COLOR_MODE] ?? accentColorModeOf(asEntityConfig(previous).accent_color),
+  );
+
   for (const [key, value] of Object.entries(data)) {
-    if (key === 'entity' || key === LABEL_TYPE) continue;
+    if (key === 'entity' || key === LABEL_TYPE || key === ACCENT_COLOR_MODE) continue;
 
     if (key === 'label') {
       if (chosenType === 'none') continue;
@@ -127,6 +144,12 @@ export function fromEntityFormData(
     }
 
     if (key === 'label_icon_color' && moved && chosenType !== 'icon') continue;
+
+    if (key === 'accent_color') {
+      // Only the custom mode has a colour to store. The other two are the sentinel and
+      // nothing at all, both written below rather than carried through from the form.
+      continue;
+    }
 
     if (key in ENTITY_TRISTATE_VALUES) {
       const stored = ENTITY_TRISTATE_STORED[String(value)];
@@ -145,6 +168,11 @@ export function fromEntityFormData(
     entry[key] = value;
   }
 
+  const accentColor = accentColorFor(accentMode, data.accent_color, inheritedAccent);
+  if (accentColor !== undefined) {
+    entry.accent_color = accentColor;
+  }
+
   if (needsExplicitType(chosenType, entry.label)) {
     entry.label_type = chosenType;
   }
@@ -153,17 +181,60 @@ export function fromEntityFormData(
 }
 
 /**
+ * The `accent_color` one calendar should store for the mode it is in.
+ *
+ * 🚨 Custom has to be seeded rather than left empty. It is the one mode with no value of
+ * its own to be derived from — `inherit` is the absent key and `home_assistant` is the
+ * sentinel, but a custom colour nobody has typed yet is indistinguishable from no colour
+ * at all. Storing nothing re-derived as `inherit` on the next render, so the dropdown
+ * snapped straight back and custom could never be selected. The card-wide control never
+ * had this because its `apply` always writes a concrete colour; this is the same
+ * carry-or-seed, one level down.
+ *
+ * Seeding does write a colour into the user's configuration as soon as the dropdown moves.
+ * That is deliberate here and not the defaulting mistake it resembles: choosing "Custom
+ * color" is an affirmative act meaning "I am about to name a colour", where the failure
+ * this project has seen before was a value appearing that nobody asked for.
+ *
+ * @param mode - Mode the dropdown names
+ * @param value - Colour as the form holds it
+ * @param inherited - The card-wide colour this calendar is currently showing
+ * @returns The value to store, or `undefined` to store nothing
+ */
+function accentColorFor(mode: string, value: unknown, inherited: unknown): string | undefined {
+  if (mode === 'home_assistant') return ENTITY_COLOR_SENTINEL;
+  if (mode !== 'custom') return undefined;
+
+  // The sentinel is not a colour and cannot be carried — and it arrives here, because a
+  // calendar leaving `home_assistant` hands back its stored value, which *is* the
+  // sentinel. Carrying it stored the sentinel again, the next derivation read that as
+  // `home_assistant`, and the dropdown snapped back: custom was reachable from `inherit`,
+  // where the value is genuinely unset, and from nowhere else.
+  if (isSet(value) && !isEntityColorSentinel(value)) return String(value);
+
+  // Start from the colour on screen, so picking custom changes nothing until the user
+  // says so. The sentinel is rejected on this side for the same reason: which colour it
+  // resolves to is per-calendar and lives in the render path's registry map, not here.
+  return isSet(inherited) && !isEntityColorSentinel(inherited)
+    ? String(inherited)
+    : Config.DEFAULT_CONFIG.accent_color;
+}
+
+/**
  * Replaces one calendar's settings within the list.
  *
  * @param entities - The list as stored
  * @param index - Position of the calendar being edited
  * @param data - Form data as the form returned it
+ * @param inheritedAccent - The card-wide `accent_color`, so a calendar moving to a custom
+ *   colour starts from the one it was already showing
  * @returns A new list, or the original when the index is not in it
  */
 export function writeEntity(
   entities: ReadonlyArray<string | Types.EntityConfig>,
   index: number,
   data: Readonly<Record<string, unknown>>,
+  inheritedAccent?: unknown,
 ): Array<string | Types.EntityConfig> {
   if (index < 0 || index >= entities.length) {
     return [...entities];
@@ -171,7 +242,7 @@ export function writeEntity(
 
   const entityId = entityIdOf(entities[index]);
   const next = [...entities];
-  next[index] = fromEntityFormData(entityId, data, entities[index]);
+  next[index] = fromEntityFormData(entityId, data, entities[index], inheritedAccent);
 
   return next;
 }
