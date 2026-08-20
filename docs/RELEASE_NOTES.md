@@ -12,8 +12,21 @@ title: Release Notes
 
 The color has to exist in Home Assistant first, and most do not yet: Google Calendar is the only integration that sets one, and only when it is first added, so calendars from before Home Assistant 2026.2 have none — re-adding the integration will not create them. Set those by hand under **Settings → Devices & Services → Entities**; any calendar still without one falls back to the card's own color rather than losing it. Requires Home Assistant 2026.2 (#314)
 
+### 🗂️ Show All-Day and Timed Events Separately
+
+**A calendar can now show only its all-day events, only its timed ones, or both in colors you can tell apart.** The new `event_type` option takes `all`, `timed` or `all_day`, and works card-wide or per calendar. Because `timed` and `all_day` are exact complements, listing the same calendar twice — once each way, with a different `accent_color` on each block — splits it into two colors without showing anything twice or losing anything.
+
+It names the kind of event, not how long one lasts: a dinner running from 23:30 to 00:30 is `timed`, however many dates it touches. The two-block pattern has to be written in YAML, because Home Assistant's calendar picker will not offer the same calendar twice; the editor reads and edits it correctly once it exists. (#132)
+
+### ⚙️ Editor Settings Grouped Under Sub-Headings
+
+**The panels that decide what the card shows now group their settings under sub-headings, and both order them the same way.** Which events appear comes first, then how events spanning several days are handled, then what each row carries — the order the card itself works in. The per-calendar panel still opens with its label and colors, because those name the calendar you are editing rather than configure it.
+
+Until now the two panels ordered the same settings differently, and neither said what a run of settings was for.
+
 ## Related Issues
 
+- [#132](https://github.com/alexpfau/calendar-card-pro/issues/132) - Filter based on all-day events by @syst3x
 - [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
 
 ---
