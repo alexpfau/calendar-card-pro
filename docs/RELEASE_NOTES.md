@@ -26,11 +26,11 @@ Until now the two panels ordered the same settings differently, and neither said
 
 ### 📑 List One Calendar Twice, Without Leaving the Editor
 
-**Splitting a calendar in two no longer means dropping into YAML.** Every calendar's panel now carries **Duplicate**, which lists that calendar a second time with the settings it already has — so giving a calendar's all-day events their own color is a click and then one dropdown, rather than hand-writing a second block. It is the pattern `event_type` above describes, now reachable where you were already standing.
+**Splitting a calendar in two no longer means dropping into YAML.** Every calendar's panel now opens with **Duplicate**, which gives that calendar a second block carrying the settings it already has — so giving a calendar's all-day events their own color is a click and then one dropdown, rather than hand-writing a second block. It is the pattern `event_type` above describes, now reachable where you were already standing.
 
-Home Assistant's calendar picker cannot do this: it hides a calendar you have already chosen, ignores a duplicate added through it, and deletes the row outright when an existing one is pointed at a calendar already in the list. Rendering a separate single-calendar picker per block would sidestep all three, but it would also cost the drag-reordering the list depends on, so the card writes the second block itself and leaves the picker alone.
+Home Assistant's calendar picker cannot do this: it will not hold the same calendar twice, and there is no opting out of that. So the picker no longer tries to be two things at once. It lists each calendar **once** and answers only which calendars the card shows; how many blocks a calendar has, and what is on each, is the business of its own panel below. Clearing a row therefore takes the calendar off the card entirely, blocks and all, while **Remove** on a panel drops a single block — the only control that can, now that one row can stand for several.
 
-Two things come with it. Both panels for one calendar carry the same heading, because they name the same calendar, so their second line is numbered **Entry 1 of 2** and **Entry 2 of 2**. And each panel gains **Remove**, which is not merely a shortcut for clearing the picker row — the picker matches rows by which calendar they name, so clearing one takes every block for that calendar, along with the settings on each (#533)
+Both panels for one calendar carry the same heading, because they name the same calendar, so their second line is numbered **Entry 1 of 2** and **Entry 2 of 2**. The four per-calendar actions have also moved to the top of each panel, where they are visible as it opens rather than below every setting, with Remove held apart from the three that can be undone by doing them again (#533)
 
 ## 🐛 Bug Fixes
 

@@ -110,13 +110,15 @@ export function occurrenceOf(
  * Home Assistant's entity picker will not do this: it merges the current value into its
  * own exclusions, ignores a duplicate added through it, and deletes the row outright when
  * an existing one is pointed at a calendar already in the list. There is no opt-out in the
- * selector, so the only way to reach a pattern the card documents — one calendar listed
- * twice, split by `event_type` — is to write the configuration directly, which is what
- * this does. The picker keeps its de-duplication and, with it, its drag-reordering.
+ * selector, so the only way to reach a pattern the card documents — one calendar with two
+ * sets of settings, split by `event_type` — is to write the configuration directly.
+ *
+ * The picker is therefore not asked to represent blocks at all: it lists each calendar
+ * once and decides only which calendars the card shows. See `SYNTHETIC_FIELDS.calendars`.
  *
  * The copy is inserted next to its source rather than appended, so it appears where the
- * user was looking. Order is the card's rendering order, and adjacent is the order two
- * halves of one calendar want to be in anyway.
+ * user was looking, and because the picker now moves a calendar's blocks as a group there
+ * is nothing to be gained by separating them.
  *
  * A spread is a complete copy because `EntityConfig` is flat — every option on it is a
  * string, number or boolean. An option holding an array or an object would need a deeper
@@ -141,16 +143,15 @@ export function duplicateEntity(
 }
 
 /**
- * Drops one calendar from the list.
+ * Drops one calendar block from the list.
  *
- * The picker can already remove a calendar, and for one listed once this does the same
- * thing. For one listed twice it is the only thing that does: `_entityChanged` upstream
- * filters by value rather than by row, so clearing one of two identical rows removes
- * *both* — and with them the settings on each. A duplicate you cannot undo without losing
- * the block you started from is not much of a duplicate, which is why this exists.
+ * The picker can take a calendar off the card, but it works one calendar at a time: it
+ * lists each one once, so clearing a row removes every block that calendar has. This is
+ * the only control that removes a single block, which is what makes it the inverse of
+ * Duplicate rather than a shortcut for something the picker already does.
  *
  * @param entities - The list as stored
- * @param index - Position of the calendar being removed
+ * @param index - Position of the block being removed
  * @returns A new list, or the original when the index is not in it
  */
 export function removeEntity(

@@ -377,6 +377,40 @@ export class CalendarCardProEditor extends LitElement {
           >
             <ha-svg-icon slot="leading-icon" .path=${ENTITY_ICON}></ha-svg-icon>
             <div class="panel-body">
+              <div class="entity-actions">
+                <div class="entity-actions-safe">
+                  <button
+                    type="button"
+                    class="text-button"
+                    ?disabled=${!Entities.hasSettings(entry)}
+                    @click=${() => this._copyEntitySettings(entry)}
+                  >
+                    ${this._string(ctx, 'entity.copy')}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button"
+                    ?disabled=${Entities.copiedSettings() === undefined}
+                    @click=${() => this._pasteEntitySettings(index)}
+                  >
+                    ${this._string(ctx, 'entity.paste')}
+                  </button>
+                  <button
+                    type="button"
+                    class="text-button"
+                    @click=${() => this._duplicateEntity(index)}
+                  >
+                    ${this._string(ctx, 'entity.duplicate')}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  class="text-button destructive"
+                  @click=${() => this._removeEntity(index)}
+                >
+                  ${this._string(ctx, 'entity.remove')}
+                </button>
+              </div>
               <ha-form
                 class="entity-form"
                 .hass=${this.hass}
@@ -387,38 +421,6 @@ export class CalendarCardProEditor extends LitElement {
                 .localizeValue=${this._localizeValue}
                 @value-changed=${(event: CustomEvent) => this._entityChanged(index, event)}
               ></ha-form>
-              <div class="entity-actions">
-                <button
-                  type="button"
-                  class="text-button"
-                  ?disabled=${!Entities.hasSettings(entry)}
-                  @click=${() => this._copyEntitySettings(entry)}
-                >
-                  ${this._string(ctx, 'entity.copy')}
-                </button>
-                <button
-                  type="button"
-                  class="text-button"
-                  ?disabled=${Entities.copiedSettings() === undefined}
-                  @click=${() => this._pasteEntitySettings(index)}
-                >
-                  ${this._string(ctx, 'entity.paste')}
-                </button>
-                <button
-                  type="button"
-                  class="text-button"
-                  @click=${() => this._duplicateEntity(index)}
-                >
-                  ${this._string(ctx, 'entity.duplicate')}
-                </button>
-                <button
-                  type="button"
-                  class="text-button destructive"
-                  @click=${() => this._removeEntity(index)}
-                >
-                  ${this._string(ctx, 'entity.remove')}
-                </button>
-              </div>
             </div>
           </ha-expansion-panel>
         `;

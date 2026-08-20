@@ -29,6 +29,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
+import editorStyles from '../src/rendering/editor/styles';
 import * as Synthetic from '../src/rendering/editor/synthetic';
 
 customElements.define('editor-entity-actions-probe', CalendarCardProEditor);
@@ -233,6 +234,44 @@ describe('duplicate and remove buttons', () => {
     ]);
   });
 
+  it('puts the actions above the settings, with Remove apart from the rest', async () => {
+    const harness = await renderEditor(['calendar.a']);
+
+    // `.panel-body` is used by every panel, so this must be scoped to the per-calendar
+    // one — the first match in the shadow root is the Calendars panel wrapping them all.
+    const body = harness.element.shadowRoot!.querySelector('.entity-panel .panel-body')!;
+    // Placement is the point of the row, not decoration: below the form it was reached
+    // only after scrolling past every per-calendar setting, so nobody found it.
+    expect([...body.children].map((child) => child.className || child.localName)).toEqual([
+      'entity-actions',
+      'entity-form',
+    ]);
+
+    // Remove sits outside the group holding the three that can be undone by doing them
+    // again, so it is not one more identical-looking button beside Duplicate.
+    const row = body.querySelector('.entity-actions')!;
+    expect(
+      [...row.querySelector('.entity-actions-safe')!.querySelectorAll('button')].map((b) =>
+        b.textContent?.trim(),
+      ),
+    ).toEqual(['Copy Settings', 'Paste Settings', 'Duplicate']);
+    expect([...row.children].at(-1)!.textContent?.trim()).toBe('Remove');
+  });
+
+  it('holds Remove visually apart from the actions that can be undone', () => {
+    // The DOM grouping above is only half of it: without the auto start margin the four
+    // buttons sit flush together and Remove is one more identical-looking target beside
+    // Duplicate. That is a rule with no DOM consequence, so it is pinned in the
+    // stylesheet, the way this project pins the card's own layout rules.
+    const css = editorStyles.cssText;
+    expect(typeof css).toBe('string');
+
+    // Logical, not `margin-left`: Home Assistant renders right-to-left for several of the
+    // languages the editor ships in, and Remove has to stay on the far side in both.
+    expect(css).toMatch(/\.entity-actions\s+\.destructive\s*\{[^}]*margin-inline-start:\s*auto/);
+    expect(css).toMatch(/\.text-button\.destructive\s*\{[^}]*color:\s*var\(--error-color/);
+  });
+
   it('drops one block without touching the other copy of the same calendar', async () => {
     const harness = await renderEditor([
       { entity: 'calendar.family', event_type: 'all_day' },
@@ -290,60 +329,111 @@ describe('duplicate list algebra', () => {
   });
 });
 
-describe('a duplicated calendar through the picker', () => {
+describe('the picker, which shows one row per calendar rather than one per block', () => {
   /**
    * Sends a calendar list out to the picker and back, as re-rendering the editor does.
    *
    * @param entities - The list as stored
-   * @param reorder - Picker value to apply instead of the derived one, for a drag
+   * @param picked - Picker value to apply instead of the derived one, for a drag or an edit
    * @returns The list as it comes back
    */
   function roundTrip(
     entities: ReadonlyArray<string | Types.EntityConfig>,
-    reorder?: ReadonlyArray<string>,
+    picked?: ReadonlyArray<string>,
   ): unknown {
     const config = { entities } as unknown as Types.Config;
     const derived = Synthetic.SYNTHETIC_FIELDS.calendars.derive(config);
 
-    return Synthetic.applySyntheticChange('calendars', reorder ?? derived, config).changes.entities;
+    return Synthetic.applySyntheticChange('calendars', picked ?? derived, config).changes.entities;
   }
 
-  it('survives the round trip that re-rendering the picker performs', () => {
-    const duplicated = Entities.duplicateEntity(
-      [{ entity: 'calendar.family', event_type: 'all_day' }, 'calendar.other'],
-      0,
-    );
+  /**
+   * The picker rows for a stored list.
+   *
+   * @param entities - The list as stored
+   * @returns One id per row
+   */
+  function rows(entities: ReadonlyArray<string | Types.EntityConfig>): unknown {
+    return Synthetic.SYNTHETIC_FIELDS.calendars.derive({ entities } as unknown as Types.Config);
+  }
 
-    // Without this the append would be undone by the picker's own next event, and the
-    // second block would vanish somewhere between the click and the save.
-    expect(roundTrip(duplicated)).toEqual(duplicated);
+  const SPLIT = [
+    { entity: 'calendar.family', event_type: 'all_day' as const },
+    'calendar.other',
+    { entity: 'calendar.family', event_type: 'timed' as const },
+  ];
+
+  it('shows a calendar once however many blocks it has', () => {
+    // The picker answers "which calendars", the panels below answer "how many blocks".
+    // Deriving one row per block made it answer both: a duplicate could be seen there and
+    // cleared there, but never added there, because the picker will not hold one id twice.
+    expect(rows(SPLIT)).toEqual(['calendar.family', 'calendar.other']);
+    expect(rows(['calendar.a'])).toEqual(['calendar.a']);
+    expect(rows([])).toEqual([]);
   });
 
-  it('hands each duplicate back its own settings when the picker is reordered', () => {
-    const entities = [
-      { entity: 'calendar.family', event_type: 'all_day' as const },
-      'calendar.other',
-      { entity: 'calendar.family', event_type: 'timed' as const },
-    ];
+  it('keeps first-occurrence order, which is the only order anything reads', () => {
+    // `deduplicateEvents` walks the stored list and matches on `event._entityId`, so an
+    // id's priority under `filter_duplicates` is fixed by where it FIRST appears; a later
+    // block of the same id finds every signature already seen. Interleaving is therefore
+    // free to collapse, but the relative order of distinct ids is not.
+    expect(rows(SPLIT)).toEqual(['calendar.family', 'calendar.other']);
+    expect(rows(['calendar.other', ...SPLIT])).toEqual(['calendar.other', 'calendar.family']);
+  });
 
-    // Dragging `calendar.other` to the end. Both `calendar.family` rows are identical in
-    // the picker, so only their order carries which block is which.
-    expect(roundTrip(entities, ['calendar.family', 'calendar.family', 'calendar.other'])).toEqual([
+  it('gives every block back, not one per row', () => {
+    // The half that cannot be changed alone. With `derive` deduplicated and `apply` still
+    // shifting a single block off the queue, a calendar listed twice would come back
+    // listed once and the second block's settings would be gone — silently, on the next
+    // thing the user touched in the picker.
+    expect(roundTrip(SPLIT)).toEqual([
       { entity: 'calendar.family', event_type: 'all_day' },
       { entity: 'calendar.family', event_type: 'timed' },
       'calendar.other',
     ]);
   });
 
-  it('survives the round trip after one of two duplicates is removed', () => {
-    const remaining = Entities.removeEntity(
-      [
-        { entity: 'calendar.family', event_type: 'all_day' },
-        { entity: 'calendar.family', event_type: 'timed' },
-      ],
+  it('moves a calendar’s blocks together when its row is dragged', () => {
+    expect(roundTrip(SPLIT, ['calendar.other', 'calendar.family'])).toEqual([
+      'calendar.other',
+      { entity: 'calendar.family', event_type: 'all_day' },
+      { entity: 'calendar.family', event_type: 'timed' },
+    ]);
+  });
+
+  it('drops every block for a calendar whose row is cleared', () => {
+    // Deliberate, and the reason Remove exists on the panel: the picker decides whether a
+    // calendar is on the card at all, so clearing its row takes the calendar with all its
+    // blocks. Removing one block of several is the panel's own action, not this one.
+    expect(roundTrip(SPLIT, ['calendar.other'])).toEqual(['calendar.other']);
+  });
+
+  it('gives a newly picked calendar exactly one bare block', () => {
+    expect(roundTrip(SPLIT, ['calendar.family', 'calendar.other', 'calendar.new'])).toEqual([
+      { entity: 'calendar.family', event_type: 'all_day' },
+      { entity: 'calendar.family', event_type: 'timed' },
+      'calendar.other',
+      'calendar.new',
+    ]);
+  });
+
+  it('survives the round trip after a block is duplicated or removed', () => {
+    const duplicated = Entities.duplicateEntity(
+      [{ entity: 'calendar.family', event_type: 'all_day' }, 'calendar.other'],
       0,
     );
+    expect(roundTrip(duplicated)).toEqual(duplicated);
 
-    expect(roundTrip(remaining)).toEqual([{ entity: 'calendar.family', event_type: 'timed' }]);
+    const remaining = Entities.removeEntity(duplicated, 0);
+    expect(roundTrip(remaining)).toEqual(remaining);
+  });
+
+  it('emits a calendar’s queue once even if a row somehow repeats', () => {
+    // The picker cannot produce this, but a queue emitted per occurrence would double
+    // every block rather than failing, so the guard is pinned rather than assumed.
+    expect(roundTrip(SPLIT, ['calendar.family', 'calendar.family'])).toEqual([
+      { entity: 'calendar.family', event_type: 'all_day' },
+      { entity: 'calendar.family', event_type: 'timed' },
+    ]);
   });
 });
