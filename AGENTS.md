@@ -971,6 +971,15 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    partial file is safe to ship, so translate as much as you like and leave the rest.
    `check:i18n` reports coverage as an informational line, not as a failure.
 
+   🚨 **`en-GB` is complete at 13% — never gate on coverage without excluding it.**
+   `en-GB.json` is a _generated delta_ of ~44 spelling overrides written from `strings.ts`
+   by `scripts/generate-en-gb.mjs`, and `check:i18n` recomputes it and fails on any drift.
+   It is complete by construction and already held to a **stricter** standard than
+   coverage. Measured against the full editor string table it reads 13%, so any "warn below
+   N%" rule flags it permanently — and a permanently-red gate is the one people learn to
+   ignore, which is the failure such a gate exists to prevent. The nine hand-maintained
+   files are the only meaningful denominator.
+
    These files are reachable **only** from `src/rendering/editor/`, so they are built into
    `editor.js` rather than loaded on every dashboard load, and they may not go back into
    `languages/`. A new file also needs an `import` **and** an `EDITOR_LANGUAGE_STRINGS`
@@ -1020,6 +1029,63 @@ getEffectiveLanguage('lv', undefined); // -> 'lv'
 getRelativeTimeString(futureDate, 'lv'); // -> 'pēc 2 dienām', not 'in 2 days'
 ```
 
+## Event classification and cache invalidation
+
+Two facts about `src/utils/events.ts` that no gate protects, and that have cost a defect
+each.
+
+### Render-time and processing-time options invalidate differently
+
+An option read at **render** time needs no cache invalidation; one read at **processing**
+time does. Copying an option's config shape without copying its timing is how you ship a
+control that does nothing.
+
+`split_multiday_events` is resolved in `groupEventsByDay`, per view, at render — so a
+change reaches the screen on the next render with nothing re-fetched or re-processed.
+`event_type` is read in `processEvents`, which runs only on the fetch path, so its value is
+baked into `this.events`; a card-level edit then renders stale until the next scheduled
+refresh, a reload, or an unrelated entity edit. `PROCESSING_TIME_KEYS` in `config.ts` closes
+that gap and `hasEntityProcessingChanged` consults it — **register any new processing-time
+option there.**
+
+🚨 **The per-calendar half of such an option works either way**, because any entity edit
+changes `serializeEntities` and triggers a reprocess. The defect therefore hides in the
+card-level half, and a test table covering only `EntityConfig` is structurally blind to it.
+The falsifier, which is also the shape of the fix:
+
+| change                   | `updateEvents` calls |
+| ------------------------ | -------------------- |
+| card-level, broken       | 0                    |
+| card-level, fixed        | 1, with `false`      |
+| per-calendar             | 1 — either way       |
+| control: `days_to_show`  | 1                    |
+| control: `show_location` | 0                    |
+
+Both controls are load-bearing. Without `days_to_show` the harness might be detecting
+nothing at all; without `show_location` a zero is indistinguishable from a probe that never
+ran.
+
+### The card holds three disagreeing answers to "is this multi-day?"
+
+For a **timed** event running 23:30 to 00:30:
+
+| asked of                                              | answer                                                                             |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `isMultiDayEvent` (`events.ts`, drives splitting)     | **yes** — it renders as two rows                                                   |
+| `isMultiDayAllDayEvent` (`format.ts`, drives display) | **no** — `false` for any timed event, deliberately, pinned by a test               |
+| `!event.start.dateTime` on a split **middle segment** | reads **all-day** — `splitMultiDayEvent` rewrites middle days as `start: { date }` |
+
+None is wrong for its own caller. The third bites silently: anything filtering on event
+class must run **before** `processMultiDayEvents`, or it sees the middle of a three-day
+timed meeting as all-day.
+
+The design consequence is larger than the bug. All-day-ness and multi-day-ness are
+**independent booleans**, so there are four classes, not three. A control offering
+_timed / all-day / multi-day_ is not a partition, and no selection over it can express
+"every all-day event one color, every timed event another" — which is why `event_type`
+names the all-day axis only, and why a span axis needs the card to **pick** one multi-day
+definition before it can offer one.
+
 ## Editor (`src/rendering/editor/`)
 
 The visual editor is **schema-driven**: each panel is an `<ha-form>` fed by an array of
@@ -1049,6 +1115,36 @@ Three things are easy to get wrong:
 - **Colours are `text`, not `ui_color`.** HA's colour selector emits a theme token that
   cards pass through `computeCssColor()`; this card writes colours straight into CSS
   custom properties and has no such step. See the note in `ha-form.ts`.
+
+### Sub-headings are `constant` nodes, and they can lie
+
+A section heading is a `constant` schema node **with no `value`** — that renders as a bare
+bold label. Give it a `value` and it becomes a `Label: value` data row instead, which is not
+a heading. The type was already declared and unused, so this needs no new mechanism, and
+`check:i18n` treats it as a labelled field and requires one English string for it —
+enforcement, not cost.
+
+A heading is the one node type that can **actively lie**, because it makes a claim about
+what follows it. Adding them forced three changes to the panel filter, each preventing a
+distinct false statement:
+
+1. **A heading must never be a search hit of its own.** Its text matches like any field's,
+   so searching a word that appears only in a heading returned the heading alone,
+   captioning an empty section.
+2. **A heading whose section the filter emptied must be pruned**, or it strands above the
+   next section and relabels someone else's options.
+3. **`hasFields` must not count a heading**, or a panel reduced to nothing but labels is
+   still offered as having content.
+
+The rule governing placement: **a heading over a non-contiguous category is worse than no
+heading**, because it silently claims whatever follows it. Introducing headings therefore
+drags the reorder into the same change; they cannot be sequenced apart.
+
+Two smaller ones. A heading named the same as its only field reads as a stutter, and a DOM
+probe cannot see that — only a screenshot can. And when a schema gains headings, the test
+helpers enumerating _options_ should exclude them, with heading behavior pinned separately;
+sprinkling heading names through a dozen expectations makes each assertion less about what
+it was for.
 
 `npm run check:i18n` reconciles `strings.ts` against the fields the schemas reference, in
 both directions, by importing the schema modules. A new field with no string fails it.
