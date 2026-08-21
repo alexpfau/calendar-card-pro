@@ -25,20 +25,22 @@ entities:
     allday_expires_at: '11:00'
     label: 🗑️
 
-  # Everything else on the family calendar
-  - entity: calendar.family
-    blocklist: 'Birthday of|collection'
-
   # 💼 Work — that someone is busy, not what with
-  - entity: calendar.work
+  - entity: calendar.family
+    allowlist: 'Work:'
     replace_with: 'Busy'
+    label: 💼
     show_location: false
     show_description: false
+
+  # Everything else — the safety net
+  - entity: calendar.family
+    blocklist: 'Birthday of|collection|Work:'
 ```
 
-`Birthday of Lena Weber — All day` becomes **🎂 Lena Weber (32)**, and says 33 next year without anyone editing anything. Bin day retires itself at eleven. The children see that a parent is busy at nine, not that the meeting is a performance review. The first three blocks are the **same calendar**, three times.
+`Birthday of Lena Weber — All day` becomes **🎂 Lena Weber (32)**, and says 33 next year without anyone editing anything. Bin day retires itself at eleven. The children see that a parent is busy at nine, not that the meeting is a performance review. All four blocks are the **same calendar**, four times, and the last one's `blocklist` is exactly the union of the three allowlists above it — which is what stops anything being drawn twice or going missing.
 
-Four of the features below are in those twenty-five lines, and not one of them is announced — you write what you want the row to say, and the card gets out of the way. The walkthrough is [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes); everything from here on is the parts list.
+Four of the features below are in those twenty-seven lines, and not one of them is announced — you write what you want the row to say, and the card gets out of the way. The walkthrough is [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes); everything from here on is the parts list.
 
 ## 🎉 New Features
 

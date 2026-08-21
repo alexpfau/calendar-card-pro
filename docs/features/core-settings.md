@@ -672,8 +672,8 @@ Three per-calendar options do it. `replace_field` names which field to rewrite a
 to the title; `replace_pattern` is what to find, as a regular expression; `replace_with` is
 what to put there.
 
-[One Calendar, Many Purposes](/guide/one-calendar-many-purposes) puts all three to work in a
-single card, alongside the filters above.
+[One Calendar, Many Purposes](/guide/one-calendar-many-purposes) puts `replace_pattern` and
+`replace_with` to work in a single card, alongside the filters above.
 
 ### What Each Combination Does
 
