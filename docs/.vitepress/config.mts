@@ -104,6 +104,7 @@ export default defineConfig({
         items: [
           { text: 'Installation', link: '/guide/installation' },
           { text: 'Usage', link: '/guide/usage' },
+          { text: 'One Calendar, Many Purposes', link: '/guide/one-calendar-many-purposes' },
           { text: "What's New", link: '/guide/whats-new' },
         ],
       },
