@@ -19,6 +19,7 @@ export const ENTITY_TRISTATE_VALUES: Readonly<Record<string, ReadonlyArray<strin
   event_type: [INHERIT, 'all', 'timed', 'all_day'],
   days_of_week: [INHERIT, 'weekdays', 'weekends'],
   filter_field: ['title', 'location', 'description'],
+  replace_field: ['title', 'location', 'description'],
 };
 
 /**
@@ -52,6 +53,10 @@ export const ENTITY_TRISTATE_STORED: Readonly<
   // The absent state is a *named field* here rather than an unfiltered one, so `title`
   // both stands for it and stores nothing — see `ENTITY_TRISTATE_DEFAULT` below.
   filter_field: { title: undefined, location: 'location', description: 'description' },
+  // Its own entry rather than a share of `filter_field`'s, per the note above, even though
+  // the two are identical today. They answer different questions about the same three
+  // fields, and a shared table would make the next divergence a silent one.
+  replace_field: { title: undefined, location: 'location', description: 'description' },
 };
 
 /**
@@ -75,6 +80,7 @@ export const ENTITY_TRISTATE_STORED: Readonly<
  */
 export const ENTITY_TRISTATE_DEFAULT: Readonly<Record<string, string>> = {
   filter_field: 'title',
+  replace_field: 'title',
 };
 
 /**
@@ -227,12 +233,6 @@ function labelFields(
 /**
  * Builds the schema rendered for each configured calendar.
  *
- * @param ctx - Schema context
- * @returns The per-calendar schema, with the label fields of every shape
- */
-/**
- * Builds the schema rendered for each configured calendar.
- *
  * Ordered on the same spine as the card-level content group, because the two panels
  * configure the same pipeline and reading them differently is what made the editor hard
  * to scan: **which events qualify → how they are arranged across days → what each row
@@ -243,6 +243,12 @@ function labelFields(
  * exception to it. It selects nothing, arranges nothing and populates nothing — it names
  * which calendar is being edited. Identity precedes configuration, which is also why the
  * card-level panel has no counterpart: a card is not one of several.
+ *
+ * `Text Replacement` is likewise outside it, and is the one category this panel carries
+ * that the card-level one does not. It rewrites what a row says rather than deciding which
+ * rows there are, so it belongs to no stage of that pipeline — it sits beside the filters
+ * because the two share a grammar, not because the spine puts it there. The spine is
+ * intact either way: filtering still precedes multi-day handling in both panels.
  *
  * @param ctx - Schema context
  * @returns The per-calendar schema, with the label fields of every shape
@@ -288,6 +294,25 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
       name: 'compact_events_to_show',
       selector: { number: { min: 0, mode: 'box' } },
     },
+
+    // Adjacent to the filters on purpose, and this is the one place the per-calendar order
+    // departs from the card-level panel's — which the shared spine permits, because that
+    // comment objects to the two panels being read in *different orders*, not to a
+    // per-calendar-only section sitting between two shared ones. Filtering still precedes
+    // multi-day handling in both; only what falls between them differs.
+    //
+    // These three and the three above it are near-identical in shape — a field selector,
+    // then user-supplied regular expressions compiled against that field's text. Someone
+    // who has just learned the pattern grammar in one finds the other immediately, which is
+    // worth more than keeping the structural section where it was.
+    //
+    // `replace_field` leads for `filter_field`'s reason one section up: it qualifies the two
+    // below it rather than doing anything itself, and a reader who meets `Find` first has
+    // already assumed it searches the title.
+    heading('heading_replace'),
+    choice(ctx.language, 'replace_field'),
+    text('replace_pattern'),
+    text('replace_with'),
 
     heading('heading_multiday'),
     choice(ctx.language, 'split_multiday_events'),

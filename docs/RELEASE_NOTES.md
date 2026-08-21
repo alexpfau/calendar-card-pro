@@ -58,9 +58,21 @@ It also splits a calendar by _where_ its events are rather than by what they are
 
 The field is selected, not added: a calendar filtering on `location` has stopped filtering on titles. Filtering two fields is two blocks. And `filter_field` is a separate option rather than a prefix inside the pattern because the lists are plain regular expressions in which every character already means something — `allowlist: 'location:'` still matches that literal text in a title, exactly as it always did. (#186, #205)
 
+### ✏️ Rewrite What an Event Says
+
+**Your calendar's wording no longer has to be the card's wording.** A birthday feed that prefixes every entry with `Geburtstag von`, a work calendar that stamps `[AUTO]` into generated titles, a shared calendar whose details are nobody else's business — three new per-calendar options rewrite an event's title, location or description as it is drawn, leaving the calendar itself untouched.
+
+`replace_pattern` is what to find, as a regular expression; `replace_with` is what to put there; `replace_field` points the pair at the title, the location or the description, and means the title when left alone.
+
+The two text options are independently optional, and which of them you set _is_ the instruction. Both set replaces the match. Only `replace_pattern` **removes** it, so `Geburtstag von Hans Müller` becomes `Hans Müller`. Only `replace_with` replaces the **whole field**, whatever it said, which is how a shared calendar shows `Busy` on every entry rather than what you are actually doing. Neither does nothing. Deleting has a spelling of its own rather than being written as an empty `replace_with` because the visual editor cannot store an empty value — spelled the other way, stripping a prefix would have been reachable only by hand-editing YAML, which is the example the request opened with.
+
+Matching is case-insensitive and replaces every occurrence, so a fragment repeated inside one generated title goes from all of it rather than the first copy. Capture groups work, so `Geburtstag von (.+)` with `$1 🎂` is the same edit from the other side. An age from a `YEAR=` marker is **not** appended to a title that was replaced outright — `Busy (40)` would announce that the hidden event is a birthday — while a title your pattern merely edited keeps its count.
+
+One field per block, and this is the one place listing a calendar twice does not help: two filter blocks divide a calendar's events between them, while two replacement blocks both match the same events and would draw each one twice. See [Text Replacement](/features/core-settings#text-replacement) (#153, #212, #186)
+
 ### ⚙️ Editor Settings Grouped Under Sub-Headings
 
-**The panels that decide what the card shows now group their settings under sub-headings, and both order them the same way.** Which events appear comes first, then how events spanning several days are handled, then what each row carries — the order the card itself works in. The per-calendar panel still opens with its label and colors, because those name the calendar you are editing rather than configure it.
+**The panels that decide what the card shows now group their settings under sub-headings.** Event Filtering comes first, then Multi-Day Events, then Event Details — the order the card itself works in — with Text Replacement beside the filters on the per-calendar panel, since the two are written the same way. The per-calendar panel still opens with its label and colors, because those name the calendar you are editing rather than configure it.
 
 Until now the two panels ordered the same settings differently, and neither said what a run of settings was for.
 
@@ -74,7 +86,7 @@ Both panels for one calendar carry the same heading, because they name the same 
 
 ### 🌍 The New Settings Arrive Translated
 
-**Everything above reads in your own language on the day it ships, rather than in English until a later release catches up.** The nine translated editor languages — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — each carry all **354** strings, the 42 this release adds among them. So `event_type`, `days_of_week`, `allday_expires_at`, `filter_field`, `location_icon`, the **Duplicate** and **Entry 1 of 2** chrome and the new sub-headings are all translated, not left behind.
+**Everything above reads in your own language on the day it ships, rather than in English until a later release catches up.** The nine translated editor languages — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — each carry all **364** strings, the 52 this release adds among them. So `event_type`, `days_of_week`, `allday_expires_at`, `filter_field`, `location_icon`, the three text-replacement options, the **Duplicate** and **Entry 1 of 2** chrome and the new sub-headings are all translated, not left behind.
 
 That is eleven editor languages in total, counting US English in code and British English, which carries only the 44 strings where it differs. The other 24 of the card's 35 languages render the editor in English, which is fully supported and still resolves per string. The calendar itself continues to speak all 35.
 
@@ -91,13 +103,15 @@ That is eleven editor languages in total, counting US English in code and Britis
 - [#251](https://github.com/alexpfau/calendar-card-pro/issues/251) - Blocklist based on the duration of events by @tommi1968 — **half-served, do not close.** `event_type: timed` answers the all-day half; the multi-day half needs a span axis the card cannot yet express, because it holds three disagreeing answers to what counts as multi-day. The reporter has been asked which behavior they want for an event running 23:30 to 00:30 and has not yet replied
 - [#124](https://github.com/alexpfau/calendar-card-pro/issues/124) - Display age / anniversary by @RK62, who proposed the `YEAR:1996` marker and was already storing the year in the description; supported by @mheidinger, @pyxis1 — who was running a second card solely for this — and @peterdausm
 - [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765
-- [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze
+- [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze — now answered in full: `filter_field` served the hiding half, and `replace_field: location` serves the "or even replace the value, for example: `Zoom call`" half the reporter was told would be built if hiding was not enough
 - [#188](https://github.com/alexpfau/calendar-card-pro/issues/188) - Use a calendar entity's own attributes to configure it by @shmuelie — both halves now: the color in #314, and the icon here
 - [#205](https://github.com/alexpfau/calendar-card-pro/issues/205) - An icon for Microsoft Teams meetings by @loryanstrant
 - [#345](https://github.com/alexpfau/calendar-card-pro/issues/345) - Filtering events by description content, to exclude Google Tasks blended into a calendar feed by @RemyGeode
 - [#225](https://github.com/alexpfau/calendar-card-pro/issues/225) - Show only Monday to Friday entries for some calendars by @nytram-md
 - [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
 - [#533](https://github.com/alexpfau/calendar-card-pro/issues/533) - Duplicate a calendar block from the visual editor by @alexpfau
+- [#153](https://github.com/alexpfau/calendar-card-pro/issues/153) - Replace text in event titles by @michelnet, who wanted `Geburtstag von Hans Müller` shortened to the name and a work calendar's invitation wording turned into something readable; supported by @s91nl
+- [#212](https://github.com/alexpfau/calendar-card-pro/issues/212) - Private calendar, hide details by @oneyozfest182, who wanted a shared family card to show that something is on without showing what; @Tom-10101 added the case of a repeating fragment in an automatically generated title, which is why replacement is global rather than first-match
 
 ---
 

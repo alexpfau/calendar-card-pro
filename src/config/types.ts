@@ -183,6 +183,19 @@ export type DaysOfWeekFilter = 'weekdays' | 'weekends';
  */
 export type FilterField = 'title' | 'location' | 'description';
 
+/**
+ * Which field `replace_pattern` and `replace_with` rewrite.
+ *
+ * The same three fields {@link FilterField} names, and deliberately the same spelling —
+ * one vocabulary for "which part of an event", whether the card is deciding what to keep
+ * or what to draw. It is a separate type rather than an alias so the two can diverge if
+ * one ever grows a field the other cannot serve.
+ *
+ * `title` stands for the absent state here for exactly {@link FilterField}'s reason, and
+ * stores nothing. See `ENTITY_TRISTATE_DEFAULT` in `rendering/editor/schemas/entity.ts`.
+ */
+export type ReplaceField = 'title' | 'location' | 'description';
+
 /** What column view does when even its narrowest permitted layout will not fit. */
 export type ColumnMinDaysFallback = 'list' | 'cramp';
 
@@ -318,6 +331,66 @@ export interface EntityConfig {
    * both.
    */
   filter_field?: FilterField;
+  /**
+   * Which field {@link EntityConfig.replace_pattern} and {@link EntityConfig.replace_with}
+   * rewrite. Unset means `title`.
+   *
+   * One field per block, like `filter_field` — and unlike that option, listing the calendar
+   * twice does **not** buy a second field. Two filter blocks partition the calendar's
+   * events between them; two transform blocks both match the same events and each pushes
+   * its own copy, so the card draws the event twice. See the note on
+   * {@link EntityConfig.replace_pattern}.
+   */
+  replace_field?: ReplaceField;
+  /**
+   * What to find in the field named by {@link EntityConfig.replace_field}.
+   *
+   * An arbitrary regular expression, compiled with `gi` — global, so every occurrence goes
+   * rather than the first, and case-insensitive to agree with `blocklist`, `allowlist` and
+   * `remove_location_country`, the card's three other user-supplied patterns. A pattern
+   * that does not compile leaves the text untouched and warns once.
+   *
+   * 🚨 **A calendar can transform exactly one field, and cannot be listed twice to get a
+   * second.** `processEvents` filters each block against the calendar's *full* event set,
+   * so an event matching two blocks is pushed by both — filters escape this because
+   * `blocklist`/`allowlist` partition, while two transforms overlap. `filter_duplicates`
+   * makes it worse rather than better: the signature is built from the *raw* event, which
+   * no display transform touches, so the two copies are always identical and
+   * `deduplicateEvents` keeps the **first** block's — silently discarding the second
+   * block's transform along with its duplicate row.
+   */
+  replace_pattern?: string;
+  /**
+   * What to put in place of {@link EntityConfig.replace_pattern}, or of the whole field
+   * when no pattern is set.
+   *
+   * The two keys are independently optional, and the four combinations mean four different
+   * things:
+   *
+   * | `replace_pattern` | `replace_with` | Result                     |
+   * | ----------------- | -------------- | -------------------------- |
+   * | set               | unset          | the match is **removed**    |
+   * | set               | set            | the match is **replaced**   |
+   * | unset             | set            | the **whole field** is replaced |
+   * | unset             | unset          | nothing happens            |
+   *
+   * 🚨 That third row is not decoration, and it is the reason "delete" gets a row of its
+   * own rather than being spelled `replace_with: ''`. `isSet` in
+   * `rendering/editor/synthetic.ts` counts the empty string as unset and the write path
+   * drops it, so the visual editor **cannot store one** — a plain find/replace pair would
+   * put "strip this prefix", which is #153's own first example, out of reach of everyone
+   * not hand-editing YAML.
+   *
+   * With a pattern, this is the replacement argument of `String.replace`, so `$1` and `$&`
+   * carry their usual meaning and a literal `$` is written `$$`. Replacing the whole field
+   * takes the text verbatim instead — there are no groups to reference.
+   *
+   * Applied to the **display copy** only, so it never reaches the cache, never compounds
+   * across renders, and never changes which events the filters see. An empty field is left
+   * empty rather than filled: this rewrites text an event carries, it does not give an
+   * event a location it never had.
+   */
+  replace_with?: string;
   split_multiday_events?: boolean;
   event_type?: EventType;
   days_of_week?: DaysOfWeekFilter;
