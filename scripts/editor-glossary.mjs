@@ -756,7 +756,20 @@ export const GLOSSARY_TERMS = [
     // ends — genitive `dní` has a plain `n`, locative `dňoch` has `ň` — so one stem cannot
     // reach both, and the `d` that would has `pracovných dokumentov` behind it.
     rejected: {
-      sk: ['pracovný deň', 'pracovného dňa', 'pracovné dni', 'pracovných dň', 'pracovných dní'],
+      // Slovak declines both words, and the plural obliques diverge from each other:
+      // `pracovných dní` is a plain `n` where `pracovných dňoch` is `ň`, so no single
+      // stem reaches both. Exact phrases rather than a shorter stem, because `pracovn`
+      // would also match `pracovný kalendár`, `pracovné stretnutie` and `pracovník` — all
+      // legitimate, and a rejected form is a build error.
+      sk: [
+        'pracovný deň',
+        'pracovného dňa',
+        'pracovné dni',
+        'pracovných dň',
+        'pracovných dní',
+        'pracovným dňom',
+        'pracovnými dňami',
+      ],
       it: ['giorno ferial', 'giorni ferial'],
       lv: ['darbdien'],
       sv: ['vardag'],
