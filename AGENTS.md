@@ -1101,6 +1101,40 @@ than walking either one, which is the same _pin the whole table by value_ discip
 one line of the projection fails that test plus every behavioural test for the dropped
 option, which is the falsifier to run when adding one.
 
+### Proximity is not reach — a note about a family should be a reconciliation
+
+🚨 **A hazard documented beside the code that has it is not a defence.** This has now been
+found three times, always in the same shape: a comment describes the trap _completely_ and
+_correctly_, for the neighbouring case, and the next member of the family arrived in a
+different pull request weeks later and was never added to it.
+
+- `normalizeEntities`'s hand-written projection against `serializeEntities`'s docblock
+  twenty lines below, which argues for being field-agnostic precisely so this cannot happen
+  — and protects only itself.
+- `entityConfigKeys` handling `label_icon_source` and not `accent_color_mode`, the other
+  half of the same feature. Substituting two identifiers in that comment yields the defect
+  report verbatim.
+
+Neither was carelessness. Both authors understood the hazard exactly. **A note generalizes
+only if a reader happens to be looking at it while writing the next case**, and the next
+case is written by someone reading a different file.
+
+**So when you write a note about a family of things, ask what the family is enumerated by.**
+If the answer is a type, an interface, or a schema the code already walks, the note can be a
+**reconciliation** instead — and a reconciliation is the only form that covers members
+nobody has written yet. `tests/editor-derived-field-mapping.test.ts` is the worked example:
+it walks the rendered schema, reads `EntityConfig` from source, and asserts that any control
+whose name is **not** a config key has been explicitly mapped, and that everything it maps
+to is a real key. There is no list to keep in step, so it fails on the _next_ derived
+control rather than on someone remembering.
+
+Two caveats worth keeping. **Reconcile against the type, not against a second list** — a
+second list is one more thing to forget, and the bug is forgetting. And this only works
+where the family has a runtime enumeration; **prose conventions, term choices and judgment
+calls have none**, which is what `scripts/editor-glossary.mjs` is for. Same lesson,
+different mechanism: enforce the family where the family is enumerable, and where it is not,
+name the members explicitly and gate on them.
+
 ### The card holds three disagreeing answers to "is this multi-day?"
 
 For a **timed** event running 23:30 to 00:30:
