@@ -47,14 +47,20 @@ const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
  * `handler` is the live `entity_registry_updated` callback, or `undefined` when nothing is
  * subscribed — which is the observable the teardown tests turn on. `color` stands in for
  * the registry itself, so a test can move it while nobody is watching.
+ *
+ * `subscribes` counts handshakes rather than live subscriptions, which is the only way to
+ * see a *duplicate* one: a second `subscribeEvents` overwrites `handler` with an
+ * indistinguishable function, so "is anything subscribed" cannot tell one from two.
  */
 function makeHass(color = 'red') {
   const state = {
     handler: undefined as undefined | (() => void),
     fetches: 0,
+    subscribes: 0,
     color,
     gate: null as Promise<void> | null,
     open: null as (() => void) | null,
+    reject: false,
   };
 
   const hass = {
@@ -68,7 +74,9 @@ function makeHass(color = 'red') {
     },
     connection: {
       subscribeEvents: async (cb: () => void) => {
+        state.subscribes += 1;
         if (state.gate) await state.gate;
+        if (state.reject) throw new Error('websocket refused the subscription');
         state.handler = cb;
         return () => {
           state.handler = undefined;
@@ -328,5 +336,102 @@ describe('registry colors: the last card out closes the subscription', () => {
     await flush();
 
     expect(conn.state.handler).toBeUndefined();
+  });
+
+  it('closes it when a card is removed with an update still in flight', async () => {
+    // 🚨 Lit does not cancel an update scheduled before an element leaves the document, so
+    // `updated()` — and with it `_syncEntityColors` — runs for a card that is already
+    // detached. Re-acquiring there puts a detached card back in the listener set and
+    // reopens the subscription `disconnectedCallback` had just closed, and nothing
+    // releases it a second time because that card's `disconnectedCallback` has run.
+    //
+    // The teardown cases above all remove a card with nothing pending, which is why they
+    // could not see it. `isConnected` in `_syncEntityColors` is what this pins; without it
+    // the assertion below finds a live handler.
+    //
+    // It also masked a mutant: with the detached card re-subscribing, a later `subscribe()`
+    // supplied the generation bump that `teardown()` is supposed to, so deleting that bump
+    // left this file green. It fails now.
+    const { state, hass } = makeHass();
+    const card = await mount(hass);
+    expect(state.handler).toBeTypeOf('function');
+
+    // A hass change schedules an update; the card leaves before it flushes.
+    card.hass = { ...hass } as Types.Hass;
+    card.remove();
+    await flush();
+    await flush();
+
+    expect(state.handler).toBeUndefined();
+  });
+});
+
+describe('registry colors: one subscription, one fetch', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    EntityColors.resetEntityColors();
+    vi.restoreAllMocks();
+  });
+
+  it('opens one subscription however many cards and updates there are', async () => {
+    // The guard `subscribe()` opens with claims to do this — "two cards connecting in the
+    // same tick cannot both pass the guard above and open a second subscription" — and
+    // nothing measured it. `handler` cannot: a second `subscribeEvents` overwrites it with
+    // a function indistinguishable from the first, so two subscriptions read exactly like
+    // one. Counting handshakes is the only observable that separates them.
+    const { state, hass } = makeHass();
+    const first = await mount(hass);
+    await mount(hass);
+
+    first.hass = { ...hass } as Types.Hass;
+    await first.updateComplete;
+    await flush();
+
+    expect(state.subscribes).toBe(1);
+  });
+
+  it('reads the registry once for two cards mounted together', async () => {
+    // `inFlight` is the half of the guard that a second card racing the first depends on:
+    // `loaded` is still false while the first fetch is in the air, so without it every
+    // card on the dashboard re-reads the whole entity registry on load.
+    const { state, hass } = makeHass();
+    await mount(hass);
+    await mount(hass);
+    await flush();
+
+    expect(state.fetches).toBe(1);
+  });
+
+  it('recovers when the handshake is refused', async () => {
+    // The rejection path was reached by nothing at all. It matters because `subscribe()`
+    // claims the slot with a placeholder *before* awaiting: if a refused handshake left
+    // that placeholder in place, the `if (unsubscribe)` guard would block every later
+    // attempt for the life of the page, and colors would silently stop updating.
+    //
+    // 🚨 The card must stay mounted for this to test anything. Removing it and mounting a
+    // second one recovers either way, because `teardown()` clears the slot on the way out
+    // — the first version of this test did that and passed with the whole `.catch` body
+    // deleted. With one card still listening there is no teardown, so `.catch` is the only
+    // thing that can free the slot.
+    const { state, hass } = makeHass();
+    state.reject = true;
+
+    const card = await mount(hass);
+    await flush();
+    expect(state.handler).toBeUndefined();
+
+    const attemptsWhileRefused = state.subscribes;
+    expect(attemptsWhileRefused).toBeGreaterThan(0);
+
+    // Home Assistant answers this time, and the same card gets through on its next update.
+    state.reject = false;
+    card.hass = { ...hass } as Types.Hass;
+    await card.updateComplete;
+    await flush();
+
+    // A retry happened at all — with the slot still claimed, `subscribe()` returns at its
+    // guard and this number never moves.
+    expect(state.subscribes).toBeGreaterThan(attemptsWhileRefused);
+    expect(state.handler).toBeTypeOf('function');
   });
 });
