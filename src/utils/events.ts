@@ -4,6 +4,7 @@
  */
 
 import * as EntityColors from './entity-colors';
+import * as EntityIcons from './entity-icons';
 import * as FormatUtils from './format';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
@@ -1340,6 +1341,47 @@ export function getEntityLabel(
   if (!entityConfig || typeof entityConfig === 'string') return undefined;
 
   return entityConfig.label;
+}
+
+/**
+ * The label to draw for one calendar, with Home Assistant's icon substituted for the
+ * sentinel that asks for it.
+ *
+ * 🚨 Render time, deliberately, and this is the one thing about the feature that cannot
+ * move. `processEvents` bakes `_entityLabel` into the cached event, so resolving there would
+ * freeze whatever icon Home Assistant held at fetch time and leave it frozen until the next
+ * refresh — which is precisely the drift #188 was opened about, reintroduced by the fix for
+ * it. Resolved here, changing the icon in Home Assistant repaints on its next state update.
+ *
+ * A calendar whose icon Home Assistant does not hold falls through to `undefined`, so
+ * `renderLabel` draws nothing at all. That is the same nothing an unlabelled calendar draws,
+ * rather than an `ha-icon` with no icon in it — which is a sized, empty box that indents the
+ * title as though a label were there. It mirrors the colors' own fall-through, where a
+ * calendar the registry has no color for renders the color it would have had anyway.
+ *
+ * @param entityId - Calendar the event came from
+ * @param config - Current card configuration
+ * @param event - Event data carrying the matched per-calendar configuration
+ * @param hass - Home Assistant instance, which carries the icon in its state attributes
+ * @returns The label to draw, or `undefined` when there is none
+ */
+export function resolveEntityLabel(
+  entityId: string | undefined,
+  config: Types.Config,
+  event?: Types.CalendarEventData,
+  hass?: Types.Hass | null,
+): string | undefined {
+  const label = getEntityLabel(entityId, config, event);
+
+  if (!EntityIcons.isEntityIconSentinel(label)) return label;
+
+  // An explicit shape outranks the sentinel, so `label_type: text` still renders the word.
+  // `getLabelType` reads the sentinel as an icon precisely so this is the only way to say
+  // otherwise; honouring it here as well is what keeps the two halves telling one story.
+  const declared = getEntitySetting(entityId, 'label_type', config, event);
+  if (Helpers.isLabelType(declared) && declared !== 'icon') return label;
+
+  return EntityIcons.entityIcon(entityId, hass);
 }
 
 /**

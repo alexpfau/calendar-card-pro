@@ -8,13 +8,16 @@ import {
   ENTITY_TRISTATE_STORED,
   ENTITY_TRISTATE_VALUES,
   INHERIT,
+  LABEL_ICON_SOURCE,
   LABEL_TYPE,
   accentColorModeOf,
+  labelIconSourceOf,
 } from './schemas/entity';
 import { entityIdOf, isSet } from './synthetic';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import { ENTITY_COLOR_SENTINEL, isEntityColorSentinel } from '../../utils/entity-colors';
+import { ENTITY_ICON_SENTINEL, entityIcon, isEntityIconSentinel } from '../../utils/entity-icons';
 import * as Helpers from '../../utils/helpers';
 
 const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
@@ -228,6 +231,7 @@ export function toEntityFormData(entry: string | Types.EntityConfig): Record<str
     ...config,
     [LABEL_TYPE]: labelTypeOf(entry),
     [ACCENT_COLOR_MODE]: accentColorModeOf(config.accent_color),
+    [LABEL_ICON_SOURCE]: labelIconSourceOf(config.label),
   };
 
   for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
@@ -249,6 +253,7 @@ export function toEntityFormData(entry: string | Types.EntityConfig): Record<str
  * @param previous - The entry as stored before this edit
  * @param inheritedAccent - The card-wide `accent_color`, which this calendar shows until
  *   it names one of its own
+ * @param hass - Home Assistant state, read only to seed a custom icon from the inherited one
  * @returns The entry to store, as a bare id when it carries no settings
  */
 export function fromEntityFormData(
@@ -256,6 +261,7 @@ export function fromEntityFormData(
   data: Readonly<Record<string, unknown>>,
   previous: string | Types.EntityConfig = entityId,
   inheritedAccent?: unknown,
+  hass?: Types.Hass,
 ): string | Types.EntityConfig {
   const entry: Record<string, unknown> = { entity: entityId };
 
@@ -271,13 +277,34 @@ export function fromEntityFormData(
     data[ACCENT_COLOR_MODE] ?? accentColorModeOf(asEntityConfig(previous).accent_color),
   );
 
+  // Same contract for the icon source, one field over: it is derived from whether `label`
+  // holds the sentinel, so it is read, never written.
+  const iconSource = String(
+    data[LABEL_ICON_SOURCE] ?? labelIconSourceOf(asEntityConfig(previous).label),
+  );
+
+  const followsHomeAssistant = chosenType === 'icon' && iconSource === 'home_assistant';
+
   for (const [key, value] of Object.entries(data)) {
     if (key === 'entity' || key === LABEL_TYPE || key === ACCENT_COLOR_MODE) continue;
+
+    if (key === LABEL_ICON_SOURCE) continue;
 
     if (key === 'label') {
       if (chosenType === 'none') continue;
 
+      // Written below instead, as the sentinel. Carrying the form's value through would
+      // store whatever icon the picker last held under a mode that does not use it.
+      if (followsHomeAssistant) continue;
+
       if (moved && !fitsShape(chosenType, value)) continue;
+
+      // The sentinel is not an icon and cannot be carried into the custom mode — and it
+      // arrives here, because a calendar leaving `home_assistant` hands back its stored
+      // value, which *is* the sentinel. Stored again, the next derivation would read it as
+      // `home_assistant` and the dropdown would snap straight back. This is the same trap
+      // `accentColorFor` documents, one field over.
+      if (isEntityIconSentinel(value)) continue;
     }
 
     if (key === 'label_icon_color' && moved && chosenType !== 'icon') continue;
@@ -308,6 +335,25 @@ export function fromEntityFormData(
   const accentColor = accentColorFor(accentMode, data.accent_color, inheritedAccent);
   if (accentColor !== undefined) {
     entry.accent_color = accentColor;
+  }
+
+  if (followsHomeAssistant) {
+    entry.label = ENTITY_ICON_SENTINEL;
+  } else if (
+    chosenType === 'icon' &&
+    entry.label === undefined &&
+    isEntityIconSentinel(asEntityConfig(previous).label)
+  ) {
+    // Leaving `home_assistant` for `custom`, start from the icon that was on screen, so
+    // choosing "Custom icon" changes nothing until the user picks something else. Exactly
+    // `accentColorFor`'s "start from the colour on screen", and unlike that one it is
+    // polish rather than a fix: the icon source derives from two states, not three, so an
+    // empty value still reads back as `custom` and nothing snaps back without it.
+    //
+    // Home Assistant holding no icon leaves the picker empty, which is the same place
+    // choosing "An Icon" from scratch starts.
+    const inherited = entityIcon(entityId, hass);
+    if (inherited !== undefined) entry.label = inherited;
   }
 
   if (needsExplicitType(chosenType, entry.label)) {
@@ -365,6 +411,8 @@ function accentColorFor(mode: string, value: unknown, inherited: unknown): strin
  * @param data - Form data as the form returned it
  * @param inheritedAccent - The card-wide `accent_color`, so a calendar moving to a custom
  *   colour starts from the one it was already showing
+ * @param hass - Home Assistant state, so a calendar moving off its icon starts from the one
+ *   it was already showing
  * @returns A new list, or the original when the index is not in it
  */
 export function writeEntity(
@@ -372,6 +420,7 @@ export function writeEntity(
   index: number,
   data: Readonly<Record<string, unknown>>,
   inheritedAccent?: unknown,
+  hass?: Types.Hass,
 ): Array<string | Types.EntityConfig> {
   if (index < 0 || index >= entities.length) {
     return [...entities];
@@ -379,7 +428,7 @@ export function writeEntity(
 
   const entityId = entityIdOf(entities[index]);
   const next = [...entities];
-  next[index] = fromEntityFormData(entityId, data, entities[index], inheritedAccent);
+  next[index] = fromEntityFormData(entityId, data, entities[index], inheritedAccent, hass);
 
   return next;
 }

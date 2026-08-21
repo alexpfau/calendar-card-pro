@@ -1909,24 +1909,38 @@ function checkEnumValues(enums) {
  * The literal is read from the source rather than repeated here, so renaming the sentinel
  * in code fails this check instead of silently outdating the docs. Only the pairing of
  * option to module is written down.
+ *
+ * `doc` names where the option's row lives, because a per-calendar-only option has none in
+ * the reference: `configuration.md` lists those as prose and links to the table in
+ * `core-settings.md`. Pointing this check at the reference regardless would have failed on
+ * `label` for a row that is not supposed to exist, and duplicating the per-entity table to
+ * satisfy it would trade one undocumented sentinel for two tables that can disagree.
  */
 const SENTINEL_OPTIONS = [
   {
     fields: ['accent_color'],
     file: 'src/utils/entity-colors.ts',
     constant: 'ENTITY_COLOR_SENTINEL',
+    doc: REFERENCE_DOC,
+  },
+  {
+    fields: ['label'],
+    file: 'src/utils/entity-icons.ts',
+    constant: 'ENTITY_ICON_SENTINEL',
+    doc: ENTITY_OPTIONS_DOC,
   },
 ];
 
 /**
  * Read each declared sentinel's value out of the module that owns it.
  *
- * @returns {Map<string, string[]>} option name -> the reserved words it accepts
+ * @returns {Map<string, {values: string[], doc: string}>} option name -> its reserved words
+ *   and the page documenting it
  */
 function readSentinelOptions() {
   const out = new Map();
 
-  for (const { fields, file, constant } of SENTINEL_OPTIONS) {
+  for (const { fields, file, constant, doc } of SENTINEL_OPTIONS) {
     const src = readFileSync(join(ROOT, file), 'utf8');
     const match = src.match(new RegExp(`export const ${constant}\\s*=\\s*'([^']+)'`));
 
@@ -1936,7 +1950,8 @@ function readSentinelOptions() {
     }
 
     for (const field of fields) {
-      out.set(field, [...(out.get(field) ?? []), match[1]]);
+      const existing = out.get(field);
+      out.set(field, { values: [...(existing?.values ?? []), match[1]], doc });
     }
   }
 
@@ -1950,21 +1965,23 @@ function readSentinelOptions() {
  * Rows are matched the same way check 21 matches them, so a per-entity row written
  * `` `entity → accent_color` `` is covered as well as the card-wide one.
  *
- * @param {Map<string, string[]>} sentinels option name -> reserved words
+ * @param {Map<string, {values: string[], doc: string}>} sentinels option name -> reserved
+ *   words and the page documenting them
  * @returns {number} rows checked
  */
 function checkSentinelValues(sentinels) {
-  const lines = readFileSync(REFERENCE_DOC, 'utf8').split('\n');
   let checked = 0;
 
-  for (const [field, values] of sentinels) {
+  for (const [field, { values, doc }] of sentinels) {
+    const lines = readFileSync(doc, 'utf8').split('\n');
+
     const rows = lines.filter((line) =>
       new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line),
     );
 
     if (!rows.length) {
       error(
-        `${relative(ROOT, REFERENCE_DOC)}: no row documents \`${field}\`, which accepts ` +
+        `${relative(ROOT, doc)}: no row documents \`${field}\`, which accepts ` +
           `${values.map((v) => `\`${v}\``).join(', ')}.`,
       );
       continue;
@@ -1975,10 +1992,10 @@ function checkSentinelValues(sentinels) {
       const named = values.filter((value) => row.includes(value));
       if (named.length !== values.length) {
         error(
-          `${relative(ROOT, REFERENCE_DOC)}: the \`${field}\` row never mentions ` +
+          `${relative(ROOT, doc)}: the \`${field}\` row never mentions ` +
             `${values.map((v) => `\`${v}\``).join(', ')}, so a reader cannot discover that ` +
-            `the option accepts it. It is a reserved word, not a color — nothing else in ` +
-            `the type system can advertise it.`,
+            `the option accepts it. It is a reserved word, not a value the type system can ` +
+            `advertise — nothing else will catch this.`,
         );
       }
     }

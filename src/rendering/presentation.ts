@@ -131,6 +131,7 @@ export function buildEventPresentation(
     eventLocation,
     locationIcon,
     eventDescription,
+    entityLabel: EventUtils.resolveEntityLabel(event._entityId, config, event, hass),
     shouldShowTime,
     countdownStr,
     progressPercentage,
