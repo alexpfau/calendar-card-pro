@@ -757,15 +757,32 @@ function buildAnchorMap(docs) {
 function checkInternalLinks(docs) {
   const { published, anchors } = buildAnchorMap(docs);
 
-  const LINK = /\[[^\]]*\]\((\/[^)\s]*)\)|<a\s[^>]*href="(\/[^"]*)"/g;
+  // The `#…` alternatives are not decoration. A same-page fragment is the one link form
+  // nothing else validates: VitePress's dead-link check resolves it no more than this
+  // gate did, so a bare `[see below](#renamed-heading)` rotted silently through every
+  // build. Confirmed by planting one — `check:docs` and `docs:build` both exited 0.
+  const LINK = /\[[^\]]*\]\(((?:\/|#)[^)\s]*)\)|<a\s[^>]*href="((?:\/|#)[^"]*)"/g;
   let checked = 0;
 
   for (const file of published) {
     const text = readFileSync(file, 'utf8');
+
+    // The route this file publishes at, so a `#fragment` resolves against its own
+    // headings. Derived the same way buildAnchorMap does, so the two cannot disagree.
+    const ownRoute = (() => {
+      const r =
+        '/' +
+        relative(DOCS_DIR, file)
+          .replace(/\.md$/, '')
+          .replace(/\/index$/, '');
+      return r === '/index' ? '/' : r;
+    })();
+
     for (const m of text.matchAll(LINK)) {
       const target = m[1] ?? m[2];
-      const [rawPath, anchor] = target.split('#');
-      const path = rawPath.replace(/\/$/, '') || '/';
+      const samePage = target.startsWith('#');
+      const [rawPath, anchor] = samePage ? [ownRoute, target.slice(1)] : target.split('#');
+      const path = samePage ? rawPath : rawPath.replace(/\/$/, '') || '/';
       checked++;
 
       if (!anchors.has(path)) {
@@ -774,7 +791,8 @@ function checkInternalLinks(docs) {
       }
       if (anchor && !anchors.get(path).has(anchor)) {
         error(
-          `${relative(ROOT, file)} links to ${target}, but #${anchor} is not a heading on that page. ` +
+          `${relative(ROOT, file)} links to ${target}, but #${anchor} is not a heading ` +
+            `on ${samePage ? 'its own page' : 'that page'}. ` +
             "Note the site's slugify strips emoji and dots.",
         );
       }
