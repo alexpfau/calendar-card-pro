@@ -132,6 +132,7 @@ let colors: Map<string, string> = new Map();
 let loaded = false;
 let inFlight: Promise<void> | undefined;
 let unsubscribe: (() => void) | undefined;
+let subscribeGeneration = 0;
 let reportedUnavailable = false;
 
 /** Cards waiting to be told the registry moved. */
@@ -230,6 +231,8 @@ function fetchColors(hass: Types.Hass): Promise<void> | undefined {
  *
  * Home Assistant sends no payload worth patching in — its own frontend re-reads the whole
  * list — so this does the same, and only while at least one card is listening.
+ * {@link releaseEntityColors} is what enforces that second clause; it used to be a
+ * statement of intent here with nothing behind it.
  *
  * @param hass - Home Assistant instance
  */
@@ -242,6 +245,7 @@ function subscribe(hass: Types.Hass): void {
   // Claim the slot before awaiting, so two cards connecting in the same tick cannot both
   // pass the guard above and open a second subscription.
   unsubscribe = () => {};
+  const generation = ++subscribeGeneration;
 
   connection
     .subscribeEvents(() => {
@@ -251,11 +255,43 @@ function subscribe(hass: Types.Hass): void {
       }
     }, 'entity_registry_updated')
     .then((off) => {
+      // The last card can leave while this is still in flight, and the placeholder it
+      // tore down cannot close a subscription that did not exist yet. Closing it here is
+      // the only remaining chance — storing it would leave a live subscription that
+      // nothing holds a handle to.
+      if (generation !== subscribeGeneration) {
+        off();
+        return;
+      }
+
       unsubscribe = off;
     })
     .catch(() => {
-      unsubscribe = undefined;
+      if (generation === subscribeGeneration) {
+        unsubscribe = undefined;
+      }
     });
+}
+
+/**
+ * Stop watching the registry, and forget that it was ever read.
+ *
+ * Invalidating is half the job and the easier half to miss. The registry can move while
+ * nobody is subscribed, so leaving `loaded` set would let the next card read a map frozen
+ * at the moment the last one left — a regression the untorn-down subscription was
+ * accidentally preventing. `colors` itself is kept: a stale color repainted once beats
+ * rendering no color at all, which is the trade {@link entityColors} already documents for
+ * a cold cache.
+ */
+function teardown(): void {
+  subscribeGeneration++;
+
+  if (unsubscribe) {
+    unsubscribe();
+    unsubscribe = undefined;
+  }
+
+  loaded = false;
 }
 
 /**
@@ -296,10 +332,19 @@ export function ensureEntityColors(
 /**
  * Stop telling a card about registry changes.
  *
+ * The last card out closes the subscription. Without that, one card that opted in once
+ * left the page re-reading the whole entity registry on every `entity_registry_updated`
+ * for as long as the tab stayed open, notifying nobody and holding its `hass` — which is
+ * the opposite of what {@link subscribe} says it does.
+ *
  * @param onChange - The callback given to {@link ensureEntityColors}
  */
 export function releaseEntityColors(onChange: () => void): void {
   listeners.delete(onChange);
+
+  if (listeners.size === 0) {
+    teardown();
+  }
 }
 
 /**
@@ -307,13 +352,9 @@ export function releaseEntityColors(onChange: () => void): void {
  */
 export function resetEntityColors(): void {
   colors = new Map();
-  loaded = false;
   inFlight = undefined;
   reportedUnavailable = false;
   listeners.clear();
 
-  if (unsubscribe) {
-    unsubscribe();
-    unsubscribe = undefined;
-  }
+  teardown();
 }

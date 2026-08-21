@@ -425,6 +425,8 @@ class CalendarCardPro extends LitElement {
 
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
 
+    this._syncEntityColors();
+
     this._startWidthObserver();
   }
 
@@ -587,11 +589,7 @@ class CalendarCardPro extends LitElement {
       );
     }
 
-    if (EntityColors.usesEntityColor(this.config)) {
-      EntityColors.ensureEntityColors(this.hass, this._onEntityColorsChanged);
-    } else {
-      EntityColors.releaseEntityColors(this._onEntityColorsChanged);
-    }
+    this._syncEntityColors();
 
     if (changedProps.has('hass') || changedProps.has('config')) {
       this._updateTitleSubscription();
@@ -698,6 +696,25 @@ class CalendarCardPro extends LitElement {
   private _onEntityColorsChanged = () => {
     this.requestUpdate();
   };
+
+  /**
+   * Hold a registry-color subscription for exactly as long as the config asks for one.
+   *
+   * Called from `connectedCallback` as well as `updated()`, because `disconnectedCallback`
+   * releases and Lit requests no update on reconnect — so a card that came back without a
+   * reactive property changing would stay deregistered. It re-registered in practice only
+   * because `updateEvents()` happens to flip `isLoading` on its way through, which is
+   * incidental rather than designed and does not happen when that method returns early.
+   * Every other subscription in this file is acquired in `connectedCallback`; this one now
+   * matches its neighbours.
+   */
+  private _syncEntityColors(): void {
+    if (EntityColors.usesEntityColor(this.config)) {
+      EntityColors.ensureEntityColors(this.hass, this._onEntityColorsChanged);
+    } else {
+      EntityColors.releaseEntityColors(this._onEntityColorsChanged);
+    }
+  }
 
   /**
    * Start the refresh timer
