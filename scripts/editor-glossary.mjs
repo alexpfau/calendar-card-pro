@@ -750,8 +750,13 @@ export const GLOSSARY_TERMS = [
     // — all legitimate — and a rejected form is a build **error**, so over-matching fails
     // CI on a correct translation. That is strictly worse than the gap it closes, which is
     // why Polish carries one entry per case rather than a bare `powszedn`.
+    //
+    // For the same reason Slovak carries `pracovných dní` in full rather than shortening
+    // `pracovných dň` to `pracovných d`. The two Slovak plurals diverge before the stem
+    // ends — genitive `dní` has a plain `n`, locative `dňoch` has `ň` — so one stem cannot
+    // reach both, and the `d` that would has `pracovných dokumentov` behind it.
     rejected: {
-      sk: ['pracovný deň', 'pracovného dňa', 'pracovné dni', 'pracovných dň'],
+      sk: ['pracovný deň', 'pracovného dňa', 'pracovné dni', 'pracovných dň', 'pracovných dní'],
       it: ['giorno ferial', 'giorni ferial'],
       lv: ['darbdien'],
       sv: ['vardag'],
