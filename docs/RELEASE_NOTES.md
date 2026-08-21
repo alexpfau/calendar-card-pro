@@ -144,6 +144,8 @@ That is eleven editor languages in total, counting US English in code and Britis
 - [#225](https://github.com/alexpfau/calendar-card-pro/issues/225) - Show only Monday to Friday entries for some calendars by @nytram-md
 - [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
 - [#533](https://github.com/alexpfau/calendar-card-pro/issues/533) - Duplicate a calendar block from the visual editor by @alexpfau
+- [#543](https://github.com/alexpfau/calendar-card-pro/issues/543) - Glossary rejected-form matcher missed inflections that change the stem by @alexpfau
+- [#557](https://github.com/alexpfau/calendar-card-pro/issues/557) - Card-level Events panel showed the wrong styling controls when a column override changed a `show_*` option by @alexpfau
 - [#153](https://github.com/alexpfau/calendar-card-pro/issues/153) - Replace text in event titles by @michelnet, who wanted `Geburtstag von Hans Müller` shortened to the name and a work calendar's invitation wording turned into something readable; supported by @s91nl
 - [#212](https://github.com/alexpfau/calendar-card-pro/issues/212) - Private calendar, hide details by @oneyozfest182, who wanted a shared family card to show that something is on without showing what; @Tom-10101 added the case of a repeating fragment in an automatically generated title, which is why replacement is global rather than first-match
 
