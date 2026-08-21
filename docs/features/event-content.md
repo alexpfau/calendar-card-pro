@@ -1,6 +1,6 @@
 # Event Content & Display
 
-These options control what each event actually shows — its title, times, location, description, countdown and progress — and how the card behaves on days that have no events at all.
+These options control what each event actually shows — its title, times, location, description, countdown and progress — and how the card behaves on days that have no events at all. It is also where [birthday ages and anniversary counts](/features/event-content#birthday-ages-anniversary-counts) live, which need no configuration at all.
 
 ## 📅 Calendar Events Display
 
@@ -163,6 +163,57 @@ entities:
   - entity: calendar.personal
     show_description: false # Hide descriptions for personal events
 ```
+
+## 🎂 Birthday Ages & Anniversary Counts
+
+Apple's Calendar app writes the person's age into every birthday, but it builds that calendar out of Contacts, so it cannot be shared or subscribed to and Home Assistant never sees it. This is the part of it the card can do on your own calendars: note the year in the event, and the card works out the rest.
+
+Put **`YEAR=1986`** anywhere in the event's description and the card appends the age to the title:
+
+```yaml
+# Nothing to configure — the marker in the event does the work
+Alex Pfau Geburtstag  →  Alex Pfau Geburtstag (40)
+```
+
+The event you already have is the one that carries it. Birthdays are normally stored as an event that repeats every year, and each occurrence carries its own year, so the number is a subtraction and nothing else — the 2026 occurrence of a 1986 birthday is `(40)`, and the 2027 one is `(41)` without anyone touching the card again. It never needs the full date of birth, and it never has to work out whether the day has passed yet this year, because the event **is** the birthday.
+
+The same marker counts anniversaries, because it is the same subtraction. A wedding in 2015 shows `(11)` in 2026. The number stands on its own without saying what it counts, which is what lets one marker serve both.
+
+### Writing the Marker
+
+`YEAR=1986` and `YEAR:1966` both work, in any capitalization, anywhere in the description — on a line of its own, or at the end of a sentence you already wrote.
+
+Two rules matter, and both exist to keep the card from finding a marker in a description that never meant to carry one:
+
+- **No spaces around the `=` or the `:`.** `YEAR=1986` counts; `YEAR = 1986` does not. This is what separates a marker from ordinary writing — a sentence such as `Academic Year: 2025` puts a space after its colon, and without this rule the card would read that as a birth year and start numbering a school calendar.
+- **The marker stands as its own word.** `Born YEAR=1966` counts; `BIRTHYEAR=1966` does not, and neither does a `?year=1986` sitting inside a link.
+
+The year is always four digits, so `YEAR=198` and `YEAR=19866` are both ignored.
+
+| You write             | The card shows |
+| --------------------- | -------------- |
+| `YEAR=1986`           | `(40)` in 2026 |
+| `YEAR:1966`           | `(60)` in 2026 |
+| `Geboren YEAR=1966`   | `(60)` in 2026 |
+| `YEAR = 1986`         | nothing        |
+| `Academic Year: 2025` | nothing        |
+| `BIRTHYEAR=1966`      | nothing        |
+
+::: tip Nothing Showing Up?
+The card only ever counts **upward**. A year that matches the event's own year, or one still in the future, shows nothing at all rather than `(0)` or a negative number — so a `YEAR=2026` on an event in 2026 looks exactly like a marker that was not recognized. Check the year first, then the spacing around the separator.
+:::
+
+### What the Description Shows
+
+The marker is instruction to the card, not something to read, so it never appears on your card. With `show_description: true`, a description of `Geboren YEAR=1966 in Berlin` is drawn as **Geboren in Berlin**, and a description containing nothing but the marker leaves no description line at all — which is the tidiest way to use it, since the year is metadata rather than something you wanted to read.
+
+Filtering is the deliberate exception. [`blocklist` and `allowlist`](/features/core-settings) read the event exactly as your calendar delivered it, so a `filter_field: description` pattern still sees the raw `YEAR=1986`. That is what makes it possible to filter a birthday calendar on its markers.
+
+::: info Always On, and How to Turn It Off
+There is no option for this. A four-digit year written this precisely is not something a calendar produces by accident, so an option would be one more setting for everybody in exchange for a case that does not really happen — and the way back is simply to write the year differently: `Born in 1986`, or `YEAR - 1986`, are both invisible to the card.
+
+One thing worth knowing on a narrow card: the number sits at the end of the title, so it is the first thing to be cut when `title_max_lines` truncates a long one.
+:::
 
 ## ✂️ Limiting Lines Per Field
 

@@ -5,6 +5,7 @@
 
 import * as EntityColors from './entity-colors';
 import * as EntityIcons from './entity-icons';
+import * as EventAge from './event-age';
 import * as FormatUtils from './format';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
@@ -569,18 +570,52 @@ export function groupEventsByDay(
         };
       }
 
+      const showDescription =
+        getEntitySetting(event._entityId, 'show_description', config, event) ??
+        config.show_description;
+
+      // 🚨 Read the marker off the **raw** event and write the result into the display
+      // copy. The `description` a few lines down is `''` whenever `show_description` is
+      // off — which is the default — so scanning the display copy would leave the feature
+      // doing nothing for the very people who asked for it: someone who hides
+      // descriptions is exactly the person who does not want a bare `YEAR=1986` on their
+      // card. Reading raw and writing display is the correct asymmetry.
+      //
+      // Stripping HTML *before* matching is not the same thing as reading the display
+      // copy, and it is required: Google Calendar's description editor emits `&nbsp;`, so
+      // `Geboren&nbsp;YEAR=1966` has no ordinary space in front of the marker until
+      // entities are decoded. The prefilter keeps that off the hot path — almost no
+      // description mentions "year" at all, and one regex test is cheaper than building a
+      // detached textarea per event per render.
+      const rawDescription = event.description || '';
+      const mayCarryMarker = EventAge.mayCarryAgeMarker(rawDescription);
+
+      const plainDescription =
+        showDescription || mayCarryMarker ? FormatUtils.stripHtmlTags(rawDescription) : '';
+
+      const markerYear = mayCarryMarker ? EventAge.readMarkerYear(plainDescription) : null;
+
+      // The occurrence's own year, not the day the row lands on. With
+      // `split_multiday_events: false` an ongoing event's display date is clamped to the
+      // window start, which moves every day — so reading the display date would make the
+      // count change from one day to the next while the card just sits there.
+      const ageCount =
+        markerYear === null ? null : EventAge.resolveAgeCount(startDate.getFullYear(), markerYear);
+
+      const summary = event.summary || '';
+
       eventsByDay[eventDateKey].events.push({
-        summary: event.summary || '',
+        summary: ageCount === null ? summary : EventAge.appendAgeCount(summary, ageCount),
         location:
           (getEntitySetting(event._entityId, 'show_location', config, event) ??
           config.show_location)
             ? FormatUtils.formatLocation(event.location || '', config.remove_location_country)
             : '',
-        description:
-          (getEntitySetting(event._entityId, 'show_description', config, event) ??
-          config.show_description)
-            ? FormatUtils.stripHtmlTags(event.description || '')
-            : '',
+        description: showDescription
+          ? markerYear === null
+            ? plainDescription
+            : EventAge.stripAgeMarker(plainDescription)
+          : '',
         start: event.start,
         end: event.end,
         _entityId: event._entityId,
