@@ -162,6 +162,26 @@ const LABEL_TYPES: ReadonlyArray<'none' | 'text' | 'icon' | 'image'> = [
 /**
  * The config keys a per-calendar form field answers for.
  *
+ * 🚨 **Every control that stores nothing of its own needs an entry here**, and the two that
+ * do are the two halves of one feature — following Home Assistant for an icon, and for a
+ * colour. `isEntityFieldCustomized` asks this which keys a field answers for and then looks
+ * them up in the stored calendar; a derived control left to answer for itself names a key
+ * no configuration ever carries, so it reads as untouched forever and *Customized Only*
+ * hides it.
+ *
+ * That is not a cosmetic loss, because `entitySchemaFor` drops the value field in exactly
+ * the modes where the derived control is the only thing left. A calendar following Home
+ * Assistant for its accent colour kept **nothing** — `hasFields` then returned false and
+ * `element.ts` dropped the whole panel, so a calendar the user had configured vanished from
+ * a filter whose entire promise is to show what they configured, along with the only
+ * control that could stop it following.
+ *
+ * `tests/editor-derived-field-mapping.test.ts` reconciles this function against
+ * `EntityConfig`, so the next derived control fails a test rather than shipping. The
+ * comment below was written for `label_icon_source` and was correct; `accent_color_mode`
+ * arrived weeks later in its own pull request and was never added to it, which is why the
+ * reconciliation exists and this note does not simply say "remember".
+ *
  * @param name - Per-calendar field name
  * @returns The config keys it configures
  */
@@ -170,9 +190,15 @@ export function entityConfigKeys(name: string): ReadonlyArray<string> {
   // its own, and the value it decides is `label`. Left out, a calendar following Home
   // Assistant would never be marked as having configured its label — the sentinel is stored
   // under `label`, which only this mapping reaches from this field.
-  return name === LABEL_TYPE || name === 'label' || name === LABEL_ICON_SOURCE
-    ? [LABEL_TYPE, 'label']
-    : [name];
+  if (name === LABEL_TYPE || name === 'label' || name === LABEL_ICON_SOURCE) {
+    return [LABEL_TYPE, 'label'];
+  }
+
+  // The same contract one field over: the mode is read off `accent_color`'s shape and never
+  // written, so `accent_color` is the only key that can answer for it.
+  if (name === ACCENT_COLOR_MODE) return ['accent_color'];
+
+  return [name];
 }
 
 /**
@@ -382,6 +408,7 @@ function labelIconSource(language: string): SelectorSchema {
  * @param type - Shape this calendar's label holds
  * @param accentMode - Where this calendar's accent color comes from
  * @param iconSource - Where this calendar's icon label comes from
+ * @param showsLocation - Whether this calendar's events draw a location row at all
  * @returns The schema this calendar renders
  */
 export function entitySchemaFor(
@@ -389,6 +416,7 @@ export function entitySchemaFor(
   type: string,
   accentMode: string = 'custom',
   iconSource: string = 'custom',
+  showsLocation: boolean = true,
 ): HaFormSchema[] {
   const replaced = new Set([LABEL_ICON_SOURCE, 'label', 'label_icon_color']);
 
@@ -401,6 +429,14 @@ export function entitySchemaFor(
   return schema.flatMap((node) => {
     // The colour field only means anything when this calendar names its own colour.
     if (node.name === 'accent_color') return accentMode === 'custom' ? [node] : [];
+
+    // Nor does the location icon, when this calendar draws no location row. It replaces the
+    // marker on that row, so with the row gone it decorates nothing — the same reason the
+    // card-level panel drops its location styling behind `show_location`, and what the
+    // chassis promises in `filter.gated_note`. `showsLocation` resolves the tri-state
+    // against the card *for the view being edited*, so a calendar left on "Follow the card"
+    // hides it exactly when the card would draw no location either.
+    if (node.name === 'location_icon') return showsLocation ? [node] : [];
 
     if (!replaced.has(node.name)) return [node];
     if (inserted) return [];
