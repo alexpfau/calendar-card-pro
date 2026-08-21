@@ -4,7 +4,41 @@ title: Release Notes
 
 # Calendar Card Pro v4.1.0
 
-**Per-calendar filtering and styling, and an editor that can list one calendar twice so each copy answers differently.** A calendar used to be one thing: you added it, and it contributed all of its events, styled one way. This release takes that apart. Filter a calendar on its location or its description, keep only its all-day events or only its timed ones, retire all-day events partway through the day, show a calendar on weekdays alone — each of those is set per calendar, so listing the same calendar twice gives you two blocks that filter and style themselves independently. The editor's new **Duplicate** button builds the second block for you. The card also takes the color and icon Home Assistant already holds for a calendar, so anything you have themed once is themed here too.
+**Per-calendar filtering, rewriting and styling, and an editor that can list one calendar twice so each copy answers differently.** A calendar used to be one thing: you added it, and it contributed all of its events, styled one way. This release takes that apart.
+
+Here is what that buys you, in one config — a hallway tablet the whole household walks past:
+
+```yaml
+entities:
+  # 🎂 Birthdays — the name and the age, nothing else
+  - entity: calendar.family
+    allowlist: 'Birthday of'
+    replace_pattern: 'Birthday of '
+    label: 🎂
+    show_time: false
+    show_location: false
+
+  # 🗑️ Bin day — gone once the truck has been
+  - entity: calendar.family
+    allowlist: 'collection'
+    event_type: all_day
+    allday_expires_at: '11:00'
+    label: 🗑️
+
+  # Everything else on the family calendar
+  - entity: calendar.family
+    blocklist: 'Birthday of|collection'
+
+  # 💼 Work — that someone is busy, not what with
+  - entity: calendar.work
+    replace_with: 'Busy'
+    show_location: false
+    show_description: false
+```
+
+`Birthday of Lena Weber — All day` becomes **🎂 Lena Weber (32)**, and says 33 next year without anyone editing anything. Bin day retires itself at eleven. The children see that a parent is busy at nine, not that the meeting is a performance review. The first three blocks are the **same calendar**, three times.
+
+Four of the features below are in those thirty lines, and not one of them is announced — you write what you want the row to say, and the card gets out of the way. The walkthrough is [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes); everything from here on is the parts list.
 
 ## 🎉 New Features
 
