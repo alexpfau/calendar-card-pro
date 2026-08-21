@@ -36,6 +36,9 @@ entities:
 | `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                                                             |
 | `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                                                                           |
 | `filter_field`           | string  | `title`                  | Which field `blocklist` and `allowlist` read: `title`, `location` or `description`. One at a time — list the calendar twice to filter on a second                                                                     |
+| `replace_field`          | string  | `title`                  | Which field `replace_pattern` and `replace_with` rewrite: `title`, `location` or `description`. One at a time, and listing the calendar twice does **not** add a second                                               |
+| `replace_pattern`        | string  | `-`                      | RegExp pattern to find in that field. Every match is replaced, whatever its case. Unset, the whole field is replaced instead                                                                                          |
+| `replace_with`           | string  | `-`                      | Text to put in place of each match, or of the whole field when `replace_pattern` is unset. Unset, the match is removed                                                                                                |
 | `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                       |
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                            |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false` |
@@ -621,6 +624,133 @@ styling you did not expect.
 
 Put the most specific keywords first, since the first match wins. Each rule can also carry
 a `color` and an `accent_color`, so a mapping can be more than an icon.
+
+## ✏️ Text Replacement
+
+Filtering decides which events appear. Text replacement decides what they **say** once they
+are there — rewriting an event's title, location or description on the card without touching
+the calendar it came from.
+
+Three per-calendar options do it. `replace_field` names which field to rewrite and defaults
+to the title; `replace_pattern` is what to find, as a regular expression; `replace_with` is
+what to put there.
+
+### What Each Combination Does
+
+`replace_pattern` and `replace_with` are independently optional, and which of them you set
+is the instruction:
+
+| `replace_pattern` | `replace_with` | Result                          |
+| ----------------- | -------------- | ------------------------------- |
+| set               | unset          | the match is **removed**        |
+| set               | set            | the match is **replaced**       |
+| unset             | set            | the **whole field** is replaced |
+| unset             | unset          | nothing happens                 |
+
+That third row is why "remove this text" has a row of its own rather than being written as
+an empty `replace_with`: the visual editor cannot store an empty value, so leaving the field
+blank is the only way to say it.
+
+### Dropping a Prefix From Every Title
+
+Birthday calendars in particular tend to prefix every entry, which costs the same width on
+every row and tells you nothing:
+
+```yaml
+entities:
+  - entity: calendar.birthdays
+    replace_pattern: 'Geburtstag von '
+```
+
+`Geburtstag von Hans Müller` becomes `Hans Müller`. With no `replace_with`, whatever matched
+is removed.
+
+The pattern is a regular expression, matched **case-insensitively** and applied to **every**
+occurrence — so a fragment repeated inside one generated title is removed from all of it, not
+just the first:
+
+```yaml
+entities:
+  - entity: calendar.work
+    replace_pattern: '\[AUTO\] '
+```
+
+Capture groups work too, which is often tidier than deleting:
+
+```yaml
+entities:
+  - entity: calendar.birthdays
+    replace_pattern: 'Geburtstag von (.+)'
+    replace_with: '$1 🎂'
+```
+
+### Hiding What an Event Is About
+
+Leave `replace_pattern` out and the whole field is replaced, whatever it said. This is the
+shared-calendar case: the family card shows that something is on, without showing what.
+
+```yaml
+entities:
+  - entity: calendar.personal
+    replace_with: 'Busy'
+```
+
+Every event from that calendar now reads `Busy`, keeping its time, its color and its place in
+the day. The calendar itself is untouched — this is a display setting, so the same calendar on
+your own card still shows real titles.
+
+::: tip Ages Are Suppressed Automatically
+If those events carry a [`YEAR=` marker](/features/event-content#birthday-ages-anniversary-counts),
+the count is **not** appended to a replaced title. `Busy (40)` would announce that the hidden
+event is a birthday, which is the opposite of what you asked for. A title your pattern merely
+_edited_ keeps its count.
+:::
+
+### Replacing a Location That Is a Meeting URL
+
+Set `replace_field` to point the pattern somewhere other than the title:
+
+```yaml
+entities:
+  - entity: calendar.work
+    replace_field: location
+    replace_pattern: 'https://\S*zoom\.us/\S+'
+    replace_with: 'Zoom call'
+```
+
+The row keeps a location — it just reads `Zoom call` instead of a sixty-character join link.
+If you would rather the line vanished entirely, [hiding it](#hiding-a-location-that-is-really-a-meeting-url)
+is the other way round.
+
+An empty field is never filled in. A `replace_with` on the location rewrites the events that
+have one and leaves the rest alone, rather than giving every event a location it never had.
+
+### One Field Per Block
+
+::: warning A Calendar Cannot Be Listed Twice to Rewrite Two Fields
+This is the one place the "list the calendar twice" pattern used throughout this page does
+**not** transfer.
+
+It works for filters because `blocklist` and `allowlist` are complementary: each block takes a
+different share of the events, and every event lands in exactly one of them. Two replacement
+blocks are not complementary — both match the **same** events, and each contributes its own
+copy, so every event on that calendar is drawn **twice**.
+
+Turning on [`filter_duplicates`](#filtering-duplicate-events) does not rescue it. The copies
+are identical as far as deduplication is concerned, because it compares events as the calendar
+delivered them and a replacement only changes what is drawn. The first block's copy is the one
+kept, so the second block's replacement is silently discarded along with the duplicate row.
+
+Rewrite the field that matters most on the card. The rest of a calendar's settings — colors,
+icons, filters — are unaffected either way.
+:::
+
+Rewriting also runs **after** the card's own formatting, so patterns are written against what
+you actually see: a country name removed by
+[`remove_location_country`](/features/event-content#time-location-information) is already gone,
+HTML in a description is already flattened, and a `YEAR=` marker is already stripped.
+
+**→ [Per-entity options in the configuration reference](/reference/configuration#per-entity-options)** — the full per-calendar list.
 
 ## 📊 Compact Mode & Event Limits
 

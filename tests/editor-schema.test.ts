@@ -2717,6 +2717,9 @@ describe('editor: per-calendar settings', () => {
         'label_icon_source',
         'label_type',
         'location_icon',
+        'replace_field',
+        'replace_pattern',
+        'replace_with',
         'show_description',
         'show_location',
         'show_time',
@@ -2840,6 +2843,7 @@ describe('editor: per-calendar settings', () => {
       event_type: ['inherit', 'all', 'timed', 'all_day'],
       days_of_week: ['inherit', 'weekdays', 'weekends'],
       filter_field: ['title', 'location', 'description'],
+      replace_field: ['title', 'location', 'description'],
     });
 
     expect(ENTITY_TRISTATE_STORED).toEqual({
@@ -2850,13 +2854,15 @@ describe('editor: per-calendar settings', () => {
       event_type: { inherit: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
       days_of_week: { inherit: undefined, weekdays: 'weekdays', weekends: 'weekends' },
       filter_field: { title: undefined, location: 'location', description: 'description' },
+      replace_field: { title: undefined, location: 'location', description: 'description' },
     });
 
     // Pinned by value for the same reason as the two above, and with the same consequence
     // if it shrinks: `filter_field` losing its entry sends an explicit `filter_field:
     // title` back to `inherit`, which that dropdown does not offer, and the control renders
-    // blank. Every other option is absent here deliberately — `inherit` is their fallback.
-    expect(ENTITY_TRISTATE_DEFAULT).toEqual({ filter_field: 'title' });
+    // blank. `replace_field` is here for the same reason and carries the same risk. Every
+    // other option is absent here deliberately — `inherit` is their fallback.
+    expect(ENTITY_TRISTATE_DEFAULT).toEqual({ filter_field: 'title', replace_field: 'title' });
 
     // Every offered value must be storable, and nothing may be storable that is not
     // offered. Two tables describing one control drift apart silently otherwise: an
@@ -4273,6 +4279,10 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // `title` stands for it and the dropdown is exactly the union. That is the whole
     // difference from `days_of_week` directly above.
     filter_field: { field: 'entity.filter_field' },
+    // The same shape as `filter_field` and for the same reason — its absent state is the
+    // title, a named field rather than an unfiltered one — so it too has no editor-only
+    // value and its dropdown is exactly the union.
+    replace_field: { field: 'entity.replace_field' },
   };
 
   /**

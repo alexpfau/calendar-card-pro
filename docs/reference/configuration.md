@@ -69,9 +69,11 @@ the card-wide settings for that one calendar:
 `entity` · `label` · `label_type` · `color` · `accent_color` · `label_icon_color` ·
 `show_time` · `show_location` · `location_icon` · `show_description` ·
 `compact_events_to_show` · `blocklist` · `allowlist` · `filter_field` ·
+`replace_field` · `replace_pattern` · `replace_with` ·
 `split_multiday_events` · `event_type` · `allday_expires_at` · `days_of_week`
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
+**→ [Rewriting what an event says](/features/core-settings#text-replacement)** — `replace_pattern` and `replace_with`, and what each does when the other is left out.
 **→ [Choosing how a label is read](/features/core-settings#choosing-how-a-label-is-read)** — when `label_type` is needed, and when it is not.
 **→ [Following the icon from Home Assistant](/features/core-settings#following-the-icon-from-home-assistant)** — `label: home-assistant`, and what a calendar with no icon shows.
 
