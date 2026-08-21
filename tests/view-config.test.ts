@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { DEFAULT_CONFIG } from '../src/config/config';
+import { DEFAULT_CONFIG, PROCESSING_TIME_KEYS } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
@@ -801,6 +801,36 @@ describe('column view config surface', () => {
     expect(FETCH_TIME_KEYS.size).toBe(7);
 
     for (const key of FETCH_TIME_KEYS) {
+      expect(COLUMN_OVERRIDE_KEYS, key).not.toContain(key);
+    }
+  });
+
+  /**
+   * The same exclusion one table over, and for a reason the fetch-time note does not cover.
+   *
+   * A **processing-time** option is read inside `processEvents`, which runs on the fetch path
+   * against the card's raw config — `resolveEffectiveConfig` never reaches it, because the
+   * effective view is not known that early. So a processing-time key added to
+   * `COLUMN_OVERRIDE_KEYS` produces an override the editor offers, `validateColumnOverrides`
+   * accepts and the config stores, which is then hoisted at render time into a value nothing
+   * ever reads. Exactly the "no-op wearing the costume of a feature" the note above describes,
+   * arriving through the other door.
+   *
+   * Measured rather than argued: adding `event_type` to `Types.ColumnOverrides` and to
+   * `COLUMN_OVERRIDE_KEYS` left `npx tsc --noEmit` clean and every test in the suite green,
+   * while `resolveEffectiveConfig(config, 'column').event_type` returned `timed` and the
+   * filter went on reading `all`.
+   *
+   * This is a coupling, not a prohibition. Making one of these overridable means making the
+   * filter path view-aware first; until then the honest thing is for the attempt to fail here.
+   *
+   * The size guard does the same job as the one above — emptying the array would make the loop
+   * vacuous and this test green.
+   */
+  it('excludes every processing-time option from the override keys', () => {
+    expect(PROCESSING_TIME_KEYS.length).toBeGreaterThan(0);
+
+    for (const key of PROCESSING_TIME_KEYS) {
       expect(COLUMN_OVERRIDE_KEYS, key).not.toContain(key);
     }
   });
