@@ -30,6 +30,14 @@ The time is read against the last day an event covers, so a three-day trip clear
 
 It judges the day a row actually lands on rather than the day the event began, which is what lets it work on holidays spanning weeks. Pair it with [`split_multiday_events`](/features/multi-day-events) on a calendar of long events — that turns a fortnight's holiday into a row per day, each judged on its own, which is the Monday-to-Friday view the request was for. Column view already splits by default. (#225)
 
+### 🎂 Ages on Birthdays, and Counts on Anniversaries
+
+**Your birthday events can show the person's age, the way Apple's Calendar does.** Apple builds that calendar out of Contacts, which is why it cannot be shared and why Home Assistant has never been able to show it — the card does the same job on the calendar you already have. Write `YEAR=1986` in a birthday event's description and the card draws **Alex Pfau Geburtstag (40)**.
+
+Because a birthday is stored as an event that repeats every year, each occurrence already knows its own year, so the age is a subtraction and updates itself forever — `(40)` this year, `(41)` next, with nothing to change. The card never needs the full date of birth and never has to work out whether the day has passed yet. The same marker counts anniversaries: a wedding in 2015 shows `(11)` in 2026.
+
+`YEAR:1966` works too, in any capitalization, and the marker is removed from the description before the card draws it — so a description holding nothing but the year shows nothing at all. There is no option to set: a four-digit year written that precisely is not something a calendar produces by accident. Spaces around the separator are the one thing that does not work, and deliberately, since that is what tells `YEAR=1986` apart from a sentence like `Academic Year: 2025`. See [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts) (#124)
+
 ### 💬 A Teams Icon on Your Teams Meetings
 
 **Your online meetings now show the Teams logo instead of a map pin, and there is nothing to set up.** The card recognises the location text Teams writes into an event — including its translations, so `Microsoft Teams-Besprechung` and `Réunion Microsoft Teams` are recognised alongside the English wording — as well as a `teams.microsoft.com` join link stored there in place of a phrase. Meetings that are actually somewhere keep the map pin.
@@ -78,6 +86,7 @@ That is eleven editor languages in total, counting US English in code and Britis
 ## Related Issues
 
 - [#132](https://github.com/alexpfau/calendar-card-pro/issues/132) - Filter based on all-day events by @syst3x
+- [#124](https://github.com/alexpfau/calendar-card-pro/issues/124) - Display age / anniversary by @RK62, who proposed the `YEAR:1966` marker and was already storing the year in the description; supported by @mheidinger, @pyxis1 — who was running a second card solely for this — and @peterdausm
 - [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765
 - [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze
 - [#188](https://github.com/alexpfau/calendar-card-pro/issues/188) - Use a calendar entity's own attributes to configure it by @shmuelie — both halves now: the color in #314, and the icon here
