@@ -1,5 +1,13 @@
 /dist
 /.vscode
+
+# Worktrees and agent scratch. Both are excluded via `.git/info/exclude` rather than
+# `.gitignore`, which git honors and prettier never reads — so `check:format` walked into
+# a sibling worktree's build output and failed locally for a reason CI structurally cannot
+# reproduce, having no worktrees. The `/dist` above is root-anchored and does not cover
+# `.worktrees/<name>/dist`.
+/.worktrees
+/.agent
 package-lock.json
 package.json
 
