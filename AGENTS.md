@@ -793,6 +793,15 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    this way to _Related Issues_ in `docs/RELEASE_NOTES.md`, so the next person auditing
    the same release does not have to rediscover it.
 
+   **A half-served issue goes in that list too, marked so it is not closed.** The list is
+   read at release time _as a close-list_, so the two mistakes it can produce are opposite
+   and both silent: an issue left out is forgotten, and an issue left in is closed on a
+   request the release only partly answered. Neither is visible afterwards, because a
+   wrongly-closed issue looks exactly like a correctly-closed one. Write **do not close**
+   in the entry and say which half shipped — #251 asked for all-day _and_ multi-day
+   filtering and got the first, and would otherwise have been closed by anyone working
+   the list mechanically.
+
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
 HACS downloads every asset attached to a release, so it gets the editor without being told
 about it; `filename` only selects which asset becomes the Lovelace resource.
