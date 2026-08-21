@@ -97,8 +97,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.calendars': 'Calendars',
   'panel.calendars.helper': 'Which calendars the card shows, and how each one looks.',
   calendars: 'Calendars',
+  // "Entries" rather than "calendars": with Duplicate, the two entries carrying the same
+  // event are often two blocks of *one* calendar, and `deduplicateEvents` keeps whichever
+  // is listed first in `entities` either way. Naming calendars made the true case — the
+  // keyword-icon mapping, which is one calendar listed several times — read as impossible.
   'calendars.helper':
-    'Order matters, and can be dragged. When two calendars carry the same event and ' +
+    'Order matters, and can be dragged. When two entries carry the same event and ' +
     'duplicates are filtered, the copy from the one listed first is the one kept.',
 
   // --- Per-calendar settings ------------------------------------------------
@@ -296,9 +300,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'hide_when_empty.helper':
     'Removes the card from the dashboard entirely while it has nothing to show.',
   filter_duplicates: 'Filter Duplicates',
+  // See `calendars.helper`: the entry listed first wins, and that entry may be a second
+  // block of the same calendar rather than a different one.
   'filter_duplicates.helper':
     'Hides an event whose title, start, end and location all match another. The copy ' +
-    'from the calendar listed first is the one kept, along with its label and color.',
+    'from the entry listed first is the one kept, along with its label and color.',
   split_multiday_events: 'Split Multi-Day Events',
   'split_multiday_events.helper':
     'Show an event on every day it covers rather than only on the day it starts.',

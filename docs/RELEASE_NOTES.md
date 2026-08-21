@@ -62,11 +62,18 @@ Home Assistant's calendar picker cannot do this: it will not hold the same calen
 
 Both panels for one calendar carry the same heading, because they name the same calendar, so their second line is numbered **Entry 1 of 2** and **Entry 2 of 2**. The four per-calendar actions have also moved to the top of each panel, where they are visible as it opens rather than below every setting, with Remove held apart from the three that can be undone by doing them again (#533)
 
+### 🌍 The New Settings Arrive Translated
+
+**Everything above reads in your own language on the day it ships, rather than in English until a later release catches up.** The nine translated editor languages — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — each carry all **354** strings, the 42 this release adds among them. So `event_type`, `days_of_week`, `allday_expires_at`, `filter_field`, `location_icon`, the **Duplicate** and **Entry 1 of 2** chrome and the new sub-headings are all translated, not left behind.
+
+That is eleven editor languages in total, counting US English in code and British English, which carries only the 44 strings where it differs. The other 24 of the card's 35 languages render the editor in English, which is fully supported and still resolves per string. The calendar itself continues to speak all 35.
+
 ## 🐛 Bug Fixes
 
 - **Finished All-Day Events Stayed on the Card** - With `show_past_events: false`, a timed event vanished when it ended but an all-day one never did: an all-day event has no end _time_, only an end _date_, so the card had nothing to compare against and exempted them all. Any card whose window reached backwards therefore kept showing all-day events from days that were over — `start_date: 'today-7'`, or `start_of_week` read on a Thursday, which the start-date docs actively recommend pairing with past events hidden. All-day events are now past at midnight after the last day they cover, so a finished one goes and today's stays up all day. If you use a backward-looking window, expect finished all-day entries to disappear from it
 - **The Editor Called `show_past_events` "Show Today's Past Events"** - It shows every past event inside the card's configured window, not only today's, so on a card starting a week back the label described a fraction of what the switch did. Corrected in English and in all nine translated editor languages
 - **A Calendar's Panel Named It Differently From the Picker Directly Above It** - Home Assistant's entity picker moved to friendly names some time ago, so the Calendars row read _Calendar card pro - family_ while the settings panel a few pixels below it read `calendar.calendar_card_pro_family`. An entity id need not resemble its name at all, which left no reliable way to tell which panel belonged to which row on a card listing several calendars. Panels are now headed with the same name Home Assistant shows. A calendar that has been removed from Home Assistant keeps its entity id, since that is the only thing left identifying it
+- **The Editor Said the First-Listed _Calendar_ Won a Duplicate** - `filter_duplicates` keeps the copy from whichever entry is listed first, and an entry may be a second block of the same calendar rather than a different calendar — which is exactly what **Duplicate** creates, and what makes the keyword icon mapping work. Naming calendars made that common case read as impossible. Both the Calendars helper and the `filter_duplicates` helper now name the entry, in English and in all nine translated editor languages
 
 ## Related Issues
 
