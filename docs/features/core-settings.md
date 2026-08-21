@@ -180,7 +180,7 @@ calendar in a way a color does not — a single label in front of every event wo
 nothing about which calendar the event came from.
 
 **A calendar Home Assistant has no icon for shows no label**, rather than an empty space
-where one would go. That is the same nothing an unlabelled calendar shows, so mixing the two
+where one would go. That is the same nothing an unlabeled calendar shows, so mixing the two
 costs nothing in alignment.
 
 Most integrations supply no icon, so this usually means setting one yourself — the same
@@ -438,6 +438,11 @@ Wednesday retires on Wednesday morning rather than Monday's. Split the calendar 
 Leaving the option out keeps the default, midnight — the option changes _when_ within the
 final day, never _whether_.
 
+Write the time as `HH:MM` on a 24-hour clock. A single-digit hour works, and so do seconds
+if you want them, so `9:30` and `10:00:30` are both read. A value the card cannot read as a
+time falls back to midnight, which looks exactly like leaving the option out — so check the
+value first if a calendar is not retiring when you expect it to.
+
 ::: warning It Only Applies While Past Events Are Hidden
 `allday_expires_at` decides _when_ an all-day event becomes past. Whether past events are
 drawn at all is [`show_past_events`](/reference/configuration#core-settings), which
@@ -498,7 +503,7 @@ view defaults to, the day still appears carrying the usual _No upcoming events_ 
 :::
 
 Weekend means Saturday and Sunday. That is the same definition the
-[weekend colors](/features/layout-appearance#week-numbers-visual-separators) use, so a day
+[weekend colors](/features/layout-appearance#date-column-customization) use, so a day
 this option treats as a weekend is a day the card already colors as one.
 
 ### Filtering Duplicate Events
@@ -725,6 +730,13 @@ is the other way round.
 An empty field is never filled in. A `replace_with` on the location rewrites the events that
 have one and leaves the rest alone, rather than giving every event a location it never had.
 
+::: warning Rewriting a Location Also Decides Its Icon
+The [Teams icon](/features/event-content#the-location-icon) is chosen from the location the
+card is about to draw, so a rewrite that removes the words `Microsoft Teams` — or the join
+link — takes the Teams icon with it and leaves the map marker. Set `location_icon` on the
+same block to name the icon you want and the detection stops mattering either way.
+:::
+
 ### One Field Per Block
 
 ::: warning A Calendar Cannot Be Listed Twice to Rewrite Two Fields
@@ -761,7 +773,7 @@ Calendar Card Pro offers powerful controls for managing what appears in compact 
 days_to_show: 7
 
 # Event limit for compact mode
-compact_events_to_show: 5 # Preferred: New parameter name
+compact_events_to_show: 5 # Preferred: New option name
 
 # Day limit in compact mode
 compact_days_to_show: 2 # Fewer days to display in compact mode

@@ -24,7 +24,7 @@ The editor is organized into nine panels, each named for what it configures rath
 
 Panels open one at a time, and options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
 
-The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Which Events Appear** comes first, then **Events Across Several Days**. A calendar adds **Label & Colors** above them and **What Each Event Shows** below; the card-level panel adds **When There Is Nothing To Show** at the end. Reading either panel therefore answers the same questions in the same order.
+The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below; the card-level panel adds **Empty Days** at the end. Reading either panel therefore answers the same questions in the same order.
 
 ## ✨ Key Features
 

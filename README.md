@@ -140,7 +140,7 @@ show_month: false
 
 Swap `calendar.family` for one of your own `calendar.*` entities and you have a working card.
 
-**➡️ From here, [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) walks you through multiple calendars, per-calendar colours and compact mode. Every available option is listed in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and more ready-made setups are in [Examples](https://calendar-card-pro.alexpfau.com/reference/examples).**
+**➡️ From here, [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) walks you through multiple calendars, per-calendar colors and compact mode. Every available option is listed in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and more ready-made setups are in [Examples](https://calendar-card-pro.alexpfau.com/reference/examples).**
 
 <p align="right"><a href="#top">⬆️ back to top</a></p>
 
@@ -154,6 +154,8 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🗂️ **Split One Calendar by Event Type**: [`event_type`](https://calendar-card-pro.alexpfau.com/features/core-settings) takes `all`, `timed` or `all_day`, card-wide or per calendar — list one calendar twice, once each way, for a color on each, and [**Duplicate** in the editor](https://calendar-card-pro.alexpfau.com/features/editor#per-calendar-panels-actions) builds it for you
 - 🔍 **Two New Per-Calendar Filters**: [`allday_expires_at`](https://calendar-card-pro.alexpfau.com/features/core-settings#retiring-all-day-events-during-the-day) gives one calendar's all-day events the end time they lack, so a bin collection stops sitting on the card until midnight, and [`days_of_week`](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-on-weekdays-only) keeps a single calendar to weekdays or weekends while every other one keeps its weekend
 - 💬 **Teams Meetings Get the Teams Icon**: online meetings now show [the Teams logo instead of a map pin](https://calendar-card-pro.alexpfau.com/features/event-content#the-location-icon), automatically and in any language Teams writes them in — set `location_icon` on a calendar to name a different icon, or the plain marker to opt out
+- 🎂 **Ages on Birthdays, Counts on Anniversaries**: Write `YEAR=1986` in a birthday event's description and the card appends the age to the title — [nothing to configure](https://calendar-card-pro.alexpfau.com/features/event-content#birthday-ages-anniversary-counts), and it stays right every year, because each occurrence of a repeating birthday already carries its own date
+- ✏️ **Rewrite What an Event Says**: [`replace_pattern`, `replace_with` and `replace_field`](https://calendar-card-pro.alexpfau.com/features/core-settings#text-replacement) rewrite one field of a calendar's events as the card draws them, leaving the calendar untouched — strip a `Geburtstag von ` prefix off every birthday, or show `Busy` in place of every title on a shared family card. [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes) puts this and three of the options above into a single card
 
 ### v4.0
 

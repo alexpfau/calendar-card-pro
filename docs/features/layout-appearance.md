@@ -257,7 +257,7 @@ The date column appears on the left side of each day's events and helps users qu
 - **Weekend days** (Saturday and Sunday) using the `weekend_*` options
 - **Today's date** using the `today_*` options
 
-When special styling parameters are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
+When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
 
 ## 🌟 Today Indicator
 

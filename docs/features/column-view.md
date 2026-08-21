@@ -164,7 +164,7 @@ column:
   filter_duplicates: true # and too narrow to show the same meeting twice
 ```
 
-An entry the card does not recognise is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above.
+An entry the card does not recognize is ignored rather than treated as an error, so one stray line cannot break the rest of the card. If an override seems to do nothing, check it is not one of the options above.
 
 ## 💤 Options That Do Nothing in Column View
 
