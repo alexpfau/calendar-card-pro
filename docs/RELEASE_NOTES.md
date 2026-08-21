@@ -6,11 +6,11 @@ title: Release Notes
 
 ## 🎉 New Features
 
-### 🎨 Follow the Calendar Colors Home Assistant Holds
+### 🎨 Follow the Colors and Icons Home Assistant Holds
 
-**A calendar can look the same everywhere now, instead of being colored twice in two places.** Home Assistant stores a color for each calendar entity — the one the built-in calendar card and the calendar panel already use — and setting `accent_color` to `home-assistant` makes Calendar Card Pro follow it. Set it [card-wide](/features/core-settings) and every calendar picks up its own color, or set it per calendar and mix it freely with colors you choose yourself.
+**A calendar can look the same everywhere now, instead of being styled twice in two places.** Home Assistant stores a color and an icon for each calendar entity — the ones the built-in calendar card and the calendar panel already use — and Calendar Card Pro can follow either. Set `accent_color` to `home-assistant` [card-wide](/features/core-settings) and every calendar picks up its own color, or set it per calendar and mix it freely with colors you choose yourself. Set a calendar's [`label`](/features/core-settings#following-the-icon-from-home-assistant) to `home-assistant` and it shows that calendar's own icon, so changing the icon in Home Assistant changes it on the card too, rather than leaving the two to drift apart. The label is per calendar only: one label in front of every event would say nothing about which calendar the event came from.
 
-The color has to exist in Home Assistant first, and most do not yet: Google Calendar is the only integration that sets one, and only when it is first added, so calendars from before Home Assistant 2026.2 have none — re-adding the integration will not create them. Set those by hand under **Settings → Devices & Services → Entities**; any calendar still without one falls back to the card's own color rather than losing it. Requires Home Assistant 2026.2 (#314)
+Either way the value has to exist in Home Assistant first, and most do not yet. Google Calendar is the only integration that sets a color, and only when a calendar is first added, so calendars from before Home Assistant 2026.2 have none — re-adding the integration will not create them. Icons are rarer still. Set both by hand under **Settings → Devices & Services → Entities**; a calendar Home Assistant has no color for falls back to the card's own color rather than losing it, and one it has no icon for simply shows no label. Colors need Home Assistant 2026.2, icons need nothing in particular (#314, #188)
 
 ### 🗂️ Show All-Day and Timed Events Separately
 
@@ -80,6 +80,7 @@ That is eleven editor languages in total, counting US English in code and Britis
 - [#132](https://github.com/alexpfau/calendar-card-pro/issues/132) - Filter based on all-day events by @syst3x
 - [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765
 - [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze
+- [#188](https://github.com/alexpfau/calendar-card-pro/issues/188) - Use a calendar entity's own attributes to configure it by @shmuelie — both halves now: the color in #314, and the icon here
 - [#205](https://github.com/alexpfau/calendar-card-pro/issues/205) - An icon for Microsoft Teams meetings by @loryanstrant
 - [#345](https://github.com/alexpfau/calendar-card-pro/issues/345) - Filtering events by description content, to exclude Google Tasks blended into a calendar feed by @RemyGeode
 - [#225](https://github.com/alexpfau/calendar-card-pro/issues/225) - Show only Monday to Friday entries for some calendars by @nytram-md

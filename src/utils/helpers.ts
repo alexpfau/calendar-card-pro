@@ -6,6 +6,8 @@
  * default filtering, and single-entry memoization.
  */
 
+import * as EntityIcons from './entity-icons';
+
 //-----------------------------------------------------------------------------
 // COLOR UTILITIES
 //-----------------------------------------------------------------------------
@@ -164,6 +166,18 @@ export function isLabelType(value: unknown): value is LabelType {
 export function getLabelType(label: unknown): LabelType {
   if (typeof label !== 'string' || label === '') {
     return 'none';
+  }
+
+  // 🚨 Before the shape tests, not after. The sentinel is a bare word, so every test below
+  // declines it and the final `return 'text'` would claim it — rendering the literal string
+  // `home-assistant` as the label rather than the icon it stands for. It is also what keeps
+  // `needsExplicitType` from writing a redundant `label_type: icon` beside it, and what makes
+  // the editor open the icon panel for a calendar that stores nothing but the sentinel.
+  //
+  // `resolveLabelType` still lets an explicit `label_type` win, so `label_type: text` remains
+  // the way to mean those words literally. That is the escape hatch this claim rests on.
+  if (EntityIcons.isEntityIconSentinel(label)) {
+    return 'icon';
   }
 
   if (isIconValue(label)) {

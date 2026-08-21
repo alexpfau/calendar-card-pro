@@ -3,6 +3,7 @@
  */
 
 import { isEntityColorSentinel } from '../../../utils/entity-colors';
+import { isEntityIconSentinel } from '../../../utils/entity-icons';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
 import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
@@ -107,6 +108,27 @@ export const LABEL_TYPE = 'label_type';
 
 export const ACCENT_COLOR_MODE = 'accent_color_mode';
 
+export const LABEL_ICON_SOURCE = 'label_icon_source';
+
+/**
+ * Where an icon label's value comes from.
+ *
+ * Two rather than the accent color's three: there is no card-wide label to inherit, so
+ * "follow the card" would name nothing. Same vocabulary as the accent control for the mode
+ * the two share, because they mean the same thing one option apart.
+ */
+const LABEL_ICON_SOURCES: ReadonlyArray<string> = ['home_assistant', 'custom'];
+
+/**
+ * Where one calendar's icon label comes from, read off the value's shape.
+ *
+ * @param label - The calendar's stored `label`
+ * @returns Which icon-source control that calendar renders
+ */
+export function labelIconSourceOf(label: unknown): string {
+  return isEntityIconSentinel(label) ? 'home_assistant' : 'custom';
+}
+
 /**
  * Per-calendar accent modes. Three here, unlike the card-wide control: a calendar can defer
  * to the card, which the card itself has nothing to do.
@@ -138,7 +160,13 @@ const LABEL_TYPES: ReadonlyArray<'none' | 'text' | 'icon' | 'image'> = [
  * @returns The config keys it configures
  */
 export function entityConfigKeys(name: string): ReadonlyArray<string> {
-  return name === LABEL_TYPE || name === 'label' ? [LABEL_TYPE, 'label'] : [name];
+  // `label_icon_source` joins the pair rather than standing alone: it has no config key of
+  // its own, and the value it decides is `label`. Left out, a calendar following Home
+  // Assistant would never be marked as having configured its label — the sentinel is stored
+  // under `label`, which only this mapping reaches from this field.
+  return name === LABEL_TYPE || name === 'label' || name === LABEL_ICON_SOURCE
+    ? [LABEL_TYPE, 'label']
+    : [name];
 }
 
 /**
@@ -166,11 +194,31 @@ function labelType(language: string): SelectorSchema {
  * The label fields for one shape.
  *
  * @param type - Shape the label currently holds
+ * @param source - The icon-source dropdown, taken from the declared schema
+ * @param iconSource - Where an icon label's value comes from
  * @returns The fields to render under the type dropdown
  */
-function labelFields(type: string): SelectorSchema[] {
+function labelFields(
+  type: string,
+  source: HaFormSchema | undefined,
+  iconSource: string,
+): HaFormSchema[] {
   if (type === 'icon') {
-    return [{ name: 'label', selector: { icon: {} } }, text('label_icon_color')];
+    return [
+      // The source qualifies the picker below it, so it precedes it — the same reason
+      // `filter_field` precedes `blocklist` and `allowlist`. A reader who meets the picker
+      // first has already assumed the icon is theirs to choose.
+      ...(source ? [source] : []),
+      // Following Home Assistant, there is no icon to pick: the picker would show an empty
+      // box beside a rendered icon it did not choose, which is the control contradicting the
+      // card. `accent_color` is dropped the same way when its own mode is not `custom`.
+      ...(iconSource === 'home_assistant'
+        ? []
+        : [{ name: 'label', selector: { icon: {} } } as SelectorSchema]),
+      // Kept in both modes on purpose: tinting an inherited icon is still the card's choice,
+      // and the color is stored under a key of its own that the source never touches.
+      text('label_icon_color'),
+    ];
   }
 
   return type === 'none' ? [] : [text('label')];
@@ -203,6 +251,7 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
   return [
     heading('heading_appearance'),
     labelType(ctx.language),
+    labelIconSource(ctx.language),
     text('label'),
     text('label_icon_color'),
     row(text('color'), accentColorMode(ctx.language)),
@@ -279,19 +328,49 @@ function accentColorMode(language: string): SelectorSchema {
 }
 
 /**
+ * The dropdown naming where a calendar's icon label comes from.
+ *
+ * @param language - Effective language code
+ * @returns The field
+ */
+function labelIconSource(language: string): SelectorSchema {
+  return {
+    name: LABEL_ICON_SOURCE,
+    selector: {
+      select: {
+        mode: 'dropdown',
+        options: LABEL_ICON_SOURCES.map((value) => ({
+          value,
+          label:
+            lookup(language, `entity.${LABEL_ICON_SOURCE}.option.${value}.label`) ??
+            humanize(value),
+        })),
+      },
+    },
+  };
+}
+
+/**
  * Narrows the declared schema to the fields one calendar's choices call for.
  *
  * @param schema - The per-calendar schema, as declared
  * @param type - Shape this calendar's label holds
  * @param accentMode - Where this calendar's accent color comes from
+ * @param iconSource - Where this calendar's icon label comes from
  * @returns The schema this calendar renders
  */
 export function entitySchemaFor(
   schema: ReadonlyArray<HaFormSchema>,
   type: string,
   accentMode: string = 'custom',
+  iconSource: string = 'custom',
 ): HaFormSchema[] {
-  const replaced = new Set(['label', 'label_icon_color']);
+  const replaced = new Set([LABEL_ICON_SOURCE, 'label', 'label_icon_color']);
+
+  // Taken from the declared schema rather than rebuilt, because this function is handed no
+  // language and rebuilding one here would render the only unlocalized control on the panel.
+  const source = schema.find((node) => node.name === LABEL_ICON_SOURCE);
+
   let inserted = false;
 
   return schema.flatMap((node) => {
@@ -302,6 +381,6 @@ export function entitySchemaFor(
     if (inserted) return [];
 
     inserted = true;
-    return labelFields(type);
+    return labelFields(type, source, iconSource);
   });
 }

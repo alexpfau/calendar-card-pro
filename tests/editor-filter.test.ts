@@ -418,6 +418,10 @@ describe('editor filter: the per-calendar settings', () => {
    * The label's shape dropdown is derived from the label's value and stores nothing of
    * its own. Asked in its own name, "customized only" would therefore hide it while
    * leaving the label it names on screen — a control with no way back to *None*.
+   *
+   * `label_icon_source` is derived from that same value and rides along for the same
+   * reason: hidden, a calendar following Home Assistant would keep an icon it had no
+   * control to stop following.
    */
   it('keeps the label shape dropdown wherever it keeps the label', () => {
     const config = buildConfig({
@@ -431,7 +435,7 @@ describe('editor filter: the per-calendar settings', () => {
       ENTITY_PATH,
       ctx,
     );
-    expect(fieldNames(configured)).toEqual(['label_type', 'label']);
+    expect(fieldNames(configured)).toEqual(['label_type', 'label_icon_source', 'label']);
 
     // A calendar with no label of its own keeps neither, so its panel drops out whole.
     const untouched = filterEntitySchema(
@@ -818,6 +822,7 @@ describe('editor: the order of the two panels', () => {
     expect(sequence(entitySchema())).toEqual([
       '# heading_appearance',
       'label_type',
+      'label_icon_source',
       'label',
       'label_icon_color',
       'color',
