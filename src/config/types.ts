@@ -490,6 +490,30 @@ export interface CalendarEventData {
    * count whole calendar days for every segment.
    */
   _isMultiDaySegment?: boolean;
+  /**
+   * Set on every segment produced by splitting a **timed** multi-day event, recording the
+   * class of the event the segment came from rather than the shape the segment now has.
+   *
+   * The two differ, and only for these: splitting rewrites the middle days of a timed
+   * event as `start: { date }`, so they read as all-day to everything downstream. That is
+   * right for layout — a middle day genuinely occupies the whole day and draws no time —
+   * and wrong for `allday_expires_at`, which is a statement about all-day *events*. Without
+   * this, a calendar set to retire bin collections at 10:00 also deleted the middle day of
+   * a three-day conference while it was still running.
+   *
+   * `_isMultiDaySegment` cannot answer the question, because segments of a genuinely
+   * all-day event carry it too and must keep expiring one day at a time.
+   *
+   * 🚨 Set on **all three** segment kinds so the name is literally true of anything
+   * carrying it, but only the middle ones can ever be read: the first and last keep their
+   * `dateTime`, so the expiry branch's `isAllDayEvent` test excludes them before this is
+   * consulted. Removing it from those two therefore breaks no test — it records provenance
+   * there, not behaviour, and the alternative is a flag that lies about half its subjects.
+   *
+   * Carried into the display copies alongside `_isMultiDaySegment` for symmetry, though
+   * only the expiry filter reads it today — that filter runs before the copies are built.
+   */
+  _splitFromTimedEvent?: boolean;
   _matchedConfig?: EntityConfig;
 }
 

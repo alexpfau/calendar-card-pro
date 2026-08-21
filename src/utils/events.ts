@@ -507,14 +507,24 @@ export function groupEventsByDay(
       // it. `show_past_events` decides *whether* past events are shown; the expiry decides
       // *when* an all-day event becomes past. With `show_past_events: true` there is
       // nothing for either to do, which is why both sit inside this branch.
-      if (
-        isAllDayEvent &&
-        now >=
-          allDayExpiryInstant(
-            endDate,
-            getEntitySetting(event._entityId, 'allday_expires_at', config, event),
-          )
-      ) {
+      //
+      // 🚨 A segment split out of a **timed** event reads as all-day here — splitting
+      // rewrites the middle days as `start: { date }` — so it reaches this branch and the
+      // configured time must not be applied to it. `allday_expires_at` is a statement about
+      // all-day events; a conference running Monday to Wednesday is not one, and retiring
+      // its Tuesday at 10:00 deleted a day out of the middle of an event still in progress.
+      //
+      // The configured value is withheld rather than the whole branch skipped, which is the
+      // difference between fixing this and reopening the defect the option's **default**
+      // was introduced to close. Skipping outright would exempt these segments from expiry
+      // altogether, and a backwards window — `start_date: 'today-7'` — would then keep the
+      // middle days of last week's meetings on a card that hides past events. Midnight
+      // after the segment's own day is already the right answer for it.
+      const configuredExpiry = event._splitFromTimedEvent
+        ? undefined
+        : getEntitySetting(event._entityId, 'allday_expires_at', config, event);
+
+      if (isAllDayEvent && now >= allDayExpiryInstant(endDate, configuredExpiry)) {
         return false;
       }
     }
@@ -641,8 +651,19 @@ export function groupEventsByDay(
       // announces that the hidden event is a birthday, and a bare `(40)` announces it
       // louder. A title merely *edited* keeps its count, which is the case #153 ex.1 wants:
       // stripping `Geburtstag von ` off a birthday should still say how old they are.
+      //
+      // 🚨 **Both sides are trimmed, and each side is trimmed for its own reason.** The
+      // right-hand test has to ask the same question `appendAgeCount` asks — it draws a
+      // bare count when `summary.trim()` is empty — because any disagreement between the
+      // two is a leak by construction, and testing `text === ''` disagreed on precisely
+      // the blank-but-not-empty titles an ordinary pattern produces: `Annas Geburtstag`
+      // minus `[A-Za-z]+` is two spaces, which suppressed nothing and rendered `(40)`.
+      // The left-hand side is trimmed so a title that was *already* only whitespace is not
+      // read as a deletion — nothing was taken away from it, so it keeps the bare count an
+      // untitled event has always drawn.
       const titleWithheld =
-        replacedSummary.replacedWholeField || (summary !== '' && replacedSummary.text === '');
+        replacedSummary.replacedWholeField ||
+        (summary.trim() !== '' && replacedSummary.text.trim() === '');
 
       eventsByDay[eventDateKey].events.push({
         summary:
@@ -673,6 +694,7 @@ export function groupEventsByDay(
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
+        _splitFromTimedEvent: event._splitFromTimedEvent,
       });
     });
   }
@@ -1124,6 +1146,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { dateTime: startDateTime.toISOString() },
         end: { dateTime: firstDayEnd.toISOString() },
         _isMultiDaySegment: true,
+        _splitFromTimedEvent: true,
       };
       segments.push(firstDaySegment);
 
@@ -1149,6 +1172,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
           start: { date: currentDateStr },
           end: { date: nextDateStr },
           _isMultiDaySegment: true,
+          _splitFromTimedEvent: true,
         };
 
         segments.push(middleDaySegment);
@@ -1159,6 +1183,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { dateTime: lastDayStart.toISOString() },
         end: { dateTime: endDateTime.toISOString() },
         _isMultiDaySegment: true,
+        _splitFromTimedEvent: true,
       };
       segments.push(lastDaySegment);
     } else {

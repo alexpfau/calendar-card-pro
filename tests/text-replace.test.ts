@@ -330,6 +330,27 @@ describe('the age count from #124', () => {
     expect(drawn(allDay(BIRTHDAY), { replace_pattern: '.+' }).summary).toBe('');
   });
 
+  it('is suppressed when a pattern left the title as whitespace', () => {
+    // The near-miss of the case above, and the one that reached the leak it exists to
+    // prevent. The guard asked `text === ''` while `appendAgeCount` asks
+    // `text.trim() !== ''`, so the two disagreed on exactly the inputs that are blank but
+    // not empty — and a title reduced to a single space rendered a bare `(40)`.
+    //
+    // Reachable from an ordinary pattern rather than a contrived one: any rewrite whose
+    // remainder is a separator. `Annas Geburtstag` minus `[A-Za-z]+` is two spaces.
+    expect((drawn(allDay(BIRTHDAY), { replace_pattern: '[A-Za-z]+' }).summary ?? '').trim()).toBe(
+      '',
+    );
+  });
+
+  it('appends to a title that was only ever whitespace, which is not a deletion', () => {
+    // The discriminator for the fix above, and the reason the guard trims **both** sides.
+    // Nothing was taken away from this title, so it is not withheld — it is simply absent,
+    // and `appendAgeCount` deliberately draws a bare count for an untitled event. Trimming
+    // only the right-hand side would reclassify this as a deletion and suppress it.
+    expect(drawn(allDay({ ...BIRTHDAY, summary: '   ' }), {}).summary).toBe('(40)');
+  });
+
   it('still appends when the rewrite targets another field', () => {
     // The discriminator for the two suppression cases above: a rewrite of the *location*
     // says nothing about the title, so an implementation suppressing on any configured
