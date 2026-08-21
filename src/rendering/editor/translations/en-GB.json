@@ -33,6 +33,7 @@
   "accent_color_mode.helper": "Home Assistant can hold a colour for each calendar, under Settings, Devices & Services, Entities. Calendars it has no colour for keep the card default.",
   "accent_color_mode.option.custom.label": "Custom colour",
   "event_background_opacity.helper": "Tints each event with its accent colour. Zero leaves it untinted.",
+  "allday_badge.helper": "Draws the all-day label as a rounded badge tinted with the calendar accent colour, instead of plain text. Anything that follows it, such as an end date, stays as text.",
   "time_color": "Time Colour",
   "location_color": "Location Colour",
   "description_color": "Description Colour",

@@ -746,6 +746,41 @@ export const cardStyles = css`
     color: var(--calendar-card-color-description);
   }
 
+  /* The all-day badge, drawn instead of the plain "all day" words when allday_badge is on.
+   *
+   * It is a flex child of .time-actual, never of .time-text. Inside .time-text it would
+   * match the time_max_lines clamp selector above and be truncated like body text.
+   *
+   * font-size is em rather than a config key of its own, so the badge tracks time_font_size
+   * in whatever unit the user wrote it -- em, rem, calc() and theme vars all survive, where
+   * computing a percentage of it in JS would have thrown the unit away. letter-spacing is
+   * em for the same reason.
+   *
+   * No white-space or flex-shrink override: the defaults let a long label (French reads
+   * "toute la journee", eight times the length of the Chinese one) wrap inside the pill
+   * rather than overflow a narrow column track.
+   *
+   * The accent arrives as a custom property set inline on this element, because the
+   * calendar's color reaches the event row as an inline border value that no descendant can
+   * read. Blending it here rather than in the markup keeps the mix reachable from a theme.
+   *
+   * 70% rather than a lighter wash because event_background_opacity may already have tinted
+   * the row with this same accent: a 20% badge on top of an accent-tinted row is close to
+   * invisible, and the two options are independent, so the badge cannot assume an untinted
+   * background. Both are opt-in and the maintainer's call is that pairing a high background
+   * opacity with the badge is the user's to tune. */
+  .allday-badge {
+    font-size: 0.85em;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1.5;
+    padding-inline: 0.5em;
+    margin-inline-end: 4px;
+    border-radius: 999px;
+    background-color: color-mix(in srgb, var(--calendar-card-event-accent) 70%, transparent);
+  }
+
   /* Own-row event weather placement. The descendant selector keeps these
    * rules away from the list-view title-row badge. Resets remove the title
    * badge margins and weight; the wrapper creates a hanging indent so wrapped

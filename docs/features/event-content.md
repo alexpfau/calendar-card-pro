@@ -60,6 +60,7 @@ Configure how event times and locations are displayed:
 # Time display options
 show_time: true # Show event start/end times
 show_single_allday_time: false # Hide time for single-day all-day events
+allday_badge: false # Draw the all-day label as a badge instead of plain text
 time_24h: false # Use 12-hour format (AM/PM)
 time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time
@@ -74,6 +75,39 @@ location_font_size: '12px'
 location_color: 'var(--secondary-text-color)'
 location_icon_size: '14px'
 ```
+
+### The All-Day Badge
+
+By default an all-day event says so in words, on the same line as the clock icon. Turn
+`allday_badge` on and the label becomes a rounded badge instead, the way most calendar
+apps draw it:
+
+```yaml
+allday_badge: true
+```
+
+The badge is tinted with the accent color of the calendar the event came from, so events
+from different calendars stay distinguishable at a glance. Where a calendar sets its own
+`accent_color`, the badge follows it.
+
+Anything that follows the label stays as ordinary text. A multi-day all-day event reads as
+the badge and then its end date, so no information is lost.
+
+Which events get one follows a single rule: the event has to occupy the whole of the day it
+is drawn on. A timed meeting running from Wednesday evening to Monday morning does not, and
+keeps its usual times. But when
+[`split_multiday_events`](/features/multi-day-events) is on, that meeting's middle days
+_are_ whole days, and those rows get the badge while its first and last days keep their
+times.
+
+The badge sizes itself from `time_font_size` rather than from an option of its own, so
+enlarging the time enlarges the badge with it, whatever unit you write it in.
+
+::: tip Pair This With show_single_allday_time
+A single-day all-day event only has a badge if it has a time row to put it on. That row is
+shown by default, but setting `show_single_allday_time: false` hides it, and the badge goes
+with it. Multi-day all-day events are unaffected — their row is always shown.
+:::
 
 The `remove_location_country` option offers three modes:
 

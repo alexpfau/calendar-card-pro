@@ -36,6 +36,7 @@ function timeGroup(language: string, showTime: boolean): HaFormSchema {
     ? [
         bool('show_end_time'),
         bool('show_single_allday_time'),
+        bool('allday_badge'),
         bool('time_two_digit_hours'),
         row(text('time_font_size'), color('time_color')),
         row(text('time_icon_size'), number('time_max_lines', 0)),

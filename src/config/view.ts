@@ -49,6 +49,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'event_icon_vertical_alignment',
   'show_time',
   'show_single_allday_time',
+  'allday_badge',
   'time_two_digit_hours',
   'show_end_time',
   'time_font_size',

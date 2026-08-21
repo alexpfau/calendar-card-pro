@@ -114,7 +114,20 @@ export function buildEventPresentation(
   const progressPercentage =
     isRunning && config.show_progress_bar ? EventUtils.calculateEventProgress(event) : null;
 
-  const eventTime = FormatUtils.formatEventTime(event, config, language, hass);
+  const eventTimeParts = FormatUtils.formatEventTimeParts(event, config, language, hass);
+
+  // The badge draws the all-day label itself, so the time text keeps only what follows it —
+  // empty for a single-day all-day event, the end-date phrase for a multi-day one. A split
+  // middle segment of a timed event is all-day for the day it occupies, so it qualifies;
+  // an unsplit timed multi-day event carries no label and never does.
+  const allDayBadge =
+    config.allday_badge && eventTimeParts.allDayLabel !== undefined
+      ? { label: eventTimeParts.allDayLabel, lang: language, accent: entityAccentColor }
+      : undefined;
+
+  const eventTime = allDayBadge
+    ? eventTimeParts.text
+    : FormatUtils.joinEventTimeParts(eventTimeParts);
   const eventLocation = event.location || '';
   const eventDescription = event.description || '';
 
@@ -128,6 +141,7 @@ export function buildEventPresentation(
 
   const contentParts: EventContentParts = {
     eventTime,
+    allDayBadge,
     eventLocation,
     locationIcon,
     eventDescription,

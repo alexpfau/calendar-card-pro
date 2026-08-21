@@ -32,6 +32,28 @@ export function isMultiDayAllDayEvent(event: Types.CalendarEventData): boolean {
 }
 
 /**
+ * An event's time text, with the all-day label kept separate from the rest.
+ *
+ * Split because `allday_badge` draws the label as its own element. Both fields are raw:
+ * capitalization belongs to whoever renders them, since the badge uppercases in CSS while
+ * the joined string capitalizes only its first letter.
+ */
+export interface EventTimeParts {
+  /**
+   * The localized "all day" label, present only for an all-day event. A split middle
+   * segment of a timed multi-day event carries it too, because that segment really does
+   * occupy its whole day - see `splitMultiDayEvent` in `events.ts`.
+   */
+  allDayLabel?: string;
+
+  /**
+   * Everything the label does not cover. Empty for a single-day all-day event, which has
+   * nothing to say beyond the label itself.
+   */
+  text: string;
+}
+
+/**
  * Generates a human-readable time string for calendar events
  *
  * @param event Calendar event
@@ -46,6 +68,46 @@ export function formatEventTime(
   language: string,
   hass?: Types.Hass | null,
 ): string {
+  return joinEventTimeParts(formatEventTimeParts(event, config, language, hass));
+}
+
+/**
+ * Rejoin time parts into the single string the card shows when `allday_badge` is off.
+ *
+ * The comma and the capitalization live here rather than in `formatEventTimeParts`, so the
+ * badge path can take the same parts and present them differently without either path
+ * reimplementing the other.
+ *
+ * @param parts Parts as returned by `formatEventTimeParts`
+ * @returns The joined, capitalized time string
+ */
+export function joinEventTimeParts({ allDayLabel, text }: EventTimeParts): string {
+  if (allDayLabel === undefined) {
+    return capitalizeFirstLetter(text);
+  }
+
+  return capitalizeFirstLetter(text ? `${allDayLabel}, ${text}` : allDayLabel);
+}
+
+/**
+ * Generates an event's time text as parts, so the all-day label can be drawn on its own.
+ *
+ * `formatEventTime` is exactly the join of what this returns, which is what keeps the two
+ * from drifting: any change here that moves the joined string fails the existing
+ * `formatEventTime` tests rather than passing quietly.
+ *
+ * @param event Calendar event
+ * @param config Card configuration
+ * @param language Language code
+ * @param hass Home Assistant object for system time format detection
+ * @returns The all-day label where the event has one, and the remaining time text
+ */
+export function formatEventTimeParts(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): EventTimeParts {
   const isAllDayEvent = !event.start.dateTime;
 
   let startDate;
@@ -66,20 +128,21 @@ export function formatEventTime(
     adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
 
     if (startDate.toDateString() !== adjustedEndDate.toDateString()) {
-      return capitalizeFirstLetter(
-        formatMultiDayAllDayTime(adjustedEndDate, language, translations),
-      );
+      return {
+        allDayLabel: translations.allDay,
+        text: formatMultiDayAllDayEnd(adjustedEndDate, language, translations),
+      };
     }
 
-    return capitalizeFirstLetter(translations.allDay);
+    return { allDayLabel: translations.allDay, text: '' };
   }
 
   const useNativeFormatting = !!(config.time_24h === 'system' && hass?.locale);
   const use24h = config.time_24h === true;
 
   if (startDate.toDateString() !== endDate.toDateString()) {
-    return capitalizeFirstLetter(
-      formatMultiDayTime(
+    return {
+      text: formatMultiDayTime(
         startDate,
         endDate,
         language,
@@ -89,11 +152,11 @@ export function formatEventTime(
         config.time_two_digit_hours,
         hass,
       ),
-    );
+    };
   }
 
-  return capitalizeFirstLetter(
-    formatSingleDayTime(
+  return {
+    text: formatSingleDayTime(
       startDate,
       endDate,
       config.show_end_time,
@@ -102,7 +165,7 @@ export function formatEventTime(
       config.time_two_digit_hours,
       hass,
     ),
-  );
+  };
 }
 
 /**
@@ -742,7 +805,18 @@ function formatMultiDayTime(
   }
 }
 
-function formatMultiDayAllDayTime(
+/**
+ * The part of a multi-day all-day event's time text that follows the all-day label.
+ *
+ * Returns the remainder alone rather than the joined phrase, so `allday_badge` can draw
+ * the label as a pill and this text after it. `formatEventTime` puts the comma back.
+ *
+ * @param endDate Inclusive end date of the event
+ * @param language Language code, which selects the date order
+ * @param translations Resolved translations for that language
+ * @returns The end-date phrase, with no leading label and no separator
+ */
+function formatMultiDayAllDayEnd(
   endDate: Date,
   language: string,
   translations: Types.Translations,
@@ -753,11 +827,11 @@ function formatMultiDayAllDayTime(
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   if (endDate.toDateString() === today.toDateString()) {
-    return `${translations.allDay}, ${translations.endsToday}`;
+    return translations.endsToday;
   }
 
   if (endDate.toDateString() === tomorrow.toDateString()) {
-    return `${translations.allDay}, ${translations.endsTomorrow}`;
+    return translations.endsTomorrow;
   }
 
   const endDay = endDate.getDate();
@@ -767,11 +841,11 @@ function formatMultiDayAllDayTime(
 
   switch (formatStyle) {
     case 'day-dot-month':
-      return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endDay}. ${endMonthName}`;
+      return `${translations.multiDay} ${endWeekday}, ${endDay}. ${endMonthName}`;
     case 'month-day':
-      return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endMonthName} ${endDay}`;
+      return `${translations.multiDay} ${endWeekday}, ${endMonthName} ${endDay}`;
     case 'day-month':
     default:
-      return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endDay} ${endMonthName}`;
+      return `${translations.multiDay} ${endWeekday}, ${endDay} ${endMonthName}`;
   }
 }

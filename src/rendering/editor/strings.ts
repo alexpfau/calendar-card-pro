@@ -484,6 +484,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
+  allday_badge: 'Show All-Day As A Badge',
+  'allday_badge.helper':
+    'Draws the all-day label as a rounded badge tinted with the calendar accent color, ' +
+    'instead of plain text. Anything that follows it, such as an end date, stays as text.',
   time_two_digit_hours: 'Pad Hours To Two Digits',
   time_font_size: 'Time Font Size',
   time_color: 'Time Color',

@@ -371,6 +371,21 @@ export function renderEventWeather(
 export interface EventContentParts {
   eventTime: string;
 
+  /**
+   * The all-day label to draw as its own badge, present only when `allday_badge` is on and
+   * the event is all-day. When set, `eventTime` holds only what follows the label, which is
+   * empty for a single-day all-day event.
+   *
+   * Carries its own `lang` because the badge uppercases in CSS, and only a declared language
+   * gets that right — Greek must lose its tonos in capitals.
+   *
+   * Carries its own `accent` because this calendar's color reaches the row as an inline
+   * border value, which no descendant can read. The badge republishes it as a custom
+   * property on itself and the stylesheet blends it, so the blend stays themeable and no
+   * event that has no badge pays for the property.
+   */
+  allDayBadge?: { label: string; lang: string; accent: string };
+
   eventLocation: string;
 
   /**
@@ -452,6 +467,7 @@ export function renderEventContent(
   } = options;
   const {
     eventTime,
+    allDayBadge,
     eventLocation,
     locationIcon,
     eventDescription,
@@ -484,11 +500,26 @@ export function renderEventContent(
 
   const trailingCountdown = foldCountdown ? null : countdownStr;
 
+  // A single-day all-day event has nothing left to say once the badge has the label, so
+  // there is no empty span to lay out beside it.
+  const timeValue = eventTime ? html`<span>${eventTime}</span>` : nothing;
+
+  // The badge is a direct child of `.time-actual`, never of `.time-text`: inside the latter
+  // it would match the `time_max_lines` clamp selector and be truncated like body text.
+  const allDayBadgeEl = allDayBadge
+    ? html`<span
+        class="allday-badge"
+        lang=${allDayBadge.lang}
+        style="--calendar-card-event-accent: ${allDayBadge.accent};"
+        >${allDayBadge.label}</span
+      >`
+    : nothing;
+
   // Keep folded time/countdown spans adjacent; whitespace would render before the separator.
   // prettier-ignore
   const timeText = foldCountdown
-    ? html`<span class="time-text"><span>${eventTime}</span><span class="time-countdown">${countdownStr}</span></span>`
-    : html`<span>${eventTime}</span>`;
+    ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownStr}</span></span>`
+    : timeValue;
 
   return html`
     <div class="event-content">
@@ -500,7 +531,7 @@ export function renderEventContent(
               <div class="time">
                 <div class="time-actual">
                   <ha-icon icon="mdi:clock-outline"></ha-icon>
-                  ${timeText}
+                  ${allDayBadgeEl} ${timeText}
                 </div>
                 ${trailingCountdown
                   ? html`<div class="time-countdown">${trailingCountdown}</div>`
