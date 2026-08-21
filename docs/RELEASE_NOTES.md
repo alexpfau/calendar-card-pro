@@ -38,7 +38,7 @@ entities:
 
 `Birthday of Lena Weber — All day` becomes **🎂 Lena Weber (32)**, and says 33 next year without anyone editing anything. Bin day retires itself at eleven. The children see that a parent is busy at nine, not that the meeting is a performance review. The first three blocks are the **same calendar**, three times.
 
-Four of the features below are in those thirty lines, and not one of them is announced — you write what you want the row to say, and the card gets out of the way. The walkthrough is [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes); everything from here on is the parts list.
+Four of the features below are in those twenty-five lines, and not one of them is announced — you write what you want the row to say, and the card gets out of the way. The walkthrough is [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes); everything from here on is the parts list.
 
 ## 🎉 New Features
 
@@ -76,11 +76,11 @@ Because a birthday is stored as an event that repeats every year, each occurrenc
 
 ### 💬 A Teams Icon on Your Teams Meetings
 
-**Your online meetings now show the Teams logo instead of a map pin, and there is nothing to set up.** The card recognises the location text Teams writes into an event — including its translations, so `Microsoft Teams-Besprechung` and `Réunion Microsoft Teams` are recognised alongside the English wording — as well as a `teams.microsoft.com` join link stored there in place of a phrase. Meetings that are actually somewhere keep the map pin.
+**Your online meetings now show the Teams logo instead of a map pin, and there is nothing to set up.** The card recognizes the location text Teams writes into an event — including its translations, so `Microsoft Teams-Besprechung` and `Réunion Microsoft Teams` are recognized alongside the English wording — as well as a `teams.microsoft.com` join link stored there in place of a phrase. Meetings that are actually somewhere keep the map pin.
 
 **This changes how your card looks the moment you upgrade**, if you have Teams meetings on it. To go back to the map pin on a calendar, give it `location_icon: mdi:map-marker-outline`.
 
-Teams is the only service recognised this way, and the reason is worth stating plainly because the obvious next question is "why not Zoom": Material Design Icons, the set Home Assistant ships, has a brand icon for Teams and none for Zoom, Google Meet or Webex. There is simply no logo to show for the others. The new per-calendar `location_icon` covers every other case — including anyone who has installed an icon pack of their own — by naming the icon one calendar's locations should carry. (#205)
+Teams is the only service recognized this way, and the reason is worth stating plainly because the obvious next question is "why not Zoom": Material Design Icons, the set Home Assistant ships, has a brand icon for Teams and none for Zoom, Google Meet or Webex. There is simply no logo to show for the others. The new per-calendar `location_icon` covers every other case — including anyone who has installed an icon pack of their own — by naming the icon one calendar's locations should carry. (#205)
 
 ### 🔍 Filter on the Location or the Description
 

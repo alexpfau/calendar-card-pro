@@ -105,7 +105,7 @@ This would keep location details like "Paris, France" intact while simplifying d
 ### The Location Icon
 
 Locations carry a map marker by default, and Microsoft Teams meetings carry the Teams
-icon instead. That happens on its own, with nothing to configure: the card recognises the
+icon instead. That happens on its own, with nothing to configure: the card recognizes the
 text Teams writes into an event's location — including its translations, such as
 `Microsoft Teams-Besprechung` or `Réunion Microsoft Teams` — as well as a
 `teams.microsoft.com` join link stored there in place of a phrase.
@@ -134,6 +134,11 @@ Name the marker explicitly — `location_icon: mdi:map-marker-outline` — and t
 goes back to the plain marker on every event. `location_icon_size` above sizes whichever
 icon ends up being drawn.
 :::
+
+The detection reads the location the card is about to draw, not the one your calendar sent,
+so [rewriting a location](/features/core-settings#replacing-a-location-that-is-a-meeting-url)
+can take the Teams icon away or hand it to an event that never had it. `location_icon`
+settles it on any calendar where that matters.
 
 ## 📝 Event Description Display
 
@@ -210,7 +215,7 @@ The marker is instruction to the card, not something to read, so it never appear
 Filtering is the deliberate exception. [`blocklist` and `allowlist`](/features/core-settings) read the event exactly as your calendar delivered it, so a `filter_field: description` pattern still sees the raw `YEAR=1976`. That is what makes it possible to filter a birthday calendar on its markers.
 
 ::: info Always On, and How to Turn It Off
-There is no option for this. A four-digit year written this precisely is not something a calendar produces by accident, so an option would be one more setting for everybody in exchange for a case that does not really happen — and the way back is simply to write the year differently: `Born in 1976`, or `YEAR - 1976`, are both invisible to the card.
+There is no option for this. A four-digit year written this precisely is not something a calendar produces by accident, so an option would be one more thing to configure for everybody in exchange for a case that does not really happen — and the way back is simply to write the year differently: `Born in 1976`, or `YEAR - 1976`, are both invisible to the card.
 
 One thing worth knowing on a narrow card: the number sits at the end of the title, so it is the first thing to be cut when `title_max_lines` truncates a long one.
 :::
@@ -318,4 +323,4 @@ column:
 
 The progress bar is especially useful for tracking ongoing meetings, webinars, or appointments, giving you a quick visual reference of how much time remains.
 
-Every option on this page lives under the card's event column settings — see [Event Column in the configuration reference](/reference/configuration#event-column).
+Most options on this page live under the card's event column settings — see [Event Column in the configuration reference](/reference/configuration#event-column). Two groups sit elsewhere: the empty-day options are card-wide and belong to [Core Settings](/reference/configuration#core-settings), and `location_icon` is per calendar, listed under [Per-Entity Options](/reference/configuration#per-entity-options).

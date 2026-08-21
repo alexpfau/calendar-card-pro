@@ -3,7 +3,7 @@
 Calendar Card Pro can display multi-day events on each day they cover, making it easier to see all ongoing events and potential conflicts:
 
 ```yaml
-# Global setting for all calendars
+# Global option for all calendars
 split_multiday_events: true
 
 # Entity-specific settings
@@ -30,9 +30,9 @@ This feature is especially useful for:
 
 Because each row stands for a day rather than for the event as a whole, a [countdown](/features/event-content#countdown-display) on a split row counts whole calendar days to that row's own date. A holiday starting Monday reads as "in 4 days" on its first row, "in 5 days" on the second, and so on, whether or not the original event had a start time.
 
-The setting can be applied globally to all calendars or controlled separately for each calendar entity.
+The option can be applied globally to all calendars or controlled separately for each calendar entity.
 
-This is the `split_multiday_events` option — see [Event Column in the configuration reference](/reference/configuration#event-column).
+This is the `split_multiday_events` option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
 ::: tip Column View Splits by Default
 In the [column layout](/features/column-view) this option starts from `true` rather than
