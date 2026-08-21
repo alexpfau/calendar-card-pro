@@ -4,6 +4,7 @@
 
 import { mdiCalendarText } from '@mdi/js';
 
+import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
@@ -172,14 +173,23 @@ const eventsSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
+  // 🚨 Each of these five gates a group of styling fields, and every one of them is a
+  // `COLUMN_OVERRIDE_KEYS` member — so reading `ctx.config` directly answers for the card
+  // rather than for the view it is configured to render. A card with
+  // `column: { show_location: true }` over a card-level `false` drew its locations and
+  // offered no control for styling them, which is the direction that costs the user
+  // something they can see on screen. `schemas/content.ts` already resolves per view for
+  // `show_empty_days`; this is the same read.
+  //
+  // The resolved values are the memo keys, not the raw ones, so switching view rebuilds.
   return eventsSchema(
     ctx.language,
-    ctx.config.show_time,
-    ctx.config.show_location,
-    ctx.config.show_description,
+    ViewConfig.resolveViewOption(ctx.config, 'show_time', ctx.view),
+    ViewConfig.resolveViewOption(ctx.config, 'show_location', ctx.view),
+    ViewConfig.resolveViewOption(ctx.config, 'show_description', ctx.view),
     Synthetic.locationCountryMode(ctx.config),
-    ctx.config.show_countdown,
-    ctx.config.show_progress_bar,
+    ViewConfig.resolveViewOption(ctx.config, 'show_countdown', ctx.view),
+    ViewConfig.resolveViewOption(ctx.config, 'show_progress_bar', ctx.view),
     Synthetic.accentColorMode(ctx.config),
   );
 }
