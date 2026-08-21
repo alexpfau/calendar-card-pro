@@ -4,6 +4,8 @@ title: Release Notes
 
 # Calendar Card Pro v4.1.0
 
+**Per-calendar filtering and styling, and an editor that can list one calendar twice so each copy answers differently.** A calendar used to be one thing: you added it, and it contributed all of its events, styled one way. This release takes that apart. Filter a calendar on its location or its description, keep only its all-day events or only its timed ones, retire all-day events partway through the day, show a calendar on weekdays alone — each of those is set per calendar, so listing the same calendar twice gives you two blocks that filter and style themselves independently. The editor's new **Duplicate** button builds the second block for you. The card also takes the color and icon Home Assistant already holds for a calendar, so anything you have themed once is themed here too.
+
 ## 🎉 New Features
 
 ### 🎨 Follow the Colors and Icons Home Assistant Holds
