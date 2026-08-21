@@ -26,6 +26,7 @@ import {
   copySettings,
   fromEntityFormData,
   pasteSettings,
+  showsLocation,
   toEntityFormData,
   writeEntity,
 } from '../src/rendering/editor/entities';
@@ -3022,6 +3023,100 @@ describe('editor: per-calendar settings', () => {
       );
       expect(names, type).not.toContain('label_icon_color');
     }
+  });
+
+  /**
+   * The icon replaces the marker on the location row. With no location row there is no
+   * marker, so the picker decorates nothing and the editor is claiming to control something
+   * it does not — the same reason `accent_color` goes when the mode is not `custom`, and
+   * what the card-level panel already does with every location styling option.
+   *
+   * Both states, both directions, because the tri-state is the part that is easy to get
+   * wrong: an explicit `hide` on the calendar, and an absent value deferring to a card that
+   * has locations off.
+   */
+  it('shows the location icon only where there is a location row to put it on', () => {
+    const declared = entitySchema().schema;
+
+    const names = (entry: string | Types.EntityConfig, config: Types.Config): string[] =>
+      [
+        ...walkSchema(
+          entitySchemaFor(
+            declared,
+            'none',
+            'inherit',
+            'custom',
+            showsLocation(entry, config, config.view === 'column' ? 'column' : 'list'),
+          ),
+        ),
+      ].map((node) => node.node.name);
+
+    const shown = buildConfig({ show_location: true });
+    const hidden = buildConfig({ show_location: false });
+
+    // The calendar decides for itself.
+    expect(names({ entity: 'calendar.a', show_location: true }, hidden)).toContain('location_icon');
+    expect(names({ entity: 'calendar.a', show_location: false }, shown)).not.toContain(
+      'location_icon',
+    );
+
+    // Or defers, and the card's answer is the one that counts.
+    expect(names('calendar.a', shown)).toContain('location_icon');
+    expect(names('calendar.a', hidden)).not.toContain('location_icon');
+  });
+
+  /**
+   * `show_location` is a `COLUMN_OVERRIDE_KEYS` member, so "what the card does" is a
+   * different answer per view. Reading the top-level value would offer the picker on a
+   * column card that draws no locations, and hide it on a list card that does.
+   */
+  it('resolves the card-level answer for the view being edited', () => {
+    const config = buildConfig({
+      view: 'column',
+      show_location: true,
+      column: { show_location: false },
+    } as unknown as Partial<Types.Config>);
+
+    expect(showsLocation('calendar.a', config, 'column')).toBe(false);
+    expect(showsLocation('calendar.a', config, 'list')).toBe(true);
+  });
+
+  /**
+   * The risk the gate above introduces, and the reason it is acceptable.
+   *
+   * Hiding a control that still has a stored value is only safe because the form is fed
+   * `toEntityFormData(entry)` — the whole stored calendar, not the narrowed schema — and
+   * `ha-form` hands that whole object back on every keystroke. So the icon rides through an
+   * edit to any other field on the panel and is waiting when locations come back on.
+   *
+   * Were that not true, the gate would silently delete a setting the moment the user
+   * touched anything else, which is a worse bug than the inert control it removes.
+   */
+  it('keeps a hidden location icon through an edit to another field', () => {
+    const entry: Types.EntityConfig = {
+      entity: 'calendar.a',
+      show_location: false,
+      location_icon: 'mdi:microsoft-teams',
+    };
+
+    // The premise: with locations off, the picker is not on screen.
+    const config = buildConfig({ show_location: true });
+    const narrowed = entitySchemaFor(
+      entitySchema().schema,
+      'none',
+      'inherit',
+      'custom',
+      showsLocation(entry, config, 'list'),
+    );
+    expect([...walkSchema(narrowed)].map((node) => node.node.name)).not.toContain('location_icon');
+
+    // The consequence: editing something else does not take the icon with it.
+    const data = { ...toEntityFormData(entry), blocklist: 'Private' };
+    const written = fromEntityFormData('calendar.a', data, entry) as Types.EntityConfig;
+
+    expect(written.location_icon).toBe('mdi:microsoft-teams');
+    expect(written.show_location).toBe(false);
+    expect(written.blocklist).toBe('Private');
   });
 
   /**

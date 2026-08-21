@@ -16,6 +16,7 @@ import {
 import { entityIdOf, isSet } from './synthetic';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
+import * as ViewConfig from '../../config/view';
 import { ENTITY_COLOR_SENTINEL, isEntityColorSentinel } from '../../utils/entity-colors';
 import { ENTITY_ICON_SENTINEL, entityIcon, isEntityIconSentinel } from '../../utils/entity-icons';
 import * as Helpers from '../../utils/helpers';
@@ -182,6 +183,34 @@ export function asEntityConfig(entry: string | Types.EntityConfig): Types.Entity
   if (entry === null || typeof entry !== 'object') return { entity: '' };
 
   return entry;
+}
+
+/**
+ * Whether one calendar draws a location row at all.
+ *
+ * The per-calendar switch is tri-state, so an absent value means "follow the card" and the
+ * card's own answer is the one that decides. `show_location` is a `COLUMN_OVERRIDE_KEYS`
+ * member, so that answer is per view — reading `config.show_location` directly would give
+ * the wrong one for a card whose column block turns locations off.
+ *
+ * This exists so `location_icon` can be hidden where it cannot do anything: the icon
+ * replaces the marker on a row that is not being drawn, so offering it there is the editor
+ * claiming to control something it does not.
+ *
+ * @param entry - Entry as stored
+ * @param config - Merged configuration
+ * @param view - View the card is configured to render
+ * @returns `true` when this calendar's events can show a location
+ */
+export function showsLocation(
+  entry: string | Types.EntityConfig,
+  config: Readonly<Types.Config>,
+  view: Types.EffectiveView,
+): boolean {
+  const own = asEntityConfig(entry).show_location;
+  if (typeof own === 'boolean') return own;
+
+  return Boolean(ViewConfig.resolveViewOption(config as Types.Config, 'show_location', view));
 }
 
 /**
