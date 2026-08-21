@@ -1593,20 +1593,47 @@ function checkLanguageCounts() {
   return checked;
 }
 
+/**
+ * Print what was inspected, then the errors and warnings.
+ *
+ * 🚨 **Every clause on the summary line is a count of what was *inspected*, never a
+ * verdict on how it came out.** The line is printed before the error list is evaluated,
+ * so a clause phrased as an outcome states that outcome on a failing run too, directly
+ * above the errors contradicting it — and the summary is what a reader reads first.
+ *
+ * #547 found this in the release-surface clause and fixed it there, reasoning that the
+ * others were safe because "a link that did not resolve is not among the resolved ones".
+ * That was not true of this file: the counters increment *before* their error branches,
+ * so a broken link is counted like any other. Planting one moved "internal links
+ * resolved" from 203 to 204 while the planted link was the thing failing. The same held
+ * for the absolute-link, citation, language, enum and example clauses.
+ *
+ * Reword rather than recount. `checked` also feeds the staleness guards — `if (!checked)`
+ * and `if (checked < 20)` both exit 2 meaning "the pattern has gone stale" — so counting
+ * only successes would make a run with many genuinely broken links report a stale pattern
+ * and send the reader to edit the regex.
+ *
+ * Clauses that increment only on success (`reachable`, `themed`) and ones that report the
+ * size of something parsed (`defaults`, `rows`, `fields`, `docs`, `releases`) are already
+ * true as written and are left alone.
+ *
+ * @param counts - What each check inspected
+ * @returns Process exit code
+ */
 function report(counts) {
   console.log(
     `${counts.defaults} defaults in code, ${counts.rows} rows in the reference, ` +
-      `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} complete examples, ` +
-      `${counts.releases} release lines documented, ${counts.links} internal links resolved, ` +
-      `${counts.siteLinks} absolute site links resolved, ` +
-      `${counts.gates} CI gates documented, ` +
-      `${counts.enums} enumerated options fully listed, ` +
+      `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} card examples checked, ` +
+      `${counts.releases} release lines documented, ${counts.links} internal links checked, ` +
+      `${counts.siteLinks} absolute site links checked, ` +
+      `${counts.gates} CI gates checked, ` +
+      `${counts.enums} enumerated options checked, ` +
       `${counts.sentinels} sentinel rows checked, ` +
-      `${counts.removed} removed options migrated, ` +
+      `${counts.removed} removed options checked, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
-      `${counts.citations} line citations resolved, ` +
-      `${counts.languages} language counts reconciled, ` +
+      `${counts.citations} line citations checked, ` +
+      `${counts.languages} language counts checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
       `release surfaces checked against v${counts.version}.\n`,
   );
@@ -1928,37 +1955,40 @@ function checkEnumValues(enums) {
  * in code fails this check instead of silently outdating the docs. Only the pairing of
  * option to module is written down.
  *
- * `doc` names where the option's row lives, because a per-calendar-only option has none in
- * the reference: `configuration.md` lists those as prose and links to the table in
- * `core-settings.md`. Pointing this check at the reference regardless would have failed on
- * `label` for a row that is not supposed to exist, and duplicating the per-entity table to
- * satisfy it would trade one undocumented sentinel for two tables that can disagree.
+ * Which page carries the row is deliberately *not* written down, because writing it down
+ * is what left half the corpus unchecked. `label` is per-calendar only and has no row in
+ * the reference, so an earlier version named one page per option to avoid demanding a row
+ * that is not supposed to exist — and thereby stopped looking at `core-settings.md` for
+ * `accent_color`, which has a row in *both* pages. Blanking the sentinel from the
+ * per-entity row passed the gate while the identical omission in the reference failed it.
+ *
+ * So both pages are searched and every row found in either must name the sentinel, with
+ * one row somewhere required rather than one row per page. That is how check 21 already
+ * reads its two sources, and it satisfies the original concern without the blind spot:
+ * `label`'s absence from the reference is simply no row there, not a failure.
  */
 const SENTINEL_OPTIONS = [
   {
     fields: ['accent_color'],
     file: 'src/utils/entity-colors.ts',
     constant: 'ENTITY_COLOR_SENTINEL',
-    doc: REFERENCE_DOC,
   },
   {
     fields: ['label'],
     file: 'src/utils/entity-icons.ts',
     constant: 'ENTITY_ICON_SENTINEL',
-    doc: ENTITY_OPTIONS_DOC,
   },
 ];
 
 /**
  * Read each declared sentinel's value out of the module that owns it.
  *
- * @returns {Map<string, {values: string[], doc: string}>} option name -> its reserved words
- *   and the page documenting it
+ * @returns {Map<string, string[]>} option name -> its reserved words
  */
 function readSentinelOptions() {
   const out = new Map();
 
-  for (const { fields, file, constant, doc } of SENTINEL_OPTIONS) {
+  for (const { fields, file, constant } of SENTINEL_OPTIONS) {
     const src = readFileSync(join(ROOT, file), 'utf8');
     const match = src.match(new RegExp(`export const ${constant}\\s*=\\s*'([^']+)'`));
 
@@ -1968,8 +1998,7 @@ function readSentinelOptions() {
     }
 
     for (const field of fields) {
-      const existing = out.get(field);
-      out.set(field, { values: [...(existing?.values ?? []), match[1]], doc });
+      out.set(field, [...(out.get(field) ?? []), match[1]]);
     }
   }
 
@@ -1978,40 +2007,43 @@ function readSentinelOptions() {
 }
 
 /**
- * Every reference row for an option with a sentinel has to name that sentinel.
+ * Every row for an option with a sentinel has to name that sentinel, on either page.
  *
  * Rows are matched the same way check 21 matches them, so a per-entity row written
  * `` `entity → accent_color` `` is covered as well as the card-wide one.
  *
- * @param {Map<string, {values: string[], doc: string}>} sentinels option name -> reserved
- *   words and the page documenting them
+ * @param {Map<string, string[]>} sentinels option name -> reserved words
  * @returns {number} rows checked
  */
 function checkSentinelValues(sentinels) {
+  const sources = [REFERENCE_DOC, ENTITY_OPTIONS_DOC].map((file) => ({
+    file,
+    lines: readFileSync(file, 'utf8').split('\n'),
+  }));
   let checked = 0;
 
-  for (const [field, { values, doc }] of sentinels) {
-    const lines = readFileSync(doc, 'utf8').split('\n');
-
-    const rows = lines.filter((line) =>
-      new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line),
+  for (const [field, values] of sentinels) {
+    const rows = sources.flatMap(({ file, lines }) =>
+      lines
+        .filter((line) => new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line))
+        .map((row) => ({ file, row })),
     );
 
     if (!rows.length) {
       error(
-        `${relative(ROOT, doc)}: no row documents \`${field}\`, which accepts ` +
+        `No row on either page documents \`${field}\`, which accepts ` +
           `${values.map((v) => `\`${v}\``).join(', ')}.`,
       );
       continue;
     }
 
-    for (const row of rows) {
+    for (const { file, row } of rows) {
       checked++;
-      const named = values.filter((value) => row.includes(value));
-      if (named.length !== values.length) {
+      const missing = values.filter((value) => !row.includes(`\`${value}\``));
+      if (missing.length) {
         error(
-          `${relative(ROOT, doc)}: the \`${field}\` row never mentions ` +
-            `${values.map((v) => `\`${v}\``).join(', ')}, so a reader cannot discover that ` +
+          `${relative(ROOT, file)}: the \`${field}\` row never mentions ` +
+            `${missing.map((v) => `\`${v}\``).join(', ')}, so a reader cannot discover that ` +
             `the option accepts it. It is a reserved word, not a value the type system can ` +
             `advertise — nothing else will catch this.`,
         );
@@ -2501,7 +2533,20 @@ function checkAbsoluteSiteLinks(docs) {
   assertFound(surfaces, 'surfaces that can carry absolute site links', ROOT);
 
   const SITE = 'https://calendar-card-pro.alexpfau.com';
-  const pattern = new RegExp(`${SITE.replace(/\./g, '\\.')}([^)\\s"'\\]]*)`, 'g');
+
+  // The excluded set is every delimiter a link can be wrapped in, not just the markdown
+  // ones. `>` and a backtick were missing, so the two commonest non-markdown forms — an
+  // autolink `<https://…/features/weather>` and a code span — captured their own closing
+  // delimiter, and a *correct* link was reported as `/features/weather>`, "no page
+  // publishes at". That is the expensive direction: valid prose failing CI. It was latent
+  // only because nobody had written either form into a scanned file, while AGENTS.md uses
+  // the autolink form twice.
+  //
+  // Excluding them cannot hide a real broken link: RFC 3986 forbids `<`, `>` and a
+  // backtick unencoded in a URI, so no genuine target can contain one. Widening the class
+  // to what a URL can actually hold is what makes this safe by construction, rather than
+  // patching the two forms that happened to be reported.
+  const pattern = new RegExp(`${SITE.replace(/\./g, '\\.')}([^)\\s"'\\]<>\`]*)`, 'g');
   let checked = 0;
 
   for (const file of surfaces) {

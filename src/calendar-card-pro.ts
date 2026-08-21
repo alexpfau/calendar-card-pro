@@ -707,8 +707,21 @@ class CalendarCardPro extends LitElement {
    * incidental rather than designed and does not happen when that method returns early.
    * Every other subscription in this file is acquired in `connectedCallback`; this one now
    * matches its neighbours.
+   *
+   * 🚨 The `isConnected` guard is what stops the `updated()` call site undoing
+   * `disconnectedCallback`. Lit does not cancel an update scheduled before the element
+   * left the document, so `updated()` runs for a card that is already detached — and
+   * re-acquiring there puts a detached card back into the listener set and re-opens the
+   * websocket subscription that `disconnectedCallback` had just closed. Nothing releases
+   * it a second time, because that card's `disconnectedCallback` has already run. This is
+   * the same leak the teardown exists to prevent, reached from the other side, and the
+   * shape is invisible to a test that removes a card with no update in flight.
    */
   private _syncEntityColors(): void {
+    if (!this.isConnected) {
+      return;
+    }
+
     if (EntityColors.usesEntityColor(this.config)) {
       EntityColors.ensureEntityColors(this.hass, this._onEntityColorsChanged);
     } else {
