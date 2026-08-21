@@ -1590,7 +1590,7 @@ function report(counts) {
       `${counts.citations} line citations resolved, ` +
       `${counts.languages} language counts reconciled, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
-      `release surfaces agree on v${counts.version}.\n`,
+      `release surfaces checked against v${counts.version}.\n`,
   );
 
   if (errors.length) {
