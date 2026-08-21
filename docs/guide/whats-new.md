@@ -14,6 +14,8 @@ public release in January 2025 to today.
 - 🗑️ **All-Day Events That Clear During the Day**: [`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) moves the moment one calendar's all-day events count as past earlier into the final day, so a bin emptied this morning stops sitting on the card until midnight
 - 🐛 **Finished All-Day Events Stayed on the Card**: with past events hidden, an all-day event that had already ended kept its row on any card whose window reached backwards, while timed events beside it were correctly gone
 - 📅 **A Calendar on Weekdays Only**: [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only) takes `weekdays` or `weekends` for a single calendar, judged on the day each row lands on, while every other calendar keeps its weekend
+- 💬 **Teams Meetings Get the Teams Icon**: online meetings show [the Teams logo in place of the map pin](/features/event-content#the-location-icon) automatically, in any language Teams writes them in, and the new per-calendar `location_icon` names a different icon for any calendar — including back to the plain marker
+- 🔍 **Filter on the Location or Description**: [`filter_field`](/features/core-settings#matching-the-location-or-description-instead) points `blocklist` and `allowlist` at an event's location or description instead of its title, so a Zoom URL in a location field can finally be filtered on
 
 ## v4.0
 

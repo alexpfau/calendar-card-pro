@@ -1141,6 +1141,35 @@ function filterEventsByType(
   return events.filter((event) => !event.start.dateTime === wantAllDay);
 }
 
+/**
+ * The text one calendar's `blocklist` and `allowlist` are matched against.
+ *
+ * 🚨 Reads the event as the calendar delivered it, not as the card will draw it. The
+ * display copies are made later, in `groupEventsByDay`, where `formatLocation` strips a
+ * trailing country name and `stripHtmlTags` flattens the description — and where
+ * `show_location: false` blanks the location outright. Filtering the drawn text would let
+ * a *display* switch decide which events exist: turning descriptions off would empty the
+ * subject of every `description` filter, and an allowlist would silently match nothing.
+ *
+ * Absent and empty behave alike, and identically to how the title filter has always
+ * treated an event with no summary: an allowlist drops it, a blocklist keeps it. That is
+ * what makes the two-block pattern an exact partition on any field — every event lands in
+ * precisely one of the two blocks, whether or not it carries the field at all.
+ *
+ * @param event - Event being judged
+ * @param field - Field this calendar filters on; unset means the title
+ * @returns The text to match, or undefined when the event carries no such field
+ */
+function filterSubject(
+  event: Types.CalendarEventData,
+  field: Types.FilterField | undefined,
+): string | undefined {
+  if (field === 'location') return event.location;
+  if (field === 'description') return event.description;
+
+  return event.summary;
+}
+
 function filterEventsForEntity(
   events: Types.CalendarEventData[],
   entityConfig: string | Types.EntityConfig,
@@ -1153,25 +1182,29 @@ function filterEventsForEntity(
     return filterEventsByType(events, resolveEventType(undefined, config));
   }
 
-  // Before the title filters, and unconditionally — a calendar that carries no settings
+  // Before the pattern filters, and unconditionally — a calendar that carries no settings
   // of its own still has to follow the card-level value.
   let matchedEvents = filterEventsByType(events, resolveEventType(entityConfig, config));
+
+  const field = entityConfig.filter_field;
 
   if (entityConfig.allowlist) {
     try {
       const allowPattern = new RegExp(entityConfig.allowlist, 'i');
-      matchedEvents = matchedEvents.filter(
-        (event) => event.summary && allowPattern.test(event.summary),
-      );
+      matchedEvents = matchedEvents.filter((event) => {
+        const subject = filterSubject(event, field);
+        return Boolean(subject && allowPattern.test(subject));
+      });
     } catch (error) {
       Logger.warn(`Invalid allowlist pattern: ${entityConfig.allowlist}`, error);
     }
   } else if (entityConfig.blocklist) {
     try {
       const blockPattern = new RegExp(entityConfig.blocklist, 'i');
-      matchedEvents = matchedEvents.filter(
-        (event) => !(event.summary && blockPattern.test(event.summary)),
-      );
+      matchedEvents = matchedEvents.filter((event) => {
+        const subject = filterSubject(event, field);
+        return !(subject && blockPattern.test(subject));
+      });
     } catch (error) {
       Logger.warn(`Invalid blocklist pattern: ${entityConfig.blocklist}`, error);
     }

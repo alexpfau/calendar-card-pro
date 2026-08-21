@@ -562,6 +562,7 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
       'accent_color_mode',
       'days_of_week',
       'event_type',
+      'filter_field',
       'label_type',
       'show_description',
       'show_location',
