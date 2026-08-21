@@ -23,7 +23,9 @@ import {
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
+import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { CHASSIS_STRINGS, chassisSubforms } from '../src/rendering/editor/subforms';
+import { ENTITY_COLOR_SENTINEL } from '../src/utils/entity-colors';
 
 /**
  * Tests for the editor's search and "customized only" filter.
@@ -445,6 +447,86 @@ describe('editor filter: the per-calendar settings', () => {
       ctx,
     );
     expect(fieldNames(untouched)).toEqual([]);
+  });
+
+  /**
+   * The accent mode is the same contract as `label_icon_source` one field over, and it was
+   * missed. Both halves matter and they fail differently.
+   *
+   * Following Home Assistant, `entitySchemaFor` drops `accent_color` — so the mode dropdown
+   * is the *only* accent control left, and hiding it left the calendar with nothing at all.
+   * `hasFields` then answered false and the chassis dropped the whole panel: a calendar the
+   * user had configured disappeared from the filter that promises to show exactly that.
+   *
+   * With a custom colour the panel survives, but the colour field arrives with no control
+   * saying where it comes from and no way back to following the card.
+   */
+  it('keeps the accent mode dropdown wherever the calendar has set an accent color', () => {
+    const following = buildConfig({
+      entities: [{ entity: 'calendar.a', accent_color: ENTITY_COLOR_SENTINEL }],
+    });
+    const custom = buildConfig({ entities: [{ entity: 'calendar.a', accent_color: '#ff0000' }] });
+    const untouched = buildConfig({ entities: ['calendar.a'] });
+
+    const kept = (config: Types.Config, mode: string): string[] =>
+      fieldNames(
+        filterEntitySchema(
+          entitySchemaFor(entitySchema(config), 'none', mode),
+          config.entities[0],
+          ENTITY_PATH,
+          ctxFor(config, { customizedOnly: true }),
+        ),
+      );
+
+    expect(kept(following, 'home_assistant')).toEqual(['accent_color_mode']);
+    expect(kept(custom, 'custom')).toEqual(['accent_color_mode', 'accent_color']);
+
+    // The control still stores nothing of its own, so a calendar that has set no colour
+    // keeps neither and its panel drops out whole — as it did before.
+    expect(kept(untouched, 'inherit')).toEqual([]);
+  });
+
+  /**
+   * The three rules a heading has to satisfy, checked against the section added last.
+   *
+   * "Text Replacement" is the one heading whose words appear in no field under it — the
+   * fields are *Replace In*, *Find* and *Replace With*, and none of their helpers says
+   * "replacement". That makes it the sharpest test of rule one: searching for it must not
+   * return the heading captioning an empty section, which is precisely what
+   * `pruneLoneHeadings` exists to stop and what a heading is incapable of doing honestly.
+   *
+   * `hasFields` is the third rule and the one with teeth, because the chassis calls it to
+   * decide whether to render a calendar's panel at all.
+   */
+  it('never returns a heading as a search hit of its own', () => {
+    const config = buildConfig({ entities: ['calendar.a'] });
+    const schema = entitySchema(config);
+
+    // The premise: the word is in the heading and in nothing beneath it.
+    const headingOnly = 'replacement';
+    expect(EDITOR_STRINGS.heading_replace.toLowerCase()).toContain(headingOnly);
+
+    const kept = filterEntitySchema(
+      schema,
+      config.entities[0],
+      ENTITY_PATH,
+      ctxFor(config, { query: headingOnly }),
+    );
+
+    expect(fieldNames(kept)).toEqual([]);
+    expect(kept).toEqual([]);
+    expect(hasFields(kept)).toBe(false);
+
+    // The denominator: a word that *is* under a heading still comes back, so the empty
+    // result above is the rule working rather than the search finding nothing ever.
+    const found = filterEntitySchema(
+      schema,
+      config.entities[0],
+      ENTITY_PATH,
+      ctxFor(config, { query: 'replace' }),
+    );
+    expect(fieldNames(found)).toEqual(['replace_field', 'replace_pattern', 'replace_with']);
+    expect(hasFields(found)).toBe(true);
   });
 
   it('finds the label shape by searching for the label', () => {

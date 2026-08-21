@@ -199,6 +199,35 @@ export const GLOSSARY_TERMS = [
     rejected: {},
   },
   {
+    name: 'multi-day',
+    sense: 'an event spanning more than one day',
+    decided: {
+      de: 'Mehrtägig',
+      et: 'Mitmepäevane',
+      it: 'Su più giorni',
+      lt: 'Kelių dienų',
+      lv: 'Vairāku dienu',
+      nb: 'Flerdags',
+      pl: 'Wielodniowe',
+      sk: 'Viacdňové',
+      sv: 'Flerdags',
+    },
+    // Both of these were in the tree and both were turned down, so neither is a guess. The
+    // heading and the option beneath it are the two strings this term governs that a user
+    // reads *stacked*, which is what made the drift visible: Slovak had `Viacdňové
+    // udalosti` captioning `Rozdeliť niekoľkodňové udalosti`, and Italian `Eventi su più
+    // giorni` captioning `Dividi eventi multi‑giorno`. Two words for one concept, one line
+    // apart, in a section whose whole job is to name that concept.
+    //
+    // The Italian form carried a non-breaking hyphen (U+2011); the plain-hyphen and
+    // unhyphenated spellings are listed too, because the next person to reach for the
+    // calque will not reach for that character.
+    rejected: {
+      it: ['Multi\u2011giorno', 'Multi-giorno', 'Multigiorno'],
+      sk: ['Niekoľkodňov'],
+    },
+  },
+  {
     name: 'today',
     sense: 'the current day',
     decided: {

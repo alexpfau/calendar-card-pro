@@ -386,16 +386,14 @@ function pruneLoneHeadings(schema: ReadonlyArray<HaFormSchema>): HaFormSchema[] 
       continue;
     }
 
-    // Look ahead to the next heading; keep this one only if a real field sits between.
-    let hasContent = false;
-    for (let j = i + 1; j < schema.length && !isHeading(schema[j]); j++) {
-      if (isGroupSchema(schema[j]) || !isHeading(schema[j])) {
-        hasContent = true;
-        break;
-      }
-    }
-
-    if (hasContent) kept.push(node);
+    // The very next node decides, and there is nothing to scan for: everything that is not
+    // a heading is content, groups included. An earlier form looped forward here, but its
+    // guard was `!isHeading(schema[j])` and its body asked `isGroupSchema(schema[j]) ||
+    // !isHeading(schema[j])` — true on the first pass by construction, so it always broke
+    // immediately and the group test could never decide anything. Same answer, without the
+    // scan that never scanned.
+    const next = schema[i + 1];
+    if (next !== undefined && !isHeading(next)) kept.push(node);
   }
 
   return kept;

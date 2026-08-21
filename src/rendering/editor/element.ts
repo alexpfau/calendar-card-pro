@@ -341,6 +341,7 @@ export class CalendarCardProEditor extends LitElement {
             Entities.labelTypeOf(entry),
             accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
             labelIconSourceOf(Entities.asEntityConfig(entry).label),
+            Entities.showsLocation(entry, ctx.config, ctx.view),
           ),
           entry,
           subform.path,
