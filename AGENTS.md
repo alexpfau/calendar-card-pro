@@ -1074,6 +1074,33 @@ Both controls are load-bearing. Without `days_to_show` the harness might be dete
 nothing at all; without `show_location` a zero is indistinguishable from a probe that never
 ran.
 
+### A new per-calendar option must be added to a hand-written whitelist
+
+🚨 **`normalizeEntities` in `config.ts` projects each entity through a hand-written field
+list, and an option missing from it is dropped before it reaches anything.** Normalization
+runs in `setConfig`, so the key never lands in `_matchedConfig` and the option is inert no
+matter how carefully the rest of it was wired — types, editor schema, translations,
+transform and docs can all be correct and complete.
+
+It is silent by construction. Nothing in the editor can see it, because the editor writes
+the key correctly; nothing in the types can see it, because the type declares it; and
+`tsc` cannot see it, because omitting an optional property from an object literal is legal.
+Three per-calendar options were written this way in one PR, with every other layer correct,
+and were caught only by the test below.
+
+**The file already documents the hazard, one function below the one that has it.**
+`serializeEntities` sits twenty lines further down and its docblock reads: _"Being
+field-agnostic is the point. A hand-written field list would silently stop covering the
+next per-calendar option somebody adds."_ That is exactly true, and it protects only
+itself — the projection above it was written the other way, so the two disagree about
+which fields exist and only one of them says so.
+
+What catches it is a test that **reconciles the whitelist against `EntityConfig`** rather
+than walking either one, which is the same _pin the whole table by value_ discipline as the
+`Object.keys(TABLE)` trap above; `tests/entity-config-reprocess.test.ts` does this. Blanking
+one line of the projection fails that test plus every behavioural test for the dropped
+option, which is the falsifier to run when adding one.
+
 ### The card holds three disagreeing answers to "is this multi-day?"
 
 For a **timed** event running 23:30 to 00:30:
