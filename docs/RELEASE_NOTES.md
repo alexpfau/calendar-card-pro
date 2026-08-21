@@ -74,6 +74,7 @@ Both panels for one calendar carry the same heading, because they name the same 
 - [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765
 - [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze
 - [#205](https://github.com/alexpfau/calendar-card-pro/issues/205) - An icon for Microsoft Teams meetings by @loryanstrant
+- [#345](https://github.com/alexpfau/calendar-card-pro/issues/345) - Filtering events by description content, to exclude Google Tasks blended into a calendar feed by @RemyGeode
 - [#225](https://github.com/alexpfau/calendar-card-pro/issues/225) - Show only Monday to Friday entries for some calendars by @nytram-md
 - [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
 - [#533](https://github.com/alexpfau/calendar-card-pro/issues/533) - Duplicate a calendar block from the visual editor by @alexpfau
