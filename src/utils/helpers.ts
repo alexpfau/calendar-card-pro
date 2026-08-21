@@ -170,7 +170,16 @@ export function getLabelType(label: unknown): LabelType {
     return 'icon';
   }
 
-  if (label.startsWith('/local/') || /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(label)) {
+  // An address, not a word: a label meant to be read never starts with a slash
+  // or a scheme, so treating those as images covers every Home Assistant image
+  // path (/local/, /api/image, /api/brands, ...) including ones added later,
+  // without a prefix list to keep in step. The extension arm stays as a
+  // fallback for relative paths and now tolerates a query string.
+  if (
+    label.startsWith('/') ||
+    /^https?:\/\//i.test(label) ||
+    /\.(jpg|jpeg|png|gif|svg|webp|avif|bmp|ico|apng)(\?.*)?$/i.test(label)
+  ) {
     return 'image';
   }
 
