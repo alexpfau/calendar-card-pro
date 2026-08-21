@@ -147,14 +147,31 @@ export function resolveAgeCount(eventYear: number, markerYear: number): number |
  * chain that tries entity index first, so it only ever fires within one calendar at one
  * all-day start; two genuinely identical titles then order by count, which is harmless.
  *
- * 🚨 If a `title_replace` option is ever built (#153), it runs **before** this. A user's
- * replacement pattern should see the title the calendar delivered, not one the card has
- * already decorated — otherwise an end-anchored pattern has to tolerate a suffix its
- * author never wrote. And a privacy option that blanks a title to something like "Busy"
- * (#212) must suppress the count rather than have one appended to it, or the card
- * announces that the hidden event is a birthday.
+ * 🚨 **Two constraints this function does not enforce and cannot, both now live.** They
+ * were written here conditionally, against a `title_replace` option that had not been
+ * built; #153 and #212 shipped it in v4.1 as `replace_pattern` / `replace_with`, and both
+ * requirements are implemented in `groupEventsByDay`:
  *
- * @param summary Title as the calendar delivered it
+ * 1. **The rewrite runs before this.** `applyTextReplacement` is applied to the raw
+ *    `summary` and it is that result — not the calendar's own title — that arrives here.
+ *    A user's pattern therefore sees the title the calendar delivered rather than one the
+ *    card has already decorated, so an end-anchored pattern does not have to tolerate a
+ *    suffix its author never wrote.
+ * 2. **A withheld title suppresses the count entirely**, rather than having one appended.
+ *    `groupEventsByDay`'s `titleWithheld` decides that, and calls this only when it is
+ *    false. `Busy (40)` announces that the hidden event is a birthday, which is exactly
+ *    what #212 asked to be spared.
+ *
+ * The second is why the empty-title branch below is narrower than it looks. Drawing a bare
+ * `(40)` is right for an event that never had a title and a **louder** leak than `Busy (40)`
+ * after a deliberate deletion, since a lone bracketed number is nothing else. `titleWithheld`
+ * is what tells those apart, and it has to ask the same question this function asks — it
+ * tests `.trim()` on both sides for that reason. Testing the replaced title for exact
+ * emptiness instead let a blank-but-not-empty result through: `Alex Geburtstag` minus
+ * `[A-Za-z]+` is two spaces, which passed the guard, failed the branch below, and rendered
+ * the bare count. Keep the two tests spelled the same way.
+ *
+ * @param summary Title to append to — the calendar's own, or what a rewrite left of it
  * @param count Count to show
  * @returns The title with the count appended
  */

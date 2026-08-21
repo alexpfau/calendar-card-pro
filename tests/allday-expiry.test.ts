@@ -336,6 +336,62 @@ describe('allday_expires_at: what it deliberately does not touch', () => {
   });
 
   /**
+   * The same rule, one layer down, and the case that made it a real defect rather than a
+   * tidiness point.
+   *
+   * `splitMultiDayEvent` rewrites the **middle** days of a *timed* multi-day event as
+   * `start: { date }` segments, so they read as all-day to every later test — including
+   * this option's. A three-day conference therefore lost its middle day at 10:00 on a
+   * calendar configured for bin collections, while the event was still in progress. The
+   * event did not vanish, it lost a day out of its middle, which reads as a data problem
+   * rather than a configuration one.
+   *
+   * The **default** is correct for these segments and must stay: midnight after the
+   * segment's own day is exactly when a middle day stops being today. Only an explicit
+   * time misfires, which is why nothing caught it — the option is unset in `DEFAULT_CONFIG`.
+   *
+   * The genuinely all-day counterpart is pinned above by *retires split segments one day at
+   * a time*, and that is the behaviour a broader fix would break: exempting every
+   * `_isMultiDaySegment` would stop the waste feed retiring at all once a collection spans
+   * a weekend. The distinction is the segment's **origin**, not its shape.
+   */
+  it('leaves the middle day of a split timed event alone', () => {
+    // Yesterday 09:00 through tomorrow 17:00, so today is a middle segment.
+    const conference: Types.CalendarEventData[] = [
+      {
+        summary: 'Conference',
+        start: { dateTime: '2026-06-16T09:00:00.000Z' },
+        end: { dateTime: `${TOMORROW}T17:00:00.000Z` },
+        _entityId: 'calendar.waste',
+      },
+    ];
+
+    const entity = { allday_expires_at: '10:00', split_multiday_events: true };
+
+    // Today's middle segment and tomorrow's closing segment. Yesterday's is outside the
+    // window, which opens today.
+    expect(render(conference, entity)).toEqual(['Conference', 'Conference']);
+  });
+
+  it('control: the same split event with no expiry set keeps the same two days', () => {
+    // Without this, the assertion above cannot tell "the expiry left it alone" from "the
+    // window or the splitter never produced it".
+    const conference: Types.CalendarEventData[] = [
+      {
+        summary: 'Conference',
+        start: { dateTime: '2026-06-16T09:00:00.000Z' },
+        end: { dateTime: `${TOMORROW}T17:00:00.000Z` },
+        _entityId: 'calendar.waste',
+      },
+    ];
+
+    expect(render(conference, { split_multiday_events: true })).toEqual([
+      'Conference',
+      'Conference',
+    ]);
+  });
+
+  /**
    * Per-calendar, and only this calendar. The card's other calendars keep their all-day
    * events, which is the whole reason the option is not card-level: a household calendar's
    * birthdays should not vanish at 10:00 because the bin feed does.
