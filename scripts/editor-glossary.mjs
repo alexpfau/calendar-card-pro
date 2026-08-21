@@ -739,12 +739,23 @@ export const GLOSSARY_TERMS = [
       sk: 'Deň v týždni',
       sv: 'Veckodag',
     },
+    // 🚨 These are **stems, not words**, wherever a stem is safe. The matcher anchors at a
+    // word start and has no trailing boundary, so a rejected form catches inflections that
+    // *append* to it and misses any that change a character inside the stem — `darbdiena`
+    // never caught `darbdienās`, and `dzień powszedni` never caught `dni powszednie`. Of
+    // the five languages this term rejects, only Swedish was actually protected.
+    //
+    // The stems stop short of the adjective on purpose. A bare `pracovn` would catch every
+    // Slovak inflection and also `pracovný kalendár`, `pracovné stretnutie` and `pracovník`
+    // — all legitimate — and a rejected form is a build **error**, so over-matching fails
+    // CI on a correct translation. That is strictly worse than the gap it closes, which is
+    // why Polish carries one entry per case rather than a bare `powszedn`.
     rejected: {
-      sk: ['pracovný deň', 'pracovného dňa'],
-      it: ['giorno feriale'],
-      lv: ['darbdiena'],
+      sk: ['pracovný deň', 'pracovného dňa', 'pracovné dni', 'pracovných dň'],
+      it: ['giorno ferial', 'giorni ferial'],
+      lv: ['darbdien'],
       sv: ['vardag'],
-      pl: ['dzień powszedni'],
+      pl: ['dzień powszedn', 'dnia powszedn', 'dniu powszedn', 'dni powszedn', 'dniach powszedn'],
     },
   },
 ];
