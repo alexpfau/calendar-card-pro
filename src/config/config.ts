@@ -563,10 +563,12 @@ export function normalizeEntities(
         label_icon_color?: string;
         show_time?: boolean;
         show_location?: boolean;
+        location_icon?: string;
         show_description?: boolean;
         compact_events_to_show?: number;
         blocklist?: string;
         allowlist?: string;
+        filter_field?: Types.FilterField;
         split_multiday_events?: boolean;
         event_type?: Types.EventType;
         days_of_week?: Types.DaysOfWeekFilter;
@@ -600,10 +602,12 @@ export function normalizeEntities(
           label_icon_color: item.label_icon_color || undefined,
           show_time: item.show_time,
           show_location: item.show_location,
+          location_icon: item.location_icon || undefined,
           show_description: item.show_description,
           compact_events_to_show: toValidNumber(item.compact_events_to_show, 0),
           blocklist: item.blocklist,
           allowlist: item.allowlist,
+          filter_field: item.filter_field,
           split_multiday_events: item.split_multiday_events,
           event_type: item.event_type,
           days_of_week: item.days_of_week,

@@ -30,10 +30,12 @@ entities:
 | `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                           |
 | `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                   |
 | `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                                                                                                           |
+| `location_icon`          | string  | `mdi:map-marker-outline` | Icon shown beside this calendar's locations, e.g. `mdi:office-building`. Unset, Microsoft Teams meetings get `mdi:microsoft-teams` and every other location the map marker                                            |
 | `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option)                                                                                                                     |
 | `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                                                                                                      |
 | `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                                                             |
 | `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                                                                           |
+| `filter_field`           | string  | `title`                  | Which field `blocklist` and `allowlist` read: `title`, `location` or `description`. One at a time — list the calendar twice to filter on a second                                                                     |
 | `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                       |
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                            |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false` |
@@ -176,6 +178,99 @@ These filters use regular expressions, allowing for flexible pattern matching:
 - **Blocklist**: Hide events that match specified patterns
 - **Allowlist**: Only show events that match specified patterns
 - **Priority**: When both are specified, allowlist takes precedence
+
+### Matching the Location or Description Instead
+
+By default both lists read the event **title**. `filter_field` points them somewhere else:
+it takes `title`, `location` or `description`, and applies to that calendar's `blocklist`
+and `allowlist` alike.
+
+```yaml
+entities:
+  - entity: calendar.work
+    filter_field: location
+    blocklist: 'zoom\.us' # hide the events whose location is a Zoom link
+```
+
+It selects a field rather than adding one, so a calendar filtering on `location` has
+stopped filtering on the title. To filter on two fields, list the calendar twice — each
+block filters independently.
+
+An event that has no location at all, or no description, counts as not matching: an
+allowlist drops it and a blocklist keeps it. That is the same rule the title filter has
+always applied to an event with no title, and it is what makes the two-block pattern below
+add up.
+
+::: tip Patterns Are Unchanged
+`filter_field` is a separate option rather than a prefix inside the pattern, because the
+lists are plain regular expressions and every character in them already means something.
+`allowlist: 'location:'` still matches the literal text `location:` in a title, exactly as
+it did before.
+:::
+
+::: warning The Description Is Matched Before Its Formatting Is Removed
+The card strips HTML out of descriptions for display, but the filter reads the description
+as your calendar delivered it. With Google Calendar that usually means HTML, so a pattern
+matching a link may need to allow for the anchor markup wrapped around it. The same is true
+of `show_description: false` — hiding descriptions does not stop them being filtered on.
+:::
+
+### Hiding Google Tasks Blended Into a Calendar
+
+With **Show tasks in Calendar** enabled, Google surfaces scheduled Google Tasks through the
+Calendar API as synthetic events **inside the same feed** as real ones. There is no separate
+calendar entity for them, so they cannot be filtered out by leaving an entity off the card,
+and their titles are whatever the task happened to be called — `contact admissions` — so no
+title pattern can catch them reliably.
+
+They all carry the same tell in their description, and `filter_field` reaches it:
+
+```yaml
+entities:
+  - entity: calendar.work
+    filter_field: description
+    blocklist: 'tasks\.google\.com/task/'
+```
+
+Google's boilerplate reads:
+
+```
+Changes made to the title, description or attachments will not be saved.
+To make edits, please go to: https://tasks.google.com/task/<id>
+```
+
+**Match the URL, not the sentence above it.** Google translates that sentence for every
+account language, exactly as Microsoft translates its meeting text; it does not translate
+the URL. The URL is also unaffected by whether the description arrives as HTML or as plain
+text, where a pattern spanning translated words might not be.
+
+The same approach works for any source that injects boilerplate-bearing events into a feed:
+find a phrase every one of them carries and no real event does, and block on it.
+
+### Giving Teams Meetings Their Own Icon
+
+Pairing `filter_field: location` with [`location_icon`](/features/event-content#the-location-icon)
+splits one calendar into online and in-person halves, each with its own icon and color:
+
+```yaml
+entities:
+  - entity: calendar.work
+    allowlist: 'Microsoft Teams'
+    filter_field: location
+    accent_color: '#6264a7'
+  - entity: calendar.work
+    blocklist: 'Microsoft Teams'
+    filter_field: location
+    location_icon: mdi:office-building
+```
+
+Because the same pattern is allowed in one block and blocked in the other, every event
+lands in exactly one of them — nothing is lost and nothing appears twice. The visual
+editor's **Duplicate** action on a calendar's panel builds the second block for you.
+
+Teams meetings need no allowlist to get their icon; that happens on its own. This pattern
+is for when you want the two halves styled differently, or want a specific icon on the
+half that is _not_ a Teams call.
 
 ### Separating All-Day From Timed Events
 
@@ -335,7 +430,8 @@ The duplicate detection compares:
 - Event title
 - Start and end times
 - Event location
-- Calendar order (calendars listed first have priority)
+- Entry order (whichever entry is listed first in `entities` has priority — that may be a
+  second block of the same calendar, not only a different one)
 
 This is especially useful for:
 
@@ -346,11 +442,12 @@ This is especially useful for:
 ::: warning Two Details Are Easy to Miss
 Two aspects of this option are easy to miss:
 
-- **The first-listed calendar wins, including its styling.** Only the copy from the
-  calendar listed first in `entities` is kept, and it keeps that calendar's `label`,
-  `color` and `accent_color`. A shared event can therefore appear under a different
-  calendar's styling than you expect — reorder `entities` so the calendar you want to
-  see takes precedence.
+- **The first-listed entry wins, including its styling.** Only the copy from the entry
+  listed first in `entities` is kept, and it keeps that entry's `label`, `color` and
+  `accent_color`. A shared event can therefore appear under a different calendar's styling
+  than you expect — reorder `entities` so the one you want to see takes precedence. The
+  same rule gives [keyword icon mapping](#mapping-icons-onto-events-by-keyword) its
+  priority order, where the competing entries are two blocks of one calendar.
 - **Matching ignores which calendar an event came from.** Any two events sharing a
   title, start time, end time and location are treated as duplicates, even if they are
   genuinely separate events, and even if both are in the _same_ calendar.
@@ -390,6 +487,56 @@ This technique lets you:
 In the visual editor, build this with **Duplicate** at the foot of the calendar's panel —
 once for each extra block — and then give each copy its own filter, label and color. See
 [Per-Calendar Panels & Actions](/features/editor#per-calendar-panels-actions).
+
+Any event whose title matches two of these blocks is drawn once per block. If your patterns
+can overlap, add `filter_duplicates: true` — see
+[Mapping Icons Onto Events by Keyword](#mapping-icons-onto-events-by-keyword) below for what
+it does and which copy survives.
+
+### Mapping Icons Onto Events by Keyword
+
+The same shape gives every event an icon chosen by what its title says, without adding
+emoji to the events themselves. A `label` holding an `mdi:` value renders as an icon —
+there is no `label_type` to set, because the shape is read from the value:
+
+```yaml
+filter_duplicates: true
+entities:
+  - entity: calendar.family
+    allowlist: swim
+    label: mdi:swim
+  - entity: calendar.family
+    allowlist: meeting
+    label: mdi:briefcase
+  - entity: calendar.family
+    allowlist: birthday
+    label: mdi:cake
+  - entity: calendar.family
+    blocklist: 'swim|meeting|birthday'
+```
+
+The last block is the catch-all: it blocks every keyword the blocks above it match, so
+anything unmapped still appears, with no icon. Give it a `label` of its own —
+`mdi:calendar-blank`, say — if you would rather unmapped events carried a fallback icon
+than none.
+
+::: warning `filter_duplicates: true` Is Doing Real Work Here
+It is not decoration, and the pattern is wrong without it. **A title can match more than
+one block** — "Swim meeting" matches both `swim` and `meeting` — and each matching block
+contributes its own copy, so that event is drawn **twice**, once per icon. Turning
+`filter_duplicates` on collapses the copies and keeps the one from the block listed
+**first**, which turns the block order into the priority order of a mapping table. With the
+blocks above, "Swim meeting" takes `mdi:swim`; list `meeting` before `swim` and the same
+event takes `mdi:briefcase`.
+
+The option is card-level, not per calendar, so switching it on for this also deduplicates
+across your other calendars — see [Filtering Duplicate Events](#filtering-duplicate-events)
+for what that means, and reorder `entities` if a shared event starts appearing under
+styling you did not expect.
+:::
+
+Put the most specific keywords first, since the first match wins. Each rule can also carry
+a `color` and an `accent_color`, so a mapping can be more than an icon.
 
 ## 📊 Compact Mode & Event Limits
 

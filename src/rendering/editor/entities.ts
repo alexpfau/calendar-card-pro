@@ -4,6 +4,7 @@
 
 import {
   ACCENT_COLOR_MODE,
+  ENTITY_TRISTATE_DEFAULT,
   ENTITY_TRISTATE_STORED,
   ENTITY_TRISTATE_VALUES,
   INHERIT,
@@ -232,7 +233,9 @@ export function toEntityFormData(entry: string | Types.EntityConfig): Record<str
   for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
     const stored = config[name];
     const match = values.find((value) => ENTITY_TRISTATE_STORED[name][value] === stored);
-    data[name] = match ?? INHERIT;
+    // Falls back to the option's own default rather than to `inherit`, which is not a
+    // value every one of these dropdowns offers. See `ENTITY_TRISTATE_DEFAULT`.
+    data[name] = match ?? ENTITY_TRISTATE_DEFAULT[name] ?? INHERIT;
   }
 
   return data;

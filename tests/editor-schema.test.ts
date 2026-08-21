@@ -46,6 +46,7 @@ import * as Overrides from '../src/rendering/editor/overrides';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildDayHeaderSchema } from '../src/rendering/editor/schemas/day-header';
 import {
+  ENTITY_TRISTATE_DEFAULT,
   ENTITY_TRISTATE_STORED,
   ENTITY_TRISTATE_VALUES,
   entitySchemaFor,
@@ -2709,9 +2710,11 @@ describe('editor: per-calendar settings', () => {
         'color',
         'compact_events_to_show',
         'days_of_week',
+        'filter_field',
         'label',
         'label_icon_color',
         'label_type',
+        'location_icon',
         'show_description',
         'show_location',
         'show_time',
@@ -2834,6 +2837,7 @@ describe('editor: per-calendar settings', () => {
       split_multiday_events: ['inherit', 'split', 'whole'],
       event_type: ['inherit', 'all', 'timed', 'all_day'],
       days_of_week: ['inherit', 'weekdays', 'weekends'],
+      filter_field: ['title', 'location', 'description'],
     });
 
     expect(ENTITY_TRISTATE_STORED).toEqual({
@@ -2843,7 +2847,14 @@ describe('editor: per-calendar settings', () => {
       split_multiday_events: { inherit: undefined, split: true, whole: false },
       event_type: { inherit: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
       days_of_week: { inherit: undefined, weekdays: 'weekdays', weekends: 'weekends' },
+      filter_field: { title: undefined, location: 'location', description: 'description' },
     });
+
+    // Pinned by value for the same reason as the two above, and with the same consequence
+    // if it shrinks: `filter_field` losing its entry sends an explicit `filter_field:
+    // title` back to `inherit`, which that dropdown does not offer, and the control renders
+    // blank. Every other option is absent here deliberately — `inherit` is their fallback.
+    expect(ENTITY_TRISTATE_DEFAULT).toEqual({ filter_field: 'title' });
 
     // Every offered value must be storable, and nothing may be storable that is not
     // offered. Two tables describing one control drift apart silently otherwise: an
@@ -2852,6 +2863,46 @@ describe('editor: per-calendar settings', () => {
     for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
       expect(Object.keys(ENTITY_TRISTATE_STORED[name]).sort(), name).toEqual([...values].sort());
     }
+
+    // The third direction, which the two above cannot see: a named fallback must be a
+    // value its own dropdown offers, or it selects something that is not there.
+    for (const [name, fallback] of Object.entries(ENTITY_TRISTATE_DEFAULT)) {
+      expect(ENTITY_TRISTATE_VALUES[name], name).toContain(fallback);
+    }
+  });
+
+  /**
+   * The three states of `filter_field`, and the fourth case that has no state of its own.
+   *
+   * `filter_field` is the first per-calendar option whose absent value is a *named* choice
+   * rather than "leave it to the card", so `title` both stands for absent and stores
+   * nothing. That makes four inputs to check against three dropdown entries, and the
+   * asymmetric one — a calendar carrying an explicit `filter_field: title` — is the case a
+   * naive mapping gets wrong: it matches no stored form, and before `ENTITY_TRISTATE_DEFAULT`
+   * it fell through to `inherit`, a value this dropdown does not offer, leaving the control
+   * blank and the next write dropping the key.
+   */
+  it('shows the right field back for all four ways a calendar can carry one', () => {
+    const shown = (entry: Record<string, unknown>) =>
+      toEntityFormData({ entity: 'calendar.work', ...entry } as Types.EntityConfig).filter_field;
+
+    expect(shown({}), 'absent means the title').toBe('title');
+    expect(shown({ filter_field: 'title' }), 'written out, it still means the title').toBe('title');
+    expect(shown({ filter_field: 'location' })).toBe('location');
+    expect(shown({ filter_field: 'description' })).toBe('description');
+
+    // And back out again. Only the two non-default fields are written, so choosing the
+    // title leaves no key behind rather than putting `filter_field: title` into the YAML of
+    // every calendar whose panel is ever opened.
+    const stored = (value: string) =>
+      fromEntityFormData('calendar.work', { entity: 'calendar.work', filter_field: value });
+
+    expect(stored('title')).toBe('calendar.work');
+    expect(stored('location')).toEqual({ entity: 'calendar.work', filter_field: 'location' });
+    expect(stored('description')).toEqual({
+      entity: 'calendar.work',
+      filter_field: 'description',
+    });
   });
 
   /**
@@ -4215,6 +4266,11 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     // `event_type` the union has no `all`: absent *is* every day, and `inherit` is how a
     // dropdown spells absent — the same accommodation `show_week_numbers` needs for `null`.
     days_of_week: { field: 'entity.days_of_week', editorOnly: ['inherit'] },
+    // Per-calendar only as well, and the one enumerated option with **no** editor-only
+    // value at all: its absent state is a named field rather than an unfiltered one, so
+    // `title` stands for it and the dropdown is exactly the union. That is the whole
+    // difference from `days_of_week` directly above.
+    filter_field: { field: 'entity.filter_field' },
   };
 
   /**

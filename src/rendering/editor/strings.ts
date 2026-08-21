@@ -150,6 +150,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_location.option.inherit.label': 'Follow the card',
   'entity.show_location.option.show.label': 'Always show',
   'entity.show_location.option.hide.label': 'Never show',
+  'entity.location_icon': 'Location Icon',
+  'entity.location_icon.helper':
+    'Icon shown beside this calendar\u2019s locations, in place of the map marker. Left ' +
+    'empty, Microsoft Teams meetings get the Teams icon and everything else the marker.',
   'entity.show_description': 'Event Descriptions',
   'entity.show_description.option.inherit.label': 'Follow the card',
   'entity.show_description.option.show.label': 'Always show',
@@ -186,12 +190,19 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'limit applies.',
   'entity.blocklist': 'Blocklist',
   'entity.blocklist.helper':
-    'Hide events whose title contains any of these terms, separated by | \u2014 for ' +
-    'example Private|Tentative.',
+    'Hide events where the field above contains any of these terms, separated by | ' +
+    '\u2014 for example Private|Tentative.',
   'entity.allowlist': 'Allowlist',
   'entity.allowlist.helper':
-    'Show only events whose title contains one of these terms, separated by | . Left ' +
-    'empty, every event is shown.',
+    'Show only events where the field above contains one of these terms, separated by ' +
+    '| . Left empty, every event is shown.',
+  'entity.filter_field': 'Match Against',
+  'entity.filter_field.option.title.label': 'Event title',
+  'entity.filter_field.option.location.label': 'Location',
+  'entity.filter_field.option.description.label': 'Description',
+  'entity.filter_field.helper':
+    'Which part of an event the two lists below read. One at a time \u2014 list the same ' +
+    'calendar twice to filter on a second.',
   'entity.allday_expires_at': 'All-Day Events Expire At',
   'entity.allday_expires_at.helper':
     'Time of day this calendar\u2019s all-day events stop counting as upcoming, on the ' +

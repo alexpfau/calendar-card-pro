@@ -827,6 +827,7 @@ describe('editor: the order of the two panels', () => {
       'days_of_week',
       'event_type',
       'allday_expires_at',
+      'filter_field',
       'blocklist',
       'allowlist',
       'compact_events_to_show',
@@ -835,6 +836,7 @@ describe('editor: the order of the two panels', () => {
       '# heading_details',
       'show_time',
       'show_location',
+      'location_icon',
       'show_description',
     ]);
   });
@@ -912,6 +914,7 @@ describe('editor: the order of the two panels', () => {
       'days_of_week',
       'event_type',
       'allday_expires_at',
+      'filter_field',
       'blocklist',
       'allowlist',
       'compact_events_to_show',

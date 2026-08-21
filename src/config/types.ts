@@ -164,6 +164,25 @@ export type EventType = 'all' | 'timed' | 'all_day';
  */
 export type DaysOfWeekFilter = 'weekdays' | 'weekends';
 
+/**
+ * Which field `blocklist` and `allowlist` match against.
+ *
+ * An **out-of-band mode flag**, deliberately, rather than a widening of the pattern
+ * grammar. `blocklist` and `allowlist` are documented as arbitrary RegExp and are passed
+ * to `new RegExp()` unnormalized, so no character and no token is free to be given a
+ * second meaning: a field prefix like `location:standup` collides with the perfectly legal
+ * pattern for a title containing that literal text, and a sentinel value collides in the
+ * same way. A separate key cannot collide with any pattern at all.
+ *
+ * 🚨 `title` *is* a member here, unlike `DaysOfWeekFilter`'s missing `all` — and for the
+ * reason stated there rather than against it. That warning is about two dropdown entries
+ * sharing one behavior; the absent state here is not an unfiltered state but a named field
+ * a user may legitimately want to write, so `title` is the *one* entry standing for it and
+ * stores nothing. Three members, three editor entries, three behaviors, one-to-one. See
+ * `ENTITY_TRISTATE_DEFAULT` in `rendering/editor/schemas/entity.ts`.
+ */
+export type FilterField = 'title' | 'location' | 'description';
+
 /** What column view does when even its narrowest permitted layout will not fit. */
 export type ColumnMinDaysFallback = 'list' | 'cramp';
 
@@ -275,10 +294,30 @@ export interface EntityConfig {
   label_icon_color?: string;
   show_time?: boolean;
   show_location?: boolean;
+  /**
+   * Icon for this calendar's location row, replacing the default map marker.
+   *
+   * Per calendar only, and deliberately so: one icon for every location on the card would
+   * be a *theming* choice, while this is a *semantic* one — it says this block's events are
+   * Teams calls, or are at the office, and gives them the icon that says it. Nobody has
+   * asked for the card-wide version.
+   *
+   * Set, it wins over the built-in Microsoft Teams detection, which doubles as that
+   * feature's opt-out: `location_icon: mdi:map-marker-outline` restores the plain marker.
+   */
+  location_icon?: string;
   show_description?: boolean;
   compact_events_to_show?: number;
   blocklist?: string;
   allowlist?: string;
+  /**
+   * Which field `blocklist` and `allowlist` match against. Unset means `title`.
+   *
+   * Selects the field; it does not add one. Exactly one of the three is matched, so a
+   * calendar filtering on `location` stops filtering on the title — list it twice to do
+   * both.
+   */
+  filter_field?: FilterField;
   split_multiday_events?: boolean;
   event_type?: EventType;
   days_of_week?: DaysOfWeekFilter;
