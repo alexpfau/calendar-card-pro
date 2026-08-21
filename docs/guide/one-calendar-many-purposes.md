@@ -6,7 +6,7 @@ Most calendar cards treat a calendar as one thing: you add it, and it contribute
 
 A screen in the hall, on all day, that the whole household walks past. It needs to answer three questions at a glance — _whose birthday is it, do the bins go out, and is anyone busy_ — without turning into a wall of text, and without putting a parent's work life in front of the children.
 
-Two calendars go into it. One of them does three different jobs.
+One calendar goes into it, four times.
 
 ```yaml
 type: custom:calendar-card-pro
@@ -28,22 +28,25 @@ entities:
     event_type: all_day
     allday_expires_at: '11:00'
     label: 🗑️
-    accent_color: '#607d8b'
-
-  # Everything else on the family calendar
-  - entity: calendar.family
-    blocklist: 'Birthday of|collection'
+    accent_color: '#7cb342'
 
   # 💼 Work — that someone is busy, not what with
-  - entity: calendar.work
+  - entity: calendar.family
+    allowlist: 'Work:'
     replace_with: 'Busy'
     label: 💼
-    accent_color: '#455a64'
+    accent_color: '#546e7a'
     show_location: false
     show_description: false
+
+  # Everything else — the safety net
+  - entity: calendar.family
+    blocklist: 'Birthday of|collection|Work:'
 ```
 
-The first three blocks are **the same calendar**, three times. Nothing is duplicated on screen, because their patterns are complementary — the first two claim what they match, and the third takes everything they did not.
+Every block is **the same calendar**. Nothing is drawn twice, because the first three claim what they match and the fourth takes everything they did not — its `blocklist` is exactly the union of the three allowlists above it.
+
+Three of the four carry a label, and the fourth deliberately does not. The labels mark the three questions the screen exists to answer; family life is everything else, and it does not need announcing.
 
 ### A Birthday Should Read Like a Name
 
@@ -62,27 +65,35 @@ What was _Birthday of Lena Weber — All day_ becomes **🎂 Lena Weber (32)**. 
 
 Bin day is only useful before the collection. After it, it is a line of text taking up space until midnight.
 
-[`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) sets the time it stops counting as today's news. [`event_type: all_day`](/features/core-settings#separating-all-day-from-timed-events) keeps the block to all-day entries, so a timed event that happens to mention collection cannot wander in.
+One pattern covers every stream, because `collection` catches _Recycling collection_ and _Trash collection_ alike. [`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) then sets the time they stop counting as today's news, and [`event_type: all_day`](/features/core-settings#separating-all-day-from-timed-events) keeps the block to all-day entries, so a timed event that happens to mention collection cannot wander in.
 
 ### Busy & Nothing Else
 
-This is the block that could not be built before. A shared screen should say that a parent is unavailable at nine; it should not say _Quarterly planning with the board_, and it certainly should not say _1:1 with Sarah — performance review_.
+A parent who blocks out work time on the shared calendar has already put it where the whole household can read it. That is half the point — everyone can see the morning is gone. The other half is that it should not say _Quarterly planning with the board_, and it certainly should not say _1:1 with Sarah — performance review_.
 
-`replace_with: 'Busy'` **with no `replace_pattern` beside it** replaces the whole title rather than part of it. That asymmetry is deliberate: a pattern alone deletes, a pattern with a replacement substitutes, and a replacement alone overrides the field entirely.
+Prefixing those entries is enough for an `allowlist` to find them, and [`replace_with`](/features/core-settings#hiding-what-an-event-is-about) **with no `replace_pattern` beside it** then replaces the whole title rather than part of it. That asymmetry is deliberate: a pattern alone deletes, a pattern with a replacement substitutes, and a replacement alone overrides the field entirely.
+
+The row keeps its time, its color and its place in the day, so the screen still says that something is on at nine. It just stops saying what.
 
 ::: warning A Title Is Not the Only Thing That Leaks
-Replacing the title does **not** make a calendar private on its own. The location still names the meeting room and the description may hold the agenda, so `show_location: false` and `show_description: false` are part of the recipe rather than decoration.
+Replacing the title does **not** make an event private on its own.
+
+`show_location: false` is doing real work here — locations are shown by default, and _Meeting Room 2_ gives the game away on its own.
+
+`show_description: false` is not, yet. Descriptions are hidden by default, so on this card it changes nothing. Set it anyway: it is what keeps this block safe the day you turn [`show_description`](/reference/configuration#core-settings) on card-wide.
 :::
 
 ## 🧭 Why This Works
 
-The pattern underneath is worth more than the example. **Every option here is per calendar**, so a calendar listed twice is two blocks that filter and style themselves independently, and the [visual editor's](/features/editor) **Duplicate** action builds the second one for you.
+The pattern underneath is worth more than the example. **Every option here is per calendar**, so a calendar listed four times is four blocks that filter and style themselves independently, and the [visual editor's](/features/editor) **Duplicate** action builds each new one for you.
 
 Two rules keep it predictable:
 
-**Make the blocks complementary.** Each event should match exactly one block. The example allowlists two patterns and then blocklists both in the catch-all, so every event lands once. Blocks that overlap render their events more than once — there is no automatic de-duplication between two copies of one calendar.
+**Make the blocks complementary.** Each event should match exactly one block. The example allowlists three patterns and blocklists all three in the catch-all, so every event lands once. Blocks that overlap render their events more than once — there is no automatic de-duplication between two copies of one calendar.
 
-**Finish with a catch-all.** A block with only a `blocklist` is the safety net. Without it, an event nobody wrote a rule for simply never appears, and it is very hard to notice something missing.
+**Finish with a catch-all.** A block with only a `blocklist` is the safety net, and it goes last for the same reason it exists: it is what is left over. Without it, an event nobody wrote a rule for simply never appears, and it is very hard to notice something missing.
+
+Those are one rule read from either end, which gives you something to check against. **The catch-all's `blocklist` should be exactly the union of the allowlists above it.** The day it stops being, either an event is drawn twice or one has quietly gone missing.
 
 ## 🔭 Where Else to Take It
 
