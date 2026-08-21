@@ -75,6 +75,7 @@ the card-wide settings for that one calendar:
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
 **→ [Rewriting what an event says](/features/core-settings#text-replacement)** — `replace_pattern` and `replace_with`, and what each does when the other is left out.
 **→ [Choosing how a label is read](/features/core-settings#choosing-how-a-label-is-read)** — when `label_type` is needed, and when it is not.
+**→ [Using a picture Home Assistant already serves](/features/core-settings#using-a-picture-home-assistant-already-serves)** — a person's photo or a camera frame as a label, and where to find its address.
 **→ [Following the icon from Home Assistant](/features/core-settings#following-the-icon-from-home-assistant)** — `label: home-assistant`, and what a calendar with no icon shows.
 
 ## 🏷️ Header

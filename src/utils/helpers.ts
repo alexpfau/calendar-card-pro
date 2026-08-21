@@ -184,7 +184,35 @@ export function getLabelType(label: unknown): LabelType {
     return 'icon';
   }
 
-  if (label.startsWith('/local/') || /\.(jpg|jpeg|png|gif|svg|webp)$/i.test(label)) {
+  // An address, not a word. A label meant to be *read* never starts with a slash or a
+  // scheme, so taking those as images covers every image path Home Assistant serves — and
+  // every one it adds later — without a prefix list that has to be kept in step with it.
+  //
+  // The list is what this replaces, and it was a claim about the outside world that had
+  // already gone stale: it accepted `/local/` alone, while one ordinary instance served
+  // pictures from six further families (`/api/image` — which is where a *person's* picture
+  // lives — plus `/api/brands`, `/api/hassio`, `/api/image_proxy`, `/api/camera_proxy` and
+  // `/api/media_player_proxy`). 52 of that instance's 169 `entity_picture` values missed
+  // both arms and were drawn as their own characters in front of the event title (#566).
+  //
+  // The cost is a text label that begins with a slash, which now draws a broken image. That
+  // is recoverable the same way the `home-assistant` sentinel above is — `label_type: text`
+  // outranks everything here — and it is the same trade `getTodayIndicatorType` already
+  // makes, for the same kind of free-text value.
+  if (label.startsWith('/') || /^https?:\/\//i.test(label)) {
+    return 'image';
+  }
+
+  // 🚨 Not redundant, and not to be folded into the test above: a *relative* path starts
+  // with neither a slash nor a scheme, so this is the only arm that can see one. Retiring
+  // it — which #566 proposed — would turn `photo.JPEG` back into text, a case
+  // `label-glyph.test.ts` has pinned since before v4.0.0 shipped.
+  //
+  // The trailing group is the other half of the same defect. Anchoring on `$` alone meant a
+  // query string defeated the match even where the path did end in `.png`, so
+  // `/api/brands/…/icon.png?placeholder=no` read as text; `?` and `#` end a path, so what
+  // follows one cannot be part of the filename.
+  if (/\.(apng|avif|bmp|gif|ico|jpe?g|png|svg|webp)(?:[?#]|$)/i.test(label)) {
     return 'image';
   }
 
