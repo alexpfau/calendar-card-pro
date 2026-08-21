@@ -328,6 +328,34 @@ Teams meetings need no allowlist to get their icon; that happens on its own. Thi
 is for when you want the two halves styled differently, or want a specific icon on the
 half that is _not_ a Teams call.
 
+### Hiding a Location That Is Really a Meeting URL
+
+Online meetings tend to put a long join URL where a room name should be, and one of those
+across a card is enough to unbalance every row around it. You usually still want the
+event — just not that line of text under it.
+
+`show_location` is a per-calendar option, so the partition above solves this too. Split
+the calendar on the pattern and turn the location off on the half that carries the URL:
+
+```yaml
+entities:
+  - entity: calendar.work
+    filter_field: location
+    allowlist: 'zoom\.us|teams\.microsoft\.com|meet\.google\.com'
+    show_location: false
+  - entity: calendar.work
+    filter_field: location
+    blocklist: 'zoom\.us|teams\.microsoft\.com|meet\.google\.com'
+```
+
+The online meetings keep their title, their time and their icon and lose only the URL.
+Every other event on the same calendar still shows its room, because the second block
+never had the option set.
+
+Swap `show_location` for `show_description` to do the same to a description, or set both
+if the URL appears twice. And if you would rather those events were gone altogether,
+delete the first block — a lone `blocklist` filters them out instead of quieting them.
+
 ### Separating All-Day From Timed Events
 
 The `event_type` option decides which class of event a calendar contributes. It takes three
