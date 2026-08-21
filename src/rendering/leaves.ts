@@ -10,7 +10,6 @@ import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
-import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Weather from '../utils/weather';
@@ -249,6 +248,7 @@ export function renderLabel(
 function renderEventTitle(
   event: Types.CalendarEventData,
   config: Types.Config,
+  entityLabel: string | undefined,
   weatherForecasts?: Types.WeatherForecasts,
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
@@ -256,8 +256,6 @@ function renderEventTitle(
   const entityColor = isEmptyDay
     ? 'var(--calendar-card-empty-day-color)'
     : event._matchedConfig?.color || config.event_color;
-
-  const entityLabel = EventUtils.getEntityLabel(event._entityId, config, event);
 
   const labelIconColor = event._matchedConfig?.label_icon_color;
   const labelType = event._matchedConfig?.label_type;
@@ -386,6 +384,17 @@ export interface EventContentParts {
 
   eventDescription: string;
 
+  /**
+   * The label drawn before the event title: this calendar's own, or the icon Home Assistant
+   * holds for it where the label defers to Home Assistant.
+   *
+   * Resolved by the container for the same reason as `locationIcon` above — one answer for
+   * both views, and no per-calendar config reads down here — and for one more that is
+   * specific to it: substituting the icon needs `hass`, which the list view does not pass
+   * into `renderEventContent` at all.
+   */
+  entityLabel: string | undefined;
+
   shouldShowTime: boolean;
 
   countdownStr: string | null;
@@ -449,6 +458,7 @@ export function renderEventContent(
     shouldShowTime,
     countdownStr,
     progressPercentage,
+    entityLabel,
   } = parts;
 
   const hasProgressBar = progressPercentage !== null && config.show_progress_bar;
@@ -482,7 +492,7 @@ export function renderEventContent(
 
   return html`
     <div class="event-content">
-      ${renderEventTitle(event, config, titleForecasts)}
+      ${renderEventTitle(event, config, entityLabel, titleForecasts)}
       <div class="time-location">
         ${progressRow}
         ${shouldShowTime

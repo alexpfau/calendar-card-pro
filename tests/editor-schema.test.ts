@@ -2695,10 +2695,11 @@ describe('editor: per-calendar settings', () => {
       .filter(Boolean);
 
     // Every member of `EntityConfig` except the entity id itself, which is the
-    // picker's business rather than a setting of the calendar's — plus `label_type`
-    // and `accent_color_mode`, which are not config keys at all. Each names which of
-    // several shapes one value holds, exactly as `today_indicator_style` does at card
-    // level, and neither is ever written to the stored configuration.
+    // picker's business rather than a setting of the calendar's — plus `label_type`,
+    // `accent_color_mode` and `label_icon_source`, which are not config keys at all. Each
+    // names which of several shapes one value holds, or where it comes from, exactly as
+    // `today_indicator_style` does at card level, and none is ever written to the stored
+    // configuration.
     expect(offered.sort()).toEqual(
       [
         'accent_color',
@@ -2713,6 +2714,7 @@ describe('editor: per-calendar settings', () => {
         'filter_field',
         'label',
         'label_icon_color',
+        'label_icon_source',
         'label_type',
         'location_icon',
         'show_description',

@@ -23,7 +23,7 @@ entities:
 | Option                   | Type    | Default                  | Description                                                                                                                                                                                                           |
 | ------------------------ | ------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                                                                                                                  |
-| `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`)                                                                                        |
+| `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images (`/local/image.jpg`). Accepts `home-assistant` to follow this calendar's Home Assistant icon                |
 | `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                                                                       |
 | `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                      |
 | `accent_color`           | string  | `accent_color`           | Custom color for the vertical line and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color                                              |
@@ -154,6 +154,62 @@ browser, or a path field — along with **Label Icon Color** where the label is 
 
 You will rarely write `label_type` by hand, and existing configurations do not need it:
 leave it out and the value is read exactly as it always was.
+
+### Following the Icon From Home Assistant
+
+Home Assistant holds an icon for each calendar entity as well as a color, and `label` takes
+the same `home-assistant` value the [accent color](#using-the-colors-from-home-assistant)
+does. The card then shows whatever icon that calendar has in Home Assistant, so changing it
+in one place changes it in both instead of leaving the two to drift apart:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.work
+    label: home-assistant # follows Home Assistant's icon
+  - entity: calendar.family
+    label: mdi:home # your own icon wins
+  - calendar.trash # no label
+```
+
+It is per calendar only. There is no card-wide counterpart, because a label belongs to one
+calendar in a way a color does not — a single label in front of every event would say
+nothing about which calendar the event came from.
+
+**A calendar Home Assistant has no icon for shows no label**, rather than an empty space
+where one would go. That is the same nothing an unlabelled calendar shows, so mixing the two
+costs nothing in alignment.
+
+Most integrations supply no icon, so this usually means setting one yourself — the same
+place you set a color, and the same moment's work:
+
+::: tip Setting an Icon By Hand
+Open **Settings → Devices & Services → Entities**, pick the calendar, and use the icon field
+in its settings. Any calendar can be given one, whichever integration it came from.
+:::
+
+::: tip Visual Editor
+Choose **An Icon** as the label type and an **Icon Source** dropdown appears above the
+picker. Set it to **Follow Home Assistant** and the picker goes away, because there is
+nothing left to pick. **Label Icon Color** stays either way, so an inherited icon can still
+be tinted to match the rest of your card.
+:::
+
+Because the icon is read at the moment the card draws, an icon changed in Home Assistant
+appears without reloading the dashboard or waiting for the next calendar refresh.
+
+::: warning `home-assistant` as a Literal Label
+The card reads `home-assistant` as "follow Home Assistant" rather than as nine characters of
+text. On the rare occasion you want the words themselves, say so with `label_type`:
+
+```yaml
+entities:
+  - entity: calendar.notes
+    label: home-assistant
+    label_type: text
+```
+
+:::
 
 ## 🔍 Event Filtering
 

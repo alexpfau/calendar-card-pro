@@ -129,6 +129,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label_type.option.text.label': 'Text or Emoji',
   'entity.label_type.option.icon.label': 'An Icon',
   'entity.label_type.option.image.label': 'An Image',
+  'entity.label_icon_source': 'Icon Source',
+  'entity.label_icon_source.helper':
+    'Home Assistant holds an icon for each calendar, under Settings, Devices & Services, ' +
+    'Entities. Following it keeps the two in step; calendars it has no icon for show no ' +
+    'label at all.',
+  'entity.label_icon_source.option.home_assistant.label': 'Follow Home Assistant',
+  'entity.label_icon_source.option.custom.label': 'Custom icon',
   'entity.label': 'Label',
   'entity.color': 'Event Color',
   'entity.color.helper': 'Event titles from this calendar. Overrides the card colour.',

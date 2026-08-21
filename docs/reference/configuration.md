@@ -73,6 +73,7 @@ the card-wide settings for that one calendar:
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — full table, with filtering examples.
 **→ [Choosing how a label is read](/features/core-settings#choosing-how-a-label-is-read)** — when `label_type` is needed, and when it is not.
+**→ [Following the icon from Home Assistant](/features/core-settings#following-the-icon-from-home-assistant)** — `label: home-assistant`, and what a calendar with no icon shows.
 
 ## 🏷️ Header
 

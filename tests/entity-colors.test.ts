@@ -563,6 +563,7 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
       'days_of_week',
       'event_type',
       'filter_field',
+      'label_icon_source',
       'label_type',
       'show_description',
       'show_location',
@@ -571,13 +572,35 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
     ]);
   });
 
+  /**
+   * What has to be stored before a dropdown is reachable at all.
+   *
+   * Empty for every control but one, which is why this table did not exist until now: the
+   * per-calendar dropdowns are independent, so a bare entity id offers each of them every
+   * value it has. `label_icon_source` is the first that is **nested** — `labelFields` renders
+   * it only under `label_type: icon`, because "where does this icon come from" says nothing
+   * about a text label — and `fromEntityFormData` stores the sentinel only for an icon label
+   * for the same reason.
+   *
+   * 🚨 This is a precondition, not an exemption. The invariant below is unchanged and still
+   * enumerates every ordered transition; all this does is start from a state the editor can
+   * actually produce. Drop the precondition and `home_assistant` becomes unreachable — but
+   * for a reason that says nothing about the control, since no user can reach that state
+   * either. Weaken the *assertion* instead and the round trip stops being a round trip.
+   */
+  const PRECONDITION: Readonly<Record<string, Types.EntityConfig>> = {
+    label_icon_source: { entity: 'calendar.work', label_type: 'icon' },
+  };
+
   it.each(entityDropdowns())('%s returns to every value it offers', (field, values) => {
+    const base: string | Types.EntityConfig = PRECONDITION[field] ?? 'calendar.work';
+
     for (const from of values) {
       for (const to of values) {
         const entered = fromEntityFormData(
           'calendar.work',
-          { ...toEntityFormData('calendar.work'), [field]: from },
-          'calendar.work',
+          { ...toEntityFormData(base), [field]: from },
+          base,
           '#ff6c92',
         );
 
