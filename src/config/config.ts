@@ -569,6 +569,9 @@ export function normalizeEntities(
         blocklist?: string;
         allowlist?: string;
         filter_field?: Types.FilterField;
+        replace_field?: Types.ReplaceField;
+        replace_pattern?: string;
+        replace_with?: string;
         split_multiday_events?: boolean;
         event_type?: Types.EventType;
         days_of_week?: Types.DaysOfWeekFilter;
@@ -608,6 +611,17 @@ export function normalizeEntities(
           blocklist: item.blocklist,
           allowlist: item.allowlist,
           filter_field: item.filter_field,
+          // 🚨 This projection is a hand-written field list, and a per-calendar option
+          // left out of it is **dropped before it reaches anything** — normalization runs
+          // in `setConfig`, so the key never lands in `_matchedConfig` and the option is
+          // inert however carefully the rest of it was wired. Silent, too: nothing in the
+          // editor, the schema or the types can see it. `serializeEntities` below is
+          // field-agnostic precisely to avoid this shape, and it does not protect this
+          // list. `tests/entity-config-reprocess.test.ts` reconciles the whole set against
+          // `EntityConfig` and is what catches an omission here.
+          replace_field: item.replace_field,
+          replace_pattern: item.replace_pattern,
+          replace_with: item.replace_with,
           split_multiday_events: item.split_multiday_events,
           event_type: item.event_type,
           days_of_week: item.days_of_week,

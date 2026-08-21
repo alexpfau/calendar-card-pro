@@ -170,7 +170,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_description.option.show.label': 'Always show',
   'entity.show_description.option.hide.label': 'Never show',
 
-  'entity.split_multiday_events': 'Multi-Day Events',
+  'entity.split_multiday_events': 'Split Across Days',
   'entity.split_multiday_events.option.inherit.label': 'Follow the card',
   'entity.split_multiday_events.option.split.label': 'Split across each day',
   'entity.split_multiday_events.option.whole.label': 'Keep as one event',
@@ -180,11 +180,24 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Rendered by `heading()` as `constant` nodes, which carry no value and no input. The
   // same key serves both the card-level and per-calendar panels wherever they name the
   // same category, so the two read with one vocabulary rather than two.
-  heading_filters: 'Which Events Appear',
-  heading_multiday: 'Events Across Several Days',
-  heading_nothing: 'When There Is Nothing To Show',
+  //
+  // Terse noun phrases, and deliberately so. The earlier set were sentence fragments —
+  // `Which Events Appear`, `What Each Event Shows` — which read well in isolation and
+  // collided the moment a section about what an event *says* was added beside one about
+  // what it *shows*. The collision is worse in translation than in English, because
+  // "appear" and "show" collapse to one verb in several of the nine translated languages.
+  //
+  // 🚨 `heading_multiday` names the same thing as the field beneath it once, which is why
+  // `entity.split_multiday_events` is `Split Across Days` rather than `Multi-Day Events`:
+  // a heading repeating its only field's label is the stutter `AGENTS.md` warns about, and
+  // it is invisible to a DOM probe. Renaming the field rather than the heading also moves
+  // the per-calendar label closer to the card-level `Split Multi-Day Events`.
+  heading_filters: 'Event Filtering',
+  heading_replace: 'Text Replacement',
+  heading_multiday: 'Multi-Day Events',
+  heading_nothing: 'Empty Days',
   heading_appearance: 'Label & Colors',
-  heading_details: 'What Each Event Shows',
+  heading_details: 'Event Details',
 
   'entity.event_type': 'Event Type',
   'entity.event_type.option.inherit.label': 'Follow the card',
@@ -228,6 +241,35 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Which days this calendar may put events on. A multi-day event keeps only the days ' +
     'that qualify, so a holiday running through a weekend still shows on the weekdays ' +
     'around it.',
+
+  // --- Text replacement -----------------------------------------------------
+  //
+  // Find/replace wording rather than pattern wording, because that is the vocabulary every
+  // user already has. The regular expression is named in the helper for the people who
+  // want one; nobody has to know the word to strip a prefix off a birthday.
+  //
+  // 🚨 Both text fields say what happens when they are left **empty**, and those two
+  // sentences are the whole feature rather than politeness. Empty `Find` replaces the whole
+  // field; empty `Replace With` deletes the match. The editor cannot store an empty string
+  // — `isSet` in `synthetic.ts` rejects it — so an absent value is the only way either
+  // instruction can be given, and a helper that did not say so would leave both unreachable
+  // in practice.
+  'entity.replace_field': 'Replace In',
+  'entity.replace_field.option.title.label': 'Event title',
+  'entity.replace_field.option.location.label': 'Location',
+  'entity.replace_field.option.description.label': 'Description',
+  'entity.replace_field.helper':
+    'Which part of an event the two fields below rewrite. One at a time \u2014 and unlike ' +
+    'the filters above, listing the calendar twice does not add a second, because both ' +
+    'copies would draw the same events.',
+  'entity.replace_pattern': 'Find',
+  'entity.replace_pattern.helper':
+    'Text to find, as a regular expression. Every match is replaced, whatever its case. ' +
+    'Left empty, the whole field is replaced instead.',
+  'entity.replace_with': 'Replace With',
+  'entity.replace_with.helper':
+    'What to put in place of each match \u2014 or of the whole field, when nothing is ' +
+    'being searched for. Left empty, the match is removed.',
 
   // --- Exceptions -----------------------------------------------------------
   //

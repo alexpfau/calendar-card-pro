@@ -721,6 +721,7 @@ describe('editor filter: section headings', () => {
     expect(headingNames(entitySchema())).toEqual([
       'heading_appearance',
       'heading_filters',
+      'heading_replace',
       'heading_multiday',
       'heading_details',
     ]);
@@ -836,6 +837,10 @@ describe('editor: the order of the two panels', () => {
       'blocklist',
       'allowlist',
       'compact_events_to_show',
+      '# heading_replace',
+      'replace_field',
+      'replace_pattern',
+      'replace_with',
       '# heading_multiday',
       'split_multiday_events',
       '# heading_details',

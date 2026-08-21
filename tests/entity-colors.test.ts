@@ -565,6 +565,7 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
       'filter_field',
       'label_icon_source',
       'label_type',
+      'replace_field',
       'show_description',
       'show_location',
       'show_time',

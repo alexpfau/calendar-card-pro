@@ -10,6 +10,7 @@ import * as FormatUtils from './format';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
 import { isWeekRelative, parseStartDateExpression } from './start-date';
+import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
@@ -604,17 +605,65 @@ export function groupEventsByDay(
 
       const summary = event.summary || '';
 
+      // Per-calendar text replacement (#153, #212). Read once per event and applied to
+      // whichever single field it names — one field per block, because two blocks of one
+      // calendar both match the same events and each pushes its own copy rather than
+      // partitioning them the way two `blocklist`/`allowlist` blocks do.
+      //
+      // 🚨 **Ordering, which is decided here and not by accident.** Every rewrite runs on
+      // the text the card has already finished formatting, so the user's pattern sees what
+      // they see:
+      //
+      // 1. **After `formatLocation`** on a location. The country strip is end-anchored and
+      //    does its own trailing-comma cleanup, so running it second would leave it
+      //    matching against text a rewrite had already moved the end of.
+      // 2. **After `stripHtmlTags` and the age-marker strip** on a description. A pattern
+      //    should be written against the words the user typed, not against Google
+      //    Calendar's `&nbsp;` and `<br>` or against card syntax the row never shows.
+      // 3. **Before `appendAgeCount`** on a title, which `event-age.ts` asked for by issue
+      //    number before this existed: a replacement pattern must see the calendar's own
+      //    title rather than one the card has already decorated, or an end-anchored pattern
+      //    has to tolerate a suffix its author never wrote.
+      //
+      // Written into the display copy only. Mutating `event` would bake the rewrite into
+      // `this.events`, compound it on every render, and change the text the filters read.
+      const replacement = TextReplace.resolveTextReplacement(
+        getEntitySetting(event._entityId, 'replace_field', config, event),
+        getEntitySetting(event._entityId, 'replace_pattern', config, event),
+        getEntitySetting(event._entityId, 'replace_with', config, event),
+      );
+
+      const replacedSummary = TextReplace.applyTextReplacement(summary, replacement, 'title');
+
+      // #124's count is suppressed on a title the user replaced outright, and on one their
+      // pattern emptied. Both say the same thing — this event's own title is not to be
+      // shown — and appending to either is the leak #212 asked to be spared: `Busy (40)`
+      // announces that the hidden event is a birthday, and a bare `(40)` announces it
+      // louder. A title merely *edited* keeps its count, which is the case #153 ex.1 wants:
+      // stripping `Geburtstag von ` off a birthday should still say how old they are.
+      const titleWithheld =
+        replacedSummary.replacedWholeField || (summary !== '' && replacedSummary.text === '');
+
       eventsByDay[eventDateKey].events.push({
-        summary: ageCount === null ? summary : EventAge.appendAgeCount(summary, ageCount),
+        summary:
+          ageCount === null || titleWithheld
+            ? replacedSummary.text
+            : EventAge.appendAgeCount(replacedSummary.text, ageCount),
         location:
           (getEntitySetting(event._entityId, 'show_location', config, event) ??
           config.show_location)
-            ? FormatUtils.formatLocation(event.location || '', config.remove_location_country)
+            ? TextReplace.applyTextReplacement(
+                FormatUtils.formatLocation(event.location || '', config.remove_location_country),
+                replacement,
+                'location',
+              ).text
             : '',
         description: showDescription
-          ? markerYear === null
-            ? plainDescription
-            : EventAge.stripAgeMarker(plainDescription)
+          ? TextReplace.applyTextReplacement(
+              markerYear === null ? plainDescription : EventAge.stripAgeMarker(plainDescription),
+              replacement,
+              'description',
+            ).text
           : '',
         start: event.start,
         end: event.end,
