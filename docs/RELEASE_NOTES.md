@@ -78,6 +78,7 @@ That is eleven editor languages in total, counting US English in code and Britis
 ## Related Issues
 
 - [#132](https://github.com/alexpfau/calendar-card-pro/issues/132) - Filter based on all-day events by @syst3x
+- [#251](https://github.com/alexpfau/calendar-card-pro/issues/251) - Blocklist based on the duration of events by @tommi1968 — **half-served, do not close.** `event_type: timed` answers the all-day half; the multi-day half needs a span axis the card cannot yet express, because it holds three disagreeing answers to what counts as multi-day. The reporter has been asked which behavior they want for an event running 23:30 to 00:30 and has not yet replied
 - [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765
 - [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze
 - [#188](https://github.com/alexpfau/calendar-card-pro/issues/188) - Use a calendar entity's own attributes to configure it by @shmuelie — both halves now: the color in #314, and the icon here
