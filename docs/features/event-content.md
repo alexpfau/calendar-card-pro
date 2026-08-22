@@ -155,7 +155,7 @@ description_icon_size: '14px'
 
 Descriptions are automatically processed:
 
-- **HTML tags** are stripped for clean, readable text
+- **HTML tags** are stripped for clean, readable text — only real markup, so prose such as `temp < 5 and pressure > 3` is left as written
 - **HTML entities** (e.g., `&amp;`, `&lt;`) are decoded to their proper characters
 - **Line clamping** truncates long descriptions with `...` when `description_max_lines` is set
 
