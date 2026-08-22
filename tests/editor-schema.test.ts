@@ -2595,6 +2595,42 @@ describe('editor: per-calendar settings', () => {
     expect(data.label_type).toBe('none');
   });
 
+  /**
+   * The same wiring one shape over, and it needs its own test rather than trusting the one
+   * above. `entitySchemaFor` takes the image source as its **sixth** positional parameter,
+   * every parameter after the second has a default, and the two arguments either side of it
+   * are also a string and a boolean — so dropping it here compiles, lints, typechecks, and
+   * leaves the person picker permanently unrendered while every schema-level test of it still
+   * passes. Checked by dropping it: 2810 unit tests, none of them noticed.
+   */
+  it('renders the person picker for a calendar labelled with a person, through the chassis', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({
+      entities: [
+        { entity: 'calendar.a', label: 'person.anna' },
+        { entity: 'calendar.b', label: '/local/work.png' },
+      ],
+    } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const forms = [...element.shadowRoot!.querySelectorAll('ha-form.entity-form')];
+
+    const person = schemaOf(forms[0]).find((node) => node.name === 'label')!;
+    expect(schemaOf(forms[0]).map((node) => node.name)).toContain('label_image_source');
+    expect('selector' in person && 'entity' in person.selector, 'person mode wants a picker').toBe(
+      true,
+    );
+
+    // The other mode through the same wiring, so the assertion above is about the source
+    // rather than about every image label getting a picker.
+    const typed = schemaOf(forms[1]).find((node) => node.name === 'label')!;
+    expect('selector' in typed && 'text' in typed.selector, 'custom mode wants a text box').toBe(
+      true,
+    );
+  });
+
   it('stores a label chosen through the shape dropdown, through the chassis', async () => {
     const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
     element.hass = {} as Types.Hass;
@@ -2723,10 +2759,10 @@ describe('editor: per-calendar settings', () => {
 
     // Every member of `EntityConfig` except the entity id itself, which is the
     // picker's business rather than a setting of the calendar's — plus `label_type`,
-    // `accent_color_mode` and `label_icon_source`, which are not config keys at all. Each
-    // names which of several shapes one value holds, or where it comes from, exactly as
-    // `today_indicator_style` does at card level, and none is ever written to the stored
-    // configuration.
+    // `accent_color_mode`, `label_icon_source` and `label_image_source`, which are not config
+    // keys at all. Each names which of several shapes one value holds, or where it comes
+    // from, exactly as `today_indicator_style` does at card level, and none is ever written
+    // to the stored configuration.
     expect(offered.sort()).toEqual(
       [
         'accent_color',
@@ -2742,6 +2778,7 @@ describe('editor: per-calendar settings', () => {
         'label',
         'label_icon_color',
         'label_icon_source',
+        'label_image_source',
         'label_type',
         'location_icon',
         'replace_field',

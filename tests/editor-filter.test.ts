@@ -906,6 +906,7 @@ describe('editor: the order of the two panels', () => {
       '# heading_appearance',
       'label_type',
       'label_icon_source',
+      'label_image_source',
       'label',
       'label_icon_color',
       'color',

@@ -7,6 +7,7 @@
  */
 
 import * as EntityIcons from './entity-icons';
+import * as PersonPictures from './person-pictures';
 
 //-----------------------------------------------------------------------------
 // COLOR UTILITIES
@@ -221,6 +222,33 @@ export function getLabelType(label: unknown): LabelType {
   // the way to mean those words literally. That is the escape hatch this claim rests on.
   if (EntityIcons.isEntityIconSentinel(label)) {
     return 'icon';
+  }
+
+  // The other half of the same "let Home Assistant answer" family, and here for the same
+  // reason the sentinel is: `person.anna` is a dotted lower-case token that every test below
+  // declines, so the final `return 'text'` would claim it and draw the entity id in front of
+  // every event — which is exactly what it did before this arm existed.
+  //
+  // `image` rather than a fifth shape, because a picture *is* what gets drawn: the value is
+  // swapped for the person's `entity_picture` in `EventUtils.resolveEntityLabel` before
+  // anything renders, and what arrives at `renderLabel` is an ordinary address. So this says
+  // what the label will be, not what it is written as — the same thing the sentinel's `icon`
+  // says one arm up.
+  //
+  // 🚨 Sitting beside the sentinel is readability, **not** precedence, and the difference is
+  // worth stating because the sentinel's own note one arm up is about precedence and reads as
+  // though it applies here too. Moving this below the extension arm changes nothing: the two
+  // overlap on exactly ten strings — `person.` followed by one of the nine picture extensions
+  // — and both answer `image`, so no ordering of them can disagree. Verified by moving it and
+  // running the suite: 2810 unit tests, none of them cared.
+  //
+  // What actually decides those ten is `resolveEntityLabel`, which asks `isPersonEntityId` and
+  // nothing else — so `person.png` resolves as a person's picture wherever this arm sits. That
+  // is the right answer for them: they are legal person ids but, as image paths, relative ones
+  // that Home Assistant serves nothing at. `label_type: text` is the way back, as it is for
+  // the sentinel and for a slash-leading word.
+  if (PersonPictures.isPersonEntityId(label)) {
+    return 'image';
   }
 
   if (isIconValue(label)) {

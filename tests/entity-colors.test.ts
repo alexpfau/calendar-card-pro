@@ -530,10 +530,34 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
    *
    * `accent_color` is the one dropdown here whose valueless state means a *different* mode
    * — empty derives to `inherit` — so `custom` is the only mode that must be positively
-   * represented by a value. Every other per-calendar dropdown maps each option to a
-   * distinct stored value, which is why none of them needed a seed and none of them broke.
+   * represented by a value. `label_image_source` is the second, and arrived with the person
+   * picker: a person's picture is stored as the person's own entity id under `label`, so its
+   * `person` mode has no value of its own until somebody is picked, and this test caught it
+   * snapping straight back to `custom`. Every other per-calendar dropdown maps each option to
+   * a distinct stored value, which is why none of them needed a seed and none of them broke.
    */
   const ctx = { view: 'list' as const, config: buildConfig(), language: 'en' };
+
+  /**
+   * The instance state a control needs before it is reachable, alongside the stored state
+   * `PRECONDITION` supplies below.
+   *
+   * `label_image_source` is the only control that reads it: its `person` mode is seeded from
+   * the people Home Assistant knows about, so on an instance with none the mode cannot be
+   * selected — honestly, since there would be nobody to pick. Every other dropdown ignores
+   * `hass` entirely, and `calendar.work` deliberately carries no `icon` here so the icon
+   * source's own seed still finds nothing and its transitions are unchanged.
+   */
+  const HASS = {
+    states: {
+      'calendar.work': { entity_id: 'calendar.work', state: 'on', attributes: {} },
+      'person.anna': {
+        entity_id: 'person.anna',
+        state: 'home',
+        attributes: { entity_picture: '/api/image/serve/8672f11/512x512' },
+      },
+    },
+  } as unknown as Types.Hass;
 
   /** Discovered from the schema, so a dropdown added later is covered the day it lands. */
   function entityDropdowns(): Array<[string, string[]]> {
@@ -564,6 +588,7 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
       'event_type',
       'filter_field',
       'label_icon_source',
+      'label_image_source',
       'label_type',
       'replace_field',
       'show_description',
@@ -591,6 +616,10 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
    */
   const PRECONDITION: Readonly<Record<string, Types.EntityConfig>> = {
     label_icon_source: { entity: 'calendar.work', label_type: 'icon' },
+    // The same nesting one shape over: `labelFields` renders the image source only under
+    // `label_type: image`, because "where does this picture come from" says nothing about an
+    // icon or a word.
+    label_image_source: { entity: 'calendar.work', label_type: 'image' },
   };
 
   it.each(entityDropdowns())('%s returns to every value it offers', (field, values) => {
@@ -603,6 +632,7 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
           { ...toEntityFormData(base), [field]: from },
           base,
           '#ff6c92',
+          HASS,
         );
 
         // Without this the loop would compare every transition against the starting state
@@ -614,6 +644,7 @@ describe('entity colours: every per-calendar dropdown round-trips', () => {
           { ...toEntityFormData(entered), [field]: to },
           entered,
           '#ff6c92',
+          HASS,
         );
 
         expect(toEntityFormData(moved)[field], `${field}: picking ${to} while on ${from}`).toBe(to);

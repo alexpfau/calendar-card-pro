@@ -9,9 +9,11 @@ import {
   ENTITY_TRISTATE_VALUES,
   INHERIT,
   LABEL_ICON_SOURCE,
+  LABEL_IMAGE_SOURCE,
   LABEL_TYPE,
   accentColorModeOf,
   labelIconSourceOf,
+  labelImageSourceOf,
 } from './schemas/entity';
 import { entityIdOf, isSet } from './synthetic';
 import * as Config from '../../config/config';
@@ -20,6 +22,7 @@ import * as ViewConfig from '../../config/view';
 import { ENTITY_COLOR_SENTINEL, isEntityColorSentinel } from '../../utils/entity-colors';
 import { ENTITY_ICON_SENTINEL, entityIcon, isEntityIconSentinel } from '../../utils/entity-icons';
 import * as Helpers from '../../utils/helpers';
+import { firstPersonEntityId, isPersonEntityId } from '../../utils/person-pictures';
 
 const NUMERIC_KEYS: ReadonlySet<string> = new Set(['compact_events_to_show']);
 
@@ -261,6 +264,7 @@ export function toEntityFormData(entry: string | Types.EntityConfig): Record<str
     [LABEL_TYPE]: labelTypeOf(entry),
     [ACCENT_COLOR_MODE]: accentColorModeOf(config.accent_color),
     [LABEL_ICON_SOURCE]: labelIconSourceOf(config.label),
+    [LABEL_IMAGE_SOURCE]: labelImageSourceOf(config.label),
   };
 
   for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
@@ -312,12 +316,20 @@ export function fromEntityFormData(
     data[LABEL_ICON_SOURCE] ?? labelIconSourceOf(asEntityConfig(previous).label),
   );
 
+  // Same contract again, one field over: derived from whether `label` holds a person's
+  // entity id, so it too is read and never written.
+  const imageSource = String(
+    data[LABEL_IMAGE_SOURCE] ?? labelImageSourceOf(asEntityConfig(previous).label),
+  );
+
   const followsHomeAssistant = chosenType === 'icon' && iconSource === 'home_assistant';
+
+  const namesPerson = chosenType === 'image' && imageSource === 'person';
 
   for (const [key, value] of Object.entries(data)) {
     if (key === 'entity' || key === LABEL_TYPE || key === ACCENT_COLOR_MODE) continue;
 
-    if (key === LABEL_ICON_SOURCE) continue;
+    if (key === LABEL_ICON_SOURCE || key === LABEL_IMAGE_SOURCE) continue;
 
     if (key === 'label') {
       if (chosenType === 'none') continue;
@@ -334,6 +346,14 @@ export function fromEntityFormData(
       // `home_assistant` and the dropdown would snap straight back. This is the same trap
       // `accentColorFor` documents, one field over.
       if (isEntityIconSentinel(value)) continue;
+
+      // The image source's own version of the line above, and it has to run in *both*
+      // directions where the sentinel only needs one. A person's picture is stored as the
+      // person's id under `label`, so both modes hold a real value and either can arrive
+      // under the other's mode: moving to the picker hands back the path that was typed,
+      // moving away from it hands back the person. Stored, either would derive the dropdown
+      // straight back to where it came from and the change would appear not to take.
+      if (chosenType === 'image' && isPersonEntityId(value) !== namesPerson) continue;
     }
 
     if (key === 'label_icon_color' && moved && chosenType !== 'icon') continue;
@@ -383,6 +403,19 @@ export function fromEntityFormData(
     // choosing "An Icon" from scratch starts.
     const inherited = entityIcon(entityId, hass);
     if (inherited !== undefined) entry.label = inherited;
+  }
+
+  // The image side's seed, and the reason it exists is the one `accentColorFor` documents
+  // below: the person mode is derived from `label` and has nothing of its own to be derived
+  // *from* until somebody is picked, so storing nothing re-reads as `custom` and the dropdown
+  // snaps back before the picker is ever shown. `tests/entity-colors.test.ts` walks every
+  // ordered transition of every per-calendar dropdown and is what caught it.
+  //
+  // An instance with no people at all seeds nothing and the mode stays unreachable — which is
+  // the honest outcome rather than a gap, since there would be nobody to pick.
+  if (namesPerson && entry.label === undefined) {
+    const someone = firstPersonEntityId(hass);
+    if (someone !== undefined) entry.label = someone;
   }
 
   if (needsExplicitType(chosenType, entry.label)) {

@@ -14,7 +14,12 @@ import * as EditorLocalize from './localize';
 import * as Overrides from './overrides';
 import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
 import { ENTITY_PATH } from './schemas/calendars';
-import { accentColorModeOf, entitySchemaFor, labelIconSourceOf } from './schemas/entity';
+import {
+  accentColorModeOf,
+  entitySchemaFor,
+  labelIconSourceOf,
+  labelImageSourceOf,
+} from './schemas/entity';
 import { interpolate } from './strings';
 import styles from './styles';
 import { EXCEPTION_PICKER } from './subforms';
@@ -342,6 +347,7 @@ export class CalendarCardProEditor extends LitElement {
             accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
             labelIconSourceOf(Entities.asEntityConfig(entry).label),
             Entities.showsLocation(entry, ctx.config, ctx.view),
+            labelImageSourceOf(Entities.asEntityConfig(entry).label),
           ),
           entry,
           subform.path,
