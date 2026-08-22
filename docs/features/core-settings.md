@@ -20,29 +20,29 @@ entities:
 
 ### Available Options for Entity Configuration Objects
 
-| Option                   | Type    | Default                  | Description                                                                                                                                                                                                                                                                                        |
-| ------------------------ | ------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                                                                                                                                                                                               |
-| `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images — any address, whether a file you saved (`/local/image.jpg`) or one Home Assistant serves (`/api/image/serve/…`). Accepts `home-assistant` to follow this calendar's Home Assistant icon |
-| `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                                                                                                                                                    |
-| `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                                                                                                   |
-| `accent_color`           | string  | `accent_color`           | Custom color for the vertical line and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color                                                                                                                           |
-| `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                                                                                                        |
-| `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                                                                                                |
-| `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                                                                                                                                                                                        |
-| `location_icon`          | string  | `mdi:map-marker-outline` | Icon shown beside this calendar's locations, e.g. `mdi:office-building`. Unset, Microsoft Teams meetings get `mdi:microsoft-teams` and every other location the map marker                                                                                                                         |
-| `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option)                                                                                                                                                                                                  |
-| `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                                                                                                                                                                                   |
-| `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                                                                                                                                          |
-| `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                                                                                                                                                        |
-| `filter_field`           | string  | `title`                  | Which field `blocklist` and `allowlist` read: `title`, `location` or `description`. One at a time — list the calendar twice to filter on a second                                                                                                                                                  |
-| `replace_field`          | string  | `title`                  | Which field `replace_pattern` and `replace_with` rewrite: `title`, `location` or `description`. One at a time, and listing the calendar twice does **not** add a second                                                                                                                            |
-| `replace_pattern`        | string  | `-`                      | RegExp pattern to find in that field. Every match is replaced, whatever its case. Unset, the whole field is replaced instead                                                                                                                                                                       |
-| `replace_with`           | string  | `-`                      | Text to put in place of each match, or of the whole field when `replace_pattern` is unset. Unset, the match is removed                                                                                                                                                                             |
-| `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                                                                                                    |
-| `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                                                                                                         |
-| `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                              |
-| `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (Monday to Friday) or `weekends` (Saturday and Sunday), judged on the day each row lands on. Unset, every day qualifies                                                                                                                                      |
+| Option                   | Type    | Default                  | Description                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------ | ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `entity`                 | string  | —                        | **Required.** The calendar entity ID                                                                                                                                                                                                                                                                                                                                     |
+| `label`                  | string  | `-`                      | Calendar label displayed before event titles. Supports text/emoji, MDI icons (`mdi:icon-name`), or images — any address, whether a file you saved (`/local/image.jpg`) or one Home Assistant serves (`/api/image/serve/…`). Accepts a person entity ID (`person.alex`) to show that person's picture, and `home-assistant` to follow this calendar's Home Assistant icon |
+| `label_type`             | string  | derived from `label`     | Forces how `label` is read: `none`, `text`, `icon` or `image`. Only needed when the value alone would be read as the wrong kind                                                                                                                                                                                                                                          |
+| `color`                  | string  | `event_color`            | Custom color for event titles from this calendar                                                                                                                                                                                                                                                                                                                         |
+| `accent_color`           | string  | `accent_color`           | Custom color for the vertical line and event background (when `event_background_opacity` is >0). Accepts `home-assistant` to follow this calendar's Home Assistant color                                                                                                                                                                                                 |
+| `label_icon_color`       | string  | `-`                      | Custom color for label icons (only applies to `mdi:` and other icon labels)                                                                                                                                                                                                                                                                                              |
+| `show_time`              | boolean | `show_time`              | Whether to show event times for this calendar (overrides global `show_time` option)                                                                                                                                                                                                                                                                                      |
+| `show_location`          | boolean | `show_location`          | Whether to show event locations for this calendar (overrides global `show_location` option)                                                                                                                                                                                                                                                                              |
+| `location_icon`          | string  | `mdi:map-marker-outline` | Icon shown beside this calendar's locations, e.g. `mdi:office-building`. Unset, Microsoft Teams meetings get `mdi:microsoft-teams` and every other location the map marker                                                                                                                                                                                               |
+| `show_description`       | boolean | `show_description`       | Whether to show event descriptions for this calendar (overrides global `show_description` option)                                                                                                                                                                                                                                                                        |
+| `compact_events_to_show` | number  | `compact_events_to_show` | Maximum number of events to show from this calendar (works with global `compact_events_to_show`)                                                                                                                                                                                                                                                                         |
+| `blocklist`              | string  | `-`                      | RegExp pattern to specify events to exclude (e.g., "Private\|Conference")                                                                                                                                                                                                                                                                                                |
+| `allowlist`              | string  | `-`                      | RegExp pattern to specify events to include (e.g., "Birthday\|Anniversary")                                                                                                                                                                                                                                                                                              |
+| `filter_field`           | string  | `title`                  | Which field `blocklist` and `allowlist` read: `title`, `location` or `description`. One at a time — list the calendar twice to filter on a second                                                                                                                                                                                                                        |
+| `replace_field`          | string  | `title`                  | Which field `replace_pattern` and `replace_with` rewrite: `title`, `location` or `description`. One at a time, and listing the calendar twice does **not** add a second                                                                                                                                                                                                  |
+| `replace_pattern`        | string  | `-`                      | RegExp pattern to find in that field. Every match is replaced, whatever its case. Unset, the whole field is replaced instead                                                                                                                                                                                                                                             |
+| `replace_with`           | string  | `-`                      | Text to put in place of each match, or of the whole field when `replace_pattern` is unset. Unset, the match is removed                                                                                                                                                                                                                                                   |
+| `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                                                                                                                                                                          |
+| `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                                                                                                                                                                               |
+| `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                                                                                                    |
+| `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (Monday to Friday) or `weekends` (Saturday and Sunday), judged on the day each row lands on. Unset, every day qualifies                                                                                                                                                                                                            |
 
 This structure gives you granular control over how information from different calendars is displayed.
 
@@ -163,19 +163,24 @@ leave it out and the value is read exactly as it always was.
 
 An image label does not have to be a file you saved in `www/`. Home Assistant serves the
 pictures it already holds over addresses beginning `/api/`, and any of them works as a
-label — a person's photo, a camera snapshot, an integration's brand icon:
+label — a camera snapshot, an integration's brand icon, a person's photo:
 
 ```yaml
 entities:
-  - entity: calendar.alex
-    label: /api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512 # a person's picture
   - entity: calendar.deliveries
     label: /api/camera_proxy/camera.front_door # a camera's current frame
+  - entity: calendar.alex
+    label: /api/image/serve/8672f1121a4d15c3ed5c422e6bc0597c/512x512 # a picture, by address
 ```
 
 Find the address in **Developer Tools → States**: pick the entity and read its
 `entity_picture` attribute. These addresses need no authentication, so the card loads them
 with no further setup.
+
+::: tip For a Person, Name the Person Instead
+The second line above works, but there is a shorter way that does not go stale — see
+[Showing a Person's Picture](#showing-a-persons-picture) below.
+:::
 
 ::: warning A Text Label Beginning With a Slash
 Because the card reads a leading `/` as the start of an address, a label you mean as words
@@ -185,6 +190,63 @@ needs `label_type: text` to stay words:
 entities:
   - entity: calendar.notes
     label: /dev
+    label_type: text
+```
+
+:::
+
+### Showing a Person's Picture
+
+Set `label` to a **person entity ID** and the card shows that person's picture. You do not
+have to find the address, and you never have to update it — the card reads it from the
+person entity each time it draws, so a new photo in Home Assistant appears on the card
+without touching your configuration:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - entity: calendar.alex
+    label: person.alex # Alex's photo
+  - entity: calendar.mattis
+    label: person.mattis
+  - calendar.family # no label
+```
+
+This is the same idea as [following a calendar's
+icon](#following-the-icon-from-home-assistant), one entity over. The difference is which
+entity holds the value: an icon belongs to the calendar being labeled, so `home-assistant`
+needs no further detail, while a picture belongs to a **person**, who has to be named.
+
+**Only `person.` entity IDs are read this way.** Plenty of other entities carry a picture —
+cameras, media players, integrations — and any of them still works if you paste its
+address, as above. They are deliberately not resolved from an entity ID, because an entity
+ID is a lowercase dotted word and so is plenty of ordinary text: reading every domain that
+way would quietly turn a label like `v2.0` into a picture lookup.
+
+**A person Home Assistant has no picture for shows no label**, rather than an empty space
+where one would go. That is the same nothing an unlabeled calendar shows, so mixing the two
+costs nothing in alignment. The same is true of a `person.` ID naming somebody who no
+longer exists.
+
+::: tip Setting a Person's Picture
+Open **Settings → People**, pick the person, and use the picture field. A person does not
+need a Home Assistant login to have one.
+:::
+
+::: tip Visual Editor
+Choose **An Image** as the label type and an **Image Source** dropdown appears above the
+field. Set it to **A person's picture** and the field becomes a person picker; leave it on
+**Custom image** for a path you type yourself.
+:::
+
+::: warning A Text Label Shaped Like a Person
+The card reads `person.alex` as "show that person's picture" rather than as ten characters
+of text. On the rare occasion you want the characters themselves, say so with `label_type`:
+
+```yaml
+entities:
+  - entity: calendar.notes
+    label: person.alex
     label_type: text
 ```
 
