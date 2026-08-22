@@ -248,10 +248,16 @@ describe('card-level processing-time options reprocess cached events', () => {
   /**
    * The registration, enforced rather than remembered.
    *
-   * This is the check that would have caught the original defect. `resolveEventType` is
-   * the card's only processing-time read of top-level config, so every `config.<key>` in
+   * This is the check that would have caught the original defect. Every `config.<key>` in
    * the filter path must be registered — a future option added there without being listed
    * fails here instead of silently rendering stale.
+   *
+   * 🚨 Its window is the **filter path**, which is narrower than the hazard
+   * `PROCESSING_TIME_KEYS` describes: anything read anywhere inside `processEvents` is baked
+   * into `this.events`, and `resolveEventType` is only one of the ten functions that run
+   * there. `registers every top-level option the whole fetch path reads` below covers the
+   * rest; this one is kept because equality over a small window is a stronger statement than
+   * the classification the wider scan has to make.
    *
    * A membership cross-check against `PER_CALENDAR_OPTIONS` was considered and is *not*
    * the right reconciliation: `show_time`, `show_location`, `show_description` and
@@ -274,6 +280,141 @@ describe('card-level processing-time options reprocess cached events', () => {
     // The denominator. A scan that matched nothing would "pass" against any registration.
     expect(read.length, 'the scan found no config reads at all').toBeGreaterThan(0);
     expect([...new Set(read)].sort()).toEqual([...PROCESSING_TIME_KEYS].sort());
+  });
+
+  /**
+   * The same registration over the **whole** fetch path, rather than over the filter.
+   *
+   * 🚨 The narrow scan above was the only mechanical guard on `PROCESSING_TIME_KEYS`, and a
+   * card-level read planted in `processEvents` itself — outside `resolveEventType`, which is
+   * the obvious place for the next one — left it green along with every other test in the
+   * suite. The
+   * defect it would ship is the one the docblock on `PROCESSING_TIME_KEYS` describes: the
+   * value is baked into `this.events`, so a card-level edit renders stale until the refresh
+   * timer, a reload, or an unrelated entity edit.
+   *
+   * The path is walked rather than listed, so it needs no maintenance and covers a function
+   * nobody has written yet. Reads are then classified rather than compared for equality,
+   * because the fetch path legitimately reads three kinds of key:
+   *
+   * | Read                             | Why it is already covered                  |
+   * | -------------------------------- | ------------------------------------------ |
+   * | `entities`                       | `serializeEntities`, which is field-agnostic |
+   * | whatever `hasConfigChanged` compares | a refetch, which is strictly stronger    |
+   * | `PROCESSING_TIME_KEYS`           | the registration under test                |
+   *
+   * Both other sets are read from their own source rather than retyped here, so this adds no
+   * second table to keep in step with the first.
+   */
+  it('registers every top-level option the whole fetch path reads', () => {
+    const source = readFileSync(join(process.cwd(), 'src/utils/events.ts'), 'utf-8');
+
+    /**
+     * Every module-level function, mapped to its body.
+     *
+     * Brace counting starts only after the parameter list closes. An inline type literal in
+     * a signature — `hassLocale?: { language?: string }` — otherwise opens and closes a brace
+     * on the signature line, so a naive counter ends the slice before the body begins and
+     * returns an empty function. That failure is silent: an empty body yields no reads and
+     * agrees with any registration at all, which is what the body-length assertion below
+     * exists to catch.
+     */
+    const bodies = new Map<string, string>();
+    for (const match of source.matchAll(/^(?:export )?(?:async )?function ([A-Za-z0-9_]+)\(/gm)) {
+      let index = (match.index ?? 0) + match[0].length - 1;
+      for (let paren = 0; index < source.length; index++) {
+        if (source[index] === '(') paren += 1;
+        else if (source[index] === ')' && --paren === 0) break;
+      }
+
+      const bodyStart = source.indexOf('{', index);
+      if (bodyStart === -1) continue;
+
+      let depth = 0;
+      for (let at = bodyStart; at < source.length; at++) {
+        if (source[at] === '{') depth += 1;
+        else if (source[at] === '}' && --depth === 0) {
+          bodies.set(match[1], source.slice(bodyStart, at + 1));
+          break;
+        }
+      }
+    }
+
+    const strip = (body: string): string =>
+      body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    const reachableFrom = (entry: string): Set<string> => {
+      const seen = new Set<string>();
+      const queue = [entry];
+
+      while (queue.length > 0) {
+        const name = queue.shift() as string;
+        if (seen.has(name) || !bodies.has(name)) continue;
+        seen.add(name);
+
+        for (const call of strip(bodies.get(name) as string).matchAll(/\b([A-Za-z0-9_]+)\(/g)) {
+          if (bodies.has(call[1])) queue.push(call[1]);
+        }
+      }
+
+      return seen;
+    };
+
+    const readsOf = (names: Set<string>): string[] => {
+      const keys = new Set<string>();
+      for (const name of names) {
+        for (const read of strip(bodies.get(name) as string).matchAll(/\bconfig\.([a-z0-9_]+)/g)) {
+          keys.add(read[1]);
+        }
+      }
+      return [...keys].sort();
+    };
+
+    const fetchPath = reachableFrom('processRawEvents');
+    const renderPath = reachableFrom('groupEventsByDay');
+
+    // Denominators, and the self-tests that stop an empty or collapsed walk passing. The
+    // render path is the contrast: a walk that returned the same thing for both would be
+    // reporting its own structure rather than the call graph.
+    expect(bodies.size, 'the function scan found nothing — fix this scan').toBeGreaterThan(20);
+    expect(fetchPath.size, 'the fetch-path walk collapsed').toBeGreaterThan(5);
+    expect(fetchPath.has('processEvents'), 'processEvents is not on the fetch path').toBe(true);
+    expect(
+      (bodies.get('groupEventsByDay') as string).length,
+      'groupEventsByDay sliced to a stub — the signature brace bug is back',
+    ).toBeGreaterThan(1000);
+    expect(fetchPath.has('groupEventsByDay'), 'the render entry leaked into the fetch path').toBe(
+      false,
+    );
+    expect(readsOf(renderPath)).not.toEqual(readsOf(fetchPath));
+
+    // The keys a refetch already covers, read from `hasConfigChanged` rather than retyped.
+    const configSource = readFileSync(join(process.cwd(), 'src/config/config.ts'), 'utf-8');
+    const from = configSource.indexOf('export function hasConfigChanged(');
+    expect(from, 'hasConfigChanged not found — update this scan').toBeGreaterThan(-1);
+    const refetchKeys = new Set(
+      [
+        ...configSource
+          .slice(from, configSource.indexOf('\n}', from))
+          .matchAll(/\b(?:previous|current)\??\.([a-z0-9_]+)/g),
+      ].map((match) => match[1]),
+    );
+    expect(refetchKeys.size, 'hasConfigChanged scan found no comparisons').toBeGreaterThan(0);
+
+    const reads = readsOf(fetchPath);
+    expect(reads.length, 'the fetch-path scan found no config reads at all').toBeGreaterThan(0);
+
+    const unregistered = reads.filter(
+      (key) =>
+        key !== 'entities' &&
+        !refetchKeys.has(key) &&
+        !(PROCESSING_TIME_KEYS as ReadonlyArray<string>).includes(key),
+    );
+
+    expect(
+      unregistered,
+      'read on the fetch path but registered nowhere, so a card-level edit renders stale',
+    ).toEqual([]);
   });
 
   /**

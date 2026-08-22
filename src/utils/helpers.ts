@@ -120,14 +120,37 @@ export function getTodayIndicatorType(value: string | boolean): string {
       return 'mdi';
     }
 
-    if (
-      value.startsWith('/') ||
-      value.includes('.png') ||
-      value.includes('.jpg') ||
-      value.includes('.svg') ||
-      value.includes('.webp') ||
-      value.includes('.gif')
-    ) {
+    // The same two arms `getLabelType` uses, and for the same reason: an address is a shape,
+    // not a list of filenames. The list this replaces missed an absolute URL carrying no
+    // extension, the four-letter `.jpeg`, and `avif`, `bmp`, `ico` and `apng` — and, being
+    // `includes` on a lower-case literal, missed `.PNG` and `.JPEG` outright (#569).
+    //
+    // 🚨 Two things make this safe to widen even though `today_indicator` has no
+    // `today_indicator_type` to undo a wrong reading with, and both turn on `dot` being the
+    // *fallthrough* as well as the default:
+    //
+    //   - Nothing working is taken. Every arm that gives a value meaning — `pulse`/`glow`,
+    //     then `isIconValue` — runs above this one, so the only values this can claim are
+    //     ones that reached `dot`, which is the bucket for "not understood". A widening here
+    //     cannot reclassify a configuration that draws what its author asked for.
+    //   - Nothing readable is taken. Unlike `label` there is no `text` branch to fall into:
+    //     this option has no prose case at all, so there is no rendering that free text was
+    //     the right answer for and that an address test could steal.
+    //
+    // That asymmetry is also why the missing escape hatch is affordable here and is not on
+    // `label`, where the fallthrough is a meaningful rendering.
+    if (value.startsWith('/') || /^https?:\/\//i.test(value)) {
+      return 'image';
+    }
+
+    // 🚨 Anchored, where the old test was `includes`, so this narrows as well as widens:
+    // `report.gifted`, `a.pngx` and `Meeting.jpg tomorrow` were images and are now dots.
+    // That is deliberate. With the two prefix arms above taking every absolute path and every
+    // URL, this arm is only ever reached by a *relative* path — and a relative path that is an
+    // image ends at its extension, or at the `?` or `#` that ends the path. So the set this
+    // gives up contains no address the card could have loaded; it drew a broken `<img>` for
+    // each of them. `getLabelType` carries the same anchor for the same reason.
+    if (/\.(apng|avif|bmp|gif|ico|jpe?g|png|svg|webp)(?:[?#]|$)/i.test(value)) {
       return 'image';
     }
 
