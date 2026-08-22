@@ -374,5 +374,10 @@
   "scope.list_only": "Galioja sąrašo išdėstymui, kurį ši kortelė naudoja ir siauruose ekranuose.",
   "scope.list_only.today_indicator_position": "Galioja sąrašo išdėstymui — stulpelių išdėstyme kortelė indikatorių išdėsto pati.",
   "scope.list_only.compact_events_to_show": "Galioja sąrašo išdėstymui. Ribojant įvykius vienai kortelei, stulpeliai ištuštėtų, o kortelė nesutrumpėtų.",
-  "scope.list_only.compact_mode": "Stulpelių rodinyje poveikio nėra. Šie nustatymai trumpina tik sąrašo išdėstymą, kuris pasirodo ir siauruose ekranuose; stulpeliuose ribos pašalintų ištisas dienas."
+  "scope.list_only.compact_mode": "Stulpelių rodinyje poveikio nėra. Šie nustatymai trumpina tik sąrašo išdėstymą, kuris pasirodo ir siauruose ekranuose; stulpeliuose ribos pašalintų ištisas dienas.",
+  "entity.label_image_source": "Paveikslėlio šaltinis",
+  "entity.label_image_source.helper": "Asmens paveikslėlis gaunamas iš Home Assistant, skiltyje Nustatymai, Žmonės. Pakeitus jį ten, jis pasikeičia ir čia; žmonės, kuriems paveikslėlio nėra, etiketės visai nerodo.",
+  "entity.label_image_source.option.custom.label": "Pasirinktas paveikslėlis",
+  "entity.label_image_source.option.person.label": "Asmens paveikslėlis",
+  "today_indicator_custom.helper": "Jaustukas, paveikslėlio kelias ar URL arba bet koks tekstas. Žodžiams reikia didesnio indikatoriaus dydžio nei taip pat vizualiai atrodančiam jaustukui."
 }

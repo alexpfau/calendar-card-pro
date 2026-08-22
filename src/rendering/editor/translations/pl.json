@@ -374,5 +374,10 @@
   "scope.list_only": "Dotyczy układu listy, którego ta karta używa także na wąskich ekranach.",
   "scope.list_only.today_indicator_position": "Dotyczy układu listy — w układzie kolumnowym karta sama umieszcza wskaźnik.",
   "scope.list_only.compact_events_to_show": "Dotyczy układu listy. Ograniczenie liczby wydarzeń na kartę opróżniałoby kolumny, zamiast skracać kartę.",
-  "scope.list_only.compact_mode": "Bez efektu w widoku kolumnowym. Te opcje skracają tylko układ listy, którego karta używa również na wąskich ekranach; w kolumnach limity usuwałyby całe dni."
+  "scope.list_only.compact_mode": "Bez efektu w widoku kolumnowym. Te opcje skracają tylko układ listy, którego karta używa również na wąskich ekranach; w kolumnach limity usuwałyby całe dni.",
+  "entity.label_image_source": "Źródło obrazu",
+  "entity.label_image_source.helper": "Obraz osoby pochodzi z Home Assistant, z sekcji Ustawienia, Osoby. Zmiana tam zmienia go też tutaj; osoby, dla których nie ma obrazu, nie pokazują etykiety wcale.",
+  "entity.label_image_source.option.custom.label": "Własny obraz",
+  "entity.label_image_source.option.person.label": "Obraz osoby",
+  "today_indicator_custom.helper": "Emoji, ścieżka lub URL obrazu albo dowolny tekst. Słowa wymagają większego rozmiaru wskaźnika niż wizualny rozmiar emoji."
 }

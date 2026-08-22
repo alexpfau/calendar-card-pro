@@ -374,5 +374,10 @@
   "scope.list_only": "Attiecas uz saraksta izkārtojumu, ko šī karte izmanto arī šauros ekrānos.",
   "scope.list_only.today_indicator_position": "Attiecas uz saraksta izkārtojumu — kolonnu izkārtojumā karte indikatoru novieto pati.",
   "scope.list_only.compact_events_to_show": "Attiecas uz saraksta izkārtojumu. Ierobežojot notikumus vienai kartei, kolonnas iztukšotos, nevis karte kļūtu īsāka.",
-  "scope.list_only.compact_mode": "Kolonnu skatā ietekmes nav. Šie iestatījumi saīsina tikai saraksta izkārtojumu, kas parādās arī šauros ekrānos; kolonnās ierobežojumi noņemtu veselas dienas."
+  "scope.list_only.compact_mode": "Kolonnu skatā ietekmes nav. Šie iestatījumi saīsina tikai saraksta izkārtojumu, kas parādās arī šauros ekrānos; kolonnās ierobežojumi noņemtu veselas dienas.",
+  "entity.label_image_source": "Attēla avots",
+  "entity.label_image_source.helper": "Personas attēls nāk no Home Assistant sadaļas Iestatījumi, Personas. To mainot tur, tas mainās arī šeit; cilvēki, kuriem attēla nav, etiķeti nerāda vispār.",
+  "entity.label_image_source.option.custom.label": "Pielāgots attēls",
+  "entity.label_image_source.option.person.label": "Personas attēls",
+  "today_indicator_custom.helper": "Emocijzīme, attēla ceļš vai URL, vai jebkāds teksts. Vārdiem vajag lielāku indikatora izmēru nekā tāda paša vizuālā izmēra emocijzīmei."
 }

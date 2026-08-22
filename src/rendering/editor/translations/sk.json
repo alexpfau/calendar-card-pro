@@ -374,5 +374,10 @@
   "scope.list_only": "Platí pre rozloženie zoznamu, ktoré táto karta používa aj na úzkych obrazovkách.",
   "scope.list_only.today_indicator_position": "Platí pre rozloženie zoznamu — v stĺpcovom rozložení identifikátor umiestni karta sama.",
   "scope.list_only.compact_events_to_show": "Platí pre rozloženie zoznamu. Obmedzenie počtu udalostí na kartu by stĺpce vyprázdnilo, namiesto toho aby kartu skrátilo.",
-  "scope.list_only.compact_mode": "V stĺpcovom zobrazení bez účinku. Tieto možnosti skracujú len rozloženie zoznamu, ktoré sa objavuje aj na úzkych obrazovkách; v stĺpcoch by limity odstraňovali celé dni."
+  "scope.list_only.compact_mode": "V stĺpcovom zobrazení bez účinku. Tieto možnosti skracujú len rozloženie zoznamu, ktoré sa objavuje aj na úzkych obrazovkách; v stĺpcoch by limity odstraňovali celé dni.",
+  "entity.label_image_source": "Zdroj obrázka",
+  "entity.label_image_source.helper": "Obrázok osoby pochádza z Home Assistant v časti Nastavenia, Ľudia. Zmena tam ho zmení aj tu; osoby, pre ktoré obrázok nemá, nezobrazia štítok vôbec.",
+  "entity.label_image_source.option.custom.label": "Vlastný obrázok",
+  "entity.label_image_source.option.person.label": "Obrázok osoby",
+  "today_indicator_custom.helper": "Emodži, cesta k obrázku alebo URL, alebo ľubovoľný text. Slová potrebujú väčšiu veľkosť indikátora, než akou pôsobí emodži."
 }

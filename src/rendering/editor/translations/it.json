@@ -374,5 +374,10 @@
   "scope.list_only": "Vale per il layout a lista, che questa scheda usa anche sugli schermi stretti.",
   "scope.list_only.today_indicator_position": "Vale per il layout a lista — nel layout a colonne l'indicatore viene posizionato dalla scheda.",
   "scope.list_only.compact_events_to_show": "Vale per il layout a lista. Limitare gli eventi per scheda svuoterebbe le colonne invece di accorciare la scheda.",
-  "scope.list_only.compact_mode": "Nessun effetto nella vista a colonne. Queste opzioni accorciano solo il layout a lista, che compare anche sugli schermi stretti; a colonne, i limiti toglierebbero giorni interi."
+  "scope.list_only.compact_mode": "Nessun effetto nella vista a colonne. Queste opzioni accorciano solo il layout a lista, che compare anche sugli schermi stretti; a colonne, i limiti toglierebbero giorni interi.",
+  "entity.label_image_source": "Origine dell'immagine",
+  "entity.label_image_source.helper": "L'immagine di una persona proviene da Home Assistant, in Impostazioni, Persone. Modificarla lì la modifica anche qui; le persone per cui non c'è un'immagine non mostrano alcuna etichetta.",
+  "entity.label_image_source.option.custom.label": "Immagine personalizzata",
+  "entity.label_image_source.option.person.label": "Immagine di una persona",
+  "today_indicator_custom.helper": "Un'emoji, un percorso immagine o URL, oppure qualsiasi testo. Le parole richiedono una dimensione indicatore maggiore di quella adatta a un'emoji."
 }

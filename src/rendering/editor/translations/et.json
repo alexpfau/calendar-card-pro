@@ -374,5 +374,10 @@
   "scope.list_only": "Kehtib loetelupaigutuses, mida see kaart kasutab ka kitsastel ekraanidel.",
   "scope.list_only.today_indicator_position": "Kehtib loetelupaigutuses — veerupaigutuses paigutab kaart indikaatori ise.",
   "scope.list_only.compact_events_to_show": "Kehtib loetelupaigutuses. Sündmuste piiramine kaardi kohta tühjendaks veerud, mitte ei lühendaks kaarti.",
-  "scope.list_only.compact_mode": "Veeruvaates mõju ei ole. Need lühendavad ainult loetelupaigutust, mis ilmub ka kitsastel ekraanidel; veergudes eemaldaksid piirangud terveid päevi."
+  "scope.list_only.compact_mode": "Veeruvaates mõju ei ole. Need lühendavad ainult loetelupaigutust, mis ilmub ka kitsastel ekraanidel; veergudes eemaldaksid piirangud terveid päevi.",
+  "entity.label_image_source": "Pildi allikas",
+  "entity.label_image_source.helper": "Isiku pilt tuleb Home Assistantist, jaotisest Seaded, Inimesed. Selle muutmine seal muudab selle ka siin; inimesed, kellele pilti pole määratud, ei näita silti üldse.",
+  "entity.label_image_source.option.custom.label": "Oma pilt",
+  "entity.label_image_source.option.person.label": "Isiku pilt",
+  "today_indicator_custom.helper": "Emoji, pildi rada või URL või mistahes tekst. Sõnad vajavad suuremat indikaatori suurust kui sama suurelt mõjuv emoji."
 }

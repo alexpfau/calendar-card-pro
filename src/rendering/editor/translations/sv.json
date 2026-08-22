@@ -374,5 +374,10 @@
   "scope.list_only": "Gäller listlayouten, som det här kortet också använder på smala skärmar.",
   "scope.list_only.today_indicator_position": "Gäller listlayouten — i kolumnlayouten placerar kortet indikatorn åt dig.",
   "scope.list_only.compact_events_to_show": "Gäller listlayouten. Att begränsa antalet händelser per kort skulle tömma kolumner i stället för att korta ned kortet.",
-  "scope.list_only.compact_mode": "Ingen effekt i kolumnvyn. De här kortar bara ned listlayouten, som också visas på smala skärmar; i kolumner skulle gränser ta bort hela dagar i stället."
+  "scope.list_only.compact_mode": "Ingen effekt i kolumnvyn. De här kortar bara ned listlayouten, som också visas på smala skärmar; i kolumner skulle gränser ta bort hela dagar i stället.",
+  "entity.label_image_source": "Bildkälla",
+  "entity.label_image_source.helper": "En persons bild kommer från Home Assistant, under Inställningar, Personer. Ändrar du den där ändras den här; personer som saknar bild visar ingen etikett alls.",
+  "entity.label_image_source.option.custom.label": "Egen bild",
+  "entity.label_image_source.option.person.label": "En persons bild",
+  "today_indicator_custom.helper": "En emoji, en bildsökväg eller URL, eller valfri text. Ord behöver en större indikatorstorlek än storleken en emoji upplevs ha."
 }
