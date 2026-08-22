@@ -297,6 +297,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'The height the column layout may grow to before it scrolls. Use none for no limit.',
   'column.show_week_numbers': 'Week Numbers',
   'column.today_indicator': 'Today Indicator',
+  'column.allday_badge': 'All-Day Badge',
   'column.remove_location_country': 'Country Names',
   'column.show_empty_days.helper':
     'Column layout defaults this to on, whatever the shared setting above says.',
@@ -484,10 +485,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
-  allday_badge: 'Show All-Day As A Badge',
-  'allday_badge.helper':
-    'Draws the all-day label as a rounded badge tinted with the calendar accent color, ' +
-    'instead of plain text. Anything that follows it, such as an end date, stays as text.',
+  allday_badge_mode: 'All-Day Badge',
+  'allday_badge_mode.helper':
+    'Draws the all-day label as a rounded badge in the calendar accent color, instead of ' +
+    'plain text. Anything that follows it, such as an end date, stays as text.',
+  'allday_badge_mode.option.off.label': 'Off',
+  'allday_badge_mode.option.outline.label': 'Outline Only',
+  'allday_badge_mode.option.soft.label': 'Soft Fill',
+  'allday_badge_mode.option.tinted.label': 'Tinted',
+  'allday_badge_mode.option.filled.label': 'Filled',
   time_two_digit_hours: 'Pad Hours To Two Digits',
   time_font_size: 'Time Font Size',
   time_color: 'Time Color',

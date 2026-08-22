@@ -318,6 +318,20 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
     },
   },
 
+  /**
+   * `allday_badge` stores `false` or one of the four treatments, so the editor needs a
+   * dropdown rather than a toggle. `off` is derived from anything that is not a known
+   * treatment — including a legacy `true`, which resolves to `tinted` the same way the
+   * renderer resolves it, so the control agrees with the card.
+   */
+  allday_badge_mode: {
+    derive: (config) => Helpers.resolveAlldayBadgeMode(config.allday_badge) ?? 'off',
+    apply: (value) =>
+      value === 'off' || typeof value !== 'string'
+        ? { changes: { allday_badge: undefined } }
+        : { changes: { allday_badge: value } },
+  },
+
   week_number_mode: {
     derive: (config) => config.show_week_numbers ?? 'none',
     apply: (value) =>

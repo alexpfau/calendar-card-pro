@@ -9,6 +9,7 @@ import * as Types from '../config/types';
 import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
 import * as FormatUtils from '../utils/format';
+import * as Helpers from '../utils/helpers';
 
 /**
  * Everything about a single event that is independent of the view rendering it.
@@ -120,9 +121,15 @@ export function buildEventPresentation(
   // empty for a single-day all-day event, the end-date phrase for a multi-day one. A split
   // middle segment of a timed event is all-day for the day it occupies, so it qualifies;
   // an unsplit timed multi-day event carries no label and never does.
+  const badgeMode = Helpers.resolveAlldayBadgeMode(config.allday_badge);
   const allDayBadge =
-    config.allday_badge && eventTimeParts.allDayLabel !== undefined
-      ? { label: eventTimeParts.allDayLabel, lang: language, accent: entityAccentColor }
+    badgeMode !== null && eventTimeParts.allDayLabel !== undefined
+      ? {
+          label: eventTimeParts.allDayLabel,
+          lang: language,
+          accent: entityAccentColor,
+          mode: badgeMode,
+        }
       : undefined;
 
   const eventTime = allDayBadge

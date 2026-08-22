@@ -760,40 +760,47 @@ export const cardStyles = css`
    * "toute la journee", eight times the length of the Chinese one) wrap inside the pill
    * rather than overflow a narrow column track.
    *
-   * ===== Why the colours are derived rather than configured =====
+   * ===== Why the colours are derived, and why the ring carries the weight =====
    *
-   * All three colours come from one input, the calendar's accent, resolved by the BROWSER at
+   * All three colours come from one input, the calendar accent, resolved by the BROWSER at
    * paint time. That matters because an accent may be a theme token such as
    * var(--primary-color), which JavaScript cannot decompose into channels -- see the comment
    * on computeRGBA in utils/helpers.ts, which records the shipped bug where this card tried
-   * exactly that and silently fell back to a hardcoded blue. So a lookup table mapping accent
-   * to text colour cannot be built here, and none is needed: color-mix resolves the token.
+   * exactly that and silently fell back to a hardcoded blue. So no lookup table from accent
+   * to text colour can be built here, and none is needed: color-mix resolves the token.
    *
-   * The text mixes the accent INTO the primary text colour rather than replacing it, so it
-   * stays dark on a light theme and light on a dark one while still reading as this
-   * calendar's colour. The fill mixes the accent into the CARD background for the same
-   * reason. Both therefore invert automatically with the theme, with no light-dark() and no
-   * media query.
+   * The ink mixes the accent INTO the primary text colour rather than replacing it, and the
+   * wash mixes it into the card background, so both invert with the theme on their own -- no
+   * light-dark(), no media query.
    *
-   * ===== Why the fill is quiet and the ring is not =====
+   * The ring carries visibility; the fill does not. That is the opposite of the obvious
+   * arrangement and was measured, not guessed. A saturated fill is loud for what is secondary
+   * information, and it wrecks legibility: at 70% the muted time colour measured 3.24:1 on the
+   * default blue and 2.12:1 on pink, both failing WCAG AA. But a pale fill alone dissolves
+   * once event_background_opacity tints the row in the same accent, which is the failure the
+   * 70% attempt was made to fix. A 1px boundary resolves it, because a crisp edge survives a
+   * tinted ground where an area wash cannot -- so the fill is free to stay quiet.
    *
-   * The ring carries visibility; the fill does not. This is the opposite of the obvious
-   * arrangement and was measured rather than guessed. A saturated fill is loud -- it draws
-   * the eye to what is secondary information -- and it wrecks text contrast, because the
-   * muted time colour cannot sit on a saturated ground: 70% fill measured 3.24:1 on the
-   * default blue and 2.12:1 on pink, both failing WCAG AA. But a pale fill alone disappears
-   * once event_background_opacity tints the row with the same accent, which is the failure
-   * the 70% attempt was made to fix.
+   * The strengths are measured too. A 22% ring is decorative: removing it was visually
+   * indistinguishable. Sweeping fill against ring (6,720 samples) put 10%/40% in the only
+   * region satisfying both constraints, and in the card that reads 11.77:1 text with the
+   * weakest boundary at 1.66:1 across event_background_opacity 0-80.
    *
-   * A 1px ring resolves the conflict, because a crisp boundary survives a tinted background
-   * where an area wash does not. The strength is load-bearing: a 22% ring measured as
-   * decorative -- removing it was visually indistinguishable -- while 40% makes the boundary
-   * read without adding weight. Sweeping fill and ring together (6,720 measurements) puts
-   * 10% fill / 40% ring in the only region satisfying both constraints at once: text at or
-   * above 5.95:1 across the accent spread, boundary separation holding at ~1.6:1 even at
-   * event_background_opacity 80, and fill-to-card contrast at 1.29:1, which is what "quiet"
-   * means numerically. */
+   * --badge-ink and --badge-wash are declared once and consumed by every mode, so the modes
+   * differ only in how hard they use them -- and so the OKLCH block at the end can improve all
+   * four by redefining two values. */
   .allday-badge {
+    --badge-ink: color-mix(
+      in srgb,
+      var(--calendar-card-event-accent) 30%,
+      var(--primary-text-color)
+    );
+    --badge-wash: color-mix(
+      in srgb,
+      var(--calendar-card-event-accent) 10%,
+      var(--calendar-card-background-color, var(--card-background-color))
+    );
+
     font-size: 0.85em;
     font-weight: 500;
     letter-spacing: 0.04em;
@@ -802,13 +809,88 @@ export const cardStyles = css`
     padding-inline: 0.5em;
     margin-inline-end: 4px;
     border-radius: 999px;
-    color: color-mix(in srgb, var(--calendar-card-event-accent) 30%, var(--primary-text-color));
+    color: var(--badge-ink);
+    background-color: var(--badge-wash);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+  }
+
+  /* Wash with no boundary. The quietest treatment that is still a badge, for a dashboard
+     where the ring reads as one line too many. It gives up the ring's separation, so on a
+     row tinted in the same accent it is the first mode to lose its edge -- which is the
+     trade the user makes by choosing it. */
+  .allday-badge-soft {
+    box-shadow: none;
+  }
+
+  /* Boundary with no wash. The inverse trade, and the right answer at a high
+     event_background_opacity: with no fill of its own there is nothing to dissolve into the
+     row, so only the outline has to survive. Slightly stronger than the tinted ring because
+     it is now carrying the shape alone. */
+  .allday-badge-outline {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 55%, transparent);
+  }
+
+  /* The loud one, for people who want the calendar colour to read as a solid chip.
+
+     Text is the CARD BACKGROUND rather than a derivation of the accent, because on a
+     saturated ground the only reliably legible ink is the page's own extreme -- near-white
+     on a light theme, near-black on a dark one. That inverts with the theme for free, and is
+     the same choice Google Calendar exposes as Modern/Classic.
+
+     In sRGB this is a heuristic rather than a guarantee: it assumes a light theme's accents
+     are mid-dark and a dark theme's are bright, which holds for the usual palette and fails
+     for a pale yellow on a light theme. The OKLCH block below replaces the heuristic with an
+     actual per-accent decision, so this rule is the floor rather than the intent. */
+  .allday-badge-filled {
+    color: var(--calendar-card-background-color, var(--card-background-color));
     background-color: color-mix(
       in srgb,
-      var(--calendar-card-event-accent) 10%,
+      var(--calendar-card-event-accent) 85%,
       var(--calendar-card-background-color, var(--card-background-color))
     );
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+    box-shadow: none;
+  }
+
+  /* ===== Progressive enhancement: keep the accent's chroma =====
+   *
+   * Everything above mixes in sRGB, and mixing a saturated colour toward white or black
+   * necessarily desaturates it. On a dark theme --badge-ink is 30% accent into a near-white
+   * text colour, so a vivid pink arrives as blush rose -- legible, but visibly a different
+   * colour from the accent it is meant to name, which is what the maintainer reported seeing.
+   *
+   * OKLCH separates the axes: lightness can be set for contrast while chroma is kept high, so
+   * the ink stays recognisably this calendar's colour instead of a pastel of it. light-dark()
+   * picks the lightness target per theme, and because both functions resolve at paint time
+   * this still works when the accent is a theme token JavaScript could never read.
+   *
+   * filled gains the most. clamp(0, calc((l - 0.55) * -1000), 1) is a step function on the
+   * accent's OWN lightness -- above 0.55 it floors to 0 and the ink is black, below it ceils
+   * to 1 and the ink is white -- with chroma 0 so the result is a true neutral. That is the
+   * per-accent decision the sRGB rule above can only approximate, and it is the whole reason
+   * no lookup table is needed: the browser makes it, per event, for free.
+   *
+   * Gated on both functions together. Relative colour is Chrome 122+ / Firefox 133+ /
+   * Safari 18+, above the color-mix floor the rest of this stylesheet already assumes, so the
+   * block is purely additive and every mode degrades to the rules above. */
+  @supports (color: oklch(from red l c h)) and (color: light-dark(black, white)) {
+    .allday-badge {
+      --badge-ink: light-dark(
+        oklch(from var(--calendar-card-event-accent) 0.42 calc(c * 1) h),
+        oklch(from var(--calendar-card-event-accent) 0.84 calc(c * 0.9) h)
+      );
+      --badge-wash: light-dark(
+        oklch(from var(--calendar-card-event-accent) 0.95 calc(c * 0.22) h),
+        oklch(from var(--calendar-card-event-accent) 0.26 calc(c * 0.4) h)
+      );
+    }
+
+    .allday-badge-filled {
+      color: oklch(
+        from var(--calendar-card-event-accent) clamp(0, calc((l - 0.55) * -1000), 1) 0 h
+      );
+      background-color: var(--calendar-card-event-accent);
+    }
   }
 
   /* Own-row event weather placement. The descendant selector keeps these

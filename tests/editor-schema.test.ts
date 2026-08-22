@@ -707,6 +707,7 @@ describe('editor: change detection', () => {
   it('holds the exact set of synthetic keys', () => {
     expect(Object.keys(SYNTHETIC_FIELDS).sort()).toEqual([
       'accent_color_mode',
+      'allday_badge_mode',
       'calendars',
       'card_height',
       'card_max_height',
@@ -1487,6 +1488,7 @@ describe('editor: the panel set', () => {
       language: 'language_mode',
       time_24h: 'time_format',
       show_week_numbers: 'week_number_mode',
+      allday_badge: 'allday_badge_mode',
       remove_location_country: 'location_country_mode',
       today_indicator: 'today_indicator_style',
       height: 'height_mode',
@@ -4543,6 +4545,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
         .sort(),
     ).toEqual([
       'accent_color_mode',
+      'allday_badge_mode',
       'height_mode',
       'language_mode',
       'location_country_mode',

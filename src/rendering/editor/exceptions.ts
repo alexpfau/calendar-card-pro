@@ -13,7 +13,7 @@ import * as Helpers from '../../utils/helpers';
 const EXTRA_KEYS_BY_PANEL: Readonly<Record<string, ReadonlyArray<string>>> = {
   layout: ['height', 'max_height'],
   day_header: ['show_week_numbers', 'today_indicator'],
-  events: ['remove_location_country'],
+  events: ['allday_badge', 'remove_location_country'],
 };
 
 const EXTRA_SELECTORS: Readonly<Record<string, SelectorSchema>> = {

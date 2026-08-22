@@ -60,7 +60,7 @@ Configure how event times and locations are displayed:
 # Time display options
 show_time: true # Show event start/end times
 show_single_allday_time: false # Hide time for single-day all-day events
-allday_badge: false # Draw the all-day label as a badge instead of plain text
+allday_badge: false # false, or outline / soft / tinted / filled
 time_24h: false # Use 12-hour format (AM/PM)
 time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time
@@ -78,17 +78,36 @@ location_icon_size: '14px'
 
 ### The All-Day Badge
 
-By default an all-day event says so in words, on the same line as the clock icon. Turn
-`allday_badge` on and the label becomes a rounded badge instead, the way most calendar
-apps draw it:
+By default an all-day event says so in words, on the same line as the clock icon. Set
+`allday_badge` to a treatment and the label becomes a rounded badge instead, the way most
+calendar apps draw it:
 
 ```yaml
-allday_badge: true
+allday_badge: tinted
 ```
 
-The badge is tinted with the accent color of the calendar the event came from, so events
-from different calendars stay distinguishable at a glance. Where a calendar sets its own
-`accent_color`, the badge follows it.
+There are four treatments, from quietest to loudest:
+
+| Value     | What it draws                                  |
+| --------- | ---------------------------------------------- |
+| `outline` | An outline only, with no fill                  |
+| `soft`    | A gentle wash of the accent, with no outline   |
+| `tinted`  | Both — a gentle wash inside a matching outline |
+| `filled`  | A solid badge in the calendar accent color     |
+
+`false` is the default and keeps the plain words.
+
+The badge takes its color from the calendar the event came from, so events from different
+calendars stay distinguishable at a glance. Where a calendar sets its own `accent_color`,
+the badge follows it — including when that is a theme variable, because the colors are
+resolved by the browser rather than computed in advance.
+
+::: tip Which One To Pick
+`tinted` suits most dashboards. Reach for `outline` when
+[`event_background_opacity`](/reference/configuration#event-column) is high — with no fill
+of its own, an outline has nothing to dissolve into the tinted row behind it. `filled` is
+the loud one, for when the calendar's color should read as a solid chip.
+:::
 
 Anything that follows the label stays as ordinary text. A multi-day all-day event reads as
 the badge and then its end date, so no information is lost.

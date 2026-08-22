@@ -93,7 +93,7 @@ export interface Config {
   empty_day_color: string;
   show_time: boolean;
   show_single_allday_time: boolean;
-  allday_badge: boolean;
+  allday_badge: boolean | string;
   time_24h: boolean | 'system';
   time_two_digit_hours: boolean;
   show_end_time: boolean;
@@ -248,7 +248,7 @@ export interface ColumnOverrides {
   event_icon_vertical_alignment?: string;
   show_time?: boolean;
   show_single_allday_time?: boolean;
-  allday_badge?: boolean;
+  allday_badge?: boolean | string;
   time_two_digit_hours?: boolean;
   show_end_time?: boolean;
   time_font_size?: string;

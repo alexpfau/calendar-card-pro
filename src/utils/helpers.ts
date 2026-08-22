@@ -553,3 +553,38 @@ export function memoizeLast<Args extends readonly unknown[], Result>(
     return result;
   };
 }
+
+/** The badge treatments `allday_badge` can name, in order of increasing weight. */
+export const ALLDAY_BADGE_MODES = ['outline', 'soft', 'tinted', 'filled'] as const;
+
+export type AlldayBadgeMode = (typeof ALLDAY_BADGE_MODES)[number];
+
+/**
+ * Resolve `allday_badge` to the treatment to draw, or `null` for no badge at all.
+ *
+ * 🚨 An unrecognized string resolves to `null` — OFF — and that is deliberate. The obvious
+ * alternative, falling through to a default treatment, is the bug already recorded on
+ * `getTodayIndicatorType` above: there `'none'` draws a dot, because it is a string matching
+ * no special case and every unmatched string reached the default. A value that reads as "off"
+ * turning the feature *on* is the worst available answer, so this table is closed and
+ * anything outside it means off.
+ *
+ * `true` maps to `tinted` rather than being rejected. The option shipped as a boolean on this
+ * branch and the maintainer's live test cards still say `allday_badge: true`; keeping it is
+ * one line and costs nothing, where dropping it would silently blank those cards.
+ *
+ * @param value - Configured `allday_badge` value, in any of its accepted shapes
+ * @returns The treatment to draw, or `null` when no badge should be drawn
+ */
+export function resolveAlldayBadgeMode(value: unknown): AlldayBadgeMode | null {
+  if (value === true) return 'tinted';
+
+  if (typeof value === 'string') {
+    const candidate = value.toLowerCase().trim();
+    return (ALLDAY_BADGE_MODES as ReadonlyArray<string>).includes(candidate)
+      ? (candidate as AlldayBadgeMode)
+      : null;
+  }
+
+  return null;
+}

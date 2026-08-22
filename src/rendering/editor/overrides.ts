@@ -10,7 +10,11 @@ import {
   todayIndicatorFields,
   weekNumberFields,
 } from './schemas/day-header';
-import { LOCATION_COUNTRY_MODES, locationCountryFields } from './schemas/events';
+import {
+  ALLDAY_BADGE_OPTIONS,
+  LOCATION_COUNTRY_MODES,
+  locationCountryFields,
+} from './schemas/events';
 import * as Synthetic from './synthetic';
 import { applyFormChange, changedKeys } from './value';
 import * as Types from '../../config/types';
@@ -37,6 +41,14 @@ const UNION_OVERRIDES: Readonly<Record<string, UnionOverride>> = {
     modes: WEEK_NUMBER_MODES,
     off: null,
     build: (language) => weekNumberFields(language),
+  },
+
+  allday_badge: {
+    fields: ['allday_badge_mode'],
+    mode: 'allday_badge_mode',
+    modes: ALLDAY_BADGE_OPTIONS,
+    off: false,
+    build: (language) => [select(language, 'allday_badge_mode', ALLDAY_BADGE_OPTIONS)],
   },
 
   remove_location_country: {

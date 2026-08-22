@@ -13,6 +13,15 @@ import { bool, color, group, number, row, select, text } from './common';
 
 export const EVENTS_ICON = mdiCalendarText;
 
+/** `off` first: the default reads as the top of the list, and every other value is a treatment. */
+export const ALLDAY_BADGE_OPTIONS: ReadonlyArray<string> = [
+  'off',
+  'outline',
+  'soft',
+  'tinted',
+  'filled',
+];
+
 const TIME_ICON =
   'M12 20a8 8 0 1 1 8-8 8 8 0 0 1-8 8m0-18a10 10 0 1 0 10 10A10 10 0 0 0 12 2m.5 5H11v6l5.25 3.15.75-1.23-4.5-2.67V7Z';
 const LOCATION_ICON =
@@ -36,7 +45,7 @@ function timeGroup(language: string, showTime: boolean): HaFormSchema {
     ? [
         bool('show_end_time'),
         bool('show_single_allday_time'),
-        bool('allday_badge'),
+        select(language, 'allday_badge_mode', ALLDAY_BADGE_OPTIONS),
         bool('time_two_digit_hours'),
         row(text('time_font_size'), color('time_color')),
         row(text('time_icon_size'), number('time_max_lines', 0)),

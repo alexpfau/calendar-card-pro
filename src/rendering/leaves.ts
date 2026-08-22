@@ -372,19 +372,24 @@ export interface EventContentParts {
   eventTime: string;
 
   /**
-   * The all-day label to draw as its own badge, present only when `allday_badge` is on and
-   * the event is all-day. When set, `eventTime` holds only what follows the label, which is
-   * empty for a single-day all-day event.
+   * The all-day label to draw as its own badge, present only when `allday_badge` names a
+   * treatment and the event is all-day. When set, `eventTime` holds only what follows the
+   * label, which is empty for a single-day all-day event.
    *
    * Carries its own `lang` because the badge uppercases in CSS, and only a declared language
    * gets that right — Greek must lose its tonos in capitals.
    *
    * Carries its own `accent` because this calendar's color reaches the row as an inline
    * border value, which no descendant can read. The badge republishes it as a custom
-   * property on itself and the stylesheet blends it, so the blend stays themeable and no
-   * event that has no badge pays for the property.
+   * property on itself and the stylesheet derives every colour from it, so the derivation
+   * stays themeable and no event that has no badge pays for the property.
    */
-  allDayBadge?: { label: string; lang: string; accent: string };
+  allDayBadge?: {
+    label: string;
+    lang: string;
+    accent: string;
+    mode: Helpers.AlldayBadgeMode;
+  };
 
   eventLocation: string;
 
@@ -508,7 +513,7 @@ export function renderEventContent(
   // it would match the `time_max_lines` clamp selector and be truncated like body text.
   const allDayBadgeEl = allDayBadge
     ? html`<span
-        class="allday-badge"
+        class="allday-badge allday-badge-${allDayBadge.mode}"
         lang=${allDayBadge.lang}
         style="--calendar-card-event-accent: ${allDayBadge.accent};"
         >${allDayBadge.label}</span

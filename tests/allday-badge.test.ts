@@ -120,7 +120,7 @@ describe('allday_badge', () => {
 
   describe('which events qualify', () => {
     const config = () =>
-      buildConfig({ allday_badge: true, days_to_show: 8, split_multiday_events: false });
+      buildConfig({ allday_badge: 'tinted', days_to_show: 8, split_multiday_events: false });
 
     it('badges a single-day all-day event, leaving no time text beside it', () => {
       const container = renderList([allDayEvent('2026-06-18', '2026-06-19', 'Bin day')], config());
@@ -156,7 +156,7 @@ describe('allday_badge', () => {
     it('badges the middle segment of a split timed multi-day event, but not its ends', () => {
       const container = renderList(
         [timedEvent('2026-06-17T09:00:00.000Z', '2026-06-19T17:00:00.000Z', 'Offsite')],
-        buildConfig({ allday_badge: true, days_to_show: 8, split_multiday_events: true }),
+        buildConfig({ allday_badge: 'tinted', days_to_show: 8, split_multiday_events: true }),
       );
       const rows = rowsFor(container, 'Offsite');
 
@@ -178,7 +178,7 @@ describe('allday_badge', () => {
   });
 
   describe('how the badge is drawn', () => {
-    const config = () => buildConfig({ allday_badge: true, days_to_show: 5 });
+    const config = () => buildConfig({ allday_badge: 'tinted', days_to_show: 5 });
 
     it('sits outside .time-text, where the time_max_lines clamp cannot truncate it', () => {
       // The clamp selector is `.time .time-actual .time-text > span`. A badge inside
@@ -219,7 +219,7 @@ describe('allday_badge', () => {
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
         buildConfig({
-          allday_badge: true,
+          allday_badge: 'tinted',
           days_to_show: 5,
           entities: [{ entity: CALENDAR, accent_color: '#ff0000' }],
         }),
@@ -242,12 +242,61 @@ describe('allday_badge', () => {
     });
   });
 
+  describe('the four treatments', () => {
+    const modes = ['outline', 'soft', 'tinted', 'filled'];
+
+    it.each(modes)('draws %s as its own class, so the stylesheet can tell them apart', (mode) => {
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        buildConfig({ allday_badge: mode, days_to_show: 5 }),
+      );
+      const badge = badgeIn(rowFor(container, 'Bin day'));
+
+      expect(badge).not.toBeNull();
+      expect(badge?.className).toBe(`allday-badge allday-badge-${mode}`);
+    });
+
+    it('renders no badge for a value outside the closed set', () => {
+      // The failure this guards is `getTodayIndicatorType`'s: there `'none'` DRAWS a dot,
+      // because every unmatched string reached the default. A value that reads as off must
+      // never turn the feature on, so the table is closed and anything outside it is off.
+      for (const value of ['none', 'off', 'Tinted!', 'true', '', 'solid']) {
+        const container = renderList(
+          [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+          buildConfig({ allday_badge: value, days_to_show: 5 }),
+        );
+
+        expect(badgeIn(rowFor(container, 'Bin day')), value).toBeNull();
+      }
+    });
+
+    it('still honours the boolean the option shipped as', () => {
+      // Live test cards on the maintainer's dashboard say `allday_badge: true`; dropping the
+      // boolean would blank them silently rather than loudly.
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        buildConfig({ allday_badge: true, days_to_show: 5 }),
+      );
+
+      expect(badgeIn(rowFor(container, 'Bin day'))?.className).toContain('allday-badge-tinted');
+    });
+
+    it('is case- and whitespace-tolerant, because YAML is', () => {
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        buildConfig({ allday_badge: '  Filled  ', days_to_show: 5 }),
+      );
+
+      expect(badgeIn(rowFor(container, 'Bin day'))?.className).toContain('allday-badge-filled');
+    });
+  });
+
   describe('the option reaches the DOM at all', () => {
     it('changes the rendered markup, so the assertions above are not vacuous', () => {
       const events = [allDayEvent('2026-06-18', '2026-06-21', 'Festival')];
       const off = serialize(renderList(events, buildConfig({ days_to_show: 8 })));
       const on = serialize(
-        renderList(events, buildConfig({ allday_badge: true, days_to_show: 8 })),
+        renderList(events, buildConfig({ allday_badge: 'tinted', days_to_show: 8 })),
       );
 
       expect(off).not.toBe(on);
