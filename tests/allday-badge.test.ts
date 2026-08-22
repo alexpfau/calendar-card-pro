@@ -270,15 +270,17 @@ describe('allday_badge', () => {
       }
     });
 
-    it('still honours the boolean the option shipped as', () => {
-      // Live test cards on the maintainer's dashboard say `allday_badge: true`; dropping the
-      // boolean would blank them silently rather than loudly.
+    it('reads the boolean the option shipped as, and reads it as the quietest treatment', () => {
+      // Live test cards say `allday_badge: true`; dropping the boolean would blank them
+      // silently rather than loudly. It resolves to `subtle` and not `tinted` because that
+      // is the answer the shipped default will give when it moves off `false` — "on" with no
+      // further detail should mean one thing, not two.
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
         buildConfig({ allday_badge: true, days_to_show: 5 }),
       );
 
-      expect(badgeIn(rowFor(container, 'Bin day'))?.className).toContain('allday-badge-tinted');
+      expect(badgeIn(rowFor(container, 'Bin day'))?.className).toContain('allday-badge-subtle');
     });
 
     it('is case- and whitespace-tolerant, because YAML is', () => {
