@@ -275,6 +275,7 @@ today_indicator: glow # Glowing dot
 today_indicator: mdi:star # Any Material Design icon
 today_indicator: 🎯 # Emoji
 today_indicator: /local/custom-indicator.png # Image path
+today_indicator: https://example.com/today.png # Or any image URL
 
 # Position the indicator precisely with CSS-like coordinates
 today_indicator_position: "15% 50%" # Centered left in the date column (default)
