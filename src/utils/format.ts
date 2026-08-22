@@ -283,11 +283,53 @@ export function resolveLocationIcon(location: string, configured?: string): stri
 }
 
 /**
+ * What counts as markup in an event description (#576).
+ *
+ * The predecessor was `/<[^>]*>/g` — a `<`, anything that is not a `>`, then a `>` — which
+ * has no idea what a tag is. Any description pairing a `<` with a later `>` lost everything
+ * between them, so `alert if temp < 5 and pressure > 3 END` rendered as `alert if temp 3
+ * END` on a real card. Requiring the character after the opening `<` to be the one that
+ * starts a tag is what separates prose from markup, and it is the same test the HTML
+ * tokenizer applies: an ASCII letter opens a tag, `/` an end tag, `!` and `?` a markup
+ * declaration, and **anything else makes the `<` ordinary text**. A space, a digit or a
+ * hyphen therefore no longer opens anything, which is every shape the issue reported.
+ *
+ * 🚨 **The regex is the only thing removing tags in production, so it is not optional and
+ * it cannot be narrowed casually.** The `<textarea>` round-trip below decodes entities and
+ * nothing else: `textarea` content is RCDATA, so a real browser treats `<p>x</p>` written
+ * into it as literal text. Measured rather than read off the spec — in headless Chromium,
+ * `textarea.innerHTML = '<p>Paragraph</p>'` reads back verbatim while `&nbsp;` decodes.
+ *
+ * That matters because **happy-dom parses the same assignment as HTML**, so it strips tags
+ * the browser would keep, and the test environment silently stands in for this regex.
+ * Deleting the regex outright leaves the suite green. `tests/strip-html-tags.test.ts` runs
+ * the browser's answer explicitly for that reason.
+ *
+ * The comment branch is there because of exactly that gap. `<!--` fails the letter test, so
+ * the tightening alone would have left every comment on screen in production while every
+ * gate stayed green — headless Chromium renders `Before <!-- a comment --> After` unchanged
+ * through the textarea. `!` and `?` in the class buy the same protection for `<!DOCTYPE
+ * html>` and for processing instructions, which matters for the Exchange calendars that
+ * deliver a whole HTML document as the description.
+ *
+ * Two knowing limits. The comment branch spans a `>`, so `<!-- a > b -->` now strips whole
+ * where the old regex left a ` b --> ` tail — a browser reads it as one comment and so does
+ * this. And prose that genuinely looks like a tag (`if a<b and c>d`) is still flattened;
+ * that is not a shortcut, it is what a browser does with the same text.
+ */
+const HTML_MARKUP = /<!--[\s\S]*?-->|<[!?/]?[a-zA-Z][^>]*>/g;
+
+/**
  * Strip HTML tags and decode HTML entities from a string, returning plain text
+ *
+ * @param text - Raw text as the calendar delivered it
+ * @returns The same text with markup removed and character references decoded
  */
 export function stripHtmlTags(text: string): string {
   if (!text) return '';
-  const stripped = text.replace(/<[^>]*>/g, '');
+  // `replace` seeks a global regex from 0 and resets `lastIndex` afterwards, so the shared
+  // constant carries no state between calls. `test` would; do not swap one for the other.
+  const stripped = text.replace(HTML_MARKUP, '');
   const textarea = document.createElement('textarea');
   textarea.innerHTML = stripped;
   return textarea.value.trim();
