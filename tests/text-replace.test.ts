@@ -294,6 +294,29 @@ describe('ordering against the formatting the card already does', () => {
     ).toBe('Done');
   });
 
+  it('rewrites a description whose prose merely looks like markup (#576)', () => {
+    // The downstream half of #576, which is a *widening* rather than a change of order.
+    // `stripHtmlTags` used to remove everything between any `<` and any later `>`, so this
+    // description reached the rewrite as `alert if temp  3 END` and no pattern could match
+    // the words the flattening had already eaten. Nothing about the ordering moved — the
+    // rewrite still runs on flattened text, as the case above pins — but the text it is
+    // handed is now the text the user typed.
+    //
+    // The filter path is deliberately *not* affected: `filterSubject` reads the raw event,
+    // never the display copy, which `tests/filter-field.test.ts` pins from both sides.
+    expect(
+      drawn(
+        event({ summary: 'Sync', description: 'alert if temp < 5 and pressure > 3 END' }),
+        {
+          replace_field: 'description',
+          replace_pattern: 'temp < 5',
+          replace_with: 'temp below 5',
+        },
+        { show_description: true },
+      ).description,
+    ).toBe('alert if temp below 5 and pressure > 3 END');
+  });
+
   it('rewrites a description after the age marker has been removed', () => {
     // The marker is card syntax rather than content, so a user's pattern should never
     // have to account for it — and `.*` here would otherwise capture it.
