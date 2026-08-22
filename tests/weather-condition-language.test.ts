@@ -415,6 +415,49 @@ describe('weather conditions follow the card language', () => {
       expect([...knownConditions()].sort()).toEqual(Object.keys(CONDITION_ICON_MAP).sort());
     });
 
+    /**
+     * The reconciliation above is over *keys*, so it says nothing about which icon each
+     * condition draws — and nothing else did either. Rewriting `hail` to
+     * `mdi:weather-hurricane`, `fog` to `mdi:weather-tornado` and `pouring` to
+     * `mdi:weather-snowy` each left the whole suite green: ten of the fifteen values
+     * appeared in no assertion anywhere, and a wrong one is silent by nature, because a
+     * plausible weather glyph in a 14px badge does not read as a defect.
+     *
+     * Pinned whole rather than sampled, so an entry that changes value, an entry that
+     * disappears and an entry nobody expected all fail here — the three directions a
+     * loop over the table's own keys cannot see.
+     */
+    it('draws each condition with its own icon', () => {
+      expect({ ...CONDITION_ICON_MAP }).toEqual({
+        'clear-night': 'mdi:weather-night',
+        cloudy: 'mdi:weather-cloudy',
+        fog: 'mdi:weather-fog',
+        hail: 'mdi:weather-hail',
+        lightning: 'mdi:weather-lightning',
+        'lightning-rainy': 'mdi:weather-lightning-rainy',
+        partlycloudy: 'mdi:weather-partly-cloudy',
+        pouring: 'mdi:weather-pouring',
+        rainy: 'mdi:weather-rainy',
+        snowy: 'mdi:weather-snowy',
+        'snowy-rainy': 'mdi:weather-snowy-rainy',
+        sunny: 'mdi:weather-sunny',
+        windy: 'mdi:weather-windy',
+        'windy-variant': 'mdi:weather-windy-variant',
+        exceptional: 'mdi:weather-cloudy-alert',
+      });
+    });
+
+    /**
+     * The fallback for a condition the map does not carry. It shares its icon with
+     * `exceptional`, so asserting the map alone cannot tell the two apart, and reaching
+     * the real fallback means going through `getWeatherIcon`, which is not exported —
+     * `weather-night-icons.test.ts` drives it through the subscription path instead.
+     * What is pinned here is only that the map has no entry to hit.
+     */
+    it('has no entry for a condition Home Assistant does not define', () => {
+      expect(CONDITION_ICON_MAP['not-a-condition']).toBeUndefined();
+    });
+
     it('is the fifteen Home Assistant defines', () => {
       // Verified against a live instance (2026.8.1): `frontend/get_translations` returns
       // exactly these for every language, English-filled where untranslated.

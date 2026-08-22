@@ -149,17 +149,26 @@ describe('custom property mapping', () => {
  *
  * v4 turned these into a real override surface: the badges used to carry their size and
  * colour as inline `style` attributes that no theme could reach, and `theming.md` now
- * publishes all six properties with defaults. The defaults are the half that matters,
- * because this function is reached with configs that never went through `setConfig` — the
- * editor's own preview objects, and tests — where a `weather:` block naming only `entity`
- * carries no `date` or `event` at all, so every one of these reads its fallback.
+ * publishes all six properties with defaults.
  *
- * All five unconditional fallbacks survived a mutation sweep of `styles.ts`: rewriting
- * `?? '14px'` so the fallback is dropped emits `undefined` into the property, and both
- * `npm test` and `check:docs` stayed green. Each pair below asserts the fallback and a
- * distinct override, so a mapping that ignores its config and a mapping that has lost its
- * default both fail — and the override values are unique, so two crossed properties fail
- * as well.
+ * 🚨 The pairs below do **not** pin the `|| '14px'` fallbacks in `styles.ts`, and an
+ * earlier version of this comment claimed they did. `propsFor` goes through
+ * `buildConfig`, which deep-merges `DEFAULT_CONFIG` — and that already carries
+ * `weather.date.icon_size: '14px'`. So `{ weather: { entity } }` does not arrive with
+ * `date` absent; it arrives fully populated, and the assertion reads the merged
+ * *default* rather than the fallback beside it. Measured both ways: changing the
+ * fallback to `'99px'`, and dropping it entirely behind a cast, each left `tsc` and the
+ * whole suite green.
+ *
+ * That is not a hole worth plugging here, because the fallback is unreachable in
+ * production anyway. `generateCustomPropertiesObject` has exactly one production caller
+ * — `getCustomStyles` in `calendar-card-pro.ts`, passing `this.effectiveConfig`, which
+ * is always post-`setConfig` and therefore always merged. Nothing in the editor calls
+ * it. The fallbacks are defensive code whose only live caller is a test.
+ *
+ * What these pairs *do* catch is the half that reaches users: a property wired to the
+ * wrong option, or to a constant. The override values are unique, so two crossed
+ * properties fail as well.
  */
 const WEATHER_FALLBACKS = [
   ['icon_size', '--calendar-card-weather-date-icon-size', '14px', '31px', 'date'],
