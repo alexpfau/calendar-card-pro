@@ -136,6 +136,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'label at all.',
   'entity.label_icon_source.option.home_assistant.label': 'Follow Home Assistant',
   'entity.label_icon_source.option.custom.label': 'Custom icon',
+  'entity.label_image_source': 'Image Source',
+  'entity.label_image_source.helper':
+    "A person's picture comes from Home Assistant, under Settings, People. Changing it " +
+    'there changes it here; people it holds no picture for show no label at all.',
+  'entity.label_image_source.option.custom.label': 'Custom image',
+  'entity.label_image_source.option.person.label': "A person's picture",
   'entity.label': 'Label',
   'entity.color': 'Event Color',
   'entity.color.helper': 'Event titles from this calendar. Overrides the card colour.',

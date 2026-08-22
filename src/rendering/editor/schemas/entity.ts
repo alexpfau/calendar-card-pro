@@ -4,6 +4,7 @@
 
 import { isEntityColorSentinel } from '../../../utils/entity-colors';
 import { isEntityIconSentinel } from '../../../utils/entity-icons';
+import { isPersonEntityId } from '../../../utils/person-pictures';
 import type { HaFormSchema, SelectorSchema } from '../ha-form';
 import { humanize, lookup } from '../localize';
 import type { SchemaCtx } from '../panels';
@@ -116,6 +117,8 @@ export const ACCENT_COLOR_MODE = 'accent_color_mode';
 
 export const LABEL_ICON_SOURCE = 'label_icon_source';
 
+export const LABEL_IMAGE_SOURCE = 'label_image_source';
+
 /**
  * Where an icon label's value comes from.
  *
@@ -133,6 +136,34 @@ const LABEL_ICON_SOURCES: ReadonlyArray<string> = ['home_assistant', 'custom'];
  */
 export function labelIconSourceOf(label: unknown): string {
   return isEntityIconSentinel(label) ? 'home_assistant' : 'custom';
+}
+
+/**
+ * Where an image label's value comes from.
+ *
+ * Two, like the icon source and unlike the accent color's three, for the same reason: there
+ * is no card-wide label to inherit.
+ *
+ * 🚨 `custom` leads here where `home_assistant` leads there, and the order is the vocabulary
+ * rather than a slip. The icon source's first entry is its *default* — an icon label with no
+ * further instruction follows Home Assistant — while an image label with no further
+ * instruction is an address the user typed. Listing the derived-by-default mode first in each
+ * keeps the dropdown's first row and the calendar's actual state in agreement.
+ */
+const LABEL_IMAGE_SOURCES: ReadonlyArray<string> = ['custom', 'person'];
+
+/**
+ * Where one calendar's image label comes from, read off the value's shape.
+ *
+ * The same never-stored contract as {@link labelIconSourceOf}: a person's picture is asked
+ * for by storing the person's entity id under `label`, so the mode is derived from that value
+ * and writing it would put a key in the user's YAML the card never reads.
+ *
+ * @param label - The calendar's stored `label`
+ * @returns Which image-source control that calendar renders
+ */
+export function labelImageSourceOf(label: unknown): string {
+  return isPersonEntityId(label) ? 'person' : 'custom';
 }
 
 /**
@@ -194,6 +225,13 @@ export function entityConfigKeys(name: string): ReadonlyArray<string> {
     return [LABEL_TYPE, 'label'];
   }
 
+  // The third member of that family, and the reason the note above stops saying "remember".
+  // `label_image_source` decides `label` exactly as the icon source does — a person's picture
+  // is stored as the person's entity id under `label` — so it answers for the same two keys.
+  if (name === LABEL_IMAGE_SOURCE) {
+    return [LABEL_TYPE, 'label'];
+  }
+
   // The same contract one field over: the mode is read off `accent_color`'s shape and never
   // written, so `accent_color` is the only key that can answer for it.
   if (name === ACCENT_COLOR_MODE) return ['accent_color'];
@@ -226,21 +264,25 @@ function labelType(language: string): SelectorSchema {
  * The label fields for one shape.
  *
  * @param type - Shape the label currently holds
- * @param source - The icon-source dropdown, taken from the declared schema
+ * @param iconSourceField - The icon-source dropdown, taken from the declared schema
  * @param iconSource - Where an icon label's value comes from
+ * @param imageSourceField - The image-source dropdown, taken from the declared schema
+ * @param imageSource - Where an image label's value comes from
  * @returns The fields to render under the type dropdown
  */
 function labelFields(
   type: string,
-  source: HaFormSchema | undefined,
+  iconSourceField: HaFormSchema | undefined,
   iconSource: string,
+  imageSourceField: HaFormSchema | undefined,
+  imageSource: string,
 ): HaFormSchema[] {
   if (type === 'icon') {
     return [
       // The source qualifies the picker below it, so it precedes it — the same reason
       // `filter_field` precedes `blocklist` and `allowlist`. A reader who meets the picker
       // first has already assumed the icon is theirs to choose.
-      ...(source ? [source] : []),
+      ...(iconSourceField ? [iconSourceField] : []),
       // Following Home Assistant, there is no icon to pick: the picker would show an empty
       // box beside a rendered icon it did not choose, which is the control contradicting the
       // card. `accent_color` is dropped the same way when its own mode is not `custom`.
@@ -250,6 +292,26 @@ function labelFields(
       // Kept in both modes on purpose: tinting an inherited icon is still the card's choice,
       // and the color is stored under a key of its own that the source never touches.
       text('label_icon_color'),
+    ];
+  }
+
+  if (type === 'image') {
+    return [
+      // Precedes its control for the icon source's reason, one shape up: it says what the
+      // control below is *for*, and a reader who meets a path field first has already assumed
+      // the address is theirs to type.
+      ...(imageSourceField ? [imageSourceField] : []),
+      // 🚨 Both modes keep a control, where the icon source drops its picker in the mode that
+      // follows Home Assistant. The asymmetry is real rather than an oversight: an icon label
+      // following Home Assistant has nothing left to choose — the *calendar* decides it — but
+      // a person's picture still needs somebody named, and the person is what the picker
+      // picks. Dropping it would leave the mode unable to say who.
+      imageSource === 'person'
+        ? ({
+            name: 'label',
+            selector: { entity: { filter: { domain: 'person' } } },
+          } as SelectorSchema)
+        : text('label'),
     ];
   }
 
@@ -284,6 +346,7 @@ export function buildEntitySchema(ctx: SchemaCtx): HaFormSchema[] {
     heading('heading_appearance'),
     labelType(ctx.language),
     labelIconSource(ctx.language),
+    labelImageSource(ctx.language),
     text('label'),
     text('label_icon_color'),
     row(text('color'), accentColorMode(ctx.language)),
@@ -379,6 +442,29 @@ function accentColorMode(language: string): SelectorSchema {
 }
 
 /**
+ * The dropdown naming where a calendar's image label comes from.
+ *
+ * @param language - Effective language code
+ * @returns The field
+ */
+function labelImageSource(language: string): SelectorSchema {
+  return {
+    name: LABEL_IMAGE_SOURCE,
+    selector: {
+      select: {
+        mode: 'dropdown',
+        options: LABEL_IMAGE_SOURCES.map((value) => ({
+          value,
+          label:
+            lookup(language, `entity.${LABEL_IMAGE_SOURCE}.option.${value}.label`) ??
+            humanize(value),
+        })),
+      },
+    },
+  };
+}
+
+/**
  * The dropdown naming where a calendar's icon label comes from.
  *
  * @param language - Effective language code
@@ -404,11 +490,18 @@ function labelIconSource(language: string): SelectorSchema {
 /**
  * Narrows the declared schema to the fields one calendar's choices call for.
  *
+ * 🚨 `imageSource` is appended rather than filed beside `iconSource`, where it belongs by
+ * topic. Every parameter after the second has a default and is passed positionally by both
+ * `element.ts` and the schema tests, so inserting one in the middle would silently re-read
+ * an existing `showsLocation` argument as an image source — a change no signature check can
+ * see, because both are strings-or-booleans arriving at a parameter that has a default.
+ *
  * @param schema - The per-calendar schema, as declared
  * @param type - Shape this calendar's label holds
  * @param accentMode - Where this calendar's accent color comes from
  * @param iconSource - Where this calendar's icon label comes from
  * @param showsLocation - Whether this calendar's events draw a location row at all
+ * @param imageSource - Where this calendar's image label comes from
  * @returns The schema this calendar renders
  */
 export function entitySchemaFor(
@@ -417,12 +510,14 @@ export function entitySchemaFor(
   accentMode: string = 'custom',
   iconSource: string = 'custom',
   showsLocation: boolean = true,
+  imageSource: string = 'custom',
 ): HaFormSchema[] {
-  const replaced = new Set([LABEL_ICON_SOURCE, 'label', 'label_icon_color']);
+  const replaced = new Set([LABEL_ICON_SOURCE, LABEL_IMAGE_SOURCE, 'label', 'label_icon_color']);
 
   // Taken from the declared schema rather than rebuilt, because this function is handed no
   // language and rebuilding one here would render the only unlocalized control on the panel.
-  const source = schema.find((node) => node.name === LABEL_ICON_SOURCE);
+  const iconSourceField = schema.find((node) => node.name === LABEL_ICON_SOURCE);
+  const imageSourceField = schema.find((node) => node.name === LABEL_IMAGE_SOURCE);
 
   let inserted = false;
 
@@ -442,6 +537,6 @@ export function entitySchemaFor(
     if (inserted) return [];
 
     inserted = true;
-    return labelFields(type, source, iconSource);
+    return labelFields(type, iconSourceField, iconSource, imageSourceField, imageSource);
   });
 }

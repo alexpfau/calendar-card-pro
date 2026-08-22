@@ -9,6 +9,7 @@ import * as EventAge from './event-age';
 import * as FormatUtils from './format';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
+import * as PersonPictures from './person-pictures';
 import { isWeekRelative, parseStartDateExpression } from './start-date';
 import * as TextReplace from './text-replace';
 import * as Config from '../config/config';
@@ -1453,25 +1454,29 @@ export function getEntityLabel(
 }
 
 /**
- * The label to draw for one calendar, with Home Assistant's icon substituted for the
- * sentinel that asks for it.
+ * The label to draw for one calendar, with what Home Assistant holds substituted for the
+ * value that stands in for it — its icon for the `home-assistant` sentinel, a person's
+ * picture for a `person.…` entity id.
  *
  * 🚨 Render time, deliberately, and this is the one thing about the feature that cannot
  * move. `processEvents` bakes `_entityLabel` into the cached event, so resolving there would
  * freeze whatever icon Home Assistant held at fetch time and leave it frozen until the next
  * refresh — which is precisely the drift #188 was opened about, reintroduced by the fix for
  * it. Resolved here, changing the icon in Home Assistant repaints on its next state update.
+ * A person's picture inherits the same property for free: change the photo and the card
+ * follows it.
  *
  * A calendar whose icon Home Assistant does not hold falls through to `undefined`, so
  * `renderLabel` draws nothing at all. That is the same nothing an unlabelled calendar draws,
  * rather than an `ha-icon` with no icon in it — which is a sized, empty box that indents the
  * title as though a label were there. It mirrors the colors' own fall-through, where a
- * calendar the registry has no color for renders the color it would have had anyway.
+ * calendar the registry has no color for renders the color it would have had anyway. A
+ * person with no picture, or a `person.…` id naming nobody, falls the same way.
  *
  * @param entityId - Calendar the event came from
  * @param config - Current card configuration
  * @param event - Event data carrying the matched per-calendar configuration
- * @param hass - Home Assistant instance, which carries the icon in its state attributes
+ * @param hass - Home Assistant instance, which carries both stand-ins in its state attributes
  * @returns The label to draw, or `undefined` when there is none
  */
 export function resolveEntityLabel(
@@ -1482,15 +1487,29 @@ export function resolveEntityLabel(
 ): string | undefined {
   const label = getEntityLabel(entityId, config, event);
 
-  if (!EntityIcons.isEntityIconSentinel(label)) return label;
+  const followsIcon = EntityIcons.isEntityIconSentinel(label);
+  const followsPerson = PersonPictures.isPersonEntityId(label);
 
-  // An explicit shape outranks the sentinel, so `label_type: text` still renders the word.
-  // `getLabelType` reads the sentinel as an icon precisely so this is the only way to say
-  // otherwise; honouring it here as well is what keeps the two halves telling one story.
+  if (!followsIcon && !followsPerson) return label;
+
+  // An explicit shape outranks either stand-in, so `label_type: text` still renders the words.
+  // `getLabelType` reads each as the shape it resolves *to* — the sentinel as an icon, a
+  // person as an image — precisely so this is the only way to say otherwise; honouring it
+  // here as well is what keeps the two halves telling one story.
   const declared = getEntitySetting(entityId, 'label_type', config, event);
-  if (Helpers.isLabelType(declared) && declared !== 'icon') return label;
+  if (Helpers.isLabelType(declared) && declared !== (followsIcon ? 'icon' : 'image')) {
+    return label;
+  }
 
-  return EntityIcons.entityIcon(entityId, hass);
+  // 🚨 `label` here, `entityId` one line down, and the two are different entities. The icon
+  // belongs to the calendar being labelled, so it is looked up by the calendar's own id; the
+  // picture belongs to the *person the label names*, which is a different entity that the
+  // calendar knows nothing about. Passing `entityId` to both reads as tidy and finds nothing,
+  // because a calendar carries no `entity_picture` — so the failure looks like the option
+  // doing nothing rather than like a mix-up.
+  return followsPerson
+    ? PersonPictures.personPicture(label, hass)
+    : EntityIcons.entityIcon(entityId, hass);
 }
 
 /**
