@@ -60,7 +60,7 @@ Configure how event times and locations are displayed:
 # Time display options
 show_time: true # Show event start/end times
 show_single_allday_time: false # Hide time for single-day all-day events
-allday_badge: false # false, or outline / soft / tinted / filled
+allday_badge: false # false, or outline / subtle / tinted / filled
 time_24h: false # Use 12-hour format (AM/PM)
 time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time
@@ -91,7 +91,7 @@ There are four treatments, from quietest to loudest:
 | Value     | What it draws                                  |
 | --------- | ---------------------------------------------- |
 | `outline` | An outline only, with no fill                  |
-| `soft`    | A gentle wash of the accent, with no outline   |
+| `subtle`  | A gentle wash of the accent, with no outline   |
 | `tinted`  | Both — a gentle wash inside a matching outline |
 | `filled`  | A solid badge in the calendar accent color     |
 

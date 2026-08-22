@@ -491,7 +491,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'plain text. Anything that follows it, such as an end date, stays as text.',
   'allday_badge_mode.option.off.label': 'Off',
   'allday_badge_mode.option.outline.label': 'Outline Only',
-  'allday_badge_mode.option.soft.label': 'Soft Fill',
+  'allday_badge_mode.option.subtle.label': 'Subtle',
   'allday_badge_mode.option.tinted.label': 'Tinted',
   'allday_badge_mode.option.filled.label': 'Filled',
   time_two_digit_hours: 'Pad Hours To Two Digits',

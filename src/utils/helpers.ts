@@ -555,7 +555,7 @@ export function memoizeLast<Args extends readonly unknown[], Result>(
 }
 
 /** The badge treatments `allday_badge` can name, in order of increasing weight. */
-export const ALLDAY_BADGE_MODES = ['outline', 'soft', 'tinted', 'filled'] as const;
+export const ALLDAY_BADGE_MODES = ['outline', 'subtle', 'tinted', 'filled'] as const;
 
 export type AlldayBadgeMode = (typeof ALLDAY_BADGE_MODES)[number];
 

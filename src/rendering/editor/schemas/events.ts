@@ -17,7 +17,7 @@ export const EVENTS_ICON = mdiCalendarText;
 export const ALLDAY_BADGE_OPTIONS: ReadonlyArray<string> = [
   'off',
   'outline',
-  'soft',
+  'subtle',
   'tinted',
   'filled',
 ];

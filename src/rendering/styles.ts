@@ -818,7 +818,7 @@ export const cardStyles = css`
      where the ring reads as one line too many. It gives up the ring's separation, so on a
      row tinted in the same accent it is the first mode to lose its edge -- which is the
      trade the user makes by choosing it. */
-  .allday-badge-soft {
+  .allday-badge-subtle {
     box-shadow: none;
   }
 
