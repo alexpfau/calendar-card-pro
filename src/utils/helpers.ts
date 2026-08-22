@@ -112,8 +112,20 @@ export function getTodayIndicatorType(value: string | boolean): string {
   }
 
   if (typeof value === 'string') {
-    if (value === 'pulse' || value === 'glow') {
+    // 🚨 `dot` belongs here and not in the fallthrough, which is where it used to arrive.
+    // It is a documented value and it is what the editor's own Dot option writes
+    // (`BUILT_IN_INDICATORS`), so it reached the right answer only because *every*
+    // unrecognized string did. The moment the fallthrough below became text rather than a
+    // dot, that accident would have drawn the word "dot" on the card.
+    if (value === 'dot' || value === 'pulse' || value === 'glow') {
       return value;
+    }
+
+    // Nothing to draw. `renderTodayIndicator` short-circuits on a falsy value before it ever
+    // asks, so this is here for the editor, which does ask: without it an empty field would
+    // read as text and open the Custom control on a value that is not set.
+    if (value.trim() === '') {
+      return 'dot';
     }
 
     if (isIconValue(value)) {
@@ -125,26 +137,21 @@ export function getTodayIndicatorType(value: string | boolean): string {
     // extension, the four-letter `.jpeg`, and `avif`, `bmp`, `ico` and `apng` — and, being
     // `includes` on a lower-case literal, missed `.PNG` and `.JPEG` outright (#569).
     //
-    // 🚨 Two things make this safe to widen even though `today_indicator` has no
-    // `today_indicator_type` to undo a wrong reading with, and both turn on `dot` being the
-    // *fallthrough* as well as the default:
-    //
-    //   - Nothing working is taken. Every arm that gives a value meaning — `pulse`/`glow`,
-    //     then `isIconValue` — runs above this one, so the only values this can claim are
-    //     ones that reached `dot`, which is the bucket for "not understood". A widening here
-    //     cannot reclassify a configuration that draws what its author asked for.
-    //   - Nothing readable is taken. Unlike `label` there is no `text` branch to fall into:
-    //     this option has no prose case at all, so there is no rendering that free text was
-    //     the right answer for and that an address test could steal.
-    //
-    // That asymmetry is also why the missing escape hatch is affordable here and is not on
-    // `label`, where the fallthrough is a meaningful rendering.
+    // 🚨 What this costs changed when the fallthrough became text (#573). It used to cost
+    // nothing at all — the only values these arms could claim were ones that reached `dot`,
+    // the bucket for "not understood" — and that was the argument for widening them without
+    // an escape hatch. Now they can claim a value that would otherwise be *drawn*, so the
+    // rule is the trade instead: an address-shaped value is an image, everything else is
+    // drawn literally, and there is no way to ask for an address-shaped value as text.
+    // `label` makes the same trade and can undo it with `label_type`; this option has no
+    // counterpart, so the case to weigh is a badge that is meant to read as `/dev` or as a
+    // URL. Both are addresses far more often than they are captions.
     if (value.startsWith('/') || /^https?:\/\//i.test(value)) {
       return 'image';
     }
 
     // 🚨 Anchored, where the old test was `includes`, so this narrows as well as widens:
-    // `report.gifted`, `a.pngx` and `Meeting.jpg tomorrow` were images and are now dots.
+    // `report.gifted`, `a.pngx` and `Meeting.jpg tomorrow` were images and are now text.
     // That is deliberate. With the two prefix arms above taking every absolute path and every
     // URL, this arm is only ever reached by a *relative* path — and a relative path that is an
     // image ends at its extension, or at the `?` or `#` that ends the path. So the set this
@@ -154,12 +161,25 @@ export function getTodayIndicatorType(value: string | boolean): string {
       return 'image';
     }
 
-    const emojiRegex = /[\p{Emoji}]/u;
-    if (emojiRegex.test(value)) {
-      return 'emoji';
-    }
-
-    return 'dot';
+    // Anything still here is drawn as its own characters (#573).
+    //
+    // This used to be `/[\p{Emoji}]/u`, which is not "is this a pictograph": the Unicode
+    // `Emoji` property is `Yes` for the ASCII digits, `#` and `*`, because those are the
+    // bases of keycap sequences. So `Sprint 12` was drawn as text and `Sprint` was drawn as
+    // a dot, and nothing in the config, the docs or the editor explained the difference —
+    // the option had a text mode gated on whether the text happened to contain a digit.
+    //
+    // Widening it rather than narrowing it is the one direction that takes nothing away:
+    // every value that drew text before still draws text, `dot`/`pulse`/`glow` are matched
+    // above, and `true`/`dot` remain the way to ask for a plain dot. What it costs is the
+    // "I typed nonsense and got a dot" fallback — a typo is now visible instead of looking
+    // deliberate, which is the better failure for an option whose whole defect history is
+    // silent fallbacks.
+    //
+    // The returned name stays `emoji` on purpose. It is the discriminator for a branch that
+    // renders the value verbatim, and it decides the public `today-indicator emoji` class
+    // that themes and card-mod select on; renaming it would break those to no benefit.
+    return 'emoji';
   }
 
   return 'none';
