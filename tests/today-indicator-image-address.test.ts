@@ -60,7 +60,7 @@ const IMAGE_ADDRESSES: ReadonlyArray<readonly [string, string]> = [
 
 /** Values whose reading must not change, so the widened rule is not simply a wider net. */
 const KEEPS_ITS_SHAPE: ReadonlyArray<readonly [string, string, string]> = [
-  ['a plain word', 'Holiday', 'dot'],
+  ['the dot keyword', 'dot', 'dot'],
   ['the pulse keyword', 'pulse', 'pulse'],
   ['the glow keyword', 'glow', 'glow'],
   ['an mdi icon', 'mdi:star', 'mdi'],
@@ -74,8 +74,9 @@ const KEEPS_ITS_SHAPE: ReadonlyArray<readonly [string, string, string]> = [
  *
  * Each of these contains an image extension somewhere other than the end of a path, so the old
  * `includes` test called it an image and the card rendered `<img src="report.gifted">`. They are
- * dots now. Nothing here is an address the card could ever have loaded, which is the argument —
- * but it is a behavior change in the restrictive direction, so it is written down.
+ * drawn as their own characters now — `dot` when this was written, text since #573 made that
+ * the fallthrough. Nothing here is an address the card could ever have loaded, which is the
+ * argument; but it is a behavior change in the restrictive direction, so it is written down.
  */
 const NARROWED: ReadonlyArray<readonly [string, string]> = [
   ['an extension inside a sentence', 'Meeting.jpg tomorrow'],
@@ -120,7 +121,7 @@ describe('reading an image address off today_indicator', () => {
   });
 
   it.each(NARROWED)('no longer reads %s as an image', (_name, value) => {
-    expect(Helpers.getTodayIndicatorType(value), value).toBe('dot');
+    expect(Helpers.getTodayIndicatorType(value), value).toBe('emoji');
   });
 
   /**
@@ -189,11 +190,11 @@ describe('the editor and a today_indicator image address', () => {
     expect(result.changes).toHaveProperty('today_indicator', value);
   });
 
-  /** And a value that is genuinely not renderable is still held rather than committed. */
-  it('still refuses a word the card cannot draw', () => {
-    const result = custom.apply('Holiday', buildConfig({}) as Types.Config);
+  /** And a value that would move the style away from Custom is still held rather than committed. */
+  it('still refuses a value that would change the style', () => {
+    const result = custom.apply('mdi:calendar', buildConfig({}) as Types.Config);
 
     expect(result.changes).not.toHaveProperty('today_indicator');
-    expect(result.pending?.today_indicator_custom).toBe('Holiday');
+    expect(result.pending?.today_indicator_custom).toBe('mdi:calendar');
   });
 });

@@ -2204,14 +2204,43 @@ describe('editor: fields that must survive being typed into', () => {
   }
 
   /**
-   * The renderer classifies any string it does not recognise as a plain dot, so
-   * committing each keystroke of `star.png` would switch the style to Dot on the `s`,
-   * remove this field, and leave `s` in the user's configuration.
+   * The field must not be taken away under the cursor. Two mechanisms serve that now, and
+   * which one applies depends on what is being typed.
+   *
+   * A word-shaped partial classifies as text since #573, so every keystroke of `star.png`
+   * leaves the style on Custom and commits — the field stands because the classification
+   * keeps it standing, not because the value was withheld. The cost is that the fragment
+   * reaches the config on the way, which is what every other free-text field in the editor
+   * already does.
+   *
+   * An `mdi:` partial is the case the hold still exists for: `mdi:c` classifies as an icon,
+   * which *would* move the style to Icon and replace this field mid-word, so it is held
+   * pending until the user leaves it.
    */
   it('keeps the custom indicator field standing while an image path is typed', () => {
     const start = buildConfig({ today_indicator: '⭐' });
 
     for (const partial of ['s', 'st', 'star', 'star.pn']) {
+      const { config } = type(start, 'today_indicator_custom', [partial]);
+
+      expect(config.today_indicator, partial).toBe(partial);
+      expect(
+        fieldNames(() => buildDayHeaderSchema({ view: 'list', config, language: 'en' })),
+        partial,
+      ).toContain('today_indicator_custom');
+    }
+
+    const done = type(start, 'today_indicator_custom', ['s', 'st', 'star', 'star.pn', 'star.png']);
+    expect(done.config.today_indicator).toBe('star.png');
+  });
+
+  /**
+   * The half the hold still covers, and the one that would actually lose the field.
+   */
+  it('holds an icon-shaped value rather than switching the style under the cursor', () => {
+    const start = buildConfig({ today_indicator: '⭐' });
+
+    for (const partial of ['mdi:c', 'mdi:cal', 'mdi:calendar']) {
       const { config, pending } = type(start, 'today_indicator_custom', [partial]);
 
       expect(config.today_indicator, partial).toBe('⭐');
@@ -2221,9 +2250,6 @@ describe('editor: fields that must survive being typed into', () => {
         partial,
       ).toContain('today_indicator_custom');
     }
-
-    const done = type(start, 'today_indicator_custom', ['s', 'st', 'star', 'star.pn', 'star.png']);
-    expect(done.config.today_indicator).toBe('star.png');
   });
 
   /**
@@ -4149,9 +4175,11 @@ describe('editor: exceptions for the union-typed options', () => {
   });
 
   /**
-   * The same hold the card-level control uses, and needed for the same reason: an
-   * unrecognised string classifies as a plain dot, so committing `star.pn` on the way to
-   * `star.png` would switch the shape, take this very field away and store the fragment.
+   * The same hold the card-level control uses, and needed for the same reason — but since
+   * #573 only for the values that would actually move the style. A word-shaped partial
+   * classifies as text and keeps the shape on Custom, so it commits and the field stands;
+   * an `mdi:` partial would switch the shape to Icon and take this very field away, so it
+   * is held until the user finishes.
    */
   it('holds a half-typed value instead of reclassifying the shape under the cursor', () => {
     const config = columnConfig({ column: { today_indicator: '⭐' } as Types.ColumnOverrides });
@@ -4159,7 +4187,7 @@ describe('editor: exceptions for the union-typed options', () => {
     let pending: Record<string, string> = {};
     let current = config;
 
-    for (const partial of ['s', 'st', 'star', 'star.pn']) {
+    for (const partial of ['mdi:c', 'mdi:cal', 'mdi:calendar']) {
       const applied = change(
         current,
         ['today_indicator'],

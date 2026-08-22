@@ -126,6 +126,14 @@ Both panels for one calendar carry the same heading, because they name the same 
 
 That is eleven editor languages in total, counting US English in code and British English, which carries only the 44 strings where it differs. The other 24 of the card's 35 languages render the editor in English, which is fully supported and still resolves per string. The calendar itself continues to speak all 35.
 
+### 🔤 A Today Indicator That Can Be Words
+
+**`today_indicator` now takes any text, so the marker on today can read `KW 34` or `Sprint 12` instead of only being a dot, an icon, an emoji or a picture.** It half-worked already, which is the odd part: the test deciding whether a value was drawable asked Unicode whether it contained an emoji, and Unicode says the ASCII digits, `#` and `*` all qualify — they are the bases of keycap sequences like 2️⃣. So `Sprint 12` was drawn as words and `Sprint` was drawn as a dot, with nothing anywhere explaining the difference.
+
+Widening that rather than closing it is the direction that takes nothing away: every value that drew text before still does, and `true` or `dot` is still how you ask for a plain dot. What changes is what happens to a value the card does not recognize — it is drawn now rather than silently replaced by a dot, so a typo shows up instead of looking deliberate.
+
+Two things to know if you use it. Text is sized by `today_indicator_size`, which ships at `6px` because that is right for an emoji and far too small for a word, so raise it. And a value shaped like an address is still read as an image, which means `/dev` and `https://…` cannot be drawn as literal text. (#573)
+
 ## 🐛 Bug Fixes
 
 - **Finished All-Day Events Stayed on the Card** - With `show_past_events: false`, a timed event vanished when it ended but an all-day one never did: an all-day event has no end _time_, only an end _date_, so the card had nothing to compare against and exempted them all. Any card whose window reached backwards therefore kept showing all-day events from days that were over — `start_date: 'today-7'`, or `start_of_week` read on a Thursday, which the start-date docs actively recommend pairing with past events hidden. All-day events are now past at midnight after the last day they cover, so a finished one goes and today's stays up all day. If you use a backward-looking window, expect finished all-day entries to disappear from it
@@ -156,6 +164,7 @@ That is eleven editor languages in total, counting US English in code and Britis
 - [#215](https://github.com/alexpfau/calendar-card-pro/issues/215) - Use a person entity's picture as a calendar's label by @fl0om, supported by @voyagers21 — who had the right address all along, `/api/image/serve/…` read off the browser, and was told it was not working because the card drew it as text. A person's picture now works as a `label` with nothing else to set. The person picker the request suggested is not what shipped, and is not needed for it: the address is already on the person entity, as its `entity_picture` attribute
 - [#566](https://github.com/alexpfau/calendar-card-pro/issues/566) - A label pointing at an image outside `/local/` silently rendered as its own URL by @alexpfau
 - [#569](https://github.com/alexpfau/calendar-card-pro/issues/569) - `today_indicator` silently fell back to a dot for image addresses its list did not name by @alexpfau
+- [#573](https://github.com/alexpfau/calendar-card-pro/issues/573) - `today_indicator` had an undocumented text mode, gated on whether the text contained a digit by @alexpfau
 
 ---
 
