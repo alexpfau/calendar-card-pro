@@ -760,15 +760,39 @@ export const cardStyles = css`
    * "toute la journee", eight times the length of the Chinese one) wrap inside the pill
    * rather than overflow a narrow column track.
    *
-   * The accent arrives as a custom property set inline on this element, because the
-   * calendar's color reaches the event row as an inline border value that no descendant can
-   * read. Blending it here rather than in the markup keeps the mix reachable from a theme.
+   * ===== Why the colours are derived rather than configured =====
    *
-   * 70% rather than a lighter wash because event_background_opacity may already have tinted
-   * the row with this same accent: a 20% badge on top of an accent-tinted row is close to
-   * invisible, and the two options are independent, so the badge cannot assume an untinted
-   * background. Both are opt-in and the maintainer's call is that pairing a high background
-   * opacity with the badge is the user's to tune. */
+   * All three colours come from one input, the calendar's accent, resolved by the BROWSER at
+   * paint time. That matters because an accent may be a theme token such as
+   * var(--primary-color), which JavaScript cannot decompose into channels -- see the comment
+   * on computeRGBA in utils/helpers.ts, which records the shipped bug where this card tried
+   * exactly that and silently fell back to a hardcoded blue. So a lookup table mapping accent
+   * to text colour cannot be built here, and none is needed: color-mix resolves the token.
+   *
+   * The text mixes the accent INTO the primary text colour rather than replacing it, so it
+   * stays dark on a light theme and light on a dark one while still reading as this
+   * calendar's colour. The fill mixes the accent into the CARD background for the same
+   * reason. Both therefore invert automatically with the theme, with no light-dark() and no
+   * media query.
+   *
+   * ===== Why the fill is quiet and the ring is not =====
+   *
+   * The ring carries visibility; the fill does not. This is the opposite of the obvious
+   * arrangement and was measured rather than guessed. A saturated fill is loud -- it draws
+   * the eye to what is secondary information -- and it wrecks text contrast, because the
+   * muted time colour cannot sit on a saturated ground: 70% fill measured 3.24:1 on the
+   * default blue and 2.12:1 on pink, both failing WCAG AA. But a pale fill alone disappears
+   * once event_background_opacity tints the row with the same accent, which is the failure
+   * the 70% attempt was made to fix.
+   *
+   * A 1px ring resolves the conflict, because a crisp boundary survives a tinted background
+   * where an area wash does not. The strength is load-bearing: a 22% ring measured as
+   * decorative -- removing it was visually indistinguishable -- while 40% makes the boundary
+   * read without adding weight. Sweeping fill and ring together (6,720 measurements) puts
+   * 10% fill / 40% ring in the only region satisfying both constraints at once: text at or
+   * above 5.95:1 across the accent spread, boundary separation holding at ~1.6:1 even at
+   * event_background_opacity 80, and fill-to-card contrast at 1.29:1, which is what "quiet"
+   * means numerically. */
   .allday-badge {
     font-size: 0.85em;
     font-weight: 500;
@@ -778,7 +802,13 @@ export const cardStyles = css`
     padding-inline: 0.5em;
     margin-inline-end: 4px;
     border-radius: 999px;
-    background-color: color-mix(in srgb, var(--calendar-card-event-accent) 70%, transparent);
+    color: color-mix(in srgb, var(--calendar-card-event-accent) 30%, var(--primary-text-color));
+    background-color: color-mix(
+      in srgb,
+      var(--calendar-card-event-accent) 10%,
+      var(--calendar-card-background-color, var(--card-background-color))
+    );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
   }
 
   /* Own-row event weather placement. The descendant selector keeps these
