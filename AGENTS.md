@@ -276,6 +276,25 @@ fails loudly instead of silently proving nothing if it is ever run under UTC —
 `tests/week-number-dst.dst.test.ts` has one to copy. The `exclude` on the `unit` project is
 what stops those files running a fourth time under UTC; do not drop it.
 
+🚨 **The transition is the famous exposure; the plain offset is the bigger one, and it
+was uncovered until v4.1.** Everything above is about DST _transitions_, which touch two
+days a year. Under `TZ=UTC` a local clock reading and a UTC one are the **same number**
+on every day of the year, so any code reading `getHours()` is equally untested — and
+`formatTime`, which prints the time on every timed event, had no `.dst.test.ts` at all.
+Rewriting it to `getUTCHours()`/`getUTCMinutes()`, and rewriting `formatEventTime`'s
+single-day-versus-multi-day test to compare UTC calendar days instead of local ones, each
+left the **whole suite green** while misprinting the time for every user outside UTC.
+`tests/event-time-zone.dst.test.ts` closes that; the first now fails 5 assertions in each
+zone and the second 1–2.
+
+Two things that file is worth copying. Its oracle is `Intl.DateTimeFormat`, **not**
+`Date.prototype.getHours` — the code under test is built from the `Date` getters, so an
+expectation derived from those same getters restates the implementation instead of
+checking it. And it says plainly that **no zone is uniquely required there**: all three
+catch both mutations and any non-UTC zone would, which is a weaker claim than the
+week-number file's and the honest one. Do not assert a zone is the only one able to see a
+failure without planting it in the other two.
+
 **A snapshot diff you did not intend is usually a whitespace error, not a rendering
 change.** The serializer normalises whitespace _between tags only_; whitespace adjacent to
 a text node survives verbatim, so the literal source indentation inside an `html` template
@@ -296,10 +315,29 @@ the folded time/countdown spans — each added after `npm run format` reintroduc
 exact spaces a fix had just removed and turned five tests red. Locate them with
 `grep -n "prettier-ignore" src/rendering/leaves.ts` rather than by line number; two of
 the three moved the last time someone edited a comment above them. If you find one and
-wonder whether it is still needed, it is — delete it, **run `npm run format`**, then
-`npm test`. The format step is the whole experiment: without it the directive's removal
-changes nothing and the whole suite still passes, which reads as "safe to delete" and
-is not.
+wonder whether it is still needed, run the experiment rather than reasoning about it —
+delete it, **run `npm run format`**, then `npm test`. The format step is the whole
+experiment: without it the directive's removal changes nothing and the whole suite still
+passes, which reads as "safe to delete" and is not.
+
+🚨 **Run it per site, because the three no longer answer the same way.** This paragraph
+used to say "it is" — that all three are still load-bearing — and that is now true of
+two. Measured one at a time on the tip, each with the format step:
+
+| site                        | on removal + `npm run format` |
+| --------------------------- | ----------------------------- |
+| day-header weather badge    | 6 tests fail                  |
+| event weather badge         | 4 tests fail                  |
+| folded time/countdown spans | **suite stays green**         |
+
+The third is not a dead directive, and deleting it on that result would be the trap this
+section is about arriving from the other side. Prettier _does_ reformat that site — but
+it reformats it as `<span class="time-text"\n  >`, breaking **inside** the tag, which is
+the `</span\n><span` asymmetry two paragraphs up doing its job. No text node appears, so
+the DOM is identical and no snapshot moves. What the directive buys there is the source
+reading as the single line the browser sees, instead of the `>`-on-its-own-line form that
+is exactly what the comment above it is warning against. Keep it; it is documentation
+that happens to also be a guard, and the two other sites prove the guard is real.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artefact the person doing the refactor

@@ -94,9 +94,13 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       config.weather?.date?.color || 'var(--primary-text-color)',
     '--calendar-card-weather-event-icon-size': config.weather?.event?.icon_size || '14px',
     '--calendar-card-weather-event-font-size': config.weather?.event?.font_size || '12px',
-    // Read with a fallback because this function is also called with configs that never
-    // went through setConfig — the editor's own preview objects, and tests — where a
-    // weather block can omit event.max_lines entirely.
+    // Read with a fallback because a `weather:` block can arrive without `event`, in
+    // which case `max_lines` is absent rather than 0. That is a defensive read rather
+    // than a live one: the single production caller is `getCustomStyles`, which passes
+    // the post-`setConfig` effective config, and `mergeConfig` fills the nested weather
+    // defaults in. Nothing in the editor reaches this function. Tests are what exercise
+    // the fallbacks today — see the note on WEATHER_FALLBACKS in
+    // `tests/custom-property-mapping.test.ts`, which measured that.
     '--calendar-card-weather-event-max-lines':
       (config.weather?.event?.max_lines ?? 0) > 0
         ? String(config.weather?.event?.max_lines)
