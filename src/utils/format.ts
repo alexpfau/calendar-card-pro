@@ -289,10 +289,19 @@ export function resolveLocationIcon(location: string, configured?: string): stri
  * has no idea what a tag is. Any description pairing a `<` with a later `>` lost everything
  * between them, so `alert if temp < 5 and pressure > 3 END` rendered as `alert if temp 3
  * END` on a real card. Requiring the character after the opening `<` to be the one that
- * starts a tag is what separates prose from markup, and it is the same test the HTML
- * tokenizer applies: an ASCII letter opens a tag, `/` an end tag, `!` and `?` a markup
+ * starts a tag is what separates prose from markup, and it is the HTML tokenizer's own
+ * opening rule: an ASCII letter opens a tag, `/` an end tag, `!` and `?` a markup
  * declaration, and **anything else makes the `<` ordinary text**. A space, a digit or a
  * hyphen therefore no longer opens anything, which is every shape the issue reported.
+ *
+ * That is the tokenizer's rule for what *opens* markup, and it is not the whole tokenizer.
+ * A 45-input differential against headless Chromium (#581) agrees on every realistic
+ * description — tags, attributes, comments, `<!DOCTYPE>`, processing instructions, Outlook
+ * conditionals, `<o:p>`, `<st1:place>` — and diverges on four degenerate shapes a browser
+ * discards as bogus comments and this keeps: `<!-->`, `<![CDATA[…]]>`, `<//p>` and
+ * `</ b >`. The predecessor dropped all four, so three changed silently here; the fourth
+ * is `</ b >`, kept deliberately and pinned as prose. Say "approximates the tokenizer",
+ * not "is the tokenizer", when reasoning about the next edge case.
  *
  * 🚨 **The regex is the only thing removing tags in production, so it is not optional and
  * it cannot be narrowed casually.** The `<textarea>` round-trip below decodes entities and
