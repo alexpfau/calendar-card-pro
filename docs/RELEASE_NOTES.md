@@ -175,6 +175,8 @@ Two things to know if you use it. Text is sized by `today_indicator_size`, which
 - [#569](https://github.com/alexpfau/calendar-card-pro/issues/569) - `today_indicator` silently fell back to a dot for image addresses its list did not name by @alexpfau
 - [#573](https://github.com/alexpfau/calendar-card-pro/issues/573) - `today_indicator` had an undocumented text mode, gated on whether the text contained a digit by @alexpfau
 - [#576](https://github.com/alexpfau/calendar-card-pro/issues/576) - A description pairing a `<` with a later `>` lost the prose between them by @alexpfau
+- [#581](https://github.com/alexpfau/calendar-card-pro/issues/581) - The description flattening kept 21 shapes a browser discards as a bogus comment, three of which v4.0.0 removed, by @alexpfau — found by the pre-release audit and fixed before shipping, so no user ever saw it. It also corrected this release's own claim that the new rule is "the same test a browser applies", which overstated it
+- [#582](https://github.com/alexpfau/calendar-card-pro/issues/582) - Nine of fifteen editor dropdowns could lose an option with every gate green, by @alexpfau — a gate rather than a user-visible fix: `check:i18n` now reconciles all 81 dropdown options against the strings naming them, in both directions
 
 ---
 
