@@ -1,5 +1,6 @@
 /**
- * `stripHtmlTags` — what it removes from a description and what it must leave alone (#576).
+ * `stripHtmlTags` — what it removes from a description and what it must leave alone
+ * (#576, #581).
  *
  * 🚨 **This file does not trust the test environment, and the reason is the whole point of
  * the bug.** `stripHtmlTags` removes markup with a regex and then decodes character
@@ -24,6 +25,9 @@
  * behaves the way Chromium's does, and that is the oracle for every case the issue names.
  * The `stripHtmlTags` in the environment vitest actually provides is exercised separately
  * at the bottom, and labeled with what it can and cannot see.
+ *
+ * Re-measured for #581 in Chrome 151: all three rows above read back identically, as do
+ * `5 &lt; 10 and 20 &gt; 3` and `&lt;b&gt;`. The oracle has not moved under it.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -116,13 +120,21 @@ describe('prose that pairs a < with a later >', () => {
   // The defect. Every one of these rendered with the middle eaten before the fix — the
   // first is the row the maintainer reproduced on a live Home Assistant, where
   // `alert if temp < 5 and pressure > 3 END` drew as `alert if temp 3 END`.
+  //
+  // The last five are not from #576. They are here because #581 re-widened what a `<` may
+  // swallow, and a widening needs its own guard rails: each was measured in the same
+  // Chromium run and each survives because the character after the `<` opens nothing.
   it.each([
     ['alert if temp < 5 and pressure > 3 END'],
     ['5 < 10 and 20 > 3'],
     ['a < b and c > d'],
     ['step 1 <-> step 2'],
     ['x <10 and y> z'],
-    ['a </ b > c'],
+    ['x <= 5 and y => 6'],
+    ['I <3 you and >:) me'],
+    ['Price <$5> today'],
+    ['a <> b'],
+    ['A < /p> B'],
   ])('survives intact: %s', (text) => {
     expect(renderedInBrowser(text)).toBe(text);
   });
@@ -136,6 +148,71 @@ describe('prose that pairs a < with a later >', () => {
 
   it('leaves an unterminated tag alone, because a browser does', () => {
     expect(renderedInBrowser('Before <b bold After')).toBe('Before <b bold After');
+  });
+});
+
+describe('markup the tokenizer only recognizes as a mistake (#581)', () => {
+  // 🚨 **`a </ b > c` moved here from the list above, deliberately.** #579 pinned it as
+  // prose, and #581 measured it as the one row where that reading and the browser's
+  // disagree. Four things decided it, and none of them is "the tokenizer is the spec":
+  //
+  //   1. It is not a #576 reproduction. #576 reported `5 < 10 and 20 > 3`,
+  //      `a < b and c > d`, `alert if temp < 5 and pressure > 3` and `step 1 <-> step 2`
+  //      — comparisons and arrows, not one of which contains a `/`.
+  //   2. #579's own description filed it as a *knowing divergence* — "`</` followed by a
+  //      space is now kept where a browser would treat it as a bogus comment" — and this
+  //      file then listed it under a banner that reads as a #576 requirement it never was.
+  //   3. Released v4.0.0 removed it, and so does Chromium. Keeping it was a silent
+  //      regression against a shipped version, in the direction of leaving raw markup on
+  //      someone's card.
+  //   4. `</` is not an idiom. Every other row above is something a person types on
+  //      purpose — `< 5`, `<->`, `<10`, `<=`, `<3`. A `</` followed by a word and a `>` is
+  //      only ever mangled markup. The single genuine exception is the broken-heart
+  //      emoticon, pinned below with what it costs.
+  //
+  // Every expected value here was measured in headless Chromium against
+  // `div.innerHTML = input; div.textContent`, and every one of them matches what released
+  // v4.0.0 rendered.
+  it.each([
+    ['an empty comment', 'Before <!--> After', 'Before  After'],
+    ['CDATA in HTML content', 'Before <![CDATA[ x ]]> After', 'Before  After'],
+    ['a doubled slash', 'A <//p> B', 'A  B'],
+    ['an end tag opening on a space', 'a </ b > c', 'a  c'],
+    ['an end tag with no name at all', 'x </> y', 'x  y'],
+    ['an end tag opening on a digit', 'x </3 y> z', 'x  z'],
+    ['an end tag opening on a non-ASCII letter', 'A </\u00e9lan> B', 'A  B'],
+    ['a declaration that is not a doctype', 'x <! y > z', 'x  z'],
+    ['a declaration opening on a digit', 'temp <!5 and pressure> 3', 'temp  3'],
+    ['a bare question mark', 'a <?> b', 'a  b'],
+  ])('%s', (_name, input, expected) => {
+    expect(renderedInBrowser(input)).toBe(expected);
+  });
+
+  it('reads two empty comments as two, not as everything between them', () => {
+    // The same hazard as `strips two comments as two`, one tokenizer state earlier.
+    // `<!-->` and `<!--->` close a comment abruptly and are complete on their own, so the
+    // comment branch has to try the short form first; a branch that only knows `-->` reads
+    // the pair as one comment and eats the `b`, which is what #579 shipped.
+    expect(renderedInBrowser('a <!--> b <!--> c')).toBe('a  b  c');
+    expect(renderedInBrowser('a <!---> b')).toBe('a  b');
+    expect(renderedInBrowser('a <!--> x --> b')).toBe('a  x --> b');
+  });
+
+  it('leaves markup that never closes, which a browser discards', () => {
+    // The deliberate half of the trade. A browser throws away everything from the `<` to
+    // the end of the input; this keeps it, because a `<` that swallowed the whole rest of
+    // a description would be far worse than a stray `<!` on screen.
+    expect(renderedInBrowser('Before <!-- never closed')).toBe('Before <!-- never closed');
+    expect(renderedInBrowser('Before <! never closed')).toBe('Before <! never closed');
+    expect(renderedInBrowser('a </3 b')).toBe('a </3 b');
+  });
+
+  it('flattens a broken heart that has a > after it, which is what this costs', () => {
+    // The one place a real person's prose loses out, named rather than buried: `</3` opens
+    // a bogus comment and runs to the next `>`. Chromium does exactly this, and so did
+    // released v4.0.0 — so it is not a regression, it is the price of not having one. The
+    // upright `<3` is untouched, because `3` opens nothing.
+    expect(renderedInBrowser('feeling </3 and >:( today')).toBe('feeling :( today');
   });
 });
 
@@ -155,6 +232,11 @@ describe('markup, which must strip exactly as it did before #576', () => {
     ['comment', 'Before <!-- a comment --> After', 'Before  After'],
     ['doctype and document', '<!DOCTYPE html><html><body>Hi</body></html>', 'Hi'],
     ['processing instruction', '<?xml version="1.0"?>Body', 'Body'],
+    // Upper case is not decoration: Word and Outlook emit `<P CLASS=MsoNormal>` and `<BR>`,
+    // and every other markup row in this file happens to be lower case. Narrowing the start
+    // tag branch to `[a-z]` left the whole suite green until this row existed.
+    ['a Word-flavored upper-case tag', '<P CLASS=MsoNormal>Body</P>', 'Body'],
+    ['an upper-case line break', 'Line one<BR>Line two', 'Line oneLine two'],
   ])('%s', (_name, input, expected) => {
     expect(renderedInBrowser(input)).toBe(expected);
   });
@@ -194,23 +276,26 @@ describe('under the DOM vitest actually provides', () => {
   // have removed and the two are indistinguishable here — which is precisely the trap #576
   // warned about. What they are good for is stating the card's contract in the environment
   // everything else in the suite runs in, so a change that broke it *both* ways is caught.
-  it.each([
-    ['5 < 10 and 20 > 3'],
-    ['a < b and c > d'],
-    ['alert if temp < 5 and pressure > 3 END'],
-    ['a </ b > c'],
-  ])('keeps comparison prose: %s', (text) => {
-    expect(FormatUtils.stripHtmlTags(text)).toBe(text);
-  });
+  it.each([['5 < 10 and 20 > 3'], ['a < b and c > d'], ['alert if temp < 5 and pressure > 3 END']])(
+    'keeps comparison prose: %s',
+    (text) => {
+      expect(FormatUtils.stripHtmlTags(text)).toBe(text);
+    },
+  );
 
-  it('cannot see three of the rows the fix repairs', () => {
+  it('cannot see the rows the fix repairs', () => {
     // happy-dom is not merely lenient here, it is stricter than any browser: it treats
-    // `<-`, `<1` and an unfinished `<b` as markup, where the tokenizer's rule makes all
-    // three ordinary text and Chromium leaves all three alone. So these read correctly on
+    // `<-`, `<1`, `<=` and an unfinished `<b` as markup, where the tokenizer's rule makes
+    // all four ordinary text and Chromium leaves all four alone. So these read correctly on
     // a real card and still read wrong under vitest, and only the RCDATA oracle above can
     // say so. Asserted as a difference rather than a value: if happy-dom is ever fixed,
     // this fails and the rows simply move up into the list above.
-    for (const text of ['step 1 <-> step 2', 'x <10 and y> z', 'Before <b bold After']) {
+    for (const text of [
+      'step 1 <-> step 2',
+      'x <10 and y> z',
+      'x <= 5 and y => 6',
+      'Before <b bold After',
+    ]) {
       expect(FormatUtils.stripHtmlTags(text)).not.toBe(text);
       expect(renderedInBrowser(text)).toBe(text);
     }
