@@ -235,6 +235,35 @@ entry and an unexplained new one — fail. When sweeping for this, blank one lin
 run `npx tsc --noEmit` first as a cheap kill, and restore with `cp` from a backup, never
 `git checkout --`.
 
+🚨 **The same trap one level down, on the options a dropdown offers — and this family is
+now enforced by `check:i18n` rather than by the suite.** Measured across every card-wide
+option table: **9 of 15 lose an entry with the whole suite green**, `time_format` losing
+`12` and `start_date_mode` losing `offset` among them, which takes a documented setting out
+of the editor while its control, its helper text and its translations all stay put. Only 6
+were pinned, and one of those (`view`) only because `VIEWS` drives the renderer as well.
+
+`checkEditorOptions` closes it in both directions, and the interesting part is how it gets
+the key. It cannot be modelled: **four** shapes are live — the node's own name (`view`), its
+group-qualified name (`column.min_days_fallback`), the per-calendar prefix
+(`entity.show_time`), and a key that is not the node's name at all, because
+`unionPickerField` labels the picker for a union option through the synthetic mode field
+standing in for it, so a node _named_ `show_week_numbers` resolves `week_number_mode.option.*`.
+The built schema has thrown that key away. So the schema is built under a sentinel language
+that echoes every key back instead of resolving it, and each option's `label` is then
+literally the key the editor asked for. Reconciling on **keys** rather than on per-control
+sets of values is also what removes the need for an exception list: card-wide `event_type`
+deliberately offers no `inherit` where the per-calendar one does, and the two never meet
+because they resolve through `event_type.option.*` and `entity.event_type.option.*`.
+
+Two things to know before touching it. The sentinel is registered in
+`EDITOR_LANGUAGE_STRINGS` and removed in a `finally` — insurance, not a live guard, because
+`checkEditorTranslations` reconciles the entries it parses out of the index module's
+_source_ rather than the runtime object's keys, so a leaked entry is invisible to it, at 0
+errors when planted. And an option whose label is **not** an option-label key is an error
+rather than a skip — a dropdown labelled outside the string table is untranslatable, and
+treating it as out of scope is how a gate silently stops covering the thing it was written
+for.
+
 ### The suite runs as four projects, and the split is load-bearing
 
 `vitest.config.mjs` defines a `projects` array, so `npm test` runs the same files under
@@ -1054,6 +1083,14 @@ entry in the same edit.
 that one, and runs in CI. Run it before you claim a language is done — but note it
 verifies **wiring**, not translation quality, and it cannot tell you whether
 `pēc 2 dienām` is correct Latvian.
+
+**It also reconciles every dropdown option against the string that names it**, in both
+directions and across all 27 option tables, so adding a `select` whose values no string
+covers fails the gate rather than shipping a `humanize`d label in eleven languages, and
+dropping a value leaves its string orphaned and fails it too. See the table-walk trap under
+_Build commands_ for why that is a reconciliation and not a list. The practical consequence
+when adding a dropdown: write the `<key>.option.<value>.label` strings in `strings.ts` in
+the same edit, and let `check:i18n` tell you the exact keys it asked for.
 
 **The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
 It records, per language, the decided form of each UI term and the forms rejected for it,

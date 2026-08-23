@@ -244,6 +244,126 @@ async function readEditorSchemaKeys() {
 }
 
 /**
+ * The language the option scan resolves under. Never a real language.
+ *
+ * Registering it mutates a module the rest of this file shares, so it is removed again in
+ * a `finally`. That is insurance rather than a live guard, and the difference is worth
+ * stating because the obvious justification is false: `checkEditorTranslations` reconciles
+ * the `EDITOR_LANGUAGE_STRINGS` entries it parses out of the **index module's source**, not
+ * the keys of the runtime object, so a leaked entry is invisible to it — planted and
+ * measured at 0 errors. Nothing today reads that object's key set, and nothing today
+ * resolves a string after this scan that could see the extra language. Both of those are
+ * facts about the current file rather than guarantees, which is exactly why the scan puts
+ * the module back the way it found it.
+ */
+const OPTION_KEY_ECHO_LANGUAGE = 'zz-option-key-echo';
+
+/** Escapes a literal for use inside a regular expression. */
+function escapeForRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Every option-label key the editor's dropdowns actually look up.
+ *
+ * 🚨 An option list is a table, and the assertions covering these dropdowns read them by
+ * walking them — the failure this repository has already paid for four times. Remove an
+ * entry and the walk runs one fewer time, so nothing counts and nothing notices. Measured
+ * rather than argued: of the 15 card-wide option tables, **9 lose an entry with the whole
+ * suite green**, among them `time_format` losing `12` and `start_date_mode` losing
+ * `offset` — a documented setting gone from the editor while its control, its helper text
+ * and its translations all stay put.
+ *
+ * The key is **taken from the editor rather than modelled**, because modelling it does not
+ * work. Four different shapes are in use: `view.option.list.label` from the node's own
+ * name, `column.min_days_fallback.option.list.label` from its group-qualified name,
+ * `entity.show_time.option.inherit.label` from the per-calendar prefix, and — the one that
+ * defeats any rule written from the schema — `week_number_mode.option.iso.label` for a node
+ * *named* `show_week_numbers`, because `unionPickerField` labels the picker for a union
+ * option through the synthetic mode field standing in for it. The built schema has thrown
+ * that key away by the time anything can read it.
+ *
+ * So the schema is built under a language that echoes every key back instead of resolving
+ * it. Each option's `label` is then literally the key the editor asked for, derived by the
+ * editor's own code. That also settles the subset problem a per-control comparison runs
+ * into — card-wide `event_type` deliberately offers no `inherit`, where the per-calendar
+ * one does — because the two resolve through *different* keys, `event_type.option.*` and
+ * `entity.event_type.option.*`, so there is nothing to except.
+ *
+ * @returns The keys asked for, each with the nodes that asked, and any option whose label
+ *   did not come from the string table at all
+ */
+async function readEditorOptionKeys() {
+  const editor = await loadEditor();
+  const { PANELS, walkSchema, panelSubforms, chassisSubforms, EDITOR_LANGUAGE_STRINGS } = editor;
+  const { DEFAULT_CONFIG, VIEWS } = editor;
+
+  assertFound(PANELS, 'any registered editor panels', PANELS_TS);
+
+  /** Option-label key -> the qualified node names that looked it up. */
+  const asked = new Map();
+  /**
+   * Options whose label is not an option-label key, so nothing can reconcile them.
+   *
+   * Keyed rather than listed, because every panel is built once per probe configuration
+   * and the same option would otherwise be reported dozens of times over.
+   */
+  const unresolved = new Map();
+
+  const collect = (schema, path) => {
+    for (const { node, path: nodePath } of walkSchema(schema, path)) {
+      if (!node.name || !('selector' in node) || !node.selector) continue;
+
+      const select = node.selector.select;
+      if (!select || !Array.isArray(select.options)) continue;
+
+      const where = [...nodePath, node.name].join('.');
+
+      for (const option of select.options) {
+        const value = typeof option === 'string' ? option : option.value;
+        const label = typeof option === 'string' ? '' : String(option.label ?? '');
+        const shape = new RegExp(`^.+\\.option\\.${escapeForRegExp(String(value))}\\.label$`);
+
+        if (!shape.test(label)) {
+          unresolved.set(`${where}\u0000${value}\u0000${label}`, {
+            where,
+            value: String(value),
+            label,
+          });
+          continue;
+        }
+
+        const nodes = asked.get(label) ?? new Set();
+        nodes.add(where);
+        asked.set(label, nodes);
+      }
+    }
+  };
+
+  EDITOR_LANGUAGE_STRINGS[OPTION_KEY_ECHO_LANGUAGE] = new Proxy(
+    {},
+    { get: (_target, key) => (typeof key === 'string' ? key : undefined) },
+  );
+
+  try {
+    for (const subform of chassisSubforms()) collect(subform.schema, subform.path);
+
+    for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
+      for (const panel of PANELS) {
+        const ctx = { view: config.view, config, language: OPTION_KEY_ECHO_LANGUAGE };
+
+        collect(panel.build(ctx), []);
+        for (const subform of panelSubforms(panel, ctx)) collect(subform.schema, subform.path);
+      }
+    }
+  } finally {
+    delete EDITOR_LANGUAGE_STRINGS[OPTION_KEY_ECHO_LANGUAGE];
+  }
+
+  return { asked, unresolved };
+}
+
+/**
  * Configurations chosen to open every conditional branch in every panel.
  *
  * Defaults alone hide conditional fields, so booleans and view-derived modes are swept.
@@ -591,6 +711,64 @@ async function checkEditorStrings() {
   }
 
   return new Set(labels.keys()).size;
+}
+
+/**
+ * A dropdown offers exactly the options its strings name, and vice versa.
+ *
+ * Both directions matter and they fail differently. A key the editor asks for and no
+ * string defines renders `humanize`d — an untranslated, capitalized copy of the config
+ * value, in all eleven editor languages, which reads as a translation gap rather than as
+ * the missing string it is. A string nothing asks for is the far worse one: that is what a
+ * dropped table entry looks like from here, and the option has simply stopped existing in
+ * the editor while its control, its helper text and its translations all stay in place.
+ *
+ * Reconciled on the keys themselves rather than on per-control sets of values, which is
+ * what makes it need no exception list: two controls that share a *name* but not a key —
+ * card-wide `event_type` against per-calendar `entity.event_type` — never meet.
+ *
+ * @returns How many option-label keys the editor asked for
+ */
+async function checkEditorOptions() {
+  const { asked, unresolved } = await readEditorOptionKeys();
+  const { EDITOR_STRINGS } = await loadEditor();
+
+  // Neither surface may be empty, or an unwalked schema would agree with an unread table.
+  assertFound([...asked.keys()], 'any dropdown options in the editor panels', PANELS_TS);
+
+  const defined = Object.keys(EDITOR_STRINGS).filter((key) => /^.+\.option\..+\.label$/.test(key));
+  assertFound(defined, 'any option strings', STRINGS_TS);
+
+  for (const { where, value, label } of unresolved.values()) {
+    error(
+      'strings.ts',
+      `\`${where}\` labels its \`${value}\` option ${label === '' ? 'with no string at all' : `as \`${label}\``}, ` +
+        `which is not an option-label key — nothing can reconcile or translate it`,
+    );
+  }
+
+  for (const [key, nodes] of asked) {
+    if (!(key in EDITOR_STRINGS)) {
+      const value = key.slice(0, -'.label'.length).split('.option.').pop();
+      error(
+        'strings.ts',
+        `\`${key}\` has no string — ${[...nodes].sort().join(', ')} would offer it as ` +
+          `"${humanKey(value)}" in every language, including English`,
+      );
+    }
+  }
+
+  for (const key of defined) {
+    if (!asked.has(key)) {
+      error(
+        'strings.ts',
+        `\`${key}\` names an option no dropdown offers — the option is gone from the ` +
+          `editor while its string and every translation of it stay behind`,
+      );
+    }
+  }
+
+  return asked.size;
 }
 
 /**
@@ -1194,7 +1372,7 @@ function humanKey(key) {
 // Report
 // ---------------------------------------------------------------------------
 
-function report(languageCount, fieldCount) {
+function report(languageCount, fieldCount, optionCount) {
   const line = (kind, { where, msg }) => {
     if (IN_CI) console.log(`::${kind === 'error' ? 'error' : 'warning'}::${where}: ${msg}`);
     else console.log(`  ${kind === 'error' ? '✖' : '⚠'} ${where}: ${msg}`);
@@ -1220,7 +1398,8 @@ function report(languageCount, fieldCount) {
   }
 
   const summary =
-    `\n${languageCount} languages, ${fieldCount} editor fields — ` +
+    `\n${languageCount} languages, ${fieldCount} editor fields, ` +
+    `${optionCount} dropdown options — ` +
     `${errors.length} error(s), ${warnings.length} warning(s).`;
   console.log(summary);
 
@@ -1375,6 +1554,7 @@ async function main() {
   checkDayjsWiring(localize.entries, dayjsWiring);
 
   const fieldCount = await checkEditorStrings();
+  const optionCount = await checkEditorOptions();
   await checkEditorKeysUsedInCode();
   await checkEditorTranslations(languages);
   await checkEnGbDerivation();
@@ -1383,7 +1563,7 @@ async function main() {
   reportGlossaryReach(glossary, (await loadEditor()).EDITOR_STRINGS);
   await checkRunningTextWeekdayCase(languages);
 
-  process.exit(report(languages.size, fieldCount));
+  process.exit(report(languages.size, fieldCount, optionCount));
 }
 
 main();
