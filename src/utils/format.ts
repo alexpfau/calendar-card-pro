@@ -283,25 +283,40 @@ export function resolveLocationIcon(location: string, configured?: string): stri
 }
 
 /**
- * What counts as markup in an event description (#576).
+ * What counts as markup in an event description (#576, #581).
  *
  * The predecessor was `/<[^>]*>/g` — a `<`, anything that is not a `>`, then a `>` — which
  * has no idea what a tag is. Any description pairing a `<` with a later `>` lost everything
  * between them, so `alert if temp < 5 and pressure > 3 END` rendered as `alert if temp 3
- * END` on a real card. Requiring the character after the opening `<` to be the one that
- * starts a tag is what separates prose from markup, and it is the HTML tokenizer's own
- * opening rule: an ASCII letter opens a tag, `/` an end tag, `!` and `?` a markup
- * declaration, and **anything else makes the `<` ordinary text**. A space, a digit or a
- * hyphen therefore no longer opens anything, which is every shape the issue reported.
+ * END` on a real card. Requiring the character after the opening `<` to be one that starts
+ * something is what separates prose from markup, and the rule is the HTML tokenizer's own:
+ * an ASCII letter opens a tag, `/` an end tag, `!` and `?` a markup declaration, and
+ * **anything else makes the `<` ordinary text**. A space, a digit or a hyphen therefore
+ * open nothing, which is every shape #576 reported.
  *
- * That is the tokenizer's rule for what *opens* markup, and it is not the whole tokenizer.
- * A 45-input differential against headless Chromium (#581) agrees on every realistic
- * description — tags, attributes, comments, `<!DOCTYPE>`, processing instructions, Outlook
- * conditionals, `<o:p>`, `<st1:place>` — and diverges on four degenerate shapes a browser
- * discards as bogus comments and this keeps: `<!-->`, `<![CDATA[…]]>`, `<//p>` and
- * `</ b >`. The predecessor dropped all four, so three changed silently here; the fourth
- * is `</ b >`, kept deliberately and pinned as prose. Say "approximates the tokenizer",
- * not "is the tokenizer", when reasoning about the next edge case.
+ * Four branches, one tokenizer state each, and **the order is load-bearing**:
+ *
+ * 1. `<!--(?:-?>|[\s\S]*?-->)` — a comment. `<!-->` and `<!--->` are complete *empty*
+ *    comments, which is why the short form is tried first; anything else runs to the first
+ *    `-->`. This branch has to come first overall, because a comment may span a `>` and
+ *    branch 4 would otherwise stop at it.
+ * 2. `<[a-zA-Z][^>]*>` — a start tag. The rule #576 turned on.
+ * 3. `<\/[^>]*>` — an end tag, and everything the tokenizer does when one has no name.
+ *    `</p>` is an end tag, `</>` emits nothing at all, and `</ p>`, `<//p>` and `</3 … >`
+ *    are *bogus comments*. All three outcomes run to the same `>`, so one branch covers
+ *    them — spelling them apart yields the identical language, measured exhaustively over
+ *    111,110 strings from a markup-dense alphabet rather than argued.
+ * 4. `<[!?][^>]*>` — a markup declaration or a processing instruction: `<!DOCTYPE html>`,
+ *    `<?xml … ?>`, `<![CDATA[…]]>`, and the parse errors the spec also turns into bogus
+ *    comments (`<!>`, `<! x >`). Every one consumes to the next `>`.
+ *
+ * The error-recovery halves of branches 3 and 4 are what #581 is about, and #579 had
+ * neither: in a 77-input differential against headless Chromium, released v4.0.0 agreed on
+ * 58, the pattern that shipped in #579 on 50, and this one on 71 — closing **21 shapes that
+ * both a browser and v4.0.0 removed** (`<!-->`, `<![CDATA[…]]>`, `<//p>`, `</ b >`, `<!>`,
+ * `</>`, `</élan>` and the rest) while keeping all 13 rows #576 fixed, and regressing
+ * neither. Say "approximates the tokenizer", not "is the tokenizer", when reasoning about
+ * the next edge case.
  *
  * 🚨 **The regex is the only thing removing tags in production, so it is not optional and
  * it cannot be narrowed casually.** The `<textarea>` round-trip below decodes entities and
@@ -312,21 +327,32 @@ export function resolveLocationIcon(location: string, configured?: string): stri
  * That matters because **happy-dom parses the same assignment as HTML**, so it strips tags
  * the browser would keep, and the test environment silently stands in for this regex.
  * Deleting the regex outright leaves the suite green. `tests/strip-html-tags.test.ts` runs
- * the browser's answer explicitly for that reason.
+ * the browser's answer explicitly for that reason, and it is the only place any of this can
+ * be seen.
  *
- * The comment branch is there because of exactly that gap. `<!--` fails the letter test, so
- * the tightening alone would have left every comment on screen in production while every
- * gate stayed green — headless Chromium renders `Before <!-- a comment --> After` unchanged
- * through the textarea. `!` and `?` in the class buy the same protection for `<!DOCTYPE
- * html>` and for processing instructions, which matters for the Exchange calendars that
- * deliver a whole HTML document as the description.
+ * Branch 1 exists because of exactly that gap. `<!--` fails the letter test, so branch 2
+ * alone would have left every comment on screen in production while every gate stayed green
+ * — headless Chromium renders `Before <!-- a comment --> After` unchanged through the
+ * textarea. Branch 4 buys the same protection for `<!DOCTYPE html>` and for processing
+ * instructions, which matters for the Exchange calendars that deliver a whole HTML document
+ * as the description.
  *
- * Two knowing limits. The comment branch spans a `>`, so `<!-- a > b -->` now strips whole
- * where the old regex left a ` b --> ` tail — a browser reads it as one comment and so does
- * this. And prose that genuinely looks like a tag (`if a<b and c>d`) is still flattened;
- * that is not a shortcut, it is what a browser does with the same text.
+ * Three knowing limits, all measured in the same run:
+ *
+ * - **Unterminated markup is left alone.** `Before <b bold After`, `Before <!-- never
+ *   closed` and `a </3 b` all reach the end of the string without a `>`, and a browser
+ *   discards everything from the `<` onwards. Keeping it is the deliberate side: a `<` that
+ *   ate the whole rest of a description would be far worse than a stray `<b` on screen.
+ * - **A `>` inside a quoted attribute value ends the match.** `<a title="a>b">link</a>`
+ *   leaves `b">link`. Tracking quote state is where this stops being a regex; the limit
+ *   predates v4 and #581 rules it out of scope.
+ * - **Prose that genuinely looks like markup is flattened.** `if a<b and c>d` renders as
+ *   `if ad`, and the broken-heart emoticon does the same when a `>` follows it later in the
+ *   description — `feeling </3 and >:( today` renders as `feeling :( today`. Neither is a
+ *   shortcut: both are what a browser does with the same text, and both are what released
+ *   v4.0.0 did. `<3` is unaffected, because `3` opens nothing.
  */
-const HTML_MARKUP = /<!--[\s\S]*?-->|<[!?/]?[a-zA-Z][^>]*>/g;
+const HTML_MARKUP = /<!--(?:-?>|[\s\S]*?-->)|<[a-zA-Z][^>]*>|<\/[^>]*>|<[!?][^>]*>/g;
 
 /**
  * Strip HTML tags and decode HTML entities from a string, returning plain text
