@@ -992,9 +992,10 @@ export const cardStyles = css`
        capsule IS bigger than a line of text. What the maintainer asked for, and what this
        matches exactly, is the rhythm from one text baseline to the next. That 1.25px is row
        HEIGHT, not the baseline gap, and it is the one figure in this block that is not a
-       hundredth-exact reproduction across harnesses -- six definitions of "row" (td.event,
-       .summary-row, .summary, the whole table, and pilled-vs-unpilled) all return 1.25 with
-       a no-pill control at 0, so re-measure before quoting it more precisely than that. */
+       hundredth-exact reproduction across harnesses -- four container definitions of "row"
+       (td.event, .summary-row, .summary and the whole table), compared both pilled against
+       unpilled and against a no-pill control at 0, all return 1.25. Re-measure before
+       quoting it more precisely than that. */
     vertical-align: middle;
     margin-block: -0.17em;
   }

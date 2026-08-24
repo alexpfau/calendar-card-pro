@@ -4129,11 +4129,19 @@ describe('editor: exceptions for the union-typed options', () => {
   it('pins EXTRA_KEYS_BY_PANEL by value, because a walk cannot see an entry leaving', () => {
     /*
      * Three of these six entries are vestigial and three are load-bearing, which makes a
-     * tidy-up the realistic threat rather than a hypothetical one: a sweep run on default
-     * config reports `show_week_numbers`, `today_indicator` and `allday_badge` as dead,
-     * correctly, and somebody removing "the dead ones" has an even chance of taking
-     * `remove_location_country` with them -- it is dead-looking for the same reason, and
-     * only a non-default config tells them apart.
+     * tidy-up the realistic threat rather than a hypothetical one: `show_week_numbers`,
+     * `today_indicator` and `allday_badge` are all found by the schema walk anyway, so
+     * removing them changes no behaviour, and `remove_location_country` is dead-looking for
+     * the same reason while not being dead at all.
+     *
+     * 🚨 **This pin is what tells them apart, so do not read a failure here as the pin being
+     * stale.** Before it existed, a sweep on default config reported all four as dead and
+     * only a non-default config separated them. Now every deletion fails at least this test,
+     * so the discriminator is the COUNT: one failure and nothing else means the entry was
+     * vestigial and the pin is correct; two or three means real behavioural coverage went
+     * with it. Updating the pin to make a lone failure go away is exactly the move that
+     * restores the invisibility this test was added to remove. `exceptions.ts` carries the
+     * per-entry table.
      *
      * The two tests below cover the live entries behaviourally. This one covers the table
      * itself, and it is deliberately a value comparison rather than a loop over its keys:

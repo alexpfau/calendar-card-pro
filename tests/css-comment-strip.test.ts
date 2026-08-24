@@ -9,10 +9,11 @@ import { cardStyles } from '../src/rendering/styles';
  * the eagerly-loaded card, which is around two-thirds of the stylesheet.
  *
  * 🚨 **Those figures are deliberately approximate. Do not replace them with an exact byte
- * count.** Three people have now written a precise number here and all three were stale
- * inside their own commit: 803 bytes out at `4a3d880`, then 383 out on the commit that
- * corrected it, because the same commit kept adding comments after the measurement was
- * taken. The quantity moves with every comment anyone writes, so it is a reading and not a
+ * count.** The same author, in the same session, has now written one three times and been
+ * wrong three times, each figure already stale in the commit that introduced it: 31,579 at
+ * `42e5ab3` when the real saving was over 44,000; 44,357 at `4a3d880`, 803 out on the day;
+ * and 44,255, which was 383 out because the commit correcting it kept adding comments after
+ * the reading was taken. The first two were written here, the third in `AGENTS.md`. The quantity moves with every comment anyone writes, so it is a reading and not a
  * constant. The method lives in `AGENTS.md`; the assertion below is a band for the same
  * reason. If you need the number, measure it — and take the reading last.
  *
@@ -147,8 +148,11 @@ describe('stripComments', () => {
   //
   // And once more for the title pill's line-box correction, whose cause -- an inline-block
   // with overflow: hidden taking its baseline from its bottom margin edge -- is a CSS rule
-  // almost nobody knows and which nothing in the declarations hints at. Now 43,754 of 64,762,
-  // a share of 67.6%.
+  // almost nobody knows and which nothing in the declarations hints at. That reading was the
+  // last exact pair written into this file, and it went stale the same way as the ones in
+  // the header: four commits touched `styles.ts` after it, three of them adding comment,
+  // leaving it ~900 bytes and 0.36 points out. The share is a little under 68% today; the
+  // band below is what actually holds it.
   // 🚨 Both attempts at this measurement first reported a saving of ZERO, years apart in
   // spirit and minutes apart in fact, because the edit meant to disable the plugin did not
   // match: it is registered as a bare identifier in the plugins array, not as a call, so
@@ -164,7 +168,8 @@ describe('stripComments', () => {
 
     expect(saved).toBeGreaterThan(26_000);
     expect(saved).toBeLessThan(48_000);
-    // 67.6% at the time of writing, up from 66.7%, 64.9%, 63.6%, 60.4% and before ~51%. Both jumps were paid
+    // A little under 68% today, up through 66.7%, 64.9%, 63.6%, 60.4% and before ~51% -- those
+    // are historical readings and stay as written. Both jumps were paid
     // for the same thing: a fault whose cause is invisible from the CSS and whose symptoms
     // point the wrong way needs a long explanation or the next person repeats the
     // investigation. That is the trade this plugin exists to make — none of it reaches a

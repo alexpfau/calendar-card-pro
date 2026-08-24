@@ -101,7 +101,7 @@ export function buildEventPresentation(
   //
   // A SINGLE-day all-day event's time row says only "All day", which is exactly what the
   // badge says, so it is pure repetition once a badge is on. A MULTI-day one says "All day,
-  // until Fri 29" -- the end date, which nothing else on the row carries. That asymmetry is
+  // until Monday, Jun 29" -- the end date, which nothing else on the row carries. That asymmetry is
   // why `show_single_allday_time` was scoped the way it was, and why hiding both under it
   // would have been wrong.
   //
@@ -145,7 +145,7 @@ export function buildEventPresentation(
   // does.
   //
   // At the TITLE position the time row is left exactly as it would be with no badge at all,
-  // reading "All day" or "All day, until Fri 29". That is deliberate and it is what makes
+  // reading "All day" or "All day, until Monday, Jun 29". That is deliberate and it is what makes
   // the two positions compose rather than compete. The title pill says *that* the event is
   // all-day; the time row says *how long* it runs, which for a multi-day event is real
   // information the pill cannot carry. Where a user finds the single-day case redundant,

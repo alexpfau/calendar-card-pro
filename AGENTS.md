@@ -1467,7 +1467,7 @@ about 17 KB gzipped** off the eager path — nearly all of it the card, since
 bytes across every rebase.
 
 🚨 **That figure is deliberately approximate, and writing an exact one here is a mistake
-three people have now made.** It moves with every comment anyone writes, so it is a reading
+the same author has now made three times, in one session.** It moves with every comment anyone writes, so it is a reading
 of the tree at one instant rather than a constant — and each precise value was already
 stale in the commit that introduced it: 31,579 when the real saving was over 44,000, then
 44,357 (803 out on the day, drifting to 323), then 44,255 (383 out, because the commit
@@ -1609,6 +1609,25 @@ different artefacts.
   Self-test both directions — a sentinel that must not match is blind to the false negative,
   which is the direction that provokes an unnecessary restore.
 
+- **A fix is not finished at the site the report named — grep for the claim's other copies,
+  and re-read the neighbours of every line you touch.** Five review rounds on one branch
+  found something in the _previous round's fix_ four times running, and never in the fix
+  itself: the corrections were right, their edges were not. A false string was corrected in
+  the documentation and left standing in three other places, two of them in the source file
+  that builds the row. Stale byte figures were purged from the top of a file and left in two
+  comments forty lines below, by the commit whose entire subject was stale byte figures in
+  that file. A one-word typo fix landed _inside_ a sentence whose neighbouring clause the same
+  commit had just falsified, and did not notice. **A measurement taken mid-commit describes a
+  tree that no longer exists by the time you push** — three successive byte counts here were
+  each already wrong when committed (803 out, then 383), so take any reading last, after every
+  comment in the change is written, or state it as a magnitude that cannot go stale.
+  Mechanically: `grep` the exact claim across `src`, `tests` and `docs` before committing a
+  correction, and read the five lines either side of every hunk. Both misses above are visible
+  in a `git diff` that anyone actually reads to its edges.
+- **Review-fix commits are the least-reviewed code in the repository.** They arrive after the
+  reviewer has reported, they look like tidying, and they are written in the tired half of the
+  session. Whatever lands to close a review deserves the same pass as the thing it fixed,
+  however small it looks.
 - **When you withdraw a finding, grep for its _consequences_, not its wording.** The
   expensive half is every place it was already turned into a rule: an imperative three
   sections away, a parsed table cell, a test that pins it, or the code a document describes.
