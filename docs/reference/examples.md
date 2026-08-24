@@ -106,9 +106,12 @@ one column at a time, at 998, 838 and 678 px, and reaches the `min_days_to_show:
 **518 px**.
 
 The `column:` block below tightens the type and hides the location, both of which cost more
-in a narrow column than they do in a full-width row. `allday_badge: outline` is chosen for the
-same reason: a column is narrow, and an outline is the one treatment carrying no fill to
-crowd it — see [The All-Day Badge](/features/event-content#the-all-day-badge).
+in a narrow column than they do in a full-width row. `allday_badge: filled` follows from the
+same tightening: at `event_font_size: 12px` the badge renders at about 10 px, and a one-pixel
+ring is then a large share of the letterforms' own weight, so a solid chip reads at a glance
+where an outline asks to be examined. It also shows off the treatment's one trick — the ink
+inside flips to black or white to suit the calendar's color, decided per accent by the
+browser. See [The All-Day Badge](/features/event-content#the-all-day-badge).
 
 Each calendar sets `color` and `accent_color` to the same value, which is what keeps a
 column reading as one calendar: the title, the vertical line and the badge all agree. Set
@@ -130,7 +133,7 @@ days_to_show: 7
 show_week_numbers: iso
 today_indicator: true
 empty_day_text: '✔ All done'
-allday_badge: outline
+allday_badge: filled
 column:
   min_day_width: 150
   min_days_to_show: 3
