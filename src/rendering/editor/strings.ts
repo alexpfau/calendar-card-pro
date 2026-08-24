@@ -503,6 +503,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
+  'show_single_allday_time.helper':
+    'Multi-day all-day events keep their time row whatever this says, because that row ' +
+    'carries the end date. The location and description options below are not scoped that ' +
+    'way and apply to every all-day event.',
   time_two_digit_hours: 'Pad Hours To Two Digits',
   time_font_size: 'Time Font Size',
   time_color: 'Time Color',
@@ -511,6 +515,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   location: 'Location',
   show_location: 'Show Location',
+  show_location_allday: 'Show Location For All-Day Events',
   location_country_mode: 'Country Names',
   'location_country_mode.option.keep.label': 'Keep Them',
   'location_country_mode.option.builtin.label': 'Remove Well-Known Ones',
@@ -526,6 +531,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   description: 'Description',
   show_description: 'Show Description',
+  show_description_allday: 'Show Description For All-Day Events',
   description_font_size: 'Description Font Size',
   description_color: 'Description Color',
   description_icon_size: 'Description Icon Size',

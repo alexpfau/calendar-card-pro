@@ -103,12 +103,14 @@ export interface Config {
   time_icon_size: string;
   time_max_lines: number;
   show_location: boolean;
+  show_location_allday: boolean;
   remove_location_country: boolean | string;
   location_font_size: string;
   location_color: string;
   location_icon_size: string;
   location_max_lines: number;
   show_description: boolean;
+  show_description_allday: boolean;
   title_max_lines: number;
   description_max_lines: number;
   description_font_size: string;
@@ -257,11 +259,13 @@ export interface ColumnOverrides {
   time_icon_size?: string;
   time_max_lines?: number;
   show_location?: boolean;
+  show_location_allday?: boolean;
   remove_location_country?: boolean | string;
   location_font_size?: string;
   location_icon_size?: string;
   location_max_lines?: number;
   show_description?: boolean;
+  show_description_allday?: boolean;
   title_max_lines?: number;
   description_max_lines?: number;
   description_font_size?: string;

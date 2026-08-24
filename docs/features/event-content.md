@@ -159,6 +159,21 @@ At the `time` position the same setting hides the pill along with the row it sit
 there is nothing left to draw it in.
 :::
 
+For a title pill with no supporting rows, keep the location and description options on for
+timed events but turn them off for all-day events:
+
+```yaml
+allday_badge: title
+show_single_allday_time: false
+show_location_allday: false
+show_description_allday: false
+```
+
+The location and description options apply to every all-day event, including multi-day ones.
+That differs from `show_single_allday_time` deliberately: a multi-day all-day event's time row
+can carry its end date, while its location and description rows are the same information they
+would be on a single-day all-day event.
+
 ## ⏱️ Time & Location Information
 
 Configure how event times and locations are displayed:
@@ -176,11 +191,15 @@ time_icon_size: '14px'
 
 # Location display options
 show_location: true
+show_location_allday: true # Show locations for all-day events too
 remove_location_country: true # Remove country names from addresses
 location_font_size: '12px'
 location_color: 'var(--secondary-text-color)'
 location_icon_size: '14px'
 ```
+
+Set `show_location_allday: false` to hide locations only on all-day events. Timed events keep
+their locations as long as `show_location` is still on.
 
 ### Removing Country Names
 
@@ -256,11 +275,15 @@ Display event descriptions below event titles for additional context:
 ```yaml
 # Description display options
 show_description: true
+show_description_allday: true # Show descriptions for all-day events too
 description_max_lines: 3 # Limit to 3 lines (0 = unlimited)
 description_font_size: '12px'
 description_color: 'var(--secondary-text-color)'
 description_icon_size: '14px'
 ```
+
+Set `show_description_allday: false` to hide descriptions only on all-day events. It pairs
+with `show_location_allday: false` when `allday_badge: title` is meant to stand alone.
 
 Descriptions are automatically processed:
 

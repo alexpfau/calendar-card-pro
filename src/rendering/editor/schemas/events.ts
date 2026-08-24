@@ -109,6 +109,7 @@ export function locationCountryFields(language: string, countryMode: string): Ha
 function locationGroup(language: string, showLocation: boolean, countryMode: string): HaFormSchema {
   const styling: HaFormSchema[] = showLocation
     ? [
+        bool('show_location_allday'),
         ...locationCountryFields(language, countryMode),
         row(text('location_font_size'), color('location_color')),
         row(text('location_icon_size'), number('location_max_lines', 0)),
@@ -128,6 +129,7 @@ function locationGroup(language: string, showLocation: boolean, countryMode: str
 function descriptionGroup(language: string, showDescription: boolean): HaFormSchema {
   const styling: HaFormSchema[] = showDescription
     ? [
+        bool('show_description_allday'),
         row(text('description_font_size'), color('description_color')),
         row(text('description_icon_size'), number('description_max_lines', 0)),
       ]

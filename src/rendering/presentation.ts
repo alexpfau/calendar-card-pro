@@ -158,8 +158,12 @@ export function buildEventPresentation(
   const eventTime = allDayBadge
     ? eventTimeParts.text
     : FormatUtils.joinEventTimeParts(eventTimeParts);
-  const eventLocation = event.location || '';
-  const eventDescription = event.description || '';
+  // Unlike `show_single_allday_time`, these all-day row suppressors intentionally apply to
+  // multi-day all-day events too: their location and description are no less redundant than a
+  // single-day all-day event's, while the time row may carry a real end date.
+  const eventLocation = isAllDayEvent && !config.show_location_allday ? '' : event.location || '';
+  const eventDescription =
+    isAllDayEvent && !config.show_description_allday ? '' : event.description || '';
 
   // Read from the location the card is about to draw, not the raw event: this runs after
   // `groupEventsByDay` has applied `formatLocation`, and there is no raw copy left here.
