@@ -121,6 +121,91 @@ describe('all-day location and description rows', () => {
     expect(fieldText(row, '.description')).toBe(DESCRIPTION);
   });
 
+  describe('the two time-row switches divide the all-day events between them', () => {
+    /*
+     * `show_single_allday_time` never covered a multi-day all-day event, which is correct --
+     * that row reads "All day, until Fri 29" and carries an end date nothing else on the row
+     * shows, where a single-day one reads only "All day" and repeats whatever the badge says.
+     * The gap is that until now there was no way to hide the second kind at all.
+     *
+     * The pair is asserted as a PARTITION rather than one at a time, because the two failure
+     * modes are opposite and each looks fine from the other's test: a widened single key
+     * would take the end date away from someone who only wanted the redundant line gone, and
+     * a mis-scoped multi key would leave the redundant line behind. Every arm below therefore
+     * names what the OTHER kind of event does under the same config.
+     */
+    const timeRow = (row: ParentNode) =>
+      row.querySelector('.time-actual')?.textContent?.trim() || null;
+
+    const single = () => allDayEvent('2026-06-18', '2026-06-19', 'Bin day');
+    const multi = () => allDayEvent('2026-06-22', '2026-06-25', 'Festival');
+
+    it('shows both time rows at the true defaults', () => {
+      const c = renderList([single(), multi()], buildConfig({ days_to_show: 10 }));
+
+      expect(timeRow(rowFor(c, 'Bin day'))).toBeTruthy();
+      expect(timeRow(rowFor(c, 'Festival'))).toBeTruthy();
+    });
+
+    it('hides only the single-day row when only the single key is off', () => {
+      const c = renderList(
+        [single(), multi()],
+        buildConfig({ days_to_show: 10, show_single_allday_time: false }),
+      );
+
+      expect(timeRow(rowFor(c, 'Bin day'))).toBeNull();
+      // The end date survives, which is the whole reason these are two options.
+      expect(timeRow(rowFor(c, 'Festival'))).toBeTruthy();
+    });
+
+    it('hides only the multi-day row when only the multi key is off', () => {
+      const c = renderList(
+        [single(), multi()],
+        buildConfig({ days_to_show: 10, show_multiday_allday_time: false }),
+      );
+
+      expect(timeRow(rowFor(c, 'Bin day'))).toBeTruthy();
+      expect(timeRow(rowFor(c, 'Festival'))).toBeNull();
+    });
+
+    it('hides both when both are off', () => {
+      const c = renderList(
+        [single(), multi()],
+        buildConfig({
+          days_to_show: 10,
+          show_single_allday_time: false,
+          show_multiday_allday_time: false,
+        }),
+      );
+
+      expect(timeRow(rowFor(c, 'Bin day'))).toBeNull();
+      expect(timeRow(rowFor(c, 'Festival'))).toBeNull();
+    });
+
+    it('leaves a TIMED multi-day event alone whatever either key says', () => {
+      // The boundary the maintainer drew explicitly. A meeting running Monday evening to
+      // Friday morning shows real times, and neither of these is about it.
+      const c = renderList(
+        [
+          {
+            start: { dateTime: '2026-06-22T17:00:00.000Z' },
+            end: { dateTime: '2026-06-25T10:00:00.000Z' },
+            summary: 'Conference',
+            _entityId: CALENDAR,
+          } as TestEvent,
+        ],
+        buildConfig({
+          days_to_show: 10,
+          split_multiday_events: false,
+          show_single_allday_time: false,
+          show_multiday_allday_time: false,
+        }),
+      );
+
+      expect(timeRow(rowFor(c, 'Conference'))).toBeTruthy();
+    });
+  });
+
   it('leaves the middle days of a split timed event alone', () => {
     // Those days ARE all-day: `splitMultiDayEvent` rewrites them as `start: { date }` because
     // the event occupies the whole of them, which is why the badge marks them and should.

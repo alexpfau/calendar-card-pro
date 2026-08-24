@@ -96,9 +96,30 @@ export function buildEventPresentation(
 
   const isMultiDayAllDayEvent = FormatUtils.isMultiDayAllDayEvent(event);
 
+  // Two separate switches, because the two cases carry different information and a user who
+  // wants one gone often wants the other kept.
+  //
+  // A SINGLE-day all-day event's time row says only "All day", which is exactly what the
+  // badge says, so it is pure repetition once a badge is on. A MULTI-day one says "All day,
+  // until Fri 29" -- the end date, which nothing else on the row carries. That asymmetry is
+  // why `show_single_allday_time` was scoped the way it was, and why hiding both under it
+  // would have been wrong.
+  //
+  // It is also why a second key rather than a widened first one: an unqualified
+  // "hide all-day times" would take the end date away from anyone who only wanted the
+  // redundant line gone.
+  //
+  // Both keys read the SAME predicate from opposite sides, so no event can fall through
+  // between them or be caught by both. Note what that means once `split_multiday_events` is
+  // on: every segment spans a single day, so `isMultiDayAllDayEvent` is false for all of them
+  // and `show_single_allday_time` governs the lot -- including the middle days of a split
+  // TIMED event, which are all-day for the day they occupy. The multi-day key only ever bites
+  // on an UNSPLIT multi-day all-day event, which is the only shape that still draws an end
+  // date.
   const shouldShowTime =
     showTime &&
     !(isAllDayEvent && !isMultiDayAllDayEvent && !config.show_single_allday_time) &&
+    !(isMultiDayAllDayEvent && !config.show_multiday_allday_time) &&
     !isEmptyDay;
 
   let countdownStr: string | null = null;

@@ -89,6 +89,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   empty_day_color: 'var(--primary-text-color)',
   show_time: true,
   show_single_allday_time: true,
+  show_multiday_allday_time: true,
   allday_badge: 'off',
   allday_badge_style: 'tinted',
   time_24h: 'system',

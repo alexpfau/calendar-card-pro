@@ -159,12 +159,34 @@ At the `time` position the same setting hides the pill along with the row it sit
 there is nothing left to draw it in.
 :::
 
+### Hiding The Time Row
+
+An all-day event's time row is two different things depending on how long the event runs, so
+it takes two options:
+
+| Option                      | Type    | Default | Description                                                                                                           |
+| --------------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `show_single_allday_time`   | boolean | `true`  | The time row on all-day events occupying one day, which reads just "All day"                                          |
+| `show_multiday_allday_time` | boolean | `true`  | The time row on all-day events spanning several days, which reads "All day, until Fri 29" and so carries the end date |
+
+They are separate because the second row carries information the first does not. Turning both
+off is fine and is what an event reduced to a pill wants; turning only the first off keeps the
+end date on the events that have one. Timed events spanning several days are not touched by
+either — they show real start and end times.
+
+::: tip With `split_multiday_events` On, Only The First Applies
+Splitting cuts a multi-day event into one row per day, so every row occupies a single day and
+`show_single_allday_time` governs all of them. `show_multiday_allday_time` only ever applies
+to an unsplit multi-day all-day event — which is the only shape that still draws an end date.
+:::
+
 For a title pill with no supporting rows, keep the location and description options on for
 timed events but turn them off for all-day events:
 
 ```yaml
 allday_badge: title
 show_single_allday_time: false
+show_multiday_allday_time: false
 show_location_allday: false
 show_description_allday: false
 ```
@@ -182,6 +204,7 @@ Configure how event times and locations are displayed:
 # Time display options
 show_time: true # Show event start/end times
 show_single_allday_time: false # Hide time for single-day all-day events
+show_multiday_allday_time: false # ...and for multi-day ones, which show an end date
 time_24h: false # Use 12-hour format (AM/PM)
 time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time

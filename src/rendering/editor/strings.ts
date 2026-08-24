@@ -504,9 +504,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
   'show_single_allday_time.helper':
-    'Multi-day all-day events keep their time row whatever this says, because that row ' +
-    'carries the end date. The location and description options below are not scoped that ' +
-    'way and apply to every all-day event.',
+    'Applies to all-day events that occupy a single day. Multi-day ones have their own ' +
+    'setting below, because their time row also carries the end date.',
+  show_multiday_allday_time: 'Show Time For Multi-Day All-Day Events',
+  'show_multiday_allday_time.helper':
+    'Their time row reads "All day, until ..." and so carries the end date, which nothing ' +
+    'else on the row shows. Timed events spanning several days are unaffected.',
   time_two_digit_hours: 'Pad Hours To Two Digits',
   time_font_size: 'Time Font Size',
   time_color: 'Time Color',
