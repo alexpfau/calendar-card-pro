@@ -88,27 +88,38 @@ calendar apps draw it:
 allday_badge: tinted
 ```
 
-There are four treatments, from quietest to loudest:
+There are five treatments, from quietest to loudest:
 
-| Value     | What it draws                                  |
-| --------- | ---------------------------------------------- |
-| `outline` | An outline only, with no fill                  |
-| `subtle`  | A gentle wash of the accent, with no outline   |
-| `tinted`  | Both — a gentle wash inside a matching outline |
-| `filled`  | A solid badge in the calendar accent color     |
+| Value     | What it draws                                                           |
+| --------- | ----------------------------------------------------------------------- |
+| `neutral` | An outline only, in the row's own text color rather than the calendar's |
+| `outline` | An outline only, in the calendar accent color                           |
+| `subtle`  | A gentle wash of the accent, with no outline                            |
+| `tinted`  | Both — a gentle wash inside a matching outline                          |
+| `filled`  | A solid badge in the calendar accent color                              |
 
 `false` is the default and keeps the plain words.
 
-The badge takes its color from the calendar the event came from, so events from different
-calendars stay distinguishable at a glance. Where a calendar sets its own `accent_color`,
-the badge follows it — including when that is a theme variable, because the colors are
-resolved by the browser rather than computed in advance.
+Four of the five take their color from the calendar the event came from, so events from
+different calendars stay distinguishable at a glance. Where a calendar sets its own
+`accent_color`, the badge follows it — including when that is a theme variable, because the
+colors are resolved by the browser rather than computed in advance.
+
+::: warning `color` And `accent_color` Are Separate
+`color` sets an event's **title**. `accent_color` sets its **badge**, its vertical bar and
+its row tint. A calendar that sets only `color` therefore keeps the default blue accent, and
+its badge can end up in a color that relates to nothing else on the row. Set both to the
+same value when you are coloring calendars apart, or use `neutral`, which takes no accent
+at all.
+:::
 
 ::: tip Which One To Pick
 `tinted` suits most dashboards. Reach for `outline` when
 [`event_background_opacity`](/reference/configuration#event-column) is high — with no fill
-of its own, an outline has nothing to dissolve into the tinted row behind it. `filled` is
-the loud one, for when the calendar's color should read as a solid chip.
+of its own, an outline has nothing to dissolve into the tinted row behind it. `neutral` is
+the one to pick when the badge should stay out of the way entirely, or when a calendar's
+accent does not sit well under its title. `filled` is the loud one, for when the calendar's
+color should read as a solid chip.
 :::
 
 Anything that follows the label stays as ordinary text. A multi-day all-day event reads as

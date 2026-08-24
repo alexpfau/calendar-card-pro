@@ -110,6 +110,10 @@ in a narrow column than they do in a full-width row. `allday_badge: outline` is 
 same reason: a column is narrow, and an outline is the one treatment carrying no fill to
 crowd it — see [The All-Day Badge](/features/event-content#the-all-day-badge).
 
+Each calendar sets `color` and `accent_color` to the same value, which is what keeps a
+column reading as one calendar: the title, the vertical line and the badge all agree. Set
+only `color` and the badge would keep the default blue while the title went red.
+
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week.png" alt="A Week Side by Side, in Column View"><br>
 
 ```yaml
@@ -117,8 +121,10 @@ type: custom:calendar-card-pro
 entities:
   - entity: calendar.family
     color: '#e67c73'
+    accent_color: '#e67c73'
   - entity: calendar.work
     color: '#03a9f4'
+    accent_color: '#03a9f4'
 view: column
 days_to_show: 7
 show_week_numbers: iso
