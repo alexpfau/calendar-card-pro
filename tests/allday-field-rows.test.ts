@@ -182,6 +182,35 @@ describe('all-day location and description rows', () => {
       expect(timeRow(rowFor(c, 'Festival'))).toBeNull();
     });
 
+    it('hands every segment to the SINGLE key once splitting is on', () => {
+      // Documented in `presentation.ts` and on the feature page, and until now asserted
+      // nowhere. Splitting cuts a multi-day event into one row per day, so every row occupies
+      // a single day, `isMultiDayAllDayEvent` is false for all of them, and the multi-day key
+      // stops applying entirely. Worth pinning precisely because it is surprising: a user who
+      // turns on the multi-day switch to hide a festival's time row sees nothing happen if
+      // they also split.
+      const festival = () => allDayEvent('2026-06-22', '2026-06-25', 'Festival');
+      const shown = (config: Partial<Types.Config>) =>
+        Array.from(
+          renderList([festival()], buildConfig({ days_to_show: 12, ...config })).querySelectorAll(
+            'td.event',
+          ),
+        )
+          .map((row) => (timeRow(row) ? 'T' : '-'))
+          .join('');
+
+      // Unsplit: one row, and the multi key is what governs it.
+      expect(shown({ split_multiday_events: false })).toBe('T');
+      expect(shown({ split_multiday_events: false, show_multiday_allday_time: false })).toBe('-');
+
+      // Split: three rows, and the multi key no longer reaches them...
+      expect(shown({ split_multiday_events: true })).toBe('TTT');
+      expect(shown({ split_multiday_events: true, show_multiday_allday_time: false })).toBe('TTT');
+
+      // ...while the single key now governs all three.
+      expect(shown({ split_multiday_events: true, show_single_allday_time: false })).toBe('---');
+    });
+
     it('leaves a TIMED multi-day event alone whatever either key says', () => {
       // The boundary the maintainer drew explicitly. A meeting running Monday evening to
       // Friday morning shows real times, and neither of these is about it.
