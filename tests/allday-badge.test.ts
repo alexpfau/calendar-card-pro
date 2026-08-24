@@ -435,6 +435,51 @@ describe('allday_badge', () => {
    * Reconciled by value in both directions, so neither a dropped entry nor an unexplained new
    * one can pass.
    */
+  describe('an empty day is not an all-day event', () => {
+    /*
+     * It looks exactly like one. An empty day is a placeholder the card invents for a day
+     * with nothing on it, and it carries a date-only start -- so `allDayLabel` is defined for
+     * it and it qualified for a pill. Shipped as a filled capsule around "No upcoming
+     * events", found by rendering a column-view card and reading the pill text rather than by
+     * any test.
+     *
+     * The time position never showed it, which is why this went unnoticed: a badge is only
+     * PLACED inside the `shouldShowTime` branch, and that already excludes empty days. The
+     * title has no such branch, so the exclusion has to be written out.
+     *
+     * Both positions are asserted. The time one is a regression guard on an exclusion that is
+     * currently a side effect of where the markup sits -- if the badge is ever moved out of
+     * that branch, this says so.
+     */
+    const withEmptyDays = (position: string) =>
+      buildConfig({
+        allday_badge: position,
+        allday_badge_style: 'filled',
+        days_to_show: 3,
+        show_empty_days: true,
+      });
+
+    it.each(['title', 'time'])('draws no pill on an empty day at position %s', (position) => {
+      const container = renderList([], withEmptyDays(position));
+
+      // The control: empty days must actually be rendered, or this asserts nothing at all.
+      expect(container.querySelectorAll('.event-title').length).toBeGreaterThan(0);
+
+      expect(container.querySelector('.allday-title-pill')).toBeNull();
+      expect(container.querySelector('.allday-badge')).toBeNull();
+    });
+
+    it('still draws one on a real all-day event in the same card', () => {
+      // Which is what stops the test above passing because pills are broken outright.
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        withEmptyDays('title'),
+      );
+
+      expect(container.querySelector('.allday-title-pill')).not.toBeNull();
+    });
+  });
+
   describe('the editor offers exactly the values the resolvers accept', () => {
     it('offers every treatment and no others', () => {
       expect([...EditorSchemas.ALLDAY_BADGE_STYLE_OPTIONS].sort()).toEqual(

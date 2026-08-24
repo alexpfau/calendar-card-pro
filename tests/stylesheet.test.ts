@@ -1165,6 +1165,12 @@ describe('card stylesheet', () => {
       expect(declared('.allday-badge', 'display')).toBe('inline-block');
       expect(declared('.allday-badge', 'max-width')).toBe('100%');
       expect(declared('.allday-badge', 'min-width')).toBe('0');
+      // Without border-box, max-width caps the content and the inline padding is added
+      // outside it, so a pill clamped to its container is still wider than the container.
+      // Measured in a column cell: 1.19px past the right edge, against 12.00px inside it
+      // with border-box. The card sets box-sizing per element, not globally, so the default
+      // here really is content-box and this is not redundant.
+      expect(declared('.allday-badge', 'box-sizing')).toBe('border-box');
     });
 
     it('keeps a pilled title on the same rhythm as an unpilled one', () => {
@@ -1247,6 +1253,7 @@ describe('card stylesheet', () => {
       // below, which asserts they differ and says why.
       for (const prop of [
         'display',
+        'box-sizing',
         'max-width',
         'min-width',
         'white-space',

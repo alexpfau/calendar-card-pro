@@ -150,8 +150,16 @@ export function buildEventPresentation(
   // accent and the treatment, and it must not appear on an event that is not all-day. The
   // same `allDayLabel !== undefined` test decides both positions, so the two can never
   // disagree about which events qualify.
+  //
+  // `!isEmptyDay` is the one guard the two positions do NOT share, and leaving it out shipped
+  // a pill around "No upcoming events". An empty day is a placeholder the card invents for a
+  // day with nothing on it, not an event, and it carries a date-only start — so it looks
+  // exactly like an all-day event to `allDayLabel` and qualified. The time position never
+  // showed it because a badge is only PLACED inside the `shouldShowTime` branch and that
+  // already excludes empty days; the title has no such branch to hide behind, so it needs the
+  // test written out here.
   const titlePill =
-    badgePosition === 'title' && hasAllDayLabel
+    badgePosition === 'title' && hasAllDayLabel && !isEmptyDay
       ? { accent: entityAccentColor, mode: badgeStyle }
       : undefined;
 

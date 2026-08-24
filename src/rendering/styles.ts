@@ -880,6 +880,14 @@ export const cardStyles = css`
        nowrap text is the whole string, so without it the pill would overflow rather than
        clip. */
     display: inline-block;
+    /* border-box, so max-width: 100% means what a reader assumes it means. The card sets
+       box-sizing per element rather than globally, so the default here is content-box -- and
+       under that, max-width caps the CONTENT and the inline padding is added outside it, so a
+       pill clamped to its container still ends up wider than the container. Measured in a
+       column cell: the clipped pill sat 1.19px past the cell's right edge, and switching to
+       border-box put it 12.00px inside. Small, but an overflow rather than a rounding, and it
+       grows with padding-inline. */
+    box-sizing: border-box;
     max-width: 100%;
     min-width: 0;
     white-space: nowrap;
