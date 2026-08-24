@@ -907,9 +907,16 @@ export const cardStyles = css`
         oklch(from var(--calendar-card-event-accent) 0.42 calc(c * 1) h),
         oklch(from var(--calendar-card-event-accent) 0.84 calc(c * 0.9) h)
       );
+      /* The dark target is 0.38, not the 0.26 it started at. An absolute lightness has to
+         clear the CARD's lightness to be seen at all, and CSS cannot read that, so the
+         number has to sit above the range dark themes actually use. At 0.26 it sat inside
+         it: measured against a real dark theme whose card is rgb(56,23,39), the wash came
+         out rgb(63,17,30) — a contrast of 1.01, which is invisible, and invisible for every
+         hue, because lightness is what was colliding. subtle carries no ring, so when the
+         wash goes the whole badge goes with it. */
       --badge-wash: light-dark(
         oklch(from var(--calendar-card-event-accent) 0.95 calc(c * 0.22) h),
-        oklch(from var(--calendar-card-event-accent) 0.26 calc(c * 0.4) h)
+        oklch(from var(--calendar-card-event-accent) 0.38 calc(c * 0.45) h)
       );
     }
 
