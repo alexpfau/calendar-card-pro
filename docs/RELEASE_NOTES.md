@@ -55,6 +55,8 @@ Four of the features below are in those twenty-seven lines, and not one of them 
 
 Two options describe it. `allday_badge` says **where** the pill goes — beside the clock in place of the all-day label, or wrapped around the event title the way Google Calendar and Apple Calendar draw it. `allday_badge_style` says **which** of five treatments draws it, and all five work at either position.
 
+The title position comes from [#282](https://github.com/alexpfau/calendar-card-pro/issues/282), which asked for all-day events to carry their calendar's color the way Google Calendar's day view does. `allday_badge: title` with `allday_badge_style: filled` is that request; the other four treatments and the second position are what it grew into.
+
 ```yaml
 allday_badge: title # off, time or title
 allday_badge_style: subtle # neutral, outline, subtle, tinted or filled
@@ -71,6 +73,8 @@ Five treatments, from quietest to loudest — `neutral`, `outline`, `subtle`, `t
 | `filled`  | A solid badge in the accent color                                       |
 
 **The badge is off by default**, so nothing changes until you ask for it. `subtle` is the one to try first.
+
+A title pill is always a single line, ending in an ellipsis where the title is too long for the space — it does not wrap, and it does not follow `title_max_lines`, which stays your setting for every other event. At the title position the time row is left alone, so a multi-day all-day event still shows its end date; pair it with `show_single_allday_time: false` and a single-day all-day event becomes a pilled title on its own, which is the layout Apple Calendar uses.
 
 Every color is derived from the calendar's accent by the browser, which has two consequences worth knowing. A calendar whose `accent_color` is a theme variable works exactly like one written as a hex value — the card never has to resolve it. And on a browser supporting [OKLCH relative colors](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_colors/Relative_colors) the badge keeps the accent's saturation while adjusting only its lightness, so the label stays recognizably your calendar's color instead of fading toward grey; elsewhere it falls back to a slightly paler mix and everything still works.
 
@@ -189,6 +193,7 @@ Two things to know if you use it. Text is sized by `today_indicator_size`, which
 ## Related Issues
 
 - [#132](https://github.com/alexpfau/calendar-card-pro/issues/132) - Filter based on all-day events by @syst3x
+- [#282](https://github.com/alexpfau/calendar-card-pro/issues/282) - Render all-day events in the calendar's own color by @Homeassistantfrost, who asked for the treatment Google Calendar's day view gives them. Answered by `allday_badge: title`, with `allday_badge_style: filled` the closest reading of the request. One difference worth naming before closing: the capsule is the width of the title rather than of the whole row, so it reads as a chip rather than as the full-width banner the wording describes
 - [#251](https://github.com/alexpfau/calendar-card-pro/issues/251) - Blocklist based on the duration of events by @tommi1968 — **half-served, do not close.** `event_type: timed` answers the all-day half; the multi-day half needs a span axis the card cannot yet express, because it holds three disagreeing answers to what counts as multi-day. The reporter has been asked which behavior they want for an event running 23:30 to 00:30 and has not yet replied
 - [#124](https://github.com/alexpfau/calendar-card-pro/issues/124) - Display age / anniversary by @RK62, who proposed the `YEAR:1996` marker and was already storing the year in the description; supported by @mheidinger, @pyxis1 — who was running a second card solely for this — and @peterdausm
 - [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765

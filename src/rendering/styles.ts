@@ -842,7 +842,9 @@ export const cardStyles = css`
       var(--calendar-card-background-color, var(--card-background-color))
     );
 
-    /* Sized from the pill's OWN font, never from anything beside it.
+    /* Sized from the pill's OWN font, never from anything beside it. The line box and the
+       vertical padding are set per position, just below, because the two wrap different
+       KINDS of text -- see each rule for why one is not the other's answer.
        The time-row badge took its height from the clock icon, so that flex-start would land
        the two boxes level. That is correct only while the two happen to be similar:
        --calendar-card-icon-size-time does not move with time_font_size, so at
@@ -865,8 +867,6 @@ export const cardStyles = css`
        case with real descenders. It is 0.06em of its own font -- under a pixel at any usual
        size -- and keeping one box definition for both positions is worth more than removing
        it. */
-    line-height: 1.05;
-    padding-block: 0.22em 0.1em;
     /* Never wrap. A broken pill is not a pill -- the label is one phrase, French reads
        toute la journee at eight times the length of the Chinese, and it split across two
        lines with the text escaping the shape entirely. Where even one line will not fit, the
@@ -908,6 +908,26 @@ export const cardStyles = css`
     font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    /* 1.05em of line box plus 0.32em of padding is 1.37em of the badge's own font, which at
+       the 0.85em it is set to comes back to 1.165em of the time font -- 14px at the 12px
+       default, so the shipped look is unchanged, and it grows with the option.
+       The padding is asymmetric because the INK is not centred in the line box. A line box
+       centres the font's em square, and the em square reserves descender depth that an
+       uppercase label never uses, so the caps sit high with dead space under them. The shift
+       is (padding-top - padding-bottom) / 2.
+       0.033em is a MEASURED font constant, not a guess. Fourteen sizes from 12px to 48px
+       were rendered at 8x device scale and the glyph ink located by pixel, giving a mean
+       residual of +0.027em of badge font with the previous 0.12em split -- consistently LOW,
+       which is what the maintainer reported seeing at 28px. Removing 2 x 0.027 from the split
+       leaves 0.066em, so 0.193 against 0.127. The total is unchanged at 0.32em, so no pill
+       anywhere changes height.
+       The residual after that is NOT zero and cannot be made zero from here: the sweep's
+       standard deviation was 0.018em, because the browser snaps the baseline to a whole CSS
+       pixel. That is a sawtooth of up to half a pixel which lands either way depending on
+       the size, and no em-valued padding can flatten it -- which is why the block below
+       exists rather than a more precise number here. */
+    line-height: 1.05;
+    padding-block: 0.193em 0.127em;
     padding-inline: 0.5em;
     /* 5px, where the separator dot uses 4px on its far side, and the extra pixel is optical
        rather than arbitrary. A timed event's countdown measures 5.50px before the dot against
@@ -930,8 +950,41 @@ export const cardStyles = css`
      so the title's first glyph still sits on the same optical line as every other event's,
      which is what keeps a mixed list from looking ragged down its left edge. */
   .allday-title-pill {
+    /* Taller than the badge, and symmetric where the badge is not. Both differences come
+       from the same fact: this pill wraps the user's own words rather than one uppercase
+       label, so its content is mixed case WITH descenders and, very often, an emoji.
+       Symmetric because mixed-case text is centred on the em square by definition -- the
+       badge's correction exists only because uppercase leaves the descender depth empty, and
+       applying it here would push real descenders toward the lower edge.
+       Taller because an emoji is drawn to a larger box than a Latin glyph and overflows a
+       1.05 line box at both ends, so at the badge's 0.32em of padding it touched the pill's
+       border. 1.16em of line box plus 0.42em of padding is 1.58em against the badge's 1.37em
+       -- about a sixth more, which is the smallest increase that cleared the emoji at every
+       size measured. */
+    line-height: 1.16;
+    padding-block: 0.21em;
     padding-inline: 0.55em;
-    margin-inline-start: -0.55em;
+  }
+
+  /* Centre the CAPS rather than the em square, where the browser can.
+     The measured correction above removes the average error but not the per-size scatter,
+     because that comes from baseline snapping rather than from the padding. text-box-trim
+     removes the cause instead of compensating for it: it trims the line box to the cap
+     height and the alphabetic baseline, so what symmetric padding then centres IS the ink.
+     Exact at every size, and in any font, without this stylesheet knowing that font's
+     metrics.
+     Only the time badge takes it. The title pill's content is mixed case with descenders and
+     emoji, where the em square is the right thing to centre and cap-to-baseline is not.
+     0.3295em keeps the height at the 1.37em the fallback draws: trimming leaves the cap
+     height, which is near enough 0.711em in the fonts Home Assistant ships, and
+     (1.37 - 0.711) / 2 is 0.3295. A font with different metrics gets a pill sized to its own
+     caps, which is more correct rather than less. */
+  @supports (text-box-trim: trim-both) and (text-box-edge: cap alphabetic) {
+    .allday-badge {
+      text-box-trim: trim-both;
+      text-box-edge: cap alphabetic;
+      padding-block: 0.3295em;
+    }
   }
 
   /* Wash with no boundary. The quietest treatment that is still a badge, for a dashboard

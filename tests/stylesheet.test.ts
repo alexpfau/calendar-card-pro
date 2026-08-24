@@ -1205,9 +1205,9 @@ describe('card stylesheet', () => {
       );
       expect(shared.length).toBeGreaterThan(0);
 
+      // line-height and padding-block are deliberately NOT in this list -- see the test
+      // below, which asserts they differ and says why.
       for (const prop of [
-        'line-height',
-        'padding-block',
         'display',
         'max-width',
         'min-width',
@@ -1232,17 +1232,77 @@ describe('card stylesheet', () => {
       expect(declared('.allday-title-pill', 'font-size')).toBe('');
     });
 
-    it('pulls the title pill back by exactly its own inline padding', () => {
-      // So the title's first glyph still sits on the same optical line as every other
-      // event's, which is what keeps a mixed list from looking ragged down its left edge.
-      // Measured live: a plain title starts at x=376.5 and a pill's box at x=368.8, the
-      // 7.7px difference being 0.55em of the 14px default -- so the pill's TEXT starts at
-      // 376.5 too. Asserted as an identity rather than as two numbers, because the point is
-      // that they cancel at any font size.
-      const pad = declared('.allday-title-pill', 'padding-inline');
-      const pull = declared('.allday-title-pill', 'margin-inline-start');
-      expect(pad).not.toBe('');
-      expect(pull).toBe(`-${pad}`);
+    it('does not pull the title pill outside its row', () => {
+      // It used to. A negative inline margin of exactly the pill's own padding put the TEXT
+      // on the same optical line as every other event's title, which reads well in isolation
+      // and was wrong in place: the pill then began further left than anything else in the
+      // card, and the container clipped its leading curve.
+      //
+      // The pill's BOX aligns with the row instead, and the text inside it sits indented by
+      // the padding. That is what Apple Calendar does, and it is the trade the maintainer
+      // chose once he saw the clipping. Measured live: pill box x=565.5 against a plain
+      // title's x=565.5 -- the same edge.
+      expect(declared('.allday-title-pill', 'margin-inline-start')).toBe('');
+      expect(declared('.allday-title-pill', 'padding-inline')).not.toBe('');
+    });
+
+    it('gives the title pill a taller box than the badge, for emoji', () => {
+      // The badge wraps one uppercase label; the title wraps the user's own words, which in
+      // a calendar very often start with an emoji. An emoji is drawn to a larger box than a
+      // Latin glyph and overflows a 1.05 line box at both ends, so at the badge's 0.32em of
+      // padding it touched the pill's border -- reported by the maintainer against a live
+      // card. Asserted as an inequality on the sum rather than as two magic numbers, so the
+      // reason survives a retune.
+      // padding-block takes one value for both sides or two for top and bottom, so a naive
+      // sum reads a symmetric box as half its height -- which is exactly how this test first
+      // reported the taller title pill as the shorter one, at 1.37 against 1.37.
+      const block = (v: string) => {
+        const parts = v.split(' ').map(parseFloat);
+        return parts.length === 1 ? parts[0] * 2 : parts[0] + parts[1];
+      };
+      const badgeBox =
+        parseFloat(declared('.allday-badge', 'line-height')) +
+        block(declared('.allday-badge', 'padding-block'));
+      const titleBox =
+        parseFloat(declared('.allday-title-pill', 'line-height')) +
+        block(declared('.allday-title-pill', 'padding-block'));
+
+      expect(titleBox).toBeGreaterThan(badgeBox);
+      // ...but only a little. The maintainer asked for headroom, not a different shape.
+      expect(titleBox).toBeLessThan(badgeBox * 1.25);
+    });
+
+    it('centres the badge on its caps where the browser can, and on the em square otherwise', () => {
+      // The fallback padding is asymmetric because an uppercase label leaves the em square's
+      // descender depth empty, so the caps sit high in it. That correction is a measured font
+      // constant and it removes the AVERAGE error, but not the per-size scatter: the browser
+      // snaps the baseline to a whole CSS pixel, which is a sawtooth of up to half a pixel
+      // that no em-valued padding can flatten.
+      //
+      // text-box-trim removes the cause rather than compensating for it -- it trims the line
+      // box to the cap height and the alphabetic baseline, so symmetric padding then centres
+      // the ink itself. Measured across fourteen sizes from 12px to 48px at 8x device scale:
+      // mean residual +0.027em before, +0.006em after, worst case halved.
+      //
+      // The title pill must NOT take it: its content is mixed case with descenders and emoji,
+      // where the em square is the right thing to centre and cap-to-baseline is not.
+      const css = cardStyles.cssText;
+      expect(css).toContain('text-box-trim: trim-both');
+      expect(css).toContain('text-box-edge: cap alphabetic');
+
+      const supports = css.slice(css.indexOf('text-box-trim: trim-both') - 400);
+      const block = supports.slice(0, supports.indexOf('}', supports.indexOf('text-box-edge')));
+      expect(block).toContain('@supports');
+      expect(block).toContain('.allday-badge');
+      expect(block).not.toContain('.allday-title-pill');
+
+      // The fallback keeps its asymmetry, so a browser without trim is still corrected.
+      const [top, bottom] = declared('.allday-badge', 'padding-block').split(' ').map(parseFloat);
+      expect(top).toBeGreaterThan(bottom);
+
+      // And the title pill's stays symmetric, because mixed-case text needs no correction.
+      const title = declared('.allday-title-pill', 'padding-block').split(' ');
+      expect(title).toHaveLength(1);
     });
 
     it('reaches the title pill from the OKLCH enhancement, not just the badge', () => {

@@ -141,7 +141,13 @@ every other event.
 
 Both pills size themselves from the text they wrap rather than from an option of their own:
 the time pill from `time_font_size`, the title pill from `event_font_size`. Enlarge either
-and its pill grows with it, whatever unit you write it in.
+and its pill grows with it, whatever unit you write it in. The title pill is a little taller
+than the time pill, because event titles often begin with an emoji and an emoji is drawn to a
+larger box than a letter.
+
+A title pill's left edge lines up with the other rows, so its text sits slightly indented
+compared to the titles above and below it. That is the same trade Apple Calendar makes — the
+alternative pulls the pill's leading curve outside the row, where the card clips it.
 
 ::: tip Pair `title` With show_single_allday_time
 Setting `show_single_allday_time: false` hides the time row for single-day all-day events,
