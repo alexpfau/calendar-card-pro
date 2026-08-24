@@ -117,8 +117,13 @@ describe('stripComments', () => {
   // showed a systematic +0.027em bias, reported from a live card. The replacement records the
   // measurement, the residual that baseline snapping leaves behind, and why the trim block
   // exists rather than a more precise padding value -- the last of which is the sort of thing
-  // a later reader would otherwise delete as redundant with the fallback. Now 62,891 chars of
-  // which 41,933 are comment, a share of 66.7%.
+  // a later reader would otherwise delete as redundant with the fallback. That reading was
+  // 62,891 chars of which 41,933 were comment, 66.7%.
+  //
+  // And once more for the title pill's line-box correction, whose cause -- an inline-block
+  // with overflow: hidden taking its baseline from its bottom margin edge -- is a CSS rule
+  // almost nobody knows and which nothing in the declarations hints at. Now 43,754 of 64,762,
+  // a share of 67.6%.
   // 🚨 Both attempts at this measurement first reported a saving of ZERO, years apart in
   // spirit and minutes apart in fact, because the edit meant to disable the plugin did not
   // match: it is registered as a bare identifier in the plugins array, not as a call, so
@@ -133,14 +138,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(45_000);
-    // 66.7% at the time of writing, up from 64.9%, 63.6%, 60.4% and before that ~51%. Both jumps were paid
+    expect(saved).toBeLessThan(48_000);
+    // 67.6% at the time of writing, up from 66.7%, 64.9%, 63.6%, 60.4% and before ~51%. Both jumps were paid
     // for the same thing: a fault whose cause is invisible from the CSS and whose symptoms
     // point the wrong way needs a long explanation or the next person repeats the
     // investigation. That is the trade this plugin exists to make — none of it reaches a
     // user — but the share is worth watching, so the ceiling stays close enough to the
     // measurement to notice another jump rather than absorbing one silently.
     expect(share).toBeGreaterThan(0.45);
-    expect(share).toBeLessThan(0.72);
+    expect(share).toBeLessThan(0.74);
   });
 });

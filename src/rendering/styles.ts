@@ -964,6 +964,29 @@ export const cardStyles = css`
     line-height: 1.16;
     padding-block: 0.21em;
     padding-inline: 0.55em;
+    /* Sit on the text's own centre line, and give back the height the capsule borrowed.
+       Both lines exist because an inline-block with overflow: hidden takes its baseline from
+       its BOTTOM MARGIN EDGE rather than from the text inside it -- a rule that exists so a
+       scrollable box does not hang its last line into the paragraph below, and that here made
+       the whole pill hang ABOVE the text baseline. The row then grew by the pill's full
+       overhang: measured 22.39px without the pill against 31.50px with it, and the gap from
+       the title's text down to the time row went from 5.59px to 11.77px, which is the
+       double-spaced look reported against a live card.
+       vertical-align: middle re-centres the pill on the text rather than hanging it, which
+       recovers most of it (gap 7.97px). The rest is that the capsule is genuinely taller than
+       a line of text, and a negative block margin hands that difference back to the line box
+       without moving what is painted -- for an atomic inline the line box measures the MARGIN
+       box, so this shrinks the space the pill claims while leaving the capsule its full size.
+       -0.17em is measured, not chosen: a sweep from 0 to -0.25em puts the text-to-text gap at
+       exactly 5.59px here, matching a row with no pill at all. Beyond about -0.25em it stops
+       having any effect, because the line box has hit the strut's own height -- an absurd
+       -2em control returns the same numbers as -0.30em, which is the floor rather than a dead
+       measurement.
+       The row is left 1.17px taller than a timed one, and that is the honest residue: the
+       capsule IS bigger than a line of text. What the maintainer asked for, and what this
+       matches exactly, is the rhythm from one text baseline to the next. */
+    vertical-align: middle;
+    margin-block: -0.17em;
   }
 
   /* Centre the CAPS rather than the em square, where the browser can.

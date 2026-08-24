@@ -1166,6 +1166,36 @@ describe('card stylesheet', () => {
       expect(declared('.allday-badge', 'min-width')).toBe('0');
     });
 
+    it('keeps a pilled title on the same rhythm as an unpilled one', () => {
+      // An inline-block with overflow: hidden takes its baseline from its BOTTOM MARGIN EDGE,
+      // not from the text inside it. That rule exists so a scrollable box does not hang its
+      // last line into the paragraph below, and here it hung the WHOLE pill above the text
+      // baseline: the summary row grew from 22.39px to 31.50px and the gap from the title's
+      // text down to the time row went 5.59px -> 11.77px, reported as double spacing.
+      //
+      // vertical-align: middle re-centres the pill on the text; the negative block margin
+      // hands back the height the capsule borrowed, because for an atomic inline the line box
+      // measures the margin box. Measured after: the text-to-text gap matches a row with no
+      // pill exactly at 14px and 22px, and is within one pixel of it at 18px and 28px, which
+      // is line-box snapping rather than the rule.
+      //
+      // Both are asserted because either alone leaves most of the gap: middle on its own gets
+      // 11.77px to 7.97px against a 5.59px target.
+      expect(declared('.allday-title-pill', 'vertical-align')).toBe('middle');
+
+      const pull = declared('.allday-title-pill', 'margin-block');
+      expect(pull).toMatch(/^-[\d.]+em$/);
+
+      // In em, so it tracks event_font_size the way the pill it corrects does. A px value
+      // would be right at one size and wrong at every other.
+      expect(declared('.allday-title-pill', 'padding-block')).toMatch(/em$/);
+
+      // The badge is a flex item of .time-actual, not an inline, so none of this applies to
+      // it -- and applying it would misalign it against the clock icon.
+      expect(declared('.allday-badge', 'vertical-align')).toBe('');
+      expect(declared('.allday-badge', 'margin-block')).toBe('');
+    });
+
     it('keeps its capsule radius, so a clipped pill is still a pill', () => {
       // The degrade at a very narrow column is a pill reading a few characters and an
       // ellipsis -- not a rectangle, and not nothing.
