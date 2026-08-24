@@ -177,7 +177,7 @@ describe('card stylesheet', () => {
     it.each([
       ['.location span', '.location'],
       ['.description span', '.description'],
-      ['.time .time-actual > span:not(.time-text)', '.time-actual'],
+      ['.time .time-actual > span:not(.time-text):not(.allday-badge)', '.time-actual'],
     ])(
       '%s may clamp with a literal -webkit-box because %s is a flex container',
       (target, parent) => {
@@ -199,6 +199,48 @@ describe('card stylesheet', () => {
       // entirely. The clamp belongs on the span that holds the time and nowhere else.
       expect(declared('.time .time-actual .time-text', 'display')).toBe('');
       expect(declared('.time .time-actual .time-text', '-webkit-line-clamp')).toBe('');
+    });
+
+    it('excludes the all-day badge from the countdown clamp', () => {
+      // The second exception, and unlike .time-text it was found the hard way. The badge is
+      // deliberately a direct child of .time-actual -- putting it inside .time-text would
+      // clamp it -- but that placement is *exactly* the shape the clamp selector describes,
+      // so it matched the badge too. At four classes it also outranks the badge's own
+      // one-class rule, so it won silently: the pill computed display: -webkit-box, which
+      // cannot show a text-overflow ellipsis, while -webkit-line-clamp: none meant no clamp
+      // ellipsis either. A pill too narrow for its label was cut off flat, mid-word, with no
+      // mark that anything had been dropped -- and every gate stayed green, because the DOM
+      // does not move and the custom-property values do not change.
+      //
+      // Assert the exclusion is present in the selector rather than the resulting computed
+      // display, because there is no computed display to read here: this file reads source
+      // text. Dropping the :not() reintroduces the bug in full silence otherwise.
+      expect(cardStyles.cssText).toContain(
+        '.time .time-actual > span:not(.time-text):not(.allday-badge)',
+      );
+      expect(cardStyles.cssText).not.toMatch(/\.time \.time-actual > span:not\(\.time-text\)\s*\{/);
+    });
+
+    it('lets a badge row shrink below the pill, which is what makes the ellipsis reachable', () => {
+      // .time-actual is a flex item, so it defaults to min-width: auto -- its min-content
+      // width. A nowrap pill has no soft break, so its min-content width is the whole label,
+      // and .time-actual therefore refuses to go narrower than the label however narrow the
+      // card gets. Measured on a live card with the host forced from 1180px to 110px:
+      // .event-content shrank to 35px, .time followed, and .time-actual stayed at 281px and
+      // hung out of the card. max-width: 100% on the pill cannot help, because 100% resolves
+      // against a parent the pill is itself sizing.
+      expect(declared('.time .time-actual:has(.allday-badge)', 'min-width')).toBe('0');
+    });
+
+    it('centres a badge row rather than following event_icon_vertical_alignment', () => {
+      // The pill is sized from its own font and the icon from time_icon_size, so raising
+      // time_font_size makes the pill the taller of the two and flex-start hangs the icon off
+      // its top edge. At the 12px default the two heights match and centre and flex-start are
+      // indistinguishable, which is why this only shows up once someone scales the type.
+      expect(declared('.time .time-actual:has(.allday-badge)', 'align-items')).toBe('center');
+      expect(declared('.time-actual', 'align-items')).toBe(
+        'var(--calendar-card-event-icon-vertical-alignment)',
+      );
     });
   });
 
@@ -261,7 +303,10 @@ describe('card stylesheet', () => {
   describe('per-field line clamping', () => {
     it.each([
       ['.event-title', '--calendar-card-title-max-lines'],
-      ['.time .time-actual > span:not(.time-text)', '--calendar-card-time-max-lines'],
+      [
+        '.time .time-actual > span:not(.time-text):not(.allday-badge)',
+        '--calendar-card-time-max-lines',
+      ],
       ['.time .time-actual .time-text > span', '--calendar-card-time-max-lines'],
       ['.location span', '--calendar-card-location-max-lines'],
       ['.description span', '--calendar-card-description-max-lines'],
@@ -863,7 +908,7 @@ describe('card stylesheet', () => {
     });
 
     it('keeps .time-actual a flex container, which is what makes the row work at all', () => {
-      // Two things depend on it. `.time .time-actual > span:not(.time-text)` clamps with a
+      // Two things depend on it. `.time .time-actual > span:not(.time-text):not(.allday-badge)` clamps with a
       // literal -webkit-box, which is only safe while its parent blockifies it (see the
       // blockification trap above). And in inline flow this box is block-level, so it
       // would take a line of its own and push the countdown off the row entirely.
@@ -1069,6 +1114,62 @@ describe('card stylesheet', () => {
       // value depend on source order. One block per element means a reader sees
       // the whole element in one place.
       expect(rulesFor(selector)).toHaveLength(1);
+    });
+  });
+
+  describe('the all-day badge is sized by its own font, not by the clock icon', () => {
+    /*
+     * The pill's height was `line-height: calc(var(--calendar-card-icon-size-time, 14px)
+     * - 0.12em)` -- pinned to the icon so that the two boxes would line up. That holds only
+     * while the two happen to be similar, and they stop being similar the moment anyone
+     * touches `time_font_size`, which moves the label and leaves the icon alone. At 20px the
+     * label rendered at 17px inside a box still fixed at 14px and spilled out of the shape.
+     *
+     * The suite could not see it. `list-dom` serializes DOM and a stylesheet change moves no
+     * attribute; `allday-badge.test.ts` asserts class names; and every one of them runs at
+     * the default `time_font_size`, where the icon-pinned box and the font-derived box give
+     * the same answer. This describe block is the reconciliation: it asserts the pill's box
+     * is a function of the pill, so re-pinning it to anything that does not scale with the
+     * type fails here instead of on someone's dashboard.
+     */
+    it('does not derive any part of its box from the time icon size', () => {
+      // Read `.body` and not the rule object. The first version of this test did
+      // `expect(rulesFor('.allday-badge')[0]).not.toContain(...)`, which passes against an
+      // object no matter what the CSS says -- it survived a mutation that put the icon
+      // variable straight back into this rule, which is the whole thing it exists to stop.
+      const body = rulesFor('.allday-badge')[0]?.body ?? '';
+      expect(body).not.toBe('');
+      expect(body).not.toContain('--calendar-card-icon-size-time');
+    });
+
+    it('states its line box and padding in em, so both track the font', () => {
+      // em resolves against the badge's own font-size, which is itself an em of the time
+      // font -- so the whole pill is one multiplier away from `time_font_size` and needs no
+      // key of its own. Measured live: 13.95px at 12px, 23.27px at 20px, 32.59px at 28px,
+      // a constant 1.164x of the configured size.
+      expect(declared('.allday-badge', 'font-size')).toBe('0.85em');
+      expect(declared('.allday-badge', 'line-height')).toBe('1.05');
+      expect(declared('.allday-badge', 'padding-block')).toMatch(/^[\d.]+em [\d.]+em$/);
+      expect(declared('.allday-badge', 'padding-inline')).toMatch(/em$/);
+    });
+
+    it('keeps the label on one line and clips it with an ellipsis', () => {
+      // All four are required together and each is load-bearing. Without nowrap French wraps
+      // and the text leaves the shape; without overflow: hidden the ellipsis never appears;
+      // without max-width the pill has nothing to clip against; without inline-block the
+      // ellipsis does not apply at all.
+      expect(declared('.allday-badge', 'white-space')).toBe('nowrap');
+      expect(declared('.allday-badge', 'overflow')).toBe('hidden');
+      expect(declared('.allday-badge', 'text-overflow')).toBe('ellipsis');
+      expect(declared('.allday-badge', 'display')).toBe('inline-block');
+      expect(declared('.allday-badge', 'max-width')).toBe('100%');
+      expect(declared('.allday-badge', 'min-width')).toBe('0');
+    });
+
+    it('keeps its capsule radius, so a clipped pill is still a pill', () => {
+      // The degrade at a very narrow column is a pill reading a few characters and an
+      // ellipsis -- not a rectangle, and not nothing.
+      expect(declared('.allday-badge', 'border-radius')).toBe('999px');
     });
   });
 });

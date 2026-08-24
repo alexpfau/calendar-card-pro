@@ -681,6 +681,33 @@ export const cardStyles = css`
     align-items: var(--calendar-card-event-icon-vertical-alignment);
   }
 
+  /* A badge row centres regardless of what event_icon_vertical_alignment says, and is
+     allowed to shrink below its content.
+
+     align-items: that option exists to decide where an icon sits against text that may wrap
+     over several lines. A badge row cannot wrap -- the pill is nowrap and the label is one
+     phrase -- so the only thing the setting can still decide here is what happens when the
+     pill and the clock are different heights, and at that point top-alignment is simply the
+     wrong answer: the pill is sized from the font and the icon from time_icon_size, so
+     raising time_font_size makes the pill the taller of the two and flex-start hangs the
+     icon off its top edge. At equal heights centre and flex-start are identical, so this
+     changes nothing at the default and only helps once the two diverge.
+
+     min-width: this is what makes the pill's own ellipsis reachable, and without it that
+     ellipsis is unreachable in principle rather than merely rare. .time-actual is a flex
+     item of .time, so it defaults to min-width: auto -- its min-content width. A nowrap
+     pill has no soft break, so its min-content width is the whole label, and .time-actual
+     therefore refuses to go narrower than the label no matter how narrow the card gets.
+     Measured with the host forced from 1180px down to 110px: .event-content shrank to 35px
+     as it should, .time followed it, and .time-actual stayed at 281px and simply hung out of
+     the card. max-width: 100% on the pill cannot help there, because 100% resolves against a
+     parent that is itself being sized by the pill. Releasing the floor here lets the chain
+     reach the pill, which then clips and shows its ellipsis. */
+  .time .time-actual:has(.allday-badge) {
+    align-items: center;
+    min-width: 0;
+  }
+
   /* Countdown text placement. The time and countdown share one inline
    * formatting context inside this flex item, so either string can wrap at
    * normal text boundaries while the icon still aligns against the whole text
@@ -818,37 +845,37 @@ export const cardStyles = css`
     font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    /* Tied to the icon beside it rather than to a ratio of the font, so the pill's box and
-       the clock's box are the same height and the row's align-items -- flex-start by
-       default, since event_icon_vertical_alignment defaults to top -- lands them level.
-       A ratio cannot do that: at 1.5 the pill measured 15.3px against the icon's 14px, and
-       because flex-start puts every extra pixel at the BOTTOM, the pill hung below the
-       clock. Sub-pixel by the numbers, clearly visible magnified, and worse than the numbers
-       suggest because an mdi glyph is inset within its box while the pill's ink fills its
-       own. Tying the two also means a changed time_icon_size keeps them aligned. */
-    /* The box is the icon's height so the two align; the 0.12em then re-centres the INK
-       inside that box, which the line box alone does not do.
-       A line box centres the font's em square, and the em square reserves descender depth.
-       This label is text-transform: uppercase and therefore has no descenders, so its ink
-       sits in the upper part of that square with the reserved descender as dead space
-       below — measured at 0.63px high on a 10.2px label, which is 6% of the pill and plainly
-       visible once magnified. Accented capitals make it read worse rather than better: an
-       É overshoots cap height, so the French label pushes further from the optical centre
-       than the English one.
-       Splitting the compensation between padding and line-height keeps the outer box exactly
-       the icon's height -- (H - p) + p = H -- while moving the text down by half the padding.
-       Expressed in em so it tracks the font rather than being a pixel tuned for one size.
-       Measured on the live card at 8x, offset of the ink from the box centre:
-         0.00em  -0.80px      0.24em  +0.81px
-         0.12em  -0.19px      0.60em  +2.81px
-       The shift is padding/2 at 0.60em exactly as the arithmetic says, but at small values
-       the browser quantises the line box, so -0.19px is the closest to centred that is
-       reachable -- 0.16em lands on the same pixel and 0.24em overshoots. 0.12em is therefore
-       the smallest padding that buys the whole improvement, and it is a 4x reduction rather
-       than a cure. */
-    padding-block-start: 0.12em;
-    padding-block-end: 0;
-    line-height: calc(var(--calendar-card-icon-size-time, 14px) - 0.12em);
+    /* Sized from the badge's OWN font, never from the clock icon.
+       It was the icon's height, so that flex-start would land the two boxes level. That is
+       correct only while the two happen to be similar: --calendar-card-icon-size-time does
+       not move with time_font_size, so at time_font_size: 20px the label rendered at 17px
+       inside a box still fixed at 14px and spilled straight out of the pill. A pill has to
+       be a function of the text it wraps.
+       1.05em of line box plus 0.32em of vertical padding is 1.37em of the badge's font,
+       which at the 0.85em it is set to comes back to 1.165em of the time font -- 14px at the
+       12px default, so the default look is unchanged, and it now grows with the option.
+       The padding is asymmetric on purpose and that is what centres the INK. A line box
+       centres the font's em square, and the em square reserves descender depth this label
+       never uses, being text-transform: uppercase -- so the caps sit high with dead space
+       under them, measured at 0.80px in a 14px pill. The offset is (padding-top -
+       padding-bottom) / 2, so 0.22em against 0.10em buys back 0.06em. Measured on the live
+       card at 8x: 0.00 gives -0.80px, this gives -0.19px, and 0.24em of difference
+       overshoots to +0.81px. The browser quantises the line box, so -0.19px is the closest
+       to centred that is reachable rather than a compromise chosen for taste. */
+    line-height: 1.05;
+    padding-block: 0.22em 0.1em;
+    /* Never wrap. The label is one phrase and a broken pill is not a pill -- French reads
+       toute la journee, eight times the length of the Chinese, and it split across two lines
+       with the text escaping the shape entirely. Where even one line will not fit, the pill
+       keeps its shape and the text ends in an ellipsis instead. min-width: 0 is what lets it
+       shrink at all: a flex item defaults to min-content, which for nowrap text is the whole
+       string, so without it the pill would overflow the row rather than clip. */
+    display: inline-block;
+    max-width: 100%;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     padding-inline: 0.5em;
     /* 5px, where the separator dot uses 4px on its far side, and the extra pixel is optical
        rather than arbitrary. A timed event's countdown measures 5.50px before the dot against
@@ -1146,12 +1173,22 @@ export const cardStyles = css`
      countdown and/or a progress bar as siblings, and clamping the .time or the
      .time-actual wrapper itself would clamp those away too.
 
-     The child combinator plus :not(.time-text) makes this the *trailing* placement's rule
+     The child combinator plus the two :not()s make this the *trailing* placement's rule
      and nothing else. In the countdown's text placement the only direct-child span is the
      wrapper, which is excluded, and the pieces inside it are matched by their own rule up
      beside .time-actual. The two selectors are disjoint by construction rather than by
-     specificity, so neither can start winning over the other because a rule moved. */
-  .time .time-actual > span:not(.time-text) {
+     specificity, so neither can start winning over the other because a rule moved.
+
+     :not(.allday-badge) is the second exclusion and it is load-bearing rather than tidy.
+     The badge is deliberately a direct child of .time-actual -- being inside .time-text
+     would clamp it -- but that placement is exactly the shape this selector describes, so
+     it swept the badge up too. At four classes it also outranks the badge's own one-class
+     rule, so it won silently: the pill computed display: -webkit-box, which cannot show a
+     text-overflow ellipsis, and -webkit-line-clamp: none meant no clamp ellipsis either.
+     A pill too wide for its column was therefore cut off flat, mid-word, with no mark that
+     anything had been dropped. Excluding it here is what lets the badge's own
+     inline-block + nowrap + ellipsis apply. */
+  .time .time-actual > span:not(.time-text):not(.allday-badge) {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-time-max-lines);
