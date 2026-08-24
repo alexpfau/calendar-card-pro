@@ -280,7 +280,7 @@
   "show_single_allday_time": "Uhrzeit bei Ganztagsterminen",
   "show_single_allday_time.helper": "Mehrtägige Ganztagstermine behalten ihre Zeitzeile in jedem Fall, weil dort das Enddatum steht. Die Optionen für Ort und Beschreibung sind nicht so eingegrenzt und gelten für alle Ganztagstermine.",
   "allday_badge_position": "Ganztags-Badge",
-  "allday_badge_position.helper": "Hebt ganztägige Termine mit einer abgerundeten Pille in der Akzentfarbe des Kalenders hervor. In der Zeitzeile ersetzt sie das Ganztags-Label, beim Titel umschließt sie den Terminnamen. Eine Titel-Pille bleibt einzeilig und wird bei Bedarf mit Auslassungspunkten gekürzt.",
+  "allday_badge_position.helper": "Hebt ganztägige Termine mit einem abgerundeten Badge in der Akzentfarbe des Kalenders hervor. In der Zeitzeile ersetzt es das Ganztags-Label, beim Titel umschließt es den Terminnamen. Ein Titel-Badge bleibt einzeilig und wird bei Bedarf mit Auslassungspunkten gekürzt.",
   "allday_badge_position.option.off.label": "Aus",
   "allday_badge_position.option.time.label": "Um das Ganztags-Label",
   "allday_badge_position.option.title.label": "Um den Termintitel",

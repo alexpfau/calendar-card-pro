@@ -32,6 +32,34 @@ export const NOUN_CAPS_LANGUAGES = ['de'];
  */
 export const GLOSSARY_TERMS = [
   {
+    // Added after German drifted between two nouns for one thing inside a single helper --
+    // labelled `Ganztags-Badge`, described as `eine abgerundete Pille`, then back to `das
+    // Badge` in the next string. `Pille` is a medicine tablet in German and carries none of
+    // English "pill"'s UI sense, so the helper read as "highlights all-day events with a
+    // rounded tablet". Nothing could catch it: this file had no entry for the term, and
+    // `check:i18n` scores coverage, not meaning -- German was at 390/390 throughout.
+    //
+    // Every language that translates the editor already had ONE settled noun; they are
+    // recorded here so the next one does not have to re-decide, and so a second spelling
+    // inside one language fails instead of shipping.
+    name: 'badge',
+    sense: 'the rounded pill drawn around an all-day event label or title',
+    decided: {
+      de: 'Badge',
+      et: 'märk',
+      it: 'badge',
+      lt: 'ženklelis',
+      lv: 'nozīmīte',
+      nb: 'merke',
+      pl: 'odznaka',
+      sk: 'odznak',
+      sv: 'märke',
+    },
+    // A rejected form matches at a word start, so this catches `Pille`, `Pillen` and
+    // `Titel-Pille` alike.
+    rejected: { de: ['Pille'] },
+  },
+  {
     name: 'time',
     sense: 'the clock time printed on an event row',
     decided: {

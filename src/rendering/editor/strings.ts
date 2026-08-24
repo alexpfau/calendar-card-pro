@@ -479,15 +479,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
-    'Marks all-day events with a rounded pill in the calendar accent color. On the time ' +
+    'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +
     'row it replaces the all-day label; on the title it wraps the event name. A title ' +
-    'pill is kept to one line and shortened with an ellipsis where it does not fit.',
+    'badge is kept to one line and shortened with an ellipsis where it does not fit.',
   'allday_badge_position.option.off.label': 'Off',
   'allday_badge_position.option.time.label': 'Around The All-Day Label',
   'allday_badge_position.option.title.label': 'Around The Event Title',
   allday_badge_style: 'All-Day Badge Style',
   'allday_badge_style.helper':
-    'How much weight the pill carries, from a plain frame to a solid block of the ' +
+    'How much weight the badge carries, from a plain frame to a solid block of the ' +
     'calendar color.',
   'allday_badge_style.option.neutral.label': 'Plain Outline',
   'allday_badge_style.option.outline.label': 'Accent Outline',

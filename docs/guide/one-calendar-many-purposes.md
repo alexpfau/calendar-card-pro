@@ -50,7 +50,7 @@ Three of the four carry a label, and the fourth deliberately does not. The label
 
 ### A Birthday Should Read Like a Name
 
-Calendars write birthdays badly. Google exports them as _Birthday of Lena Weber_, and the card shows that under an _All day_ label, in a row that also has room for a location it does not have.
+Calendars write birthdays badly. Google exports them as _Birthday of Lena_, and the card shows that under an _All day_ label, in a row that also has room for a location it does not have.
 
 Four settings fix it, and they cooperate:
 
@@ -59,7 +59,7 @@ Four settings fix it, and they cooperate:
 - The age arrives on its own. Put `YEAR=1994` in the event's description and the card works out the rest — see [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts).
 - `show_time` and `show_location` are off, because a birthday has neither worth reading.
 
-What was _Birthday of Lena Weber — All day_ becomes **🎂 Lena Weber (32)**. Next year it says 33, and nobody edits anything.
+What was _Birthday of Lena — All day_ becomes **🎂 Lena (32)**. Next year it says 33, and nobody edits anything.
 
 ### A Reminder That Retires Itself
 

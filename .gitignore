@@ -55,3 +55,9 @@ docs/.vitepress/cache/
 # `.agents/` pattern matches real directories only, so the link would
 # be left untracked and could be committed.
 .agents
+
+# Agent scratch. In .gitignore rather than .git/info/exclude on purpose: a local exclude
+# does not travel, so a fresh clone and CI cannot reproduce it -- the same lesson
+# .prettierignore already records. A sandbox here was swept in by `git add -A` once,
+# 326 files and 14 MB including a node_modules symlink.
+.probe-sandbox/

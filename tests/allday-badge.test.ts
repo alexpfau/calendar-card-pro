@@ -9,12 +9,17 @@ import * as EventUtils from '../src/utils/events';
 import * as Helpers from '../src/utils/helpers';
 
 /**
- * `allday_badge` — drawing the all-day label as its own pill instead of as plain words.
+ * `allday_badge` — drawing an all-day event's label, or its whole title, as a pill.
  *
  * This file exists because the rest of the suite cannot see this option. Every DOM gate is
- * built from default config, the option defaults to `false`, and a `false` boolean renders
- * nothing — so the entire feature is invisible to `list-dom` and `column-dom` no matter how
- * thorough those are. Everything here turns it on.
+ * built from default config, the option defaults to `off`, and `off` renders nothing — so the
+ * entire feature is invisible to `list-dom` and `column-dom` no matter how thorough those
+ * are. Everything here turns it on.
+ *
+ * The option is now a POSITION (`off` / `time` / `title`), with the treatment moved to
+ * `allday_badge_style`. There is no boolean form of either: `false` is accepted only in the
+ * sense that it is outside the closed set and therefore means off, like every other
+ * unrecognized value.
  *
  * The four rows of the truth table are the point. "All-day" is not the same question as
  * "spans one day": a timed meeting running Wednesday 09:00 to Friday 17:00 is not an all-day
@@ -465,6 +470,29 @@ describe('allday_badge', () => {
       // The control: empty days must actually be rendered, or this asserts nothing at all.
       expect(container.querySelectorAll('.event-title').length).toBeGreaterThan(0);
 
+      expect(container.querySelector('.allday-title-pill')).toBeNull();
+      expect(container.querySelector('.allday-badge')).toBeNull();
+    });
+
+    it('draws no title pill on a timed event', () => {
+      // The guard is `hasAllDayLabel`, and nothing witnessed it at the TITLE position -- a
+      // mutation dropping it there left the suite green at 3202, so the pill could have been
+      // made to wrap every event on the card without a single test noticing. The time
+      // position was already covered; the title inherited none of it.
+      const container = renderList(
+        [
+          {
+            start: { dateTime: '2026-06-18T09:00:00.000Z' },
+            end: { dateTime: '2026-06-18T10:00:00.000Z' },
+            summary: 'Dentist',
+            _entityId: CALENDAR,
+          } as unknown as Types.CalendarEventData,
+        ],
+        buildConfig({ allday_badge: 'title', allday_badge_style: 'filled', days_to_show: 5 }),
+      );
+
+      // The control: the row has to be there for its lack of a pill to mean anything.
+      expect(rowFor(container, 'Dentist')).not.toBeNull();
       expect(container.querySelector('.allday-title-pill')).toBeNull();
       expect(container.querySelector('.allday-badge')).toBeNull();
     });

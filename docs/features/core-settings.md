@@ -764,7 +764,7 @@ entities:
     replace_pattern: 'Birthday of '
 ```
 
-`Birthday of Ben Fischer` becomes `Ben Fischer`. With no `replace_with`, whatever matched
+`Birthday of Ben` becomes `Ben`. With no `replace_with`, whatever matched
 is removed.
 
 The pattern is a regular expression, matched **case-insensitively** and applied to **every**

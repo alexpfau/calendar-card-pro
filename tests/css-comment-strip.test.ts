@@ -5,8 +5,8 @@ import { cardStyles } from '../src/rendering/styles';
 
 /**
  * The build strips comments out of `css` tagged templates, because their contents are a
- * string literal that no minifier touches — 31,579 bytes raw and 12,234 gzip on the
- * eagerly-loaded card, which is 51% of the stylesheet. Measured by building
+ * string literal that no minifier touches — 44,357 bytes raw and 16,713 gzip on the
+ * eagerly-loaded card, which is 67.6% of the stylesheet. Measured by building
  * `dist/calendar-card-pro.js` with the plugin and again without it.
  *
  * That makes this function the one place in the build that edits CSS, and a bug in it
@@ -94,9 +94,22 @@ describe('stripComments', () => {
   //
   // Rebased again for the all-day badge, whose derivation needed explaining, and once more
   // after the light-dark() fault was written up in the stylesheet. Re-measured the same way —
-  // one build with `stripCssComments` in `rollup.config.mjs` and one without — giving 31,579
-  // raw and 12,234 gzip across both bundles. Note the split: 30,719 of the raw saving is the
-  // card and only 860 the editor, because `rendering/styles.ts` is where the reasoning lives.
+  // one build with `stripCssComments` in `rollup.config.mjs` and one without — giving 45,217
+  // raw across both bundles. Note the split: 44,357 of that is the card and only 860 the
+  // editor, because `rendering/styles.ts` is where the reasoning lives.
+  //
+  // Re-measured after this branch, because the figures above had drifted ~13.6 KB and the
+  // header additionally claimed 51% while the assertion below already read 67.6% — two wrong
+  // numbers in one sentence. Corroborated two ways, which is what makes it trustworthy: the
+  // build delta is 44,357 for the card, and stripping the source `cssText` through this same
+  // `stripComments` gives 44,349, an 8-byte difference that is exactly the "leave a space
+  // behind" rule. The editor's 860 was unchanged, which is what says the method was sound and
+  // only the card's share moved.
+  //
+  // 🚨 The disabling edit must match `stripCssComments,` as a BARE IDENTIFIER in the plugins
+  // array, indented, and NOT as a call. Attempting this measurement again reported a saving
+  // of zero for exactly the reason recorded below, on the very first try. An arms-differ
+  // check is the only thing that separates that from a real finding.
   //
   // Rebased once more when the badge's sizing was moved off the icon and onto its own font.
   // That fix carried two findings whose causes are invisible from the CSS and so had to be

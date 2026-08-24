@@ -121,6 +121,47 @@ describe('all-day location and description rows', () => {
     expect(fieldText(row, '.description')).toBe(DESCRIPTION);
   });
 
+  it('leaves the middle days of a split timed event alone', () => {
+    // Those days ARE all-day: `splitMultiDayEvent` rewrites them as `start: { date }` because
+    // the event occupies the whole of them, which is why the badge marks them and should.
+    // These two must not follow it there. Dropping a row because the pill beside it already
+    // says "all day" removes a repetition; dropping the VENUE from day 2 of a 3-day
+    // conference loses information the other two days still show, and the result reads as a
+    // fault -- present, absent, present.
+    //
+    // Measured before the guard existed, with both suppressors off and splitting on:
+    // loc/desc, NONE/NONE, NONE/NONE, loc/desc across the four rows.
+    const container = renderList(
+      [
+        {
+          start: { dateTime: '2026-06-18T17:00:00.000Z' },
+          end: { dateTime: '2026-06-21T10:00:00.000Z' },
+          summary: 'Conference',
+          location: LOCATION,
+          description: DESCRIPTION,
+          _entityId: CALENDAR,
+        } as TestEvent,
+      ],
+      buildConfig({
+        days_to_show: 8,
+        show_description: true,
+        split_multiday_events: true,
+        show_location_allday: false,
+        show_description_allday: false,
+      }),
+    );
+
+    const rows = Array.from(container.querySelectorAll('td.event'));
+
+    // The control: splitting has to have actually happened, or this asserts nothing.
+    expect(rows.length).toBeGreaterThan(2);
+
+    for (const [index, row] of rows.entries()) {
+      expect(fieldText(row, '.location'), `row ${index}`).toBe(LOCATION);
+      expect(fieldText(row, '.description'), `row ${index}`).toBe(DESCRIPTION);
+    }
+  });
+
   it('keeps location and description suppression independent', () => {
     const noLocation = rowForEvent(allDayEvent('2026-06-18', '2026-06-19', 'Members day'), {
       show_location_allday: false,

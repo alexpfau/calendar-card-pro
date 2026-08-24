@@ -12,7 +12,6 @@ import {
 } from './schemas/day-header';
 import {
   ALLDAY_BADGE_POSITION_OPTIONS,
-  ALLDAY_BADGE_STYLE_OPTIONS,
   LOCATION_COUNTRY_MODES,
   locationCountryFields,
 } from './schemas/events';
@@ -35,7 +34,15 @@ interface UnionOverride {
   build(language: string, data: Readonly<Record<string, unknown>>): HaFormSchema[];
 }
 
-const UNION_OVERRIDES: Readonly<Record<string, UnionOverride>> = {
+/**
+ * Options whose stored value is a union of shapes, each projected through a synthetic field.
+ *
+ * 🚨 Every `mode` here MUST name a key in `SYNTHETIC_FIELDS`. Naming one that does not exist
+ * does not throw -- it silently blanks the control, because the derive path refills from that
+ * table and simply finds nothing. Exported solely so a test can reconcile the two; nothing
+ * outside this module should read it.
+ */
+export const UNION_OVERRIDES: Readonly<Record<string, UnionOverride>> = {
   show_week_numbers: {
     fields: ['week_number_mode'],
     mode: 'week_number_mode',
@@ -52,17 +59,17 @@ const UNION_OVERRIDES: Readonly<Record<string, UnionOverride>> = {
     build: (language) => [select(language, 'allday_badge_position', ALLDAY_BADGE_POSITION_OPTIONS)],
   },
 
-  /* The treatment is its own exception rather than a second field on the position's, because
-     the two answer independent questions and a user overriding one in column view has no
-     reason to be made to restate the other. `off` is null: there is no off treatment, so an
-     exception that is present always names one of the five. */
-  allday_badge_style: {
-    fields: ['allday_badge_style'],
-    mode: 'allday_badge_style',
-    modes: ALLDAY_BADGE_STYLE_OPTIONS,
-    off: null,
-    build: (language) => [select(language, 'allday_badge_style', ALLDAY_BADGE_STYLE_OPTIONS)],
-  },
+  /* `allday_badge_style` is deliberately NOT here, and it was, briefly.
+     This table is for options whose STORED value is a union of shapes -- `false` or a string,
+     a boolean or a pattern -- which no selector can emit, so each projects through a
+     synthetic field named by `mode`. The treatment is a plain closed-set string with no
+     second shape and therefore no synthetic, and registering it here named a synthetic that
+     does not exist: `overrideFormData` deletes every key in this table from the data and
+     `deriveOverrideData` refills it from `SYNTHETIC_FIELDS`, which had never heard of it. The
+     control rendered BLANK, showing neither its stored value nor the card-level one it
+     inherits -- which is the whole job of that widget. Stored 'outline' derived to undefined.
+     Removing the entry costs nothing: the exception picker offers a plain key directly, and
+     `unionPickerField` was building the same `select` the panel already has. */
 
   remove_location_country: {
     fields: ['location_country_mode', 'location_country_pattern'],

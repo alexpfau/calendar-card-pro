@@ -1461,9 +1461,9 @@ export function getView(config: Config): View {
 are a string literal, so no minifier looks inside one — comments there used to ship to every
 user, and half the stylesheet was comment. That is fixed at build time by the
 `strip-css-comments` plugin in `rollup.config.mjs`, which removes them from both
-`rendering/styles.ts` and `rendering/editor/styles.ts` and takes 31,579 raw / 12,234 gzip
+`rendering/styles.ts` and `rendering/editor/styles.ts` and takes 45,217 raw / 17,163 gzip
 bytes off the eager path (re-measured at v4.1.0 by building with the plugin and again
-without it; the card's own stylesheet is 60% comment by then, and 30,719 of that raw saving
+without it; the card's own stylesheet is 67.6% comment by then, and 44,357 of that raw saving
 is the card against only 860 for the editor, because `rendering/styles.ts` is where the
 reasoning lives).
 

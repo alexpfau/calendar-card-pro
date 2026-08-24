@@ -166,12 +166,24 @@ export function buildEventPresentation(
   const eventTime = allDayBadge
     ? eventTimeParts.text
     : FormatUtils.joinEventTimeParts(eventTimeParts);
-  // Unlike `show_single_allday_time`, these all-day row suppressors intentionally apply to
-  // multi-day all-day events too: their location and description are no less redundant than a
-  // single-day all-day event's, while the time row may carry a real end date.
-  const eventLocation = isAllDayEvent && !config.show_location_allday ? '' : event.location || '';
+  // Unlike `show_single_allday_time`, these two apply to multi-day all-day events as well:
+  // their location and description are no less redundant than a single-day all-day event's,
+  // while the time row may carry a real end date.
+  //
+  // They stop at the middle days of a SPLIT TIMED event, which the badge deliberately does
+  // not. Those days are genuinely all-day -- `splitMultiDayEvent` rewrites them as
+  // `start: { date }` because the event does occupy the whole of them -- so the badge marks
+  // them, and that is right. The trade is not the same here. Dropping a row because the pill
+  // beside it already says "all day" is removing a repetition; dropping the VENUE from day 2
+  // of a 3-day conference is losing information the other two days still show, and the
+  // result reads as a fault: present, absent, present. Nobody turning off all-day locations
+  // is asking for that.
+  const suppressAllDayRows = isAllDayEvent && !event._splitFromTimedEvent;
+
+  const eventLocation =
+    suppressAllDayRows && !config.show_location_allday ? '' : event.location || '';
   const eventDescription =
-    isAllDayEvent && !config.show_description_allday ? '' : event.description || '';
+    suppressAllDayRows && !config.show_description_allday ? '' : event.description || '';
 
   // Read from the location the card is about to draw, not the raw event: this runs after
   // `groupEventsByDay` has applied `formatLocation`, and there is no raw copy left here.

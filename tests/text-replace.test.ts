@@ -103,18 +103,18 @@ function drawn(
 }
 
 describe('the four combinations of pattern and replacement', () => {
-  const TITLE = 'Geburtstag von Hans Müller';
+  const TITLE = 'Birthday of Ben';
 
   /**
    * 🚨 The row that forces the whole design. `isSet` in `rendering/editor/synthetic.ts`
    * counts the empty string as unset and the entity write path drops any key failing it,
    * so `replace_with: ''` is unreachable from the visual editor. Deleting a match has to
    * be spelled by *omitting* the replacement or #153's own first example — strip
-   * `Geburtstag von ` off a birthday — is available only to people hand-editing YAML.
+   * `Birthday of ` off a birthday — is available only to people hand-editing YAML.
    */
   it('removes the match when only a pattern is set (#153 ex.1)', () => {
-    expect(drawn(event({ summary: TITLE }), { replace_pattern: 'Geburtstag von ' }).summary).toBe(
-      'Hans Müller',
+    expect(drawn(event({ summary: TITLE }), { replace_pattern: 'Birthday of ' }).summary).toBe(
+      'Ben',
     );
   });
 
@@ -185,11 +185,11 @@ describe('what the pattern matches', () => {
     // replace with regex" — so someone will reach for it. Pinned so a future refactor to
     // a literal replacement cannot silently drop it.
     expect(
-      drawn(event({ summary: 'Geburtstag von Hans Müller' }), {
-        replace_pattern: 'Geburtstag von (.+)',
+      drawn(event({ summary: 'Birthday of Ben' }), {
+        replace_pattern: 'Birthday of (.+)',
         replace_with: '$1 🎂',
       }).summary,
-    ).toBe('Hans Müller 🎂');
+    ).toBe('Ben 🎂');
   });
 });
 
@@ -360,7 +360,8 @@ describe('the age count from #124', () => {
     // not empty — and a title reduced to a single space rendered a bare `(40)`.
     //
     // Reachable from an ordinary pattern rather than a contrived one: any rewrite whose
-    // remainder is a separator. `Annas Geburtstag` minus `[A-Za-z]+` is two spaces.
+    // remainder is a separator. `Annas Geburtstag` minus `[A-Za-z]+` is a single space --
+    // one, not two: the pattern eats both words and leaves only what was between them.
     expect((drawn(allDay(BIRTHDAY), { replace_pattern: '[A-Za-z]+' }).summary ?? '').trim()).toBe(
       '',
     );

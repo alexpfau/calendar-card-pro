@@ -852,21 +852,11 @@ export const cardStyles = css`
        spilled straight out of the pill. A pill has to be a function of the text it wraps,
        which is also the only definition that transfers to the title, where there is no icon
        to measure against in the first place.
-       1.05em of line box plus 0.32em of vertical padding is 1.37em of the pill's own font.
-       On the badge, set to 0.85em, that comes back to 1.165em of the time font -- 14px at the
-       12px default, so the shipped look is unchanged, and it now grows with the option.
-       The padding is asymmetric on purpose and that is what centres the INK. A line box
-       centres the font's em square, and the em square reserves descender depth an uppercase
-       label never uses -- so the caps sit high with dead space under them, measured at 0.80px
-       in a 14px pill. The offset is (padding-top - padding-bottom) / 2, so 0.22em against
-       0.10em buys back 0.06em. Measured on the live card at 8x: 0.00 gives -0.80px, this
-       gives -0.19px, and 0.24em of difference overshoots to +0.81px. The browser quantises
-       the line box, so -0.19px is the closest to centred that is reachable rather than a
-       compromise chosen for taste.
-       The title pill inherits the same correction and does not need it, its text being mixed
-       case with real descenders. It is 0.06em of its own font -- under a pixel at any usual
-       size -- and keeping one box definition for both positions is worth more than removing
-       it. */
+       Each position states its own line box and vertical padding, immediately below, and the
+       two are NOT the same: the badge wraps one uppercase label and the title wraps the
+       user's own mixed-case words, often starting with an emoji. What is shared is only the
+       rule that a pill is a function of the text inside it -- every number lives with the
+       position it belongs to, so neither can be read here and be wrong. */
     /* Never wrap. A broken pill is not a pill -- the label is one phrase, French reads
        toute la journee at eight times the length of the Chinese, and it split across two
        lines with the text escaping the shape entirely. Where even one line will not fit, the

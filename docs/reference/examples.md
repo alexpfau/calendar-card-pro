@@ -109,7 +109,8 @@ one column at a time, at 998, 838 and 678 px, and reaches the `min_days_to_show:
 
 The `column:` block below tightens the type and hides the location, both of which cost more
 in a narrow column than they do in a full-width row. `allday_badge_style: filled` follows from the
-same tightening: at `event_font_size: 12px` the badge renders at about 10 px, and a one-pixel
+same tightening: the time badge takes its size from `time_font_size`, which is 12 px by
+default here, so it renders at about 10 px, and a one-pixel
 ring is then a large share of the letterforms' own weight, so a solid chip reads at a glance
 where an outline asks to be examined. It also shows off the treatment's one trick — the ink
 inside flips to black or white to suit the calendar's color, decided per accent by the

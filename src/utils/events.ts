@@ -657,7 +657,7 @@ export function groupEventsByDay(
       // right-hand test has to ask the same question `appendAgeCount` asks — it draws a
       // bare count when `summary.trim()` is empty — because any disagreement between the
       // two is a leak by construction, and testing `text === ''` disagreed on precisely
-      // the blank-but-not-empty titles an ordinary pattern produces: `Anna's Birthday`
+      // the blank-but-not-empty titles an ordinary pattern produces: `Bin Day`
       // minus `[A-Za-z]+` is whitespace, not an empty string, so it suppressed nothing and rendered `(50)`.
       // The left-hand side is trimmed so a title that was *already* only whitespace is not
       // read as a deletion — nothing was taken away from it, so it keeps the bare count an

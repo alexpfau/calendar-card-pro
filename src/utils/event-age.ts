@@ -167,7 +167,7 @@ export function resolveAgeCount(eventYear: number, markerYear: number): number |
  * after a deliberate deletion, since a lone bracketed number is nothing else. `titleWithheld`
  * is what tells those apart, and it has to ask the same question this function asks — it
  * tests `.trim()` on both sides for that reason. Testing the replaced title for exact
- * emptiness instead let a blank-but-not-empty result through: `Anna's Birthday` minus
+ * emptiness instead let a blank-but-not-empty result through: `Bin Day` minus
  * `[A-Za-z]+` is whitespace rather than an empty string, which passed the guard, failed the branch below, and rendered
  * the bare count. Keep the two tests spelled the same way.
  *

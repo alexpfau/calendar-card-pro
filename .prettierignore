@@ -15,3 +15,6 @@ package.json
 # "all"). Wrangler parses those fine, but VS Code flags them as jsonc(519) errors, so
 # the only effect is red squiggles in the one file whose breakage CI cannot see.
 wrangler.jsonc
+
+# Agent scratch: a full copy of the tree, so prettier would walk it and double every run.
+/.probe-sandbox
