@@ -1356,6 +1356,57 @@ describe('editor: the panel set', () => {
     }
   }
 
+  /**
+   * Every text selector names its input type, so a reused element cannot keep the last one.
+   *
+   * `ha-form` reuses the DOM node when one schema entry replaces another at the same
+   * position, and `ha-selector-text` does not reset the underlying input's `type` when the
+   * new selector omits it — it keeps whatever the previous field asked for. `start_date`
+   * shipped that way: with a saved fixed date the editor's first render was
+   * `{ text: { type: 'date' } }`, and switching to "Relative to Today" swapped in
+   * `{ text: {} }`, so the Expression field stayed a date picker and the documented grammar
+   * — `wednesday`, `start_of_week`, `today+7` — could not be typed at all. Only the YAML
+   * editor could set it. Measured on a live dashboard: label `Expression`, `type="date"`,
+   * value empty.
+   *
+   * An omitted type is the whole hazard, so the rule is that none may be omitted rather
+   * than that the four typed fields must be kept apart from their neighbours. Which fields
+   * sit next to which is a function of config and would have to be re-reasoned every time a
+   * conditional field is added; "every text selector declares its type" is a property of the
+   * schema this can simply read.
+   *
+   * Walks every panel under several configurations, so a new field is covered the day it is
+   * written rather than when somebody remembers this note.
+   */
+  it('gives every text selector an explicit input type', () => {
+    const configs: Types.Config[] = [
+      buildConfig({}),
+      buildConfig({ start_date: '2026-08-26' }),
+      buildConfig({ start_date: 'wednesday' }),
+      buildConfig({ view: 'column' }),
+      buildConfig({ compact_events_to_show: 3 }),
+    ];
+
+    const offenders: string[] = [];
+    let textSelectors = 0;
+
+    for (const config of configs) {
+      for (const { panel, node } of everyNode(config)) {
+        const selector = (node as { selector?: { text?: { type?: string } } }).selector;
+        if (!selector || !('text' in selector)) continue;
+        textSelectors++;
+        if (!selector.text?.type) {
+          offenders.push(`${panel.id} → ${(node as { name?: string }).name ?? '(unnamed)'}`);
+        }
+      }
+    }
+
+    // A clean run has to prove it looked at something: the assertion below passes trivially
+    // on an empty walk, which is exactly how a broken traversal would report success.
+    expect(textSelectors).toBeGreaterThan(30);
+    expect([...new Set(offenders)]).toEqual([]);
+  });
+
   it('registers the nine panels the design names, in order', () => {
     expect(PANELS.map((panel) => panel.id)).toEqual([
       'calendars',

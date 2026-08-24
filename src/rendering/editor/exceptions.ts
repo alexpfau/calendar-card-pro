@@ -17,8 +17,8 @@ const EXTRA_KEYS_BY_PANEL: Readonly<Record<string, ReadonlyArray<string>>> = {
 };
 
 const EXTRA_SELECTORS: Readonly<Record<string, SelectorSchema>> = {
-  height: { name: 'height', selector: { text: {} } },
-  max_height: { name: 'max_height', selector: { text: {} } },
+  height: { name: 'height', selector: { text: { type: 'text' } } },
+  max_height: { name: 'max_height', selector: { text: { type: 'text' } } },
 };
 
 /**

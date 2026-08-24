@@ -56,8 +56,13 @@ const COLUMN_PIXEL_KEYS = Object.entries(View.COLUMN_DEFAULTS as unknown as Reco
 /**
  * Fields the editor renders as free text, across every panel and both views.
  *
- * A `text` selector carrying a `type` (`date`, `number`, …) is excluded: those do not
- * hand back a bare numeric string.
+ * A `text` selector carrying a type other than `text` (`date`, `number`, `time`, `search`)
+ * is excluded: those do not hand back a bare numeric string. `text` itself counts, and is
+ * now declared explicitly on every free-text field — an omitted type let `ha-form` reuse a
+ * neighbour's input and keep its `type="date"`, which is how the `start_date` expression
+ * field became a date picker. This predicate used to read "no type at all"; that was the
+ * same intent when omission was how free text was spelled, and would have silently matched
+ * nothing once it stopped being.
  *
  * Walked over several configurations, not just the defaults. Panels reveal options only
  * when they apply, so a field behind a switch that ships `false` is invisible to a walk
@@ -85,8 +90,8 @@ const TEXT_FIELDS = (() => {
         for (const { node } of walkSchema(panel.build({ view, config, language: 'en' }))) {
           if ('schema' in node || node.name === '') continue;
 
-          const text = (node as { selector?: { text?: unknown } }).selector?.text;
-          if (typeof text === 'object' && text !== null && !('type' in text)) {
+          const text = (node as { selector?: { text?: { type?: string } } }).selector?.text;
+          if (typeof text === 'object' && text !== null && (text.type ?? 'text') === 'text') {
             names.add(node.name);
           }
         }

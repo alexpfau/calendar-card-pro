@@ -108,7 +108,7 @@ function densityGroup(blockKey: string, daysToShow: number, language: string): H
       },
       {
         name: 'day_header_gap',
-        selector: { text: {} },
+        selector: { text: { type: 'text' } },
       },
     ],
   };
@@ -139,13 +139,13 @@ const layoutSchema = Helpers.memoizeLast(
         type: 'grid',
         name: '',
         schema: [
-          { name: 'day_spacing', selector: { text: {} } },
-          { name: 'event_spacing', selector: { text: {} } },
+          { name: 'day_spacing', selector: { text: { type: 'text' } } },
+          { name: 'event_spacing', selector: { text: { type: 'text' } } },
         ],
       },
       {
         name: 'additional_card_spacing',
-        selector: { text: {} },
+        selector: { text: { type: 'text' } },
       },
       {
         name: 'height_mode',
@@ -162,9 +162,9 @@ const layoutSchema = Helpers.memoizeLast(
     ];
 
     if (heightMode === 'fixed') {
-      schema.push({ name: 'card_height', selector: { text: {} } });
+      schema.push({ name: 'card_height', selector: { text: { type: 'text' } } });
     } else if (heightMode === 'maximum') {
-      schema.push({ name: 'card_max_height', selector: { text: {} } });
+      schema.push({ name: 'card_max_height', selector: { text: { type: 'text' } } });
     }
 
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
