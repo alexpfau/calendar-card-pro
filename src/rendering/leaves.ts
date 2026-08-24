@@ -511,8 +511,16 @@ export function renderEventContent(
 
   // The badge is a direct child of `.time-actual`, never of `.time-text`: inside the latter
   // it would match the `time_max_lines` clamp selector and be truncated like body text.
+  //
+  // No whitespace between the badge and what follows it. Today that is belt and braces
+  // rather than the fix it looks like: `.time-actual` is a flex row, and flex drops a
+  // whitespace-only text node between two items, so the space this used to carry was never
+  // rendering. The real double gap was two margins — the badge's own and the countdown's
+  // lead-in — and the stylesheet drops the second when it follows a badge. Written tightly
+  // anyway so the markup does not quietly depend on the container staying a flex row.
   const allDayBadgeEl = allDayBadge
-    ? html`<span
+    ? // prettier-ignore
+      html`<span
         class="allday-badge allday-badge-${allDayBadge.mode}"
         lang=${allDayBadge.lang}
         style="--calendar-card-event-accent: ${allDayBadge.accent};"
@@ -536,7 +544,7 @@ export function renderEventContent(
               <div class="time">
                 <div class="time-actual">
                   <ha-icon icon="mdi:clock-outline"></ha-icon>
-                  ${allDayBadgeEl} ${timeText}
+                  ${allDayBadgeEl}${timeText}
                 </div>
                 ${trailingCountdown
                   ? html`<div class="time-countdown">${trailingCountdown}</div>`

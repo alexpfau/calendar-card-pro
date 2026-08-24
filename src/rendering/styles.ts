@@ -725,6 +725,19 @@ export const cardStyles = css`
     margin-inline-end: 4px;
   }
 
+  /* That 4px lead-in exists to separate the countdown from the time text before it. After a
+     badge there is no time text — the label became the badge — and the badge brings its own
+     4px, so keeping this one made the run-up to the dot 8px against 4px on the other side.
+     Adjacent-sibling rather than :has(), because the badge really is the element before.
+     The two-class prefix on the front of this selector is load-bearing: without it the
+     selector carries three classes against the four of the rule it has to beat, loses on
+     specificity and silently changes nothing. Measured at 8.62px before the dot against
+     5.62px after it while that was the case — a fix that typechecked, built, deployed and
+     did nothing. */
+  .time .time-actual .allday-badge + .time-text > .time-countdown {
+    margin-inline-start: 0;
+  }
+
   /* Auto start margin right-aligns a countdown that wraps onto its own flex
    * line; on the first line it behaves like the existing space-between gap. */
   .time-countdown {
@@ -815,7 +828,13 @@ export const cardStyles = css`
        own. Tying the two also means a changed time_icon_size keeps them aligned. */
     line-height: var(--calendar-card-icon-size-time, 14px);
     padding-inline: 0.5em;
-    margin-inline-end: 4px;
+    /* 5px, where the separator dot uses 4px on its far side, and the extra pixel is optical
+       rather than arbitrary. A timed event's countdown measures 5.50px before the dot against
+       5.62px after it: the digits ahead of it carry a right side bearing. A badge is a drawn
+       box and has none, so the 4px this used to be measured 4.62px against 5.62px — visibly
+       tighter on one side, which is what prompted the change. At 5px the badge lands on the
+       same rhythm as every other countdown in the card. */
+    margin-inline-end: 5px;
     border-radius: 999px;
     color: var(--badge-ink);
     background-color: var(--badge-wash);
