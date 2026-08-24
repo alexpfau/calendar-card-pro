@@ -2079,7 +2079,13 @@ const RUNTIME_ENUMS = [
   {
     option: 'allday_badge',
     file: 'src/utils/helpers.ts',
-    constant: 'ALLDAY_BADGE_MODES',
+    constant: 'ALLDAY_BADGE_POSITIONS',
+    noun: 'positions',
+  },
+  {
+    option: 'allday_badge_style',
+    file: 'src/utils/helpers.ts',
+    constant: 'ALLDAY_BADGE_STYLES',
     noun: 'treatments',
   },
 ];

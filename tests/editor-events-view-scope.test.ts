@@ -49,12 +49,22 @@ import { buildEventsSchema } from '../src/rendering/editor/schemas/events';
  * The field must belong to that gate's group and to no other, which `isolates its own
  * field` checks rather than trusting.
  */
+/**
+ * Each gate carries the values that mean on and off for it, rather than the suite assuming
+ * `true` and `false`.
+ *
+ * Five of the six are booleans and read exactly as they did. `allday_badge` is a string
+ * enum whose off value is the word `off`, so a boolean sweep sets it to `true`, the resolver
+ * refuses it as outside the closed set, and every arm of this file measures the same
+ * switched-off panel while reporting a pass on the two arms that expect one.
+ */
 const GATES = [
-  { gate: 'show_time', field: 'time_font_size' },
-  { gate: 'show_location', field: 'location_font_size' },
-  { gate: 'show_description', field: 'description_font_size' },
-  { gate: 'show_countdown', field: 'show_countdown_allday' },
-  { gate: 'show_progress_bar', field: 'progress_bar_height' },
+  { gate: 'show_time', field: 'time_font_size', on: true, off: false },
+  { gate: 'show_location', field: 'location_font_size', on: true, off: false },
+  { gate: 'show_description', field: 'description_font_size', on: true, off: false },
+  { gate: 'show_countdown', field: 'show_countdown_allday', on: true, off: false },
+  { gate: 'show_progress_bar', field: 'progress_bar_height', on: true, off: false },
+  { gate: 'allday_badge', field: 'allday_badge_style', on: 'time', off: 'off' },
 ] as const;
 
 /**
@@ -97,9 +107,15 @@ function eventsFields(config: Types.Config, view: Types.EffectiveView): string[]
 
 /** Every gate at `card`, except `gate`, which the `column:` block sets to `column`. */
 function split(gate: string, card: boolean, column: boolean): Types.Config {
-  const top = Object.fromEntries(GATES.map((g) => [g.gate, card]));
+  const top = Object.fromEntries(GATES.map((g) => [g.gate, card ? g.on : g.off]));
+  const row = GATES.find((g) => g.gate === gate);
 
-  return buildConfig({ ...top, column: { [gate]: column } } as unknown as Partial<Types.Config>);
+  if (!row) throw new Error(`unknown gate ${gate} — fix this helper`);
+
+  return buildConfig({
+    ...top,
+    column: { [gate]: column ? row.on : row.off },
+  } as unknown as Partial<Types.Config>);
 }
 
 describe('card-level Events panel resolves its gates per view', () => {

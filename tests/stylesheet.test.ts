@@ -1172,4 +1172,104 @@ describe('card stylesheet', () => {
       expect(declared('.allday-badge', 'border-radius')).toBe('999px');
     });
   });
+
+  describe('the two badge positions share one pill', () => {
+    /*
+     * `allday_badge` names a position and `allday_badge_style` names a treatment, so the
+     * five treatments have to mean the same thing at both. The stylesheet does that by
+     * declaring the box and the colour derivations ONCE against both selectors, and giving
+     * each position only the type decisions that genuinely differ.
+     *
+     * The reconciliation below is against the treatment list itself rather than a second
+     * copy of it, so a sixth treatment added to `ALLDAY_BADGE_STYLES` and wired at only one
+     * position fails here instead of rendering unstyled on the other.
+     */
+    it.each(['neutral', 'outline', 'subtle', 'tinted', 'filled'])(
+      'declares %s once, under a name tied to neither position',
+      (style) => {
+        // A treatment class named for one position would either be a lie at the other or
+        // force a duplicate rule -- and a duplicate is how a treatment ends up correct in
+        // the time row and stale on the title.
+        expect(rulesFor(`.allday-pill-${style}`).length).toBeGreaterThan(0);
+        expect(rulesFor(`.allday-badge-${style}`)).toHaveLength(0);
+        expect(rulesFor(`.allday-title-pill-${style}`)).toHaveLength(0);
+      },
+    );
+
+    it('gives both positions the same box, declared once', () => {
+      // rulesFor matches a selector LIST, so this passes only while one rule names both.
+      // Two rules that happen to agree today would satisfy a per-selector check and drift
+      // apart on the next edit.
+      const shared = RULES.filter(
+        (r) => r.selectors.includes('.allday-badge') && r.selectors.includes('.allday-title-pill'),
+      );
+      expect(shared.length).toBeGreaterThan(0);
+
+      for (const prop of [
+        'line-height',
+        'padding-block',
+        'display',
+        'max-width',
+        'min-width',
+        'white-space',
+        'overflow',
+        'text-overflow',
+        'border-radius',
+      ]) {
+        expect(declared('.allday-badge', prop), prop).not.toBe('');
+        expect(declared('.allday-title-pill', prop), prop).toBe(declared('.allday-badge', prop));
+      }
+    });
+
+    it('uppercases the label but never the title', () => {
+      // The time badge draws the localized words for "all day" -- a tag, so it is set small,
+      // spaced and uppercased. The title pill draws the USER'S OWN WORDS: an event called
+      // "Dentist" is not called "DENTIST", and forcing the case would mangle every language
+      // that carries meaning in it.
+      expect(declared('.allday-badge', 'text-transform')).toBe('uppercase');
+      expect(declared('.allday-title-pill', 'text-transform')).toBe('');
+      expect(declared('.allday-title-pill', 'letter-spacing')).toBe('');
+      expect(declared('.allday-title-pill', 'font-size')).toBe('');
+    });
+
+    it('pulls the title pill back by exactly its own inline padding', () => {
+      // So the title's first glyph still sits on the same optical line as every other
+      // event's, which is what keeps a mixed list from looking ragged down its left edge.
+      // Measured live: a plain title starts at x=376.5 and a pill's box at x=368.8, the
+      // 7.7px difference being 0.55em of the 14px default -- so the pill's TEXT starts at
+      // 376.5 too. Asserted as an identity rather than as two numbers, because the point is
+      // that they cancel at any font size.
+      const pad = declared('.allday-title-pill', 'padding-inline');
+      const pull = declared('.allday-title-pill', 'margin-inline-start');
+      expect(pad).not.toBe('');
+      expect(pull).toBe(`-${pad}`);
+    });
+
+    it('reaches the title pill from the OKLCH enhancement, not just the badge', () => {
+      // The chroma-recovery blocks redefine --badge-ink and --badge-wash. Naming only
+      // .allday-badge there would leave the title pill on the sRGB fallback: visibly a
+      // different colour from the time badge on the same card, in the same treatment, with
+      // nothing in either rule to say why.
+      //
+      // Scanned out of the raw text rather than through `rulesFor`, and that is not a
+      // shortcut. `scanRules` deliberately skips at-rules, so RULES contains no rule nested
+      // inside an @supports block -- the first version of this test used it, counted only
+      // the top-level base rule, and reported one site where there are three. A gate that
+      // cannot see the thing it is gating fails in whichever direction its threshold
+      // happens to point.
+      const sites = [...cardStyles.cssText.matchAll(/--badge-ink\s*:/g)].map((m) => {
+        const before = cardStyles.cssText.slice(0, m.index);
+        const open = before.lastIndexOf('{');
+        const prelude = before.slice(before.lastIndexOf('}', open) + 1, open);
+        return prelude;
+      });
+
+      // Base plus both OKLCH tiers.
+      expect(sites).toHaveLength(3);
+      for (const prelude of sites) {
+        expect(prelude).toContain('.allday-badge');
+        expect(prelude).toContain('.allday-title-pill');
+      }
+    });
+  });
 });

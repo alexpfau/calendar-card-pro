@@ -250,6 +250,7 @@ function renderEventTitle(
   config: Types.Config,
   entityLabel: string | undefined,
   weatherForecasts?: Types.WeatherForecasts,
+  titlePill?: { accent: string; mode: Helpers.AlldayBadgeStyle },
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -260,6 +261,32 @@ function renderEventTitle(
   const labelIconColor = event._matchedConfig?.label_icon_color;
   const labelType = event._matchedConfig?.label_type;
 
+  const titleText = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
+
+  // The pill is nested INSIDE `.event-title` rather than replacing it, and that placement is
+  // what makes the `neutral` treatment mean the right thing here.
+  //
+  // `neutral` is defined as `color: inherit`, so what it resolves to is decided entirely by
+  // what it is nested in. In the time row it inherits the time colour, which is the whole
+  // point of that treatment: the row's own ink with a frame drawn round it. Put the pill
+  // where `.event-title`'s inline `color` is in scope and it inherits the TITLE colour --
+  // `event_color`, or this calendar's own `color` override -- so the treatment keeps its
+  // meaning at both positions without either needing a rule of its own.
+  //
+  // Nesting is also the only arrangement that works at all. `.event-title` carries its colour
+  // as an inline style, and an inline style beats any class selector -- so putting the pill
+  // classes ON that element would let the inline colour override `--badge-ink` and every
+  // treatment but `neutral` would silently render in the title colour.
+  //
+  // prettier-ignore
+  const titleContent = titlePill
+    ? html`<span
+        class="allday-title-pill allday-pill-${titlePill.mode}"
+        style="--calendar-card-event-accent: ${titlePill.accent};"
+        >${titleText}</span
+      >`
+    : titleText;
+
   return html`
     <div class="summary-row">
       <div class="summary">
@@ -268,7 +295,7 @@ function renderEventTitle(
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
           style="color: ${entityColor}"
         >
-          ${showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary}
+          ${titleContent}
         </span>
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
@@ -388,7 +415,23 @@ export interface EventContentParts {
     label: string;
     lang: string;
     accent: string;
-    mode: Helpers.AlldayBadgeMode;
+    mode: Helpers.AlldayBadgeStyle;
+  };
+
+  /**
+   * The pill to draw around the event title, present only when `allday_badge` names the
+   * title position and the event is all-day.
+   *
+   * Carries no label: the pill wraps the title the row was going to draw anyway, so unlike
+   * the time-row badge there is no text to hand it and no language to declare — the title is
+   * the user's own words and is never uppercased.
+   *
+   * Carries its own `accent` for the same reason the time badge does: this calendar's colour
+   * reaches the row as an inline border value, which no descendant can read.
+   */
+  titlePill?: {
+    accent: string;
+    mode: Helpers.AlldayBadgeStyle;
   };
 
   eventLocation: string;
@@ -473,6 +516,7 @@ export function renderEventContent(
   const {
     eventTime,
     allDayBadge,
+    titlePill,
     eventLocation,
     locationIcon,
     eventDescription,
@@ -521,7 +565,7 @@ export function renderEventContent(
   const allDayBadgeEl = allDayBadge
     ? // prettier-ignore
       html`<span
-        class="allday-badge allday-badge-${allDayBadge.mode}"
+        class="allday-badge allday-pill-${allDayBadge.mode}"
         lang=${allDayBadge.lang}
         style="--calendar-card-event-accent: ${allDayBadge.accent};"
         >${allDayBadge.label}</span
@@ -536,7 +580,7 @@ export function renderEventContent(
 
   return html`
     <div class="event-content">
-      ${renderEventTitle(event, config, entityLabel, titleForecasts)}
+      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill)}
       <div class="time-location">
         ${progressRow}
         ${shouldShowTime

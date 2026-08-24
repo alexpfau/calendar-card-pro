@@ -11,7 +11,8 @@ import {
   weekNumberFields,
 } from './schemas/day-header';
 import {
-  ALLDAY_BADGE_OPTIONS,
+  ALLDAY_BADGE_POSITION_OPTIONS,
+  ALLDAY_BADGE_STYLE_OPTIONS,
   LOCATION_COUNTRY_MODES,
   locationCountryFields,
 } from './schemas/events';
@@ -44,11 +45,23 @@ const UNION_OVERRIDES: Readonly<Record<string, UnionOverride>> = {
   },
 
   allday_badge: {
-    fields: ['allday_badge_mode'],
-    mode: 'allday_badge_mode',
-    modes: ALLDAY_BADGE_OPTIONS,
-    off: false,
-    build: (language) => [select(language, 'allday_badge_mode', ALLDAY_BADGE_OPTIONS)],
+    fields: ['allday_badge_position'],
+    mode: 'allday_badge_position',
+    modes: ALLDAY_BADGE_POSITION_OPTIONS,
+    off: 'off',
+    build: (language) => [select(language, 'allday_badge_position', ALLDAY_BADGE_POSITION_OPTIONS)],
+  },
+
+  /* The treatment is its own exception rather than a second field on the position's, because
+     the two answer independent questions and a user overriding one in column view has no
+     reason to be made to restate the other. `off` is null: there is no off treatment, so an
+     exception that is present always names one of the five. */
+  allday_badge_style: {
+    fields: ['allday_badge_style'],
+    mode: 'allday_badge_style',
+    modes: ALLDAY_BADGE_STYLE_OPTIONS,
+    off: null,
+    build: (language) => [select(language, 'allday_badge_style', ALLDAY_BADGE_STYLE_OPTIONS)],
   },
 
   remove_location_country: {

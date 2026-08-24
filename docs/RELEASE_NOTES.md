@@ -9,7 +9,8 @@ title: Release Notes
 Here is what that buys you, in one config — a hallway tablet the whole household walks past:
 
 ```yaml
-allday_badge: subtle
+allday_badge: title
+allday_badge_style: subtle
 
 entities:
   # 🎂 Birthdays — the name and the age, nothing else
@@ -50,10 +51,13 @@ Four of the features below are in those twenty-seven lines, and not one of them 
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="All-day events drawn as a badge in each calendar's own color" width="600"><br>
 
-**An all-day event can now say so in a small badge in its calendar's own color, instead of in the words _All day_.** It is the way nearly every calendar app draws one, and it turns a row that read as a sentence into a row that reads at a glance.
+**An all-day event can now say so with a rounded pill in its calendar's own color, instead of with the words _All day_.** It is the way nearly every calendar app marks one, and it turns a row that read as a sentence into a row that reads at a glance.
+
+Two options describe it. `allday_badge` says **where** the pill goes — beside the clock in place of the all-day label, or wrapped around the event title the way Google Calendar and Apple Calendar draw it. `allday_badge_style` says **which** of five treatments draws it, and all five work at either position.
 
 ```yaml
-allday_badge: subtle
+allday_badge: title # off, time or title
+allday_badge_style: subtle # neutral, outline, subtle, tinted or filled
 ```
 
 Five treatments, from quietest to loudest — `neutral`, `outline`, `subtle`, `tinted`, `filled`:

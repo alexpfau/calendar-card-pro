@@ -91,7 +91,8 @@ week_separator_width: 1px
 week_separator_color: '#03a9f450'
 month_separator_width: 1.5px
 month_separator_color: var(--secondary-text-color)
-allday_badge: subtle
+allday_badge: time
+allday_badge_style: subtle
 ```
 
 ## 🗓️ A Week Side by Side, in Column View
@@ -107,7 +108,7 @@ one column at a time, at 998, 838 and 678 px, and reaches the `min_days_to_show:
 **518 px**.
 
 The `column:` block below tightens the type and hides the location, both of which cost more
-in a narrow column than they do in a full-width row. `allday_badge: filled` follows from the
+in a narrow column than they do in a full-width row. `allday_badge_style: filled` follows from the
 same tightening: at `event_font_size: 12px` the badge renders at about 10 px, and a one-pixel
 ring is then a large share of the letterforms' own weight, so a solid chip reads at a glance
 where an outline asks to be examined. It also shows off the treatment's one trick — the ink
@@ -134,7 +135,8 @@ days_to_show: 7
 show_week_numbers: iso
 today_indicator: true
 empty_day_text: '✔ All done'
-allday_badge: filled
+allday_badge: time
+allday_badge_style: filled
 column:
   min_day_width: 150
   min_days_to_show: 3
@@ -207,7 +209,8 @@ show_end_time: true
 time_font_size: 12px
 time_color: '#baf1ff'
 time_icon_size: 14px
-allday_badge: subtle
+allday_badge: time
+allday_badge_style: subtle
 show_location: true
 remove_location_country: true
 location_font_size: 12px

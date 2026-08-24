@@ -52,6 +52,107 @@ Compact mode limits never trigger hiding — a card limited to zero events with 
 The same applies when a calendar cannot be reached. A failed request leaves the event list empty, but that is not the same thing as an empty calendar, so the card never vanishes because of a temporary outage. If events are already on screen they stay there until a refresh succeeds, and if there is nothing to fall back on the card reports the problem instead of claiming there are no upcoming events.
 :::
 
+## 🏷️ The All-Day Badge
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="All-day events drawn as a badge in each calendar's own color" width="600"><br>
+
+By default an all-day event says so in words, on the same line as the clock icon. The all-day
+badge draws that fact as a rounded pill in the calendar accent color instead, the way most
+calendar apps do. Two options describe it — **where** the pill goes, and **which** of five
+treatments draws it:
+
+```yaml
+allday_badge: time # off, time or title
+allday_badge_style: tinted # neutral, outline, subtle, tinted or filled
+```
+
+Both are card-level, so a card shows pills for every calendar on it or for none.
+
+### Where The Pill Goes
+
+| Value   | What it does                                                                     |
+| ------- | -------------------------------------------------------------------------------- |
+| `off`   | The default. All-day events say so in plain words                                |
+| `time`  | The pill replaces the words on the time row, beside the clock icon               |
+| `title` | The pill wraps the event title, the way Google Calendar and Apple Calendar do it |
+
+### Which Treatment Draws It
+
+There are five, from quietest to loudest, and all five work at either position:
+
+| Value     | What it draws                                                           |
+| --------- | ----------------------------------------------------------------------- |
+| `neutral` | An outline only, in the row's own text color rather than the calendar's |
+| `outline` | An outline only, in the calendar accent color                           |
+| `subtle`  | A gentle wash of the accent, with no outline                            |
+| `tinted`  | Both — a gentle wash inside a matching outline                          |
+| `filled`  | A solid pill in the calendar accent color                               |
+
+`tinted` is the default and applies as soon as `allday_badge` names a position.
+
+Four of the five take their color from the calendar the event came from, so events from
+different calendars stay distinguishable at a glance. Where a calendar sets its own
+`accent_color`, the pill follows it — including when that is a theme variable, because the
+colors are resolved by the browser rather than computed in advance.
+
+`neutral` is the exception, and it is the one treatment that reads differently at each
+position. It takes no accent at all, borrowing whatever color it sits in: the time color on
+the time row, and the **title** color on the title. So it stays the mildest of the five in
+both places, and in both places it is still distinct from the other four.
+
+::: warning `color` And `accent_color` Are Separate
+`color` sets an event's **title**. `accent_color` sets its **pill**, its vertical bar and
+its row tint. A calendar that sets only `color` therefore keeps the default blue accent, and
+its pill can end up in a color that relates to nothing else on the row. Set both to the
+same value when you are coloring calendars apart, or use `neutral`, which takes no accent
+at all.
+:::
+
+::: tip Which One To Pick
+`tinted` suits most dashboards. Reach for `outline` when
+[`event_background_opacity`](/reference/configuration#event-column) is high — with no fill
+of its own, an outline has nothing to dissolve into the tinted row behind it. `neutral` is
+the one to pick when the pill should stay out of the way entirely, or when a calendar's
+accent does not sit well under its title. `filled` is the loud one, for when the calendar's
+color should read as a solid chip.
+:::
+
+### Which Events Get One
+
+This follows a single rule at both positions: the event has to occupy the whole of the day it
+is drawn on. A timed meeting running from Wednesday evening to Monday morning does not, and
+keeps its usual times. But when
+[`split_multiday_events`](/features/multi-day-events) is on, that meeting's middle days
+_are_ whole days, and those rows get a pill while its first and last days keep their times.
+
+### What The Two Positions Do Differently
+
+At `time`, the pill replaces the label and anything that follows it stays as ordinary text.
+A multi-day all-day event reads as the pill and then its end date, so no information is lost.
+
+At `title`, the time row is left exactly as it would be with no badge at all. That is
+deliberate: the pill says _that_ an event is all-day, while the time row says _how long_ it
+runs, which for a multi-day event is information the pill cannot carry.
+
+A title pill is always a single line. Where the title is too long for the space, it ends in
+an ellipsis and the pill keeps its shape — it does not wrap, and it does not follow
+[`title_max_lines`](/reference/configuration#event-column), which stays your setting for
+every other event.
+
+Both pills size themselves from the text they wrap rather than from an option of their own:
+the time pill from `time_font_size`, the title pill from `event_font_size`. Enlarge either
+and its pill grows with it, whatever unit you write it in.
+
+::: tip Pair `title` With show_single_allday_time
+Setting `show_single_allday_time: false` hides the time row for single-day all-day events,
+which at the `title` position leaves the pilled title alone on the row — the layout Apple
+Calendar and Google Calendar use. Multi-day all-day events keep their row, so their end date
+still shows.
+
+At the `time` position the same setting hides the pill along with the row it sits on, since
+there is nothing left to draw it in.
+:::
+
 ## ⏱️ Time & Location Information
 
 Configure how event times and locations are displayed:
@@ -60,7 +161,6 @@ Configure how event times and locations are displayed:
 # Time display options
 show_time: true # Show event start/end times
 show_single_allday_time: false # Hide time for single-day all-day events
-allday_badge: false # false, or neutral / outline / subtle / tinted / filled
 time_24h: false # Use 12-hour format (AM/PM)
 time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time
@@ -75,71 +175,6 @@ location_font_size: '12px'
 location_color: 'var(--secondary-text-color)'
 location_icon_size: '14px'
 ```
-
-### The All-Day Badge
-
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="All-day events drawn as a badge in each calendar's own color" width="600"><br>
-
-By default an all-day event says so in words, on the same line as the clock icon. Set
-`allday_badge` to a treatment and the label becomes a rounded badge instead, the way most
-calendar apps draw it:
-
-```yaml
-allday_badge: tinted
-```
-
-There are five treatments, from quietest to loudest:
-
-| Value     | What it draws                                                           |
-| --------- | ----------------------------------------------------------------------- |
-| `neutral` | An outline only, in the row's own text color rather than the calendar's |
-| `outline` | An outline only, in the calendar accent color                           |
-| `subtle`  | A gentle wash of the accent, with no outline                            |
-| `tinted`  | Both — a gentle wash inside a matching outline                          |
-| `filled`  | A solid badge in the calendar accent color                              |
-
-`false` is the default and keeps the plain words.
-
-Four of the five take their color from the calendar the event came from, so events from
-different calendars stay distinguishable at a glance. Where a calendar sets its own
-`accent_color`, the badge follows it — including when that is a theme variable, because the
-colors are resolved by the browser rather than computed in advance.
-
-::: warning `color` And `accent_color` Are Separate
-`color` sets an event's **title**. `accent_color` sets its **badge**, its vertical bar and
-its row tint. A calendar that sets only `color` therefore keeps the default blue accent, and
-its badge can end up in a color that relates to nothing else on the row. Set both to the
-same value when you are coloring calendars apart, or use `neutral`, which takes no accent
-at all.
-:::
-
-::: tip Which One To Pick
-`tinted` suits most dashboards. Reach for `outline` when
-[`event_background_opacity`](/reference/configuration#event-column) is high — with no fill
-of its own, an outline has nothing to dissolve into the tinted row behind it. `neutral` is
-the one to pick when the badge should stay out of the way entirely, or when a calendar's
-accent does not sit well under its title. `filled` is the loud one, for when the calendar's
-color should read as a solid chip.
-:::
-
-Anything that follows the label stays as ordinary text. A multi-day all-day event reads as
-the badge and then its end date, so no information is lost.
-
-Which events get one follows a single rule: the event has to occupy the whole of the day it
-is drawn on. A timed meeting running from Wednesday evening to Monday morning does not, and
-keeps its usual times. But when
-[`split_multiday_events`](/features/multi-day-events) is on, that meeting's middle days
-_are_ whole days, and those rows get the badge while its first and last days keep their
-times.
-
-The badge sizes itself from `time_font_size` rather than from an option of its own, so
-enlarging the time enlarges the badge with it, whatever unit you write it in.
-
-::: tip Pair This With show_single_allday_time
-A single-day all-day event only has a badge if it has a time row to put it on. That row is
-shown by default, but setting `show_single_allday_time: false` hides it, and the badge goes
-with it. Multi-day all-day events are unaffected — their row is always shown.
-:::
 
 ### Removing Country Names
 

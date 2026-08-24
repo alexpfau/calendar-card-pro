@@ -707,7 +707,7 @@ describe('editor: change detection', () => {
   it('holds the exact set of synthetic keys', () => {
     expect(Object.keys(SYNTHETIC_FIELDS).sort()).toEqual([
       'accent_color_mode',
-      'allday_badge_mode',
+      'allday_badge_position',
       'calendars',
       'card_height',
       'card_max_height',
@@ -1385,6 +1385,9 @@ describe('editor: the panel set', () => {
       buildConfig({ start_date: 'wednesday' }),
       buildConfig({ view: 'column' }),
       buildConfig({ compact_events_to_show: 3 }),
+      // The all-day treatment select is only built once a position is chosen, so nothing
+      // else in this sweep reaches it -- the same shape as compact_events_to_show above.
+      buildConfig({ allday_badge: 'time' }),
     ];
 
     const offenders: string[] = [];
@@ -1520,6 +1523,9 @@ describe('editor: the panel set', () => {
       // Reveals the complete-days modifier, which is held back until there is an event
       // limit for it to modify.
       buildConfig({ compact_events_to_show: 3 }),
+      // The all-day treatment select is only built once a position is chosen, so nothing
+      // else in this sweep reaches it -- the same shape as compact_events_to_show above.
+      buildConfig({ allday_badge: 'time' }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -1539,7 +1545,7 @@ describe('editor: the panel set', () => {
       language: 'language_mode',
       time_24h: 'time_format',
       show_week_numbers: 'week_number_mode',
-      allday_badge: 'allday_badge_mode',
+      allday_badge: 'allday_badge_position',
       remove_location_country: 'location_country_mode',
       today_indicator: 'today_indicator_style',
       height: 'height_mode',
@@ -3889,6 +3895,11 @@ describe('editor: the exceptions widget', () => {
         view: 'column',
         show_week_numbers: 'iso',
       } as Partial<Types.Config>),
+      // The all-day treatment select is only built once a position is chosen, and neither
+      // sweep above chooses one: the boolean sweep cannot reach a string key, and the plain
+      // column config leaves it at its 'off' default. Without this the check reports
+      // allday_badge_style as having no exception -- correctly, from what it can see.
+      columnConfig({ allday_badge: 'time' } as Partial<Types.Config>),
     ];
 
     const offered = new Set<string>();
@@ -4596,7 +4607,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
         .sort(),
     ).toEqual([
       'accent_color_mode',
-      'allday_badge_mode',
+      'allday_badge_position',
       'height_mode',
       'language_mode',
       'location_country_mode',

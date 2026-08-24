@@ -13,9 +13,12 @@ import { bool, color, group, number, row, select, text } from './common';
 
 export const EVENTS_ICON = mdiCalendarText;
 
-/** `off` first: the default reads as the top of the list, and every other value is a treatment. */
-export const ALLDAY_BADGE_OPTIONS: ReadonlyArray<string> = [
-  'off',
+/** `off` first: the default reads as the top of the list, and the rest are places. */
+export const ALLDAY_BADGE_POSITION_OPTIONS: ReadonlyArray<string> = ['off', 'time', 'title'];
+
+/** The five treatments, in order of increasing weight -- the same order the stylesheet
+ *  declares them in, so reading the dropdown top to bottom walks from quietest to loudest. */
+export const ALLDAY_BADGE_STYLE_OPTIONS: ReadonlyArray<string> = [
   'neutral',
   'outline',
   'subtle',
@@ -41,12 +44,35 @@ const ACCENT_COLOR_MODES = ['custom', 'home_assistant'] as const;
  * @param showTime - Whether event times are shown
  * @returns The group
  */
+/**
+ * The all-day badge controls: where the pill goes, and -- once it goes anywhere -- which of
+ * the five treatments draws it.
+ *
+ * The treatment select is hidden while the position is off, following `accent_color_mode`
+ * and its colour picker. A styling control for a thing that is not drawn is a control that
+ * cannot do anything, and offering it invites the reading that setting it turns the feature
+ * on.
+ *
+ * @param language - Effective language code
+ * @param position - Currently configured position, already resolved
+ * @returns The fields, which is one field or two
+ */
+function alldayBadgeFields(
+  language: string,
+  position: Helpers.AlldayBadgePosition | null,
+): HaFormSchema[] {
+  const positionField = select(language, 'allday_badge_position', ALLDAY_BADGE_POSITION_OPTIONS);
+
+  return position === null
+    ? [positionField]
+    : [positionField, select(language, 'allday_badge_style', ALLDAY_BADGE_STYLE_OPTIONS)];
+}
+
 function timeGroup(language: string, showTime: boolean): HaFormSchema {
   const styling: HaFormSchema[] = showTime
     ? [
         bool('show_end_time'),
         bool('show_single_allday_time'),
-        select(language, 'allday_badge_mode', ALLDAY_BADGE_OPTIONS),
         bool('time_two_digit_hours'),
         row(text('time_font_size'), color('time_color')),
         row(text('time_icon_size'), number('time_max_lines', 0)),
@@ -143,6 +169,8 @@ function progressGroup(
  * @param countryMode - Derived country-removal mode
  * @param showCountdown - Whether the countdown is shown
  * @param showProgressBar - Whether the progress bar is shown
+ * @param accentMode - Derived card accent mode
+ * @param badgePosition - Resolved all-day badge position, or null when off
  * @returns The panel's schema
  */
 const eventsSchema = Helpers.memoizeLast(
@@ -155,6 +183,7 @@ const eventsSchema = Helpers.memoizeLast(
     showCountdown: boolean,
     showProgressBar: boolean,
     accentMode: string,
+    badgePosition: Helpers.AlldayBadgePosition | null,
   ): HaFormSchema[] => [
     row(text('event_font_size'), color('event_color')),
     // The mode and the colour it governs are one control, so they share a row. A grid
@@ -169,6 +198,15 @@ const eventsSchema = Helpers.memoizeLast(
     number('event_background_opacity', 0, 100, '%'),
     number('title_max_lines', 0),
     select(language, 'event_icon_vertical_alignment', ['top', 'middle', 'bottom']),
+
+    // Not inside the time group, and not gated on show_time. The badge marks an event as
+    // all-day; only one of its two positions happens to sit in the time row, and gating the
+    // pair on show_time would make the TITLE pill unreachable for anyone who has turned times
+    // off -- which is exactly the configuration the title position exists to serve.
+    // Placed after the per-event appearance options and before the per-field groups because
+    // that is where its scope puts it: it qualifies a whole class of event, which is a
+    // coarser question than how any one field is formatted.
+    ...alldayBadgeFields(language, badgePosition),
 
     timeGroup(language, showTime),
     locationGroup(language, showLocation, countryMode),
@@ -224,5 +262,10 @@ export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
     ViewConfig.resolveViewOption(ctx.config, 'show_countdown', ctx.view),
     ViewConfig.resolveViewOption(ctx.config, 'show_progress_bar', ctx.view),
     Synthetic.accentColorMode(ctx.config),
+    // Resolved through the view, so a column-view override of the position shows the
+    // treatment select when the column turns the badge on and the card level has it off.
+    Helpers.resolveAlldayBadgePosition(
+      ViewConfig.resolveViewOption(ctx.config, 'allday_badge', ctx.view),
+    ),
   );
 }

@@ -103,9 +103,14 @@ describe('stripComments', () => {
   // written down beside it: the countdown's trailing-text clamp was silently swallowing the
   // badge and forcing display: -webkit-box on it, and .time-actual's default min-width: auto
   // made the pill's ellipsis unreachable in principle rather than merely rare. Both notes
-  // record a measurement someone would otherwise have to repeat. The stylesheet is now
-  // 56,221 chars of which 35,763 are comment, a share of 63.6% against 60.4% before.
+  // record a measurement someone would otherwise have to repeat. The stylesheet was then
+  // 56,221 chars of which 35,763 were comment, a share of 63.6% against 60.4% before.
   //
+  // Rebased again for the badge's second position. Splitting one pill into a shared box plus
+  // two sets of type decisions needed the shared/not-shared line written down, and the title
+  // pill carries two constraints that are invisible from its own rule: why it is nested
+  // inside .event-title rather than replacing it, and why its single-line clamp is not
+  // title_max_lines. Now 59,026 chars of which 38,294 are comment, a share of 64.9%.
   // 🚨 Both attempts at this measurement first reported a saving of ZERO, years apart in
   // spirit and minutes apart in fact, because the edit meant to disable the plugin did not
   // match: it is registered as a bare identifier in the plugins array, not as a call, so
@@ -120,14 +125,14 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(38_000);
-    // 63.6% at the time of writing, up from 60.4% and before that ~51%. Both jumps were paid
+    expect(saved).toBeLessThan(41_000);
+    // 64.9% at the time of writing, up from 63.6%, 60.4% and before that ~51%. Both jumps were paid
     // for the same thing: a fault whose cause is invisible from the CSS and whose symptoms
     // point the wrong way needs a long explanation or the next person repeats the
     // investigation. That is the trade this plugin exists to make — none of it reaches a
     // user — but the share is worth watching, so the ceiling stays close enough to the
     // measurement to notice another jump rather than absorbing one silently.
     expect(share).toBeGreaterThan(0.45);
-    expect(share).toBeLessThan(0.68);
+    expect(share).toBeLessThan(0.7);
   });
 });

@@ -829,7 +829,8 @@ export const cardStyles = css`
    * --badge-ink and --badge-wash are declared once and consumed by every mode, so the modes
    * differ only in how hard they use them -- and so the OKLCH block at the end can improve all
    * four by redefining two values. */
-  .allday-badge {
+  .allday-badge,
+  .allday-title-pill {
     --badge-ink: color-mix(
       in srgb,
       var(--calendar-card-event-accent) 30%,
@@ -841,60 +842,105 @@ export const cardStyles = css`
       var(--calendar-card-background-color, var(--card-background-color))
     );
 
-    font-size: 0.85em;
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    /* Sized from the badge's OWN font, never from the clock icon.
-       It was the icon's height, so that flex-start would land the two boxes level. That is
-       correct only while the two happen to be similar: --calendar-card-icon-size-time does
-       not move with time_font_size, so at time_font_size: 20px the label rendered at 17px
-       inside a box still fixed at 14px and spilled straight out of the pill. A pill has to
-       be a function of the text it wraps.
-       1.05em of line box plus 0.32em of vertical padding is 1.37em of the badge's font,
-       which at the 0.85em it is set to comes back to 1.165em of the time font -- 14px at the
-       12px default, so the default look is unchanged, and it now grows with the option.
+    /* Sized from the pill's OWN font, never from anything beside it.
+       The time-row badge took its height from the clock icon, so that flex-start would land
+       the two boxes level. That is correct only while the two happen to be similar:
+       --calendar-card-icon-size-time does not move with time_font_size, so at
+       time_font_size: 20px the label rendered at 17px inside a box still fixed at 14px and
+       spilled straight out of the pill. A pill has to be a function of the text it wraps,
+       which is also the only definition that transfers to the title, where there is no icon
+       to measure against in the first place.
+       1.05em of line box plus 0.32em of vertical padding is 1.37em of the pill's own font.
+       On the badge, set to 0.85em, that comes back to 1.165em of the time font -- 14px at the
+       12px default, so the shipped look is unchanged, and it now grows with the option.
        The padding is asymmetric on purpose and that is what centres the INK. A line box
-       centres the font's em square, and the em square reserves descender depth this label
-       never uses, being text-transform: uppercase -- so the caps sit high with dead space
-       under them, measured at 0.80px in a 14px pill. The offset is (padding-top -
-       padding-bottom) / 2, so 0.22em against 0.10em buys back 0.06em. Measured on the live
-       card at 8x: 0.00 gives -0.80px, this gives -0.19px, and 0.24em of difference
-       overshoots to +0.81px. The browser quantises the line box, so -0.19px is the closest
-       to centred that is reachable rather than a compromise chosen for taste. */
+       centres the font's em square, and the em square reserves descender depth an uppercase
+       label never uses -- so the caps sit high with dead space under them, measured at 0.80px
+       in a 14px pill. The offset is (padding-top - padding-bottom) / 2, so 0.22em against
+       0.10em buys back 0.06em. Measured on the live card at 8x: 0.00 gives -0.80px, this
+       gives -0.19px, and 0.24em of difference overshoots to +0.81px. The browser quantises
+       the line box, so -0.19px is the closest to centred that is reachable rather than a
+       compromise chosen for taste.
+       The title pill inherits the same correction and does not need it, its text being mixed
+       case with real descenders. It is 0.06em of its own font -- under a pixel at any usual
+       size -- and keeping one box definition for both positions is worth more than removing
+       it. */
     line-height: 1.05;
     padding-block: 0.22em 0.1em;
-    /* Never wrap. The label is one phrase and a broken pill is not a pill -- French reads
-       toute la journee, eight times the length of the Chinese, and it split across two lines
-       with the text escaping the shape entirely. Where even one line will not fit, the pill
-       keeps its shape and the text ends in an ellipsis instead. min-width: 0 is what lets it
-       shrink at all: a flex item defaults to min-content, which for nowrap text is the whole
-       string, so without it the pill would overflow the row rather than clip. */
+    /* Never wrap. A broken pill is not a pill -- the label is one phrase, French reads
+       toute la journee at eight times the length of the Chinese, and it split across two
+       lines with the text escaping the shape entirely. Where even one line will not fit, the
+       pill keeps its shape and the text ends in an ellipsis instead.
+       This is also the whole of the title pill's line limit. It deliberately does NOT reuse
+       title_max_lines: that option clamps with -webkit-box, which is block-level and would
+       break the hanging indent a glyph label depends on, and it is the user's setting for
+       every event rather than a property of being in a pill. A pill is one line by
+       construction, whatever title_max_lines says.
+       min-width: 0 lets it shrink at all: a flex item defaults to min-content, which for
+       nowrap text is the whole string, so without it the pill would overflow rather than
+       clip. */
     display: inline-block;
     max-width: 100%;
     min-width: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    border-radius: 999px;
+  }
+
+  /* The reference treatment: the ink and the wash used exactly as the base defines them,
+     with a ring at 40% of the ink.
+     This used to have no rule of its own -- the base declared these three and tinted was
+     whatever you got by naming no other treatment. That worked and was still wrong: the
+     class in the DOM matched nothing, the treatment could not be reconciled against the
+     other four, and any rule added to the base silently became part of tinted. Five
+     treatments, five rules, and a base that declares only what all five build from. */
+  .allday-pill-tinted {
+    color: var(--badge-ink);
+    background-color: var(--badge-wash);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+  }
+
+  /* The time-row badge draws a LABEL -- the localized words for "all day" -- so it is set
+     small, spaced and uppercased to read as a tag rather than as prose. */
+  .allday-badge {
+    font-size: 0.85em;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     padding-inline: 0.5em;
     /* 5px, where the separator dot uses 4px on its far side, and the extra pixel is optical
        rather than arbitrary. A timed event's countdown measures 5.50px before the dot against
        5.62px after it: the digits ahead of it carry a right side bearing. A badge is a drawn
-       box and has none, so the 4px this used to be measured 4.62px against 5.62px — visibly
+       box and has none, so the 4px this used to be measured 4.62px against 5.62px -- visibly
        tighter on one side, which is what prompted the change. At 5px the badge lands on the
        same rhythm as every other countdown in the card. */
     margin-inline-end: 5px;
-    border-radius: 999px;
-    color: var(--badge-ink);
-    background-color: var(--badge-wash);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+  }
+
+  /* The title pill draws the user's OWN WORDS, which changes every type decision the badge
+     made. No uppercase: an event called "Dentist" is not called "DENTIST", and forcing the
+     case would mangle every language that carries meaning in it. No letter-spacing and no
+     size reduction either -- the title is the row's headline and shrinking it to fit a
+     decoration inverts the hierarchy. So this pill inherits the title's own font entirely
+     and changes only the box drawn around it.
+     Wider inline padding than the badge, because the eye reads a capsule against the length
+     of what is inside it: 0.5em looks generous around the two short words of a label and
+     mean around a full title. The negative inline margin pulls the pill's own padding back
+     so the title's first glyph still sits on the same optical line as every other event's,
+     which is what keeps a mixed list from looking ragged down its left edge. */
+  .allday-title-pill {
+    padding-inline: 0.55em;
+    margin-inline-start: -0.55em;
   }
 
   /* Wash with no boundary. The quietest treatment that is still a badge, for a dashboard
      where the ring reads as one line too many. It gives up the ring's separation, so on a
      row tinted in the same accent it is the first mode to lose its edge -- which is the
      trade the user makes by choosing it. */
-  .allday-badge-subtle {
+  .allday-pill-subtle {
+    color: var(--badge-ink);
+    background-color: var(--badge-wash);
     box-shadow: none;
   }
 
@@ -909,7 +955,7 @@ export const cardStyles = css`
    * color: inherit rather than a --badge-ink override, so the OKLCH block below cannot
    * reach it: there is no accent here to keep the chroma of. Placed after the base rule and
    * before that block, which is what makes it win on source order at equal specificity. */
-  .allday-badge-neutral {
+  .allday-pill-neutral {
     color: inherit;
     background-color: transparent;
     /* Full currentColor, not a fraction of it: this treatment names no accent, so the frame
@@ -936,7 +982,7 @@ export const cardStyles = css`
    * dark to read. That is the same contract the vertical bar has always had, and the reason
    * the other four treatments exist. Setting colour rather than --badge-ink is also what
    * keeps the chroma block below from reaching it: there is nothing here to correct. */
-  .allday-badge-outline {
+  .allday-pill-outline {
     color: var(--calendar-card-event-accent);
     background-color: transparent;
     box-shadow: inset 0 0 0 1px currentColor;
@@ -953,7 +999,7 @@ export const cardStyles = css`
      are mid-dark and a dark theme's are bright, which holds for the usual palette and fails
      for a pale yellow on a light theme. The OKLCH block below replaces the heuristic with an
      actual per-accent decision, so this rule is the floor rather than the intent. */
-  .allday-badge-filled {
+  .allday-pill-filled {
     color: var(--calendar-card-background-color, var(--card-background-color));
     background-color: color-mix(
       in srgb,
@@ -999,7 +1045,8 @@ export const cardStyles = css`
    * essentially the color-mix floor the rest of this stylesheet already assumes. The filled
    * rule below still needs relative colour syntax and keeps its own, higher gate. */
   @supports (color: color-mix(in oklch, red, blue)) {
-    .allday-badge {
+    .allday-badge,
+    .allday-title-pill {
       --badge-ink: color-mix(
         in oklch,
         var(--calendar-card-event-accent) 45%,
@@ -1044,7 +1091,8 @@ export const cardStyles = css`
    * Chrome 122+ / Firefox 133+ / Safari 18+. Below that the mix above stands on its own and
    * is still an improvement on sRGB; below that again the sRGB rule is the floor. */
   @supports (color: oklch(from red l c h)) {
-    .allday-badge {
+    .allday-badge,
+    .allday-title-pill {
       --badge-ink: oklch(
         from color-mix(in oklch, var(--calendar-card-event-accent) 45%, var(--primary-text-color)) l
           calc(c * 2.2) h
@@ -1072,7 +1120,7 @@ export const cardStyles = css`
    * Relative colour is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
    * higher gate; below it the heuristic above is the floor. */
   @supports (color: oklch(from red l c h)) {
-    .allday-badge-filled {
+    .allday-pill-filled {
       color: oklch(
         from var(--calendar-card-event-accent) clamp(0, calc((l - 0.55) * -1000), 1) 0 h
       );

@@ -117,19 +117,42 @@ export function buildEventPresentation(
 
   const eventTimeParts = FormatUtils.formatEventTimeParts(event, config, language, hass);
 
-  // The badge draws the all-day label itself, so the time text keeps only what follows it —
-  // empty for a single-day all-day event, the end-date phrase for a multi-day one. A split
-  // middle segment of a timed event is all-day for the day it occupies, so it qualifies;
-  // an unsplit timed multi-day event carries no label and never does.
-  const badgeMode = Helpers.resolveAlldayBadgeMode(config.allday_badge);
+  // The badge draws the all-day label itself, so at the TIME position the time text keeps
+  // only what follows it — empty for a single-day all-day event, the end-date phrase for a
+  // multi-day one. A split middle segment of a timed event is all-day for the day it
+  // occupies, so it qualifies; an unsplit timed multi-day event carries no label and never
+  // does.
+  //
+  // At the TITLE position the time row is left exactly as it would be with no badge at all,
+  // reading "All day" or "All day, until Fri 29". That is deliberate and it is what makes
+  // the two positions compose rather than compete. The title pill says *that* the event is
+  // all-day; the time row says *how long* it runs, which for a multi-day event is real
+  // information the pill cannot carry. Where a user finds the single-day case redundant,
+  // `show_single_allday_time: false` drops that row and only that row — and unlike the time
+  // position, the pill survives it, because the pill is not in the row being dropped. That
+  // combination is the Apple-Calendar look: a capsule title, no time line for a single-day
+  // all-day event, and the "until" line still there for a multi-day one.
+  const badgePosition = Helpers.resolveAlldayBadgePosition(config.allday_badge);
+  const badgeStyle = Helpers.resolveAlldayBadgeStyle(config.allday_badge_style);
+  const hasAllDayLabel = eventTimeParts.allDayLabel !== undefined;
+
   const allDayBadge =
-    badgeMode !== null && eventTimeParts.allDayLabel !== undefined
+    badgePosition === 'time' && hasAllDayLabel
       ? {
-          label: eventTimeParts.allDayLabel,
+          label: eventTimeParts.allDayLabel as string,
           lang: language,
           accent: entityAccentColor,
-          mode: badgeMode,
+          mode: badgeStyle,
         }
+      : undefined;
+
+  // The title pill needs no label of its own — it wraps the title — but it does need the
+  // accent and the treatment, and it must not appear on an event that is not all-day. The
+  // same `allDayLabel !== undefined` test decides both positions, so the two can never
+  // disagree about which events qualify.
+  const titlePill =
+    badgePosition === 'title' && hasAllDayLabel
+      ? { accent: entityAccentColor, mode: badgeStyle }
       : undefined;
 
   const eventTime = allDayBadge
@@ -149,6 +172,7 @@ export function buildEventPresentation(
   const contentParts: EventContentParts = {
     eventTime,
     allDayBadge,
+    titlePill,
     eventLocation,
     locationIcon,
     eventDescription,

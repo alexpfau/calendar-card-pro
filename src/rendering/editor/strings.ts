@@ -298,6 +298,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.show_week_numbers': 'Week Numbers',
   'column.today_indicator': 'Today Indicator',
   'column.allday_badge': 'All-Day Badge',
+  'column.allday_badge_style': 'All-Day Badge Style',
   'column.remove_location_country': 'Country Names',
   'column.show_empty_days.helper':
     'Column layout defaults this to on, whatever the shared setting above says.',
@@ -476,6 +477,23 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Tints each event with its accent color. Zero leaves it untinted.',
   title_max_lines: 'Title Line Limit',
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
+  allday_badge_position: 'All-Day Badge',
+  'allday_badge_position.helper':
+    'Marks all-day events with a rounded pill in the calendar accent color. On the time ' +
+    'row it replaces the all-day label; on the title it wraps the event name. A title ' +
+    'pill is kept to one line and shortened with an ellipsis where it does not fit.',
+  'allday_badge_position.option.off.label': 'Off',
+  'allday_badge_position.option.time.label': 'Around The All-Day Label',
+  'allday_badge_position.option.title.label': 'Around The Event Title',
+  allday_badge_style: 'All-Day Badge Style',
+  'allday_badge_style.helper':
+    'How much weight the pill carries, from a plain frame to a solid block of the ' +
+    'calendar color.',
+  'allday_badge_style.option.neutral.label': 'Plain Outline',
+  'allday_badge_style.option.outline.label': 'Accent Outline',
+  'allday_badge_style.option.subtle.label': 'Subtle',
+  'allday_badge_style.option.tinted.label': 'Tinted',
+  'allday_badge_style.option.filled.label': 'Filled',
   event_icon_vertical_alignment: 'Icon Alignment',
   'event_icon_vertical_alignment.option.top.label': 'Top',
   'event_icon_vertical_alignment.option.middle.label': 'Middle',
@@ -485,16 +503,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
-  allday_badge_mode: 'All-Day Badge',
-  'allday_badge_mode.helper':
-    'Draws the all-day label as a rounded badge in the calendar accent color, instead of ' +
-    'plain text. Anything that follows it, such as an end date, stays as text.',
-  'allday_badge_mode.option.off.label': 'Off',
-  'allday_badge_mode.option.neutral.label': 'Plain Outline',
-  'allday_badge_mode.option.outline.label': 'Accent Outline',
-  'allday_badge_mode.option.subtle.label': 'Subtle',
-  'allday_badge_mode.option.tinted.label': 'Tinted',
-  'allday_badge_mode.option.filled.label': 'Filled',
   time_two_digit_hours: 'Pad Hours To Two Digits',
   time_font_size: 'Time Font Size',
   time_color: 'Time Color',

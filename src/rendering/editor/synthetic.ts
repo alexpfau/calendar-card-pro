@@ -319,13 +319,20 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   /**
-   * `allday_badge` stores `false` or one of the four treatments, so the editor needs a
-   * dropdown rather than a toggle. `off` is derived from anything that is not a known
-   * treatment — including a legacy `true`, which resolves to `subtle` the same way the
-   * renderer resolves it, so the control agrees with the card.
+   * `allday_badge` names a position, and `off` is one of its three values rather than an
+   * absence — so the control is a dropdown and `off` derives from anything the resolver does
+   * not recognize, including a legacy boolean.
+   *
+   * Applying `off` writes `undefined` rather than the string, which clears the key back to
+   * the default instead of pinning it to a value that happens to equal the default. That is
+   * what keeps `toStoredConfig` from writing a line of YAML for a user who opened the
+   * dropdown and closed it again.
+   *
+   * The treatment lives in `allday_badge_style`, a real config key with no synthetic: it is a
+   * plain closed-set string with no off value to encode, so the schema selects it by name.
    */
-  allday_badge_mode: {
-    derive: (config) => Helpers.resolveAlldayBadgeMode(config.allday_badge) ?? 'off',
+  allday_badge_position: {
+    derive: (config) => Helpers.resolveAlldayBadgePosition(config.allday_badge) ?? 'off',
     apply: (value) =>
       value === 'off' || typeof value !== 'string'
         ? { changes: { allday_badge: undefined } }

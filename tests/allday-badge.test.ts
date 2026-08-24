@@ -5,6 +5,7 @@ import { FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
+import * as Helpers from '../src/utils/helpers';
 
 /**
  * `allday_badge` — drawing the all-day label as its own pill instead of as plain words.
@@ -120,7 +121,12 @@ describe('allday_badge', () => {
 
   describe('which events qualify', () => {
     const config = () =>
-      buildConfig({ allday_badge: 'tinted', days_to_show: 8, split_multiday_events: false });
+      buildConfig({
+        allday_badge: 'time',
+        allday_badge_style: 'tinted',
+        days_to_show: 8,
+        split_multiday_events: false,
+      });
 
     it('badges a single-day all-day event, leaving no time text beside it', () => {
       const container = renderList([allDayEvent('2026-06-18', '2026-06-19', 'Bin day')], config());
@@ -156,7 +162,12 @@ describe('allday_badge', () => {
     it('badges the middle segment of a split timed multi-day event, but not its ends', () => {
       const container = renderList(
         [timedEvent('2026-06-17T09:00:00.000Z', '2026-06-19T17:00:00.000Z', 'Offsite')],
-        buildConfig({ allday_badge: 'tinted', days_to_show: 8, split_multiday_events: true }),
+        buildConfig({
+          allday_badge: 'time',
+          allday_badge_style: 'tinted',
+          days_to_show: 8,
+          split_multiday_events: true,
+        }),
       );
       const rows = rowsFor(container, 'Offsite');
 
@@ -178,7 +189,8 @@ describe('allday_badge', () => {
   });
 
   describe('how the badge is drawn', () => {
-    const config = () => buildConfig({ allday_badge: 'tinted', days_to_show: 5 });
+    const config = () =>
+      buildConfig({ allday_badge: 'time', allday_badge_style: 'tinted', days_to_show: 5 });
 
     it('sits outside .time-text, where the time_max_lines clamp cannot truncate it', () => {
       // The clamp selector is `.time .time-actual .time-text > span`. A badge inside
@@ -219,7 +231,8 @@ describe('allday_badge', () => {
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
         buildConfig({
-          allday_badge: 'tinted',
+          allday_badge: 'time',
+          allday_badge_style: 'tinted',
           days_to_show: 5,
           entities: [{ entity: CALENDAR, accent_color: '#ff0000' }],
         }),
@@ -242,54 +255,165 @@ describe('allday_badge', () => {
     });
   });
 
-  describe('the four treatments', () => {
-    const modes = ['neutral', 'outline', 'subtle', 'tinted', 'filled'];
+  describe('the five treatments', () => {
+    const styles = ['neutral', 'outline', 'subtle', 'tinted', 'filled'];
 
-    it.each(modes)('draws %s as its own class, so the stylesheet can tell them apart', (mode) => {
+    it.each(styles)('draws %s as its own class, so the stylesheet can tell them apart', (style) => {
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
-        buildConfig({ allday_badge: mode, days_to_show: 5 }),
+        buildConfig({ allday_badge: 'time', allday_badge_style: style, days_to_show: 5 }),
       );
       const badge = badgeIn(rowFor(container, 'Bin day'));
 
       expect(badge).not.toBeNull();
-      expect(badge?.className).toBe(`allday-badge allday-badge-${mode}`);
+      // The treatment class is deliberately NOT prefixed with the position. Both positions
+      // wear the same five, which is what lets the stylesheet declare each colour derivation
+      // once -- so a name tied to one position would either be a lie at the other or force a
+      // second copy of every rule.
+      expect(badge?.className).toBe(`allday-badge allday-pill-${style}`);
     });
 
-    it('renders no badge for a value outside the closed set', () => {
-      // The failure this guards is `getTodayIndicatorType`'s: there `'none'` DRAWS a dot,
-      // because every unmatched string reached the default. A value that reads as off must
-      // never turn the feature on, so the table is closed and anything outside it is off.
-      for (const value of ['none', 'off', 'Tinted!', 'true', '', 'solid']) {
-        const container = renderList(
-          [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
-          buildConfig({ allday_badge: value, days_to_show: 5 }),
-        );
-
-        expect(badgeIn(rowFor(container, 'Bin day')), value).toBeNull();
-      }
-    });
-
-    it('draws nothing for a bare true, which is no longer a value', () => {
-      // The option briefly accepted a boolean `true` from when it was a toggle. With five
-      // named treatments there is no "on" for it to mean, so it is not a value and falls to
-      // the same answer as any other unrecognized one: off. `false` is unaffected — it is
-      // the named off value, not the absence of a value.
+    it.each(styles)('draws %s at the title position too, from the same class', (style) => {
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
-        buildConfig({ allday_badge: true, days_to_show: 5 }),
+        buildConfig({ allday_badge: 'title', allday_badge_style: style, days_to_show: 5 }),
       );
+      const pill = rowFor(container, 'Bin day')?.querySelector('.allday-title-pill');
 
+      expect(pill).not.toBeNull();
+      expect(pill?.className).toBe(`allday-title-pill allday-pill-${style}`);
       expect(badgeIn(rowFor(container, 'Bin day'))).toBeNull();
+    });
+
+    it('falls back to the default treatment rather than off for an unknown style', () => {
+      // The asymmetry against the position resolver below is the point. The closed-set rule
+      // exists so a value that READS AS OFF cannot turn a feature on; no treatment name reads
+      // as off, and `allday_badge_style` cannot answer "is there a badge" at all -- only
+      // "which one". Drawing nothing because `tintd` is not a word would be the same class of
+      // surprise pointing the other way.
+      for (const value of ['tintd', 'solid', '', 'true']) {
+        const container = renderList(
+          [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+          buildConfig({ allday_badge: 'time', allday_badge_style: value, days_to_show: 5 }),
+        );
+
+        expect(badgeIn(rowFor(container, 'Bin day'))?.className, value).toBe(
+          'allday-badge allday-pill-tinted',
+        );
+      }
     });
 
     it('is case- and whitespace-tolerant, because YAML is', () => {
       const container = renderList(
         [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
-        buildConfig({ allday_badge: '  Filled  ', days_to_show: 5 }),
+        buildConfig({
+          allday_badge: '  Time  ',
+          allday_badge_style: '  Filled  ',
+          days_to_show: 5,
+        }),
       );
 
-      expect(badgeIn(rowFor(container, 'Bin day'))?.className).toContain('allday-badge-filled');
+      expect(badgeIn(rowFor(container, 'Bin day'))?.className).toContain('allday-pill-filled');
+    });
+  });
+
+  describe('the position is a closed set, and everything outside it is off', () => {
+    it('renders nothing at all for a value outside the closed set', () => {
+      // The failure this guards is `getTodayIndicatorType`'s: there `'none'` DRAWS a dot,
+      // because every unmatched string reached the default. A value that reads as off must
+      // never turn the feature on, so the table is closed and anything outside it is off.
+      //
+      // Both placements are asserted, not just the time row. Checking one would pass against
+      // a resolver that fell through to the other, which is precisely the bug shape.
+      for (const value of ['none', 'off', 'Time!', 'true', '', 'row', 'summary', true, false]) {
+        const container = renderList(
+          [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+          buildConfig({ allday_badge: value, days_to_show: 5 }),
+        );
+        const row = rowFor(container, 'Bin day');
+
+        expect(badgeIn(row), String(value)).toBeNull();
+        expect(row?.querySelector('.allday-title-pill'), String(value)).toBeNull();
+      }
+    });
+
+    it('leaves the time row alone at the title position', () => {
+      // The two positions compose rather than compete: the pill says THAT an event is
+      // all-day, the time row says HOW LONG it runs, which for a multi-day event is real
+      // information the pill cannot carry. So the title position must not quietly strip the
+      // label out of the time row the way the time position does.
+      const events = [allDayEvent('2026-06-18', '2026-06-21', 'Festival')];
+      const plain = renderList(events, buildConfig({ days_to_show: 8 }));
+      const titled = renderList(events, buildConfig({ allday_badge: 'title', days_to_show: 8 }));
+
+      const timeOf = (c: HTMLElement) =>
+        rowFor(c, 'Festival')?.querySelector('.time-actual')?.textContent?.trim();
+
+      expect(timeOf(titled)).toBe(timeOf(plain));
+      expect(timeOf(titled)).not.toBe('');
+    });
+  });
+
+  /*
+   * The renderer routes on the two names EXACTLY, so an open resolver is invisible here:
+   * `resolveAlldayBadgePosition('row')` returning 'row' draws no pill, because 'row' is
+   * neither branch. A mutation that deleted the closed-set check therefore passed every
+   * rendering test in this file.
+   *
+   * It is not invisible in the EDITOR, which is what makes it worth gating. The synthetic
+   * field derives the dropdown's value from this resolver, so an open one puts a value in
+   * the control that the control does not offer; and the schema reveals the treatment select
+   * whenever the resolver returns non-null, so a garbage position would show a styling
+   * control for a badge that is not drawn.
+   *
+   * Assert the resolver directly rather than through a render, since the render is precisely
+   * the layer that cannot tell the difference.
+   */
+  describe('the position resolver itself', () => {
+    it.each(['time', 'title'])('accepts %s', (value) => {
+      expect(Helpers.resolveAlldayBadgePosition(value)).toBe(value);
+    });
+
+    it.each(['  Time  ', 'TITLE'])('normalizes %s, because YAML is written by hand', (value) => {
+      expect(Helpers.resolveAlldayBadgePosition(value)).toBe(value.trim().toLowerCase());
+    });
+
+    it.each(['off', 'none', 'row', 'summary', 'label', 'tinted', 'true', '', '   ', 'Time!'])(
+      'resolves %s to off, because the table is closed',
+      (value) => {
+        expect(Helpers.resolveAlldayBadgePosition(value)).toBeNull();
+      },
+    );
+
+    it.each([true, false, null, undefined, 0, 1, {}, []])(
+      'resolves the non-string %s to off',
+      (value) => {
+        expect(Helpers.resolveAlldayBadgePosition(value)).toBeNull();
+      },
+    );
+  });
+
+  describe('the style resolver itself', () => {
+    it.each(['neutral', 'outline', 'subtle', 'tinted', 'filled'])('accepts %s', (value) => {
+      expect(Helpers.resolveAlldayBadgeStyle(value)).toBe(value);
+    });
+
+    it.each(['tintd', 'solid', '', 'off', 'true'])(
+      'falls back to the default for %s, rather than to nothing',
+      (value) => {
+        expect(Helpers.resolveAlldayBadgeStyle(value)).toBe(Helpers.DEFAULT_ALLDAY_BADGE_STYLE);
+      },
+    );
+
+    it('never returns null, because it cannot answer whether there is a badge', () => {
+      for (const value of [undefined, null, true, 0, {}, []]) {
+        expect(Helpers.resolveAlldayBadgeStyle(value)).not.toBeNull();
+      }
+    });
+
+    it('defaults to a treatment the editor actually offers', () => {
+      // A default outside the dropdown's option list would render the control blank.
+      expect(Helpers.ALLDAY_BADGE_STYLES).toContain(Helpers.DEFAULT_ALLDAY_BADGE_STYLE);
     });
   });
 
@@ -298,7 +422,10 @@ describe('allday_badge', () => {
       const events = [allDayEvent('2026-06-18', '2026-06-21', 'Festival')];
       const off = serialize(renderList(events, buildConfig({ days_to_show: 8 })));
       const on = serialize(
-        renderList(events, buildConfig({ allday_badge: 'tinted', days_to_show: 8 })),
+        renderList(
+          events,
+          buildConfig({ allday_badge: 'time', allday_badge_style: 'tinted', days_to_show: 8 }),
+        ),
       );
 
       expect(off).not.toBe(on);
