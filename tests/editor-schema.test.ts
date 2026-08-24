@@ -4143,6 +4143,42 @@ describe('editor: exceptions for the union-typed options', () => {
    * Reconciled against `SYNTHETIC_FIELDS` rather than against a second list, so the next
    * entry is covered whether or not anyone remembers this.
    */
+  it('offers a union-typed option where its panel renders it, not at the end', () => {
+    /*
+     * `eligibleFields` documents itself as returning "one field per eligible option, in the
+     * order the panel renders them", and for these it did not. A union-typed option renders
+     * under its SYNTHETIC name, which is not a `COLUMN_OVERRIDE_KEYS` member, so the schema
+     * walk skipped it and it arrived later from `EXTRA_KEYS_BY_PANEL` -- at the end.
+     *
+     * The visible cost was the badge pair: `allday_badge_style` is a real key found in place
+     * and `allday_badge` is not, so the picker offered the STYLE at index 5 and the POSITION
+     * it depends on at index 22, seventeen entries later, with nothing saying the style is
+     * inert while the position is off. Measured after the fix: 5 and 6.
+     *
+     * Asserted as adjacency and order rather than as fixed indices, which would break on any
+     * unrelated field being added to the panel.
+     */
+    const config = buildConfig({
+      view: 'column',
+      allday_badge: 'time',
+    } as unknown as Partial<Types.Config>);
+    const panel = PANELS.find((entry) => entry.id === 'events')!;
+    const names = eligibleFields(
+      panel.build({ view: 'column', config, language: 'en' }),
+      'events',
+      'en',
+    ).map((field) => field.name);
+
+    const position = names.indexOf('allday_badge');
+    const style = names.indexOf('allday_badge_style');
+
+    // The control: both have to be offered at all for their order to mean anything.
+    expect(position, 'allday_badge offered').toBeGreaterThanOrEqual(0);
+    expect(style, 'allday_badge_style offered').toBeGreaterThanOrEqual(0);
+
+    expect(style - position).toBe(1);
+  });
+
   it('names a real synthetic field for every union-typed option', () => {
     const synthetics = new Set(Object.keys(Synthetic.SYNTHETIC_FIELDS));
     const missing = Object.entries(Overrides.UNION_OVERRIDES)

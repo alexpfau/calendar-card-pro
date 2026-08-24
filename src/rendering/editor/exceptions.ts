@@ -34,6 +34,11 @@ function extraField(key: string, language: string): SelectorSchema | undefined {
 
 const OVERRIDE_KEYS: ReadonlySet<string> = new Set<string>(ViewConfig.COLUMN_OVERRIDE_KEYS);
 
+/** Synthetic field name -> the config key it stands in for, read out of `UNION_OVERRIDES`. */
+const KEY_BY_SYNTHETIC: ReadonlyMap<string, string> = new Map(
+  Object.entries(Overrides.UNION_OVERRIDES).map(([key, override]) => [override.mode, key]),
+);
+
 /**
  * The fields a panel offers an exception for, in the order the panel renders them.
  *
@@ -51,12 +56,28 @@ export function eligibleFields(
   const fields: SelectorSchema[] = [];
 
   for (const { node } of walkSchema(schema)) {
-    if (!('selector' in node) || !OVERRIDE_KEYS.has(node.name) || seen.has(node.name)) {
-      continue;
-    }
+    if (!('selector' in node)) continue;
 
-    seen.add(node.name);
-    fields.push({ name: node.name, selector: node.selector });
+    // A union-typed option renders under its SYNTHETIC name, which is not a
+    // COLUMN_OVERRIDE_KEYS member -- so the walk missed it and it arrived later from
+    // EXTRA_KEYS_BY_PANEL, at the end of the list. That put `allday_badge_style`, a real key
+    // found in place, SEVENTEEN entries ahead of the `allday_badge` it depends on, with
+    // nothing to say the style does nothing while the position is off. Measured before and
+    // after: style@5/badge@22 became badge@5/style@6.
+    //
+    // Resolving the synthetic back to the key it stands for puts the option where its panel
+    // actually renders it, which is what this function's docblock has always claimed. The
+    // mapping is `UNION_OVERRIDES` read backwards rather than a second list, so it covers
+    // `remove_location_country` -- which had the same fault -- and anything added later.
+    const key = KEY_BY_SYNTHETIC.get(node.name) ?? node.name;
+    if (!OVERRIDE_KEYS.has(key) || seen.has(key)) continue;
+
+    const field =
+      key === node.name ? { name: key, selector: node.selector } : extraField(key, language);
+    if (field === undefined) continue;
+
+    seen.add(key);
+    fields.push(field);
   }
 
   for (const key of EXTRA_KEYS_BY_PANEL[panelId] ?? []) {
