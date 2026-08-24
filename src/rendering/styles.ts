@@ -826,7 +826,29 @@ export const cardStyles = css`
        clock. Sub-pixel by the numbers, clearly visible magnified, and worse than the numbers
        suggest because an mdi glyph is inset within its box while the pill's ink fills its
        own. Tying the two also means a changed time_icon_size keeps them aligned. */
-    line-height: var(--calendar-card-icon-size-time, 14px);
+    /* The box is the icon's height so the two align; the 0.12em then re-centres the INK
+       inside that box, which the line box alone does not do.
+       A line box centres the font's em square, and the em square reserves descender depth.
+       This label is text-transform: uppercase and therefore has no descenders, so its ink
+       sits in the upper part of that square with the reserved descender as dead space
+       below — measured at 0.63px high on a 10.2px label, which is 6% of the pill and plainly
+       visible once magnified. Accented capitals make it read worse rather than better: an
+       É overshoots cap height, so the French label pushes further from the optical centre
+       than the English one.
+       Splitting the compensation between padding and line-height keeps the outer box exactly
+       the icon's height -- (H - p) + p = H -- while moving the text down by half the padding.
+       Expressed in em so it tracks the font rather than being a pixel tuned for one size.
+       Measured on the live card at 8x, offset of the ink from the box centre:
+         0.00em  -0.80px      0.24em  +0.81px
+         0.12em  -0.19px      0.60em  +2.81px
+       The shift is padding/2 at 0.60em exactly as the arithmetic says, but at small values
+       the browser quantises the line box, so -0.19px is the closest to centred that is
+       reachable -- 0.16em lands on the same pixel and 0.24em overshoots. 0.12em is therefore
+       the smallest padding that buys the whole improvement, and it is a 4x reduction rather
+       than a cure. */
+    padding-block-start: 0.12em;
+    padding-block-end: 0;
+    line-height: calc(var(--calendar-card-icon-size-time, 14px) - 0.12em);
     padding-inline: 0.5em;
     /* 5px, where the separator dot uses 4px on its far side, and the extra pixel is optical
        rather than arbitrary. A timed event's countdown measures 5.50px before the dot against
