@@ -1461,17 +1461,19 @@ export function getView(config: Config): View {
 are a string literal, so no minifier looks inside one — comments there used to ship to every
 user, and half the stylesheet was comment. That is fixed at build time by the
 `strip-css-comments` plugin in `rollup.config.mjs`, which removes them from both
-`rendering/styles.ts` and `rendering/editor/styles.ts` and takes 45,115 raw / 17,191 gzip-9
-bytes off the eager path, of which 44,255 raw is the card against only 860 for the editor,
-because `rendering/styles.ts` is where the reasoning lives.
+`rendering/styles.ts` and `rendering/editor/styles.ts` and takes roughly **45 KB raw and
+about 17 KB gzipped** off the eager path — nearly all of it the card, since
+`rendering/styles.ts` is where the reasoning lives and the editor's share has held at 860
+bytes across every rebase.
 
-**Re-measure rather than quoting that figure, and say which commit you measured.** It moves
-with every comment anyone writes, so it is a reading rather than a constant — the number
-above is this file's own tip and was 43,546 at `4a3d880`, a few dozen commits earlier. It has
-been wrong twice by more than it looks: quoted at 31,579 when the real saving was over 44,000,
-then corrected to a figure that was itself 803 out on the day it was written and drifted to
-323 out before anyone checked. Both survived review because nothing recomputes them. The
-measurement is two builds and a subtraction:
+🚨 **That figure is deliberately approximate, and writing an exact one here is a mistake
+three people have now made.** It moves with every comment anyone writes, so it is a reading
+of the tree at one instant rather than a constant — and each precise value was already
+stale in the commit that introduced it: 31,579 when the real saving was over 44,000, then
+44,357 (803 out on the day, drifting to 323), then 44,255 (383 out, because the commit
+fixing it kept adding comments after the reading was taken). Nothing recomputes these, so
+each survived review. Measure when you need it, and **take the reading last** — after every
+comment in your commit is written:
 
 ```bash
 npm run build && stat -f%z dist/calendar-card-pro.js          # stripping ON

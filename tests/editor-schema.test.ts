@@ -4131,7 +4131,7 @@ describe('editor: exceptions for the union-typed options', () => {
      * Three of these six entries are vestigial and three are load-bearing, which makes a
      * tidy-up the realistic threat rather than a hypothetical one: a sweep run on default
      * config reports `show_week_numbers`, `today_indicator` and `allday_badge` as dead,
-     * correctly, and somebody removing "the dead ones" has a even chance of taking
+     * correctly, and somebody removing "the dead ones" has an even chance of taking
      * `remove_location_country` with them -- it is dead-looking for the same reason, and
      * only a non-default config tells them apart.
      *

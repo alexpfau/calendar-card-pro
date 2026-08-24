@@ -5,9 +5,16 @@ import { cardStyles } from '../src/rendering/styles';
 
 /**
  * The build strips comments out of `css` tagged templates, because their contents are a
- * string literal that no minifier touches — 44,357 bytes raw and 16,713 gzip on the
- * eagerly-loaded card, which is 67.6% of the stylesheet. Measured by building
- * `dist/calendar-card-pro.js` with the plugin and again without it.
+ * string literal that no minifier touches — roughly 45 KB raw and about 17 KB gzipped off
+ * the eagerly-loaded card, which is around two-thirds of the stylesheet.
+ *
+ * 🚨 **Those figures are deliberately approximate. Do not replace them with an exact byte
+ * count.** Three people have now written a precise number here and all three were stale
+ * inside their own commit: 803 bytes out at `4a3d880`, then 383 out on the commit that
+ * corrected it, because the same commit kept adding comments after the measurement was
+ * taken. The quantity moves with every comment anyone writes, so it is a reading and not a
+ * constant. The method lives in `AGENTS.md`; the assertion below is a band for the same
+ * reason. If you need the number, measure it — and take the reading last.
  *
  * That makes this function the one place in the build that edits CSS, and a bug in it
  * ships a broken stylesheet to every user with every gate still green: `stylesheet.test.ts`
@@ -93,18 +100,23 @@ describe('stripComments', () => {
   // so the header figures come from a real pair of builds, not from this number.
   //
   // Rebased again for the all-day badge, whose derivation needed explaining, and once more
-  // after the light-dark() fault was written up in the stylesheet. Re-measured the same way —
-  // one build with `stripCssComments` in `rollup.config.mjs` and one without — giving 45,217
-  // raw across both bundles. Note the split: 44,357 of that is the card and only 860 the
-  // editor, because `rendering/styles.ts` is where the reasoning lives.
+  // after the light-dark() fault was written up in the stylesheet.
   //
-  // Re-measured after this branch, because the figures above had drifted ~13.6 KB and the
-  // header additionally claimed 51% while the assertion below already read 67.6% — two wrong
-  // numbers in one sentence. Corroborated two ways, which is what makes it trustworthy: the
-  // build delta is 44,357 for the card, and stripping the source `cssText` through this same
-  // `stripComments` gives 44,349, an 8-byte difference that is exactly the "leave a space
-  // behind" rule. The editor's 860 was unchanged, which is what says the method was sound and
-  // only the card's share moved.
+  // 🚨 This block used to carry exact byte counts and they were wrong every single time, so
+  // it now carries the method instead. The history is the argument: 31,579 when the real
+  // saving was over 44,000; then 44,357, which was 803 out on the day it was written and had
+  // drifted to 323 out before anyone checked; then 44,255, which was 383 out because the
+  // commit correcting it went on adding comments after the reading was taken. Three attempts,
+  // three figures stale inside their own commit. The quantity is a reading of the tree at one
+  // instant, and this file is one of the things that moves it.
+  //
+  // Measure it, do not quote it, and take the reading LAST — after every comment in the
+  // commit is written. Two builds and a subtraction, per `AGENTS.md`. Corroborate by
+  // stripping the source `cssText` through this same `stripComments`: the two should differ
+  // by a handful of bytes, which is the "leave a space behind" rule and is what says the
+  // method was sound rather than the number lucky. The editor's share is the stable half and
+  // has held at 860 across every rebase, because `rendering/styles.ts` is where the reasoning
+  // lives and the editor's stylesheet is barely commented.
   //
   // 🚨 The disabling edit must match `stripCssComments,` as a BARE IDENTIFIER in the plugins
   // array, indented, and NOT as a call. Attempting this measurement again reported a saving

@@ -15,18 +15,26 @@ import * as Helpers from '../../utils/helpers';
  *
  * 🚨 Half of this table is vestigial and half is load-bearing, and a mutation sweep reports
  * the two halves identically unless you read which test failed. Six entries; deleting one
- * at a time against a 3223 control:
+ * at a time, measured on the commit that added the value pin below, against a 3224 control:
  *
- * | entry                              | sweep     | why                                  |
- * | ---------------------------------- | --------- | ------------------------------------ |
- * | `show_week_numbers`                | survives  | walk finds it under its synthetic    |
- * | `today_indicator`                  | survives  | walk finds it under its synthetic    |
- * | `allday_badge`                     | survives  | walk finds it under its synthetic    |
- * | `height` / `max_height`            | 2 failing | no schema field exists at all        |
- * | `remove_location_country`          | 1 failing | walk cannot reach it with a default  |
+ * | entry                     | fails | = pin | + behaviour | why                          |
+ * | ------------------------- | ----- | ----- | ----------- | ---------------------------- |
+ * | `show_week_numbers`       | 1     | 1     | 0           | walk finds it, synthetic     |
+ * | `today_indicator`         | 1     | 1     | 0           | walk finds it, synthetic     |
+ * | `allday_badge`            | 1     | 1     | 0           | walk finds it, synthetic     |
+ * | `remove_location_country` | 2     | 1     | 1           | walk misses it with defaults |
+ * | `height` / `max_height`   | 3     | 1     | 2           | no schema field exists       |
  *
- * The three that survive do so because `eligibleFields` resolves a synthetic name back to
- * its config key, so the walk already finds them in place.
+ * 🚨 **Read the `+ behaviour` column, not the total.** The value pin contributes exactly 1
+ * to every row, so after it landed NOTHING here survives deletion and the sweep alone can
+ * no longer tell the halves apart -- which is the whole point of the pin, and also a trap
+ * of its own. A reader who deletes `show_week_numbers`, sees a single failure, and reads it
+ * as "the pin is out of date" will update the pin to match, and that restores exactly the
+ * invisibility the pin was added to remove. If the ONLY failure is the pin, the entry is
+ * vestigial and the pin is right; delete the entry from both places or leave both alone.
+ *
+ * The three with no behavioural coverage are found by the walk anyway, because
+ * `eligibleFields` resolves a synthetic name back to its config key.
  *
  * The other three are live for two different reasons, and neither is obvious from here.
  * `height` and `max_height` have no `<ha-form>` field anywhere in the layout panel -- they
@@ -36,9 +44,9 @@ import * as Helpers from '../../utils/helpers';
  * sees it at any name. Its liveness is therefore invisible under default config, which is
  * the case a sweep run on defaults will call dead.
  *
- * All three live entries are pinned in `editor-schema.test.ts`, and the table is exported
- * purely so that file can pin it BY VALUE. A test that walks it cannot see an entry
- * leaving, which is the one direction that matters here.
+ * All three live entries are pinned behaviourally in `editor-schema.test.ts`, and the table
+ * is exported purely so that file can ALSO pin it by value. A test that walks it cannot see
+ * an entry leaving, which is the one direction that matters here.
  */
 export const EXTRA_KEYS_BY_PANEL: Readonly<Record<string, ReadonlyArray<string>>> = {
   layout: ['height', 'max_height'],
