@@ -805,7 +805,15 @@ export const cardStyles = css`
     font-weight: 500;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    line-height: 1.5;
+    /* Tied to the icon beside it rather than to a ratio of the font, so the pill's box and
+       the clock's box are the same height and the row's align-items -- flex-start by
+       default, since event_icon_vertical_alignment defaults to top -- lands them level.
+       A ratio cannot do that: at 1.5 the pill measured 15.3px against the icon's 14px, and
+       because flex-start puts every extra pixel at the BOTTOM, the pill hung below the
+       clock. Sub-pixel by the numbers, clearly visible magnified, and worse than the numbers
+       suggest because an mdi glyph is inset within its box while the pill's ink fills its
+       own. Tying the two also means a changed time_icon_size keeps them aligned. */
+    line-height: var(--calendar-card-icon-size-time, 14px);
     padding-inline: 0.5em;
     margin-inline-end: 4px;
     border-radius: 999px;
@@ -820,6 +828,23 @@ export const cardStyles = css`
      trade the user makes by choosing it. */
   .allday-badge-subtle {
     box-shadow: none;
+  }
+
+  /* The shape of outline in the row's own text colour, using no accent at all.
+   *
+   * The only treatment that is not a colour statement: it inherits whatever the time colour
+   * resolves to -- the shipped grey, or the user's time_color -- for both the ink and the
+   * ring. So it reads as the existing text with a frame drawn round it rather than as a new
+   * coloured element, which makes it the mildest of the five and the only one that adds no
+   * hue to a row that had none.
+   *
+   * color: inherit rather than a --badge-ink override, so the OKLCH block below cannot
+   * reach it: there is no accent here to keep the chroma of. Placed after the base rule and
+   * before that block, which is what makes it win on source order at equal specificity. */
+  .allday-badge-neutral {
+    color: inherit;
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
   }
 
   /* Boundary with no wash. The inverse trade, and the right answer at a high

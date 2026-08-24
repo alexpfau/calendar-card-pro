@@ -60,7 +60,7 @@ Configure how event times and locations are displayed:
 # Time display options
 show_time: true # Show event start/end times
 show_single_allday_time: false # Hide time for single-day all-day events
-allday_badge: false # false, or outline / subtle / tinted / filled
+allday_badge: false # false, or neutral / outline / subtle / tinted / filled
 time_24h: false # Use 12-hour format (AM/PM)
 time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time

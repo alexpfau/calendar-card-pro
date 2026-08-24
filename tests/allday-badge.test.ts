@@ -243,7 +243,7 @@ describe('allday_badge', () => {
   });
 
   describe('the four treatments', () => {
-    const modes = ['outline', 'subtle', 'tinted', 'filled'];
+    const modes = ['neutral', 'outline', 'subtle', 'tinted', 'filled'];
 
     it.each(modes)('draws %s as its own class, so the stylesheet can tell them apart', (mode) => {
       const container = renderList(

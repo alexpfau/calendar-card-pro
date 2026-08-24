@@ -490,7 +490,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Draws the all-day label as a rounded badge in the calendar accent color, instead of ' +
     'plain text. Anything that follows it, such as an end date, stays as text.',
   'allday_badge_mode.option.off.label': 'Off',
-  'allday_badge_mode.option.outline.label': 'Outline Only',
+  'allday_badge_mode.option.neutral.label': 'Plain Outline',
+  'allday_badge_mode.option.outline.label': 'Accent Outline',
   'allday_badge_mode.option.subtle.label': 'Subtle',
   'allday_badge_mode.option.tinted.label': 'Tinted',
   'allday_badge_mode.option.filled.label': 'Filled',

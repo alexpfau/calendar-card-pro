@@ -16,6 +16,7 @@ export const EVENTS_ICON = mdiCalendarText;
 /** `off` first: the default reads as the top of the list, and every other value is a treatment. */
 export const ALLDAY_BADGE_OPTIONS: ReadonlyArray<string> = [
   'off',
+  'neutral',
   'outline',
   'subtle',
   'tinted',
