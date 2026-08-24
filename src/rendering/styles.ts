@@ -755,9 +755,12 @@ export const cardStyles = css`
   /* That 4px lead-in exists to separate the countdown from the time text before it. After a
      badge there is no time text — the label became the badge — and the badge brings its own
      margin, so keeping this one stacked the two into a visibly lopsided run-up to the dot.
-     No pixel figures here on purpose: the same commit that first wrote them also changed the
-     badge's own margin from 4px to 5px, so they were stale the moment they were committed.
-     The badge's rule carries the live number and the reasoning for it; one copy is enough.
+     No margin figures here on purpose: the same commit that first wrote them also changed
+     the badge's own margin from 4px to 5px, so they were stale the moment they were
+     committed. The badge's rule carries the live number and the reasoning for it; one copy
+     is enough. The two figures further down are not that -- they measure what the SELECTOR
+     did when it was losing, which is a fact about a fixed bug rather than a live spacing
+     that can drift out from under this comment.
      Adjacent-sibling rather than :has(), because the badge really is the element before.
      The two-class prefix on the front of this selector is load-bearing: without it the
      selector carries three classes against the four of the rule it has to beat, loses on
@@ -985,9 +988,13 @@ export const cardStyles = css`
        having any effect, because the line box has hit the strut's own height -- an absurd
        -2em control returns the same numbers as -0.30em, which is the floor rather than a dead
        measurement.
-       The row is left 1.17px taller than a timed one, and that is the honest residue: the
+       The row is left 1.25px taller than a timed one, and that is the honest residue: the
        capsule IS bigger than a line of text. What the maintainer asked for, and what this
-       matches exactly, is the rhythm from one text baseline to the next. */
+       matches exactly, is the rhythm from one text baseline to the next. That 1.25px is row
+       HEIGHT, not the baseline gap, and it is the one figure in this block that is not a
+       hundredth-exact reproduction across harnesses -- six definitions of "row" (td.event,
+       .summary-row, .summary, the whole table, and pilled-vs-unpilled) all return 1.25 with
+       a no-pill control at 0, so re-measure before quoting it more precisely than that. */
     vertical-align: middle;
     margin-block: -0.17em;
   }

@@ -13,22 +13,34 @@ import * as Helpers from '../../utils/helpers';
 /**
  * Options a panel does not render as a field of their own, offered anyway.
  *
- * 🚨 Most of these became vestigial and ONE did not, which is a trap worth naming before
- * somebody tidies. Since `eligibleFields` resolves a synthetic name back to its config key,
- * the walk finds `show_week_numbers`, `today_indicator` and `allday_badge` in place, so
- * deleting those three entries changes nothing and a mutation sweep reports them dead.
+ * 🚨 Half of this table is vestigial and half is load-bearing, and a mutation sweep reports
+ * the two halves identically unless you read which test failed. Six entries; deleting one
+ * at a time against a 3223 control:
  *
- * `remove_location_country` is NOT dead, and its liveness is invisible under default config.
- * The location group only builds `location_country_mode` when `show_location` is on, so with
- * locations off the walk never sees it at any name and this entry is the only path to the
- * picker. Deleting it makes the option unreachable for exactly the users who turned locations
- * off in the shared config and want them back in one view.
+ * | entry                              | sweep     | why                                  |
+ * | ---------------------------------- | --------- | ------------------------------------ |
+ * | `show_week_numbers`                | survives  | walk finds it under its synthetic    |
+ * | `today_indicator`                  | survives  | walk finds it under its synthetic    |
+ * | `allday_badge`                     | survives  | walk finds it under its synthetic    |
+ * | `height` / `max_height`            | 2 failing | no schema field exists at all        |
+ * | `remove_location_country`          | 1 failing | walk cannot reach it with a default  |
  *
- * That case is pinned in `editor-schema.test.ts`. The other three are kept as belt and
- * braces: they cost one array entry each and they are the fallback if a panel ever stops
- * rendering its synthetic.
+ * The three that survive do so because `eligibleFields` resolves a synthetic name back to
+ * its config key, so the walk already finds them in place.
+ *
+ * The other three are live for two different reasons, and neither is obvious from here.
+ * `height` and `max_height` have no `<ha-form>` field anywhere in the layout panel -- they
+ * are drawn from `EXTRA_SELECTORS` just below, so this table is their only route in.
+ * `remove_location_country` does have a field, but the location group only builds
+ * `location_country_mode` when `show_location` is on, so with locations off the walk never
+ * sees it at any name. Its liveness is therefore invisible under default config, which is
+ * the case a sweep run on defaults will call dead.
+ *
+ * All three live entries are pinned in `editor-schema.test.ts`, and the table is exported
+ * purely so that file can pin it BY VALUE. A test that walks it cannot see an entry
+ * leaving, which is the one direction that matters here.
  */
-const EXTRA_KEYS_BY_PANEL: Readonly<Record<string, ReadonlyArray<string>>> = {
+export const EXTRA_KEYS_BY_PANEL: Readonly<Record<string, ReadonlyArray<string>>> = {
   layout: ['height', 'max_height'],
   day_header: ['show_week_numbers', 'today_indicator'],
   events: ['allday_badge', 'remove_location_country'],

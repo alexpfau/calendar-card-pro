@@ -1461,11 +1461,28 @@ export function getView(config: Config): View {
 are a string literal, so no minifier looks inside one — comments there used to ship to every
 user, and half the stylesheet was comment. That is fixed at build time by the
 `strip-css-comments` plugin in `rollup.config.mjs`, which removes them from both
-`rendering/styles.ts` and `rendering/editor/styles.ts` and takes 45,217 raw / 17,163 gzip
-bytes off the eager path (re-measured at v4.1.0 by building with the plugin and again
-without it; the card's own stylesheet is 67.6% comment by then, and 44,357 of that raw saving
-is the card against only 860 for the editor, because `rendering/styles.ts` is where the
-reasoning lives).
+`rendering/styles.ts` and `rendering/editor/styles.ts` and takes 45,115 raw / 17,191 gzip-9
+bytes off the eager path, of which 44,255 raw is the card against only 860 for the editor,
+because `rendering/styles.ts` is where the reasoning lives.
+
+**Re-measure rather than quoting that figure, and say which commit you measured.** It moves
+with every comment anyone writes, so it is a reading rather than a constant — the number
+above is this file's own tip and was 43,546 at `4a3d880`, a few dozen commits earlier. It has
+been wrong twice by more than it looks: quoted at 31,579 when the real saving was over 44,000,
+then corrected to a figure that was itself 803 out on the day it was written and drifted to
+323 out before anyone checked. Both survived review because nothing recomputes them. The
+measurement is two builds and a subtraction:
+
+```bash
+npm run build && stat -f%z dist/calendar-card-pro.js          # stripping ON
+# comment out the bare `stripCssComments,` identifier in rollup.config.mjs, rebuild
+npm run build && stat -f%z dist/calendar-card-pro.js          # stripping OFF
+```
+
+🚨 **The disabling edit must match `stripCssComments,` as a bare identifier**, indented, not
+as a call — an attempt that misses reports a saving of ZERO, which reads as "the plugin does
+nothing" rather than as a failed edit. **Assert the two arms differ before believing any
+delta**, per the control rule below, and quote the gzip level with any compressed figure.
 
 This is worth stating because the alternative is worse than it looks: without knowing the
 plugin exists, the reasonable move is to keep CSS comments terse, and the reasoning in

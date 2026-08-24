@@ -164,10 +164,10 @@ there is nothing left to draw it in.
 An all-day event's time row is two different things depending on how long the event runs, so
 it takes two options:
 
-| Option                      | Type    | Default | Description                                                                                                           |
-| --------------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
-| `show_single_allday_time`   | boolean | `true`  | The time row on all-day events occupying one day, which reads just "All day"                                          |
-| `show_multiday_allday_time` | boolean | `true`  | The time row on all-day events spanning several days, which reads "All day, until Fri 29" and so carries the end date |
+| Option                      | Type    | Default | Description                                                                                                                   |
+| --------------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `show_single_allday_time`   | boolean | `true`  | The time row on all-day events occupying one day, which reads just "All day"                                                  |
+| `show_multiday_allday_time` | boolean | `true`  | The time row on all-day events spanning several days, which reads "All day, until Monday, Jun 29" and so carries the end date |
 
 They are separate because the second row carries information the first does not. Turning both
 off is fine and is what an event reduced to a pill wants; turning only the first off keeps the

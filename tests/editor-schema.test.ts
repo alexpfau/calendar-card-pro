@@ -31,6 +31,7 @@ import {
   writeEntity,
 } from '../src/rendering/editor/entities';
 import {
+  EXTRA_KEYS_BY_PANEL,
   applySelection,
   declaredKeys,
   eligibleFields,
@@ -4125,24 +4126,28 @@ describe('editor: the exceptions widget in the chassis', () => {
  * value or the exception the user just asked for would silently disappear.
  */
 describe('editor: exceptions for the union-typed options', () => {
-  /*
-   * The reconciliation this block did not have, and the defect it did not catch.
-   *
-   * `UNION_OVERRIDES` projects each union-typed option through a SYNTHETIC field, named by
-   * its `mode`. Naming one that does not exist does not throw and does not fail a type check:
-   * `overrideFormData` deletes every key in the table from the data, and `deriveOverrideData`
-   * refills it from `SYNTHETIC_FIELDS` and simply finds nothing. The control renders BLANK --
-   * showing neither the value stored in the block nor the card-level one it inherits, which
-   * is the entire job of that widget.
-   *
-   * `allday_badge_style` shipped that way on this branch: a plain closed-set string with no
-   * second shape and therefore no synthetic, registered here anyway. Stored `'outline'`
-   * derived to `undefined`. Nothing caught it -- the table was module-local so no test could
-   * walk it, and the cases below hardcode the options that existed when they were written.
-   *
-   * Reconciled against `SYNTHETIC_FIELDS` rather than against a second list, so the next
-   * entry is covered whether or not anyone remembers this.
-   */
+  it('pins EXTRA_KEYS_BY_PANEL by value, because a walk cannot see an entry leaving', () => {
+    /*
+     * Three of these six entries are vestigial and three are load-bearing, which makes a
+     * tidy-up the realistic threat rather than a hypothetical one: a sweep run on default
+     * config reports `show_week_numbers`, `today_indicator` and `allday_badge` as dead,
+     * correctly, and somebody removing "the dead ones" has a even chance of taking
+     * `remove_location_country` with them -- it is dead-looking for the same reason, and
+     * only a non-default config tells them apart.
+     *
+     * The two tests below cover the live entries behaviourally. This one covers the table
+     * itself, and it is deliberately a value comparison rather than a loop over its keys:
+     * `for (const k of Object.keys(TABLE))` runs one fewer time when an entry is deleted
+     * and stays green, which is the trap AGENTS.md names. `toEqual` fails in BOTH
+     * directions, so an addition has to be a deliberate act too.
+     */
+    expect(EXTRA_KEYS_BY_PANEL).toEqual({
+      layout: ['height', 'max_height'],
+      day_header: ['show_week_numbers', 'today_indicator'],
+      events: ['allday_badge', 'remove_location_country'],
+    });
+  });
+
   it('still offers remove_location_country when the location group is not built', () => {
     /*
      * The coverage the synthetic-resolution change quietly removed. Before it, dropping
@@ -4212,6 +4217,24 @@ describe('editor: exceptions for the union-typed options', () => {
     expect(style - position).toBe(1);
   });
 
+  /*
+   * The reconciliation this block did not have, and the defect it did not catch.
+   *
+   * `UNION_OVERRIDES` projects each union-typed option through a SYNTHETIC field, named by
+   * its `mode`. Naming one that does not exist does not throw and does not fail a type check:
+   * `overrideFormData` deletes every key in the table from the data, and `deriveOverrideData`
+   * refills it from `SYNTHETIC_FIELDS` and simply finds nothing. The control renders BLANK --
+   * showing neither the value stored in the block nor the card-level one it inherits, which
+   * is the entire job of that widget.
+   *
+   * `allday_badge_style` shipped that way on this branch: a plain closed-set string with no
+   * second shape and therefore no synthetic, registered here anyway. Stored `'outline'`
+   * derived to `undefined`. Nothing caught it -- the table was module-local so no test could
+   * walk it, and the cases below hardcode the options that existed when they were written.
+   *
+   * Reconciled against `SYNTHETIC_FIELDS` rather than against a second list, so the next
+   * entry is covered whether or not anyone remembers this.
+   */
   it('names a real synthetic field for every union-typed option', () => {
     const synthetics = new Set(Object.keys(Synthetic.SYNTHETIC_FIELDS));
     const missing = Object.entries(Overrides.UNION_OVERRIDES)
