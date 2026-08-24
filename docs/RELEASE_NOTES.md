@@ -108,7 +108,7 @@ It judges the day a row actually lands on rather than the day the event began, w
 
 ### 🎂 Ages on Birthdays, and Counts on Anniversaries
 
-**Your birthday events can show the person's age, the way Apple's Calendar does.** Apple builds that calendar out of Contacts, which is why it cannot be shared and why Home Assistant has never been able to show it — the card does the same job on the calendar you already have. Write `YEAR=1976` in a birthday event's description and the card draws **Annas Geburtstag (50)**.
+**Your birthday events can show the person's age, the way Apple's Calendar does.** Apple builds that calendar out of Contacts, which is why it cannot be shared and why Home Assistant has never been able to show it — the card does the same job on the calendar you already have. Write `YEAR=1976` in a birthday event's description and the card draws **Anna's Birthday (50)**.
 
 Because a birthday is stored as an event that repeats every year, each occurrence already knows its own year, so the age is a subtraction and updates itself forever — `(50)` this year, `(51)` next, with nothing to change. The card never needs the full date of birth and never has to work out whether the day has passed yet. The same marker counts anniversaries: a wedding in 2005 shows `(21)` in 2026.
 
@@ -134,13 +134,13 @@ The field is selected, not added: a calendar filtering on `location` has stopped
 
 ### ✏️ Rewrite What an Event Says
 
-**Your calendar's wording no longer has to be the card's wording.** A birthday feed that prefixes every entry with `Geburtstag von`, a work calendar that stamps `[AUTO]` into generated titles, a shared calendar whose details are nobody else's business — three new per-calendar options rewrite an event's title, location or description as it is drawn, leaving the calendar itself untouched.
+**Your calendar's wording no longer has to be the card's wording.** A birthday feed that prefixes every entry with `Birthday of`, a work calendar that stamps `[AUTO]` into generated titles, a shared calendar whose details are nobody else's business — three new per-calendar options rewrite an event's title, location or description as it is drawn, leaving the calendar itself untouched.
 
 `replace_pattern` is what to find, as a regular expression; `replace_with` is what to put there; `replace_field` points the pair at the title, the location or the description, and means the title when left alone.
 
-The two text options are independently optional, and which of them you set _is_ the instruction. Both set replaces the match. Only `replace_pattern` **removes** it, so `Geburtstag von Hans Müller` becomes `Hans Müller`. Only `replace_with` replaces the **whole field**, whatever it said, which is how a shared calendar shows `Busy` on every entry rather than what you are actually doing. Neither does nothing. Deleting has a spelling of its own rather than being written as an empty `replace_with` because the visual editor cannot store an empty value — spelled the other way, stripping a prefix would have been reachable only by hand-editing YAML, which is the example the request opened with.
+The two text options are independently optional, and which of them you set _is_ the instruction. Both set replaces the match. Only `replace_pattern` **removes** it, so `Birthday of Ben Fischer` becomes `Ben Fischer`. Only `replace_with` replaces the **whole field**, whatever it said, which is how a shared calendar shows `Busy` on every entry rather than what you are actually doing. Neither does nothing. Deleting has a spelling of its own rather than being written as an empty `replace_with` because the visual editor cannot store an empty value — spelled the other way, stripping a prefix would have been reachable only by hand-editing YAML, which is the example the request opened with.
 
-Matching is case-insensitive and replaces every occurrence, so a fragment repeated inside one generated title goes from all of it rather than the first copy. Capture groups work, so `Geburtstag von (.+)` with `$1 🎂` is the same edit from the other side. An age from a `YEAR=` marker is **not** appended to a title that was replaced outright — `Busy (50)` would announce that the hidden event is a birthday — while a title your pattern merely edited keeps its count.
+Matching is case-insensitive and replaces every occurrence, so a fragment repeated inside one generated title goes from all of it rather than the first copy. Capture groups work, so `Birthday of (.+)` with `$1 🎂` is the same edit from the other side. An age from a `YEAR=` marker is **not** appended to a title that was replaced outright — `Busy (50)` would announce that the hidden event is a birthday — while a title your pattern merely edited keeps its count.
 
 One field per block, and this is the one place listing a calendar twice does not help: two filter blocks divide a calendar's events between them, while two replacement blocks both match the same events and would draw each one twice. See [Text Replacement](/features/core-settings#text-replacement) (#153, #212, #186)
 

@@ -595,7 +595,7 @@ export function groupEventsByDay(
       //
       // Stripping HTML *before* matching is not the same thing as reading the display
       // copy, and it is required: Google Calendar's description editor emits `&nbsp;`, so
-      // `Geboren&nbsp;YEAR=1996` has no ordinary space in front of the marker until
+      // `Born&nbsp;YEAR=1996` has no ordinary space in front of the marker until
       // entities are decoded. The prefilter keeps that off the hot path — almost no
       // description mentions "year" at all, and one regex test is cheaper than building a
       // detached textarea per event per render.
@@ -651,13 +651,13 @@ export function groupEventsByDay(
       // shown — and appending to either is the leak #212 asked to be spared: `Busy (50)`
       // announces that the hidden event is a birthday, and a bare `(50)` announces it
       // louder. A title merely *edited* keeps its count, which is the case #153 ex.1 wants:
-      // stripping `Geburtstag von ` off a birthday should still say how old they are.
+      // stripping `Birthday of ` off a birthday should still say how old they are.
       //
       // 🚨 **Both sides are trimmed, and each side is trimmed for its own reason.** The
       // right-hand test has to ask the same question `appendAgeCount` asks — it draws a
       // bare count when `summary.trim()` is empty — because any disagreement between the
       // two is a leak by construction, and testing `text === ''` disagreed on precisely
-      // the blank-but-not-empty titles an ordinary pattern produces: `Annas Geburtstag`
+      // the blank-but-not-empty titles an ordinary pattern produces: `Anna's Birthday`
       // minus `[A-Za-z]+` is whitespace, not an empty string, so it suppressed nothing and rendered `(50)`.
       // The left-hand side is trimmed so a title that was *already* only whitespace is not
       // read as a deletion — nothing was taken away from it, so it keeps the bare count an

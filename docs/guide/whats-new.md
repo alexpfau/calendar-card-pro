@@ -18,7 +18,7 @@ public release in January 2025 to today.
 - 🎂 **Ages on Birthdays, Counts on Anniversaries**: Write `YEAR=1976` in a birthday event's description and the card appends the age to the title — [nothing to configure](/features/event-content#birthday-ages-anniversary-counts), and it stays right every year, because each occurrence of a repeating birthday already carries its own date
 - 💬 **Teams Meetings Get the Teams Icon**: online meetings show [the Teams logo in place of the map pin](/features/event-content#the-location-icon) automatically, in any language Teams writes them in, and the new per-calendar `location_icon` names a different icon for any calendar — including back to the plain marker
 - 🔍 **Filter on the Location or Description**: [`filter_field`](/features/core-settings#matching-the-location-or-description-instead) points `blocklist` and `allowlist` at an event's location or description instead of its title, so a Zoom URL in a location field can finally be filtered on
-- ✏️ **Rewrite What an Event Says**: [`replace_pattern`, `replace_with` and `replace_field`](/features/core-settings#text-replacement) rewrite one field of a calendar's events as the card draws them, leaving the calendar untouched — strip a `Geburtstag von ` prefix off every birthday, or show `Busy` in place of every title on a shared family card
+- ✏️ **Rewrite What an Event Says**: [`replace_pattern`, `replace_with` and `replace_field`](/features/core-settings#text-replacement) rewrite one field of a calendar's events as the card draws them, leaving the calendar untouched — strip a `Birthday of ` prefix off every birthday, or show `Busy` in place of every title on a shared family card
 
 ## v4.0
 

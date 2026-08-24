@@ -245,7 +245,7 @@ Put **`YEAR=1976`** anywhere in the event's description and the card appends the
 
 ```yaml
 # Nothing to configure — the marker in the event does the work
-Annas Geburtstag  →  Annas Geburtstag (50)
+Anna's Birthday  →  Anna's Birthday (50)
 ```
 
 The event you already have is the one that carries it. Birthdays are normally stored as an event that repeats every year, and each occurrence carries its own year, so the number is a subtraction and nothing else — the 2026 occurrence of a 1976 birthday is `(50)`, and the 2027 one is `(51)` without anyone touching the card again. It never needs the full date of birth, and it never has to work out whether the day has passed yet this year, because the event **is** the birthday.
@@ -267,7 +267,7 @@ The year is always four digits, so `YEAR=197` and `YEAR=19766` are both ignored.
 | --------------------- | -------------- |
 | `YEAR=1976`           | `(50)` in 2026 |
 | `YEAR:1996`           | `(30)` in 2026 |
-| `Geboren YEAR=1996`   | `(30)` in 2026 |
+| `Born YEAR=1996`      | `(30)` in 2026 |
 | `YEAR = 1976`         | nothing        |
 | `Academic Year: 2025` | nothing        |
 | `BIRTHYEAR=1996`      | nothing        |
@@ -278,7 +278,7 @@ The card only ever counts **upward**. A year that matches the event's own year, 
 
 ### What the Description Shows
 
-The marker is instruction to the card, not something to read, so it never appears on your card. With `show_description: true`, a description of `Geboren YEAR=1996 in Berlin` is drawn as **Geboren in Berlin**, and a description containing nothing but the marker leaves no description line at all — which is the tidiest way to use it, since the year is metadata rather than something you wanted to read.
+The marker is instruction to the card, not something to read, so it never appears on your card. With `show_description: true`, a description of `Born YEAR=1996 in Bristol` is drawn as **Born in Bristol**, and a description containing nothing but the marker leaves no description line at all — which is the tidiest way to use it, since the year is metadata rather than something you wanted to read.
 
 Filtering is the deliberate exception. [`blocklist` and `allowlist`](/features/core-settings) read the event exactly as your calendar delivered it, so a `filter_field: description` pattern still sees the raw `YEAR=1976`. That is what makes it possible to filter a birthday calendar on its markers.
 

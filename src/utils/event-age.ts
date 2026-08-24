@@ -8,7 +8,7 @@
  * has to be reconfigured as the years pass.
  *
  * The count is rendered as a bracketed number appended to the title, which is deliberately
- * language-neutral. `Annas Geburtstag (50)` needs no date formatting, no
+ * language-neutral. `Anna's Birthday (50)` needs no date formatting, no
  * pluralization and no translated string, so all 35 languages get it on the day it ships.
  * It is also why one implementation serves anniversaries as well as birthdays: a bracketed
  * number does not claim to be an age, so the card never has to know which it is looking at.
@@ -61,7 +61,7 @@ export function mayCarryAgeMarker(rawDescription: string): boolean {
  * Read the year out of a marker.
  *
  * Expects text with HTML already stripped, because that is what the user typed and sees.
- * Google Calendar's description editor emits `&nbsp;`, so `Geboren&nbsp;YEAR=1996` has no
+ * Google Calendar's description editor emits `&nbsp;`, so `Born&nbsp;YEAR=1996` has no
  * ordinary space in front of the marker until entities are decoded — and `\s` does match
  * U+00A0 once they are.
  *
@@ -78,8 +78,8 @@ export function readMarkerYear(plainDescription: string): number | null {
 /**
  * Remove every marker from a description, and tidy what removing it leaves behind.
  *
- * The leading whitespace is part of the match, so `Geboren YEAR=1996 in Berlin` closes up
- * to `Geboren in Berlin` rather than leaving a double space. A marker on its own line
+ * The leading whitespace is part of the match, so `Born YEAR=1996 in Bristol` closes up
+ * to `Born in Bristol` rather than leaving a double space. A marker on its own line
  * leaves an empty line, which the newline collapse removes; a marker that was the *whole*
  * description leaves nothing at all, and the description block is rendered behind a
  * truthiness guard, so that row simply loses its description rather than showing an empty
@@ -89,7 +89,7 @@ export function readMarkerYear(plainDescription: string): number | null {
  * is card syntax rather than content, and showing the raw syntax with no number beside it
  * is the worst of the available outcomes.
  *
- * The horizontal-whitespace collapse is what stops `Geboren  YEAR=1996  in Berlin` from
+ * The horizontal-whitespace collapse is what stops `Born  YEAR=1996  in Bristol` from
  * closing up to three spaces: the left boundary consumes exactly one whitespace character
  * and the right side none, so a doubled separator loses one space of four rather than two.
  * It is a post-pass rather than a wider match because consuming the trailing run would
@@ -167,7 +167,7 @@ export function resolveAgeCount(eventYear: number, markerYear: number): number |
  * after a deliberate deletion, since a lone bracketed number is nothing else. `titleWithheld`
  * is what tells those apart, and it has to ask the same question this function asks — it
  * tests `.trim()` on both sides for that reason. Testing the replaced title for exact
- * emptiness instead let a blank-but-not-empty result through: `Annas Geburtstag` minus
+ * emptiness instead let a blank-but-not-empty result through: `Anna's Birthday` minus
  * `[A-Za-z]+` is whitespace rather than an empty string, which passed the guard, failed the branch below, and rendered
  * the bare count. Keep the two tests spelled the same way.
  *
