@@ -73,7 +73,7 @@ describe('recognising a person entity id', () => {
   it('declines anything that is not one whole entity id', () => {
     for (const near of [
       'Person.anna',
-      'person.anna',
+      'person.Anna',
       'person.',
       'person',
       'persons.anna',

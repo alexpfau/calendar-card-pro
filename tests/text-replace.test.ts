@@ -371,7 +371,7 @@ describe('the age count from #124', () => {
     // Nothing was taken away from this title, so it is not withheld — it is simply absent,
     // and `appendAgeCount` deliberately draws a bare count for an untitled event. Trimming
     // only the right-hand side would reclassify this as a deletion and suppress it.
-    expect(drawn(allDay({ ...BIRTHDAY, summary: '   ' }), {}).summary).toBe('(40)');
+    expect(drawn(allDay({ ...BIRTHDAY, summary: '   ' }), {}).summary).toBe('(50)');
   });
 
   it('still appends when the rewrite targets another field', () => {
@@ -384,7 +384,7 @@ describe('the age count from #124', () => {
         { replace_field: 'location', replace_with: 'Elsewhere' },
         { show_description: true },
       ).summary,
-    ).toBe('Annas Geburtstag (40)');
+    ).toBe('Annas Geburtstag (50)');
   });
 });
 

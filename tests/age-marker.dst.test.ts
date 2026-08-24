@@ -106,7 +106,7 @@ describe('a January 1 birthday across time zones', () => {
   // means January 1 wherever it is read — and the count must therefore be the same number
   // in every zone. A zone-dependent answer here *is* the failure.
   it('shows the same age everywhere', () => {
-    expect(grouped(ALL_DAY_BIRTHDAY).summary).toBe('Annas Geburtstag (40)');
+    expect(grouped(ALL_DAY_BIRTHDAY).summary).toBe('Annas Geburtstag (50)');
   });
 
   it('lands on January 1 of the year it names', () => {

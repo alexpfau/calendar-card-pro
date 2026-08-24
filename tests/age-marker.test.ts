@@ -126,7 +126,7 @@ describe('the YEAR marker grammar', () => {
 
 describe('the count itself', () => {
   it('subtracts, because the event is the birthday', () => {
-    expect(EventAge.resolveAgeCount(2026, 1976)).toBe(40);
+    expect(EventAge.resolveAgeCount(2026, 1976)).toBe(50);
   });
 
   it('serves an anniversary with the same subtraction', () => {
@@ -213,7 +213,7 @@ describe('an event on the card', () => {
   // fails against an implementation reading the display copy instead of the raw event,
   // and it is the configuration almost every card is on.
   it('shows the age with descriptions turned off', () => {
-    expect(displayed(birthday('YEAR=1976')).summary).toBe('Annas Geburtstag (40)');
+    expect(displayed(birthday('YEAR=1976')).summary).toBe('Annas Geburtstag (50)');
   });
 
   it('still shows no description, having read one', () => {
@@ -222,7 +222,7 @@ describe('an event on the card', () => {
 
   it('shows the age with descriptions turned on', () => {
     const event = displayed(birthday('YEAR=1976'), { show_description: true });
-    expect(event.summary).toBe('Annas Geburtstag (40)');
+    expect(event.summary).toBe('Annas Geburtstag (50)');
   });
 
   // The leak: the marker is card syntax, so it must not survive into the drawn text.
@@ -242,7 +242,7 @@ describe('an event on the card', () => {
 
   it('reads a marker wrapped in the HTML a rich-text calendar produces', () => {
     expect(displayed(birthday('<p>Geboren <b>YEAR=1976</b></p>')).summary).toBe(
-      'Annas Geburtstag (40)',
+      'Annas Geburtstag (50)',
     );
   });
 
@@ -278,8 +278,8 @@ describe('an event on the card', () => {
 
   it('is stable across repeated renders', () => {
     const raw = birthday('YEAR=1976');
-    expect(displayed(raw).summary).toBe('Annas Geburtstag (40)');
-    expect(displayed(raw).summary).toBe('Annas Geburtstag (40)');
+    expect(displayed(raw).summary).toBe('Annas Geburtstag (50)');
+    expect(displayed(raw).summary).toBe('Annas Geburtstag (50)');
   });
 });
 
@@ -310,7 +310,7 @@ describe('the sort the count is appended before', () => {
     ).flatMap((day) => day.events);
 
     expect(events.map((event) => event.summary)).toEqual([
-      'Annas Geburtstag (40)',
+      'Annas Geburtstag (50)',
       'Mia Geburtstag (50)',
       'Zoe Geburtstag (30)',
     ]);
@@ -323,12 +323,12 @@ describe('the sort the count is appended before', () => {
   it('orders two identical titles by their count', () => {
     const config = buildConfig({ days_to_show: 7 });
     const events = EventUtils.groupEventsByDay(
-      [birthday('YEAR=1976', 'Geburtstag'), birthday('YEAR=1976', 'Geburtstag')],
+      [birthday('YEAR=1996', 'Geburtstag'), birthday('YEAR=1976', 'Geburtstag')],
       config,
       true,
       'en',
     ).flatMap((day) => day.events);
 
-    expect(events.map((event) => event.summary)).toEqual(['Geburtstag (40)', 'Geburtstag (50)']);
+    expect(events.map((event) => event.summary)).toEqual(['Geburtstag (30)', 'Geburtstag (50)']);
   });
 });
