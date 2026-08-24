@@ -91,6 +91,7 @@ week_separator_width: 1px
 week_separator_color: '#03a9f450'
 month_separator_width: 1.5px
 month_separator_color: var(--secondary-text-color)
+allday_badge: subtle
 ```
 
 ## 🗓️ A Week Side by Side, in Column View
