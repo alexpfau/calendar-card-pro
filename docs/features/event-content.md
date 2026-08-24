@@ -141,6 +141,8 @@ shown by default, but setting `show_single_allday_time: false` hides it, and the
 with it. Multi-day all-day events are unaffected — their row is always shown.
 :::
 
+### Removing Country Names
+
 The `remove_location_country` option offers three modes:
 
 ```yaml
