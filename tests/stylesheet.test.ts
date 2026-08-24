@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { cardStyles } from '../src/rendering/styles';
+import * as Helpers from '../src/utils/helpers';
 
 /**
  * The stylesheet gate.
@@ -1210,11 +1211,18 @@ describe('card stylesheet', () => {
      * declaring the box and the colour derivations ONCE against both selectors, and giving
      * each position only the type decisions that genuinely differ.
      *
-     * The reconciliation below is against the treatment list itself rather than a second
-     * copy of it, so a sixth treatment added to `ALLDAY_BADGE_STYLES` and wired at only one
-     * position fails here instead of rendering unstyled on the other.
+     * The list below is ALLDAY_BADGE_STYLES itself, not a second copy of it, so a sixth
+     * treatment added there and given no rule fails here instead of rendering unstyled.
+     *
+     * It was a hand-written literal of the same five when first written, and the comment
+     * above it claimed exactly the property it did not have. Planting a sixth treatment in
+     * the constant left the WHOLE suite green at 3195 passed -- only `check:docs` noticed,
+     * and that only because it reconciles the docs table against the constant. This is the
+     * `Object.keys(TABLE)` trap wearing a different hat: a literal that duplicates a table
+     * reads as a reconciliation and is one only by coincidence, for as long as nobody edits
+     * the table.
      */
-    it.each(['neutral', 'outline', 'subtle', 'tinted', 'filled'])(
+    it.each(Helpers.ALLDAY_BADGE_STYLES)(
       'declares %s once, under a name tied to neither position',
       (style) => {
         // A treatment class named for one position would either be a lie at the other or

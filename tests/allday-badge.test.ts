@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
+import * as EditorSchemas from '../src/rendering/editor/schemas/events';
 import * as Render from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
 import * as Helpers from '../src/utils/helpers';
@@ -414,6 +415,56 @@ describe('allday_badge', () => {
     it('defaults to a treatment the editor actually offers', () => {
       // A default outside the dropdown's option list would render the control blank.
       expect(Helpers.ALLDAY_BADGE_STYLES).toContain(Helpers.DEFAULT_ALLDAY_BADGE_STYLE);
+    });
+  });
+
+  /*
+   * The editor keeps its own copy of each value set, because a schema names plain strings and
+   * cannot import a `const` tuple's type. Two hand-written copies of one table is precisely
+   * the shape AGENTS.md warns about, and it is unguarded in both directions:
+   *
+   *   - a treatment added to ALLDAY_BADGE_STYLES but not to the editor list renders correctly
+   *     from YAML and is silently absent from the dropdown, so nobody can reach it from the UI;
+   *   - a value added to the editor list but not to the resolver is OFFERED by the dropdown
+   *     and then rejected at render, falling back to the default with no error.
+   *
+   * Measured before this existed: planting a sixth treatment in ALLDAY_BADGE_STYLES left the
+   * entire suite green at 3195 passed. Only `check:docs` caught it, and only because it
+   * reconciles the DOCS table against the constant -- nothing looked at the editor at all.
+   *
+   * Reconciled by value in both directions, so neither a dropped entry nor an unexplained new
+   * one can pass.
+   */
+  describe('the editor offers exactly the values the resolvers accept', () => {
+    it('offers every treatment and no others', () => {
+      expect([...EditorSchemas.ALLDAY_BADGE_STYLE_OPTIONS].sort()).toEqual(
+        [...Helpers.ALLDAY_BADGE_STYLES].sort(),
+      );
+    });
+
+    it('offers every position, plus off and nothing else', () => {
+      // `off` is the one legitimate difference: it is the editor's spelling for "no pill",
+      // which the resolver expresses as null rather than as a member of the set. Asserted as
+      // an exact set rather than as a subset, so a second UI-only value cannot creep in.
+      expect([...EditorSchemas.ALLDAY_BADGE_POSITION_OPTIONS].sort()).toEqual(
+        ['off', ...Helpers.ALLDAY_BADGE_POSITIONS].sort(),
+      );
+    });
+
+    it('resolves every treatment the dropdown offers to itself', () => {
+      // The set comparison above would still pass if the resolver lower-cased or trimmed a
+      // value into something else, so walk them.
+      for (const style of EditorSchemas.ALLDAY_BADGE_STYLE_OPTIONS) {
+        expect(Helpers.resolveAlldayBadgeStyle(style), style).toBe(style);
+      }
+    });
+
+    it('resolves every position the dropdown offers, and only off to nothing', () => {
+      for (const position of EditorSchemas.ALLDAY_BADGE_POSITION_OPTIONS) {
+        const resolved = Helpers.resolveAlldayBadgePosition(position);
+        if (position === 'off') expect(resolved, position).toBeNull();
+        else expect(resolved, position).toBe(position);
+      }
     });
   });
 
