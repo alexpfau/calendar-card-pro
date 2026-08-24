@@ -108,7 +108,7 @@ It judges the day a row actually lands on rather than the day the event began, w
 
 ### 🎂 Ages on Birthdays, and Counts on Anniversaries
 
-**Your birthday events can show the person's age, the way Apple's Calendar does.** Apple builds that calendar out of Contacts, which is why it cannot be shared and why Home Assistant has never been able to show it — the card does the same job on the calendar you already have. Write `YEAR=1976` in a birthday event's description and the card draws **Max Mustermann Geburtstag (50)**.
+**Your birthday events can show the person's age, the way Apple's Calendar does.** Apple builds that calendar out of Contacts, which is why it cannot be shared and why Home Assistant has never been able to show it — the card does the same job on the calendar you already have. Write `YEAR=1976` in a birthday event's description and the card draws **Annas Geburtstag (50)**.
 
 Because a birthday is stored as an event that repeats every year, each occurrence already knows its own year, so the age is a subtraction and updates itself forever — `(50)` this year, `(51)` next, with nothing to change. The card never needs the full date of birth and never has to work out whether the day has passed yet. The same marker counts anniversaries: a wedding in 2005 shows `(21)` in 2026.
 

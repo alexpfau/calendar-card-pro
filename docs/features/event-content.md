@@ -245,7 +245,7 @@ Put **`YEAR=1976`** anywhere in the event's description and the card appends the
 
 ```yaml
 # Nothing to configure — the marker in the event does the work
-Max Mustermann Geburtstag  →  Max Mustermann Geburtstag (50)
+Annas Geburtstag  →  Annas Geburtstag (50)
 ```
 
 The event you already have is the one that carries it. Birthdays are normally stored as an event that repeats every year, and each occurrence carries its own year, so the number is a subtraction and nothing else — the 2026 occurrence of a 1976 birthday is `(50)`, and the 2027 one is `(51)` without anyone touching the card again. It never needs the full date of birth, and it never has to work out whether the day has passed yet this year, because the event **is** the birthday.

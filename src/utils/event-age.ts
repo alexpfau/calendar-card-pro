@@ -8,7 +8,7 @@
  * has to be reconfigured as the years pass.
  *
  * The count is rendered as a bracketed number appended to the title, which is deliberately
- * language-neutral. `Max Mustermann Geburtstag (50)` needs no date formatting, no
+ * language-neutral. `Annas Geburtstag (50)` needs no date formatting, no
  * pluralization and no translated string, so all 35 languages get it on the day it ships.
  * It is also why one implementation serves anniversaries as well as birthdays: a bracketed
  * number does not claim to be an age, so the card never has to know which it is looking at.
@@ -167,8 +167,8 @@ export function resolveAgeCount(eventYear: number, markerYear: number): number |
  * after a deliberate deletion, since a lone bracketed number is nothing else. `titleWithheld`
  * is what tells those apart, and it has to ask the same question this function asks — it
  * tests `.trim()` on both sides for that reason. Testing the replaced title for exact
- * emptiness instead let a blank-but-not-empty result through: `Max Mustermann Geburtstag` minus
- * `[A-Za-z]+` is two spaces, which passed the guard, failed the branch below, and rendered
+ * emptiness instead let a blank-but-not-empty result through: `Annas Geburtstag` minus
+ * `[A-Za-z]+` is whitespace rather than an empty string, which passed the guard, failed the branch below, and rendered
  * the bare count. Keep the two tests spelled the same way.
  *
  * @param summary Title to append to — the calendar's own, or what a rewrite left of it

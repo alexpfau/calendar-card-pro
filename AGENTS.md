@@ -683,6 +683,36 @@ These conventions are **enforced by `npm run check:docs`**, so this section is a
 reference for _why_, not a checklist to police by hand. Run it before pushing docs
 changes; CI runs it too.
 
+🚨 **Never write a real person into an example. Not the maintainer, not his family, not
+anyone.** Every name, entity id, birth year, address, photo and calendar name in the
+documentation, in code comments, in test fixtures and on the demo dashboards must be
+invented. Use plain fictitious **first names** — `Anna`, `Ben`, `person.anna`,
+`calendar.anna`. Not full names, not joke placeholders like `Max Mustermann`, and above
+all not whoever happens to be in the calendar the feature was developed against.
+
+This is the one rule here with a consequence that cannot be taken back. Everything else
+in this file describes something that ships wrong and can be fixed in the next release;
+this ships someone's name and date of birth to a public documentation site, a public
+repository and every clone of it, and no later commit un-publishes that.
+
+It is an easy mistake to make. A feature is often documented against whatever calendar it
+was developed on, and if that calendar holds real names, entity ids or birth years they
+flow straight into `docs/`, `RELEASE_NOTES.md`, `whats-new.md` and source comments without
+anything objecting — it is all valid prose in valid files, and no gate can tell a
+plausible fake name from a real one.
+
+So the discipline has to be at the point of writing, and it is a specific habit rather
+than general care: **when documenting a feature you developed against live data, change
+the names before you write the sentence, not after.** Copying a real event into a doc as
+a first draft and intending to anonymize it later is exactly how real data slips in.
+The same applies to fixtures created on the demo calendars and to any card added to a
+screenshot dashboard, because both end up in published images.
+
+Two things are deliberately **not** covered by this. `@author Alex Pfau` in
+`src/calendar-card-pro.ts` is authorship attribution, and `github.com/alexpfau/...` URLs
+are the repository's own address; both stay. The rule is about example _data_, not about
+the project's identity.
+
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
 emoji there ends up in the browser tab, bookmarks, share previews and search results.
 Two pages shipped `<title>⚙️ Visual Configuration Editor | Calendar Card Pro` before
