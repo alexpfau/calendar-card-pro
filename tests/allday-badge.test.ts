@@ -541,6 +541,38 @@ describe('allday_badge', () => {
     });
   });
 
+  it('leaves no text node between the badge and the time text', () => {
+    // `${allDayBadgeEl}${timeText}` is written tight on purpose, and the comment there says
+    // why: `.time-actual` is a flex row and flex drops a whitespace-only text node between
+    // two items, so a space renders as nothing TODAY -- but the markup is not meant to depend
+    // on the container staying a flex row. Nothing held that. Reintroducing the space left
+    // the suite green at 3206.
+    //
+    // 🚨 This cannot be asserted through the DOM snapshot. Per AGENTS.md the serializer
+    // normalizes whitespace BETWEEN TAGS only, which is exactly the position the space would
+    // occupy -- so a snapshot passes either way. Walking the child nodes is what sees it.
+    //
+    // Nor can the site be pinned with a `prettier-ignore`: inside an `html` template that has
+    // to be an HTML comment, which lit renders as a real comment NODE. Adding one broke 25
+    // DOM snapshots. This test is the guard; there is nothing to put in the template.
+    const container = renderList(
+      [allDayEvent('2026-06-18', '2026-06-21', 'Festival')],
+      buildConfig({ allday_badge: 'time', days_to_show: 8 }),
+    );
+    const actual = rowFor(container, 'Festival')?.querySelector('.time-actual');
+
+    // The control: both elements have to be present for their adjacency to mean anything.
+    expect(actual?.querySelector('.allday-badge')).not.toBeNull();
+
+    const badge = actual!.querySelector('.allday-badge')!;
+    let node = badge.nextSibling;
+    while (node && node.nodeType === Node.COMMENT_NODE) node = node.nextSibling;
+
+    if (node && node.nodeType === Node.TEXT_NODE) {
+      expect(node.textContent, 'text node directly after the badge').toBe('');
+    }
+  });
+
   describe('the option reaches the DOM at all', () => {
     it('changes the rendered markup, so the assertions above are not vacuous', () => {
       const events = [allDayEvent('2026-06-18', '2026-06-21', 'Festival')];

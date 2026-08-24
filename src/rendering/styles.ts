@@ -754,7 +754,10 @@ export const cardStyles = css`
 
   /* That 4px lead-in exists to separate the countdown from the time text before it. After a
      badge there is no time text — the label became the badge — and the badge brings its own
-     4px, so keeping this one made the run-up to the dot 8px against 4px on the other side.
+     margin, so keeping this one stacked the two into a visibly lopsided run-up to the dot.
+     No pixel figures here on purpose: the same commit that first wrote them also changed the
+     badge's own margin from 4px to 5px, so they were stale the moment they were committed.
+     The badge's rule carries the live number and the reasoning for it; one copy is enough.
      Adjacent-sibling rather than :has(), because the badge really is the element before.
      The two-class prefix on the front of this selector is load-bearing: without it the
      selector carries three classes against the four of the rule it has to beat, loses on
@@ -796,9 +799,11 @@ export const cardStyles = css`
    * computing a percentage of it in JS would have thrown the unit away. letter-spacing is
    * em for the same reason.
    *
-   * No white-space or flex-shrink override: the defaults let a long label (French reads
-   * "toute la journee", eight times the length of the Chinese one) wrap inside the pill
-   * rather than overflow a narrow column track.
+   * A long label (French reads "toute la journee", eight times the length of the Chinese
+   * one) does NOT wrap: the rule below sets white-space: nowrap and lets the text end in an
+   * ellipsis instead. This paragraph said the opposite for twenty-six commits, describing
+   * defaults the rule had already overridden -- a broken pill is not a pill, and the wrapped
+   * version put the second line outside the shape entirely.
    *
    * ===== Why the colours are derived, and why the ring carries the weight =====
    *

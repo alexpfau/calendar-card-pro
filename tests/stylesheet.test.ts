@@ -1118,6 +1118,51 @@ describe('card stylesheet', () => {
     });
   });
 
+  describe('the badge/countdown separator, and the specificity it once lost on', () => {
+    /*
+     * Two declarations that had no guard at all. Both were verified null: setting the reset
+     * to 4px, and reverting the badge's own margin to 4px, each left the whole suite green.
+     *
+     * That is acute here rather than merely untidy, because the rule's own comment records
+     * that an EARLIER attempt at this same fix lost on specificity and "silently changed
+     * nothing -- a fix that typechecked, built, deployed and did nothing". The documented
+     * silent-failure mode was the one with no test.
+     */
+    it('drops the countdown lead-in when a badge precedes it', () => {
+      expect(
+        declared(
+          '.time .time-actual .allday-badge + .time-text > .time-countdown',
+          'margin-inline-start',
+        ),
+      ).toBe('0');
+    });
+
+    it('gives the badge the margin its own comment derives', () => {
+      // 5px against the separator dot's 4px on the far side, because a drawn box has no right
+      // side bearing where digits do. Pinned so the derivation and the number stay together.
+      expect(declared('.allday-badge', 'margin-inline-end')).toBe('5px');
+    });
+
+    it('out-ranks the rule the earlier attempt lost to', () => {
+      // Specificity, counted as classes: the badge selector must beat
+      // `.time .time-actual .time-text > .time-countdown`. Compared rather than asserted as a
+      // number, so the check survives either selector being rewritten.
+      const classes = (selector: string) => (selector.match(/\.[a-z-]+/g) ?? []).length;
+
+      expect(
+        classes('.time .time-actual .allday-badge + .time-text > .time-countdown'),
+      ).toBeGreaterThan(classes('.time .time-actual .time-text > .time-countdown'));
+    });
+
+    it('pins the cap-centring padding, not just that trimming happens', () => {
+      // The @supports block's own comment spends a paragraph deriving 0.3295em from
+      // (1.37 - 0.711) / 2, and nothing held the result: changing it to 0.32em left the suite
+      // green. The existing test asserts the properties and the scope, never the value.
+      const trim = cardStyles.cssText.slice(cardStyles.cssText.indexOf('text-box-trim: trim-both'));
+      expect(trim.slice(0, trim.indexOf('}'))).toContain('padding-block: 0.3295em');
+    });
+  });
+
   describe('the all-day badge is sized by its own font, not by the clock icon', () => {
     /*
      * The pill's height was `line-height: calc(var(--calendar-card-icon-size-time, 14px)
@@ -1239,6 +1284,23 @@ describe('card stylesheet', () => {
         expect(rulesFor(`.allday-title-pill-${style}`)).toHaveLength(0);
       },
     );
+
+    it('declares a rule for exactly the treatments that exist, and no others', () => {
+      // The it.each above iterates ALLDAY_BADGE_STYLES, which closes the ADDITION direction
+      // -- a sixth treatment with no rule fails it. It cannot close removal: the loop is
+      // derived from the table under test, so deleting a member deletes the assertion rather
+      // than failing it. Removing 'subtle' took this file from 92 tests to 91 with ZERO
+      // failures, leaving `.allday-pill-subtle` in the stylesheet as dead CSS.
+      //
+      // Comparing the two SETS closes both directions at once, and is the shape the rest of
+      // this branch already uses. Scanning for the class pattern rather than looking each one
+      // up is what makes an orphaned rule visible.
+      const declared = new Set(
+        [...cardStyles.cssText.matchAll(/\.allday-pill-([a-z]+)/g)].map((m) => m[1]),
+      );
+
+      expect([...declared].sort()).toEqual([...Helpers.ALLDAY_BADGE_STYLES].sort());
+    });
 
     it('gives both positions the same box, declared once', () => {
       // rulesFor matches a selector LIST, so this passes only while one rule names both.
