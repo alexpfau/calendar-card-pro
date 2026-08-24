@@ -648,8 +648,8 @@ export function groupEventsByDay(
 
       // #124's count is suppressed on a title the user replaced outright, and on one their
       // pattern emptied. Both say the same thing — this event's own title is not to be
-      // shown — and appending to either is the leak #212 asked to be spared: `Busy (40)`
-      // announces that the hidden event is a birthday, and a bare `(40)` announces it
+      // shown — and appending to either is the leak #212 asked to be spared: `Busy (50)`
+      // announces that the hidden event is a birthday, and a bare `(50)` announces it
       // louder. A title merely *edited* keeps its count, which is the case #153 ex.1 wants:
       // stripping `Geburtstag von ` off a birthday should still say how old they are.
       //
@@ -657,8 +657,8 @@ export function groupEventsByDay(
       // right-hand test has to ask the same question `appendAgeCount` asks — it draws a
       // bare count when `summary.trim()` is empty — because any disagreement between the
       // two is a leak by construction, and testing `text === ''` disagreed on precisely
-      // the blank-but-not-empty titles an ordinary pattern produces: `Annas Geburtstag`
-      // minus `[A-Za-z]+` is two spaces, which suppressed nothing and rendered `(40)`.
+      // the blank-but-not-empty titles an ordinary pattern produces: `Max Mustermann Geburtstag`
+      // minus `[A-Za-z]+` is two spaces, which suppressed nothing and rendered `(50)`.
       // The left-hand side is trimmed so a title that was *already* only whitespace is not
       // read as a deletion — nothing was taken away from it, so it keeps the bare count an
       // untitled event has always drawn.

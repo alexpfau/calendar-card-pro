@@ -8,7 +8,7 @@
  * has to be reconfigured as the years pass.
  *
  * The count is rendered as a bracketed number appended to the title, which is deliberately
- * language-neutral. `Annas Geburtstag (40)` needs no date formatting, no
+ * language-neutral. `Max Mustermann Geburtstag (50)` needs no date formatting, no
  * pluralization and no translated string, so all 35 languages get it on the day it ships.
  * It is also why one implementation serves anniversaries as well as birthdays: a bracketed
  * number does not claim to be an age, so the card never has to know which it is looking at.
@@ -159,15 +159,15 @@ export function resolveAgeCount(eventYear: number, markerYear: number): number |
  *    suffix its author never wrote.
  * 2. **A withheld title suppresses the count entirely**, rather than having one appended.
  *    `groupEventsByDay`'s `titleWithheld` decides that, and calls this only when it is
- *    false. `Busy (40)` announces that the hidden event is a birthday, which is exactly
+ *    false. `Busy (50)` announces that the hidden event is a birthday, which is exactly
  *    what #212 asked to be spared.
  *
  * The second is why the empty-title branch below is narrower than it looks. Drawing a bare
- * `(40)` is right for an event that never had a title and a **louder** leak than `Busy (40)`
+ * `(50)` is right for an event that never had a title and a **louder** leak than `Busy (50)`
  * after a deliberate deletion, since a lone bracketed number is nothing else. `titleWithheld`
  * is what tells those apart, and it has to ask the same question this function asks — it
  * tests `.trim()` on both sides for that reason. Testing the replaced title for exact
- * emptiness instead let a blank-but-not-empty result through: `Annas Geburtstag` minus
+ * emptiness instead let a blank-but-not-empty result through: `Max Mustermann Geburtstag` minus
  * `[A-Za-z]+` is two spaces, which passed the guard, failed the branch below, and rendered
  * the bare count. Keep the two tests spelled the same way.
  *

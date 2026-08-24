@@ -245,10 +245,10 @@ Put **`YEAR=1976`** anywhere in the event's description and the card appends the
 
 ```yaml
 # Nothing to configure — the marker in the event does the work
-Annas Geburtstag  →  Annas Geburtstag (40)
+Max Mustermann Geburtstag  →  Max Mustermann Geburtstag (50)
 ```
 
-The event you already have is the one that carries it. Birthdays are normally stored as an event that repeats every year, and each occurrence carries its own year, so the number is a subtraction and nothing else — the 2026 occurrence of a 1976 birthday is `(40)`, and the 2027 one is `(41)` without anyone touching the card again. It never needs the full date of birth, and it never has to work out whether the day has passed yet this year, because the event **is** the birthday.
+The event you already have is the one that carries it. Birthdays are normally stored as an event that repeats every year, and each occurrence carries its own year, so the number is a subtraction and nothing else — the 2026 occurrence of a 1976 birthday is `(50)`, and the 2027 one is `(51)` without anyone touching the card again. It never needs the full date of birth, and it never has to work out whether the day has passed yet this year, because the event **is** the birthday.
 
 The same marker counts anniversaries, because it is the same subtraction. A wedding in 2005 shows `(21)` in 2026. The number stands on its own without saying what it counts, which is what lets one marker serve both.
 
@@ -261,13 +261,13 @@ Two rules matter, and both exist to keep the card from finding a marker in a des
 - **No spaces around the `=` or the `:`.** `YEAR=1976` counts; `YEAR = 1976` does not. This is what separates a marker from ordinary writing — a sentence such as `Academic Year: 2025` puts a space after its colon, and without this rule the card would read that as a birth year and start numbering a school calendar.
 - **The marker stands as its own word.** `Born YEAR=1996` counts; `BIRTHYEAR=1996` does not, and neither does a `?year=1976` sitting inside a link.
 
-The year is always four digits, so `YEAR=198` and `YEAR=19766` are both ignored.
+The year is always four digits, so `YEAR=197` and `YEAR=19766` are both ignored.
 
 | You write             | The card shows |
 | --------------------- | -------------- |
-| `YEAR=1976`           | `(40)` in 2026 |
-| `YEAR:1996`           | `(60)` in 2026 |
-| `Geboren YEAR=1996`   | `(60)` in 2026 |
+| `YEAR=1976`           | `(50)` in 2026 |
+| `YEAR:1996`           | `(30)` in 2026 |
+| `Geboren YEAR=1996`   | `(30)` in 2026 |
 | `YEAR = 1976`         | nothing        |
 | `Academic Year: 2025` | nothing        |
 | `BIRTHYEAR=1996`      | nothing        |
