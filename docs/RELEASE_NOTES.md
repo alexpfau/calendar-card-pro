@@ -9,6 +9,8 @@ title: Release Notes
 Here is what that buys you, in one config — a hallway tablet the whole household walks past:
 
 ```yaml
+allday_badge: subtle
+
 entities:
   # 🎂 Birthdays — the name and the age, nothing else
   - entity: calendar.family
@@ -38,11 +40,39 @@ entities:
     blocklist: 'Birthday of|collection|Work:'
 ```
 
-`Birthday of Lena Weber — All day` becomes **🎂 Lena Weber (32)**, and says 33 next year without anyone editing anything. Bin day retires itself at eleven. The children see that a parent is busy at nine, not that the meeting is a performance review. All four blocks are the **same calendar**, four times, and the last one's `blocklist` is exactly the union of the three allowlists above it — which is what stops anything being drawn twice or going missing.
+`Birthday of Lena Weber — All day` becomes **🎂 Lena Weber (32)**, and says 33 next year without anyone editing anything. Bin day retires itself at eleven, and while it is still up it says so in a small badge in that calendar's own colour rather than in the words _All day_. The children see that a parent is busy at nine, not that the meeting is a performance review. All four blocks are the **same calendar**, four times, and the last one's `blocklist` is exactly the union of the three allowlists above it — which is what stops anything being drawn twice or going missing.
 
 Four of the features below are in those twenty-seven lines, and not one of them is announced — you write what you want the row to say, and the card gets out of the way. The walkthrough is [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes); everything from here on is the parts list.
 
 ## 🎉 New Features
+
+### 🏷️ All-Day Events, as a Badge
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="All-day events drawn as a badge in each calendar's own color" width="600"><br>
+
+**An all-day event can now say so in a small badge in its calendar's own color, instead of in the words _All day_.** It is the way nearly every calendar app draws one, and it turns a row that read as a sentence into a row that reads at a glance.
+
+```yaml
+allday_badge: subtle
+```
+
+Five treatments, from quietest to loudest — `neutral`, `outline`, `subtle`, `tinted`, `filled`:
+
+| Value     | What it draws                                                           |
+| --------- | ----------------------------------------------------------------------- |
+| `neutral` | An outline only, in the row's own text color rather than the calendar's |
+| `outline` | An outline only, in the calendar's accent color                         |
+| `subtle`  | A gentle wash of the accent, with no outline                            |
+| `tinted`  | Both — a wash inside a matching outline                                 |
+| `filled`  | A solid badge in the accent color                                       |
+
+**The badge is off by default**, so nothing changes until you ask for it. `subtle` is the one to try first.
+
+Every color is derived from the calendar's accent by the browser, which has two consequences worth knowing. A calendar whose `accent_color` is a theme variable works exactly like one written as a hex value — the card never has to resolve it. And on a browser supporting [OKLCH relative colors](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_colors/Relative_colors) the badge keeps the accent's saturation while adjusting only its lightness, so the label stays recognizably your calendar's color instead of fading toward grey; elsewhere it falls back to a slightly paler mix and everything still works.
+
+Which events get one follows a single rule: **the event has to occupy the whole of the day it is drawn on.** A timed meeting running Wednesday evening to Monday morning keeps its times — but with [`split_multiday_events`](https://calendar-card-pro.alexpfau.com/features/multi-day-events) on, that meeting's middle days _are_ whole days, and those rows get the badge while its first and last days keep their times. Anything following the label, such as a multi-day event's end date, stays as ordinary text.
+
+See [The All-Day Badge](https://calendar-card-pro.alexpfau.com/features/event-content#the-all-day-badge).
 
 ### 🎨 Follow the Colors and Icons Home Assistant Holds
 

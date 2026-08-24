@@ -78,6 +78,8 @@ location_icon_size: '14px'
 
 ### The All-Day Badge
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="All-day events drawn as a badge in each calendar's own color" width="600"><br>
+
 By default an all-day event says so in words, on the same line as the clock icon. Set
 `allday_badge` to a treatment and the label becomes a rounded badge instead, the way most
 calendar apps draw it:

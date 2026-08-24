@@ -106,7 +106,9 @@ one column at a time, at 998, 838 and 678 px, and reaches the `min_days_to_show:
 **518 px**.
 
 The `column:` block below tightens the type and hides the location, both of which cost more
-in a narrow column than they do in a full-width row.
+in a narrow column than they do in a full-width row. `allday_badge: outline` is chosen for the
+same reason: a column is narrow, and an outline is the one treatment carrying no fill to
+crowd it — see [The All-Day Badge](/features/event-content#the-all-day-badge).
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week.png" alt="A Week Side by Side, in Column View"><br>
 
@@ -122,6 +124,7 @@ days_to_show: 7
 show_week_numbers: iso
 today_indicator: true
 empty_day_text: '✔ All done'
+allday_badge: outline
 column:
   min_day_width: 150
   min_days_to_show: 3
@@ -194,6 +197,7 @@ show_end_time: true
 time_font_size: 12px
 time_color: '#baf1ff'
 time_icon_size: 14px
+allday_badge: subtle
 show_location: true
 remove_location_country: true
 location_font_size: 12px

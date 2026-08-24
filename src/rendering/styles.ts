@@ -844,7 +844,10 @@ export const cardStyles = css`
   .allday-badge-neutral {
     color: inherit;
     background-color: transparent;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+    /* Full currentColor, not a fraction of it: this treatment names no accent, so the frame
+       and the label are the same ink by definition. The other rings are deliberately weaker
+       because they sit against a wash and would otherwise read as a second colour. */
+    box-shadow: inset 0 0 0 1px currentColor;
   }
 
   /* Boundary with no wash. The inverse trade, and the right answer at a high

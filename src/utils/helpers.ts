@@ -569,20 +569,19 @@ export type AlldayBadgeMode = (typeof ALLDAY_BADGE_MODES)[number];
  * turning the feature *on* is the worst available answer, so this table is closed and
  * anything outside it means off.
  *
- * `true` maps to `subtle` rather than being rejected. The option shipped as a boolean on
- * this branch and live test cards still say `allday_badge: true`; keeping it is one line,
- * where dropping it would silently blank those cards rather than fail loudly.
+ * There is no boolean `true`. The option briefly accepted one, from when it was a toggle
+ * with a single treatment, and it resolved to `subtle` — but with five named treatments
+ * there is no "on" for it to mean. Six values, one of which is the default, is the whole
+ * surface; a seventh spelling that silently picks one of the five is a second answer to a
+ * question the config no longer asks. Dropped while the option is unreleased and free.
  *
- * `subtle` and not `tinted` because this is the same answer the shipped default will give
- * when it eventually moves off `false`: whatever "on" means with no further detail, it means
- * the quietest treatment. Two different answers to that question would be the surprise.
+ * `false` stays, because it is not "on" — it is the named off value, and the one a user
+ * writes to turn the badge off against a default that is not `false`.
  *
  * @param value - Configured `allday_badge` value, in any of its accepted shapes
  * @returns The treatment to draw, or `null` when no badge should be drawn
  */
 export function resolveAlldayBadgeMode(value: unknown): AlldayBadgeMode | null {
-  if (value === true) return 'subtle';
-
   if (typeof value === 'string') {
     const candidate = value.toLowerCase().trim();
     return (ALLDAY_BADGE_MODES as ReadonlyArray<string>).includes(candidate)
