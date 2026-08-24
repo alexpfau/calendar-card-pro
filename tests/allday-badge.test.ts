@@ -474,6 +474,31 @@ describe('allday_badge', () => {
       expect(container.querySelector('.allday-badge')).toBeNull();
     });
 
+    it('republishes the calendar accent on the title pill, as the time badge does', () => {
+      // The sixth unguarded declaration, and the one that matters most: this property is
+      // written in exactly two places and READ in ten, so losing it takes four of the five
+      // treatments with it -- only `neutral`, which names no accent, survives. Deleting the
+      // binding left the suite green at 3221, and so did replacing the accent with
+      // `rebeccapurple`; the mirror binding on the time badge was already caught, and so was
+      // the class on this very element, so nothing absorbed it.
+      //
+      // The value is asserted, not merely its presence, because a binding that survives with
+      // the WRONG colour is the failure mode a presence check cannot see.
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        buildConfig({
+          allday_badge: 'title',
+          allday_badge_style: 'filled',
+          days_to_show: 5,
+          entities: [{ entity: CALENDAR, accent_color: '#123456' }],
+        }),
+      );
+      const pill = rowFor(container, 'Bin day')?.querySelector('.allday-title-pill');
+
+      expect(pill).not.toBeNull();
+      expect(pill?.getAttribute('style')).toContain('--calendar-card-event-accent: #123456');
+    });
+
     it('draws no title pill on a timed event', () => {
       // The guard is `hasAllDayLabel`, and nothing witnessed it at the TITLE position -- a
       // mutation dropping it there left the suite green at 3202, so the pill could have been

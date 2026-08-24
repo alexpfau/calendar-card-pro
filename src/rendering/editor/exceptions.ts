@@ -10,6 +10,24 @@ import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 
+/**
+ * Options a panel does not render as a field of their own, offered anyway.
+ *
+ * 🚨 Most of these became vestigial and ONE did not, which is a trap worth naming before
+ * somebody tidies. Since `eligibleFields` resolves a synthetic name back to its config key,
+ * the walk finds `show_week_numbers`, `today_indicator` and `allday_badge` in place, so
+ * deleting those three entries changes nothing and a mutation sweep reports them dead.
+ *
+ * `remove_location_country` is NOT dead, and its liveness is invisible under default config.
+ * The location group only builds `location_country_mode` when `show_location` is on, so with
+ * locations off the walk never sees it at any name and this entry is the only path to the
+ * picker. Deleting it makes the option unreachable for exactly the users who turned locations
+ * off in the shared config and want them back in one view.
+ *
+ * That case is pinned in `editor-schema.test.ts`. The other three are kept as belt and
+ * braces: they cost one array entry each and they are the fallback if a panel ever stops
+ * rendering its synthetic.
+ */
 const EXTRA_KEYS_BY_PANEL: Readonly<Record<string, ReadonlyArray<string>>> = {
   layout: ['height', 'max_height'],
   day_header: ['show_week_numbers', 'today_indicator'],

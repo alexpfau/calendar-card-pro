@@ -279,7 +279,7 @@
   "show_end_time": "Endzeit anzeigen",
   "show_single_allday_time": "Uhrzeit bei Ganztagsterminen",
   "show_single_allday_time.helper": "Gilt für ganztägige Termine, die einen einzelnen Tag umfassen. Mehrtägige haben unten ihre eigene Einstellung, weil ihre Zeitzeile auch das Enddatum enthält.",
-  "show_multiday_allday_time": "Zeit bei mehrtägigen Ganztagsterminen anzeigen",
+  "show_multiday_allday_time": "Uhrzeit bei mehrtägigen Ganztagsterminen",
   "show_multiday_allday_time.helper": "Ihre Zeitzeile lautet „Ganztägig, bis …“ und enthält damit das Enddatum, das sonst nirgends in der Zeile steht. Mehrtägige Termine mit Uhrzeit sind nicht betroffen.",
   "allday_badge_position": "Ganztags-Badge",
   "allday_badge_position.helper": "Hebt ganztägige Termine mit einem abgerundeten Badge in der Akzentfarbe des Kalenders hervor. In der Zeitzeile ersetzt es das Ganztags-Label, beim Titel umschließt es den Terminnamen. Ein Titel-Badge bleibt einzeilig und wird bei Bedarf mit Auslassungspunkten gekürzt.",

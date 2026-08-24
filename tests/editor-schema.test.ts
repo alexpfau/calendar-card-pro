@@ -4143,6 +4143,39 @@ describe('editor: exceptions for the union-typed options', () => {
    * Reconciled against `SYNTHETIC_FIELDS` rather than against a second list, so the next
    * entry is covered whether or not anyone remembers this.
    */
+  it('still offers remove_location_country when the location group is not built', () => {
+    /*
+     * The coverage the synthetic-resolution change quietly removed. Before it, dropping
+     * `remove_location_country` from `EXTRA_KEYS_BY_PANEL.events` failed 2 tests; after, it
+     * survived at 3221 -- because the walk now finds the option in place under default
+     * config, so the extras entry looks redundant to any mutation run at that config.
+     *
+     * It is not redundant. The location group only builds `location_country_mode` when
+     * `show_location` is on, so with locations OFF the walk never sees it at any name and
+     * the extras entry is the only path. That is a real configuration: locations off in the
+     * shared config, wanted back in one view.
+     */
+    const panel = PANELS.find((entry) => entry.id === 'events')!;
+    const offered = (showLocation: boolean) =>
+      eligibleFields(
+        panel.build({
+          view: 'column',
+          config: buildConfig({
+            view: 'column',
+            show_location: showLocation,
+          } as unknown as Partial<Types.Config>),
+          language: 'en',
+        }),
+        'events',
+        'en',
+      ).map((field) => field.name);
+
+    // The control: it is offered with locations ON, so the OFF case is testing the extras
+    // path rather than an option that was never offered at all.
+    expect(offered(true)).toContain('remove_location_country');
+    expect(offered(false)).toContain('remove_location_country');
+  });
+
   it('offers a union-typed option where its panel renders it, not at the end', () => {
     /*
      * `eligibleFields` documents itself as returning "one field per eligible option, in the

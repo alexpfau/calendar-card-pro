@@ -11,6 +11,7 @@ Here is what that buys you, in one config — a hallway tablet the whole househo
 ```yaml
 allday_badge: title
 allday_badge_style: subtle
+show_single_allday_time: false
 
 entities:
   # 🎂 Birthdays — the name and the age, nothing else
@@ -41,7 +42,7 @@ entities:
     blocklist: 'Birthday of|collection|Work:'
 ```
 
-`Birthday of Lena — All day` becomes **🎂 Lena (32)**, and says 33 next year without anyone editing anything. Bin day retires itself at eleven, and while it is still up it says so in a small badge in that calendar's own colour rather than in the words _All day_. The children see that a parent is busy at nine, not that the meeting is a performance review. All four blocks are the **same calendar**, four times, and the last one's `blocklist` is exactly the union of the three allowlists above it — which is what stops anything being drawn twice or going missing.
+`Birthday of Lena — All day` becomes **🎂 Lena (32)**, and says 33 next year without anyone editing anything. Bin day retires itself at eleven, and while it is still up its title sits in a small capsule in that calendar's own colour instead of carrying the words _All day_ on a line of its own. The children see that a parent is busy at nine, not that the meeting is a performance review. All four blocks are the **same calendar**, four times, and the last one's `blocklist` is exactly the union of the three allowlists above it — which is what stops anything being drawn twice or going missing.
 
 Four of the features below are in those twenty-seven lines, and not one of them is announced — you write what you want the row to say, and the card gets out of the way. The walkthrough is [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes); everything from here on is the parts list.
 
