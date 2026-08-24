@@ -83,7 +83,7 @@ entities:
   - entity: calendar.family
     accent_color: '#ff6c92'
 days_to_show: 5
-compact_events_to_show: 5
+compact_events_to_show: 6
 vertical_line_width: 5px
 event_spacing: 5px
 show_week_numbers: iso
