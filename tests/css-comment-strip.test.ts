@@ -5,7 +5,7 @@ import { cardStyles } from '../src/rendering/styles';
 
 /**
  * The build strips comments out of `css` tagged templates, because their contents are a
- * string literal that no minifier touches — 24,878 bytes raw and 9,758 gzip on the
+ * string literal that no minifier touches — 31,579 bytes raw and 12,234 gzip on the
  * eagerly-loaded card, which is 51% of the stylesheet. Measured by building
  * `dist/calendar-card-pro.js` with the plugin and again without it.
  *
@@ -92,13 +92,18 @@ describe('stripComments', () => {
   // Widening without re-measuring would have been the same mistake the test exists to catch,
   // so the header figures come from a real pair of builds, not from this number.
   //
-  // Rebased again for the all-day badge, whose derivation needed explaining. Re-measured the
-  // same way — one build with `stripCssComments` in `rollup.config.mjs` and one without —
-  // giving 24,878 raw and 9,758 gzip across both bundles. Note the split: 24,018 of the raw
-  // saving is the card and only 860 the editor, because `rendering/styles.ts` is where the
-  // reasoning lives. The first attempt at this measurement reported a saving of ZERO, because
-  // the regex meant to delete the plugin call did not match and both arms were the same build
-  // — identical arms are a void measurement, not a finding.
+  // Rebased again for the all-day badge, whose derivation needed explaining, and once more
+  // after the light-dark() fault was written up in the stylesheet. Re-measured the same way —
+  // one build with `stripCssComments` in `rollup.config.mjs` and one without — giving 31,579
+  // raw and 12,234 gzip across both bundles. Note the split: 30,719 of the raw saving is the
+  // card and only 860 the editor, because `rendering/styles.ts` is where the reasoning lives.
+  //
+  // 🚨 Both attempts at this measurement first reported a saving of ZERO, years apart in
+  // spirit and minutes apart in fact, because the edit meant to disable the plugin did not
+  // match: it is registered as a bare identifier in the plugins array, not as a call, so
+  // every regex written for `stripCssComments()` silently no-ops. Identical arms are a void
+  // measurement, not a finding — diff the two configs and refuse to read the delta unless
+  // they actually differ.
   it('saves the number of bytes the documentation claims it does', () => {
     const body = cardStyles.cssText;
     expect(body.length).toBeGreaterThan(10_000);
@@ -106,9 +111,14 @@ describe('stripComments', () => {
     const saved = body.length - stripComments(body).length;
     const share = saved / body.length;
 
-    expect(saved).toBeGreaterThan(20_000);
-    expect(saved).toBeLessThan(28_000);
+    expect(saved).toBeGreaterThan(26_000);
+    expect(saved).toBeLessThan(35_000);
+    // 60.4% at the time of writing, up from ~51%: the light-dark() fault needed a long
+    // explanation because its cause is invisible from the CSS and its symptoms point the
+    // wrong way. That is the trade this plugin exists to make — none of it reaches a user —
+    // but the share is worth watching, so the ceiling stays close enough to the measurement
+    // to notice another jump rather than absorbing one silently.
     expect(share).toBeGreaterThan(0.45);
-    expect(share).toBeLessThan(0.58);
+    expect(share).toBeLessThan(0.65);
   });
 });

@@ -850,13 +850,28 @@ export const cardStyles = css`
     box-shadow: inset 0 0 0 1px currentColor;
   }
 
-  /* Boundary with no wash. The inverse trade, and the right answer at a high
-     event_background_opacity: with no fill of its own there is nothing to dissolve into the
-     row, so only the outline has to survive. Slightly stronger than the tinted ring because
-     it is now carrying the shape alone. */
+  /* Boundary with no wash, in the calendar's colour exactly as configured.
+   *
+   * The mirror image of neutral: that one is the row's own ink with a frame round it, this
+   * one is the CALENDAR's ink with a frame round it. Both set colour directly and let the
+   * ring inherit it, so in each the frame and the label are the same colour by definition.
+   *
+   * The accent is used raw here, undecided and underived. Two reasons. The vertical bar
+   * beside every event is already the raw accent, and filled already paints the raw accent
+   * as its ground, so a mode whose whole identity is "the accent, with no fill" has no
+   * business being the one place that shows an adjusted version of it. And a derived ink is
+   * only worth its cost where legibility is genuinely at risk -- here the badge sits on the
+   * card's own background, exactly as the vertical bar does, so whatever the user can see in
+   * the bar they can see here.
+   *
+   * The consequence is that an accent too dark to read on a dark theme gives an outline too
+   * dark to read. That is the same contract the vertical bar has always had, and the reason
+   * the other four treatments exist. Setting colour rather than --badge-ink is also what
+   * keeps the chroma block below from reaching it: there is nothing here to correct. */
   .allday-badge-outline {
+    color: var(--calendar-card-event-accent);
     background-color: transparent;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 55%, transparent);
+    box-shadow: inset 0 0 0 1px currentColor;
   }
 
   /* The loud one, for people who want the calendar colour to read as a solid chip.
@@ -887,39 +902,108 @@ export const cardStyles = css`
    * text colour, so a vivid pink arrives as blush rose -- legible, but visibly a different
    * colour from the accent it is meant to name, which is what the maintainer reported seeing.
    *
-   * OKLCH separates the axes: lightness can be set for contrast while chroma is kept high, so
-   * the ink stays recognisably this calendar's colour instead of a pastel of it. light-dark()
-   * picks the lightness target per theme, and because both functions resolve at paint time
-   * this still works when the accent is a theme token JavaScript could never read.
+   * OKLCH interpolation keeps chroma across the mix instead of cutting through the middle of
+   * the sRGB cube, so the same 30/70 split arrives recognisably as this calendar's colour.
+   * Because color-mix resolves at paint time this still works when the accent is a theme
+   * token JavaScript could never read, and the accent weight is raised now that the mix no
+   * longer costs saturation.
    *
-   * filled gains the most. clamp(0, calc((l - 0.55) * -1000), 1) is a step function on the
-   * accent's OWN lightness -- above 0.55 it floors to 0 and the ink is black, below it ceils
-   * to 1 and the ink is white -- with chroma 0 so the result is a true neutral. That is the
-   * per-accent decision the sRGB rule above can only approximate, and it is the whole reason
-   * no lookup table is needed: the browser makes it, per event, for free.
+   * 🚨 This block used light-dark() to pick a lightness per theme, and that was wrong.
+   * light-dark() resolves against the used value of color-scheme, and Home Assistant
+   * declares none -- measured on a live dashboard it computes to normal on the badge, on the
+   * shadow host and on the document element alike -- so the browser falls back to
+   * prefers-color-scheme and the badge tracked the OPERATING SYSTEM. A dark HA theme under a
+   * light OS, which is an ordinary way to run Home Assistant, got the light theme's ink: on
+   * a card at rgb(56,23,39) the accent #e67c73 rendered as oklch(0.42 ...), a maroon barely
+   * separable from the row. Three of the five modes were affected; neutral and filled were
+   * immune only because neither reads --badge-ink.
    *
-   * Gated on both functions together. Relative colour is Chrome 122+ / Firefox 133+ /
-   * Safari 18+, above the color-mix floor the rest of this stylesheet already assumes, so the
-   * block is purely additive and every mode degrades to the rules above. */
-  @supports (color: oklch(from red l c h)) and (color: light-dark(black, white)) {
+   * Nothing caught it because the screenshot harness passes colorScheme: dark to Playwright,
+   * so every published image resolved the branch the OS was never going to pick.
+   *
+   * Mixing into --primary-text-color and into the card background fixes it at the root
+   * rather than correcting for it: those are the THEME's own colours, so they already invert
+   * when the theme does, whatever the OS is doing. The wash can no longer collide with the
+   * card either, since it is defined relative to the card instead of at an absolute
+   * lightness -- which retires the 0.26-to-0.38 tuning that collision previously forced.
+   *
+   * Gated on OKLCH interpolation alone, which is Chrome 111+ / Firefox 113+ / Safari 16.2+,
+   * essentially the color-mix floor the rest of this stylesheet already assumes. The filled
+   * rule below still needs relative colour syntax and keeps its own, higher gate. */
+  @supports (color: color-mix(in oklch, red, blue)) {
     .allday-badge {
-      --badge-ink: light-dark(
-        oklch(from var(--calendar-card-event-accent) 0.42 calc(c * 1) h),
-        oklch(from var(--calendar-card-event-accent) 0.84 calc(c * 0.9) h)
+      --badge-ink: color-mix(
+        in oklch,
+        var(--calendar-card-event-accent) 45%,
+        var(--primary-text-color)
       );
-      /* The dark target is 0.38, not the 0.26 it started at. An absolute lightness has to
-         clear the CARD's lightness to be seen at all, and CSS cannot read that, so the
-         number has to sit above the range dark themes actually use. At 0.26 it sat inside
-         it: measured against a real dark theme whose card is rgb(56,23,39), the wash came
-         out rgb(63,17,30) — a contrast of 1.01, which is invisible, and invisible for every
-         hue, because lightness is what was colliding. subtle carries no ring, so when the
-         wash goes the whole badge goes with it. */
-      --badge-wash: light-dark(
-        oklch(from var(--calendar-card-event-accent) 0.95 calc(c * 0.22) h),
-        oklch(from var(--calendar-card-event-accent) 0.38 calc(c * 0.45) h)
+      --badge-wash: color-mix(
+        in oklch,
+        var(--calendar-card-event-accent) 14%,
+        var(--calendar-card-background-color, var(--card-background-color))
       );
     }
+  }
 
+  /* Second tier: put the chroma back that the mix above had to spend on lightness.
+   *
+   * color-mix couples the two axes -- 45% of the way to a near-white text colour is also 45%
+   * of the accent's chroma -- which is the very desaturation the sRGB rule was criticised
+   * for, merely less of it. Measured on #e67c73 the mix lands at c 0.060 against the 0.12
+   * the light-dark() version aimed at, so on its own it is a fix for the theme fault that
+   * reintroduces the pastel one.
+   *
+   * Relative colour syntax accepts any colour as its origin, including a color-mix(), so the
+   * two compose: take the LIGHTNESS from the mix, which is theme-correct because it was
+   * mixed into a theme colour, and multiply the chroma back up to roughly the accent's own.
+   * That recovers what light-dark() was for -- lightness and chroma set independently --
+   * without asking the browser a question about the operating system.
+   *
+   * The multipliers are not the same, and the difference is the point. The ink mixes into
+   * --primary-text-color, which is near-neutral, so the mix's chroma is almost purely the
+   * accent's and 2.2 lands it back at its own: measured 0.131 against the accent's 0.133.
+   * The wash mixes into the CARD, which is not neutral -- a themed dark card carries real
+   * chroma of its own -- so most of the mix's chroma is the card's, and a multiplier large
+   * enough to restore the accent's share amplifies the card's with it. At 3 the wash came
+   * out at 0.115, nearly double what a wash this quiet should carry; 1.8 puts it near 0.069,
+   * which is the share the earlier tuning had settled on. Gamut mapping is the browser's
+   * problem, and it is better at it than a lookup table would be.
+   *
+   * Only chroma is touched, never lightness, so the wash stays a small step off the card
+   * rather than an absolute target -- which is why the collision the old 0.26-to-0.38 tuning
+   * existed to escape cannot recur, for any theme or any hue.
+   *
+   * Chrome 122+ / Firefox 133+ / Safari 18+. Below that the mix above stands on its own and
+   * is still an improvement on sRGB; below that again the sRGB rule is the floor. */
+  @supports (color: oklch(from red l c h)) {
+    .allday-badge {
+      --badge-ink: oklch(
+        from color-mix(in oklch, var(--calendar-card-event-accent) 45%, var(--primary-text-color)) l
+          calc(c * 2.2) h
+      );
+      --badge-wash: oklch(
+        from
+          color-mix(
+            in oklch,
+            var(--calendar-card-event-accent) 14%,
+            var(--calendar-card-background-color, var(--card-background-color))
+          )
+          l calc(c * 1.8) h
+      );
+    }
+  }
+
+  /* filled gains what no mix can give it. clamp(0, calc((l - 0.55) * -1000), 1) is a step
+   * function on the accent's OWN lightness -- above 0.55 it floors to 0 and the ink is
+   * black, below it ceils to 1 and the ink is white -- with chroma 0 so the result is a true
+   * neutral. That is the per-accent decision the sRGB rule can only approximate, and it is
+   * the whole reason no lookup table is needed: the browser makes it, per event, for free.
+   * It reads only the accent, so unlike the block above it never depended on the theme and
+   * was never affected by the light-dark() fault.
+   *
+   * Relative colour is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
+   * higher gate; below it the heuristic above is the floor. */
+  @supports (color: oklch(from red l c h)) {
     .allday-badge-filled {
       color: oklch(
         from var(--calendar-card-event-accent) clamp(0, calc((l - 0.55) * -1000), 1) 0 h
