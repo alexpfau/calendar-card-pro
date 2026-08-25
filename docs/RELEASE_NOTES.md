@@ -4,47 +4,7 @@ title: Release Notes
 
 # Calendar Card Pro v4.1.0
 
-**Per-calendar filtering, rewriting and styling, and an editor that can list one calendar twice so each copy answers differently.** A calendar used to be one thing: you added it, and it contributed all of its events, styled one way. This release takes that apart.
-
-Here is what that buys you, in one config — a hallway tablet the whole household walks past:
-
-```yaml
-allday_badge: title
-allday_badge_style: subtle
-show_single_allday_time: false
-
-entities:
-  # 🎂 Birthdays — the name and the age, nothing else
-  - entity: calendar.family
-    allowlist: 'Birthday of'
-    replace_pattern: 'Birthday of '
-    label: 🎂
-    show_time: false
-    show_location: false
-
-  # 🗑️ Bin day — gone once the truck has been
-  - entity: calendar.family
-    allowlist: 'collection'
-    event_type: all_day
-    allday_expires_at: '11:00'
-    label: 🗑️
-
-  # 💼 Work — that someone is busy, not what with
-  - entity: calendar.family
-    allowlist: 'Work:'
-    replace_with: 'Busy'
-    label: 💼
-    show_location: false
-    show_description: false
-
-  # Everything else — the safety net
-  - entity: calendar.family
-    blocklist: 'Birthday of|collection|Work:'
-```
-
-`Birthday of Lena — All day` becomes **🎂 Lena (32)**, and says 33 next year without anyone editing anything. Bin day retires itself at eleven, and while it is still up its title sits in a small capsule in that calendar's own color instead of carrying the words _All day_ on a line of its own. The children see that a parent is busy at nine, not that the meeting is a performance review. All four blocks are the **same calendar**, four times, and the last one's `blocklist` is exactly the union of the three allowlists above it — which is what stops anything being drawn twice or going missing.
-
-Four of the features below are in those twenty-seven lines, and not one of them is announced — you write what you want the row to say, and the card gets out of the way. The walkthrough is [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes); everything from here on is the parts list.
+**Per-calendar filtering, rewriting and styling, an all-day pill in each calendar's own color, and an editor that can list one calendar twice so each copy answers differently.** A calendar used to be one thing: you added it, and it contributed all of its events, styled one way. This release takes that apart — one shared family calendar can show birthdays as a name and an age, retire bin day at eleven in the morning, and say only _Busy_ for a parent's work, all at the same time. [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes) walks through it, building a hallway dashboard out of four calendars and seven blocks; everything below is the parts list.
 
 ## 🎉 New Features
 
@@ -52,179 +12,108 @@ Four of the features below are in those twenty-seven lines, and not one of them 
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge_title.png" alt="The all-day pill wrapped around the event title, in each calendar's own color" width="600"><br>
 
-**An all-day event can now say so with a rounded pill in its calendar's own color, instead of with the words _All day_.** It is the way nearly every calendar app marks one, and it turns a row that read as a sentence into a row that reads at a glance.
-
-Two options describe it. `allday_badge` says **where** the pill goes — wrapped around the event title the way Google Calendar and Apple Calendar draw it, or beside the clock in place of the all-day label. `allday_badge_style` says **which** of five treatments draws it, and all five work at either position.
-
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="The all-day pill on the time row, beside the clock icon" width="600"><br>
-
-The image above is `time`, the one below the heading is `title` — same card, same calendars,
-same treatment. The title card adds `show_single_allday_time: false` so the pill is the whole
-statement rather than sitting above the words _All day_.
-
-The title position comes from [#282](https://github.com/alexpfau/calendar-card-pro/issues/282), which asked for all-day events to carry their calendar's color the way Google Calendar's day view does. `allday_badge: title` with `allday_badge_style: filled` is that request; the other four treatments and the second position are what it grew into.
-
-```yaml
-allday_badge: title # off, title or time
-allday_badge_style: subtle # neutral, outline, subtle, tinted or filled
-```
-
-Five treatments, from quietest to loudest — `neutral`, `outline`, `subtle`, `tinted`, `filled`:
-
-| Value     | What it draws                                                           |
-| --------- | ----------------------------------------------------------------------- |
-| `neutral` | An outline only, in the row's own text color rather than the calendar's |
-| `outline` | An outline only, in the calendar's accent color                         |
-| `subtle`  | A gentle wash of the accent, with no outline                            |
-| `tinted`  | Both — a wash inside a matching outline                                 |
-| `filled`  | A solid badge in the accent color                                       |
-
-**The badge is off by default**, so nothing changes until you ask for it. `tinted` is the default treatment and the one to try first; the YAML above shows `subtle` because a column layout wants the quieter one.
-
-A title pill is always a single line, ending in an ellipsis where the title is too long for the space — it does not wrap, and it does not follow `title_max_lines`, which stays your setting for every other event. At the title position the time row is left alone, so a multi-day all-day event still shows its end date; pair it with `show_single_allday_time: false` and a single-day all-day event becomes a pilled title on its own, which is the layout Apple Calendar uses.
-
-Every color is derived from the calendar's accent by the browser, which has two consequences worth knowing. A calendar whose `accent_color` is a theme variable works exactly like one written as a hex value — the card never has to resolve it. And on a browser supporting [OKLCH relative colors](https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_colors/Relative_colors) the badge keeps the accent's saturation while adjusting only its lightness, so the label stays recognizably your calendar's color instead of fading toward gray; elsewhere it falls back to a slightly paler mix and everything still works.
-
-Which events get one follows a single rule: **the event has to occupy the whole of the day it is drawn on.** A timed meeting running Wednesday evening to Monday morning keeps its times — but with [`split_multiday_events`](https://calendar-card-pro.alexpfau.com/features/multi-day-events) on, that meeting's middle days _are_ whole days, and those rows get the badge while its first and last days keep their times. Anything following the label, such as a multi-day event's end date, stays as ordinary text.
-
-See [The All-Day Badge](https://calendar-card-pro.alexpfau.com/features/event-content#the-all-day-badge).
+- **`allday_badge` & `allday_badge_style`** - An all-day event can say so with a rounded pill in its calendar's own color instead of with the words _All day_, the way nearly every calendar app marks one. `allday_badge` says **where** — `title` wraps the event title as Google Calendar and Apple Calendar do, `time` puts it beside the clock — and `allday_badge_style` picks one of five treatments from a bare outline to a solid chip. Every color is derived from the calendar's accent by the browser, so a theme variable works exactly like a hex value. Off by default; `allday_badge: title` is the one to try first. See [The All-Day Badge](https://calendar-card-pro.alexpfau.com/features/event-content#the-all-day-badge) (#282)
 
 ### 🎨 Follow the Colors and Icons Home Assistant Holds
 
-**A calendar can look the same everywhere now, instead of being styled twice in two places.** Home Assistant stores a color and an icon for each calendar entity — the ones the built-in calendar card and the calendar panel already use — and Calendar Card Pro can follow either. Set `accent_color` to `home-assistant` [card-wide](/features/core-settings) and every calendar picks up its own color, or set it per calendar and mix it freely with colors you choose yourself. Set a calendar's [`label`](/features/core-settings#following-the-icon-from-home-assistant) to `home-assistant` and it shows that calendar's own icon, so changing the icon in Home Assistant changes it on the card too, rather than leaving the two to drift apart. The label is per calendar only: one label in front of every event would say nothing about which calendar the event came from.
-
-Either way the value has to exist in Home Assistant first, and most do not yet. Google Calendar is the only integration that sets a color, and only when a calendar is first added, so calendars from before Home Assistant 2026.2 have none — re-adding the integration will not create them. Icons are rarer still. Set both by hand under **Settings → Devices & Services → Entities**; a calendar Home Assistant has no color for falls back to the card's own color rather than losing it, and one it has no icon for simply shows no label. Colors need Home Assistant 2026.2, icons need nothing in particular (#314, #188)
+- **`accent_color: home-assistant`** - Home Assistant stores a color and an icon for each calendar entity, and the card can now follow either, so a calendar looks the same here as it does everywhere else. Set a calendar's [`label`](https://calendar-card-pro.alexpfau.com/features/core-settings#following-the-icon-from-home-assistant) to `home-assistant` for its icon too. Both need the value to exist in Home Assistant first, and most do not yet — Google Calendar is the only integration setting a color, only on first add, and only from 2026.2. Set them by hand under **Settings → Devices & Services → Entities**; anything missing falls back rather than breaking (#314, #188)
 
 ### 🧑 A Person's Picture as a Calendar's Label
 
-**Set a calendar's [`label`](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-persons-picture) to a person entity ID and the card shows that person's photo in front of their events.** On a household dashboard listing four calendars, that is four faces instead of four words — and the visual editor has a person picker for it, so there is nothing to look up.
-
-The picture is read from the person each time the card draws, so replacing a photo in Home Assistant changes it on the card with nothing to edit and no reload. That is the part pasting an address cannot do: an address like `/api/image/serve/…` is a snapshot of where the picture lived when you copied it, and Home Assistant issues a new one when the photo changes.
-
-Only `person.` entity IDs are read this way. Every other entity carrying a picture — a camera, a media player, an integration's brand icon — still works if you paste its address, and deliberately is not resolved from an entity ID: an entity ID is a lowercase dotted word, and so is plenty of ordinary text, so reading every domain that way would turn a label like `v2.0` into a picture lookup. A person Home Assistant holds no picture for shows no label at all, the same as an unlabeled calendar, and `label_type: text` still renders the characters for anyone who wants them. (#215)
+- **`label: person.anna`** - Point a calendar's label at a person entity and the card shows that person's photo in front of their events — four faces instead of four words on a household dashboard, with a person picker in the visual editor. The picture is read from the person each time the card draws, so replacing a photo in Home Assistant changes it here with nothing to edit. Only `person.` IDs resolve this way; any other picture still works if you paste its address. See [Showing a Person's Picture](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-persons-picture) (#215)
 
 ### 🗂️ Show All-Day and Timed Events Separately
 
-**A calendar can now show only its all-day events, only its timed ones, or both in colors you can tell apart.** The new `event_type` option takes `all`, `timed` or `all_day`, and works card-wide or per calendar. Because `timed` and `all_day` are exact complements, listing the same calendar twice — once each way, with a different `accent_color` on each block — splits it into two colors without showing anything twice or losing anything.
-
-It names the kind of event, not how long one lasts: a dinner running from 23:30 to 00:30 is `timed`, however many dates it touches. The two blocks are built with **Duplicate** on the calendar's own panel in the visual editor — see below. (#132)
+- **`event_type`** - Takes `all`, `timed` or `all_day`, card-wide or per calendar. Because `timed` and `all_day` are exact complements, listing one calendar twice — once each way, with a different `accent_color` on each — splits it into two colors without drawing anything twice or losing anything. It names the kind of event, not how long one lasts: a dinner running 23:30 to 00:30 is `timed`, however many dates it touches (#132)
 
 ### 🗑️ All-Day Events That Clear Partway Through the Day
 
-**A bin that was emptied this morning no longer sits on your card until midnight.** All-day events have no end time, only an end date, so the card retires one at midnight after the last day it covers — right for a birthday, wrong for a waste-collection feed published by a council you cannot edit. The new per-calendar `allday_expires_at` moves that moment earlier within the final day: set `'10:00'` and this one calendar's all-day events count as past from mid-morning, while your birthdays and holidays stay up all day.
-
-The time is read against the last day an event covers, so a three-day trip clears on the morning it ends rather than the morning it began. Nothing schedules a redraw at the time you name, so the row goes on the card's next refresh rather than exactly on the minute. (#163)
+- **`allday_expires_at`** - A bin emptied this morning no longer sits on the card until midnight. All-day events have no end time, so the card has always retired one at midnight after its last day — right for a birthday, wrong for a council waste feed you cannot edit. This per-calendar option moves that moment earlier within the final day, for that calendar alone. The row goes on the card's next refresh rather than exactly on the minute (#163)
 
 ### 📅 A Calendar That Only Shows on Weekdays
 
-**One calendar can stop at Friday while the rest of the card keeps its weekend.** A school-holidays calendar whose entries run through the weekend has always dragged those weekend days onto the card with it, and narrowing the card's date window is no answer — the window belongs to the card, so it would take the weekend away from every calendar at once. The new per-calendar `days_of_week` takes `weekdays` or `weekends` and settles it for that calendar alone.
-
-It judges the day a row actually lands on rather than the day the event began, which is what lets it work on holidays spanning weeks. Pair it with [`split_multiday_events`](/features/multi-day-events) on a calendar of long events — that turns a fortnight's holiday into a row per day, each judged on its own, which is the Monday-to-Friday view the request was for. Column view already splits by default. (#225)
+- **`days_of_week`** - Takes `weekdays` or `weekends` for one calendar, while every other calendar keeps its weekend. Narrowing the card's date window was never an answer, because the window belongs to the card. It judges the day a row actually lands on rather than the day the event began, so a fortnight's holiday is judged a day at a time — pair it with [`split_multiday_events`](https://calendar-card-pro.alexpfau.com/features/multi-day-events) on a calendar of long events. Column view already splits by default (#225)
 
 ### 🎂 Ages on Birthdays, and Counts on Anniversaries
 
-**Your birthday events can show the person's age, the way Apple's Calendar does.** Apple builds that calendar out of Contacts, which is why it cannot be shared and why Home Assistant has never been able to show it — the card does the same job on the calendar you already have. Write `YEAR=1976` in a birthday event's description and the card draws **Anna's Birthday (50)**.
-
-Because a birthday is stored as an event that repeats every year, each occurrence already knows its own year, so the age is a subtraction and updates itself forever — `(50)` this year, `(51)` next, with nothing to change. The card never needs the full date of birth and never has to work out whether the day has passed yet. The same marker counts anniversaries: a wedding in 2005 shows `(21)` in 2026.
-
-`YEAR:1996` works too, in any capitalization, and the marker is removed from the description before the card draws it — so a description holding nothing but the year shows nothing at all. There is no option to set: a four-digit year written that precisely is not something a calendar produces by accident. Spaces around the separator are the one thing that does not work, and deliberately, since that is what tells `YEAR=1976` apart from a sentence like `Academic Year: 2025`. See [Birthday Ages & Anniversary Counts](/features/event-content#birthday-ages-anniversary-counts) (#124)
+- **A `YEAR=` marker in the description** - Write `YEAR=1976` in a birthday event's description and the card draws **Anna's Birthday (50)**. There is nothing to configure. Because a repeating birthday's occurrences each carry their own year, the age is a subtraction that stays right forever, and the card never needs a full date of birth. The same marker counts anniversaries, and the marker itself is removed before the description is drawn. See [Birthday Ages & Anniversary Counts](https://calendar-card-pro.alexpfau.com/features/event-content#birthday-ages-anniversary-counts) (#124)
 
 ### 💬 A Teams Icon on Your Teams Meetings
 
-**Your online meetings now show the Teams logo instead of a map pin, and there is nothing to set up.** The card recognizes the location text Teams writes into an event — including its translations, so `Microsoft Teams-Besprechung` and `Réunion Microsoft Teams` are recognized alongside the English wording — as well as a `teams.microsoft.com` join link stored there in place of a phrase. Meetings that are actually somewhere keep the map pin.
-
-**This changes how your card looks the moment you upgrade**, if you have Teams meetings on it. To go back to the map pin on a calendar, give it `location_icon: mdi:map-marker-outline`.
-
-Teams is the only service recognized this way, and the reason is worth stating plainly because the obvious next question is "why not Zoom": Material Design Icons, the set Home Assistant ships, has a brand icon for Teams and none for Zoom, Google Meet or Webex. There is simply no logo to show for the others. The new per-calendar `location_icon` covers every other case — including anyone who has installed an icon pack of their own — by naming the icon one calendar's locations should carry. (#205)
+- **Automatic, and `location_icon` to override it** - Online meetings now show the Teams logo instead of a map pin, in any language Teams writes the location in, and a `teams.microsoft.com` join link is recognized too. Meetings that are actually somewhere keep the pin. **This changes how your card looks the moment you upgrade** if you have Teams meetings on it; `location_icon: mdi:map-marker-outline` puts the pin back. Teams is the only service recognized this way because Material Design Icons has no brand icon for Zoom, Meet or Webex — `location_icon` covers those (#205)
 
 ### 🔍 Filter on the Location or the Description
 
-**`blocklist` and `allowlist` can now read an event's location or description instead of its title.** The new per-calendar `filter_field` takes `title`, `location` or `description`, and points both lists at whichever you name. Left alone it means `title`, so every card already out there filters exactly as it did.
-
-That is the answer to a Zoom link sitting in your location field where a room name should be: filter on `location`, block the link, and those events go — or keep them in a second block with `show_location: false` and see the meeting without the URL.
-
-It also splits a calendar by _where_ its events are rather than by what they are called. Listing one calendar twice — allowing `Microsoft Teams` on `location` in one block and blocking it in the other — divides it into online and in-person halves that can carry their own colors and their own `location_icon`, without losing an event or showing one twice. **Duplicate** in the visual editor builds the second block for you.
-
-The field is selected, not added: a calendar filtering on `location` has stopped filtering on titles. Filtering two fields is two blocks. And `filter_field` is a separate option rather than a prefix inside the pattern because the lists are plain regular expressions in which every character already means something — `allowlist: 'location:'` still matches that literal text in a title, exactly as it always did. (#186, #205)
+- **`filter_field`** - Points `blocklist` and `allowlist` at an event's `location` or `description` instead of its `title`, which is still the default, so every existing card filters exactly as it did. That answers a Zoom link sitting where a room name should be, and it splits a calendar by _where_ its events are rather than by what they are called. The field is selected, not added: filtering two fields means listing the calendar twice (#186, #205)
 
 ### ✏️ Rewrite What an Event Says
 
-**Your calendar's wording no longer has to be the card's wording.** A birthday feed that prefixes every entry with `Birthday of`, a work calendar that stamps `[AUTO]` into generated titles, a shared calendar whose details are nobody else's business — three new per-calendar options rewrite an event's title, location or description as it is drawn, leaving the calendar itself untouched.
-
-`replace_pattern` is what to find, as a regular expression; `replace_with` is what to put there; `replace_field` points the pair at the title, the location or the description, and means the title when left alone.
-
-The two text options are independently optional, and which of them you set _is_ the instruction. Both set replaces the match. Only `replace_pattern` **removes** it, so `Birthday of Ben` becomes `Ben`. Only `replace_with` replaces the **whole field**, whatever it said, which is how a shared calendar shows `Busy` on every entry rather than what you are actually doing. Neither does nothing. Deleting has a spelling of its own rather than being written as an empty `replace_with` because the visual editor cannot store an empty value — spelled the other way, stripping a prefix would have been reachable only by hand-editing YAML, which is the example the request opened with.
-
-Matching is case-insensitive and replaces every occurrence, so a fragment repeated inside one generated title goes from all of it rather than the first copy. Capture groups work, so `Birthday of (.+)` with `$1 🎂` is the same edit from the other side. An age from a `YEAR=` marker is **not** appended to a title that was replaced outright — `Busy (50)` would announce that the hidden event is a birthday — while a title your pattern merely edited keeps its count.
-
-One field per block, and this is the one place listing a calendar twice does not help: two filter blocks divide a calendar's events between them, while two replacement blocks both match the same events and would draw each one twice. See [Text Replacement](/features/core-settings#text-replacement) (#153, #212, #186)
-
-### ⚙️ Editor Settings Grouped Under Sub-Headings
-
-**The panels that decide what the card shows now group their settings under sub-headings.** Event Filtering comes first, then Multi-Day Events, then Event Details — the order the card itself works in — with Text Replacement beside the filters on the per-calendar panel, since the two are written the same way. The per-calendar panel still opens with its label and colors, because those name the calendar you are editing rather than configure it.
-
-Until now the two panels ordered the same settings differently, and neither said what a run of settings was for.
+- **`replace_pattern`, `replace_with` & `replace_field`** - Rewrite an event's title, location or description as the card draws it, leaving the calendar untouched. Which options you set is the instruction: both replaces the match, `replace_pattern` alone **removes** it so `Birthday of Ben` becomes `Ben`, and `replace_with` alone replaces the **whole field**, which is how a shared calendar shows `Busy` on every entry. Matching is case-insensitive and global, and capture groups work. An age is never appended to a title replaced outright. See [Text Replacement](https://calendar-card-pro.alexpfau.com/features/core-settings#text-replacement) (#153, #212, #186)
 
 ### 📑 List One Calendar Twice, Without Leaving the Editor
 
-**Splitting a calendar in two no longer means dropping into YAML.** Every calendar's panel now opens with **Duplicate**, which gives that calendar a second block carrying the settings it already has — so giving a calendar's all-day events their own color is a click and then one dropdown, rather than hand-writing a second block. It is the pattern `event_type` above describes, now reachable where you were already standing.
+- **Duplicate, on every calendar's panel** - Splitting a calendar in two no longer means dropping into YAML: **Duplicate** gives a calendar a second block carrying the settings it already has. Home Assistant's picker cannot hold the same calendar twice, so it no longer tries — it lists each calendar once and answers only which calendars the card shows, while how many blocks a calendar has is the business of its own panel. Clearing a picker row removes the calendar entirely; **Remove** on a panel drops one block (#533)
 
-Home Assistant's calendar picker cannot do this: it will not hold the same calendar twice, and there is no opting out of that. So the picker no longer tries to be two things at once. It lists each calendar **once** and answers only which calendars the card shows; how many blocks a calendar has, and what is on each, is the business of its own panel below. Clearing a row therefore takes the calendar off the card entirely, blocks and all, while **Remove** on a panel drops a single block — the only control that can, now that one row can stand for several.
+### ⚙️ Editor Settings Grouped Under Sub-Headings
 
-Both panels for one calendar carry the same heading, because they name the same calendar, so their second line is numbered **Entry 1 of 2** and **Entry 2 of 2**. The four per-calendar actions have also moved to the top of each panel, where they are visible as it opens rather than below every setting, with Remove held apart from the three that can be undone by doing them again (#533)
+- **Event Filtering, then Multi-Day Events, then Event Details** - The panels deciding what the card shows now group their settings under sub-headings, in the order the card itself works in, with Text Replacement beside the filters on the per-calendar panel. Until now the two panels ordered the same settings differently and neither said what a run of settings was for
 
 ### 🌍 The New Settings Arrive Translated
 
-**Everything above reads in your own language on the day it ships, rather than in English until a later release catches up.** The nine translated editor languages — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — each carry all **364** strings, the 52 this release adds among them. So `event_type`, `days_of_week`, `allday_expires_at`, `filter_field`, `location_icon`, the three text-replacement options, the **Duplicate** and **Entry 1 of 2** chrome and the new sub-headings are all translated, not left behind.
-
-That is eleven editor languages in total, counting US English in code and British English, which carries only the 44 strings where it differs. The other 24 of the card's 35 languages render the editor in English, which is fully supported and still resolves per string. The calendar itself continues to speak all 35.
+- **Nine editor languages, complete on the day this ships** - German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish each carry the editor in full, including every string this release adds — so `event_type`, `days_of_week`, `allday_expires_at`, `filter_field`, `location_icon`, the badge treatments, the replacement options and the new sub-headings are all translated rather than left in English. That is eleven editor languages counting US English and British English, and the calendar itself still speaks all 35
 
 ### 🔤 A Today Indicator That Can Be Words
 
-**`today_indicator` now takes any text, so the marker on today can read `KW 34` or `Sprint 12` instead of only being a dot, an icon, an emoji or a picture.** It half-worked already, which is the odd part: the test deciding whether a value was drawable asked Unicode whether it contained an emoji, and Unicode says the ASCII digits, `#` and `*` all qualify — they are the bases of keycap sequences like 2️⃣. So `Sprint 12` was drawn as words and `Sprint` was drawn as a dot, with nothing anywhere explaining the difference.
-
-Widening that rather than closing it is the direction that takes nothing away: every value that drew text before still does, and `true` or `dot` is still how you ask for a plain dot. What changes is what happens to a value the card does not recognize — it is drawn now rather than silently replaced by a dot, so a typo shows up instead of looking deliberate.
-
-Two things to know if you use it. Text is sized by `today_indicator_size`, which ships at `6px` because that is right for an emoji and far too small for a word, so raise it. And a value shaped like an address is still read as an image, which means `/dev` and `https://…` cannot be drawn as literal text. (#573)
+- **`today_indicator`** - Now takes any text, so the marker on today can read `KW 34` or `Sprint 12` rather than only a dot, an icon, an emoji or a picture. It half-worked already: the drawability test asked Unicode whether a value contained an emoji, and the ASCII digits qualify, so `Sprint 12` drew as words and `Sprint` drew as a dot. Raise `today_indicator_size` when you use text — it ships at `6px`, right for an emoji and far too small for a word (#573)
 
 ## 🐛 Bug Fixes
 
-- **Finished All-Day Events Stayed on the Card** - With `show_past_events: false`, a timed event vanished when it ended but an all-day one never did: an all-day event has no end _time_, only an end _date_, so the card had nothing to compare against and exempted them all. Any card whose window reached backwards therefore kept showing all-day events from days that were over — `start_date: 'today-7'`, or `start_of_week` read on a Thursday, which the start-date docs actively recommend pairing with past events hidden. All-day events are now past at midnight after the last day they cover, so a finished one goes and today's stays up all day. If you use a backward-looking window, expect finished all-day entries to disappear from it
-- **A Label Pointing at a Home Assistant Image Rendered as Its Own Address** - `label` works out whether it holds text, an icon or an image by reading the value, and it accepted only `/local/` or a filename ending in one of six extensions. Every other address fell through to text, so a person's picture at `/api/image/serve/…` was drawn as those characters in front of the event title, with nothing in the log — which made a correct address look like a wrong one. On one ordinary instance that hit 52 of 169 entity pictures, across six `/api/*` families. An address is now read as an image: anything beginning with `/` or `https://`, plus a relative filename, whose extension list gains `avif`, `bmp`, `ico` and `apng` and no longer misses a path carrying a query string. **A text label that begins with `/` now needs `label_type: text`** to stay words
+### Events & Content
+
+- **Finished All-Day Events Stayed on the Card** - With `show_past_events: false` a timed event vanished when it ended and an all-day one never did, because an all-day event has no end _time_ for the card to compare against. Any card whose window reached backwards therefore kept showing all-day events from days that were over — `start_date: 'today-7'`, or `start_of_week` read on a Thursday. All-day events are now past at midnight after their last day, so a finished one goes and today's stays up all day
+- **A Description Using `<` and `>` Lost Everything Between Them** - Descriptions are flattened before they are drawn, and the pattern doing it matched a `<`, anything at all, and the next `>`. So `alert if temp < 5 and pressure > 3 END` drew as **alert if temp 3 END**, and it had been that way since long before v4. Only something markup-shaped is removed now — a `<` followed by a letter, a slash, or a `!` or `?` — and real markup strips exactly as it did (#576, #581)
+
+### Labels & Indicators
+
+- **A Label Pointing at a Home Assistant Image Rendered as Its Own Address** - `label` accepted only `/local/` or a filename ending in one of six extensions, so a person's picture at `/api/image/serve/…` was drawn as those characters in front of the event title, with nothing in the log. On one ordinary instance that hit 52 of 169 entity pictures. An address is now read as an image: anything beginning with `/` or `https://`, plus a relative filename. **A text label beginning with `/` now needs `label_type: text`** (#566)
+- **A Today Indicator Pointing at an Image Drew a Plain Dot** - `today_indicator`'s image test named six lower-case extensions and no scheme, so `https://example.com/avatar`, `cover.avif` and even `PHOTO.PNG` all missed it and fell through to `dot` — which is also the default, so the card drew exactly what it would have drawn had the option never been set. Addresses are now read on the same rule `label` uses, and capitalization no longer matters (#569)
+
+### Editor
+
+- **The Editor Could Not Set a Relative Start Date** - `start_date` set to **Relative to Today** drew a date picker for the expression, so the documented grammar — `wednesday`, `start_of_week`, `today+7` — could only be reached by hand-editing YAML. Home Assistant reuses the form control when one selector replaces another in the same position, and a text selector naming no type left the date picker in place. Every text field in the editor now names its type (#589)
 - **The Editor Called `show_past_events` "Show Today's Past Events"** - It shows every past event inside the card's configured window, not only today's, so on a card starting a week back the label described a fraction of what the switch did. Corrected in English and in all nine translated editor languages
-- **A Calendar's Panel Named It Differently From the Picker Directly Above It** - Home Assistant's entity picker moved to friendly names some time ago, so the Calendars row read _Calendar card pro - family_ while the settings panel a few pixels below it read `calendar.calendar_card_pro_family`. An entity id need not resemble its name at all, which left no reliable way to tell which panel belonged to which row on a card listing several calendars. Panels are now headed with the same name Home Assistant shows. A calendar that has been removed from Home Assistant keeps its entity id, since that is the only thing left identifying it
-- **The Editor Said the First-Listed _Calendar_ Won a Duplicate** - `filter_duplicates` keeps the copy from whichever entry is listed first, and an entry may be a second block of the same calendar rather than a different calendar — which is exactly what **Duplicate** creates, and what makes the keyword icon mapping work. Naming calendars made that common case read as impossible. Both the Calendars helper and the `filter_duplicates` helper now name the entry, in English and in all nine translated editor languages
-- **The Editor Could Not Set a Relative Start Date** - `start_date` set to **Relative to Today** drew a date picker for the expression, so the whole documented grammar — `wednesday`, `start_of_week`, `today+7` — could only be typed into it by hand in YAML, and picking a calendar date there wrote a value the option does not accept. Home Assistant reuses the form control when one selector replaces another in the same position, and a text selector that names no type leaves the previous one in place, so the date picker from the **Fixed Date** mode simply stayed. Every text field in the editor now names its type explicitly rather than only the one that was reported, since any of them could be caught the same way, and a test asserts it across every panel
-- **A Today Indicator Pointing at an Image Drew a Plain Dot** - `today_indicator` reads its own value to decide what it holds, and its image test named six lower-case extensions and no scheme at all. So `https://example.com/avatar`, `photo.jpeg`, `cover.avif`, `favicon.ico` and even `PHOTO.PNG` all missed it. A value that misses every test falls through to `dot`, which is also the option's **default**, so the card drew exactly what it would have drawn had the option never been set — no warning, nothing in the log, and a card that looks correctly configured. The visual editor fared worse still: it commits a custom indicator only once the card would render it, so those addresses could not be typed into the field at all, and one already in the YAML opened the **Dot** control instead of **Custom**. An address is now read as an image on the same rule `label` uses — anything beginning with `/` or `https://`, plus a relative filename, with `avif`, `bmp`, `ico`, `apng` and the four-letter `jpeg` added and capitalization no longer mattering. **A value that merely mentions an extension part-way through, such as `Meeting.jpg tomorrow`, is now a dot rather than a broken image**
-- **A Description Using `<` and `>` Lost Everything Between Them** - Descriptions are flattened before they are drawn, and the pattern doing it matched a `<`, anything at all, and the next `>` — with no idea what a tag actually is. So `alert if temp < 5 and pressure > 3 END` drew as **alert if temp 3 END**, and `step 1 <-> step 2` as **step 1 step 2**. Any calendar writing a comparison or an arrow into a description hit it, and it has been that way since long before v4. Only something markup-shaped is removed now — a `<` followed by a letter, a slash, or a `!` or `?` — which is very close to the test a browser applies, though not identical to it: markup you never closed is left on the card, where a browser would throw away everything after it. Real markup is unaffected: `<p>`, `<b>`, `<a href=…>`, `<!-- … -->` and `<style>` all strip exactly as they did. A `replace_pattern` aimed at a description can also now match text the flattening used to eat
+- **A Calendar's Panel Named It Differently From the Picker Above It** - The Calendars row read _Calendar card pro - family_ while the settings panel a few pixels below read `calendar.calendar_card_pro_family`, which left no reliable way to tell which panel belonged to which row. Panels now carry the same name Home Assistant shows; a calendar removed from Home Assistant keeps its entity id, since that is all that identifies it
+- **The Editor Said the First-Listed _Calendar_ Won a Duplicate** - `filter_duplicates` keeps the copy from whichever entry is listed first, and an entry may be a second block of the same calendar — which is exactly what **Duplicate** creates. Naming calendars made that common case read as impossible. Both helpers now name the entry, in English and in all nine translated editor languages (#557)
 
 ## Related Issues
 
+- [#124](https://github.com/alexpfau/calendar-card-pro/issues/124) - Display age / anniversary by @RK62, supported by @mheidinger, @pyxis1 and @peterdausm
 - [#132](https://github.com/alexpfau/calendar-card-pro/issues/132) - Filter based on all-day events by @syst3x
-- [#282](https://github.com/alexpfau/calendar-card-pro/issues/282) - Render all-day events in the calendar's own color by @Homeassistantfrost, who asked for the treatment Google Calendar's day view gives them. Answered by `allday_badge: title`, with `allday_badge_style: filled` the closest reading of the request. One difference worth naming before closing: the capsule is the width of the title rather than of the whole row, so it reads as a chip rather than as the full-width banner the wording describes
-- [#251](https://github.com/alexpfau/calendar-card-pro/issues/251) - Blocklist based on the duration of events by @tommi1968 — **half-served, do not close.** `event_type: timed` answers the all-day half; the multi-day half needs a span axis the card cannot yet express, because it holds three disagreeing answers to what counts as multi-day. The reporter has been asked which behavior they want for an event running 23:30 to 00:30 and has not yet replied
-- [#124](https://github.com/alexpfau/calendar-card-pro/issues/124) - Display age / anniversary by @RK62, who proposed the `YEAR:1996` marker and was already storing the year in the description; supported by @mheidinger, @pyxis1 — who was running a second card solely for this — and @peterdausm
+- [#153](https://github.com/alexpfau/calendar-card-pro/issues/153) - Replace text in event titles by @michelnet, supported by @s91nl
 - [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765
-- [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze — now answered in full: `filter_field` served the hiding half, and `replace_field: location` serves the "or even replace the value, for example: `Zoom call`" half the reporter was told would be built if hiding was not enough
-- [#188](https://github.com/alexpfau/calendar-card-pro/issues/188) - Use a calendar entity's own attributes to configure it by @shmuelie — both halves now: the color in #314, and the icon here
+- [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze — answered in full by `filter_field` and `replace_field`
+- [#188](https://github.com/alexpfau/calendar-card-pro/issues/188) - Use a calendar entity's own attributes to configure it by @shmuelie — both halves, the color in #314 and the icon here
 - [#205](https://github.com/alexpfau/calendar-card-pro/issues/205) - An icon for Microsoft Teams meetings by @loryanstrant
-- [#345](https://github.com/alexpfau/calendar-card-pro/issues/345) - Filtering events by description content, to exclude Google Tasks blended into a calendar feed by @RemyGeode
+- [#212](https://github.com/alexpfau/calendar-card-pro/issues/212) - Private calendar, hide details by @oneyozfest182; @Tom-10101 added the repeating-fragment case, which is why replacement is global
+- [#215](https://github.com/alexpfau/calendar-card-pro/issues/215) - Use a person entity's picture as a calendar's label by @fl0om, supported by @voyagers21
 - [#225](https://github.com/alexpfau/calendar-card-pro/issues/225) - Show only Monday to Friday entries for some calendars by @nytram-md
+- [#251](https://github.com/alexpfau/calendar-card-pro/issues/251) - Blocklist based on the duration of events by @tommi1968 — **half-served, do not close.** `event_type: timed` answers the all-day half; the multi-day half needs a span axis the card cannot yet express
+- [#282](https://github.com/alexpfau/calendar-card-pro/issues/282) - Render all-day events in the calendar's own color by @Homeassistantfrost, answered by `allday_badge: title`
+- [#310](https://github.com/alexpfau/calendar-card-pro/issues/310) - Free/busy support for a shared calendar by @jlorince — answered in both directions, by `label` for an empty title and `replace_with` for a placeholder one. Merging contiguous detail-free events is **declined** and the issue closes in full
 - [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
+- [#345](https://github.com/alexpfau/calendar-card-pro/issues/345) - Filtering events by description content by @RemyGeode
 - [#533](https://github.com/alexpfau/calendar-card-pro/issues/533) - Duplicate a calendar block from the visual editor by @alexpfau
 - [#543](https://github.com/alexpfau/calendar-card-pro/issues/543) - Glossary rejected-form matcher missed inflections that change the stem by @alexpfau
-- [#557](https://github.com/alexpfau/calendar-card-pro/issues/557) - Card-level Events panel showed the wrong styling controls when a column override changed a `show_*` option by @alexpfau
-- [#153](https://github.com/alexpfau/calendar-card-pro/issues/153) - Replace text in event titles by @michelnet, who wanted a birthday title shortened to just the name and a work calendar's invitation wording turned into something readable; supported by @s91nl
-- [#212](https://github.com/alexpfau/calendar-card-pro/issues/212) - Private calendar, hide details by @oneyozfest182, who wanted a shared family card to show that something is on without showing what; @Tom-10101 added the case of a repeating fragment in an automatically generated title, which is why replacement is global rather than first-match
-- [#310](https://github.com/alexpfau/calendar-card-pro/issues/310) - Free/busy support for a shared calendar by @jlorince, who wanted a work calendar shared into a personal account to read as _Busy_ rather than as a column of blank rows — answered in both directions, because which one applies depends on what the provider sends: a calendar whose events arrive with an empty title carries the word in `label`, and one whose events arrive with a placeholder title has it rewritten by `replace_with`, which deliberately leaves an empty field empty. The second half of the request, merging contiguous detail-free events into one block, is **declined** and the issue closes in full — a merged block is not an event, and the color, the label, the per-calendar overrides, the progress bar, the countdown and deduplication all resolve against the single source event behind a row
-- [#215](https://github.com/alexpfau/calendar-card-pro/issues/215) - Use a person entity's picture as a calendar's label by @fl0om, supported by @voyagers21 — who had the right address all along, `/api/image/serve/…` read off the browser, and was told it was not working because the card drew it as text. Answered in both halves: any picture address now works as a `label`, and `label: person.anna` names the person instead, which is the person selector the request asked for. The picker is in the visual editor. Naming the person is the better half of the two, because the address is a snapshot of where the picture lived when it was copied and Home Assistant issues a new one whenever the photo changes
+- [#557](https://github.com/alexpfau/calendar-card-pro/issues/557) - Card-level Events panel showed the wrong styling controls under a column override by @alexpfau
 - [#566](https://github.com/alexpfau/calendar-card-pro/issues/566) - A label pointing at an image outside `/local/` silently rendered as its own URL by @alexpfau
 - [#569](https://github.com/alexpfau/calendar-card-pro/issues/569) - `today_indicator` silently fell back to a dot for image addresses its list did not name by @alexpfau
 - [#573](https://github.com/alexpfau/calendar-card-pro/issues/573) - `today_indicator` had an undocumented text mode, gated on whether the text contained a digit by @alexpfau
 - [#576](https://github.com/alexpfau/calendar-card-pro/issues/576) - A description pairing a `<` with a later `>` lost the prose between them by @alexpfau
-- [#581](https://github.com/alexpfau/calendar-card-pro/issues/581) - The description flattening kept 21 shapes a browser discards as a bogus comment, three of which v4.0.0 removed, by @alexpfau — found by the pre-release audit and fixed before shipping, so no user ever saw it. It also corrected this release's own claim that the new rule is "the same test a browser applies", which overstated it
-- [#582](https://github.com/alexpfau/calendar-card-pro/issues/582) - Nine of fifteen editor dropdowns could lose an option with every gate green, by @alexpfau — a gate rather than a user-visible fix: `check:i18n` now reconciles every dropdown option against the strings naming them, in both directions
-- [#589](https://github.com/alexpfau/calendar-card-pro/issues/589) - `start_date` set to **Relative to Today** rendered a date picker instead of a text field for the expression, by @alexpfau — putting the documented offset grammar out of reach of anyone not editing YAML by hand
+- [#581](https://github.com/alexpfau/calendar-card-pro/issues/581) - The description flattening kept 21 shapes a browser discards as a bogus comment by @alexpfau — found by the pre-release audit, so no user ever saw it
+- [#582](https://github.com/alexpfau/calendar-card-pro/issues/582) - Nine of fifteen editor dropdowns could lose an option with every gate green, by @alexpfau — a gate rather than a user-visible fix
+- [#589](https://github.com/alexpfau/calendar-card-pro/issues/589) - `start_date` set to **Relative to Today** rendered a date picker instead of a text field for the expression, by @alexpfau
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.0.0...v4.1.0
 
 ---
 
