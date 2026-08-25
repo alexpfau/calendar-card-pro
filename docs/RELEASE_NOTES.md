@@ -93,14 +93,14 @@ title: Release Notes
 - [#163](https://github.com/alexpfau/calendar-card-pro/issues/163) - All-day events that should disappear during the day by @Stefan765
 - [#186](https://github.com/alexpfau/calendar-card-pro/issues/186) - Hide or display location based on a regex expression by @mrtag23, with the two-block pattern suggested by @sebatze — answered in full by `filter_field` and `replace_field`
 - [#188](https://github.com/alexpfau/calendar-card-pro/issues/188) - Use a calendar entity's own attributes to configure it by @shmuelie — both halves, the color in #314 and the icon here
-- [#205](https://github.com/alexpfau/calendar-card-pro/issues/205) - An icon for Microsoft Teams meetings by @loryanstrant
+- [#205](https://github.com/alexpfau/calendar-card-pro/issues/205) - An icon chosen by the meeting location by @loryanstrant — Teams meetings get theirs automatically, and `filter_field: location` with a per-calendar `location_icon` covers the rest, which is the allowlist/blocklist route the issue itself proposed
 - [#212](https://github.com/alexpfau/calendar-card-pro/issues/212) - Private calendar, hide details by @oneyozfest182; @Tom-10101 added the repeating-fragment case, which is why replacement is global
 - [#215](https://github.com/alexpfau/calendar-card-pro/issues/215) - Use a person entity's picture as a calendar's label by @fl0om, supported by @voyagers21
 - [#225](https://github.com/alexpfau/calendar-card-pro/issues/225) - Show only Monday to Friday entries for some calendars by @nytram-md
 - [#251](https://github.com/alexpfau/calendar-card-pro/issues/251) - Blocklist based on the duration of events by @tommi1968 — **half-served, do not close.** `event_type: timed` answers the all-day half; the multi-day half needs a span axis the card cannot yet express
 - [#282](https://github.com/alexpfau/calendar-card-pro/issues/282) - Render all-day events in the calendar's own color by @Homeassistantfrost, answered by `allday_badge: title`
 - [#310](https://github.com/alexpfau/calendar-card-pro/issues/310) - Free/busy support for a shared calendar by @jlorince — answered in both directions, by `label` for an empty title and `replace_with` for a placeholder one. Merging contiguous detail-free events is **declined** and the issue closes in full
-- [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @karwosts, who also contributed the upstream Home Assistant support
+- [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @Misiu, with the upstream Home Assistant support contributed by @karwosts
 - [#345](https://github.com/alexpfau/calendar-card-pro/issues/345) - Filtering events by description content by @RemyGeode
 - [#533](https://github.com/alexpfau/calendar-card-pro/issues/533) - Duplicate a calendar block from the visual editor by @alexpfau
 - [#543](https://github.com/alexpfau/calendar-card-pro/issues/543) - Glossary rejected-form matcher missed inflections that change the stem by @alexpfau
