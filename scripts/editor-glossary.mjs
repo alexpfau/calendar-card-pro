@@ -37,7 +37,7 @@ export const GLOSSARY_TERMS = [
     // Badge` in the next string. `Pille` is a medicine tablet in German and carries none of
     // English "pill"'s UI sense, so the helper read as "highlights all-day events with a
     // rounded tablet". Nothing could catch it: this file had no entry for the term, and
-    // `check:i18n` scores coverage, not meaning -- German was at 390/390 throughout.
+    // `check:i18n` scores coverage, not meaning -- German was at full coverage throughout.
     //
     // Every language that translates the editor already had ONE settled noun; they are
     // recorded here so the next one does not have to re-decide, and so a second spelling
