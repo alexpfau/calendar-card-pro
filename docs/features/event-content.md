@@ -62,7 +62,7 @@ calendar apps do. Two options describe it — **where** the pill goes, and **whi
 treatments draws it:
 
 ```yaml
-allday_badge: time # off, time or title
+allday_badge: title # off, title or time
 allday_badge_style: tinted # neutral, outline, subtle, tinted or filled
 ```
 
@@ -73,8 +73,8 @@ Both are card-level, so a card shows pills for every calendar on it or for none.
 | Value   | What it does                                                                     |
 | ------- | -------------------------------------------------------------------------------- |
 | `off`   | The default. All-day events say so in plain words                                |
-| `time`  | The pill replaces the words on the time row, beside the clock icon               |
 | `title` | The pill wraps the event title, the way Google Calendar and Apple Calendar do it |
+| `time`  | The pill replaces the words on the time row, beside the clock icon               |
 
 ### Which Treatment Draws It
 

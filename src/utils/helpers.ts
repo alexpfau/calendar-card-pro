@@ -555,7 +555,7 @@ export function memoizeLast<Args extends readonly unknown[], Result>(
 }
 
 /** Where `allday_badge` can put the pill. */
-export const ALLDAY_BADGE_POSITIONS = ['time', 'title'] as const;
+export const ALLDAY_BADGE_POSITIONS = ['title', 'time'] as const;
 
 export type AlldayBadgePosition = (typeof ALLDAY_BADGE_POSITIONS)[number];
 

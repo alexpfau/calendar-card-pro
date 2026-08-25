@@ -54,12 +54,12 @@ Four of the features below are in those twenty-seven lines, and not one of them 
 
 **An all-day event can now say so with a rounded pill in its calendar's own color, instead of with the words _All day_.** It is the way nearly every calendar app marks one, and it turns a row that read as a sentence into a row that reads at a glance.
 
-Two options describe it. `allday_badge` says **where** the pill goes — beside the clock in place of the all-day label, or wrapped around the event title the way Google Calendar and Apple Calendar draw it. `allday_badge_style` says **which** of five treatments draws it, and all five work at either position.
+Two options describe it. `allday_badge` says **where** the pill goes — wrapped around the event title the way Google Calendar and Apple Calendar draw it, or beside the clock in place of the all-day label. `allday_badge_style` says **which** of five treatments draws it, and all five work at either position.
 
 The title position comes from [#282](https://github.com/alexpfau/calendar-card-pro/issues/282), which asked for all-day events to carry their calendar's color the way Google Calendar's day view does. `allday_badge: title` with `allday_badge_style: filled` is that request; the other four treatments and the second position are what it grew into.
 
 ```yaml
-allday_badge: title # off, time or title
+allday_badge: title # off, title or time
 allday_badge_style: subtle # neutral, outline, subtle, tinted or filled
 ```
 

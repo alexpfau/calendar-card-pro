@@ -14,7 +14,10 @@ import { bool, color, group, number, row, select, text } from './common';
 export const EVENTS_ICON = mdiCalendarText;
 
 /** `off` first: the default reads as the top of the list, and the rest are places. */
-export const ALLDAY_BADGE_POSITION_OPTIONS: ReadonlyArray<string> = ['off', 'time', 'title'];
+/* Title before time, because the title sits ABOVE the time row on the card -- a dropdown
+ * that offers them the other way round reads against the thing it is describing. `off`
+ * leads because it is the default. */
+export const ALLDAY_BADGE_POSITION_OPTIONS: ReadonlyArray<string> = ['off', 'title', 'time'];
 
 /** The five treatments, in order of increasing weight -- the same order the stylesheet
  *  declares them in, so reading the dropdown top to bottom walks from quietest to loudest. */

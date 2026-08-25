@@ -549,6 +549,22 @@ describe('allday_badge', () => {
       );
     });
 
+    it('offers the positions in the order the card lays them out', () => {
+      /*
+       * Order is a decision here, not an accident, and the set comparison above is
+       * deliberately blind to it -- it sorts both sides so that a value creeping in is
+       * caught regardless of where it lands. So the order needs its own assertion or
+       * nothing holds it.
+       *
+       * `off` leads because it is the default. `title` comes before `time` because the
+       * title sits ABOVE the time row on the card, so a dropdown offering them the other
+       * way round reads against the thing it is describing. It shipped that way round
+       * first and was corrected.
+       */
+      expect(EditorSchemas.ALLDAY_BADGE_POSITION_OPTIONS).toEqual(['off', 'title', 'time']);
+      expect(Helpers.ALLDAY_BADGE_POSITIONS).toEqual(['title', 'time']);
+    });
+
     it('resolves every treatment the dropdown offers to itself', () => {
       // The set comparison above would still pass if the resolver lower-cased or trimmed a
       // value into something else, so walk them.
