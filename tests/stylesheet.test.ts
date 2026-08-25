@@ -1336,7 +1336,32 @@ describe('card stylesheet', () => {
       expect(declared('.allday-badge', 'text-transform')).toBe('uppercase');
       expect(declared('.allday-title-pill', 'text-transform')).toBe('');
       expect(declared('.allday-title-pill', 'letter-spacing')).toBe('');
-      expect(declared('.allday-title-pill', 'font-size')).toBe('');
+    });
+
+    it('shrinks the title pill less than the tag, and both relatively', () => {
+      /*
+       * Both positions step down from the text around them, for different reasons and by
+       * different amounts. The badge is a TAG -- one short uppercase label -- and takes the
+       * full 0.85em. The title pill holds the user's own prose, so it stops at 0.95em, enough
+       * to stop competing with the title it wraps without becoming hard to read.
+       *
+       * Pinned as an ORDERING rather than only as two values, so the relationship survives
+       * anyone retuning either number: the pill must never shrink as far as the tag. Both
+       * must stay relative, because every other length in those rules is em of the element's
+       * own font -- an absolute value would freeze the pill while event_font_size moved.
+       */
+      const badge = declared('.allday-badge', 'font-size');
+      const pill = declared('.allday-title-pill', 'font-size');
+      expect(badge).toBe('0.85em');
+      expect(pill).toBe('0.95em');
+      for (const [name, value] of [
+        ['badge', badge],
+        ['pill', pill],
+      ] as const) {
+        expect(value, name).toMatch(/em$/);
+      }
+      expect(Number.parseFloat(pill)).toBeGreaterThan(Number.parseFloat(badge));
+      expect(Number.parseFloat(pill)).toBeLessThan(1);
     });
 
     it('does not pull the title pill outside its row', () => {

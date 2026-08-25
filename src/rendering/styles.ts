@@ -967,6 +967,19 @@ export const cardStyles = css`
        border. 1.16em of line box plus 0.42em of padding is 1.58em against the badge's 1.37em
        -- about a sixth more, which is the smallest increase that cleared the emoji at every
        size measured. */
+    /* A little smaller than the title it wraps, which is the other half of not shouting --
+       the pill already carries the accent colour and a border. 0.95 rather than the badge's
+       0.85 because this holds the user's own prose while the badge holds one short uppercase
+       label, so it has to stay comfortably readable.
+       Relative, never absolute: every other number in this rule is em of the pill's OWN font,
+       so one font-size scales the line box, both paddings and the negative margin together.
+       An absolute value here would freeze the pill while event_font_size moved around it.
+       It also SHRINKS the row-height residue documented below rather than adding to it,
+       because the pill's height falls faster than the margin's pull-back does: measured
+       against a plain unpilled row, +1.18px at 1.00em, +0.74px at 0.95em, and 0.00px at
+       0.85em. Do not read that as an argument for 0.85 on its own -- it was tried and reads
+       too small for prose -- but do re-measure the residue if this value ever changes. */
+    font-size: 0.95em;
     line-height: 1.16;
     padding-block: 0.21em;
     padding-inline: 0.55em;
@@ -998,14 +1011,18 @@ export const cardStyles = css`
        having any effect, because the line box has hit the strut's own height -- an absurd
        -2em control returns the same numbers as -0.30em, which is the floor rather than a dead
        measurement.
-       The row is left 1.25px taller than a timed one, and that is the honest residue: the
+       The row is left a little taller than a timed one, and that is the honest residue: the
        capsule IS bigger than a line of text. What the maintainer asked for, and what this
-       matches exactly, is the rhythm from one text baseline to the next. That 1.25px is row
-       HEIGHT, not the baseline gap, and it is the one figure in this block that is not a
-       hundredth-exact reproduction across harnesses -- four container definitions of "row"
-       (td.event, .summary-row, .summary and the whole table) each return 1.25 when a pilled
-       row is compared against an unpilled one, and 0 for a control with no pill anywhere.
-       Re-measure before quoting it more precisely than that. */
+       matches exactly, is the rhythm from one text baseline to the next.
+       That residue is ROW height, not the baseline gap, and it SCALES WITH THE PILL'S OWN
+       FONT rather than being a constant -- which is why no number is quoted here. It was
+       ~1.25px when the pill matched the title's size, and the 0.95em set above brings it to
+       ~0.74px, because the capsule shrinks faster than the margin's pull-back does. The
+       pilled title's own line box is exact: measured 18.00px against 18.00px for an unpilled
+       title at the shipped default. Anyone changing font-size, line-height, padding-block or
+       this margin should re-measure the pair rather than trusting either figure; four
+       container definitions of "row" (td.event, .summary-row, .summary and the whole table)
+       agree with each other, and a control with no pill anywhere returns 0. */
     vertical-align: middle;
     margin-block: -0.17em;
   }
