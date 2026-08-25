@@ -124,8 +124,9 @@ describe('all-day location and description rows', () => {
   describe('the two time-row switches divide the all-day events between them', () => {
     /*
      * `show_single_allday_time` never covered a multi-day all-day event, which is correct --
-     * that row reads "All day, until Monday, Jun 29" and carries an end date nothing else on
-     * the row shows, where a single-day one reads only "All day" and repeats the badge.
+     * that row reads "All day, until Wednesday, Jun 24" for the `multi()` fixture below, and
+     * carries an end date nothing else on the row shows, where a single-day one reads only
+     * "All day" and repeats the badge.
      * The gap is that until now there was no way to hide the second kind at all.
      *
      * The pair is asserted as a PARTITION rather than one at a time, because the two failure

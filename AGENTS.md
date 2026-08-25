@@ -1611,19 +1611,25 @@ different artefacts.
 
 - **A fix is not finished at the site the report named — grep for the claim's other copies,
   and re-read the neighbours of every line you touch.** Five review rounds on one branch
-  found something in the _previous round's fix_ four times running, and never in the fix
+  found something in the _previous round's fix_ four times running, and mostly not in the fix
   itself: the corrections were right, their edges were not. A false string was corrected in
   the documentation and left standing in three other places, two of them in the source file
-  that builds the row. Stale byte figures were purged from the top of a file and left in two
-  comments forty lines below, by the commit whose entire subject was stale byte figures in
-  that file. A one-word typo fix landed _inside_ a sentence whose neighbouring clause the same
-  commit had just falsified, and did not notice. **A measurement taken mid-commit describes a
-  tree that no longer exists by the time you push** — three successive byte counts here were
-  each already wrong when committed (803 out, then 383), so take any reading last, after every
-  comment in the change is written, or state it as a magnitude that cannot go stale.
-  Mechanically: `grep` the exact claim across `src`, `tests` and `docs` before committing a
-  correction, and read the five lines either side of every hunk. Both misses above are visible
-  in a `git diff` that anyone actually reads to its edges.
+  that builds the row — and the correction then disagreed with the fixture directly below it.
+  Stale byte figures were purged from the top of a file and left in two comments further
+  down, by the commit whose entire subject was stale byte figures in that file. A one-word
+  typo fix landed inside a sentence that an _earlier_ commit had already falsified, and did
+  not notice. Mechanically: `grep` the exact claim across `src`, `tests` and `docs` before
+  committing a correction, and read the five lines either side of every hunk. Every miss
+  above is visible in a `git diff` that anyone actually reads to its edges.
+- **A number in a comment is wrong either immediately or eventually, and the second kind
+  looks verified.** Three successive byte counts in one file needed correcting, in two
+  different ways: one was byte-exact when written and then rotted, still being quoted once it
+  was ~13.6 KB low; the other two were 803 and 383 out on the day, because the reading was
+  taken before the commit stopped changing the thing it measured. **A measurement taken
+  mid-commit describes a tree that no longer exists by the time you push**, so take any
+  reading last, after every comment in the change is written — or state a magnitude that
+  cannot go stale, which is what that file now does. Watch the units too: the first of those
+  three was card+editor and the other two card-only, so the series was never comparable.
 - **Review-fix commits are the least-reviewed code in the repository.** They arrive after the
   reviewer has reported, they look like tidying, and they are written in the tired half of the
   session. Whatever lands to close a review deserves the same pass as the thing it fixed,

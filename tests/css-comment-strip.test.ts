@@ -9,11 +9,22 @@ import { cardStyles } from '../src/rendering/styles';
  * the eagerly-loaded card, which is around two-thirds of the stylesheet.
  *
  * 🚨 **Those figures are deliberately approximate. Do not replace them with an exact byte
- * count.** The same author, in the same session, has now written one three times and been
- * wrong three times, each figure already stale in the commit that introduced it: 31,579 at
- * `42e5ab3` when the real saving was over 44,000; 44,357 at `4a3d880`, 803 out on the day;
- * and 44,255, which was 383 out because the commit correcting it kept adding comments after
- * the reading was taken. The first two were written here, the third in `AGENTS.md`. The quantity moves with every comment anyone writes, so it is a reading and not a
+ * count.** The same author, in the same session, has written an exact one three times and
+ * had to correct it three times — but the three failed in two different ways, and the
+ * difference is the whole lesson:
+ *
+ * - `31,579` at `42e5ab3` was **byte-exact on the day** (30,719 card + 860 editor, and that
+ *   commit said so). It simply rotted: every later commit that added a CSS comment moved it,
+ *   and nothing recomputes it, so by `4a3d880` it was ~13.6 KB low and still being quoted.
+ * - `44,357` at `4a3d880` was **803 out when committed**, and drifted to ~322 out after.
+ * - `44,255` was **383 out when committed**, because the commit correcting it kept adding
+ *   comments after the reading was taken.
+ *
+ * So a figure here is wrong either immediately or eventually, and the second kind is the
+ * more dangerous because it looks verified. Note also that `31,579` was card+editor while
+ * the other two were card-only — comparing them directly is a unit error.
+ *
+ * The quantity moves with every comment anyone writes, so it is a reading and not a
  * constant. The method lives in `AGENTS.md`; the assertion below is a band for the same
  * reason. If you need the number, measure it — and take the reading last.
  *
@@ -103,13 +114,14 @@ describe('stripComments', () => {
   // Rebased again for the all-day badge, whose derivation needed explaining, and once more
   // after the light-dark() fault was written up in the stylesheet.
   //
-  // 🚨 This block used to carry exact byte counts and they were wrong every single time, so
-  // it now carries the method instead. The history is the argument: 31,579 when the real
-  // saving was over 44,000; then 44,357, which was 803 out on the day it was written and had
-  // drifted to 323 out before anyone checked; then 44,255, which was 383 out because the
-  // commit correcting it went on adding comments after the reading was taken. Three attempts,
-  // three figures stale inside their own commit. The quantity is a reading of the tree at one
-  // instant, and this file is one of the things that moves it.
+  // 🚨 This block used to carry exact byte counts and every one of them had to be corrected,
+  // so it now carries the method instead. The history is the argument, and the three failed
+  // differently: 31,579 was byte-exact at `42e5ab3` and rotted afterwards, so it was still
+  // being quoted once it was ~13.6 KB low; 44,357 was 803 out the day it was written; 44,255
+  // was 383 out, because the commit correcting it went on adding comments after the reading.
+  // One went stale later, two were stale on arrival, and the first kind is worse because it
+  // reads as verified. The quantity is a reading of the tree at one instant, and this file is
+  // one of the things that moves it.
   //
   // Measure it, do not quote it, and take the reading LAST — after every comment in the
   // commit is written. Two builds and a subtraction, per `AGENTS.md`. Corroborate by
@@ -151,7 +163,8 @@ describe('stripComments', () => {
   // almost nobody knows and which nothing in the declarations hints at. That reading was the
   // last exact pair written into this file, and it went stale the same way as the ones in
   // the header: four commits touched `styles.ts` after it, three of them adding comment,
-  // leaving it ~900 bytes and 0.36 points out. The share is a little under 68% today; the
+  // leaving it ~900 bytes and roughly four-tenths of a point out. The share is a little under
+  // 68% today; the
   // band below is what actually holds it.
   // 🚨 Both attempts at this measurement first reported a saving of ZERO, years apart in
   // spirit and minutes apart in fact, because the edit meant to disable the plugin did not

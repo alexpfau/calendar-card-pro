@@ -4143,7 +4143,10 @@ describe('editor: exceptions for the union-typed options', () => {
      * restores the invisibility this test was added to remove. `exceptions.ts` carries the
      * per-entry table.
      *
-     * The two tests below cover the live entries behaviourally. This one covers the table
+     * Of the live entries, only `remove_location_country` is covered behaviourally BELOW --
+     * `height` and `max_height` are covered by `declares every extra key it offers as a
+     * real, selectable override` and `offers an exception for every overridable option`,
+     * in a different describe further up this file. This test covers the table
      * itself, and it is deliberately a value comparison rather than a loop over its keys:
      * `for (const k of Object.keys(TABLE))` runs one fewer time when an entry is deleted
      * and stays green, which is the trap AGENTS.md names. `toEqual` fails in BOTH

@@ -993,9 +993,9 @@ export const cardStyles = css`
        matches exactly, is the rhythm from one text baseline to the next. That 1.25px is row
        HEIGHT, not the baseline gap, and it is the one figure in this block that is not a
        hundredth-exact reproduction across harnesses -- four container definitions of "row"
-       (td.event, .summary-row, .summary and the whole table), compared both pilled against
-       unpilled and against a no-pill control at 0, all return 1.25. Re-measure before
-       quoting it more precisely than that. */
+       (td.event, .summary-row, .summary and the whole table) each return 1.25 when a pilled
+       row is compared against an unpilled one, and 0 for a control with no pill anywhere.
+       Re-measure before quoting it more precisely than that. */
     vertical-align: middle;
     margin-block: -0.17em;
   }
