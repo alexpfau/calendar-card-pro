@@ -970,6 +970,16 @@ export const cardStyles = css`
     line-height: 1.16;
     padding-block: 0.21em;
     padding-inline: 0.55em;
+    /* One step lighter than the title it sits in, because the pill is already carrying the
+       calendar's colour and a border -- at the title's own 500 it read as shouting.
+       400 and not 450: Home Assistant ships Roboto as STATIC faces (100/300/400/500/700/900),
+       not as a variable font, so the whole 425-500 range resolves to 500 under the CSS
+       font-matching rule that a target between 400 and 500 searches upward first. Measured
+       across the axis in a real browser: 17 weights from 300 to 700 produce exactly FOUR
+       distinct renderings. A font-weight of 450 here would be a silent no-op that looks
+       deliberate, which is worse than 500. If HA ever ships a variable Roboto, 450 becomes
+       reachable and is the nicer value -- re-measure before assuming it is. */
+    font-weight: 400;
     /* Sit on the text's own centre line, and give back the height the capsule borrowed.
        Both lines exist because an inline-block with overflow: hidden takes its baseline from
        its BOTTOM MARGIN EDGE rather than from the text inside it -- a rule that exists so a
