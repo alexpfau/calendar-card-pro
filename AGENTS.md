@@ -1466,14 +1466,16 @@ about 17 KB gzipped** off the eager path — nearly all of it the card, since
 `rendering/styles.ts` is where the reasoning lives and the editor's share has held at 860
 bytes across every rebase.
 
-🚨 **That figure is deliberately approximate, and writing an exact one here is a mistake
-the same author has now made three times, in one session.** It moves with every comment anyone writes, so it is a reading
-of the tree at one instant rather than a constant — and each precise value was already
-stale in the commit that introduced it: 31,579 when the real saving was over 44,000, then
-44,357 (803 out on the day, drifting to 323), then 44,255 (383 out, because the commit
-fixing it kept adding comments after the reading was taken). Nothing recomputes these, so
-each survived review. Measure when you need it, and **take the reading last** — after every
-comment in your commit is written:
+🚨 **That figure is deliberately approximate, and writing an exact one here is a mistake the
+same author has now made three times, in one session.** It moves with every comment anyone
+writes, so it is a reading of the tree at one instant rather than a constant — and the three
+went wrong in two different ways. `31,579` was byte-exact when written and simply rotted,
+still being quoted once it was ~13.6 KB low. `44,357` was 803 out on the day, drifting to
+about 322. `44,255` was 383 out, because the commit fixing it kept adding comments after the
+reading was taken. Nothing recomputes any of them, so all three survived review — and the
+one that was right on arrival is the most dangerous, because it reads as verified. Mind the
+units too: `31,579` was card+editor, the other two card-only. Measure when you need it, and
+**take the reading last** — after every comment in your commit is written:
 
 ```bash
 npm run build && stat -f%z dist/calendar-card-pro.js          # stripping ON
