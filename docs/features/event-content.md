@@ -54,7 +54,7 @@ The same applies when a calendar cannot be reached. A failed request leaves the 
 
 ## 🏷️ The All-Day Badge
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="All-day events drawn as a badge in each calendar's own color" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge_title.png" alt="The all-day pill wrapped around the event title, in each calendar's own color" width="600"><br>
 
 By default an all-day event says so in words, on the same line as the clock icon. The all-day
 badge draws that fact as a rounded pill in the calendar accent color instead, the way most
@@ -75,6 +75,13 @@ Both are card-level, so a card shows pills for every calendar on it or for none.
 | `off`   | The default. All-day events say so in plain words                                |
 | `title` | The pill wraps the event title, the way Google Calendar and Apple Calendar do it |
 | `time`  | The pill replaces the words on the time row, beside the clock icon               |
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="The all-day pill on the time row, beside the clock icon" width="600"><br>
+
+Above is `time`, and the image at the top of this section is `title` — the same card, the
+same calendars and the same treatment, so the only difference is where the pill goes. The
+`title` card also sets `show_single_allday_time: false`, which is what leaves the pill as
+the whole statement instead of repeating _All day_ underneath it.
 
 ### Which Treatment Draws It
 

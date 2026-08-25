@@ -50,11 +50,17 @@ Four of the features below are in those twenty-seven lines, and not one of them 
 
 ### 🏷️ All-Day Events, as a Badge
 
-<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="All-day events drawn as a badge in each calendar's own color" width="600"><br>
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge_title.png" alt="The all-day pill wrapped around the event title, in each calendar's own color" width="600"><br>
 
 **An all-day event can now say so with a rounded pill in its calendar's own color, instead of with the words _All day_.** It is the way nearly every calendar app marks one, and it turns a row that read as a sentence into a row that reads at a glance.
 
 Two options describe it. `allday_badge` says **where** the pill goes — wrapped around the event title the way Google Calendar and Apple Calendar draw it, or beside the clock in place of the all-day label. `allday_badge_style` says **which** of five treatments draws it, and all five work at either position.
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="The all-day pill on the time row, beside the clock icon" width="600"><br>
+
+The image above is `time`, the one below the heading is `title` — same card, same calendars,
+same treatment. The title card adds `show_single_allday_time: false` so the pill is the whole
+statement rather than sitting above the words _All day_.
 
 The title position comes from [#282](https://github.com/alexpfau/calendar-card-pro/issues/282), which asked for all-day events to carry their calendar's color the way Google Calendar's day view does. `allday_badge: title` with `allday_badge_style: filled` is that request; the other four treatments and the second position are what it grew into.
 
