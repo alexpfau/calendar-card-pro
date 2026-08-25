@@ -100,7 +100,7 @@ title: Release Notes
 - [#251](https://github.com/alexpfau/calendar-card-pro/issues/251) - Blocklist based on the duration of events by @tommi1968 — **half-served, do not close.** `event_type: timed` answers the all-day half; the multi-day half needs a span axis the card cannot yet express
 - [#282](https://github.com/alexpfau/calendar-card-pro/issues/282) - Render all-day events in the calendar's own color by @Homeassistantfrost, answered by `allday_badge: title`
 - [#310](https://github.com/alexpfau/calendar-card-pro/issues/310) - Free/busy support for a shared calendar by @jlorince — answered in both directions, by `label` for an empty title and `replace_with` for a placeholder one. Merging contiguous detail-free events is **declined** and the issue closes in full
-- [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @Misiu, with the upstream Home Assistant support contributed by @karwosts
+- [#314](https://github.com/alexpfau/calendar-card-pro/issues/314) - Use color from entity registry by @Misiu, who also contributed the upstream Home Assistant support
 - [#345](https://github.com/alexpfau/calendar-card-pro/issues/345) - Filtering events by description content by @RemyGeode
 - [#533](https://github.com/alexpfau/calendar-card-pro/issues/533) - Duplicate a calendar block from the visual editor by @alexpfau
 - [#543](https://github.com/alexpfau/calendar-card-pro/issues/543) - Glossary rejected-form matcher missed inflections that change the stem by @alexpfau
