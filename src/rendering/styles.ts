@@ -946,15 +946,26 @@ export const cardStyles = css`
 
   /* The title pill draws the user's OWN WORDS, which changes every type decision the badge
      made. No uppercase: an event called "Dentist" is not called "DENTIST", and forcing the
-     case would mangle every language that carries meaning in it. No letter-spacing and no
-     size reduction either -- the title is the row's headline and shrinking it to fit a
-     decoration inverts the hierarchy. So this pill inherits the title's own font entirely
-     and changes only the box drawn around it.
+     case would mangle every language that carries meaning in it. No letter-spacing either --
+     that opens a short label out into a tag, and spread across a whole title it only makes
+     the title harder to read.
+     The size and the weight DO step down, a little, and each states its own reasoning where
+     it is set below. Between them they are the whole of "quieter than the title it wraps",
+     and no number for either belongs up here where it would go stale out of sight of the
+     declaration it describes.
      Wider inline padding than the badge, because the eye reads a capsule against the length
      of what is inside it: 0.5em looks generous around the two short words of a label and
-     mean around a full title. The negative inline margin pulls the pill's own padding back
-     so the title's first glyph still sits on the same optical line as every other event's,
-     which is what keeps a mixed list from looking ragged down its left edge. */
+     mean around a full title.
+     🚨 That padding is deliberately NOT pulled back by a negative inline margin, and it once
+     was. A margin-inline-start of exactly the padding put the pill's TEXT on the same optical
+     line as every other title, which reads well in isolation and was wrong in place: the pill
+     then began further left than anything else in the card, and the container clipped its
+     leading curve. The pill's BOX aligns with the row instead -- measured at the same edge as
+     a plain title -- and the text sits indented inside it, which is what Apple Calendar does.
+     The consequence is real and is the accepted trade: in a list mixing pilled and unpilled
+     events, the all-day titles are indented by the pill's own inline padding, which scales
+     with it and is about 7px at the shipped default. Do not "fix" that indent by restoring
+     the margin without first re-checking the clipping it caused. */
   .allday-title-pill {
     /* Taller than the badge, and symmetric where the badge is not. Both differences come
        from the same fact: this pill wraps the user's own words rather than one uppercase
