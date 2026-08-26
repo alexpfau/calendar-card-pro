@@ -5,9 +5,28 @@ import { cardStyles } from '../src/rendering/styles';
 
 /**
  * The build strips comments out of `css` tagged templates, because their contents are a
- * string literal that no minifier touches — 18,176 bytes raw and 7,016 gzip on the
- * eagerly-loaded card, which is 51% of the stylesheet. Measured by building
- * `dist/calendar-card-pro.js` with the plugin and again without it.
+ * string literal that no minifier touches — roughly 45 KB raw and about 17 KB gzipped off
+ * the eagerly-loaded card, which is around two-thirds of the stylesheet.
+ *
+ * 🚨 **Those figures are deliberately approximate. Do not replace them with an exact byte
+ * count.** The same author, in the same session, has written an exact one three times and
+ * had to correct it three times — but the three failed in two different ways, and the
+ * difference is the whole lesson:
+ *
+ * - `31,579` at `42e5ab3` was **byte-exact on the day** (30,719 card + 860 editor, and that
+ *   commit said so). It simply rotted: every later commit that added a CSS comment moved it,
+ *   and nothing recomputes it, so by `4a3d880` it was ~13.6 KB low and still being quoted.
+ * - `44,357` at `4a3d880` was **803 out when committed**, and drifted to ~322 out after.
+ * - `44,255` was **383 out when committed**, because the commit correcting it kept adding
+ *   comments after the reading was taken.
+ *
+ * So a figure here is wrong either immediately or eventually, and the second kind is the
+ * more dangerous because it looks verified. Note also that `31,579` was card+editor while
+ * the other two were card-only — comparing them directly is a unit error.
+ *
+ * The quantity moves with every comment anyone writes, so it is a reading and not a
+ * constant. The method lives in `AGENTS.md`; the assertion below is a band for the same
+ * reason. If you need the number, measure it — and take the reading last.
  *
  * That makes this function the one place in the build that edits CSS, and a bug in it
  * ships a broken stylesheet to every user with every gate still green: `stylesheet.test.ts`
@@ -91,6 +110,68 @@ describe('stripComments', () => {
   // was going to fail this whatever it said, and the documented figure was 19% light again.
   // Widening without re-measuring would have been the same mistake the test exists to catch,
   // so the header figures come from a real pair of builds, not from this number.
+  //
+  // Rebased again for the all-day badge, whose derivation needed explaining, and once more
+  // after the light-dark() fault was written up in the stylesheet.
+  //
+  // 🚨 This block used to carry exact byte counts and every one of them had to be corrected,
+  // so it now carries the method instead. The history is the argument, and the three failed
+  // differently: 31,579 was byte-exact at `42e5ab3` and rotted afterwards, so it was still
+  // being quoted once it was ~13.6 KB low; 44,357 was 803 out the day it was written; 44,255
+  // was 383 out, because the commit correcting it went on adding comments after the reading.
+  // One went stale later, two were stale on arrival, and the first kind is worse because it
+  // reads as verified. The quantity is a reading of the tree at one instant, and this file is
+  // one of the things that moves it.
+  //
+  // Measure it, do not quote it, and take the reading LAST — after every comment in the
+  // commit is written. Two builds and a subtraction, per `AGENTS.md`. Corroborate by
+  // stripping the source `cssText` through this same `stripComments`: the two should differ
+  // by a handful of bytes, which is the "leave a space behind" rule and is what says the
+  // method was sound rather than the number lucky. The editor's share is the stable half and
+  // has held at 860 across every rebase, because `rendering/styles.ts` is where the reasoning
+  // lives and the editor's stylesheet is barely commented.
+  //
+  // 🚨 The disabling edit must match `stripCssComments,` as a BARE IDENTIFIER in the plugins
+  // array, indented, and NOT as a call. Attempting this measurement again reported a saving
+  // of zero for exactly the reason recorded below, on the very first try. An arms-differ
+  // check is the only thing that separates that from a real finding.
+  //
+  // Rebased once more when the badge's sizing was moved off the icon and onto its own font.
+  // That fix carried two findings whose causes are invisible from the CSS and so had to be
+  // written down beside it: the countdown's trailing-text clamp was silently swallowing the
+  // badge and forcing display: -webkit-box on it, and .time-actual's default min-width: auto
+  // made the pill's ellipsis unreachable in principle rather than merely rare. Both notes
+  // record a measurement someone would otherwise have to repeat. The stylesheet was then
+  // 56,221 chars of which 35,763 were comment, a share of 63.6% against 60.4% before.
+  //
+  // Rebased again for the badge's second position. Splitting one pill into a shared box plus
+  // two sets of type decisions needed the shared/not-shared line written down, and the title
+  // pill carries two constraints that are invisible from its own rule: why it is nested
+  // inside .event-title rather than replacing it, and why its single-line clamp is not
+  // title_max_lines. That reading was 59,026 chars of which 38,294 were comment, 64.9%.
+  //
+  // Rebased once more when the badge's vertical centring was measured properly. The old note
+  // claimed the ink was centred to within a fifth of a pixel; a fourteen-size pixel sweep
+  // showed a systematic +0.027em bias, reported from a live card. The replacement records the
+  // measurement, the residual that baseline snapping leaves behind, and why the trim block
+  // exists rather than a more precise padding value -- the last of which is the sort of thing
+  // a later reader would otherwise delete as redundant with the fallback. That reading was
+  // 62,891 chars of which 41,933 were comment, 66.7%.
+  //
+  // And once more for the title pill's line-box correction, whose cause -- an inline-block
+  // with overflow: hidden taking its baseline from its bottom margin edge -- is a CSS rule
+  // almost nobody knows and which nothing in the declarations hints at. That reading was the
+  // last exact pair written into this file, and it went stale the same way as the ones in
+  // the header: four commits touched `styles.ts` after it, three of them adding comment,
+  // leaving it ~900 bytes and roughly four-tenths of a point out. The share is a little under
+  // 68% today; the
+  // band below is what actually holds it.
+  // 🚨 Both attempts at this measurement first reported a saving of ZERO, years apart in
+  // spirit and minutes apart in fact, because the edit meant to disable the plugin did not
+  // match: it is registered as a bare identifier in the plugins array, not as a call, so
+  // every regex written for `stripCssComments()` silently no-ops. Identical arms are a void
+  // measurement, not a finding — diff the two configs and refuse to read the delta unless
+  // they actually differ.
   it('saves the number of bytes the documentation claims it does', () => {
     const body = cardStyles.cssText;
     expect(body.length).toBeGreaterThan(10_000);
@@ -98,9 +179,16 @@ describe('stripComments', () => {
     const saved = body.length - stripComments(body).length;
     const share = saved / body.length;
 
-    expect(saved).toBeGreaterThan(15_500);
-    expect(saved).toBeLessThan(21_500);
+    expect(saved).toBeGreaterThan(26_000);
+    expect(saved).toBeLessThan(48_000);
+    // A little under 68% today, up through 66.7%, 64.9%, 63.6%, 60.4% and before ~51% -- those
+    // are historical readings and stay as written. Both jumps were paid
+    // for the same thing: a fault whose cause is invisible from the CSS and whose symptoms
+    // point the wrong way needs a long explanation or the next person repeats the
+    // investigation. That is the trade this plugin exists to make — none of it reaches a
+    // user — but the share is worth watching, so the ceiling stays close enough to the
+    // measurement to notice another jump rather than absorbing one silently.
     expect(share).toBeGreaterThan(0.45);
-    expect(share).toBeLessThan(0.58);
+    expect(share).toBeLessThan(0.74);
   });
 });

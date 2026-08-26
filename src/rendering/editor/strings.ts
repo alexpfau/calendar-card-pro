@@ -297,6 +297,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'The height the column layout may grow to before it scrolls. Use none for no limit.',
   'column.show_week_numbers': 'Week Numbers',
   'column.today_indicator': 'Today Indicator',
+  'column.allday_badge': 'All-Day Badge',
+  'column.allday_badge_style': 'All-Day Badge Style',
   'column.remove_location_country': 'Country Names',
   'column.show_empty_days.helper':
     'Column layout defaults this to on, whatever the shared setting above says.',
@@ -475,6 +477,23 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Tints each event with its accent color. Zero leaves it untinted.',
   title_max_lines: 'Title Line Limit',
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
+  allday_badge_position: 'All-Day Badge',
+  'allday_badge_position.helper':
+    'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +
+    'row it replaces the all-day label; on the title it wraps the event name. A title ' +
+    'badge is kept to one line and shortened with an ellipsis where it does not fit.',
+  'allday_badge_position.option.off.label': 'Off',
+  'allday_badge_position.option.time.label': 'Around The All-Day Label',
+  'allday_badge_position.option.title.label': 'Around The Event Title',
+  allday_badge_style: 'All-Day Badge Style',
+  'allday_badge_style.helper':
+    'How much weight the badge carries, from a plain frame to a solid block of the ' +
+    'calendar color.',
+  'allday_badge_style.option.neutral.label': 'Plain Outline',
+  'allday_badge_style.option.outline.label': 'Accent Outline',
+  'allday_badge_style.option.subtle.label': 'Subtle',
+  'allday_badge_style.option.tinted.label': 'Tinted',
+  'allday_badge_style.option.filled.label': 'Filled',
   event_icon_vertical_alignment: 'Icon Alignment',
   'event_icon_vertical_alignment.option.top.label': 'Top',
   'event_icon_vertical_alignment.option.middle.label': 'Middle',
@@ -484,6 +503,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
+  'show_single_allday_time.helper':
+    'Applies to all-day events that occupy a single day. Multi-day ones have their own ' +
+    'setting below, because their time row also carries the end date.',
+  show_multiday_allday_time: 'Show Time For Multi-Day All-Day Events',
+  'show_multiday_allday_time.helper':
+    'Their time row reads "All day, until ..." and so carries the end date, which nothing ' +
+    'else on the row shows. Timed events spanning several days are unaffected.',
   time_two_digit_hours: 'Pad Hours To Two Digits',
   time_font_size: 'Time Font Size',
   time_color: 'Time Color',
@@ -492,6 +518,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   location: 'Location',
   show_location: 'Show Location',
+  show_location_allday: 'Show Location For All-Day Events',
   location_country_mode: 'Country Names',
   'location_country_mode.option.keep.label': 'Keep Them',
   'location_country_mode.option.builtin.label': 'Remove Well-Known Ones',
@@ -507,6 +534,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   description: 'Description',
   show_description: 'Show Description',
+  show_description_allday: 'Show Description For All-Day Events',
   description_font_size: 'Description Font Size',
   description_color: 'Description Color',
   description_icon_size: 'Description Icon Size',

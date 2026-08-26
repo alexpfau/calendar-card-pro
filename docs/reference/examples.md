@@ -83,7 +83,7 @@ entities:
   - entity: calendar.family
     accent_color: '#ff6c92'
 days_to_show: 5
-compact_events_to_show: 5
+compact_events_to_show: 6
 vertical_line_width: 5px
 event_spacing: 5px
 show_week_numbers: iso
@@ -91,6 +91,8 @@ week_separator_width: 1px
 week_separator_color: '#03a9f450'
 month_separator_width: 1.5px
 month_separator_color: var(--secondary-text-color)
+allday_badge: time
+allday_badge_style: subtle
 ```
 
 ## 🗓️ A Week Side by Side, in Column View
@@ -106,7 +108,17 @@ one column at a time, at 998, 838 and 678 px, and reaches the `min_days_to_show:
 **518 px**.
 
 The `column:` block below tightens the type and hides the location, both of which cost more
-in a narrow column than they do in a full-width row.
+in a narrow column than they do in a full-width row. `allday_badge_style: filled` follows from the
+same tightening: the time badge takes its size from `time_font_size`, which is 12 px by
+default here, so it renders at about 10 px, and a one-pixel
+ring is then a large share of the letterforms' own weight, so a solid chip reads at a glance
+where an outline asks to be examined. It also shows off the treatment's one trick — the ink
+inside flips to black or white to suit the calendar's color, decided per accent by the
+browser. See [The All-Day Badge](/features/event-content#the-all-day-badge).
+
+Each calendar sets `color` and `accent_color` to the same value, which is what keeps a
+column reading as one calendar: the title, the vertical line and the badge all agree. Set
+only `color` and the badge would keep the default blue while the title went red.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_week.png" alt="A Week Side by Side, in Column View"><br>
 
@@ -115,13 +127,17 @@ type: custom:calendar-card-pro
 entities:
   - entity: calendar.family
     color: '#e67c73'
+    accent_color: '#e67c73'
   - entity: calendar.work
     color: '#03a9f4'
+    accent_color: '#03a9f4'
 view: column
 days_to_show: 7
 show_week_numbers: iso
 today_indicator: true
 empty_day_text: '✔ All done'
+allday_badge: time
+allday_badge_style: filled
 column:
   min_day_width: 150
   min_days_to_show: 3
@@ -194,6 +210,8 @@ show_end_time: true
 time_font_size: 12px
 time_color: '#baf1ff'
 time_icon_size: 14px
+allday_badge: time
+allday_badge_style: subtle
 show_location: true
 remove_location_country: true
 location_font_size: 12px

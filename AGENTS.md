@@ -683,6 +683,36 @@ These conventions are **enforced by `npm run check:docs`**, so this section is a
 reference for _why_, not a checklist to police by hand. Run it before pushing docs
 changes; CI runs it too.
 
+🚨 **Never write a real person into an example. Not the maintainer, not his family, not
+anyone.** Every name, entity id, birth year, address, photo and calendar name in the
+documentation, in code comments, in test fixtures and on the demo dashboards must be
+invented. Use plain fictitious **first names** — `Anna`, `Ben`, `person.anna`,
+`calendar.anna`. Not full names, not joke placeholders like `Max Mustermann`, and above
+all not whoever happens to be in the calendar the feature was developed against.
+
+This is the one rule here with a consequence that cannot be taken back. Everything else
+in this file describes something that ships wrong and can be fixed in the next release;
+this ships someone's name and date of birth to a public documentation site, a public
+repository and every clone of it, and no later commit un-publishes that.
+
+It is an easy mistake to make. A feature is often documented against whatever calendar it
+was developed on, and if that calendar holds real names, entity ids or birth years they
+flow straight into `docs/`, `RELEASE_NOTES.md`, `whats-new.md` and source comments without
+anything objecting — it is all valid prose in valid files, and no gate can tell a
+plausible fake name from a real one.
+
+So the discipline has to be at the point of writing, and it is a specific habit rather
+than general care: **when documenting a feature you developed against live data, change
+the names before you write the sentence, not after.** Copying a real event into a doc as
+a first draft and intending to anonymize it later is exactly how real data slips in.
+The same applies to fixtures created on the demo calendars and to any card added to a
+screenshot dashboard, because both end up in published images.
+
+Two things are deliberately **not** covered by this. `@author Alex Pfau` in
+`src/calendar-card-pro.ts` is authorship attribution, and `github.com/alexpfau/...` URLs
+are the repository's own address; both stay. The rule is about example _data_, not about
+the project's identity.
+
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
 emoji there ends up in the browser tab, bookmarks, share previews and search results.
 Two pages shipped `<title>⚙️ Visual Configuration Editor | Calendar Card Pro` before
@@ -1431,9 +1461,32 @@ export function getView(config: Config): View {
 are a string literal, so no minifier looks inside one — comments there used to ship to every
 user, and half the stylesheet was comment. That is fixed at build time by the
 `strip-css-comments` plugin in `rollup.config.mjs`, which removes them from both
-`rendering/styles.ts` and `rendering/editor/styles.ts` and takes 18,176 raw / 7,016 gzip
-bytes off the eager path (51% of the stylesheet, measured at v4.0.0 by building with the
-plugin and again without it).
+`rendering/styles.ts` and `rendering/editor/styles.ts` and takes roughly **45 KB raw and
+about 17 KB gzipped** off the eager path — nearly all of it the card, since
+`rendering/styles.ts` is where the reasoning lives and the editor's share has held at 860
+bytes across every rebase.
+
+🚨 **That figure is deliberately approximate, and writing an exact one here is a mistake the
+same author has now made three times, in one session.** It moves with every comment anyone
+writes, so it is a reading of the tree at one instant rather than a constant — and the three
+went wrong in two different ways. `31,579` was byte-exact when written and simply rotted,
+still being quoted once it was ~13.6 KB low. `44,357` was 803 out on the day, drifting to
+about 322. `44,255` was 383 out, because the commit fixing it kept adding comments after the
+reading was taken. Nothing recomputes any of them, so all three survived review — and the
+one that was right on arrival is the most dangerous, because it reads as verified. Mind the
+units too: `31,579` was card+editor, the other two card-only. Measure when you need it, and
+**take the reading last** — after every comment in your commit is written:
+
+```bash
+npm run build && stat -f%z dist/calendar-card-pro.js          # stripping ON
+# comment out the bare `stripCssComments,` identifier in rollup.config.mjs, rebuild
+npm run build && stat -f%z dist/calendar-card-pro.js          # stripping OFF
+```
+
+🚨 **The disabling edit must match `stripCssComments,` as a bare identifier**, indented, not
+as a call — an attempt that misses reports a saving of ZERO, which reads as "the plugin does
+nothing" rather than as a failed edit. **Assert the two arms differ before believing any
+delta**, per the control rule below, and quote the gzip level with any compressed figure.
 
 This is worth stating because the alternative is worse than it looks: without knowing the
 plugin exists, the reasonable move is to keep CSS comments terse, and the reasoning in
@@ -1558,6 +1611,31 @@ different artefacts.
   Self-test both directions — a sentinel that must not match is blind to the false negative,
   which is the direction that provokes an unnecessary restore.
 
+- **A fix is not finished at the site the report named — grep for the claim's other copies,
+  and re-read the neighbours of every line you touch.** Five review rounds on one branch
+  found something in the _previous round's fix_ four times running, and mostly not in the fix
+  itself: the corrections were right, their edges were not. A false string was corrected in
+  the documentation and left standing in three other places, two of them in the source file
+  that builds the row — and the correction then disagreed with the fixture directly below it.
+  Stale byte figures were purged from the top of a file and left in two comments further
+  down, by the commit whose entire subject was stale byte figures in that file. A one-word
+  typo fix landed inside a sentence that an _earlier_ commit had already falsified, and did
+  not notice. Mechanically: `grep` the exact claim across `src`, `tests` and `docs` before
+  committing a correction, and read the five lines either side of every hunk. Every miss
+  above is visible in a `git diff` that anyone actually reads to its edges.
+- **A number in a comment is wrong either immediately or eventually, and the second kind
+  looks verified.** Three successive byte counts in one file needed correcting, in two
+  different ways: one was byte-exact when written and then rotted, still being quoted once it
+  was ~13.6 KB low; the other two were 803 and 383 out on the day, because the reading was
+  taken before the commit stopped changing the thing it measured. **A measurement taken
+  mid-commit describes a tree that no longer exists by the time you push**, so take any
+  reading last, after every comment in the change is written — or state a magnitude that
+  cannot go stale, which is what that file now does. Watch the units too: the first of those
+  three was card+editor and the other two card-only, so the series was never comparable.
+- **Review-fix commits are the least-reviewed code in the repository.** They arrive after the
+  reviewer has reported, they look like tidying, and they are written in the tired half of the
+  session. Whatever lands to close a review deserves the same pass as the thing it fixed,
+  however small it looks.
 - **When you withdraw a finding, grep for its _consequences_, not its wording.** The
   expensive half is every place it was already turned into a rule: an imperative three
   sections away, a parsed table cell, a test that pins it, or the code a document describes.

@@ -74,7 +74,7 @@ export function bool(name: string): SelectorSchema {
  * @returns The field
  */
 export function text(name: string): SelectorSchema {
-  return { name, selector: { text: {} } };
+  return { name, selector: { text: { type: 'text' } } };
 }
 
 /**
@@ -84,7 +84,7 @@ export function text(name: string): SelectorSchema {
  * @returns The field
  */
 export function color(name: string): SelectorSchema {
-  return { name, selector: { text: {} } };
+  return { name, selector: { text: { type: 'text' } } };
 }
 
 /**

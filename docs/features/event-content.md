@@ -52,6 +52,157 @@ Compact mode limits never trigger hiding — a card limited to zero events with 
 The same applies when a calendar cannot be reached. A failed request leaves the event list empty, but that is not the same thing as an empty calendar, so the card never vanishes because of a temporary outage. If events are already on screen they stay there until a refresh succeeds, and if there is nothing to fall back on the card reports the problem instead of claiming there are no upcoming events.
 :::
 
+## 🏷️ The All-Day Badge
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge_title.png" alt="The all-day pill wrapped around the event title, in each calendar's own color" width="600"><br>
+
+By default an all-day event says so in words, on the same line as the clock icon. The all-day
+badge draws that fact as a rounded pill in the calendar accent color instead, the way most
+calendar apps do. Two options describe it — **where** the pill goes, and **which** of five
+treatments draws it:
+
+```yaml
+allday_badge: title # off, title or time
+allday_badge_style: tinted # neutral, outline, subtle, tinted or filled
+```
+
+Both are card-level, so a card shows pills for every calendar on it or for none.
+
+### Where The Pill Goes
+
+| Value   | What it does                                                                     |
+| ------- | -------------------------------------------------------------------------------- |
+| `off`   | The default. All-day events say so in plain words                                |
+| `title` | The pill wraps the event title, the way Google Calendar and Apple Calendar do it |
+| `time`  | The pill replaces the words on the time row, beside the clock icon               |
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="The all-day pill on the time row, beside the clock icon" width="600"><br>
+
+Above is `time`, and the image at the top of this section is `title` — the same card, the
+same calendars and the same treatment, so the only difference is where the pill goes. The
+`title` card also sets `show_single_allday_time: false`, which is what leaves the pill as
+the whole statement instead of repeating _All day_ underneath it.
+
+### Which Treatment Draws It
+
+There are five, from quietest to loudest, and all five work at either position:
+
+| Value     | What it draws                                                           |
+| --------- | ----------------------------------------------------------------------- |
+| `neutral` | An outline only, in the row's own text color rather than the calendar's |
+| `outline` | An outline only, in the calendar accent color                           |
+| `subtle`  | A gentle wash of the accent, with no outline                            |
+| `tinted`  | Both — a gentle wash inside a matching outline                          |
+| `filled`  | A solid pill in the calendar accent color                               |
+
+`tinted` is the default and applies as soon as `allday_badge` names a position.
+
+Four of the five take their color from the calendar the event came from, so events from
+different calendars stay distinguishable at a glance. Where a calendar sets its own
+`accent_color`, the pill follows it — including when that is a theme variable, because the
+colors are resolved by the browser rather than computed in advance.
+
+`neutral` is the exception, and it is the one treatment that reads differently at each
+position. It takes no accent at all, borrowing whatever color it sits in: the time color on
+the time row, and the **title** color on the title. So it stays the mildest of the five in
+both places, and in both places it is still distinct from the other four.
+
+::: warning `color` And `accent_color` Are Separate
+`color` sets an event's **title**. `accent_color` sets its **pill**, its vertical bar and
+its row tint. A calendar that sets only `color` therefore keeps the default blue accent, and
+its pill can end up in a color that relates to nothing else on the row. Set both to the
+same value when you are coloring calendars apart, or use `neutral`, which takes no accent
+at all.
+:::
+
+::: tip Which One To Pick
+`tinted` suits most dashboards. Reach for `outline` when
+[`event_background_opacity`](/reference/configuration#event-column) is high — with no fill
+of its own, an outline has nothing to dissolve into the tinted row behind it. `neutral` is
+the one to pick when the pill should stay out of the way entirely, or when a calendar's
+accent does not sit well under its title. `filled` is the loud one, for when the calendar's
+color should read as a solid chip.
+:::
+
+### Which Events Get One
+
+This follows a single rule at both positions: the event has to occupy the whole of the day it
+is drawn on. A timed meeting running from Wednesday evening to Monday morning does not, and
+keeps its usual times. But when
+[`split_multiday_events`](/features/multi-day-events) is on, that meeting's middle days
+_are_ whole days, and those rows get a pill while its first and last days keep their times.
+
+### What The Two Positions Do Differently
+
+At `time`, the pill replaces the label and anything that follows it stays as ordinary text.
+A multi-day all-day event reads as the pill and then its end date, so no information is lost.
+
+At `title`, the time row is left exactly as it would be with no badge at all. That is
+deliberate: the pill says _that_ an event is all-day, while the time row says _how long_ it
+runs, which for a multi-day event is information the pill cannot carry.
+
+A title pill is always a single line. Where the title is too long for the space, it ends in
+an ellipsis and the pill keeps its shape — it does not wrap, and it does not follow
+[`title_max_lines`](/reference/configuration#event-column), which stays your setting for
+every other event.
+
+Both pills size themselves from the text they wrap rather than from an option of their own:
+the time pill from `time_font_size`, the title pill from `event_font_size`. Enlarge either
+and its pill grows with it, whatever unit you write it in. The title pill is a little taller
+than the time pill, because event titles often begin with an emoji and an emoji is drawn to a
+larger box than a letter.
+
+A title pill's left edge lines up with the other rows, so its text sits slightly indented
+compared to the titles above and below it. That is the same trade Apple Calendar makes — the
+alternative pulls the pill's leading curve outside the row, where the card clips it.
+
+::: tip Pair `title` With show_single_allday_time
+Setting `show_single_allday_time: false` hides the time row for single-day all-day events,
+which at the `title` position leaves the pilled title alone on the row — the layout Apple
+Calendar and Google Calendar use. Multi-day all-day events keep their row, so their end date
+still shows.
+
+At the `time` position the same setting hides the pill along with the row it sits on, since
+there is nothing left to draw it in.
+:::
+
+### Hiding The Time Row
+
+An all-day event's time row is two different things depending on how long the event runs, so
+it takes two options:
+
+| Option                      | Type    | Default | Description                                                                                                                   |
+| --------------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `show_single_allday_time`   | boolean | `true`  | The time row on all-day events occupying one day, which reads just "All day"                                                  |
+| `show_multiday_allday_time` | boolean | `true`  | The time row on all-day events spanning several days, which reads "All day, until Monday, Jun 29" and so carries the end date |
+
+They are separate because the second row carries information the first does not. Turning both
+off is fine and is what an event reduced to a pill wants; turning only the first off keeps the
+end date on the events that have one. Timed events spanning several days are not touched by
+either — they show real start and end times.
+
+::: tip With `split_multiday_events` On, Only The First Applies
+Splitting cuts a multi-day event into one row per day, so every row occupies a single day and
+`show_single_allday_time` governs all of them. `show_multiday_allday_time` only ever applies
+to an unsplit multi-day all-day event — which is the only shape that still draws an end date.
+:::
+
+For a title pill with no supporting rows, keep the location and description options on for
+timed events but turn them off for all-day events:
+
+```yaml
+allday_badge: title
+show_single_allday_time: false
+show_multiday_allday_time: false
+show_location_allday: false
+show_description_allday: false
+```
+
+The location and description options apply to every all-day event, including multi-day ones.
+That differs from `show_single_allday_time` deliberately: a multi-day all-day event's time row
+can carry its end date, while its location and description rows are the same information they
+would be on a single-day all-day event.
+
 ## ⏱️ Time & Location Information
 
 Configure how event times and locations are displayed:
@@ -60,6 +211,7 @@ Configure how event times and locations are displayed:
 # Time display options
 show_time: true # Show event start/end times
 show_single_allday_time: false # Hide time for single-day all-day events
+show_multiday_allday_time: false # ...and for multi-day ones, which show an end date
 time_24h: false # Use 12-hour format (AM/PM)
 time_two_digit_hours: false # Use 2 digits in hours
 show_end_time: true # Show event end time
@@ -69,11 +221,17 @@ time_icon_size: '14px'
 
 # Location display options
 show_location: true
+show_location_allday: true # Show locations for all-day events too
 remove_location_country: true # Remove country names from addresses
 location_font_size: '12px'
 location_color: 'var(--secondary-text-color)'
 location_icon_size: '14px'
 ```
+
+Set `show_location_allday: false` to hide locations only on all-day events. Timed events keep
+their locations as long as `show_location` is still on.
+
+### Removing Country Names
 
 The `remove_location_country` option offers three modes:
 
@@ -147,11 +305,15 @@ Display event descriptions below event titles for additional context:
 ```yaml
 # Description display options
 show_description: true
+show_description_allday: true # Show descriptions for all-day events too
 description_max_lines: 3 # Limit to 3 lines (0 = unlimited)
 description_font_size: '12px'
 description_color: 'var(--secondary-text-color)'
 description_icon_size: '14px'
 ```
+
+Set `show_description_allday: false` to hide descriptions only on all-day events. It pairs
+with `show_location_allday: false` when `allday_badge: title` is meant to stand alone.
 
 Descriptions are automatically processed:
 
@@ -177,10 +339,10 @@ Put **`YEAR=1976`** anywhere in the event's description and the card appends the
 
 ```yaml
 # Nothing to configure — the marker in the event does the work
-Annas Geburtstag  →  Annas Geburtstag (40)
+Anna's Birthday  →  Anna's Birthday (50)
 ```
 
-The event you already have is the one that carries it. Birthdays are normally stored as an event that repeats every year, and each occurrence carries its own year, so the number is a subtraction and nothing else — the 2026 occurrence of a 1976 birthday is `(40)`, and the 2027 one is `(41)` without anyone touching the card again. It never needs the full date of birth, and it never has to work out whether the day has passed yet this year, because the event **is** the birthday.
+The event you already have is the one that carries it. Birthdays are normally stored as an event that repeats every year, and each occurrence carries its own year, so the number is a subtraction and nothing else — the 2026 occurrence of a 1976 birthday is `(50)`, and the 2027 one is `(51)` without anyone touching the card again. It never needs the full date of birth, and it never has to work out whether the day has passed yet this year, because the event **is** the birthday.
 
 The same marker counts anniversaries, because it is the same subtraction. A wedding in 2005 shows `(21)` in 2026. The number stands on its own without saying what it counts, which is what lets one marker serve both.
 
@@ -193,13 +355,13 @@ Two rules matter, and both exist to keep the card from finding a marker in a des
 - **No spaces around the `=` or the `:`.** `YEAR=1976` counts; `YEAR = 1976` does not. This is what separates a marker from ordinary writing — a sentence such as `Academic Year: 2025` puts a space after its colon, and without this rule the card would read that as a birth year and start numbering a school calendar.
 - **The marker stands as its own word.** `Born YEAR=1996` counts; `BIRTHYEAR=1996` does not, and neither does a `?year=1976` sitting inside a link.
 
-The year is always four digits, so `YEAR=198` and `YEAR=19766` are both ignored.
+The year is always four digits, so `YEAR=197` and `YEAR=19766` are both ignored.
 
 | You write             | The card shows |
 | --------------------- | -------------- |
-| `YEAR=1976`           | `(40)` in 2026 |
-| `YEAR:1996`           | `(60)` in 2026 |
-| `Geboren YEAR=1996`   | `(60)` in 2026 |
+| `YEAR=1976`           | `(50)` in 2026 |
+| `YEAR:1996`           | `(30)` in 2026 |
+| `Born YEAR=1996`      | `(30)` in 2026 |
 | `YEAR = 1976`         | nothing        |
 | `Academic Year: 2025` | nothing        |
 | `BIRTHYEAR=1996`      | nothing        |
@@ -210,7 +372,7 @@ The card only ever counts **upward**. A year that matches the event's own year, 
 
 ### What the Description Shows
 
-The marker is instruction to the card, not something to read, so it never appears on your card. With `show_description: true`, a description of `Geboren YEAR=1996 in Berlin` is drawn as **Geboren in Berlin**, and a description containing nothing but the marker leaves no description line at all — which is the tidiest way to use it, since the year is metadata rather than something you wanted to read.
+The marker is instruction to the card, not something to read, so it never appears on your card. With `show_description: true`, a description of `Born YEAR=1996 in Bristol` is drawn as **Born in Bristol**, and a description containing nothing but the marker leaves no description line at all — which is the tidiest way to use it, since the year is metadata rather than something you wanted to read.
 
 Filtering is the deliberate exception. [`blocklist` and `allowlist`](/features/core-settings) read the event exactly as your calendar delivered it, so a `filter_field: description` pattern still sees the raw `YEAR=1976`. That is what makes it possible to filter a birthday calendar on its markers.
 

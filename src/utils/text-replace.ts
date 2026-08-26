@@ -15,7 +15,7 @@
  * rather than chosen for symmetry. `isSet` in `rendering/editor/synthetic.ts` counts the
  * empty string as unset and `toEntityConfig` drops any key that fails it, so the visual
  * editor **cannot store an empty string**. Spelling deletion as `replace_with: ''` would
- * therefore have put #153's own first example — strip `Geburtstag von ` off a birthday —
+ * therefore have put #153's own first example — strip `Birthday of ` off a birthday —
  * out of reach of every user who does not hand-edit YAML. Giving the absent replacement
  * its own meaning costs nothing and makes the whole feature usable from the editor.
  *

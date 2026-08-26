@@ -761,10 +761,10 @@ every row and tells you nothing:
 ```yaml
 entities:
   - entity: calendar.birthdays
-    replace_pattern: 'Geburtstag von '
+    replace_pattern: 'Birthday of '
 ```
 
-`Geburtstag von Hans Müller` becomes `Hans Müller`. With no `replace_with`, whatever matched
+`Birthday of Ben` becomes `Ben`. With no `replace_with`, whatever matched
 is removed.
 
 The pattern is a regular expression, matched **case-insensitively** and applied to **every**
@@ -782,7 +782,7 @@ Capture groups work too, which is often tidier than deleting:
 ```yaml
 entities:
   - entity: calendar.birthdays
-    replace_pattern: 'Geburtstag von (.+)'
+    replace_pattern: 'Birthday of (.+)'
     replace_with: '$1 🎂'
 ```
 

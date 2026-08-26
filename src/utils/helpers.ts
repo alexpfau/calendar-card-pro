@@ -553,3 +553,75 @@ export function memoizeLast<Args extends readonly unknown[], Result>(
     return result;
   };
 }
+
+/** Where `allday_badge` can put the pill. */
+export const ALLDAY_BADGE_POSITIONS = ['title', 'time'] as const;
+
+export type AlldayBadgePosition = (typeof ALLDAY_BADGE_POSITIONS)[number];
+
+/** The treatments `allday_badge_style` can name, in order of increasing weight. */
+export const ALLDAY_BADGE_STYLES = ['neutral', 'outline', 'subtle', 'tinted', 'filled'] as const;
+
+export type AlldayBadgeStyle = (typeof ALLDAY_BADGE_STYLES)[number];
+
+/** The treatment used when `allday_badge_style` is absent or names nothing recognized. */
+export const DEFAULT_ALLDAY_BADGE_STYLE: AlldayBadgeStyle = 'tinted';
+
+/**
+ * Resolve `allday_badge` to where the pill goes, or `null` for no pill at all.
+ *
+ * 🚨 An unrecognized string resolves to `null` — OFF — and that is deliberate. The obvious
+ * alternative, falling through to a default position, is the bug already recorded on
+ * `getTodayIndicatorType` above: there `'none'` draws a dot, because it is a string matching
+ * no special case and every unmatched string reached the default. A value that reads as "off"
+ * turning the feature *on* is the worst available answer, so this table is closed and
+ * anything outside it means off.
+ *
+ * That covers `false` and `'off'` without either needing a branch: neither is in the table,
+ * so both arrive at the same `null` every other unrecognized value does. `'off'` is what the
+ * editor writes and what the docs name; `false` is what a user reaching for a YAML boolean
+ * will type, and it would be a poor joke to give them a badge for it.
+ *
+ * There is no boolean `true`. The option briefly accepted one, from when it was a toggle
+ * with a single treatment, and it resolved to `subtle` — but with two positions and five
+ * treatments there is no "on" for it to mean. Dropped while the option is unreleased and
+ * free.
+ *
+ * @param value - Configured `allday_badge` value, in any of its accepted shapes
+ * @returns Where to draw the pill, or `null` when no pill should be drawn
+ */
+export function resolveAlldayBadgePosition(value: unknown): AlldayBadgePosition | null {
+  if (typeof value === 'string') {
+    const candidate = value.toLowerCase().trim();
+    return (ALLDAY_BADGE_POSITIONS as ReadonlyArray<string>).includes(candidate)
+      ? (candidate as AlldayBadgePosition)
+      : null;
+  }
+
+  return null;
+}
+
+/**
+ * Resolve `allday_badge_style` to the treatment to draw.
+ *
+ * 🚨 This one falls back to a default where `resolveAlldayBadgePosition` above falls back to
+ * off, and the asymmetry is the point rather than an oversight. The closed-set rule exists
+ * so that a value which *reads as off* can never turn a feature on. No treatment name reads
+ * as off: `allday_badge_style` cannot answer the question "is there a badge", only "which
+ * one". So a typo here should still give the user the badge they asked for in the other key,
+ * in the default treatment — silently drawing nothing because `tintd` is not a word would be
+ * the same class of surprise, pointing the other way.
+ *
+ * @param value - Configured `allday_badge_style` value
+ * @returns The treatment to draw, never null
+ */
+export function resolveAlldayBadgeStyle(value: unknown): AlldayBadgeStyle {
+  if (typeof value === 'string') {
+    const candidate = value.toLowerCase().trim();
+    if ((ALLDAY_BADGE_STYLES as ReadonlyArray<string>).includes(candidate)) {
+      return candidate as AlldayBadgeStyle;
+    }
+  }
+
+  return DEFAULT_ALLDAY_BADGE_STYLE;
+}

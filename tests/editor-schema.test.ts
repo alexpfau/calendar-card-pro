@@ -31,6 +31,7 @@ import {
   writeEntity,
 } from '../src/rendering/editor/entities';
 import {
+  EXTRA_KEYS_BY_PANEL,
   applySelection,
   declaredKeys,
   eligibleFields,
@@ -55,6 +56,7 @@ import {
 import { buildLayoutSchema, widthTableRows } from '../src/rendering/editor/schemas/layout';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { exceptionSubforms } from '../src/rendering/editor/subforms';
+import * as Synthetic from '../src/rendering/editor/synthetic';
 import {
   SYNTHETIC_FIELDS,
   deriveSyntheticData,
@@ -707,6 +709,7 @@ describe('editor: change detection', () => {
   it('holds the exact set of synthetic keys', () => {
     expect(Object.keys(SYNTHETIC_FIELDS).sort()).toEqual([
       'accent_color_mode',
+      'allday_badge_position',
       'calendars',
       'card_height',
       'card_max_height',
@@ -1355,6 +1358,60 @@ describe('editor: the panel set', () => {
     }
   }
 
+  /**
+   * Every text selector names its input type, so a reused element cannot keep the last one.
+   *
+   * `ha-form` reuses the DOM node when one schema entry replaces another at the same
+   * position, and `ha-selector-text` does not reset the underlying input's `type` when the
+   * new selector omits it — it keeps whatever the previous field asked for. `start_date`
+   * shipped that way: with a saved fixed date the editor's first render was
+   * `{ text: { type: 'date' } }`, and switching to "Relative to Today" swapped in
+   * `{ text: {} }`, so the Expression field stayed a date picker and the documented grammar
+   * — `wednesday`, `start_of_week`, `today+7` — could not be typed at all. Only the YAML
+   * editor could set it. Measured on a live dashboard: label `Expression`, `type="date"`,
+   * value empty.
+   *
+   * An omitted type is the whole hazard, so the rule is that none may be omitted rather
+   * than that the four typed fields must be kept apart from their neighbours. Which fields
+   * sit next to which is a function of config and would have to be re-reasoned every time a
+   * conditional field is added; "every text selector declares its type" is a property of the
+   * schema this can simply read.
+   *
+   * Walks every panel under several configurations, so a new field is covered the day it is
+   * written rather than when somebody remembers this note.
+   */
+  it('gives every text selector an explicit input type', () => {
+    const configs: Types.Config[] = [
+      buildConfig({}),
+      buildConfig({ start_date: '2026-08-26' }),
+      buildConfig({ start_date: 'wednesday' }),
+      buildConfig({ view: 'column' }),
+      buildConfig({ compact_events_to_show: 3 }),
+      // The all-day treatment select is only built once a position is chosen, so nothing
+      // else in this sweep reaches it -- the same shape as compact_events_to_show above.
+      buildConfig({ allday_badge: 'time' }),
+    ];
+
+    const offenders: string[] = [];
+    let textSelectors = 0;
+
+    for (const config of configs) {
+      for (const { panel, node } of everyNode(config)) {
+        const selector = (node as { selector?: { text?: { type?: string } } }).selector;
+        if (!selector || !('text' in selector)) continue;
+        textSelectors++;
+        if (!selector.text?.type) {
+          offenders.push(`${panel.id} → ${(node as { name?: string }).name ?? '(unnamed)'}`);
+        }
+      }
+    }
+
+    // A clean run has to prove it looked at something: the assertion below passes trivially
+    // on an empty walk, which is exactly how a broken traversal would report success.
+    expect(textSelectors).toBeGreaterThan(30);
+    expect([...new Set(offenders)]).toEqual([]);
+  });
+
   it('registers the nine panels the design names, in order', () => {
     expect(PANELS.map((panel) => panel.id)).toEqual([
       'calendars',
@@ -1468,6 +1525,9 @@ describe('editor: the panel set', () => {
       // Reveals the complete-days modifier, which is held back until there is an event
       // limit for it to modify.
       buildConfig({ compact_events_to_show: 3 }),
+      // The all-day treatment select is only built once a position is chosen, so nothing
+      // else in this sweep reaches it -- the same shape as compact_events_to_show above.
+      buildConfig({ allday_badge: 'time' }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -1487,6 +1547,7 @@ describe('editor: the panel set', () => {
       language: 'language_mode',
       time_24h: 'time_format',
       show_week_numbers: 'week_number_mode',
+      allday_badge: 'allday_badge_position',
       remove_location_country: 'location_country_mode',
       today_indicator: 'today_indicator_style',
       height: 'height_mode',
@@ -3836,6 +3897,11 @@ describe('editor: the exceptions widget', () => {
         view: 'column',
         show_week_numbers: 'iso',
       } as Partial<Types.Config>),
+      // The all-day treatment select is only built once a position is chosen, and neither
+      // sweep above chooses one: the boolean sweep cannot reach a string key, and the plain
+      // column config leaves it at its 'off' default. Without this the check reports
+      // allday_badge_style as having no exception -- correctly, from what it can see.
+      columnConfig({ allday_badge: 'time' } as Partial<Types.Config>),
     ];
 
     const offered = new Set<string>();
@@ -4050,7 +4116,7 @@ describe('editor: the exceptions widget in the chassis', () => {
 });
 
 /**
- * E11 — the three options whose stored value is a union of shapes.
+ * E11 — the options whose stored value is a union of shapes.
  *
  * Each is edited through the same mode dropdown its own panel uses, pointed at the block
  * rather than at the card. What these pin is the one thing that genuinely differs
@@ -4060,6 +4126,144 @@ describe('editor: the exceptions widget in the chassis', () => {
  * value or the exception the user just asked for would silently disappear.
  */
 describe('editor: exceptions for the union-typed options', () => {
+  it('pins EXTRA_KEYS_BY_PANEL by value, because a walk cannot see an entry leaving', () => {
+    /*
+     * Three of these six entries are vestigial and three are load-bearing, which makes a
+     * tidy-up the realistic threat rather than a hypothetical one: `show_week_numbers`,
+     * `today_indicator` and `allday_badge` are all found by the schema walk anyway, so
+     * removing them changes no behaviour, and `remove_location_country` is dead-looking for
+     * the same reason while not being dead at all.
+     *
+     * 🚨 **This pin is what tells them apart, so do not read a failure here as the pin being
+     * stale.** Before it existed, a sweep on default config reported all four as dead and
+     * only a non-default config separated them. Now every deletion fails at least this test,
+     * so the discriminator is the COUNT: one failure and nothing else means the entry was
+     * vestigial and the pin is correct; two or three means real behavioural coverage went
+     * with it. Updating the pin to make a lone failure go away is exactly the move that
+     * restores the invisibility this test was added to remove. `exceptions.ts` carries the
+     * per-entry table.
+     *
+     * Of the live entries, only `remove_location_country` is covered behaviourally BELOW --
+     * `height` and `max_height` are covered by `declares every extra key it offers as a
+     * real, selectable override` and `offers an exception for every overridable option`,
+     * in a different describe further up this file. This test covers the table
+     * itself, and it is deliberately a value comparison rather than a loop over its keys:
+     * `for (const k of Object.keys(TABLE))` runs one fewer time when an entry is deleted
+     * and stays green, which is the trap AGENTS.md names. `toEqual` fails in BOTH
+     * directions, so an addition has to be a deliberate act too.
+     */
+    expect(EXTRA_KEYS_BY_PANEL).toEqual({
+      layout: ['height', 'max_height'],
+      day_header: ['show_week_numbers', 'today_indicator'],
+      events: ['allday_badge', 'remove_location_country'],
+    });
+  });
+
+  it('still offers remove_location_country when the location group is not built', () => {
+    /*
+     * The coverage the synthetic-resolution change quietly removed. Before it, dropping
+     * `remove_location_country` from `EXTRA_KEYS_BY_PANEL.events` failed 2 tests; after, it
+     * survived at 3221 -- because the walk now finds the option in place under default
+     * config, so the extras entry looks redundant to any mutation run at that config.
+     *
+     * It is not redundant. The location group only builds `location_country_mode` when
+     * `show_location` is on, so with locations OFF the walk never sees it at any name and
+     * the extras entry is the only path. That is a real configuration: locations off in the
+     * shared config, wanted back in one view.
+     */
+    const panel = PANELS.find((entry) => entry.id === 'events')!;
+    const offered = (showLocation: boolean) =>
+      eligibleFields(
+        panel.build({
+          view: 'column',
+          config: buildConfig({
+            view: 'column',
+            show_location: showLocation,
+          } as unknown as Partial<Types.Config>),
+          language: 'en',
+        }),
+        'events',
+        'en',
+      ).map((field) => field.name);
+
+    // The control: it is offered with locations ON, so the OFF case is testing the extras
+    // path rather than an option that was never offered at all.
+    expect(offered(true)).toContain('remove_location_country');
+    expect(offered(false)).toContain('remove_location_country');
+  });
+
+  it('offers a union-typed option where its panel renders it, not at the end', () => {
+    /*
+     * `eligibleFields` documents itself as returning "one field per eligible option, in the
+     * order the panel renders them", and for these it did not. A union-typed option renders
+     * under its SYNTHETIC name, which is not a `COLUMN_OVERRIDE_KEYS` member, so the schema
+     * walk skipped it and it arrived later from `EXTRA_KEYS_BY_PANEL` -- at the end.
+     *
+     * The visible cost was the badge pair: `allday_badge_style` is a real key found in place
+     * and `allday_badge` is not, so the picker offered the STYLE at index 5 and the POSITION
+     * it depends on at index 22, seventeen entries later, with nothing saying the style is
+     * inert while the position is off. Measured after the fix: 5 and 6.
+     *
+     * Asserted as adjacency and order rather than as fixed indices, which would break on any
+     * unrelated field being added to the panel.
+     */
+    const config = buildConfig({
+      view: 'column',
+      allday_badge: 'time',
+    } as unknown as Partial<Types.Config>);
+    const panel = PANELS.find((entry) => entry.id === 'events')!;
+    const names = eligibleFields(
+      panel.build({ view: 'column', config, language: 'en' }),
+      'events',
+      'en',
+    ).map((field) => field.name);
+
+    const position = names.indexOf('allday_badge');
+    const style = names.indexOf('allday_badge_style');
+
+    // The control: both have to be offered at all for their order to mean anything.
+    expect(position, 'allday_badge offered').toBeGreaterThanOrEqual(0);
+    expect(style, 'allday_badge_style offered').toBeGreaterThanOrEqual(0);
+
+    expect(style - position).toBe(1);
+  });
+
+  /*
+   * The reconciliation this block did not have, and the defect it did not catch.
+   *
+   * `UNION_OVERRIDES` projects each union-typed option through a SYNTHETIC field, named by
+   * its `mode`. Naming one that does not exist does not throw and does not fail a type check:
+   * `overrideFormData` deletes every key in the table from the data, and `deriveOverrideData`
+   * refills it from `SYNTHETIC_FIELDS` and simply finds nothing. The control renders BLANK --
+   * showing neither the value stored in the block nor the card-level one it inherits, which
+   * is the entire job of that widget.
+   *
+   * `allday_badge_style` shipped that way on this branch: a plain closed-set string with no
+   * second shape and therefore no synthetic, registered here anyway. Stored `'outline'`
+   * derived to `undefined`. Nothing caught it -- the table was module-local so no test could
+   * walk it, and the cases below hardcode the options that existed when they were written.
+   *
+   * Reconciled against `SYNTHETIC_FIELDS` rather than against a second list, so the next
+   * entry is covered whether or not anyone remembers this.
+   */
+  it('names a real synthetic field for every union-typed option', () => {
+    const synthetics = new Set(Object.keys(Synthetic.SYNTHETIC_FIELDS));
+    const missing = Object.entries(Overrides.UNION_OVERRIDES)
+      .filter(([, override]) => !synthetics.has(override.mode))
+      .map(([key, override]) => `${key} -> ${override.mode}`);
+
+    expect(missing).toEqual([]);
+  });
+
+  it('shows a plain-string exception its stored value rather than a blank', () => {
+    // The symptom the reconciliation above prevents, asserted directly so a reader sees what
+    // "blank" meant. `allday_badge_style` is not union-typed and needs no entry at all.
+    expect(
+      Overrides.overrideFormData({ allday_badge_style: 'outline' }, ['allday_badge_style'])
+        .allday_badge_style,
+    ).toBe('outline');
+  });
+
   /** The eligible exception fields of one panel, for a configuration. */
   function eligibleFor(panelId: string, config: Types.Config) {
     const panel = PANELS.find((entry) => entry.id === panelId)!;
@@ -4543,6 +4747,7 @@ describe('editor: every enumerated synthetic option is selectable', () => {
         .sort(),
     ).toEqual([
       'accent_color_mode',
+      'allday_badge_position',
       'height_mode',
       'language_mode',
       'location_country_mode',

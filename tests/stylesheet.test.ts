@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { cardStyles } from '../src/rendering/styles';
+import * as Helpers from '../src/utils/helpers';
 
 /**
  * The stylesheet gate.
@@ -177,7 +178,7 @@ describe('card stylesheet', () => {
     it.each([
       ['.location span', '.location'],
       ['.description span', '.description'],
-      ['.time .time-actual > span:not(.time-text)', '.time-actual'],
+      ['.time .time-actual > span:not(.time-text):not(.allday-badge)', '.time-actual'],
     ])(
       '%s may clamp with a literal -webkit-box because %s is a flex container',
       (target, parent) => {
@@ -199,6 +200,48 @@ describe('card stylesheet', () => {
       // entirely. The clamp belongs on the span that holds the time and nowhere else.
       expect(declared('.time .time-actual .time-text', 'display')).toBe('');
       expect(declared('.time .time-actual .time-text', '-webkit-line-clamp')).toBe('');
+    });
+
+    it('excludes the all-day badge from the countdown clamp', () => {
+      // The second exception, and unlike .time-text it was found the hard way. The badge is
+      // deliberately a direct child of .time-actual -- putting it inside .time-text would
+      // clamp it -- but that placement is *exactly* the shape the clamp selector describes,
+      // so it matched the badge too. At four classes it also outranks the badge's own
+      // one-class rule, so it won silently: the pill computed display: -webkit-box, which
+      // cannot show a text-overflow ellipsis, while -webkit-line-clamp: none meant no clamp
+      // ellipsis either. A pill too narrow for its label was cut off flat, mid-word, with no
+      // mark that anything had been dropped -- and every gate stayed green, because the DOM
+      // does not move and the custom-property values do not change.
+      //
+      // Assert the exclusion is present in the selector rather than the resulting computed
+      // display, because there is no computed display to read here: this file reads source
+      // text. Dropping the :not() reintroduces the bug in full silence otherwise.
+      expect(cardStyles.cssText).toContain(
+        '.time .time-actual > span:not(.time-text):not(.allday-badge)',
+      );
+      expect(cardStyles.cssText).not.toMatch(/\.time \.time-actual > span:not\(\.time-text\)\s*\{/);
+    });
+
+    it('lets a badge row shrink below the pill, which is what makes the ellipsis reachable', () => {
+      // .time-actual is a flex item, so it defaults to min-width: auto -- its min-content
+      // width. A nowrap pill has no soft break, so its min-content width is the whole label,
+      // and .time-actual therefore refuses to go narrower than the label however narrow the
+      // card gets. Measured on a live card with the host forced from 1180px to 110px:
+      // .event-content shrank to 35px, .time followed, and .time-actual stayed at 281px and
+      // hung out of the card. max-width: 100% on the pill cannot help, because 100% resolves
+      // against a parent the pill is itself sizing.
+      expect(declared('.time .time-actual:has(.allday-badge)', 'min-width')).toBe('0');
+    });
+
+    it('centres a badge row rather than following event_icon_vertical_alignment', () => {
+      // The pill is sized from its own font and the icon from time_icon_size, so raising
+      // time_font_size makes the pill the taller of the two and flex-start hangs the icon off
+      // its top edge. At the 12px default the two heights match and centre and flex-start are
+      // indistinguishable, which is why this only shows up once someone scales the type.
+      expect(declared('.time .time-actual:has(.allday-badge)', 'align-items')).toBe('center');
+      expect(declared('.time-actual', 'align-items')).toBe(
+        'var(--calendar-card-event-icon-vertical-alignment)',
+      );
     });
   });
 
@@ -261,7 +304,10 @@ describe('card stylesheet', () => {
   describe('per-field line clamping', () => {
     it.each([
       ['.event-title', '--calendar-card-title-max-lines'],
-      ['.time .time-actual > span:not(.time-text)', '--calendar-card-time-max-lines'],
+      [
+        '.time .time-actual > span:not(.time-text):not(.allday-badge)',
+        '--calendar-card-time-max-lines',
+      ],
       ['.time .time-actual .time-text > span', '--calendar-card-time-max-lines'],
       ['.location span', '--calendar-card-location-max-lines'],
       ['.description span', '--calendar-card-description-max-lines'],
@@ -863,7 +909,7 @@ describe('card stylesheet', () => {
     });
 
     it('keeps .time-actual a flex container, which is what makes the row work at all', () => {
-      // Two things depend on it. `.time .time-actual > span:not(.time-text)` clamps with a
+      // Two things depend on it. `.time .time-actual > span:not(.time-text):not(.allday-badge)` clamps with a
       // literal -webkit-box, which is only safe while its parent blockifies it (see the
       // blockification trap above). And in inline flow this box is block-level, so it
       // would take a line of its own and push the countdown off the row entirely.
@@ -1069,6 +1115,353 @@ describe('card stylesheet', () => {
       // value depend on source order. One block per element means a reader sees
       // the whole element in one place.
       expect(rulesFor(selector)).toHaveLength(1);
+    });
+  });
+
+  describe('the badge/countdown separator, and the specificity it once lost on', () => {
+    /*
+     * Two declarations that had no guard at all. Both were verified null: setting the reset
+     * to 4px, and reverting the badge's own margin to 4px, each left the whole suite green.
+     *
+     * That is acute here rather than merely untidy, because the rule's own comment records
+     * that an EARLIER attempt at this same fix lost on specificity and "silently changed
+     * nothing -- a fix that typechecked, built, deployed and did nothing". The documented
+     * silent-failure mode was the one with no test.
+     */
+    it('drops the countdown lead-in when a badge precedes it', () => {
+      expect(
+        declared(
+          '.time .time-actual .allday-badge + .time-text > .time-countdown',
+          'margin-inline-start',
+        ),
+      ).toBe('0');
+    });
+
+    it('gives the badge the margin its own comment derives', () => {
+      // 5px against the separator dot's 4px on the far side, because a drawn box has no right
+      // side bearing where digits do. Pinned so the derivation and the number stay together.
+      expect(declared('.allday-badge', 'margin-inline-end')).toBe('5px');
+    });
+
+    it('out-ranks the rule the earlier attempt lost to', () => {
+      // Specificity, counted as classes: the badge selector must beat
+      // `.time .time-actual .time-text > .time-countdown`. Compared rather than asserted as a
+      // number, so the check survives either selector being rewritten.
+      const classes = (selector: string) => (selector.match(/\.[a-z-]+/g) ?? []).length;
+
+      expect(
+        classes('.time .time-actual .allday-badge + .time-text > .time-countdown'),
+      ).toBeGreaterThan(classes('.time .time-actual .time-text > .time-countdown'));
+    });
+
+    it('pins the cap-centring padding, not just that trimming happens', () => {
+      // The @supports block's own comment spends a paragraph deriving 0.3295em from
+      // (1.37 - 0.711) / 2, and nothing held the result: changing it to 0.32em left the suite
+      // green. The existing test asserts the properties and the scope, never the value.
+      const trim = cardStyles.cssText.slice(cardStyles.cssText.indexOf('text-box-trim: trim-both'));
+      expect(trim.slice(0, trim.indexOf('}'))).toContain('padding-block: 0.3295em');
+    });
+  });
+
+  describe('the all-day badge is sized by its own font, not by the clock icon', () => {
+    /*
+     * The pill's height was `line-height: calc(var(--calendar-card-icon-size-time, 14px)
+     * - 0.12em)` -- pinned to the icon so that the two boxes would line up. That holds only
+     * while the two happen to be similar, and they stop being similar the moment anyone
+     * touches `time_font_size`, which moves the label and leaves the icon alone. At 20px the
+     * label rendered at 17px inside a box still fixed at 14px and spilled out of the shape.
+     *
+     * The suite could not see it. `list-dom` serializes DOM and a stylesheet change moves no
+     * attribute; `allday-badge.test.ts` asserts class names; and every one of them runs at
+     * the default `time_font_size`, where the icon-pinned box and the font-derived box give
+     * the same answer. This describe block is the reconciliation: it asserts the pill's box
+     * is a function of the pill, so re-pinning it to anything that does not scale with the
+     * type fails here instead of on someone's dashboard.
+     */
+    it('does not derive any part of its box from the time icon size', () => {
+      // Read `.body` and not the rule object. The first version of this test did
+      // `expect(rulesFor('.allday-badge')[0]).not.toContain(...)`, which passes against an
+      // object no matter what the CSS says -- it survived a mutation that put the icon
+      // variable straight back into this rule, which is the whole thing it exists to stop.
+      const body = rulesFor('.allday-badge')[0]?.body ?? '';
+      expect(body).not.toBe('');
+      expect(body).not.toContain('--calendar-card-icon-size-time');
+    });
+
+    it('states its line box and padding in em, so both track the font', () => {
+      // em resolves against the badge's own font-size, which is itself an em of the time
+      // font -- so the whole pill is one multiplier away from `time_font_size` and needs no
+      // key of its own. Measured live: 13.95px at 12px, 23.27px at 20px, 32.59px at 28px,
+      // a constant 1.164x of the configured size.
+      expect(declared('.allday-badge', 'font-size')).toBe('0.85em');
+      expect(declared('.allday-badge', 'line-height')).toBe('1.05');
+      expect(declared('.allday-badge', 'padding-block')).toMatch(/^[\d.]+em [\d.]+em$/);
+      expect(declared('.allday-badge', 'padding-inline')).toMatch(/em$/);
+    });
+
+    it('keeps the label on one line and clips it with an ellipsis', () => {
+      // All four are required together and each is load-bearing. Without nowrap French wraps
+      // and the text leaves the shape; without overflow: hidden the ellipsis never appears;
+      // without max-width the pill has nothing to clip against; without inline-block the
+      // ellipsis does not apply at all.
+      expect(declared('.allday-badge', 'white-space')).toBe('nowrap');
+      expect(declared('.allday-badge', 'overflow')).toBe('hidden');
+      expect(declared('.allday-badge', 'text-overflow')).toBe('ellipsis');
+      expect(declared('.allday-badge', 'display')).toBe('inline-block');
+      expect(declared('.allday-badge', 'max-width')).toBe('100%');
+      expect(declared('.allday-badge', 'min-width')).toBe('0');
+      // Without border-box, max-width caps the content and the inline padding is added
+      // outside it, so a pill clamped to its container is still wider than the container.
+      // Measured in a column cell: 1.19px past the right edge, against 12.00px inside it
+      // with border-box. The card sets box-sizing per element, not globally, so the default
+      // here really is content-box and this is not redundant.
+      expect(declared('.allday-badge', 'box-sizing')).toBe('border-box');
+    });
+
+    it('keeps a pilled title on the same rhythm as an unpilled one', () => {
+      // An inline-block with overflow: hidden takes its baseline from its BOTTOM MARGIN EDGE,
+      // not from the text inside it. That rule exists so a scrollable box does not hang its
+      // last line into the paragraph below, and here it hung the WHOLE pill above the text
+      // baseline: the summary row grew from 22.39px to 31.50px and the gap from the title's
+      // text down to the time row went 5.59px -> 11.77px, reported as double spacing.
+      //
+      // vertical-align: middle re-centres the pill on the text; the negative block margin
+      // hands back the height the capsule borrowed, because for an atomic inline the line box
+      // measures the margin box. Measured after: the text-to-text gap matches a row with no
+      // pill exactly at 14px and 22px, and is within one pixel of it at 18px and 28px, which
+      // is line-box snapping rather than the rule.
+      //
+      // Both are asserted because either alone leaves most of the gap: middle on its own gets
+      // 11.77px to 7.97px against a 5.59px target.
+      expect(declared('.allday-title-pill', 'vertical-align')).toBe('middle');
+
+      const pull = declared('.allday-title-pill', 'margin-block');
+      expect(pull).toMatch(/^-[\d.]+em$/);
+
+      // In em, so it tracks event_font_size the way the pill it corrects does. A px value
+      // would be right at one size and wrong at every other.
+      expect(declared('.allday-title-pill', 'padding-block')).toMatch(/em$/);
+
+      // The badge is a flex item of .time-actual, not an inline, so none of this applies to
+      // it -- and applying it would misalign it against the clock icon.
+      expect(declared('.allday-badge', 'vertical-align')).toBe('');
+      expect(declared('.allday-badge', 'margin-block')).toBe('');
+    });
+
+    it('keeps its capsule radius, so a clipped pill is still a pill', () => {
+      // The degrade at a very narrow column is a pill reading a few characters and an
+      // ellipsis -- not a rectangle, and not nothing.
+      expect(declared('.allday-badge', 'border-radius')).toBe('999px');
+    });
+  });
+
+  describe('the two badge positions share one pill', () => {
+    /*
+     * `allday_badge` names a position and `allday_badge_style` names a treatment, so the
+     * five treatments have to mean the same thing at both. The stylesheet does that by
+     * declaring the box and the colour derivations ONCE against both selectors, and giving
+     * each position only the type decisions that genuinely differ.
+     *
+     * The list below is ALLDAY_BADGE_STYLES itself, not a second copy of it, so a sixth
+     * treatment added there and given no rule fails here instead of rendering unstyled.
+     *
+     * It was a hand-written literal of the same five when first written, and the comment
+     * above it claimed exactly the property it did not have. Planting a sixth treatment in
+     * the constant left the WHOLE suite green at 3195 passed -- only `check:docs` noticed,
+     * and that only because it reconciles the docs table against the constant. This is the
+     * `Object.keys(TABLE)` trap wearing a different hat: a literal that duplicates a table
+     * reads as a reconciliation and is one only by coincidence, for as long as nobody edits
+     * the table.
+     */
+    it.each(Helpers.ALLDAY_BADGE_STYLES)(
+      'declares %s once, under a name tied to neither position',
+      (style) => {
+        // A treatment class named for one position would either be a lie at the other or
+        // force a duplicate rule -- and a duplicate is how a treatment ends up correct in
+        // the time row and stale on the title.
+        expect(rulesFor(`.allday-pill-${style}`).length).toBeGreaterThan(0);
+        expect(rulesFor(`.allday-badge-${style}`)).toHaveLength(0);
+        expect(rulesFor(`.allday-title-pill-${style}`)).toHaveLength(0);
+      },
+    );
+
+    it('declares a rule for exactly the treatments that exist, and no others', () => {
+      // The it.each above iterates ALLDAY_BADGE_STYLES, which closes the ADDITION direction
+      // -- a sixth treatment with no rule fails it. It cannot close removal: the loop is
+      // derived from the table under test, so deleting a member deletes the assertion rather
+      // than failing it. Removing 'subtle' took this file from 92 tests to 91 with ZERO
+      // failures, leaving `.allday-pill-subtle` in the stylesheet as dead CSS.
+      //
+      // Comparing the two SETS closes both directions at once, and is the shape the rest of
+      // this branch already uses. Scanning for the class pattern rather than looking each one
+      // up is what makes an orphaned rule visible.
+      const declared = new Set(
+        [...cardStyles.cssText.matchAll(/\.allday-pill-([a-z]+)/g)].map((m) => m[1]),
+      );
+
+      expect([...declared].sort()).toEqual([...Helpers.ALLDAY_BADGE_STYLES].sort());
+    });
+
+    it('gives both positions the same box, declared once', () => {
+      // rulesFor matches a selector LIST, so this passes only while one rule names both.
+      // Two rules that happen to agree today would satisfy a per-selector check and drift
+      // apart on the next edit.
+      const shared = RULES.filter(
+        (r) => r.selectors.includes('.allday-badge') && r.selectors.includes('.allday-title-pill'),
+      );
+      expect(shared.length).toBeGreaterThan(0);
+
+      // line-height and padding-block are deliberately NOT in this list -- see the test
+      // below, which asserts they differ and says why.
+      for (const prop of [
+        'display',
+        'box-sizing',
+        'max-width',
+        'min-width',
+        'white-space',
+        'overflow',
+        'text-overflow',
+        'border-radius',
+      ]) {
+        expect(declared('.allday-badge', prop), prop).not.toBe('');
+        expect(declared('.allday-title-pill', prop), prop).toBe(declared('.allday-badge', prop));
+      }
+    });
+
+    it('uppercases the label but never the title', () => {
+      // The time badge draws the localized words for "all day" -- a tag, so it is set small,
+      // spaced and uppercased. The title pill draws the USER'S OWN WORDS: an event called
+      // "Dentist" is not called "DENTIST", and forcing the case would mangle every language
+      // that carries meaning in it.
+      expect(declared('.allday-badge', 'text-transform')).toBe('uppercase');
+      expect(declared('.allday-title-pill', 'text-transform')).toBe('');
+      expect(declared('.allday-title-pill', 'letter-spacing')).toBe('');
+    });
+
+    it('shrinks the title pill less than the tag, and both relatively', () => {
+      /*
+       * Both positions step down from the text around them, for different reasons and by
+       * different amounts. The badge is a TAG -- one short uppercase label -- and takes the
+       * full 0.85em. The title pill holds the user's own prose, so it stops at 0.95em, enough
+       * to stop competing with the title it wraps without becoming hard to read.
+       *
+       * Pinned as an ORDERING rather than only as two values, so the relationship survives
+       * anyone retuning either number: the pill must never shrink as far as the tag. Both
+       * must stay relative, because every other length in those rules is em of the element's
+       * own font -- an absolute value would freeze the pill while event_font_size moved.
+       */
+      const badge = declared('.allday-badge', 'font-size');
+      const pill = declared('.allday-title-pill', 'font-size');
+      expect(badge).toBe('0.85em');
+      expect(pill).toBe('0.95em');
+      for (const [name, value] of [
+        ['badge', badge],
+        ['pill', pill],
+      ] as const) {
+        expect(value, name).toMatch(/em$/);
+      }
+      expect(Number.parseFloat(pill)).toBeGreaterThan(Number.parseFloat(badge));
+      expect(Number.parseFloat(pill)).toBeLessThan(1);
+    });
+
+    it('does not pull the title pill outside its row', () => {
+      // It used to. A negative inline margin of exactly the pill's own padding put the TEXT
+      // on the same optical line as every other event's title, which reads well in isolation
+      // and was wrong in place: the pill then began further left than anything else in the
+      // card, and the container clipped its leading curve.
+      //
+      // The pill's BOX aligns with the row instead, and the text inside it sits indented by
+      // the padding. That is what Apple Calendar does, and it is the trade the maintainer
+      // chose once he saw the clipping. Measured live: pill box x=565.5 against a plain
+      // title's x=565.5 -- the same edge.
+      expect(declared('.allday-title-pill', 'margin-inline-start')).toBe('');
+      expect(declared('.allday-title-pill', 'padding-inline')).not.toBe('');
+    });
+
+    it('gives the title pill a taller box than the badge, for emoji', () => {
+      // The badge wraps one uppercase label; the title wraps the user's own words, which in
+      // a calendar very often start with an emoji. An emoji is drawn to a larger box than a
+      // Latin glyph and overflows a 1.05 line box at both ends, so at the badge's 0.32em of
+      // padding it touched the pill's border -- reported by the maintainer against a live
+      // card. Asserted as an inequality on the sum rather than as two magic numbers, so the
+      // reason survives a retune.
+      // padding-block takes one value for both sides or two for top and bottom, so a naive
+      // sum reads a symmetric box as half its height -- which is exactly how this test first
+      // reported the taller title pill as the shorter one, at 1.37 against 1.37.
+      const block = (v: string) => {
+        const parts = v.split(' ').map(parseFloat);
+        return parts.length === 1 ? parts[0] * 2 : parts[0] + parts[1];
+      };
+      const badgeBox =
+        parseFloat(declared('.allday-badge', 'line-height')) +
+        block(declared('.allday-badge', 'padding-block'));
+      const titleBox =
+        parseFloat(declared('.allday-title-pill', 'line-height')) +
+        block(declared('.allday-title-pill', 'padding-block'));
+
+      expect(titleBox).toBeGreaterThan(badgeBox);
+      // ...but only a little. The maintainer asked for headroom, not a different shape.
+      expect(titleBox).toBeLessThan(badgeBox * 1.25);
+    });
+
+    it('centres the badge on its caps where the browser can, and on the em square otherwise', () => {
+      // The fallback padding is asymmetric because an uppercase label leaves the em square's
+      // descender depth empty, so the caps sit high in it. That correction is a measured font
+      // constant and it removes the AVERAGE error, but not the per-size scatter: the browser
+      // snaps the baseline to a whole CSS pixel, which is a sawtooth of up to half a pixel
+      // that no em-valued padding can flatten.
+      //
+      // text-box-trim removes the cause rather than compensating for it -- it trims the line
+      // box to the cap height and the alphabetic baseline, so symmetric padding then centres
+      // the ink itself. Measured across fourteen sizes from 12px to 48px at 8x device scale:
+      // mean residual +0.027em before, +0.006em after, worst case halved.
+      //
+      // The title pill must NOT take it: its content is mixed case with descenders and emoji,
+      // where the em square is the right thing to centre and cap-to-baseline is not.
+      const css = cardStyles.cssText;
+      expect(css).toContain('text-box-trim: trim-both');
+      expect(css).toContain('text-box-edge: cap alphabetic');
+
+      const supports = css.slice(css.indexOf('text-box-trim: trim-both') - 400);
+      const block = supports.slice(0, supports.indexOf('}', supports.indexOf('text-box-edge')));
+      expect(block).toContain('@supports');
+      expect(block).toContain('.allday-badge');
+      expect(block).not.toContain('.allday-title-pill');
+
+      // The fallback keeps its asymmetry, so a browser without trim is still corrected.
+      const [top, bottom] = declared('.allday-badge', 'padding-block').split(' ').map(parseFloat);
+      expect(top).toBeGreaterThan(bottom);
+
+      // And the title pill's stays symmetric, because mixed-case text needs no correction.
+      const title = declared('.allday-title-pill', 'padding-block').split(' ');
+      expect(title).toHaveLength(1);
+    });
+
+    it('reaches the title pill from the OKLCH enhancement, not just the badge', () => {
+      // The chroma-recovery blocks redefine --badge-ink and --badge-wash. Naming only
+      // .allday-badge there would leave the title pill on the sRGB fallback: visibly a
+      // different colour from the time badge on the same card, in the same treatment, with
+      // nothing in either rule to say why.
+      //
+      // Scanned out of the raw text rather than through `rulesFor`, and that is not a
+      // shortcut. `scanRules` deliberately skips at-rules, so RULES contains no rule nested
+      // inside an @supports block -- the first version of this test used it, counted only
+      // the top-level base rule, and reported one site where there are three. A gate that
+      // cannot see the thing it is gating fails in whichever direction its threshold
+      // happens to point.
+      const sites = [...cardStyles.cssText.matchAll(/--badge-ink\s*:/g)].map((m) => {
+        const before = cardStyles.cssText.slice(0, m.index);
+        const open = before.lastIndexOf('{');
+        const prelude = before.slice(before.lastIndexOf('}', open) + 1, open);
+        return prelude;
+      });
+
+      // Base plus both OKLCH tiers.
+      expect(sites).toHaveLength(3);
+      for (const prelude of sites) {
+        expect(prelude).toContain('.allday-badge');
+        expect(prelude).toContain('.allday-title-pill');
+      }
     });
   });
 });

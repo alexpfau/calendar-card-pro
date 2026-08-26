@@ -250,6 +250,7 @@ function renderEventTitle(
   config: Types.Config,
   entityLabel: string | undefined,
   weatherForecasts?: Types.WeatherForecasts,
+  titlePill?: { accent: string; mode: Helpers.AlldayBadgeStyle },
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -260,6 +261,32 @@ function renderEventTitle(
   const labelIconColor = event._matchedConfig?.label_icon_color;
   const labelType = event._matchedConfig?.label_type;
 
+  const titleText = showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary;
+
+  // The pill is nested INSIDE `.event-title` rather than replacing it, and that placement is
+  // what makes the `neutral` treatment mean the right thing here.
+  //
+  // `neutral` is defined as `color: inherit`, so what it resolves to is decided entirely by
+  // what it is nested in. In the time row it inherits the time colour, which is the whole
+  // point of that treatment: the row's own ink with a frame drawn round it. Put the pill
+  // where `.event-title`'s inline `color` is in scope and it inherits the TITLE colour --
+  // `event_color`, or this calendar's own `color` override -- so the treatment keeps its
+  // meaning at both positions without either needing a rule of its own.
+  //
+  // Nesting is also the only arrangement that works at all. `.event-title` carries its colour
+  // as an inline style, and an inline style beats any class selector -- so putting the pill
+  // classes ON that element would let the inline colour override `--badge-ink` and every
+  // treatment but `neutral` would silently render in the title colour.
+  //
+  // prettier-ignore
+  const titleContent = titlePill
+    ? html`<span
+        class="allday-title-pill allday-pill-${titlePill.mode}"
+        style="--calendar-card-event-accent: ${titlePill.accent};"
+        >${titleText}</span
+      >`
+    : titleText;
+
   return html`
     <div class="summary-row">
       <div class="summary">
@@ -268,7 +295,7 @@ function renderEventTitle(
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
           style="color: ${entityColor}"
         >
-          ${showEmptyDayCheckmark ? `✓ ${event.summary}` : event.summary}
+          ${titleContent}
         </span>
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}
@@ -371,6 +398,42 @@ export function renderEventWeather(
 export interface EventContentParts {
   eventTime: string;
 
+  /**
+   * The all-day label to draw as its own badge, present only when `allday_badge` names a
+   * treatment and the event is all-day. When set, `eventTime` holds only what follows the
+   * label, which is empty for a single-day all-day event.
+   *
+   * Carries its own `lang` because the badge uppercases in CSS, and only a declared language
+   * gets that right — Greek must lose its tonos in capitals.
+   *
+   * Carries its own `accent` because this calendar's color reaches the row as an inline
+   * border value, which no descendant can read. The badge republishes it as a custom
+   * property on itself and the stylesheet derives every colour from it, so the derivation
+   * stays themeable and no event that has no badge pays for the property.
+   */
+  allDayBadge?: {
+    label: string;
+    lang: string;
+    accent: string;
+    mode: Helpers.AlldayBadgeStyle;
+  };
+
+  /**
+   * The pill to draw around the event title, present only when `allday_badge` names the
+   * title position and the event is all-day.
+   *
+   * Carries no label: the pill wraps the title the row was going to draw anyway, so unlike
+   * the time-row badge there is no text to hand it and no language to declare — the title is
+   * the user's own words and is never uppercased.
+   *
+   * Carries its own `accent` for the same reason the time badge does: this calendar's colour
+   * reaches the row as an inline border value, which no descendant can read.
+   */
+  titlePill?: {
+    accent: string;
+    mode: Helpers.AlldayBadgeStyle;
+  };
+
   eventLocation: string;
 
   /**
@@ -452,6 +515,8 @@ export function renderEventContent(
   } = options;
   const {
     eventTime,
+    allDayBadge,
+    titlePill,
     eventLocation,
     locationIcon,
     eventDescription,
@@ -484,15 +549,38 @@ export function renderEventContent(
 
   const trailingCountdown = foldCountdown ? null : countdownStr;
 
+  // A single-day all-day event has nothing left to say once the badge has the label, so
+  // there is no empty span to lay out beside it.
+  const timeValue = eventTime ? html`<span>${eventTime}</span>` : nothing;
+
+  // The badge is a direct child of `.time-actual`, never of `.time-text`: inside the latter
+  // it would match the `time_max_lines` clamp selector and be truncated like body text.
+  //
+  // No whitespace between the badge and what follows it. Today that is belt and braces
+  // rather than the fix it looks like: `.time-actual` is a flex row, and flex drops a
+  // whitespace-only text node between two items, so the space this used to carry was never
+  // rendering. The real double gap was two margins — the badge's own and the countdown's
+  // lead-in — and the stylesheet drops the second when it follows a badge. Written tightly
+  // anyway so the markup does not quietly depend on the container staying a flex row.
+  const allDayBadgeEl = allDayBadge
+    ? // prettier-ignore
+      html`<span
+        class="allday-badge allday-pill-${allDayBadge.mode}"
+        lang=${allDayBadge.lang}
+        style="--calendar-card-event-accent: ${allDayBadge.accent};"
+        >${allDayBadge.label}</span
+      >`
+    : nothing;
+
   // Keep folded time/countdown spans adjacent; whitespace would render before the separator.
   // prettier-ignore
   const timeText = foldCountdown
-    ? html`<span class="time-text"><span>${eventTime}</span><span class="time-countdown">${countdownStr}</span></span>`
-    : html`<span>${eventTime}</span>`;
+    ? html`<span class="time-text">${timeValue}<span class="time-countdown">${countdownStr}</span></span>`
+    : timeValue;
 
   return html`
     <div class="event-content">
-      ${renderEventTitle(event, config, entityLabel, titleForecasts)}
+      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill)}
       <div class="time-location">
         ${progressRow}
         ${shouldShowTime
@@ -500,7 +588,7 @@ export function renderEventContent(
               <div class="time">
                 <div class="time-actual">
                   <ha-icon icon="mdi:clock-outline"></ha-icon>
-                  ${timeText}
+                  ${allDayBadgeEl}${timeText}
                 </div>
                 ${trailingCountdown
                   ? html`<div class="time-countdown">${trailingCountdown}</div>`

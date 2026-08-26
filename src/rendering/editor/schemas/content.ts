@@ -39,7 +39,7 @@ function startDateFields(language: string, mode: string): HaFormSchema[] {
   if (mode === 'fixed') {
     fields.push({ name: 'start_date_fixed', selector: { text: { type: 'date' } } });
   } else if (mode === 'offset') {
-    fields.push(text('start_date_offset'));
+    fields.push({ name: 'start_date_offset', selector: { text: { type: 'text' } } });
   }
 
   return fields;

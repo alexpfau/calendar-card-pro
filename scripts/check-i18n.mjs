@@ -399,6 +399,14 @@ function probeConfigs(defaults, views) {
     // The compact event limit is a number with no default, so no boolean sweep reaches
     // it, and the modifier it reveals would be invisible to this check without it.
     { compact_events_to_show: 3 },
+    // Same shape, and it bit for the same reason: the all-day badge defaults to 'off', so
+    // nothing in the sweep above turns it on, and the treatment select it reveals is only
+    // built when it is on. Without these two the checker reports every allday_badge_style
+    // string as unreferenced -- correctly, from what it can see. Both positions are listed
+    // because they are separate branches, and a variant that exercised only one would leave
+    // the other's option labels unchecked.
+    { allday_badge: 'time' },
+    { allday_badge: 'title' },
     { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
     {
       weather: {

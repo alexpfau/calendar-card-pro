@@ -1629,6 +1629,7 @@ function report(counts) {
       `${counts.gates} CI gates checked, ` +
       `${counts.enums} enumerated options checked, ` +
       `${counts.sentinels} sentinel rows checked, ` +
+      `${counts.runtimeEnums} runtime enum surfaces checked, ` +
       `${counts.removed} removed options checked, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
@@ -2053,6 +2054,210 @@ function checkSentinelValues(sentinels) {
 
   if (checked === 0) {
     console.error(`\n✗ FATAL: no sentinel option matched a reference row — fix the parser.\n`);
+    process.exit(2);
+  }
+  return checked;
+}
+
+// ---------------------------------------------------------------------------
+// Check 21c — a page that tabulates a runtime enum tabulates all of it
+// ---------------------------------------------------------------------------
+
+/**
+ * Options whose value set lives in a runtime array rather than a `types.ts` union.
+ *
+ * Check 21 cannot see these. It reads string-literal unions out of `types.ts`, and
+ * `allday_badge` is typed `boolean | string` so that `false` and a treatment name can
+ * share one key — so `values` comes back empty and the option is never registered.
+ * Check 21b cannot see them either: that reads a single reserved word, not a set.
+ *
+ * The values are read from the module that owns them, so adding a sixth treatment
+ * fails this check instead of silently outdating the docs. Only the pairing of option
+ * to module is written down.
+ */
+const RUNTIME_ENUMS = [
+  {
+    option: 'allday_badge',
+    file: 'src/utils/helpers.ts',
+    constant: 'ALLDAY_BADGE_POSITIONS',
+    noun: 'positions',
+    // No fallback: outside this set is OFF, deliberately, so a value that reads as off can
+    // never turn the feature on. See `resolveAlldayBadgePosition`.
+    fallback: null,
+  },
+  {
+    option: 'allday_badge_style',
+    file: 'src/utils/helpers.ts',
+    constant: 'ALLDAY_BADGE_STYLES',
+    noun: 'treatments',
+    // Falls back to a treatment rather than to off: this key cannot answer whether there is
+    // a badge, only which one. See `resolveAlldayBadgeStyle`.
+    fallback: 'tinted',
+  },
+];
+
+/**
+ * Read each declared runtime enum's values out of the module that owns it.
+ *
+ * @returns {Map<string, {values: string[], noun: string}>} option name -> its values
+ */
+function readRuntimeEnums() {
+  const out = new Map();
+
+  for (const { option, file, constant, noun, fallback } of RUNTIME_ENUMS) {
+    const src = readFileSync(join(ROOT, file), 'utf8');
+    const match = src.match(new RegExp(`export const ${constant}\\s*=\\s*\\[([^\\]]+)\\]`));
+
+    if (!match) {
+      console.error(`\n✗ FATAL: ${constant} not found in ${file} — fix the parser.\n`);
+      process.exit(2);
+    }
+
+    const values = (match[1].match(/'[a-z0-9_-]+'/g) || []).map((s) => s.slice(1, -1));
+    if (values.length < 2) {
+      console.error(
+        `\n✗ FATAL: ${constant} parsed to ${values.length} value(s) — fix the parser.\n`,
+      );
+      process.exit(2);
+    }
+    out.set(option, { values, noun, fallback });
+  }
+
+  assertFound(out, 'runtime enums', TYPES_TS);
+  return out;
+}
+
+/**
+ * A page that lists some of an option's values in a table has to list all of them, and
+ * any page claiming a count has to claim the right one.
+ *
+ * Both halves shipped wrong together. `neutral` was added to the reference row and the
+ * release notes but not to the feature page's table, which went on offering four
+ * treatments and calling them "four" — so the one escape hatch for a calendar whose
+ * accent does not suit its title was invisible on the page that exists to explain the
+ * option. Every other gate passed: the option is documented, its default is unchanged,
+ * and the reference row names all five.
+ *
+ * Which page carries the table is deliberately not written down — the check locates
+ * itself. A page tabulating two or more values is treated as documenting the set and
+ * must carry all of them; a page that merely uses one in an example is left alone. That
+ * is the same reasoning check 21b records for not naming pages, arrived at from the
+ * other side: there the risk was checking too few pages, here it is demanding a table
+ * from a page that has no business carrying one.
+ *
+ * @param {Map<string, {values: string[], noun: string}>} enums
+ * @param {string[]} docs markdown pages
+ * @returns {number} pages checked
+ */
+function checkRuntimeEnumTables(enums, docs) {
+  const pages = [...docs, join(ROOT, 'README.md')];
+  let checked = 0;
+
+  for (const [option, { values, noun }] of enums) {
+    const word = NUMBER_WORDS[values.length];
+
+    for (const file of pages) {
+      const text = readFileSync(file, 'utf8');
+      const rows = values.filter((v) => new RegExp(`^\\| *\`${v}\` *\\|`, 'm').test(text));
+
+      if (rows.length >= 2) {
+        checked++;
+        const missing = values.filter((v) => !rows.includes(v));
+        if (missing.length) {
+          error(
+            `${relative(ROOT, file)}: the \`${option}\` table lists ${rows.length} of ` +
+              `${values.length} values and omits ${missing.map((v) => `\`${v}\``).join(', ')}, ` +
+              `so a reader of this page cannot discover ` +
+              `${missing.length > 1 ? 'them' : 'it'} at all.`,
+          );
+        }
+      }
+
+      // A count in prose is a claim about the same set, and is wrong the moment the set
+      // grows. Matched case-insensitively because it may open a sentence. Counted whether
+      // or not it holds, so the reported denominator says how much was actually looked at.
+      const claim = text.match(new RegExp(`\\b(${NUMBER_WORDS.join('|')})\\s+${noun}\\b`, 'i'));
+      if (claim) {
+        checked++;
+        if (claim[1].toLowerCase() !== word.toLowerCase()) {
+          error(
+            `${relative(ROOT, file)}: says "${claim[0]}", but \`${option}\` has ` +
+              `${values.length}. Write "${word.toLowerCase()} ${noun}".`,
+          );
+        }
+      }
+    }
+  }
+
+  if (checked === 0) {
+    console.error(`\n✗ FATAL: no runtime enum matched a table or a count — fix the parser.\n`);
+    process.exit(2);
+  }
+  return checked;
+}
+
+// ---------------------------------------------------------------------------
+// Check 21d — a value quoted for an enumerated option is a value it accepts
+// ---------------------------------------------------------------------------
+
+/**
+ * Every `option: value` an enumerated option is shown with, anywhere a reader will find it.
+ *
+ * Check 21c above asks whether the value TABLE is complete. This asks the opposite question,
+ * and it is the one that actually bit: is each value a reader is told to WRITE still legal?
+ *
+ * `allday_badge` was a treatment name and became a position, so `allday_badge: subtle` went
+ * from correct to silently inert -- the resolver's closed set turns anything it does not
+ * recognize into off, by design, so the card renders as though the line were absent. That
+ * line survived the rename in `README.md`, which is the HACS landing page and the first
+ * config most people copy. Nothing caught it: 21c was satisfied because the treatment table
+ * was still complete, and the docs build only resolves links.
+ *
+ * Scoped to the runtime enums rather than to every option, because those are the ones whose
+ * legal set is machine-readable. `false` is allowed everywhere: it is the YAML off literal
+ * and every closed set resolves it to off deliberately.
+ *
+ * @param {Map<string, {values: string[], noun: string}>} enums - option -> its legal values
+ * @param {string[]} docs - documentation pages
+ * @returns {number} how many option/value pairs were examined
+ */
+function checkRuntimeEnumUsages(enums, docs) {
+  const pages = [...docs, join(ROOT, 'README.md'), join(ROOT, 'CONTRIBUTING.md')];
+  let checked = 0;
+
+  for (const [option, { values, fallback }] of enums) {
+    const legal = new Set([...values, 'false']);
+
+    for (const file of pages) {
+      const text = readFileSync(file, 'utf8');
+
+      for (const match of text.matchAll(new RegExp(`\\b${option}:\\s*([A-Za-z_][\\w-]*)`, 'g'))) {
+        checked++;
+        if (legal.has(match[1])) continue;
+
+        const line = text.slice(0, match.index).split('\n').length;
+
+        // The two enums fail differently and the message has to say which, or it teaches the
+        // wrong thing while catching the right one. A position outside its set resolves to
+        // OFF -- the feature vanishes. A treatment outside its set resolves to the DEFAULT
+        // treatment, because that key cannot answer whether there is a badge, only which one.
+        // Neither raises anything at runtime; that is what makes a stale example survive.
+        const consequence = fallback
+          ? `resolves to the default \`${fallback}\`, so the page teaches a value the card ` +
+            `silently ignores`
+          : `resolves to off, so this reads as working config and renders nothing`;
+
+        error(
+          `${relative(ROOT, file)}:${line}: shows \`${option}: ${match[1]}\`, which is not a ` +
+            `value it accepts. It ${consequence}. Legal: ` +
+            `${values.map((v) => `\`${v}\``).join(', ')}.`,
+        );
+      }
+    }
+  }
+
+  if (checked === 0) {
+    console.error(`\n✗ FATAL: no enumerated option was quoted anywhere — fix the parser.\n`);
     process.exit(2);
   }
   return checked;
@@ -2620,6 +2825,9 @@ function main() {
   const version = checkReleaseVersion();
   const enums = checkEnumValues(readEnumOptions());
   const sentinels = checkSentinelValues(readSentinelOptions());
+  const runtimeEnums =
+    checkRuntimeEnumTables(readRuntimeEnums(), docs) +
+    checkRuntimeEnumUsages(readRuntimeEnums(), docs);
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
   const themed = checkThemeDefaults(readThemeTable());
@@ -2639,6 +2847,7 @@ function main() {
       gates,
       enums,
       sentinels,
+      runtimeEnums,
       removed,
       reachable,
       themed,
