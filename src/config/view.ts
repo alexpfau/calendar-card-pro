@@ -52,6 +52,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'show_multiday_allday_time',
   'allday_badge',
   'allday_badge_style',
+  'allday_badge_color',
   'time_two_digit_hours',
   'show_end_time',
   'time_font_size',

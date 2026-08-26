@@ -58,15 +58,16 @@ The same applies when a calendar cannot be reached. A failed request leaves the 
 
 By default an all-day event says so in words, on the same line as the clock icon. The all-day
 badge draws that fact as a rounded pill in the calendar accent color instead, the way most
-calendar apps do. Two options describe it — **where** the pill goes, and **which** of five
-treatments draws it:
+calendar apps do. Three options describe it — **where** the pill goes, **which** shape draws
+it, and in **which color**:
 
 ```yaml
 allday_badge: title # off, title or time
-allday_badge_style: tinted # neutral, outline, subtle, tinted or filled
+allday_badge_style: tinted # outline, subtle, tinted or filled
+allday_badge_color: accent # accent, text, or any CSS color
 ```
 
-Both are card-level, so a card shows pills for every calendar on it or for none.
+All three are card-level, so a card shows pills for every calendar on it or for none.
 
 ### Where The Pill Goes
 
@@ -83,46 +84,55 @@ same calendars and the same treatment, so the only difference is where the pill 
 `title` card also sets `show_single_allday_time: false`, which is what leaves the pill as
 the whole statement instead of repeating _All day_ underneath it.
 
-### Which Treatment Draws It
+### Which Shape Draws It
 
-There are five, from quietest to loudest, and all five work at either position:
+There are four, from quietest to loudest, and all four work at either position:
 
-| Value     | What it draws                                                        |
-| --------- | -------------------------------------------------------------------- |
-| `neutral` | A gentle wash in the row's own text color rather than the calendar's |
-| `outline` | An outline only, in the calendar accent color                        |
-| `subtle`  | A gentle wash of the accent, with no outline                         |
-| `tinted`  | Both — a gentle wash inside a matching outline                       |
-| `filled`  | A solid pill in the calendar accent color                            |
+| Value     | What it draws                                  |
+| --------- | ---------------------------------------------- |
+| `outline` | An outline only, with no fill                  |
+| `subtle`  | A gentle wash, with no outline                 |
+| `tinted`  | Both — a gentle wash inside a matching outline |
+| `filled`  | A solid pill                                   |
 
 `tinted` is the default and applies as soon as `allday_badge` names a position.
 
-Four of the five take their color from the calendar the event came from, so events from
-different calendars stay distinguishable at a glance. Where a calendar sets its own
-`accent_color`, the pill follows it — including when that is a theme variable, because the
-colors are resolved by the browser rather than computed in advance.
+### Which Color It Is Drawn In
 
-`neutral` is the exception, and it is the one treatment that reads differently at each
-position. It is `subtle` with the accent taken out: the same gentle wash, drawn from
-whatever color the pill sits in — the time color on the time row, and the **title** color on
-the title. So it stays the mildest of the five in both places, and in both places it is
-still distinct from the other four.
+The shape says how much weight the pill carries; `allday_badge_color` says whose color it
+carries. The two are independent, so any of the four shapes can be had in any of these:
+
+| Value       | Where the color comes from                                                                        |
+| ----------- | ------------------------------------------------------------------------------------------------- |
+| `accent`    | The default. Each calendar's own accent, so events stay told apart at a glance                    |
+| `text`      | The color the row already uses — the time color on the time row, the **title** color on the title |
+| A CSS color | One color for every event, whatever the calendar. `#ff6c92`, `tomato`, `var(--my-token)`          |
+
+With `accent`, a calendar that sets its own `accent_color` is followed automatically —
+including when that is a theme variable, because the colors are resolved by the browser
+rather than computed in advance. A custom color works the same way and for the same reason.
+
+`text` is the one value that reads differently at each position, and deliberately so: it
+takes whatever color the pill is nested in, so on the time row it follows
+[`time_color`](/reference/configuration#event-column) and on the title it follows the event
+title's color. That makes it the quietest option at either position — the pill reads as the
+text that was already there, in a capsule.
 
 ::: warning `color` And `accent_color` Are Separate
 `color` sets an event's **title**. `accent_color` sets its **pill**, its vertical bar and
 its row tint. A calendar that sets only `color` therefore keeps the default blue accent, and
 its pill can end up in a color that relates to nothing else on the row. Set both to the
-same value when you are coloring calendars apart, or use `neutral`, which takes no accent
-at all.
+same value when you are coloring calendars apart, or use `allday_badge_color: text`, which
+takes no accent at all.
 :::
 
-::: tip Which One To Pick
-`tinted` suits most dashboards. Reach for `outline` when
+::: tip Which Pair To Pick
+`tinted` in `accent` is the default and suits most dashboards. Reach for `outline` when
 [`event_background_opacity`](/reference/configuration#event-column) is high — with no fill
-of its own, an outline has nothing to dissolve into the tinted row behind it. `neutral` is
-the one to pick when the pill should stay out of the way entirely, or when a calendar's
-accent does not sit well under its title. `filled` is the loud one, for when the calendar's
-color should read as a solid chip.
+of its own, an outline has nothing to dissolve into the tinted row behind it.
+`allday_badge_color: text` is the one to pick when the pill should stay out of the way
+entirely, or when a calendar's accent does not sit well under its title. `filled` is the
+loud one, for when a color should read as a solid chip.
 :::
 
 ### Which Events Get One

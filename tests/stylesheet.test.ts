@@ -1302,60 +1302,102 @@ describe('card stylesheet', () => {
       expect([...declared].sort()).toEqual([...Helpers.ALLDAY_BADGE_STYLES].sort());
     });
 
-    it('spreads the five across two shapes and two colour sources', () => {
+    it('spreads the four across two shapes, and reaches every colour through a token', () => {
       // Nothing read a treatment's OWN declarations before this, in either direction, so the
-      // scale's shape was unpinned: which treatments draw a ring, which draw a wash, and
-      // which name no accent at all were facts about the stylesheet that no test could see.
+      // scale's shape was unpinned: which treatments draw a ring and which draw a wash were
+      // facts about the stylesheet that no test could see.
       //
-      // `neutral` was a ring at full currentColor with no fill until 4.2. That put two frames
-      // in the quiet end of the scale -- it and `outline` differed only in whose colour the
-      // ring was -- while `subtle`'s wash had no accent-free counterpart. Pairing it with
-      // subtle instead balances the five: two rings, two washes and one solid, each pair
-      // offered once with the accent and once without.
+      // The pairing is the design. `allday_badge_style` names a SHAPE and
+      // `allday_badge_color` names the colour it is drawn in, so two rings (outline, tinted)
+      // and two washes (subtle, filled is the solid) each come in every colour rather than
+      // one shape owning the accent-free look. Until 4.2 that look was a sixth class called
+      // `neutral`, so exactly one shape could be had without an accent -- and which one that
+      // was changed twice in an evening, because there was only ever room for one.
       //
-      // Pinned as a whole table by value rather than one treatment at a time, so a reversal
-      // is as loud as an addition and neither can arrive by accident.
+      // Pinned as a whole table by value, so a reversal is as loud as an addition.
       const shapeOf = (style: string) => {
-        const body = rulesFor(`.allday-pill-${style}`)
-          .map((r) => r.body)
-          .join('');
         const ring = declared(`.allday-pill-${style}`, 'box-shadow');
         const fill = declared(`.allday-pill-${style}`, 'background-color');
         return {
           ring: ring !== '' && ring !== 'none',
           fill: fill !== '' && fill !== 'transparent',
-          // The accent-free treatment is the one whose declarations never reach the accent --
-          // neither raw nor through the two custom properties derived from it.
-          accent: /--calendar-card-event-accent|--badge-(ink|wash)/.test(body),
         };
       };
 
       expect(Object.fromEntries(Helpers.ALLDAY_BADGE_STYLES.map((s) => [s, shapeOf(s)]))).toEqual({
-        neutral: { ring: false, fill: true, accent: false },
-        outline: { ring: true, fill: false, accent: true },
-        subtle: { ring: false, fill: true, accent: true },
-        tinted: { ring: true, fill: true, accent: true },
-        filled: { ring: false, fill: true, accent: true },
+        outline: { ring: true, fill: false },
+        subtle: { ring: false, fill: true },
+        tinted: { ring: true, fill: true },
+        filled: { ring: false, fill: true },
       });
     });
 
-    it('washes the plain treatment in the row own ink, by alpha rather than by a mix', () => {
-      // The whole of what `neutral` means: it names no accent, so both the ink and the ground
-      // come from whatever colour the pill is nested in -- `--secondary-text-color` or the
-      // user's `time_color` on the time row, the title's own colour on the title. `color:
-      // inherit` is what makes that true, and it is also what keeps the OKLCH blocks from
-      // reaching this rule, since neither `--badge-ink` nor `--badge-wash` is read here.
-      expect(declared('.allday-pill-neutral', 'color')).toBe('inherit');
+    it('lets no treatment reach the accent except through a token', () => {
+      // This is what makes the colour axis one block rather than four. Every treatment reads
+      // --badge-ink, --badge-wash or --badge-solid, so `allday_badge_color` switches the
+      // source by redefining three properties in one place and no shape rule has to know a
+      // source exists. A rule that named --calendar-card-event-accent directly would keep
+      // working in the default colour and silently ignore the other two, which is a failure
+      // no rendering test would catch either: the accent IS the default.
+      //
+      // outline and filled are the two that did name it, and are the reason this exists.
+      for (const style of Helpers.ALLDAY_BADGE_STYLES) {
+        const body = rulesFor(`.allday-pill-${style}`)
+          .map((r) => r.body)
+          .join('');
 
-      // And the wash is currentColor at an ALPHA, not a mix into the card background. The
-      // difference only shows under `event_background_opacity`: alpha composites over the
-      // tinted row and deepens it evenly, where a mix into the card paints a patch of
-      // near-card-background and reads as a hole punched in the tint. It also keeps a
-      // chromatic `time_color`'s own hue exactly, where a mix toward the card would drain it.
-      const wash = declared('.allday-pill-neutral', 'background-color');
-      expect(wash).toContain('currentColor');
-      expect(wash).toContain('transparent');
-      expect(wash).not.toContain('--calendar-card-background-color');
+        // The control: an empty body would satisfy the assertion below by having nothing in
+        // it to object to.
+        expect(body.length, style).toBeGreaterThan(0);
+        expect(body, style).not.toContain('--calendar-card-event-accent');
+      }
+
+      // And the tokens themselves must still be defined FROM the accent, or the indirection
+      // above would be satisfied by a stylesheet that had lost the accent altogether.
+      expect(declared('.allday-badge', '--badge-solid')).toContain(
+        'var(--calendar-card-event-accent)',
+      );
+    });
+
+    it('points all three tokens at the row ink for the text colour source', () => {
+      // `allday_badge_color: text` is the one source that cannot be resolved to a colour
+      // before the render, because it is whatever the pill is nested in -- the time colour on
+      // the time row, the title colour on the title. The renderer publishes that as
+      // --badge-source and this block points the three tokens at it. A source that redefined
+      // only two would leave one treatment drawing the accent beside two that did not.
+      const selector = '.allday-badge.allday-source-text';
+      for (const token of ['--badge-ink', '--badge-wash', '--badge-solid']) {
+        expect(declared(selector, token), token).toContain('var(--badge-source)');
+      }
+
+      // Both positions, from one rule, for the same reason every other badge rule names both.
+      const shared = RULES.filter(
+        (r) =>
+          r.selectors.includes('.allday-badge.allday-source-text') &&
+          r.selectors.includes('.allday-title-pill.allday-source-text'),
+      );
+      expect(shared).toHaveLength(1);
+
+      // 🚨 --badge-source is a published token and NOT currentColor, and the difference is
+      // `filled`. currentColor resolves against the element's own computed colour -- the
+      // thing the treatments SET -- so filled, which deliberately sets a CONTRASTING ink,
+      // would resolve its own ground to its own ink and draw a pill filled with the colour of
+      // its letters. There is no ordering fix: currentColor always names the final computed
+      // value. The other three get away with it only because each sets `color` to the
+      // inherited value anyway.
+      expect(shared[0].body).not.toContain('currentColor');
+
+      // The ink is the source EXACTLY, where the accent path mixes 45% into the primary text
+      // colour for legibility. That mix's job is to make a NAMED colour readable against the
+      // card; for the colour the row is already painted in it is identity, and running it
+      // anyway would draw the label darker than the time beside it.
+      expect(declared(selector, '--badge-ink')).toBe('var(--badge-source)');
+
+      // The wash is alpha, not a mix into the card: it composites over whatever is behind the
+      // pill, so under event_background_opacity it deepens the tinted row evenly instead of
+      // punching a near-card-background hole in it.
+      expect(declared(selector, '--badge-wash')).toContain('transparent');
+      expect(declared(selector, '--badge-wash')).not.toContain('--calendar-card-background-color');
     });
 
     it('gives both positions the same box, declared once', () => {
@@ -1512,8 +1554,12 @@ describe('card stylesheet', () => {
         return prelude;
       });
 
-      // Base plus both OKLCH tiers.
-      expect(sites).toHaveLength(3);
+      // Base, both OKLCH tiers, and the text colour source. The last one is why the count is
+      // stated rather than merely bounded: it redefines the same two tokens at (0,2,0) from
+      // outside any @supports, and a source block that named only one position would put the
+      // title pill on the accent while the time badge followed the row -- the same failure
+      // this test was written for, arriving down the other axis.
+      expect(sites).toHaveLength(4);
       for (const prelude of sites) {
         expect(prelude).toContain('.allday-badge');
         expect(prelude).toContain('.allday-title-pill');

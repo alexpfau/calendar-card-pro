@@ -709,6 +709,7 @@ describe('editor: change detection', () => {
   it('holds the exact set of synthetic keys', () => {
     expect(Object.keys(SYNTHETIC_FIELDS).sort()).toEqual([
       'accent_color_mode',
+      'allday_badge_color_mode',
       'allday_badge_position',
       'calendars',
       'card_height',
@@ -1390,6 +1391,10 @@ describe('editor: the panel set', () => {
       // The all-day treatment select is only built once a position is chosen, so nothing
       // else in this sweep reaches it -- the same shape as compact_events_to_show above.
       buildConfig({ allday_badge: 'time' }),
+      // And the colour field sits behind TWO gates: the badge has to be on AND its colour
+      // has to be a custom one, so neither the boolean sweep nor the line above reaches it.
+      // The mode is read off the value's shape, so any colour puts the picker in custom.
+      buildConfig({ allday_badge: 'time', allday_badge_color: '#b5651d' }),
     ];
 
     const offenders: string[] = [];
@@ -1528,6 +1533,10 @@ describe('editor: the panel set', () => {
       // The all-day treatment select is only built once a position is chosen, so nothing
       // else in this sweep reaches it -- the same shape as compact_events_to_show above.
       buildConfig({ allday_badge: 'time' }),
+      // And the colour field sits behind TWO gates: the badge has to be on AND its colour
+      // has to be a custom one, so neither the boolean sweep nor the line above reaches it.
+      // The mode is read off the value's shape, so any colour puts the picker in custom.
+      buildConfig({ allday_badge: 'time', allday_badge_color: '#b5651d' }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -3902,6 +3911,12 @@ describe('editor: the exceptions widget', () => {
       // column config leaves it at its 'off' default. Without this the check reports
       // allday_badge_style as having no exception -- correctly, from what it can see.
       columnConfig({ allday_badge: 'time' } as Partial<Types.Config>),
+      // And the colour field is a gate deeper again: the badge on AND a custom colour. The
+      // mode is read off the value's shape, so any colour reaches it.
+      columnConfig({
+        allday_badge: 'time',
+        allday_badge_color: '#b5651d',
+      } as Partial<Types.Config>),
     ];
 
     const offered = new Set<string>();
@@ -4737,6 +4752,53 @@ describe('editor: every enumerated synthetic option is selectable', () => {
 
     return applyFormChange(config, before, { ...before, [field]: value }, pending);
   }
+
+  /**
+   * 🚨 `syntheticDropdowns()` discovers from the DEFAULT schema, so a dropdown behind a gate
+   * is invisible to it and to every transition test built from it. `allday_badge_color_mode`
+   * is behind two — the badge has to be on before it is built at all — so it is discovered
+   * nowhere, and the list below is right to omit it rather than something to add it to.
+   *
+   * That is a real hole and not a technicality: this mode has the same shape as
+   * `accent_color_mode`, where a store that stopped round-tripping wrote the mode's own name
+   * into the user's YAML. Covered explicitly here, both directions, so the gate exists even
+   * though the discovery cannot reach it.
+   */
+  it('round-trips the badge colour mode, which no discovery reaches', () => {
+    const on = { ...DEFAULT_CONFIG, allday_badge: 'time' } as Types.Config;
+
+    // The keywords store themselves.
+    for (const mode of ['accent', 'text'] as const) {
+      const moved = pick(on, {}, 'allday_badge_color_mode', mode);
+      expect(moved.config.allday_badge_color, mode).toBe(mode);
+      expect(deriveSyntheticData(moved.config, moved.pending).allday_badge_color_mode).toBe(mode);
+    }
+
+    // `custom` has no spelling of its own -- it means "the stored value is a colour" -- so it
+    // must seed one rather than write its own name, which is the exact failure the sibling
+    // mode shipped once.
+    const custom = pick(on, {}, 'allday_badge_color_mode', 'custom');
+    expect(custom.config.allday_badge_color).not.toBe('custom');
+    expect(deriveSyntheticData(custom.config, custom.pending).allday_badge_color_mode).toBe(
+      'custom',
+    );
+
+    // A colour already stored is kept when `custom` is re-entered from `custom` -- which is
+    // what the carry in `apply` is for -- but it does NOT survive a trip through a keyword,
+    // and that is structural rather than a choice. One key holds either a keyword or a
+    // colour, so storing `accent` is what overwrites it; there is nowhere left for the old
+    // value to be. `accent_color_mode` loses its colour to the Home Assistant sentinel in
+    // exactly the same way. Pinned so the loss is a documented contract rather than a
+    // surprise somebody later "fixes" by writing the mode's own name into the key.
+    const chosen = { ...on, allday_badge_color: '#b5651d' } as Types.Config;
+    expect(pick(chosen, {}, 'allday_badge_color_mode', 'custom').config.allday_badge_color).toBe(
+      '#b5651d',
+    );
+
+    const away = pick(chosen, {}, 'allday_badge_color_mode', 'accent');
+    const back = pick(away.config, away.pending, 'allday_badge_color_mode', 'custom');
+    expect(back.config.allday_badge_color).toBe(DEFAULT_CONFIG.accent_color);
+  });
 
   it('pins which dropdowns store through a synthetic field', () => {
     // Discovered rather than listed, so a new synthetic dropdown is covered below the

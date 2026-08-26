@@ -8,7 +8,7 @@ public release in January 2025 to today.
 
 ## Latest Release: v4.1
 
-- 🏷️ **All-Day Events, as a Pill**: [`allday_badge`](/features/event-content#the-all-day-badge) draws a rounded pill in the calendar's own color — around the event title, the way Google and Apple Calendar do, or beside the clock in place of _All day_. `allday_badge_style` offers five treatments
+- 🏷️ **All-Day Events, as a Pill**: [`allday_badge`](/features/event-content#the-all-day-badge) draws a rounded pill in the calendar's own color — around the event title, the way Google and Apple Calendar do, or beside the clock in place of _All day_. `allday_badge_style` offers four shapes, and `allday_badge_color` draws them in each calendar's own color, the row's own text color, or one you name
 - 🎨 **Follow Home Assistant's Calendar Colors and Icons**: Set `accent_color` to `home-assistant` and each calendar takes [the color Home Assistant holds for it](/features/core-settings). Set its `label` the same way for [that calendar's icon](/features/core-settings#following-the-icon-from-home-assistant), so changing either in Home Assistant changes it here
 - 🧑 **A Person's Photo in Front of Their Calendar**: Set a calendar's `label` to a person entity ID and the card shows [that person's picture](/features/core-settings#showing-a-persons-picture) — faces instead of words on a household dashboard, with a person picker in the editor
 - 🗂️ **Split One Calendar by Event Type**: [`event_type`](/features/core-settings) takes `all`, `timed` or `all_day`, card-wide or per calendar — list one calendar twice, once each way, for a color on each, and [**Duplicate** in the editor](/features/editor#per-calendar-panels-actions) builds it for you

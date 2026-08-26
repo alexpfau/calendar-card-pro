@@ -287,9 +287,8 @@
   "allday_badge_position.option.time.label": "Aplink visos dienos etiketę",
   "allday_badge_position.option.title.label": "Aplink įvykio pavadinimą",
   "allday_badge_style": "Visos dienos ženklelio stilius",
-  "allday_badge_style.helper": "Kaip stipriai ženklelis išsiskiria — nuo švelnaus atspalvio eilutės spalva iki vientisos kalendoriaus spalvos.",
-  "allday_badge_style.option.neutral.label": "Neutralus",
-  "allday_badge_style.option.outline.label": "Akcentinis kontūras",
+  "allday_badge_style.helper": "Kaip stipriai ženklelis išsiskiria — nuo švelnaus atspalvio iki vientisos spalvos.",
+  "allday_badge_style.option.outline.label": "Kontūras",
   "allday_badge_style.option.subtle.label": "Subtilus",
   "allday_badge_style.option.tinted.label": "Tonuotas",
   "allday_badge_style.option.filled.label": "Užpildytas",
@@ -390,5 +389,12 @@
   "entity.label_image_source.helper": "Asmens paveikslėlis gaunamas iš Home Assistant, skiltyje Nustatymai, Žmonės. Pakeitus jį ten, jis pasikeičia ir čia; žmonės, kuriems paveikslėlio nėra, etiketės visai nerodo.",
   "entity.label_image_source.option.custom.label": "Pasirinktas paveikslėlis",
   "entity.label_image_source.option.person.label": "Asmens paveikslėlis",
-  "today_indicator_custom.helper": "Jaustukas, paveikslėlio kelias ar URL arba bet koks tekstas. Žodžiams reikia didesnio indikatoriaus dydžio nei taip pat vizualiai atrodančiam jaustukui."
+  "today_indicator_custom.helper": "Jaustukas, paveikslėlio kelias ar URL arba bet koks tekstas. Žodžiams reikia didesnio indikatoriaus dydžio nei taip pat vizualiai atrodančiam jaustukui.",
+  "allday_badge_color_mode": "Visos dienos ženklelio spalva",
+  "allday_badge_color_mode.helper": "Kokia spalva piešiamas ženklelis. Akcento spalva kiekvienam kalendoriui suteikia savą; eilutės teksto spalva visiems suteikia tą, kurioje jie jau yra — laiko spalvą laiko eilutėje ir pavadinimo spalvą pavadinime.",
+  "allday_badge_color_mode.option.accent.label": "Kalendoriaus akcento spalva",
+  "allday_badge_color_mode.option.text.label": "Eilutės teksto spalva",
+  "allday_badge_color_mode.option.custom.label": "Pasirinkta spalva",
+  "allday_badge_color": "Ženklelio spalva",
+  "column.allday_badge_color": "Visos dienos ženklelio spalva"
 }

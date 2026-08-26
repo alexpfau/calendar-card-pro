@@ -849,6 +849,11 @@ export const cardStyles = css`
       var(--calendar-card-event-accent) 10%,
       var(--calendar-card-background-color, var(--card-background-color))
     );
+    /* The source used RAW, by the two treatments that show it undiluted. It exists so those
+       two stop naming --calendar-card-event-accent directly: with all three colours behind
+       tokens, allday_badge_color switches the source by redefining three properties in one
+       place, and no shape rule has to know a source exists. */
+    --badge-solid: var(--calendar-card-event-accent);
 
     /* Sized from the pill's OWN font, never from anything beside it. The line box and the
        vertical padding are set per position, just below, because the two wrap different
@@ -1069,41 +1074,6 @@ export const cardStyles = css`
     box-shadow: none;
   }
 
-  /* The shape of SUBTLE in the row's own text colour, using no accent at all.
-   *
-   * The only treatment that is not a colour statement: it inherits whatever the row's text
-   * resolves to -- --secondary-text-color or the user's time_color on the time row, the
-   * title's own colour on the title -- and derives its wash from that. So it reads as the
-   * existing text sitting in a quiet capsule rather than as a new coloured element, which
-   * makes it the mildest of the five and the only one that adds no hue to a row that had
-   * none.
-   *
-   * It was a ring at full currentColor with no fill until 4.2, which put two frames in the
-   * quiet end of the scale -- neutral and outline differed only in whose colour the ring
-   * was -- while subtle's wash had no accent-free counterpart at all. Pairing it with subtle
-   * instead spreads the five evenly across both shapes: two rings (outline, tinted), two
-   * washes (neutral, subtle) and one solid.
-   *
-   * The wash is currentColor at 14% ALPHA rather than a mix into the card background, which
-   * is the one place this deliberately does not copy subtle. Alpha composites over whatever
-   * is actually behind the pill, so under event_background_opacity it deepens the tinted row
-   * evenly; subtle's wash is defined against the CARD, so on the same row it paints a patch
-   * of near-card-background and reads as a hole punched in the tint. Nothing is given up by
-   * not being a mix, because there is no accent here whose chroma a mix could protect -- and
-   * an alpha veil keeps a chromatic time_color's own hue exactly, where an sRGB mix toward
-   * the card would drain it.
-   *
-   * 14% is subtle's own OKLCH weight, so the two carry the same quantity of wash and differ
-   * only in whose colour it is.
-   *
-   * color: inherit rather than a --badge-ink override, so neither OKLCH block below can
-   * reach it: there is no accent here to keep the chroma of. */
-  .allday-pill-neutral {
-    color: inherit;
-    background-color: color-mix(in srgb, currentColor 14%, transparent);
-    box-shadow: none;
-  }
-
   /* Boundary with no wash, in the calendar's colour exactly as configured.
    *
    * The mirror image of tinted: that one draws the same ring over a wash, this one leaves
@@ -1112,20 +1082,20 @@ export const cardStyles = css`
    * tinted's is weaker precisely because it sits on a wash and would otherwise read as a
    * second colour.
    *
-   * The accent is used raw here, undecided and underived. Two reasons. The vertical bar
-   * beside every event is already the raw accent, and filled already paints the raw accent
-   * as its ground, so a mode whose whole identity is "the accent, with no fill" has no
-   * business being the one place that shows an adjusted version of it. And a derived ink is
-   * only worth its cost where legibility is genuinely at risk -- here the badge sits on the
-   * card's own background, exactly as the vertical bar does, so whatever the user can see in
-   * the bar they can see here.
+   * The source is used raw here, undecided and underived. Two reasons. The vertical bar
+   * beside every event is already the raw accent, and filled already paints it as its ground,
+   * so a mode whose whole identity is "the colour, with no fill" has no business being the
+   * one place that shows an adjusted version of it. And a derived ink is only worth its cost
+   * where legibility is genuinely at risk -- here the badge sits on the card's own
+   * background, exactly as the vertical bar does, so whatever the user can see in the bar
+   * they can see here.
    *
    * The consequence is that an accent too dark to read on a dark theme gives an outline too
    * dark to read. That is the same contract the vertical bar has always had, and the reason
-   * the other four treatments exist. Setting colour rather than --badge-ink is also what
+   * the other three treatments exist. Setting colour rather than --badge-ink is also what
    * keeps the chroma block below from reaching it: there is nothing here to correct. */
   .allday-pill-outline {
-    color: var(--calendar-card-event-accent);
+    color: var(--badge-solid);
     background-color: transparent;
     box-shadow: inset 0 0 0 1px currentColor;
   }
@@ -1145,7 +1115,7 @@ export const cardStyles = css`
     color: var(--calendar-card-background-color, var(--card-background-color));
     background-color: color-mix(
       in srgb,
-      var(--calendar-card-event-accent) 85%,
+      var(--badge-solid) 85%,
       var(--calendar-card-background-color, var(--card-background-color))
     );
     box-shadow: none;
@@ -1252,22 +1222,76 @@ export const cardStyles = css`
   }
 
   /* filled gains what no mix can give it. clamp(0, calc((l - 0.55) * -1000), 1) is a step
-   * function on the accent's OWN lightness -- above 0.55 it floors to 0 and the ink is
+   * function on the SOURCE's OWN lightness -- above 0.55 it floors to 0 and the ink is
    * black, below it ceils to 1 and the ink is white -- with chroma 0 so the result is a true
-   * neutral. That is the per-accent decision the sRGB rule can only approximate, and it is
+   * neutral. That is the per-colour decision the sRGB rule can only approximate, and it is
    * the whole reason no lookup table is needed: the browser makes it, per event, for free.
-   * It reads only the accent, so unlike the block above it never depended on the theme and
+   * It reads only the source, so unlike the block above it never depended on the theme and
    * was never affected by the light-dark() fault.
    *
    * Relative colour is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
    * higher gate; below it the heuristic above is the floor. */
   @supports (color: oklch(from red l c h)) {
     .allday-pill-filled {
-      color: oklch(
-        from var(--calendar-card-event-accent) clamp(0, calc((l - 0.55) * -1000), 1) 0 h
-      );
-      background-color: var(--calendar-card-event-accent);
+      color: oklch(from var(--badge-solid) clamp(0, calc((l - 0.55) * -1000), 1) 0 h);
+      background-color: var(--badge-solid);
     }
+  }
+
+  /* ===== The second axis: which colour feeds all of the above =====
+   *
+   * allday_badge_style names a SHAPE and allday_badge_color names the colour that shape
+   * is drawn in, so four treatments cover both sources rather than one of them owning a
+   * treatment of its own. Until 4.2 the accent-free look was a sixth class called neutral,
+   * which meant exactly one shape could be had without an accent -- and which shape that was
+   * changed under the maintainer's hands twice in one evening, because there was only ever
+   * room for one.
+   *
+   * Two of the three sources need nothing here at all. accent is the default the base rule
+   * already describes, and a CUSTOM COLOUR arrives as the pill's own
+   * --calendar-card-event-accent, because a colour the whole card shares is just the accent
+   * overridden -- so every rule above works on it untouched, chroma recovery included.
+   *
+   * text is the one that cannot be expressed as a colour before the render, because it is
+   * whatever the pill is nested in: the time colour on the time row, the title colour on the
+   * title. The renderer publishes that as --badge-source and this block points the three
+   * tokens at it.
+   *
+   * 🚨 --badge-source is a published token and NOT currentColor, and the difference is
+   * filled. currentColor resolves against the element's own computed colour -- which is
+   * the thing the treatments SET. subtle, tinted and outline get away with it because each
+   * sets color to the inherited value anyway, so reading it back is identity. filled
+   * deliberately sets a CONTRASTING ink, so its own ground would resolve to its own ink: a
+   * pill filled with the colour of its letters. There is no ordering fix, because
+   * currentColor always names the final computed value regardless of declaration order.
+   *
+   * The ink is the source EXACTLY, where the accent path mixes 45% into --primary-text-color.
+   * That mix is a legibility step -- a raw accent measured 3.24:1 on the default blue and
+   * 2.12:1 on pink -- and its job is to make a named colour readable against the card. For
+   * the colour the row is ALREADY painted in, that operation is identity: it is legible here
+   * by construction, since it is the text the user is reading. Running it through the mix
+   * anyway would land the label 45% of the way toward the primary text and draw the pill
+   * darker than the time beside it, which is the one quality this source exists for.
+   *
+   * The wash is 14% ALPHA rather than a mix into the card, which is the one place this does
+   * not copy the accent path. Alpha composites over whatever is actually behind the pill, so
+   * under event_background_opacity it deepens the tinted row evenly; a card-derived mix
+   * paints a patch of near-card-background and reads as a hole punched in the tint. Nothing
+   * is given up by not being a mix, because there is no accent here whose chroma a mix could
+   * protect -- and an alpha veil keeps a chromatic time_color's own hue exactly, where an
+   * sRGB mix toward the card would drain it. 14% is the accent wash's own OKLCH weight, so
+   * the two sources carry the same quantity of wash and differ only in whose colour it is.
+   *
+   * The selector is compound rather than a bare class, and both blocks above are the reason.
+   * They redefine --badge-ink and --badge-wash at (0,1,0) from inside @supports, and this
+   * must beat them for any browser that has OKLCH -- which is every browser this stylesheet
+   * targets. (0,2,0) wins on specificity, so it does not also depend on staying below them
+   * in source order. */
+  .allday-badge.allday-source-text,
+  .allday-title-pill.allday-source-text {
+    --badge-ink: var(--badge-source);
+    --badge-wash: color-mix(in srgb, var(--badge-source) 14%, transparent);
+    --badge-solid: var(--badge-source);
   }
 
   /* Own-row event weather placement. The descendant selector keeps these

@@ -407,6 +407,12 @@ function probeConfigs(defaults, views) {
     // the other's option labels unchecked.
     { allday_badge: 'time' },
     { allday_badge: 'title' },
+    // Two gates deep, which is why it needs a variant of its own rather than riding on the
+    // two above. The badge's colour picker is only built when the badge is ON *and* its
+    // colour is a custom one, so no variant that sets a single key can reach it, and without
+    // this the checker reports `allday_badge_color` as referenced by no panel -- correctly,
+    // from what it can see. Any colour will do; the mode is read off the value's shape.
+    { allday_badge: 'time', allday_badge_color: '#b5651d' },
     { weather: { ...defaults.weather, entity: 'weather.home', position: 'both' } },
     {
       weather: {

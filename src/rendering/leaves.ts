@@ -250,7 +250,7 @@ function renderEventTitle(
   config: Types.Config,
   entityLabel: string | undefined,
   weatherForecasts?: Types.WeatherForecasts,
-  titlePill?: { accent: string; mode: Helpers.AlldayBadgeStyle },
+  titlePill?: { accent: string; mode: Helpers.AlldayBadgeStyle; inheritsText: boolean },
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -277,13 +277,29 @@ function renderEventTitle(
   // Nesting is also the only arrangement that works at all. `.event-title` carries its colour
   // as an inline style, and an inline style beats any class selector -- so putting the pill
   // classes ON that element would let the inline colour override `--badge-ink` and every
-  // treatment but `neutral` would silently render in the title colour.
+  // treatment but the text source would silently render in the title colour.
   //
+  // 🚨 The text source publishes the title's colour as `--badge-source` rather than letting
+  // the stylesheet read `currentColor`, and that is not redundant with inheriting it. The
+  // pill's own `color` is what the treatments SET, so a `currentColor` inside any other
+  // property reads the colour the treatment just wrote instead of the one the row had.
+  // Three treatments get away with it because they set `color` to the inherited value
+  // anyway; `filled` deliberately does not, and its ground would come out as its own ink.
+  // A token settled before the treatment runs has no such ordering.
+  const pillClass = titlePill
+    ? `allday-title-pill allday-pill-${titlePill.mode}` +
+      (titlePill.inheritsText ? ' allday-source-text' : '')
+    : '';
+  const pillStyle = titlePill
+    ? `--calendar-card-event-accent: ${titlePill.accent};` +
+      (titlePill.inheritsText ? ` --badge-source: ${entityColor};` : '')
+    : '';
+
   // prettier-ignore
   const titleContent = titlePill
     ? html`<span
-        class="allday-title-pill allday-pill-${titlePill.mode}"
-        style="--calendar-card-event-accent: ${titlePill.accent};"
+        class=${pillClass}
+        style=${pillStyle}
         >${titleText}</span
       >`
     : titleText;
@@ -411,12 +427,17 @@ export interface EventContentParts {
    * border value, which no descendant can read. The badge republishes it as a custom
    * property on itself and the stylesheet derives every colour from it, so the derivation
    * stays themeable and no event that has no badge pays for the property.
+   *
+   * `inheritsText` is `allday_badge_color: text` — the one source whose colour this side of
+   * the render cannot name, because it differs per position. A custom colour needs no flag:
+   * it arrives as `accent` and is indistinguishable from one by the time it gets here.
    */
   allDayBadge?: {
     label: string;
     lang: string;
     accent: string;
     mode: Helpers.AlldayBadgeStyle;
+    inheritsText: boolean;
   };
 
   /**
@@ -433,6 +454,7 @@ export interface EventContentParts {
   titlePill?: {
     accent: string;
     mode: Helpers.AlldayBadgeStyle;
+    inheritsText: boolean;
   };
 
   eventLocation: string;
@@ -563,12 +585,17 @@ export function renderEventContent(
   // rendering. The real double gap was two margins — the badge's own and the countdown's
   // lead-in — and the stylesheet drops the second when it follows a badge. Written tightly
   // anyway so the markup does not quietly depend on the container staying a flex row.
+  // `--calendar-card-color-time` is the property `.time` sets its own colour from, so naming
+  // it here hands the pill exactly the colour it is sitting in -- the shipped grey, or the
+  // user's `time_color`. See the note at the title pill for why this is published as a token
+  // rather than read as `currentColor`: a treatment that sets `color` would otherwise be
+  // read back by its own ground.
   const allDayBadgeEl = allDayBadge
     ? // prettier-ignore
       html`<span
-        class="allday-badge allday-pill-${allDayBadge.mode}"
+        class=${'allday-badge allday-pill-' + allDayBadge.mode + (allDayBadge.inheritsText ? ' allday-source-text' : '')}
         lang=${allDayBadge.lang}
-        style="--calendar-card-event-accent: ${allDayBadge.accent};"
+        style=${`--calendar-card-event-accent: ${allDayBadge.accent};` + (allDayBadge.inheritsText ? ' --badge-source: var(--calendar-card-color-time);' : '')}
         >${allDayBadge.label}</span
       >`
     : nothing;

@@ -163,7 +163,7 @@ Reach for the card-level option to tidy, and the per-calendar one to protect. Do
 :::
 
 ::: tip Softer, If Filled Is Too Much
-`filled` is the loudest of the five treatments, chosen here because this screen is read in passing from several meters away. On a dashboard you actually sit in front of, `allday_badge_style: tinted` — the default — says the same thing far more quietly. All five work at either position; see [Which Treatment Draws It](/features/event-content#which-treatment-draws-it).
+`filled` is the loudest of the four shapes, chosen here because this screen is read in passing from several meters away. On a dashboard you actually sit in front of, `allday_badge_style: tinted` — the default — says the same thing far more quietly. All four work at either position; see [Which Shape Draws It](/features/event-content#which-shape-draws-it).
 :::
 
 Two more worth knowing at this level. [`today_indicator`](/features/layout-appearance#today-indicator) takes any text, so a hallway screen can mark today with the word rather than a dot — raise `today_indicator_size` when you do, since it ships at `6px`, which is right for an emoji and far too small for a word. And `show_multiday_allday_time` is deliberately left **on**: a week-long holiday's row reads _All day, until Friday, Jun 26_, and that end date is the one thing the pill cannot carry. Turn it off only if you do not care when the holiday ends.

@@ -299,6 +299,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.today_indicator': 'Today Indicator',
   'column.allday_badge': 'All-Day Badge',
   'column.allday_badge_style': 'All-Day Badge Style',
+  'column.allday_badge_color': 'All-Day Badge Color',
   'column.remove_location_country': 'Country Names',
   'column.show_empty_days.helper':
     'Column layout defaults this to on, whatever the shared setting above says.',
@@ -487,13 +488,20 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'allday_badge_position.option.title.label': 'Around The Event Title',
   allday_badge_style: 'All-Day Badge Style',
   'allday_badge_style.helper':
-    "How much weight the badge carries, from a quiet wash in the row's own color to a " +
-    'solid block of the calendar color.',
-  'allday_badge_style.option.neutral.label': 'Plain',
-  'allday_badge_style.option.outline.label': 'Accent Outline',
+    'How much weight the badge carries, from a quiet wash to a solid block of color.',
+  'allday_badge_style.option.outline.label': 'Outline',
   'allday_badge_style.option.subtle.label': 'Subtle',
   'allday_badge_style.option.tinted.label': 'Tinted',
   'allday_badge_style.option.filled.label': 'Filled',
+  allday_badge_color_mode: 'All-Day Badge Color',
+  'allday_badge_color_mode.helper':
+    'Which color the badge is drawn in. The accent gives every calendar its own; the row ' +
+    'text color gives them all the color they already sit in, which is the time color on ' +
+    'the time row and the title color on the title.',
+  'allday_badge_color_mode.option.accent.label': 'Calendar Accent Color',
+  'allday_badge_color_mode.option.text.label': 'Row Text Color',
+  'allday_badge_color_mode.option.custom.label': 'Custom Color',
+  allday_badge_color: 'Badge Color',
   event_icon_vertical_alignment: 'Icon Alignment',
   'event_icon_vertical_alignment.option.top.label': 'Top',
   'event_icon_vertical_alignment.option.middle.label': 'Middle',

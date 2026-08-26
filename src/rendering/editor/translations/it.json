@@ -287,9 +287,8 @@
   "allday_badge_position.option.time.label": "Intorno all'etichetta di tutto il giorno",
   "allday_badge_position.option.title.label": "Intorno al titolo dell'evento",
   "allday_badge_style": "Stile del badge tutto il giorno",
-  "allday_badge_style.helper": "Quanto risalta il badge, da una velatura discreta nel colore della riga a un blocco pieno nel colore del calendario.",
-  "allday_badge_style.option.neutral.label": "Neutro",
-  "allday_badge_style.option.outline.label": "Contorno accento",
+  "allday_badge_style.helper": "Quanto risalta il badge, da una velatura discreta a un blocco di colore pieno.",
+  "allday_badge_style.option.outline.label": "Contorno",
   "allday_badge_style.option.subtle.label": "Leggero",
   "allday_badge_style.option.tinted.label": "Tinto",
   "allday_badge_style.option.filled.label": "Pieno",
@@ -390,5 +389,12 @@
   "entity.label_image_source.helper": "L'immagine di una persona proviene da Home Assistant, in Impostazioni, Persone. Modificarla lì la modifica anche qui; le persone per cui non c'è un'immagine non mostrano alcuna etichetta.",
   "entity.label_image_source.option.custom.label": "Immagine personalizzata",
   "entity.label_image_source.option.person.label": "Immagine di una persona",
-  "today_indicator_custom.helper": "Un'emoji, un percorso immagine o URL, oppure qualsiasi testo. Le parole richiedono una dimensione indicatore maggiore di quella adatta a un'emoji."
+  "today_indicator_custom.helper": "Un'emoji, un percorso immagine o URL, oppure qualsiasi testo. Le parole richiedono una dimensione indicatore maggiore di quella adatta a un'emoji.",
+  "allday_badge_color_mode": "Colore del badge tutto il giorno",
+  "allday_badge_color_mode.helper": "Con quale colore è disegnato il badge. Il colore d'accento ne dà uno diverso a ogni calendario; il colore del testo della riga dà a tutti quello in cui si trovano già — il colore dell'ora nella riga dell'ora e il colore del titolo sul titolo.",
+  "allday_badge_color_mode.option.accent.label": "Colore d'accento del calendario",
+  "allday_badge_color_mode.option.text.label": "Colore del testo della riga",
+  "allday_badge_color_mode.option.custom.label": "Colore personalizzato",
+  "allday_badge_color": "Colore del badge",
+  "column.allday_badge_color": "Colore del badge tutto il giorno"
 }

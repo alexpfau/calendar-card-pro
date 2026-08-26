@@ -167,12 +167,14 @@ describe('stripComments', () => {
   // 68% today; the
   // band below is what actually holds it.
   //
-  // The ceiling last moved for the `neutral` treatment becoming a wash. Its rule is three
-  // declarations and about a kilobyte of comment, because the two decisions in it are both
-  // invisible from the CSS: why the quiet end of the scale carries a wash rather than a
-  // second frame, and why the wash is an alpha veil where subtle's is a mix into the card --
-  // a difference nothing but `event_background_opacity` ever shows. That is the trade this
-  // plugin exists to make, so the ceiling moves rather than the comment being cut.
+  // The ceiling last moved for the badge's colour axis. `neutral` went from a class of its
+  // own to a source that any of the four shapes can be drawn in, and the block that does it
+  // is three declarations carrying about two kilobytes of comment -- because everything
+  // deciding it is invisible from the CSS. Why the source is a published token and not
+  // `currentColor` is the load-bearing one: three treatments would work either way and
+  // `filled` would draw a pill filled with the colour of its own letters, which no
+  // declaration in the block hints at. That is the trade this plugin exists to make, so the
+  // ceiling moves rather than the comment being cut.
   // 🚨 Both attempts at this measurement first reported a saving of ZERO, years apart in
   // spirit and minutes apart in fact, because the edit meant to disable the plugin did not
   // match: it is registered as a bare identifier in the plugins array, not as a call, so
@@ -187,7 +189,7 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(49_000);
+    expect(saved).toBeLessThan(51_000);
     // A little under 68% today, up through 66.7%, 64.9%, 63.6%, 60.4% and before ~51% -- those
     // are historical readings and stay as written. Both jumps were paid
     // for the same thing: a fault whose cause is invisible from the CSS and whose symptoms
