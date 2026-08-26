@@ -1302,6 +1302,62 @@ describe('card stylesheet', () => {
       expect([...declared].sort()).toEqual([...Helpers.ALLDAY_BADGE_STYLES].sort());
     });
 
+    it('spreads the five across two shapes and two colour sources', () => {
+      // Nothing read a treatment's OWN declarations before this, in either direction, so the
+      // scale's shape was unpinned: which treatments draw a ring, which draw a wash, and
+      // which name no accent at all were facts about the stylesheet that no test could see.
+      //
+      // `neutral` was a ring at full currentColor with no fill until 4.2. That put two frames
+      // in the quiet end of the scale -- it and `outline` differed only in whose colour the
+      // ring was -- while `subtle`'s wash had no accent-free counterpart. Pairing it with
+      // subtle instead balances the five: two rings, two washes and one solid, each pair
+      // offered once with the accent and once without.
+      //
+      // Pinned as a whole table by value rather than one treatment at a time, so a reversal
+      // is as loud as an addition and neither can arrive by accident.
+      const shapeOf = (style: string) => {
+        const body = rulesFor(`.allday-pill-${style}`)
+          .map((r) => r.body)
+          .join('');
+        const ring = declared(`.allday-pill-${style}`, 'box-shadow');
+        const fill = declared(`.allday-pill-${style}`, 'background-color');
+        return {
+          ring: ring !== '' && ring !== 'none',
+          fill: fill !== '' && fill !== 'transparent',
+          // The accent-free treatment is the one whose declarations never reach the accent --
+          // neither raw nor through the two custom properties derived from it.
+          accent: /--calendar-card-event-accent|--badge-(ink|wash)/.test(body),
+        };
+      };
+
+      expect(Object.fromEntries(Helpers.ALLDAY_BADGE_STYLES.map((s) => [s, shapeOf(s)]))).toEqual({
+        neutral: { ring: false, fill: true, accent: false },
+        outline: { ring: true, fill: false, accent: true },
+        subtle: { ring: false, fill: true, accent: true },
+        tinted: { ring: true, fill: true, accent: true },
+        filled: { ring: false, fill: true, accent: true },
+      });
+    });
+
+    it('washes the plain treatment in the row own ink, by alpha rather than by a mix', () => {
+      // The whole of what `neutral` means: it names no accent, so both the ink and the ground
+      // come from whatever colour the pill is nested in -- `--secondary-text-color` or the
+      // user's `time_color` on the time row, the title's own colour on the title. `color:
+      // inherit` is what makes that true, and it is also what keeps the OKLCH blocks from
+      // reaching this rule, since neither `--badge-ink` nor `--badge-wash` is read here.
+      expect(declared('.allday-pill-neutral', 'color')).toBe('inherit');
+
+      // And the wash is currentColor at an ALPHA, not a mix into the card background. The
+      // difference only shows under `event_background_opacity`: alpha composites over the
+      // tinted row and deepens it evenly, where a mix into the card paints a patch of
+      // near-card-background and reads as a hole punched in the tint. It also keeps a
+      // chromatic `time_color`'s own hue exactly, where a mix toward the card would drain it.
+      const wash = declared('.allday-pill-neutral', 'background-color');
+      expect(wash).toContain('currentColor');
+      expect(wash).toContain('transparent');
+      expect(wash).not.toContain('--calendar-card-background-color');
+    });
+
     it('gives both positions the same box, declared once', () => {
       // rulesFor matches a selector LIST, so this passes only while one rule names both.
       // Two rules that happen to agree today would satisfy a per-selector check and drift

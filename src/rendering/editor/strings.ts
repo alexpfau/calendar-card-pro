@@ -487,9 +487,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'allday_badge_position.option.title.label': 'Around The Event Title',
   allday_badge_style: 'All-Day Badge Style',
   'allday_badge_style.helper':
-    'How much weight the badge carries, from a plain frame to a solid block of the ' +
-    'calendar color.',
-  'allday_badge_style.option.neutral.label': 'Plain Outline',
+    "How much weight the badge carries, from a quiet wash in the row's own color to a " +
+    'solid block of the calendar color.',
+  'allday_badge_style.option.neutral.label': 'Plain',
   'allday_badge_style.option.outline.label': 'Accent Outline',
   'allday_badge_style.option.subtle.label': 'Subtle',
   'allday_badge_style.option.tinted.label': 'Tinted',

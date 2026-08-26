@@ -267,11 +267,12 @@ function renderEventTitle(
   // what makes the `neutral` treatment mean the right thing here.
   //
   // `neutral` is defined as `color: inherit`, so what it resolves to is decided entirely by
-  // what it is nested in. In the time row it inherits the time colour, which is the whole
-  // point of that treatment: the row's own ink with a frame drawn round it. Put the pill
-  // where `.event-title`'s inline `color` is in scope and it inherits the TITLE colour --
-  // `event_color`, or this calendar's own `color` override -- so the treatment keeps its
-  // meaning at both positions without either needing a rule of its own.
+  // what it is nested in -- and its wash is currentColor at 14% alpha, so the ground follows
+  // the ink. In the time row it inherits the time colour, which is the whole point of that
+  // treatment: the row's own ink in a capsule of itself. Put the pill where `.event-title`'s
+  // inline `color` is in scope and it inherits the TITLE colour -- `event_color`, or this
+  // calendar's own `color` override -- so the treatment keeps its meaning at both positions
+  // without either needing a rule of its own.
   //
   // Nesting is also the only arrangement that works at all. `.event-title` carries its colour
   // as an inline style, and an inline style beats any class selector -- so putting the pill

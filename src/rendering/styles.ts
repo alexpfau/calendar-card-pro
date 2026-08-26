@@ -1069,31 +1069,48 @@ export const cardStyles = css`
     box-shadow: none;
   }
 
-  /* The shape of outline in the row's own text colour, using no accent at all.
+  /* The shape of SUBTLE in the row's own text colour, using no accent at all.
    *
-   * The only treatment that is not a colour statement: it inherits whatever the time colour
-   * resolves to -- the shipped grey, or the user's time_color -- for both the ink and the
-   * ring. So it reads as the existing text with a frame drawn round it rather than as a new
-   * coloured element, which makes it the mildest of the five and the only one that adds no
-   * hue to a row that had none.
+   * The only treatment that is not a colour statement: it inherits whatever the row's text
+   * resolves to -- --secondary-text-color or the user's time_color on the time row, the
+   * title's own colour on the title -- and derives its wash from that. So it reads as the
+   * existing text sitting in a quiet capsule rather than as a new coloured element, which
+   * makes it the mildest of the five and the only one that adds no hue to a row that had
+   * none.
    *
-   * color: inherit rather than a --badge-ink override, so the OKLCH block below cannot
-   * reach it: there is no accent here to keep the chroma of. Placed after the base rule and
-   * before that block, which is what makes it win on source order at equal specificity. */
+   * It was a ring at full currentColor with no fill until 4.2, which put two frames in the
+   * quiet end of the scale -- neutral and outline differed only in whose colour the ring
+   * was -- while subtle's wash had no accent-free counterpart at all. Pairing it with subtle
+   * instead spreads the five evenly across both shapes: two rings (outline, tinted), two
+   * washes (neutral, subtle) and one solid.
+   *
+   * The wash is currentColor at 14% ALPHA rather than a mix into the card background, which
+   * is the one place this deliberately does not copy subtle. Alpha composites over whatever
+   * is actually behind the pill, so under event_background_opacity it deepens the tinted row
+   * evenly; subtle's wash is defined against the CARD, so on the same row it paints a patch
+   * of near-card-background and reads as a hole punched in the tint. Nothing is given up by
+   * not being a mix, because there is no accent here whose chroma a mix could protect -- and
+   * an alpha veil keeps a chromatic time_color's own hue exactly, where an sRGB mix toward
+   * the card would drain it.
+   *
+   * 14% is subtle's own OKLCH weight, so the two carry the same quantity of wash and differ
+   * only in whose colour it is.
+   *
+   * color: inherit rather than a --badge-ink override, so neither OKLCH block below can
+   * reach it: there is no accent here to keep the chroma of. */
   .allday-pill-neutral {
     color: inherit;
-    background-color: transparent;
-    /* Full currentColor, not a fraction of it: this treatment names no accent, so the frame
-       and the label are the same ink by definition. The other rings are deliberately weaker
-       because they sit against a wash and would otherwise read as a second colour. */
-    box-shadow: inset 0 0 0 1px currentColor;
+    background-color: color-mix(in srgb, currentColor 14%, transparent);
+    box-shadow: none;
   }
 
   /* Boundary with no wash, in the calendar's colour exactly as configured.
    *
-   * The mirror image of neutral: that one is the row's own ink with a frame round it, this
-   * one is the CALENDAR's ink with a frame round it. Both set colour directly and let the
-   * ring inherit it, so in each the frame and the label are the same colour by definition.
+   * The mirror image of tinted: that one draws the same ring over a wash, this one leaves
+   * the ground alone. It sets colour directly and lets the ring inherit it, at full strength
+   * rather than tinted's 40%, so the frame and the label are one colour by definition --
+   * tinted's is weaker precisely because it sits on a wash and would otherwise read as a
+   * second colour.
    *
    * The accent is used raw here, undecided and underived. Two reasons. The vertical bar
    * beside every event is already the raw accent, and filled already paints the raw accent

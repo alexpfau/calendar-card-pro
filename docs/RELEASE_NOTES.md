@@ -12,7 +12,7 @@ title: Release Notes
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge_title.png" alt="The all-day pill wrapped around the event title, in each calendar's own color" width="600"><br>
 
-- **`allday_badge` & `allday_badge_style`** - An all-day event can say so with a rounded pill in its calendar's own color instead of with the words _All day_, the way nearly every calendar app marks one. `allday_badge` says **where** — `title` wraps the event title as Google Calendar and Apple Calendar do, `time` puts it beside the clock — and `allday_badge_style` picks one of five treatments from a bare outline to a solid chip. Every color is derived from the calendar's accent by the browser, so a theme variable works exactly like a hex value. Off by default; `allday_badge: title` is the one to try first. See [The All-Day Badge](https://calendar-card-pro.alexpfau.com/features/event-content#the-all-day-badge) (#282)
+- **`allday_badge` & `allday_badge_style`** - An all-day event can say so with a rounded pill in its calendar's own color instead of with the words _All day_, the way nearly every calendar app marks one. `allday_badge` says **where** — `title` wraps the event title as Google Calendar and Apple Calendar do, `time` puts it beside the clock — and `allday_badge_style` picks one of five treatments from a quiet grey wash to a solid chip. Every color is derived from the calendar's accent by the browser, so a theme variable works exactly like a hex value. Off by default; `allday_badge: title` is the one to try first. See [The All-Day Badge](https://calendar-card-pro.alexpfau.com/features/event-content#the-all-day-badge) (#282)
 
 ### 🎨 Follow the Colors and Icons Home Assistant Holds
 

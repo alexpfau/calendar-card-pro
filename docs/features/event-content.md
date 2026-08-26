@@ -87,13 +87,13 @@ the whole statement instead of repeating _All day_ underneath it.
 
 There are five, from quietest to loudest, and all five work at either position:
 
-| Value     | What it draws                                                           |
-| --------- | ----------------------------------------------------------------------- |
-| `neutral` | An outline only, in the row's own text color rather than the calendar's |
-| `outline` | An outline only, in the calendar accent color                           |
-| `subtle`  | A gentle wash of the accent, with no outline                            |
-| `tinted`  | Both — a gentle wash inside a matching outline                          |
-| `filled`  | A solid pill in the calendar accent color                               |
+| Value     | What it draws                                                        |
+| --------- | -------------------------------------------------------------------- |
+| `neutral` | A gentle wash in the row's own text color rather than the calendar's |
+| `outline` | An outline only, in the calendar accent color                        |
+| `subtle`  | A gentle wash of the accent, with no outline                         |
+| `tinted`  | Both — a gentle wash inside a matching outline                       |
+| `filled`  | A solid pill in the calendar accent color                            |
 
 `tinted` is the default and applies as soon as `allday_badge` names a position.
 
@@ -103,9 +103,10 @@ different calendars stay distinguishable at a glance. Where a calendar sets its 
 colors are resolved by the browser rather than computed in advance.
 
 `neutral` is the exception, and it is the one treatment that reads differently at each
-position. It takes no accent at all, borrowing whatever color it sits in: the time color on
-the time row, and the **title** color on the title. So it stays the mildest of the five in
-both places, and in both places it is still distinct from the other four.
+position. It is `subtle` with the accent taken out: the same gentle wash, drawn from
+whatever color the pill sits in — the time color on the time row, and the **title** color on
+the title. So it stays the mildest of the five in both places, and in both places it is
+still distinct from the other four.
 
 ::: warning `color` And `accent_color` Are Separate
 `color` sets an event's **title**. `accent_color` sets its **pill**, its vertical bar and
