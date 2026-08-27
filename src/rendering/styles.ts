@@ -1110,23 +1110,29 @@ export const cardStyles = css`
 
   /* Boundary with no wash, in the calendar's colour exactly as configured.
    *
-   * The mirror image of tinted: that one draws the same ring over a wash, this one leaves
-   * the ground alone. Both set colour directly and let the ring inherit it at full strength,
-   * so in each the frame and the label are one colour by definition -- which is the whole of
-   * the difference between them being the fill, and nothing else.
+   * The mirror image of tinted, one step further: that one draws the same ring over a wash
+   * and mixes its LABEL for legibility, this one leaves the ground alone and leaves the
+   * label raw too. So both halves here are the colour the user configured, exactly.
    *
-   * The source is used raw here, undecided and underived. Two reasons. The vertical bar
-   * beside every event is already the raw accent, and filled already paints it as its ground,
-   * so a mode whose whole identity is "the colour, with no fill" has no business being the
-   * one place that shows an adjusted version of it. And a derived ink is only worth its cost
-   * where legibility is genuinely at risk -- here the badge sits on the card's own
-   * background, exactly as the vertical bar does, so whatever the user can see in the bar
-   * they can see here.
+   * 🚨 That is a deliberate, maintainer-level decision and NOT an oversight, which is worth
+   * saying because it is measurable and it measures badly. Raw accent as text on the card
+   * is 2.63:1 for the default blue, 2.69 on pink and 2.10 on green -- all failing WCAG AA on
+   * a light theme, where tinted's mixed ink reads 6.9 / 7.86 / 6.3. Anyone auditing contrast
+   * will find this rule and it will look like the bug that tinted's ink was written to
+   * avoid.
    *
-   * The consequence is that an accent too dark to read on a dark theme gives an outline too
-   * dark to read. That is the same contract the vertical bar has always had, and the reason
-   * the other three treatments exist. Setting colour rather than --badge-ink is also what
-   * keeps the chroma block below from reaching it: there is nothing here to correct. */
+   * It is kept because outline promises WYSIWYG: a frame with text inside it, both in the
+   * colour that was asked for. The card now offers four shapes, three colour sources and a
+   * free-form colour, so a user who cannot read this combination on their background has
+   * many ways to change it -- and every one of them is a choice they can see the result of,
+   * where a silent legibility mix is a choice made for them that makes the option not do
+   * what it says. Configurability is the answer here rather than correction.
+   *
+   * The ring follows the same logic and needs no argument of its own: the vertical bar
+   * beside every event is already the raw accent, and filled already paints it as its ground.
+   *
+   * Setting colour rather than --badge-ink is also what keeps the chroma block below from
+   * reaching it: there is nothing here to correct. */
   .allday-pill-outline {
     color: var(--badge-solid);
     background-color: transparent;

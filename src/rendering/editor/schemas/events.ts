@@ -20,17 +20,19 @@ export const EVENTS_ICON = mdiCalendarText;
 export const ALLDAY_BADGE_POSITION_OPTIONS: ReadonlyArray<string> = ['off', 'title', 'time'];
 
 /**
- * The four shapes the dropdown offers, roughly from lightest to heaviest.
+ * The four shapes the dropdown offers, in `ALLDAY_BADGE_STYLES` order -- quietest first, so
+ * the default leads the list and reading down it walks toward the loudest.
  *
  * 🚨 This is NOT the stylesheet's declaration order, and a comment here claimed it was until
  * 4.2 -- wrongly, and from before the badge shipped: the stylesheet leads with tinted, which
- * it declares first as the shape the base rule is written against. Nothing reconciles the
- * two and nothing should; a dropdown is ordered for a reader and a stylesheet for the
- * cascade. Stated because the false version read as a rule somebody might try to restore.
+ * it declares first as the shape the base rule is written against. A dropdown is ordered for
+ * a reader and a stylesheet for the cascade, so those two are deliberately unreconciled.
+ * The runtime table IS reconciled, by order and not merely by membership, because both now
+ * claim the same ordering and a claim made twice can disagree with itself.
  */
 export const ALLDAY_BADGE_STYLE_OPTIONS: ReadonlyArray<string> = [
-  'outline',
   'subtle',
+  'outline',
   'tinted',
   'filled',
 ];

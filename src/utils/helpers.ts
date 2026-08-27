@@ -559,8 +559,17 @@ export const ALLDAY_BADGE_POSITIONS = ['title', 'time'] as const;
 
 export type AlldayBadgePosition = (typeof ALLDAY_BADGE_POSITIONS)[number];
 
-/** The treatments `allday_badge_style` can name, in order of increasing weight. */
-export const ALLDAY_BADGE_STYLES = ['outline', 'subtle', 'tinted', 'filled'] as const;
+/**
+ * The shapes `allday_badge_style` can name, quietest first.
+ *
+ * `subtle` leads on both counts: it is the default, and it is genuinely the lightest -- a
+ * wash with no edge at all. `outline` follows because a full-strength ring is a harder mark
+ * than a wash, which is the opposite of where it sat until 4.2. It led the list then on the
+ * reading that "no fill" means "quiet", and that stopped being true when the ring went to
+ * full strength: rendered side by side, outline is a bright edge with bright text where
+ * subtle has no edge and a mixed, calmer ink.
+ */
+export const ALLDAY_BADGE_STYLES = ['subtle', 'outline', 'tinted', 'filled'] as const;
 
 export type AlldayBadgeStyle = (typeof ALLDAY_BADGE_STYLES)[number];
 

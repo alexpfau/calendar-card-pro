@@ -63,7 +63,7 @@ it, and in **which color**:
 
 ```yaml
 allday_badge: title # off, title or time
-allday_badge_style: subtle # outline, subtle, tinted or filled
+allday_badge_style: subtle # subtle, outline, tinted or filled
 allday_badge_color: accent # accent, text, or any CSS color
 ```
 
@@ -90,12 +90,14 @@ There are four, from quietest to loudest, and all four work at either position:
 
 | Value     | What it draws                                  |
 | --------- | ---------------------------------------------- |
-| `outline` | An outline only, with no fill                  |
 | `subtle`  | A gentle wash, with no outline                 |
+| `outline` | An outline only, with no fill                  |
 | `tinted`  | Both — a gentle wash inside a matching outline |
 | `filled`  | A solid pill                                   |
 
-`subtle` is the default and applies as soon as `allday_badge` names a position.
+`subtle` is the default and applies as soon as `allday_badge` names a position. It leads the
+list because it is the lightest of the four: `outline` carries no fill, but a full-strength
+ring is a harder mark than a wash is.
 
 ### Which Color It Is Drawn In
 

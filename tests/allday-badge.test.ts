@@ -754,6 +754,15 @@ describe('allday_badge', () => {
       expect([...EditorSchemas.ALLDAY_BADGE_STYLE_OPTIONS].sort()).toEqual(
         [...Helpers.ALLDAY_BADGE_STYLES].sort(),
       );
+
+      // 🚨 And in the SAME ORDER, not merely the same members. Both tables document
+      // themselves as quietest-first, and a claim made in two places can disagree with
+      // itself: sorting both sides before comparing is exactly what would hide it. The
+      // dropdown is what a user reads top to bottom, so the order is a user-visible
+      // property rather than an internal detail.
+      expect([...EditorSchemas.ALLDAY_BADGE_STYLE_OPTIONS]).toEqual([
+        ...Helpers.ALLDAY_BADGE_STYLES,
+      ]);
     });
 
     it('offers every position, plus off and nothing else', () => {
