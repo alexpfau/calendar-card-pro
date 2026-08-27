@@ -829,10 +829,17 @@ export const cardStyles = css`
    * 70% attempt was made to fix. A 1px boundary resolves it, because a crisp edge survives a
    * tinted ground where an area wash cannot -- so the fill is free to stay quiet.
    *
-   * The strengths are measured too. A 22% ring is decorative: removing it was visually
+   * The fill's strength is measured. A 22% ring is decorative: removing it was visually
    * indistinguishable. Sweeping fill against ring (6,720 samples) put 10%/40% in the only
-   * region satisfying both constraints, and in the card that reads 11.77:1 text with the
+   * region satisfying both constraints, and in the card that read 11.77:1 text with the
    * weakest boundary at 1.66:1 across event_background_opacity 0-80.
+   *
+   * 🚨 That sweep chose the RING at 40% too, and tinted no longer uses that half of its
+   * answer -- see the rule itself for why. Recorded rather than deleted because the fill's
+   * 10% is the same measurement and still stands, and because the sweep was sound for what
+   * it varied: every sample was a chromatic accent, so it never saw the case that overturned
+   * it. A stronger ring only raises boundary contrast, so nothing it established is at
+   * risk.
    *
    * --badge-ink and --badge-wash are declared once and consumed by every mode, so the modes
    * differ only in how hard they use them -- and so the OKLCH block at the end can improve all
@@ -849,6 +856,11 @@ export const cardStyles = css`
       var(--calendar-card-event-accent) 10%,
       var(--calendar-card-background-color, var(--card-background-color))
     );
+    /* The source used RAW, by the two treatments that show it undiluted. It exists so those
+       two stop naming --calendar-card-event-accent directly: with all three colours behind
+       tokens, allday_badge_color switches the source by redefining three properties in one
+       place, and no shape rule has to know a source exists. */
+    --badge-solid: var(--calendar-card-event-accent);
 
     /* Sized from the pill's OWN font, never from anything beside it. The line box and the
        vertical padding are set per position, just below, because the two wrap different
@@ -894,17 +906,44 @@ export const cardStyles = css`
     border-radius: 999px;
   }
 
-  /* The reference treatment: the ink and the wash used exactly as the base defines them,
-     with a ring at 40% of the ink.
-     This used to have no rule of its own -- the base declared these three and tinted was
+  /* Both halves at once: the wash of subtle inside the ring of outline, each exactly as
+     that treatment draws it -- the same colour, from the same token, so "matching" is a
+     fact rather than a description. So the four are orthogonal: subtle is the wash, outline
+     is the ring, tinted is both, filled is the solid.
+     It was not true until 4.2. The ring was 40% of the ink, which is the sweep's answer
+     recorded in the base rule, and the reasoning was that a ring on a wash would otherwise
+     read as a second colour. Sound for a chromatic accent, and false for a neutral one:
+     weakening a colour preserves its hue, so 40% blue still reads as blue, softer -- but
+     black has no hue to preserve, so 40% black reads as GREY, which is a different colour
+     rather than a quieter one. Measured on canvas pixels over a white card, the ring's
+     distance from its own ink was 227 for a black title against 146-165 for every chromatic
+     source, and the black pill read as a grey ring that had wandered in around black text.
+     Reported against a live card, at allday_badge_color: text.
+     Special-casing the text source was the obvious repair and is the wrong one: it would
+     reintroduce exactly the "one treatment is the exception" shape that splitting shape from
+     colour had just removed. A ring that always matches its ink has no exception in it.
+     This rule also used to not exist -- the base declared these three and tinted was
      whatever you got by naming no other treatment. That worked and was still wrong: the
      class in the DOM matched nothing, the treatment could not be reconciled against the
-     other four, and any rule added to the base silently became part of tinted. Five
-     treatments, five rules, and a base that declares only what all five build from. */
+     others, and any rule added to the base silently became part of tinted. */
   .allday-pill-tinted {
     color: var(--badge-ink);
     background-color: var(--badge-wash);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+    /* 🚨 --badge-solid, NOT currentColor. Outline's ring is written as currentColor and that
+       is correct there, because outline sets its own colour to --badge-solid -- so the two
+       rules would read as identical rings and paint DIFFERENT ones, the only difference
+       being which token each rule's own color declaration happens to name. Measured: the bar beside the
+       event and outline's ring both draw #03a9f4, while tinted's currentColor ring drew
+       rgb(44,91,120), the legibility-mixed ink. Reported from a live card as the pill's
+       border not matching the bar, which it sits four pixels from.
+       A ring is a 1px boundary that nobody reads, so it has no legibility requirement and
+       belongs with the bar. The LABEL is read, and keeps the mix: raw accent as text on this
+       wash measures 2.33:1 on the default blue, 2.28:1 on pink and 1.92:1 on green, all
+       failing WCAG AA, against 6.11 / 6.66 / 5.77 for the mixed ink. So the two halves of
+       this rule answer to different constraints and cannot share a token.
+       The text source is unaffected: there --badge-solid and --badge-ink are both the row's
+       own colour, so the ring stays exactly the ink, which is what the black pill needs. */
+    box-shadow: inset 0 0 0 1px var(--badge-solid);
   }
 
   /* The time-row badge draws a LABEL -- the localized words for "all day" -- so it is set
@@ -1069,46 +1108,33 @@ export const cardStyles = css`
     box-shadow: none;
   }
 
-  /* The shape of outline in the row's own text colour, using no accent at all.
-   *
-   * The only treatment that is not a colour statement: it inherits whatever the time colour
-   * resolves to -- the shipped grey, or the user's time_color -- for both the ink and the
-   * ring. So it reads as the existing text with a frame drawn round it rather than as a new
-   * coloured element, which makes it the mildest of the five and the only one that adds no
-   * hue to a row that had none.
-   *
-   * color: inherit rather than a --badge-ink override, so the OKLCH block below cannot
-   * reach it: there is no accent here to keep the chroma of. Placed after the base rule and
-   * before that block, which is what makes it win on source order at equal specificity. */
-  .allday-pill-neutral {
-    color: inherit;
-    background-color: transparent;
-    /* Full currentColor, not a fraction of it: this treatment names no accent, so the frame
-       and the label are the same ink by definition. The other rings are deliberately weaker
-       because they sit against a wash and would otherwise read as a second colour. */
-    box-shadow: inset 0 0 0 1px currentColor;
-  }
-
   /* Boundary with no wash, in the calendar's colour exactly as configured.
    *
-   * The mirror image of neutral: that one is the row's own ink with a frame round it, this
-   * one is the CALENDAR's ink with a frame round it. Both set colour directly and let the
-   * ring inherit it, so in each the frame and the label are the same colour by definition.
+   * The mirror image of tinted, one step further: that one draws the same ring over a wash
+   * and mixes its LABEL for legibility, this one leaves the ground alone and leaves the
+   * label raw too. So both halves here are the colour the user configured, exactly.
    *
-   * The accent is used raw here, undecided and underived. Two reasons. The vertical bar
-   * beside every event is already the raw accent, and filled already paints the raw accent
-   * as its ground, so a mode whose whole identity is "the accent, with no fill" has no
-   * business being the one place that shows an adjusted version of it. And a derived ink is
-   * only worth its cost where legibility is genuinely at risk -- here the badge sits on the
-   * card's own background, exactly as the vertical bar does, so whatever the user can see in
-   * the bar they can see here.
+   * 🚨 That is a deliberate, maintainer-level decision and NOT an oversight, which is worth
+   * saying because it is measurable and it measures badly. Raw accent as text on the card
+   * is 2.63:1 for the default blue, 2.69 on pink and 2.10 on green -- all failing WCAG AA on
+   * a light theme, where tinted's mixed ink reads 6.9 / 7.86 / 6.3. Anyone auditing contrast
+   * will find this rule and it will look like the bug that tinted's ink was written to
+   * avoid.
    *
-   * The consequence is that an accent too dark to read on a dark theme gives an outline too
-   * dark to read. That is the same contract the vertical bar has always had, and the reason
-   * the other four treatments exist. Setting colour rather than --badge-ink is also what
-   * keeps the chroma block below from reaching it: there is nothing here to correct. */
+   * It is kept because outline promises WYSIWYG: a frame with text inside it, both in the
+   * colour that was asked for. The card now offers four shapes, three colour sources and a
+   * free-form colour, so a user who cannot read this combination on their background has
+   * many ways to change it -- and every one of them is a choice they can see the result of,
+   * where a silent legibility mix is a choice made for them that makes the option not do
+   * what it says. Configurability is the answer here rather than correction.
+   *
+   * The ring follows the same logic and needs no argument of its own: the vertical bar
+   * beside every event is already the raw accent, and filled already paints it as its ground.
+   *
+   * Setting colour rather than --badge-ink is also what keeps the chroma block below from
+   * reaching it: there is nothing here to correct. */
   .allday-pill-outline {
-    color: var(--calendar-card-event-accent);
+    color: var(--badge-solid);
     background-color: transparent;
     box-shadow: inset 0 0 0 1px currentColor;
   }
@@ -1128,7 +1154,7 @@ export const cardStyles = css`
     color: var(--calendar-card-background-color, var(--card-background-color));
     background-color: color-mix(
       in srgb,
-      var(--calendar-card-event-accent) 85%,
+      var(--badge-solid) 85%,
       var(--calendar-card-background-color, var(--card-background-color))
     );
     box-shadow: none;
@@ -1235,22 +1261,76 @@ export const cardStyles = css`
   }
 
   /* filled gains what no mix can give it. clamp(0, calc((l - 0.55) * -1000), 1) is a step
-   * function on the accent's OWN lightness -- above 0.55 it floors to 0 and the ink is
+   * function on the SOURCE's OWN lightness -- above 0.55 it floors to 0 and the ink is
    * black, below it ceils to 1 and the ink is white -- with chroma 0 so the result is a true
-   * neutral. That is the per-accent decision the sRGB rule can only approximate, and it is
+   * neutral. That is the per-colour decision the sRGB rule can only approximate, and it is
    * the whole reason no lookup table is needed: the browser makes it, per event, for free.
-   * It reads only the accent, so unlike the block above it never depended on the theme and
+   * It reads only the source, so unlike the block above it never depended on the theme and
    * was never affected by the light-dark() fault.
    *
    * Relative colour is Chrome 122+ / Firefox 133+ / Safari 18+, so this stays a separate,
    * higher gate; below it the heuristic above is the floor. */
   @supports (color: oklch(from red l c h)) {
     .allday-pill-filled {
-      color: oklch(
-        from var(--calendar-card-event-accent) clamp(0, calc((l - 0.55) * -1000), 1) 0 h
-      );
-      background-color: var(--calendar-card-event-accent);
+      color: oklch(from var(--badge-solid) clamp(0, calc((l - 0.55) * -1000), 1) 0 h);
+      background-color: var(--badge-solid);
     }
+  }
+
+  /* ===== The second axis: which colour feeds all of the above =====
+   *
+   * allday_badge_style names a SHAPE and allday_badge_color names the colour that shape
+   * is drawn in, so four treatments cover both sources rather than one of them owning a
+   * treatment of its own. Until 4.2 the accent-free look was a sixth class called neutral,
+   * which meant exactly one shape could be had without an accent -- and which shape that was
+   * changed under the maintainer's hands twice in one evening, because there was only ever
+   * room for one.
+   *
+   * Two of the three sources need nothing here at all. accent is the default the base rule
+   * already describes, and a CUSTOM COLOUR arrives as the pill's own
+   * --calendar-card-event-accent, because a colour the whole card shares is just the accent
+   * overridden -- so every rule above works on it untouched, chroma recovery included.
+   *
+   * text is the one that cannot be expressed as a colour before the render, because it is
+   * whatever the pill is nested in: the time colour on the time row, the title colour on the
+   * title. The renderer publishes that as --badge-source and this block points the three
+   * tokens at it.
+   *
+   * 🚨 --badge-source is a published token and NOT currentColor, and the difference is
+   * filled. currentColor resolves against the element's own computed colour -- which is
+   * the thing the treatments SET. subtle, tinted and outline get away with it because each
+   * sets color to the inherited value anyway, so reading it back is identity. filled
+   * deliberately sets a CONTRASTING ink, so its own ground would resolve to its own ink: a
+   * pill filled with the colour of its letters. There is no ordering fix, because
+   * currentColor always names the final computed value regardless of declaration order.
+   *
+   * The ink is the source EXACTLY, where the accent path mixes 45% into --primary-text-color.
+   * That mix is a legibility step -- a raw accent measured 3.24:1 on the default blue and
+   * 2.12:1 on pink -- and its job is to make a named colour readable against the card. For
+   * the colour the row is ALREADY painted in, that operation is identity: it is legible here
+   * by construction, since it is the text the user is reading. Running it through the mix
+   * anyway would land the label 45% of the way toward the primary text and draw the pill
+   * darker than the time beside it, which is the one quality this source exists for.
+   *
+   * The wash is 14% ALPHA rather than a mix into the card, which is the one place this does
+   * not copy the accent path. Alpha composites over whatever is actually behind the pill, so
+   * under event_background_opacity it deepens the tinted row evenly; a card-derived mix
+   * paints a patch of near-card-background and reads as a hole punched in the tint. Nothing
+   * is given up by not being a mix, because there is no accent here whose chroma a mix could
+   * protect -- and an alpha veil keeps a chromatic time_color's own hue exactly, where an
+   * sRGB mix toward the card would drain it. 14% is the accent wash's own OKLCH weight, so
+   * the two sources carry the same quantity of wash and differ only in whose colour it is.
+   *
+   * The selector is compound rather than a bare class, and both blocks above are the reason.
+   * They redefine --badge-ink and --badge-wash at (0,1,0) from inside @supports, and this
+   * must beat them for any browser that has OKLCH -- which is every browser this stylesheet
+   * targets. (0,2,0) wins on specificity, so it does not also depend on staying below them
+   * in source order. */
+  .allday-badge.allday-source-text,
+  .allday-title-pill.allday-source-text {
+    --badge-ink: var(--badge-source);
+    --badge-wash: color-mix(in srgb, var(--badge-source) 14%, transparent);
+    --badge-solid: var(--badge-source);
   }
 
   /* Own-row event weather placement. The descendant selector keeps these

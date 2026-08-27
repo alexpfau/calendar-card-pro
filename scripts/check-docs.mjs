@@ -2089,10 +2089,29 @@ const RUNTIME_ENUMS = [
     option: 'allday_badge_style',
     file: 'src/utils/helpers.ts',
     constant: 'ALLDAY_BADGE_STYLES',
-    noun: 'treatments',
-    // Falls back to a treatment rather than to off: this key cannot answer whether there is
-    // a badge, only which one. See `resolveAlldayBadgeStyle`.
-    fallback: 'tinted',
+    // 🚨 The noun is half the check, and renaming the prose without renaming it here is a
+    // SILENT loss rather than a failure. The count claim is matched as `<number> <noun>`, so
+    // when the docs went from "five treatments" to "four shapes" this table still said
+    // `treatments`, five prose claims across the README, the release notes, the archive, a
+    // guide and the feature page stopped matching anything, and the run reported 22 surfaces
+    // where it had reported 27 -- passing, with a fifth of its coverage gone. The denominator
+    // is printed for exactly this reason; read it when a docs change touches the word.
+    noun: 'shapes',
+    // Falls back to a shape rather than to off: this key cannot answer whether there is a
+    // badge, only which one. See `resolveAlldayBadgeStyle`.
+    fallback: 'subtle',
+  },
+  {
+    option: 'allday_badge_color',
+    file: 'src/utils/helpers.ts',
+    constant: 'ALLDAY_BADGE_COLOR_SOURCES',
+    // Two keywords, and the value set is otherwise OPEN -- any CSS colour is legal -- so the
+    // table check here reconciles only the two that are closed. That is the honest scope: a
+    // page listing `accent` and `text` must list both, and no page can be asked to tabulate
+    // every colour.
+    noun: 'color sources',
+    // Falls back to the accent, which is what the badge was drawn in before this key existed.
+    fallback: 'accent',
   },
 ];
 

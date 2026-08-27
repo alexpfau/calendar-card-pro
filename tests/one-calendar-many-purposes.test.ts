@@ -37,6 +37,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import { fetchEventData, groupEventsByDay } from '../src/utils/events';
+import * as Helpers from '../src/utils/helpers';
 
 const GUIDE = join(__dirname, '..', 'docs', 'guide', 'one-calendar-many-purposes.md');
 
@@ -263,6 +264,25 @@ describe('the One Calendar, Many Purposes example behaves as the page describes'
     expect(GUIDE_ENTITIES[5]).toMatchObject({ filter_field: 'description', allowlist: '#family' });
     expect(GUIDE_ENTITIES[6]).toMatchObject({ filter_field: 'description', replace_with: 'Busy' });
     expect(GUIDE_CONFIG).toMatchObject({ allday_badge: 'title', allday_badge_style: 'filled' });
+
+    // 🚨 The page's legend is the COLOUR, not the shape: a pink capsule is a birthday only
+    // because each pill takes its own calendar's accent. `allday_badge_color` decides that,
+    // and the page relies on its DEFAULT rather than writing it out -- so a change of that
+    // default would draw every pill alike and silently retire the whole guide, with its YAML
+    // untouched and every other assertion here still passing.
+    //
+    // 🚨 Resolved through `buildConfig`, which performs the card's own merge, and NOT by
+    // handing `GUIDE_CONFIG.allday_badge_color` to the resolver directly. The guide omits the
+    // key, so the direct form passes `undefined` and asserts `DEFAULT_ALLDAY_BADGE_COLOR` in
+    // `helpers.ts` -- the resolver's fallback for an absent value, which is a different
+    // constant from `DEFAULT_CONFIG.allday_badge_color` in `config.ts` and is not the one the
+    // card reads. Written that way first, it survived flipping the card's default to `text`
+    // and proved nothing at all. The merge is what makes this falsifiable.
+    expect(
+      Helpers.resolveAlldayBadgeColor(
+        buildConfig(GUIDE_CONFIG as unknown as Partial<Types.Config>).allday_badge_color,
+      ),
+    ).toEqual({ source: 'accent' });
   });
 
   it('draws every event exactly once, under the block the page assigns it', async () => {

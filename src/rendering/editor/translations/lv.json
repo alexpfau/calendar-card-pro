@@ -287,9 +287,8 @@
   "allday_badge_position.option.time.label": "Ap visas dienas etiķeti",
   "allday_badge_position.option.title.label": "Ap notikuma virsrakstu",
   "allday_badge_style": "Visas dienas nozīmītes stils",
-  "allday_badge_style.helper": "Cik spēcīgi nozīmīte izceļas — no vienkāršas apmales līdz pilnam kalendāra krāsas aizpildījumam.",
-  "allday_badge_style.option.neutral.label": "Vienkārša apmale",
-  "allday_badge_style.option.outline.label": "Akcenta apmale",
+  "allday_badge_style.helper": "Cik spēcīgi nozīmīte izceļas — no maiga toņa līdz pilnam krāsas aizpildījumam.",
+  "allday_badge_style.option.outline.label": "Apmale",
   "allday_badge_style.option.subtle.label": "Maigs",
   "allday_badge_style.option.tinted.label": "Tonēts",
   "allday_badge_style.option.filled.label": "Aizpildīts",
@@ -390,5 +389,12 @@
   "entity.label_image_source.helper": "Personas attēls nāk no Home Assistant sadaļas Iestatījumi, Personas. To mainot tur, tas mainās arī šeit; cilvēki, kuriem attēla nav, etiķeti nerāda vispār.",
   "entity.label_image_source.option.custom.label": "Pielāgots attēls",
   "entity.label_image_source.option.person.label": "Personas attēls",
-  "today_indicator_custom.helper": "Emocijzīme, attēla ceļš vai URL, vai jebkāds teksts. Vārdiem vajag lielāku indikatora izmēru nekā tāda paša vizuālā izmēra emocijzīmei."
+  "today_indicator_custom.helper": "Emocijzīme, attēla ceļš vai URL, vai jebkāds teksts. Vārdiem vajag lielāku indikatora izmēru nekā tāda paša vizuālā izmēra emocijzīmei.",
+  "allday_badge_color_mode": "Visas dienas nozīmītes krāsa",
+  "allday_badge_color_mode.helper": "Kādā krāsā nozīmīte tiek zīmēta. Akcenta krāsa katram kalendāram dod savu; rindas teksta krāsa visiem dod to, kurā tie jau ir — laika krāsu laika rindā un virsraksta krāsu virsrakstā.",
+  "allday_badge_color_mode.option.accent.label": "Kalendāra akcenta krāsa",
+  "allday_badge_color_mode.option.text.label": "Rindas teksta krāsa",
+  "allday_badge_color_mode.option.custom.label": "Pielāgota krāsa",
+  "allday_badge_color": "Nozīmītes krāsa",
+  "column.allday_badge_color": "Visas dienas nozīmītes krāsa"
 }

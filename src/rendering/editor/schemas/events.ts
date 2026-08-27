@@ -19,15 +19,34 @@ export const EVENTS_ICON = mdiCalendarText;
  * leads because it is the default. */
 export const ALLDAY_BADGE_POSITION_OPTIONS: ReadonlyArray<string> = ['off', 'title', 'time'];
 
-/** The five treatments, in order of increasing weight -- the same order the stylesheet
- *  declares them in, so reading the dropdown top to bottom walks from quietest to loudest. */
+/**
+ * The four shapes the dropdown offers, in `ALLDAY_BADGE_STYLES` order -- quietest first, so
+ * the default leads the list and reading down it walks toward the loudest.
+ *
+ * 🚨 This is NOT the stylesheet's declaration order, and a comment here claimed it was until
+ * 4.2 -- wrongly, and from before the badge shipped: the stylesheet leads with tinted, which
+ * it declares first as the shape the base rule is written against. A dropdown is ordered for
+ * a reader and a stylesheet for the cascade, so those two are deliberately unreconciled.
+ * The runtime table IS reconciled, by order and not merely by membership, because both now
+ * claim the same ordering and a claim made twice can disagree with itself.
+ */
 export const ALLDAY_BADGE_STYLE_OPTIONS: ReadonlyArray<string> = [
-  'neutral',
-  'outline',
   'subtle',
+  'outline',
   'tinted',
   'filled',
 ];
+
+/**
+ * The colours a treatment can be drawn in.
+ *
+ * Two sources and an escape hatch, which is the same shape `accent_color_mode` has one
+ * control up: the keywords are stored as themselves, and `custom` stands for "the stored
+ * value is a colour". Ordered by how many events they can tell apart -- `accent` gives every
+ * calendar its own, `text` gives them all the row's, and a custom colour gives them all one
+ * the user picked.
+ */
+export const ALLDAY_BADGE_COLOR_MODES: ReadonlyArray<string> = ['accent', 'text', 'custom'];
 
 const TIME_ICON =
   'M12 20a8 8 0 1 1 8-8 8 8 0 0 1-8 8m0-18a10 10 0 1 0 10 10A10 10 0 0 0 12 2m.5 5H11v6l5.25 3.15.75-1.23-4.5-2.67V7Z';
@@ -49,26 +68,47 @@ const ACCENT_COLOR_MODES = ['custom', 'home_assistant'] as const;
  */
 /**
  * The all-day badge controls: where the pill goes, and -- once it goes anywhere -- which of
- * the five treatments draws it.
+ * the four treatments draws it and in which colour.
  *
- * The treatment select is hidden while the position is off, following `accent_color_mode`
+ * Both styling controls are hidden while the position is off, following `accent_color_mode`
  * and its colour picker. A styling control for a thing that is not drawn is a control that
  * cannot do anything, and offering it invites the reading that setting it turns the feature
  * on.
  *
+ * The colour follows the treatment rather than leading it, because the two are a shape and
+ * then a fill: which of the four is the more consequential pick and the one carrying a
+ * default worth keeping, and it reads oddly to choose a colour for a shape not yet named.
+ *
  * @param language - Effective language code
  * @param position - Currently configured position, already resolved
- * @returns The fields, which is one field or two
+ * @param colorMode - Derived badge colour mode
+ * @returns The fields, which is one field or three
  */
 function alldayBadgeFields(
   language: string,
   position: Helpers.AlldayBadgePosition | null,
+  colorMode: string,
 ): HaFormSchema[] {
   const positionField = select(language, 'allday_badge_position', ALLDAY_BADGE_POSITION_OPTIONS);
 
-  return position === null
-    ? [positionField]
-    : [positionField, select(language, 'allday_badge_style', ALLDAY_BADGE_STYLE_OPTIONS)];
+  if (position === null) return [positionField];
+
+  // The mode and the colour it governs share a row for the reason `accent_color_mode`
+  // documents above: a grid collapses to one column on a narrow viewport, so a conditional
+  // field placed after the row lands below whatever else the row held.
+  const colorField =
+    colorMode === 'custom'
+      ? row(
+          select(language, 'allday_badge_color_mode', ALLDAY_BADGE_COLOR_MODES),
+          color('allday_badge_color'),
+        )
+      : select(language, 'allday_badge_color_mode', ALLDAY_BADGE_COLOR_MODES);
+
+  return [
+    positionField,
+    select(language, 'allday_badge_style', ALLDAY_BADGE_STYLE_OPTIONS),
+    colorField,
+  ];
 }
 
 function timeGroup(language: string, showTime: boolean): HaFormSchema {
@@ -177,6 +217,7 @@ function progressGroup(
  * @param showProgressBar - Whether the progress bar is shown
  * @param accentMode - Derived card accent mode
  * @param badgePosition - Resolved all-day badge position, or null when off
+ * @param badgeColorMode - Derived all-day badge colour mode
  * @returns The panel's schema
  */
 const eventsSchema = Helpers.memoizeLast(
@@ -190,6 +231,7 @@ const eventsSchema = Helpers.memoizeLast(
     showProgressBar: boolean,
     accentMode: string,
     badgePosition: Helpers.AlldayBadgePosition | null,
+    badgeColorMode: string,
   ): HaFormSchema[] => [
     row(text('event_font_size'), color('event_color')),
     // The mode and the colour it governs are one control, so they share a row. A grid
@@ -212,7 +254,7 @@ const eventsSchema = Helpers.memoizeLast(
     // Placed after the per-event appearance options and before the per-field groups because
     // that is where its scope puts it: it qualifies a whole class of event, which is a
     // coarser question than how any one field is formatted.
-    ...alldayBadgeFields(language, badgePosition),
+    ...alldayBadgeFields(language, badgePosition, badgeColorMode),
 
     timeGroup(language, showTime),
     locationGroup(language, showLocation, countryMode),
@@ -273,5 +315,12 @@ export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
     Helpers.resolveAlldayBadgePosition(
       ViewConfig.resolveViewOption(ctx.config, 'allday_badge', ctx.view),
     ),
+    // Raw, NOT resolved through the view, where the position one line up is resolved. The
+    // difference is that this mode has a paired value field: `location_country_mode` is left
+    // raw for exactly this reason, recorded above. A view-resolved gate would open the colour
+    // box because a COLUMN stores a colour, under a dropdown still reading the card's
+    // "Accent" and over a field holding the card's value — and the next keystroke in that box
+    // writes the card level. The position has no such field, so resolving it costs nothing.
+    Synthetic.alldayBadgeColorMode(ctx.config.allday_badge_color),
   );
 }

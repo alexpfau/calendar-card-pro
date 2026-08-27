@@ -559,13 +559,30 @@ export const ALLDAY_BADGE_POSITIONS = ['title', 'time'] as const;
 
 export type AlldayBadgePosition = (typeof ALLDAY_BADGE_POSITIONS)[number];
 
-/** The treatments `allday_badge_style` can name, in order of increasing weight. */
-export const ALLDAY_BADGE_STYLES = ['neutral', 'outline', 'subtle', 'tinted', 'filled'] as const;
+/**
+ * The shapes `allday_badge_style` can name, quietest first.
+ *
+ * `subtle` leads on both counts: it is the default, and it is genuinely the lightest -- a
+ * wash with no edge at all. `outline` follows because a full-strength ring is a harder mark
+ * than a wash, which is the opposite of where it sat until 4.2. It led the list then on the
+ * reading that "no fill" means "quiet", and that stopped being true when the ring went to
+ * full strength: rendered side by side, outline is a bright edge with bright text where
+ * subtle has no edge and a mixed, calmer ink.
+ */
+export const ALLDAY_BADGE_STYLES = ['subtle', 'outline', 'tinted', 'filled'] as const;
 
 export type AlldayBadgeStyle = (typeof ALLDAY_BADGE_STYLES)[number];
 
-/** The treatment used when `allday_badge_style` is absent or names nothing recognized. */
-export const DEFAULT_ALLDAY_BADGE_STYLE: AlldayBadgeStyle = 'tinted';
+/**
+ * The shape used when `allday_badge_style` is absent or names nothing recognized.
+ *
+ * 🚨 This is NOT the same constant as `DEFAULT_CONFIG.allday_badge_style`, and the two must
+ * agree. That one is merged in by `setConfig`, so it is what a card without the key actually
+ * draws; this one is the resolver's answer for a value that is present and unusable. A test
+ * asserting only this one passes while the card's default says something else entirely --
+ * which is exactly how a guide's pinned assertion once survived flipping the card default.
+ */
+export const DEFAULT_ALLDAY_BADGE_STYLE: AlldayBadgeStyle = 'subtle';
 
 /**
  * Resolve `allday_badge` to where the pill goes, or `null` for no pill at all.
@@ -624,4 +641,57 @@ export function resolveAlldayBadgeStyle(value: unknown): AlldayBadgeStyle {
   }
 
   return DEFAULT_ALLDAY_BADGE_STYLE;
+}
+
+/**
+ * The keywords `allday_badge_color` accepts in place of a literal color.
+ *
+ * Two, and they are not two colors — they are two *sources*. `accent` follows the calendar
+ * the event came from, so it differs per event on a card showing several; `text` follows
+ * whatever the pill is nested in, which is the time color on the time row and the title
+ * color on the title. Anything else is taken as a color and used for every event alike.
+ */
+export const ALLDAY_BADGE_COLOR_SOURCES = ['accent', 'text'] as const;
+
+export type AlldayBadgeColorSource = (typeof ALLDAY_BADGE_COLOR_SOURCES)[number];
+
+/** What feeds a badge treatment's color, once `allday_badge_color` has been read. */
+export type AlldayBadgeColor =
+  | { source: AlldayBadgeColorSource }
+  | { source: 'custom'; color: string };
+
+/** The source used when `allday_badge_color` is absent. */
+export const DEFAULT_ALLDAY_BADGE_COLOR: AlldayBadgeColorSource = 'accent';
+
+/**
+ * Resolve `allday_badge_color` to what feeds the treatment's color.
+ *
+ * 🚨 This is the one badge option whose value set is OPEN, and that changes what a typo
+ * does. The other two are closed sets that fall back — an unrecognized treatment draws the
+ * default one. Here an unrecognized string is a color, because that is the whole point, so
+ * `acccent` is not corrected to `accent`: it reaches the browser as a color, fails to parse,
+ * and the declaration is dropped. That is the same contract `accent_color` has, which
+ * likewise validates nothing, and matching it is worth more than a guess at which typos are
+ * worth catching.
+ *
+ * 🚨 The custom value is NOT lowercased, where the two keywords are. `var(--MyToken)` names
+ * a custom property, and custom property names are case-sensitive — folding the case turns a
+ * working theme token into one that resolves to nothing. Only the keyword comparison folds,
+ * and it folds a copy.
+ *
+ * @param value - Configured `allday_badge_color` value
+ * @returns The source to feed the treatment, never null
+ */
+export function resolveAlldayBadgeColor(value: unknown): AlldayBadgeColor {
+  if (typeof value !== 'string') return { source: DEFAULT_ALLDAY_BADGE_COLOR };
+
+  const trimmed = value.trim();
+  if (trimmed === '') return { source: DEFAULT_ALLDAY_BADGE_COLOR };
+
+  const keyword = trimmed.toLowerCase();
+  if ((ALLDAY_BADGE_COLOR_SOURCES as ReadonlyArray<string>).includes(keyword)) {
+    return { source: keyword as AlldayBadgeColorSource };
+  }
+
+  return { source: 'custom', color: trimmed };
 }

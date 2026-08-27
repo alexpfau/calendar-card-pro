@@ -287,9 +287,8 @@
   "allday_badge_position.option.time.label": "Wokół etykiety całodniowej",
   "allday_badge_position.option.title.label": "Wokół tytułu wydarzenia",
   "allday_badge_style": "Styl odznaki całodniowej",
-  "allday_badge_style.helper": "Jak mocno odznaka się wyróżnia — od zwykłego obrysu po pełne wypełnienie kolorem kalendarza.",
-  "allday_badge_style.option.neutral.label": "Zwykły obrys",
-  "allday_badge_style.option.outline.label": "Akcentowy obrys",
+  "allday_badge_style.helper": "Jak mocno odznaka się wyróżnia — od subtelnego tła po pełne wypełnienie kolorem.",
+  "allday_badge_style.option.outline.label": "Obrys",
   "allday_badge_style.option.subtle.label": "Subtelna",
   "allday_badge_style.option.tinted.label": "Z podbarwieniem",
   "allday_badge_style.option.filled.label": "Wypełniona",
@@ -390,5 +389,12 @@
   "entity.label_image_source.helper": "Obraz osoby pochodzi z Home Assistant, z sekcji Ustawienia, Osoby. Zmiana tam zmienia go też tutaj; osoby, dla których nie ma obrazu, nie pokazują etykiety wcale.",
   "entity.label_image_source.option.custom.label": "Własny obraz",
   "entity.label_image_source.option.person.label": "Obraz osoby",
-  "today_indicator_custom.helper": "Emoji, ścieżka lub URL obrazu albo dowolny tekst. Słowa wymagają większego rozmiaru wskaźnika niż wizualny rozmiar emoji."
+  "today_indicator_custom.helper": "Emoji, ścieżka lub URL obrazu albo dowolny tekst. Słowa wymagają większego rozmiaru wskaźnika niż wizualny rozmiar emoji.",
+  "allday_badge_color_mode": "Kolor odznaki całodniowej",
+  "allday_badge_color_mode.helper": "Jakim kolorem rysowana jest odznaka. Kolor akcentu daje każdemu kalendarzowi własny; kolor tekstu wiersza daje wszystkim ten, w którym już są — kolor godziny w wierszu czasu i kolor tytułu przy tytule.",
+  "allday_badge_color_mode.option.accent.label": "Kolor akcentu kalendarza",
+  "allday_badge_color_mode.option.text.label": "Kolor tekstu wiersza",
+  "allday_badge_color_mode.option.custom.label": "Kolor własny",
+  "allday_badge_color": "Kolor odznaki",
+  "column.allday_badge_color": "Kolor odznaki całodniowej"
 }

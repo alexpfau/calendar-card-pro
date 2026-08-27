@@ -189,6 +189,21 @@ export function entityIdOf(entry: string | Types.EntityConfig): string {
   return typeof entry === 'string' ? entry : (entry?.entity ?? '');
 }
 
+/**
+ * The colour mode the all-day badge is in, read off the value's shape.
+ *
+ * Takes the value rather than the config, unlike `accentColorMode` beside it, because this
+ * key is view-overridable: the caller resolves it through the view first, and handing the
+ * whole config here would quietly read the card level while the panel described a column.
+ *
+ * @param value - Configured `allday_badge_color`, already resolved for the view
+ * @returns Which colour control the badge renders
+ */
+export function alldayBadgeColorMode(value: unknown): string {
+  const resolved = Helpers.resolveAlldayBadgeColor(value);
+  return resolved.source;
+}
+
 export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   height_mode: {
     derive: (config) => heightMode(config),
@@ -376,6 +391,37 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       const carried = EntityColors.isEntityColorSentinel(current) ? INITIAL_ACCENT_COLOR : current;
 
       return { changes: { accent_color: carried || INITIAL_ACCENT_COLOR } };
+    },
+  },
+
+  /**
+   * Which colour the all-day badge is drawn in.
+   *
+   * The two keywords store themselves; `custom` means the stored value is a colour, so it
+   * has no spelling of its own and the mode is read back off the value's shape. That is the
+   * same contract `accent_color_mode` has, and it is why neither writes its own name.
+   *
+   * 🚨 `derive` reads the RAW card-level key, and so does the schema's gate. `apply` writes
+   * the card level — a column override is edited in the `column:` block — so anything
+   * resolved through the view would show a column's value in a control whose next keystroke
+   * overwrote the card's. `locationCountryMode` is raw for the same reason, and for the same
+   * cause: both are a mode dropdown paired with a value field, and the pair has to agree
+   * about which level it is describing.
+   */
+  allday_badge_color_mode: {
+    derive: (config) => alldayBadgeColorMode(config.allday_badge_color),
+    apply: (value, config) => {
+      if (value === 'accent' || value === 'text') {
+        return { changes: { allday_badge_color: value } };
+      }
+
+      // Carry a colour already stored, exactly as the accent mode above does, so switching
+      // away and back does not discard what the user picked. The accent default is the seed
+      // because it is the colour the badge was already being drawn in.
+      const current = Helpers.resolveAlldayBadgeColor(config.allday_badge_color);
+      const carried = current.source === 'custom' ? current.color : '';
+
+      return { changes: { allday_badge_color: carried || INITIAL_ACCENT_COLOR } };
     },
   },
 

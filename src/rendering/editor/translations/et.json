@@ -287,9 +287,8 @@
   "allday_badge_position.option.time.label": "Ümber terve päeva sildi",
   "allday_badge_position.option.title.label": "Ümber sündmuse pealkirja",
   "allday_badge_style": "Terve päeva märgi stiil",
-  "allday_badge_style.helper": "Kui tugevalt märk esile tõuseb — lihtsast äärisest kuni kalendrivärviga täidetud märgini.",
-  "allday_badge_style.option.neutral.label": "Lihtne ääris",
-  "allday_badge_style.option.outline.label": "Esiletõstev ääris",
+  "allday_badge_style.helper": "Kui tugevalt märk esile tõuseb — õrnast toonist kuni täidetud värvipinnani.",
+  "allday_badge_style.option.outline.label": "Ääris",
   "allday_badge_style.option.subtle.label": "Õrn",
   "allday_badge_style.option.tinted.label": "Toonitud",
   "allday_badge_style.option.filled.label": "Täidetud",
@@ -390,5 +389,12 @@
   "entity.label_image_source.helper": "Isiku pilt tuleb Home Assistantist, jaotisest Seaded, Inimesed. Selle muutmine seal muudab selle ka siin; inimesed, kellele pilti pole määratud, ei näita silti üldse.",
   "entity.label_image_source.option.custom.label": "Oma pilt",
   "entity.label_image_source.option.person.label": "Isiku pilt",
-  "today_indicator_custom.helper": "Emoji, pildi rada või URL või mistahes tekst. Sõnad vajavad suuremat indikaatori suurust kui sama suurelt mõjuv emoji."
+  "today_indicator_custom.helper": "Emoji, pildi rada või URL või mistahes tekst. Sõnad vajavad suuremat indikaatori suurust kui sama suurelt mõjuv emoji.",
+  "allday_badge_color_mode": "Terve päeva märgi värv",
+  "allday_badge_color_mode.helper": "Mis värvi märk on. Rõhuvärv annab igale kalendrile oma; rea tekstivärv annab kõigile värvi, milles nad niigi on — kellaaja värv ajareal ja pealkirja värv pealkirjal.",
+  "allday_badge_color_mode.option.accent.label": "Kalendri rõhuvärv",
+  "allday_badge_color_mode.option.text.label": "Rea tekstivärv",
+  "allday_badge_color_mode.option.custom.label": "Kohandatud värv",
+  "allday_badge_color": "Märgi värv",
+  "column.allday_badge_color": "Terve päeva märgi värv"
 }

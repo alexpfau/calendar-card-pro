@@ -287,9 +287,8 @@
   "allday_badge_position.option.time.label": "Okolo celodenného štítku",
   "allday_badge_position.option.title.label": "Okolo názvu udalosti",
   "allday_badge_style": "Štýl celodenného odznaku",
-  "allday_badge_style.helper": "Ako výrazne odznak pôsobí — od jednoduchého obrysu po plnú výplň farbou kalendára.",
-  "allday_badge_style.option.neutral.label": "Jednoduchý obrys",
-  "allday_badge_style.option.outline.label": "Zvýraznený obrys",
+  "allday_badge_style.helper": "Ako výrazne odznak pôsobí — od jemného podfarbenia po plnú farebnú výplň.",
+  "allday_badge_style.option.outline.label": "Obrys",
   "allday_badge_style.option.subtle.label": "Jemné",
   "allday_badge_style.option.tinted.label": "Tónované",
   "allday_badge_style.option.filled.label": "Vyplnené",
@@ -390,5 +389,12 @@
   "entity.label_image_source.helper": "Obrázok osoby pochádza z Home Assistant v časti Nastavenia, Ľudia. Zmena tam ho zmení aj tu; osoby, pre ktoré obrázok nemá, nezobrazia štítok vôbec.",
   "entity.label_image_source.option.custom.label": "Vlastný obrázok",
   "entity.label_image_source.option.person.label": "Obrázok osoby",
-  "today_indicator_custom.helper": "Emodži, cesta k obrázku alebo URL, alebo ľubovoľný text. Slová potrebujú väčšiu veľkosť indikátora, než akou pôsobí emodži."
+  "today_indicator_custom.helper": "Emodži, cesta k obrázku alebo URL, alebo ľubovoľný text. Slová potrebujú väčšiu veľkosť indikátora, než akou pôsobí emodži.",
+  "allday_badge_color_mode": "Farba celodenného odznaku",
+  "allday_badge_color_mode.helper": "Akou farbou sa odznak kreslí. Farba zvýraznenia dá každému kalendáru vlastnú; farba textu riadku dá všetkým tú, v ktorej už sú — farbu času v riadku času a farbu názvu pri názve.",
+  "allday_badge_color_mode.option.accent.label": "Farba zvýraznenia kalendára",
+  "allday_badge_color_mode.option.text.label": "Farba textu riadku",
+  "allday_badge_color_mode.option.custom.label": "Vlastná farba",
+  "allday_badge_color": "Farba odznaku",
+  "column.allday_badge_color": "Farba celodenného odznaku"
 }

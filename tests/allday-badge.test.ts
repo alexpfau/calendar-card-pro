@@ -2,6 +2,7 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as EditorSchemas from '../src/rendering/editor/schemas/events';
 import * as Render from '../src/rendering/render';
@@ -261,8 +262,165 @@ describe('allday_badge', () => {
     });
   });
 
-  describe('the five treatments', () => {
-    const styles = ['neutral', 'outline', 'subtle', 'tinted', 'filled'];
+  describe('the colour the treatment is drawn in', () => {
+    /*
+     * `allday_badge_color` is the second axis: the treatment names a SHAPE, this names whose
+     * colour that shape carries. Two of its three sources need nothing in the stylesheet at
+     * all -- `accent` is the default every rule already describes, and a custom colour is
+     * handed to the pill AS the accent, because a colour the whole card shares is just the
+     * accent overridden. Only `text` carries a class, and only `text` publishes a token.
+     *
+     * That asymmetry is the thing worth pinning. A custom colour that arrived any other way
+     * would need every rule to learn about a second source, and the chroma recovery would
+     * stop reaching it.
+     */
+    const withColor = (position: string, color: string) =>
+      buildConfig({
+        allday_badge: position,
+        allday_badge_style: 'tinted',
+        allday_badge_color: color,
+        days_to_show: 5,
+        entities: [{ entity: CALENDAR, accent_color: '#ff0000' }],
+      });
+
+    const pillFor = (container: HTMLElement, position: string) =>
+      position === 'time'
+        ? badgeIn(rowFor(container, 'Bin day'))
+        : (rowFor(container, 'Bin day')?.querySelector('.allday-title-pill') ?? null);
+
+    it.each(['time', 'title'])('hands a custom colour over as the accent, at %s', (position) => {
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        withColor(position, '#b5651d'),
+      );
+      const pill = pillFor(container, position);
+
+      expect(pill).not.toBeNull();
+      expect(pill?.getAttribute('style')?.replace(/\s/g, '')).toContain(
+        '--calendar-card-event-accent:#b5651d',
+      );
+      // The calendar's own accent is REPLACED, not sat beside: one card-wide colour means
+      // every event alike, which is the whole difference from `accent`.
+      expect(pill?.getAttribute('style')).not.toContain('#ff0000');
+      // And no class, because nothing about the shape rules changes.
+      expect(pill?.className).not.toContain('allday-source-text');
+    });
+
+    it.each(['time', 'title'])('marks the text source with a class, at %s', (position) => {
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        withColor(position, 'text'),
+      );
+      const pill = pillFor(container, position);
+
+      expect(pill?.className).toContain('allday-source-text');
+    });
+
+    it('publishes the TIME colour on the time row', () => {
+      // Not `currentColor`, and not a colour resolved here. The stylesheet cannot use
+      // currentColor because `filled` sets a contrasting ink that its own ground would then
+      // read back; the renderer cannot resolve the colour because it is a theme token. Naming
+      // the property `.time` sets its own colour from is what makes the two agree.
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        withColor('time', 'text'),
+      );
+
+      expect(badgeIn(rowFor(container, 'Bin day'))?.getAttribute('style')).toContain(
+        '--badge-source: var(--calendar-card-color-time)',
+      );
+    });
+
+    it('publishes the TITLE colour on the title, not the time colour', () => {
+      // The one source that reads differently at each position, and the reason it is worth
+      // two tests rather than one: a title pill following the TIME colour would be wrong in a
+      // way no shared assertion could see.
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        buildConfig({
+          allday_badge: 'title',
+          allday_badge_color: 'text',
+          event_color: '#336699',
+          days_to_show: 5,
+        }),
+      );
+      const style = rowFor(container, 'Bin day')
+        ?.querySelector('.allday-title-pill')
+        ?.getAttribute('style');
+
+      expect(style?.replace(/\s/g, '')).toContain('--badge-source:#336699');
+      expect(style).not.toContain('--calendar-card-color-time');
+    });
+
+    it('leaves the accent source carrying neither the class nor the token', () => {
+      // The control for all four above: without it they would pass against a card that added
+      // the class and the token unconditionally.
+      const container = renderList(
+        [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+        withColor('time', 'accent'),
+      );
+      const badge = badgeIn(rowFor(container, 'Bin day'));
+
+      expect(badge?.className).toBe('allday-badge allday-pill-tinted');
+      expect(badge?.getAttribute('style')).not.toContain('--badge-source');
+      expect(badge?.getAttribute('style')?.replace(/\s/g, '')).toContain(
+        '--calendar-card-event-accent:#ff0000',
+      );
+    });
+
+    describe('the colour resolver itself', () => {
+      it.each(['accent', 'text'])('takes %s as a source, not as a colour', (value) => {
+        expect(Helpers.resolveAlldayBadgeColor(value)).toEqual({ source: value });
+      });
+
+      it.each(['ACCENT', ' Text '])('folds case and space on a keyword: %s', (value) => {
+        expect(Helpers.resolveAlldayBadgeColor(value).source).not.toBe('custom');
+      });
+
+      it.each([undefined, null, '', '   ', 42, true])(
+        'falls back to the accent for %s',
+        (value) => {
+          expect(Helpers.resolveAlldayBadgeColor(value)).toEqual({ source: 'accent' });
+        },
+      );
+
+      it.each(['#ff6c92', 'tomato', 'rgb(1, 2, 3)', 'var(--my-token)'])(
+        'takes %s as a colour',
+        (value) => {
+          expect(Helpers.resolveAlldayBadgeColor(value)).toEqual({
+            source: 'custom',
+            color: value,
+          });
+        },
+      );
+
+      it('never folds the case of a colour', () => {
+        // 🚨 Custom property names are case-sensitive, so folding `var(--MyToken)` turns a
+        // working theme token into one that resolves to nothing. Only the keyword comparison
+        // folds, and it folds a copy.
+        expect(Helpers.resolveAlldayBadgeColor('var(--MyToken)')).toEqual({
+          source: 'custom',
+          color: 'var(--MyToken)',
+        });
+      });
+
+      it('takes a typo as a colour rather than correcting it', () => {
+        // The one badge option whose value set is OPEN, which changes what a typo does. The
+        // other two are closed sets that fall back. Here an unrecognized string IS a colour,
+        // because that is the point -- the same contract `accent_color` has.
+        expect(Helpers.resolveAlldayBadgeColor('acccent')).toEqual({
+          source: 'custom',
+          color: 'acccent',
+        });
+      });
+    });
+  });
+
+  describe('the four treatments', () => {
+    // The constant itself, not a copy of it. A hand-written literal that happens to match a
+    // table reads as a reconciliation and is one only until somebody edits the table -- the
+    // trap the stylesheet gate records against `ALLDAY_BADGE_STYLES` in as many words.
+    const styles = [...Helpers.ALLDAY_BADGE_STYLES];
 
     it.each(styles)('draws %s as its own class, so the stylesheet can tell them apart', (style) => {
       const container = renderList(
@@ -273,7 +431,7 @@ describe('allday_badge', () => {
 
       expect(badge).not.toBeNull();
       // The treatment class is deliberately NOT prefixed with the position. Both positions
-      // wear the same five, which is what lets the stylesheet declare each colour derivation
+      // wear the same four, which is what lets the stylesheet declare each colour derivation
       // once -- so a name tied to one position would either be a lie at the other or force a
       // second copy of every rule.
       expect(badge?.className).toBe(`allday-badge allday-pill-${style}`);
@@ -304,7 +462,7 @@ describe('allday_badge', () => {
         );
 
         expect(badgeIn(rowFor(container, 'Bin day'))?.className, value).toBe(
-          'allday-badge allday-pill-tinted',
+          `allday-badge allday-pill-${Helpers.DEFAULT_ALLDAY_BADGE_STYLE}`,
         );
       }
     });
@@ -399,8 +557,65 @@ describe('allday_badge', () => {
     );
   });
 
+  describe('the two defaults that have to agree', () => {
+    /*
+     * 🚨 There are TWO defaults per badge option, in different modules, and nothing made
+     * them agree. `DEFAULT_CONFIG` is merged in by `setConfig`, so it is what a card WITHOUT
+     * the key draws; `DEFAULT_ALLDAY_BADGE_STYLE` is the resolver's answer for a key that is
+     * present and unusable. A card omitting the option and a card carrying a typo would
+     * silently draw different pills, and every existing test would pass, because each
+     * exercises only one of the two paths.
+     *
+     * This is not hypothetical. A pin added to the flagship guide's suite resolved
+     * `GUIDE_CONFIG.allday_badge_color` -- absent from that page's YAML -- and so asserted
+     * the RESOLVER's fallback while claiming to protect the CARD's default. It survived
+     * flipping the card default outright.
+     *
+     * Both options are covered, since the colour key has the same pair and the same trap.
+     */
+    it('resolves an absent option and an unusable one to the same thing', () => {
+      // The absent path: what the card merges in.
+      expect(Helpers.resolveAlldayBadgeStyle(Config.DEFAULT_CONFIG.allday_badge_style)).toBe(
+        Helpers.DEFAULT_ALLDAY_BADGE_STYLE,
+      );
+      expect(Helpers.resolveAlldayBadgeColor(Config.DEFAULT_CONFIG.allday_badge_color)).toEqual({
+        source: Helpers.DEFAULT_ALLDAY_BADGE_COLOR,
+      });
+
+      // And the card's own default has to be a value the resolver accepts at all -- a typo
+      // there would resolve to the fallback and hide itself.
+      expect([...Helpers.ALLDAY_BADGE_STYLES]).toContain(Config.DEFAULT_CONFIG.allday_badge_style);
+      expect([...Helpers.ALLDAY_BADGE_COLOR_SOURCES]).toContain(
+        Config.DEFAULT_CONFIG.allday_badge_color,
+      );
+    });
+
+    it('draws the same pill for an omitted option as for an unusable one', () => {
+      // The end-to-end form of the above, through the renderer rather than the resolvers, so
+      // it holds even if the two ever stop being the only path to a class name.
+      //
+      // 🚨 The omitted arm passes NO key and lets `buildConfig` merge `DEFAULT_CONFIG` in,
+      // which is what `setConfig` does for a real card. Written first as a `delete` of the
+      // key from the already-merged config, it bypassed the merge entirely and sent BOTH
+      // arms to the resolver's fallback -- so it agreed with itself no matter how far the
+      // two constants had drifted, and stayed green while the sibling assertion above
+      // failed on exactly that mutation.
+      const classFor = (overrides: Record<string, unknown>) => {
+        const container = renderList(
+          [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+          buildConfig({ allday_badge: 'time', days_to_show: 5, ...overrides }),
+        );
+        return badgeIn(rowFor(container, 'Bin day'))?.className;
+      };
+
+      const omitted = classFor({});
+      expect(omitted).toBe(`allday-badge allday-pill-${Config.DEFAULT_CONFIG.allday_badge_style}`);
+      expect(classFor({ allday_badge_style: 'tintd' })).toBe(omitted);
+    });
+  });
+
   describe('the style resolver itself', () => {
-    it.each(['neutral', 'outline', 'subtle', 'tinted', 'filled'])('accepts %s', (value) => {
+    it.each([...Helpers.ALLDAY_BADGE_STYLES])('accepts %s', (value) => {
       expect(Helpers.resolveAlldayBadgeStyle(value)).toBe(value);
     });
 
@@ -477,7 +692,8 @@ describe('allday_badge', () => {
     it('republishes the calendar accent on the title pill, as the time badge does', () => {
       // The sixth unguarded declaration, and the one that matters most: this property is
       // written in exactly two places and READ in ten, so losing it takes four of the five
-      // treatments with it -- only `neutral`, which names no accent, survives. Deleting the
+      // treatments with it -- only the text colour source, which names no accent, survives.
+      // Deleting the
       // binding left the suite green at 3221, and so did replacing the accent with
       // `rebeccapurple`; the mirror binding on the time badge was already caught, and so was
       // the class on this very element, so nothing absorbed it.
@@ -538,6 +754,15 @@ describe('allday_badge', () => {
       expect([...EditorSchemas.ALLDAY_BADGE_STYLE_OPTIONS].sort()).toEqual(
         [...Helpers.ALLDAY_BADGE_STYLES].sort(),
       );
+
+      // 🚨 And in the SAME ORDER, not merely the same members. Both tables document
+      // themselves as quietest-first, and a claim made in two places can disagree with
+      // itself: sorting both sides before comparing is exactly what would hide it. The
+      // dropdown is what a user reads top to bottom, so the order is a user-visible
+      // property rather than an internal detail.
+      expect([...EditorSchemas.ALLDAY_BADGE_STYLE_OPTIONS]).toEqual([
+        ...Helpers.ALLDAY_BADGE_STYLES,
+      ]);
     });
 
     it('offers every position, plus off and nothing else', () => {

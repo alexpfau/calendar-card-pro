@@ -287,9 +287,8 @@
   "allday_badge_position.option.time.label": "Rundt heldagsetiketten",
   "allday_badge_position.option.title.label": "Rundt hendelsens tittel",
   "allday_badge_style": "Stil for heldagsmerke",
-  "allday_badge_style.helper": "Hvor mye merket fremheves, fra et enkelt omriss til et helfylt felt i kalenderens farge.",
-  "allday_badge_style.option.neutral.label": "Nøytralt omriss",
-  "allday_badge_style.option.outline.label": "Aksentfarget omriss",
+  "allday_badge_style.helper": "Hvor mye merket fremheves, fra et diskré skjær til et helfylt felt.",
+  "allday_badge_style.option.outline.label": "Omriss",
   "allday_badge_style.option.subtle.label": "Diskré",
   "allday_badge_style.option.tinted.label": "Tonet",
   "allday_badge_style.option.filled.label": "Fylt",
@@ -390,5 +389,12 @@
   "entity.label_image_source.helper": "Bildet til en person kommer fra Home Assistant, under Innstillinger, Personer. Endrer du det der, endres det her; personer den ikke har bilde for, viser ingen etikett i det hele tatt.",
   "entity.label_image_source.option.custom.label": "Eget bilde",
   "entity.label_image_source.option.person.label": "Bildet til en person",
-  "today_indicator_custom.helper": "En emoji, en bildesti eller URL, eller valgfri tekst. Ord trenger en større markørstørrelse enn størrelsen en emoji oppleves med."
+  "today_indicator_custom.helper": "En emoji, en bildesti eller URL, eller valgfri tekst. Ord trenger en større markørstørrelse enn størrelsen en emoji oppleves med.",
+  "allday_badge_color_mode": "Farge på heldagsmerke",
+  "allday_badge_color_mode.helper": "Hvilken farge merket tegnes i. Aksentfargen gir hver kalender sin egen; radens tekstfarge gir alle den fargen de allerede står i — klokkeslettfargen i tidsraden og tittelfargen på tittelen.",
+  "allday_badge_color_mode.option.accent.label": "Kalenderens aksentfarge",
+  "allday_badge_color_mode.option.text.label": "Radens tekstfarge",
+  "allday_badge_color_mode.option.custom.label": "Egendefinert farge",
+  "allday_badge_color": "Merkefarge",
+  "column.allday_badge_color": "Farge på heldagsmerke"
 }

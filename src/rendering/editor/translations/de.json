@@ -287,9 +287,8 @@
   "allday_badge_position.option.time.label": "Um das Ganztags-Label",
   "allday_badge_position.option.title.label": "Um den Termintitel",
   "allday_badge_style": "Ganztags-Badge-Stil",
-  "allday_badge_style.helper": "Wie kräftig das Badge wirkt – von einer schlichten Umrandung bis zu einer vollflächigen Fläche in der Kalenderfarbe.",
-  "allday_badge_style.option.neutral.label": "Schlichte Umrandung",
-  "allday_badge_style.option.outline.label": "Akzent-Umrandung",
+  "allday_badge_style.helper": "Wie kräftig das Badge wirkt – von einer dezenten Tönung bis zu einer vollflächigen Farbfläche.",
+  "allday_badge_style.option.outline.label": "Umrandung",
   "allday_badge_style.option.subtle.label": "Dezent",
   "allday_badge_style.option.tinted.label": "Getönt",
   "allday_badge_style.option.filled.label": "Vollflächig",
@@ -390,5 +389,12 @@
   "entity.label_image_source.helper": "Das Bild einer Person kommt aus Home Assistant, unter Einstellungen, Personen. Eine Änderung dort ändert es auch hier; Personen, für die kein Bild hinterlegt ist, zeigen gar kein Label.",
   "entity.label_image_source.option.custom.label": "Eigenes Bild",
   "entity.label_image_source.option.person.label": "Bild einer Person",
-  "today_indicator_custom.helper": "Ein Emoji, ein Bildpfad oder eine URL, oder beliebiger Text. Wörter brauchen eine größere Markierungsgröße als ein gleich groß wirkendes Emoji."
+  "today_indicator_custom.helper": "Ein Emoji, ein Bildpfad oder eine URL, oder beliebiger Text. Wörter brauchen eine größere Markierungsgröße als ein gleich groß wirkendes Emoji.",
+  "allday_badge_color_mode": "Ganztags-Badge-Farbe",
+  "allday_badge_color_mode.helper": "In welcher Farbe das Badge gezeichnet wird. Die Akzentfarbe gibt jedem Kalender seine eigene; die Textfarbe der Zeile gibt allen die Farbe, in der sie ohnehin stehen – die Uhrzeitfarbe in der Zeitzeile, die Titelfarbe beim Titel.",
+  "allday_badge_color_mode.option.accent.label": "Kalender-Akzentfarbe",
+  "allday_badge_color_mode.option.text.label": "Textfarbe der Zeile",
+  "allday_badge_color_mode.option.custom.label": "Eigene Farbe",
+  "allday_badge_color": "Badge-Farbe",
+  "column.allday_badge_color": "Ganztags-Badge-Farbe"
 }

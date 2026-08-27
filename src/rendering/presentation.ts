@@ -157,13 +157,24 @@ export function buildEventPresentation(
   const badgeStyle = Helpers.resolveAlldayBadgeStyle(config.allday_badge_style);
   const hasAllDayLabel = eventTimeParts.allDayLabel !== undefined;
 
+  // What feeds the treatment. `accent` and a custom color differ only in WHICH color the
+  // pill is handed, so both arrive as the pill's accent and every stylesheet rule works
+  // unchanged — a custom color is the accent, overridden card-wide. Only `text` is a
+  // different question, because the answer is not a color this side of the render: it is
+  // whatever the pill is nested in, which differs per position. That one carries a flag, and
+  // each leaf supplies the token for its own position.
+  const badgeColor = Helpers.resolveAlldayBadgeColor(config.allday_badge_color);
+  const badgeAccent = badgeColor.source === 'custom' ? badgeColor.color : entityAccentColor;
+  const badgeInheritsText = badgeColor.source === 'text';
+
   const allDayBadge =
     badgePosition === 'time' && hasAllDayLabel
       ? {
           label: eventTimeParts.allDayLabel as string,
           lang: language,
-          accent: entityAccentColor,
+          accent: badgeAccent,
           mode: badgeStyle,
+          inheritsText: badgeInheritsText,
         }
       : undefined;
 
@@ -181,7 +192,7 @@ export function buildEventPresentation(
   // test written out here.
   const titlePill =
     badgePosition === 'title' && hasAllDayLabel && !isEmptyDay
-      ? { accent: entityAccentColor, mode: badgeStyle }
+      ? { accent: badgeAccent, mode: badgeStyle, inheritsText: badgeInheritsText }
       : undefined;
 
   const eventTime = allDayBadge
