@@ -80,7 +80,7 @@ All three are card-level, so a card shows pills for every calendar on it or for 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_allday_badge.png" alt="The all-day pill on the time row, beside the clock icon" width="600"><br>
 
 Above is `time`, and the image at the top of this section is `title` — the same card, the
-same calendars and the same treatment, so the only difference is where the pill goes. The
+same calendars and the same shape, so the only difference is where the pill goes. The
 `title` card also sets `show_single_allday_time: false`, which is what leaves the pill as
 the whole statement instead of repeating _All day_ underneath it.
 

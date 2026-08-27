@@ -112,9 +112,9 @@ in a narrow column than they do in a full-width row. `allday_badge_style: filled
 same tightening: the time badge takes its size from `time_font_size`, which is 12 px by
 default here, so it renders at about 10 px, and a one-pixel
 ring is then a large share of the letterforms' own weight, so a solid chip reads at a glance
-where an outline asks to be examined. It also shows off the treatment's one trick — the ink
-inside flips to black or white to suit the calendar's color, decided per accent by the
-browser. See [The All-Day Badge](/features/event-content#the-all-day-badge).
+where an outline asks to be examined. It also shows off that shape's one trick — the ink
+inside flips to black or white to suit whichever color the pill carries, decided per color by
+the browser. See [The All-Day Badge](/features/event-content#the-all-day-badge).
 
 Each calendar sets `color` and `accent_color` to the same value, which is what keeps a
 column reading as one calendar: the title, the vertical line and the badge all agree. Set

@@ -141,7 +141,7 @@ today_indicator: Today
 today_indicator_size: 13px
 ```
 
-[`allday_badge: title`](/features/event-content#the-all-day-badge) wraps the title of every all-day event in a rounded pill, and `allday_badge_style: filled` paints it in that calendar's own `accent_color`. Nothing in the blocks changes. The colors were already there.
+[`allday_badge: title`](/features/event-content#the-all-day-badge) wraps the title of every all-day event in a rounded pill, and `allday_badge_style: filled` makes that pill a solid capsule rather than an outline or a wash. The color it is filled with comes from [`allday_badge_color`](/features/event-content#which-color-it-is-drawn-in), which defaults to `accent` — so each pill takes its own calendar's `accent_color`. Nothing in the blocks changes. The colors were already there.
 
 That is the combination worth understanding, because neither half is much on its own. The per-calendar layer gave seven categories seven colors, which on a dashboard you sit in front of is a pleasant detail. The card-level layer turns those colors into a **shape** you can read from the far end of the hall: a pink capsule is a birthday, a green one is bin day, an amber one is something the family is doing all day, a blue or purple one is Ben's or Anna's day off. Timed events stay as plain text. The screen answers _is today a whole-day thing, and whose_ before anyone is close enough to read a word of it.
 
@@ -164,6 +164,8 @@ Reach for the card-level option to tidy, and the per-calendar one to protect. Do
 
 ::: tip Softer, If Filled Is Too Much
 `filled` is the loudest of the four shapes, chosen here because this screen is read in passing from several meters away. On a dashboard you actually sit in front of, `allday_badge_style: tinted` — the default — says the same thing far more quietly. All four work at either position; see [Which Shape Draws It](/features/event-content#which-shape-draws-it).
+
+The shape is the free choice here. The **color** is not: `allday_badge_color` has to stay `accent` for any of this to work, because the legend is the color. Setting it to `text` or to a single custom color draws every pill alike, which is a tidy look on a card showing one calendar and the one thing that undoes this entire page.
 :::
 
 Two more worth knowing at this level. [`today_indicator`](/features/layout-appearance#today-indicator) takes any text, so a hallway screen can mark today with the word rather than a dot — raise `today_indicator_size` when you do, since it ships at `6px`, which is right for an emoji and far too small for a word. And `show_multiday_allday_time` is deliberately left **on**: a week-long holiday's row reads _All day, until Friday, Jun 26_, and that end date is the one thing the pill cannot carry. Turn it off only if you do not care when the holiday ends.
