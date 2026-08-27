@@ -1359,6 +1359,40 @@ describe('card stylesheet', () => {
       );
     });
 
+    it('draws tinted ring and outline ring in the same colour, from the same token', () => {
+      // 🚨 Both rules wrote `inset 0 0 0 1px currentColor` and painted DIFFERENT rings,
+      // because currentColor resolves against each rule's own `color`: outline sets
+      // --badge-solid (the raw accent) and tinted sets --badge-ink (the 45% legibility mix).
+      // Two identical-looking declarations, one token apart, and the difference is invisible
+      // in the source -- which is why this reconciles the RESOLVED colour rather than the
+      // text of the declaration.
+      //
+      // It matters because the ring sits four pixels from the event's vertical bar, which is
+      // the raw accent, so a mixed ring reads as the wrong colour against it. Reported from
+      // a live card.
+      //
+      // A ring is a boundary nobody reads, so it belongs with the bar; the LABEL is read and
+      // keeps the mix. That is why only the ring is reconciled here and the two rules'
+      // `color` values are deliberately allowed to differ.
+      const ringToken = (style: string) => {
+        const shadow = declared(`.allday-pill-${style}`, 'box-shadow');
+        if (shadow === 'inset 0 0 0 1px currentColor') {
+          // currentColor means "whatever this rule's own colour is".
+          return declared(`.allday-pill-${style}`, 'color');
+        }
+        return shadow.replace('inset 0 0 0 1px ', '');
+      };
+
+      expect(ringToken('tinted')).toBe(ringToken('outline'));
+      // And it is the RAW token, not the mixed one -- the same value the vertical bar draws.
+      expect(ringToken('tinted')).toBe('var(--badge-solid)');
+
+      // The label deliberately does NOT follow: raw accent as text on the wash measures
+      // 2.33:1 on the default blue against 6.11:1 for the mix, so the two halves of the
+      // tinted rule answer to different constraints.
+      expect(declared('.allday-pill-tinted', 'color')).toBe('var(--badge-ink)');
+    });
+
     it('points all three tokens at the row ink for the text colour source', () => {
       // `allday_badge_color: text` is the one source that cannot be resolved to a colour
       // before the render, because it is whatever the pill is nested in -- the time colour on

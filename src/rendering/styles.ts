@@ -907,9 +907,9 @@ export const cardStyles = css`
   }
 
   /* Both halves at once: the wash of subtle inside the ring of outline, each exactly as
-     that treatment draws it. So the four are orthogonal -- subtle is the wash, outline is
-     the ring, tinted is both, filled is the solid -- and the docs' promise of "a gentle
-     wash inside a MATCHING outline" is literally true.
+     that treatment draws it -- the same colour, from the same token, so "matching" is a
+     fact rather than a description. So the four are orthogonal: subtle is the wash, outline
+     is the ring, tinted is both, filled is the solid.
      It was not true until 4.2. The ring was 40% of the ink, which is the sweep's answer
      recorded in the base rule, and the reasoning was that a ring on a wash would otherwise
      read as a second colour. Sound for a chromatic accent, and false for a neutral one:
@@ -929,7 +929,21 @@ export const cardStyles = css`
   .allday-pill-tinted {
     color: var(--badge-ink);
     background-color: var(--badge-wash);
-    box-shadow: inset 0 0 0 1px currentColor;
+    /* 🚨 --badge-solid, NOT currentColor. Outline's ring is written as currentColor and that
+       is correct there, because outline sets its own colour to --badge-solid -- so the two
+       rules would read as identical rings and paint DIFFERENT ones, the only difference
+       being which token each rule's own color declaration happens to name. Measured: the bar beside the
+       event and outline's ring both draw #03a9f4, while tinted's currentColor ring drew
+       rgb(44,91,120), the legibility-mixed ink. Reported from a live card as the pill's
+       border not matching the bar, which it sits four pixels from.
+       A ring is a 1px boundary that nobody reads, so it has no legibility requirement and
+       belongs with the bar. The LABEL is read, and keeps the mix: raw accent as text on this
+       wash measures 2.33:1 on the default blue, 2.28:1 on pink and 1.92:1 on green, all
+       failing WCAG AA, against 6.11 / 6.66 / 5.77 for the mixed ink. So the two halves of
+       this rule answer to different constraints and cannot share a token.
+       The text source is unaffected: there --badge-solid and --badge-ink are both the row's
+       own colour, so the ring stays exactly the ink, which is what the black pill needs. */
+    box-shadow: inset 0 0 0 1px var(--badge-solid);
   }
 
   /* The time-row badge draws a LABEL -- the localized words for "all day" -- so it is set

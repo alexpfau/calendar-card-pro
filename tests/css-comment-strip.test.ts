@@ -167,7 +167,13 @@ describe('stripComments', () => {
   // 68% today; the
   // band below is what actually holds it.
   //
-  // The ceiling last moved for tinted's ring going to full strength. The rule is three
+  // The ceiling last moved for tinted's ring naming --badge-solid instead of currentColor.
+  // Two rules wrote the identical declaration and painted different rings, because
+  // currentColor resolves against each rule's own colour -- a difference that is invisible in
+  // the source and cost a live-card report to find. A comment is the only place that can say
+  // so, since the declaration now looks arbitrary rather than corrective.
+  //
+  // The ceiling before that moved for tinted's ring going to full strength. The rule is three
   // declarations and its comment is most of a page, because the thing worth recording is not
   // what it draws but why the measured 40% was abandoned: the sweep that produced it varied
   // only chromatic accents, and weakening a colour preserves its hue where weakening BLACK
@@ -196,7 +202,7 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(53_000);
+    expect(saved).toBeLessThan(55_000);
     // A little under 68% today, up through 66.7%, 64.9%, 63.6%, 60.4% and before ~51% -- those
     // are historical readings and stay as written. Both jumps were paid
     // for the same thing: a fault whose cause is invisible from the CSS and whose symptoms
