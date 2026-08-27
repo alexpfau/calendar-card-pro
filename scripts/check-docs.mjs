@@ -2099,7 +2099,7 @@ const RUNTIME_ENUMS = [
     noun: 'shapes',
     // Falls back to a shape rather than to off: this key cannot answer whether there is a
     // badge, only which one. See `resolveAlldayBadgeStyle`.
-    fallback: 'tinted',
+    fallback: 'subtle',
   },
   {
     option: 'allday_badge_color',

@@ -167,7 +167,14 @@ describe('stripComments', () => {
   // 68% today; the
   // band below is what actually holds it.
   //
-  // The ceiling last moved for the badge's colour axis. `neutral` went from a class of its
+  // The ceiling last moved for tinted's ring going to full strength. The rule is three
+  // declarations and its comment is most of a page, because the thing worth recording is not
+  // what it draws but why the measured 40% was abandoned: the sweep that produced it varied
+  // only chromatic accents, and weakening a colour preserves its hue where weakening BLACK
+  // does not, so 40% black reads as grey rather than as a softer black. That is a fact about
+  // the sweep's blind spot, not about the CSS, and nothing in the declaration hints at it.
+  //
+  // The ceiling before that moved for the badge's colour axis. `neutral` went from a class of its
   // own to a source that any of the four shapes can be drawn in, and the block that does it
   // is three declarations carrying about two kilobytes of comment -- because everything
   // deciding it is invisible from the CSS. Why the source is a published token and not
@@ -189,7 +196,7 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(51_000);
+    expect(saved).toBeLessThan(53_000);
     // A little under 68% today, up through 66.7%, 64.9%, 63.6%, 60.4% and before ~51% -- those
     // are historical readings and stay as written. Both jumps were paid
     // for the same thing: a fault whose cause is invisible from the CSS and whose symptoms

@@ -91,7 +91,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_single_allday_time: true,
   show_multiday_allday_time: true,
   allday_badge: 'off',
-  allday_badge_style: 'tinted',
+  allday_badge_style: 'subtle',
   allday_badge_color: 'accent',
   time_24h: 'system',
   time_two_digit_hours: false,

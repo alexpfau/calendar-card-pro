@@ -829,10 +829,17 @@ export const cardStyles = css`
    * 70% attempt was made to fix. A 1px boundary resolves it, because a crisp edge survives a
    * tinted ground where an area wash cannot -- so the fill is free to stay quiet.
    *
-   * The strengths are measured too. A 22% ring is decorative: removing it was visually
+   * The fill's strength is measured. A 22% ring is decorative: removing it was visually
    * indistinguishable. Sweeping fill against ring (6,720 samples) put 10%/40% in the only
-   * region satisfying both constraints, and in the card that reads 11.77:1 text with the
+   * region satisfying both constraints, and in the card that read 11.77:1 text with the
    * weakest boundary at 1.66:1 across event_background_opacity 0-80.
+   *
+   * 🚨 That sweep chose the RING at 40% too, and tinted no longer uses that half of its
+   * answer -- see the rule itself for why. Recorded rather than deleted because the fill's
+   * 10% is the same measurement and still stands, and because the sweep was sound for what
+   * it varied: every sample was a chromatic accent, so it never saw the case that overturned
+   * it. A stronger ring only raises boundary contrast, so nothing it established is at
+   * risk.
    *
    * --badge-ink and --badge-wash are declared once and consumed by every mode, so the modes
    * differ only in how hard they use them -- and so the OKLCH block at the end can improve all
@@ -899,17 +906,30 @@ export const cardStyles = css`
     border-radius: 999px;
   }
 
-  /* The reference treatment: the ink and the wash used exactly as the base defines them,
-     with a ring at 40% of the ink.
-     This used to have no rule of its own -- the base declared these three and tinted was
+  /* Both halves at once: the wash of subtle inside the ring of outline, each exactly as
+     that treatment draws it. So the four are orthogonal -- subtle is the wash, outline is
+     the ring, tinted is both, filled is the solid -- and the docs' promise of "a gentle
+     wash inside a MATCHING outline" is literally true.
+     It was not true until 4.2. The ring was 40% of the ink, which is the sweep's answer
+     recorded in the base rule, and the reasoning was that a ring on a wash would otherwise
+     read as a second colour. Sound for a chromatic accent, and false for a neutral one:
+     weakening a colour preserves its hue, so 40% blue still reads as blue, softer -- but
+     black has no hue to preserve, so 40% black reads as GREY, which is a different colour
+     rather than a quieter one. Measured on canvas pixels over a white card, the ring's
+     distance from its own ink was 227 for a black title against 146-165 for every chromatic
+     source, and the black pill read as a grey ring that had wandered in around black text.
+     Reported against a live card, at allday_badge_color: text.
+     Special-casing the text source was the obvious repair and is the wrong one: it would
+     reintroduce exactly the "one treatment is the exception" shape that splitting shape from
+     colour had just removed. A ring that always matches its ink has no exception in it.
+     This rule also used to not exist -- the base declared these three and tinted was
      whatever you got by naming no other treatment. That worked and was still wrong: the
      class in the DOM matched nothing, the treatment could not be reconciled against the
-     other four, and any rule added to the base silently became part of tinted. Five
-     treatments, five rules, and a base that declares only what all five build from. */
+     others, and any rule added to the base silently became part of tinted. */
   .allday-pill-tinted {
     color: var(--badge-ink);
     background-color: var(--badge-wash);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 40%, transparent);
+    box-shadow: inset 0 0 0 1px currentColor;
   }
 
   /* The time-row badge draws a LABEL -- the localized words for "all day" -- so it is set
@@ -1077,10 +1097,9 @@ export const cardStyles = css`
   /* Boundary with no wash, in the calendar's colour exactly as configured.
    *
    * The mirror image of tinted: that one draws the same ring over a wash, this one leaves
-   * the ground alone. It sets colour directly and lets the ring inherit it, at full strength
-   * rather than tinted's 40%, so the frame and the label are one colour by definition --
-   * tinted's is weaker precisely because it sits on a wash and would otherwise read as a
-   * second colour.
+   * the ground alone. Both set colour directly and let the ring inherit it at full strength,
+   * so in each the frame and the label are one colour by definition -- which is the whole of
+   * the difference between them being the fill, and nothing else.
    *
    * The source is used raw here, undecided and underived. Two reasons. The vertical bar
    * beside every event is already the raw accent, and filled already paints it as its ground,

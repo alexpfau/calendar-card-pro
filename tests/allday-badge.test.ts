@@ -2,6 +2,7 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as EditorSchemas from '../src/rendering/editor/schemas/events';
 import * as Render from '../src/rendering/render';
@@ -461,7 +462,7 @@ describe('allday_badge', () => {
         );
 
         expect(badgeIn(rowFor(container, 'Bin day'))?.className, value).toBe(
-          'allday-badge allday-pill-tinted',
+          `allday-badge allday-pill-${Helpers.DEFAULT_ALLDAY_BADGE_STYLE}`,
         );
       }
     });
@@ -554,6 +555,63 @@ describe('allday_badge', () => {
         expect(Helpers.resolveAlldayBadgePosition(value)).toBeNull();
       },
     );
+  });
+
+  describe('the two defaults that have to agree', () => {
+    /*
+     * 🚨 There are TWO defaults per badge option, in different modules, and nothing made
+     * them agree. `DEFAULT_CONFIG` is merged in by `setConfig`, so it is what a card WITHOUT
+     * the key draws; `DEFAULT_ALLDAY_BADGE_STYLE` is the resolver's answer for a key that is
+     * present and unusable. A card omitting the option and a card carrying a typo would
+     * silently draw different pills, and every existing test would pass, because each
+     * exercises only one of the two paths.
+     *
+     * This is not hypothetical. A pin added to the flagship guide's suite resolved
+     * `GUIDE_CONFIG.allday_badge_color` -- absent from that page's YAML -- and so asserted
+     * the RESOLVER's fallback while claiming to protect the CARD's default. It survived
+     * flipping the card default outright.
+     *
+     * Both options are covered, since the colour key has the same pair and the same trap.
+     */
+    it('resolves an absent option and an unusable one to the same thing', () => {
+      // The absent path: what the card merges in.
+      expect(Helpers.resolveAlldayBadgeStyle(Config.DEFAULT_CONFIG.allday_badge_style)).toBe(
+        Helpers.DEFAULT_ALLDAY_BADGE_STYLE,
+      );
+      expect(Helpers.resolveAlldayBadgeColor(Config.DEFAULT_CONFIG.allday_badge_color)).toEqual({
+        source: Helpers.DEFAULT_ALLDAY_BADGE_COLOR,
+      });
+
+      // And the card's own default has to be a value the resolver accepts at all -- a typo
+      // there would resolve to the fallback and hide itself.
+      expect([...Helpers.ALLDAY_BADGE_STYLES]).toContain(Config.DEFAULT_CONFIG.allday_badge_style);
+      expect([...Helpers.ALLDAY_BADGE_COLOR_SOURCES]).toContain(
+        Config.DEFAULT_CONFIG.allday_badge_color,
+      );
+    });
+
+    it('draws the same pill for an omitted option as for an unusable one', () => {
+      // The end-to-end form of the above, through the renderer rather than the resolvers, so
+      // it holds even if the two ever stop being the only path to a class name.
+      //
+      // 🚨 The omitted arm passes NO key and lets `buildConfig` merge `DEFAULT_CONFIG` in,
+      // which is what `setConfig` does for a real card. Written first as a `delete` of the
+      // key from the already-merged config, it bypassed the merge entirely and sent BOTH
+      // arms to the resolver's fallback -- so it agreed with itself no matter how far the
+      // two constants had drifted, and stayed green while the sibling assertion above
+      // failed on exactly that mutation.
+      const classFor = (overrides: Record<string, unknown>) => {
+        const container = renderList(
+          [allDayEvent('2026-06-18', '2026-06-19', 'Bin day')],
+          buildConfig({ allday_badge: 'time', days_to_show: 5, ...overrides }),
+        );
+        return badgeIn(rowFor(container, 'Bin day'))?.className;
+      };
+
+      const omitted = classFor({});
+      expect(omitted).toBe(`allday-badge allday-pill-${Config.DEFAULT_CONFIG.allday_badge_style}`);
+      expect(classFor({ allday_badge_style: 'tintd' })).toBe(omitted);
+    });
   });
 
   describe('the style resolver itself', () => {

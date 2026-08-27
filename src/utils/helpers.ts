@@ -564,8 +564,16 @@ export const ALLDAY_BADGE_STYLES = ['outline', 'subtle', 'tinted', 'filled'] as 
 
 export type AlldayBadgeStyle = (typeof ALLDAY_BADGE_STYLES)[number];
 
-/** The treatment used when `allday_badge_style` is absent or names nothing recognized. */
-export const DEFAULT_ALLDAY_BADGE_STYLE: AlldayBadgeStyle = 'tinted';
+/**
+ * The shape used when `allday_badge_style` is absent or names nothing recognized.
+ *
+ * 🚨 This is NOT the same constant as `DEFAULT_CONFIG.allday_badge_style`, and the two must
+ * agree. That one is merged in by `setConfig`, so it is what a card without the key actually
+ * draws; this one is the resolver's answer for a value that is present and unusable. A test
+ * asserting only this one passes while the card's default says something else entirely --
+ * which is exactly how a guide's pinned assertion once survived flipping the card default.
+ */
+export const DEFAULT_ALLDAY_BADGE_STYLE: AlldayBadgeStyle = 'subtle';
 
 /**
  * Resolve `allday_badge` to where the pill goes, or `null` for no pill at all.

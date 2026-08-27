@@ -163,7 +163,7 @@ Reach for the card-level option to tidy, and the per-calendar one to protect. Do
 :::
 
 ::: tip Softer, If Filled Is Too Much
-`filled` is the loudest of the four shapes, chosen here because this screen is read in passing from several meters away. On a dashboard you actually sit in front of, `allday_badge_style: tinted` — the default — says the same thing far more quietly. All four work at either position; see [Which Shape Draws It](/features/event-content#which-shape-draws-it).
+`filled` is the loudest of the four shapes, chosen here because this screen is read in passing from several meters away. On a dashboard you actually sit in front of, `allday_badge_style: subtle` — the default — says the same thing far more quietly. All four work at either position; see [Which Shape Draws It](/features/event-content#which-shape-draws-it).
 
 The shape is the free choice here. The **color** is not: `allday_badge_color` has to stay `accent` for any of this to work, because the legend is the color. Setting it to `text` or to a single custom color draws every pill alike, which is a tidy look on a card showing one calendar and the one thing that undoes this entire page.
 :::

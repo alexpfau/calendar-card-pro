@@ -63,7 +63,7 @@ it, and in **which color**:
 
 ```yaml
 allday_badge: title # off, title or time
-allday_badge_style: tinted # outline, subtle, tinted or filled
+allday_badge_style: subtle # outline, subtle, tinted or filled
 allday_badge_color: accent # accent, text, or any CSS color
 ```
 
@@ -95,7 +95,7 @@ There are four, from quietest to loudest, and all four work at either position:
 | `tinted`  | Both — a gentle wash inside a matching outline |
 | `filled`  | A solid pill                                   |
 
-`tinted` is the default and applies as soon as `allday_badge` names a position.
+`subtle` is the default and applies as soon as `allday_badge` names a position.
 
 ### Which Color It Is Drawn In
 
@@ -127,7 +127,7 @@ takes no accent at all.
 :::
 
 ::: tip Which Pair To Pick
-`tinted` in `accent` is the default and suits most dashboards. Reach for `outline` when
+`subtle` in `accent` is the default and suits most dashboards. Reach for `outline` when
 [`event_background_opacity`](/reference/configuration#event-column) is high — with no fill
 of its own, an outline has nothing to dissolve into the tinted row behind it.
 `allday_badge_color: text` is the one to pick when the pill should stay out of the way
