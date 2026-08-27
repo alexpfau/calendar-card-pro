@@ -61,3 +61,9 @@ docs/.vitepress/cache/
 # .prettierignore already records. A sandbox here was swept in by `git add -A` once,
 # 326 files and 14 MB including a node_modules symlink.
 .probe-sandbox/
+
+# Design-review hook cache. Same class as the sandbox above, and it reached `dev` the same
+# way: it records per-session findings keyed by ABSOLUTE paths inside a worktree, so it is
+# machine-specific, it churns on every edit, and it is worthless to anyone else. Committed
+# once at 2 KB carrying a session UUID and this machine's directory layout.
+.impeccable/
