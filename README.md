@@ -33,6 +33,12 @@ always matches the latest release.
 | 💡 [Examples](https://calendar-card-pro.alexpfau.com/reference/examples)                   | Ready-made configurations to copy             |
 | 🆕 [Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)                   | Full history of every release                 |
 
+### Unofficial German documentation
+
+An unofficial German documentation and practical guide is maintained externally by UGSo Software:
+
+- [Calendar Card Pro German documentation](https://opensource.ugso-software.de/sammlung/calendar-card-pro/)
+
 <p>&nbsp;</p>
 
 ## 1️⃣ Overview
