@@ -24,6 +24,7 @@ export interface Config {
   empty_day_text?: string;
   filter_duplicates: boolean;
   split_multiday_events: boolean;
+  event_type: EventType;
   language?: string;
 
   // Header
@@ -92,6 +93,10 @@ export interface Config {
   empty_day_color: string;
   show_time: boolean;
   show_single_allday_time: boolean;
+  show_multiday_allday_time: boolean;
+  allday_badge: boolean | string;
+  allday_badge_style: string;
+  allday_badge_color: string;
   time_24h: boolean | 'system';
   time_two_digit_hours: boolean;
   show_end_time: boolean;
@@ -100,12 +105,14 @@ export interface Config {
   time_icon_size: string;
   time_max_lines: number;
   show_location: boolean;
+  show_location_allday: boolean;
   remove_location_country: boolean | string;
   location_font_size: string;
   location_color: string;
   location_icon_size: string;
   location_max_lines: number;
   show_description: boolean;
+  show_description_allday: boolean;
   title_max_lines: number;
   description_max_lines: number;
   description_font_size: string;
@@ -129,6 +136,71 @@ export interface Config {
 
 /** Views the card can render. Width fallback belongs to `column`, not a third mode. */
 export type EffectiveView = 'list' | 'column';
+
+/**
+ * Which class of event a calendar contributes.
+ *
+ * Named for the axis rather than for one class, so a second axis can land beside it
+ * symmetrically. It says nothing about how long an event lasts: a 23:30–00:30 dinner is
+ * `timed` however many dates it touches.
+ *
+ * `timed` and `all_day` are exact complements over the same calendar, so listing one
+ * entity twice — once each way — partitions it without overlap, which is what styling
+ * the two classes differently requires.
+ */
+export type EventType = 'all' | 'timed' | 'all_day';
+
+/**
+ * Which days of the week a calendar's events are allowed to land on.
+ *
+ * A **display-date** axis, not an event-property one. `event_type` above asks what an
+ * event *is*; this asks where a row *lands*, which is why it is resolved after multi-day
+ * splitting and after the window clamp rather than from the event's own start date. A
+ * three-week holiday already in progress shows on the window's first day whatever weekday
+ * that is, so reading the start date would answer about a day the card is not drawing.
+ *
+ * Weekend means Saturday and Sunday — {@link isWeekendDate} in `utils/format.ts` is the
+ * single definition, shared with the weekend day-header colors so the two cannot disagree.
+ *
+ * 🚨 There is deliberately no `all` member, unlike `EventType`. This option is
+ * per-calendar only, so it has no card-level value to override and an explicit `all` would
+ * mean exactly what the absent key already means — two dropdown entries with one behavior
+ * and, inevitably, one label between them. Absent is the unfiltered state; the editor
+ * spells that `inherit`, the way it spells `show_week_numbers`' absent value `none`.
+ */
+export type DaysOfWeekFilter = 'weekdays' | 'weekends';
+
+/**
+ * Which field `blocklist` and `allowlist` match against.
+ *
+ * An **out-of-band mode flag**, deliberately, rather than a widening of the pattern
+ * grammar. `blocklist` and `allowlist` are documented as arbitrary RegExp and are passed
+ * to `new RegExp()` unnormalized, so no character and no token is free to be given a
+ * second meaning: a field prefix like `location:standup` collides with the perfectly legal
+ * pattern for a title containing that literal text, and a sentinel value collides in the
+ * same way. A separate key cannot collide with any pattern at all.
+ *
+ * 🚨 `title` *is* a member here, unlike `DaysOfWeekFilter`'s missing `all` — and for the
+ * reason stated there rather than against it. That warning is about two dropdown entries
+ * sharing one behavior; the absent state here is not an unfiltered state but a named field
+ * a user may legitimately want to write, so `title` is the *one* entry standing for it and
+ * stores nothing. Three members, three editor entries, three behaviors, one-to-one. See
+ * `ENTITY_TRISTATE_DEFAULT` in `rendering/editor/schemas/entity.ts`.
+ */
+export type FilterField = 'title' | 'location' | 'description';
+
+/**
+ * Which field `replace_pattern` and `replace_with` rewrite.
+ *
+ * The same three fields {@link FilterField} names, and deliberately the same spelling —
+ * one vocabulary for "which part of an event", whether the card is deciding what to keep
+ * or what to draw. It is a separate type rather than an alias so the two can diverge if
+ * one ever grows a field the other cannot serve.
+ *
+ * `title` stands for the absent state here for exactly {@link FilterField}'s reason, and
+ * stores nothing. See `ENTITY_TRISTATE_DEFAULT` in `rendering/editor/schemas/entity.ts`.
+ */
+export type ReplaceField = 'title' | 'location' | 'description';
 
 /** What column view does when even its narrowest permitted layout will not fit. */
 export type ColumnMinDaysFallback = 'list' | 'cramp';
@@ -181,17 +253,23 @@ export interface ColumnOverrides {
   event_icon_vertical_alignment?: string;
   show_time?: boolean;
   show_single_allday_time?: boolean;
+  show_multiday_allday_time?: boolean;
+  allday_badge?: boolean | string;
+  allday_badge_style?: string;
+  allday_badge_color?: string;
   time_two_digit_hours?: boolean;
   show_end_time?: boolean;
   time_font_size?: string;
   time_icon_size?: string;
   time_max_lines?: number;
   show_location?: boolean;
+  show_location_allday?: boolean;
   remove_location_country?: boolean | string;
   location_font_size?: string;
   location_icon_size?: string;
   location_max_lines?: number;
   show_description?: boolean;
+  show_description_allday?: boolean;
   title_max_lines?: number;
   description_max_lines?: number;
   description_font_size?: string;
@@ -241,11 +319,103 @@ export interface EntityConfig {
   label_icon_color?: string;
   show_time?: boolean;
   show_location?: boolean;
+  /**
+   * Icon for this calendar's location row, replacing the default map marker.
+   *
+   * Per calendar only, and deliberately so: one icon for every location on the card would
+   * be a *theming* choice, while this is a *semantic* one — it says this block's events are
+   * Teams calls, or are at the office, and gives them the icon that says it. Nobody has
+   * asked for the card-wide version.
+   *
+   * Set, it wins over the built-in Microsoft Teams detection, which doubles as that
+   * feature's opt-out: `location_icon: mdi:map-marker-outline` restores the plain marker.
+   */
+  location_icon?: string;
   show_description?: boolean;
   compact_events_to_show?: number;
   blocklist?: string;
   allowlist?: string;
+  /**
+   * Which field `blocklist` and `allowlist` match against. Unset means `title`.
+   *
+   * Selects the field; it does not add one. Exactly one of the three is matched, so a
+   * calendar filtering on `location` stops filtering on the title — list it twice to do
+   * both.
+   */
+  filter_field?: FilterField;
+  /**
+   * Which field {@link EntityConfig.replace_pattern} and {@link EntityConfig.replace_with}
+   * rewrite. Unset means `title`.
+   *
+   * One field per block, like `filter_field` — and unlike that option, listing the calendar
+   * twice does **not** buy a second field. Two filter blocks partition the calendar's
+   * events between them; two transform blocks both match the same events and each pushes
+   * its own copy, so the card draws the event twice. See the note on
+   * {@link EntityConfig.replace_pattern}.
+   */
+  replace_field?: ReplaceField;
+  /**
+   * What to find in the field named by {@link EntityConfig.replace_field}.
+   *
+   * An arbitrary regular expression, compiled with `gi` — global, so every occurrence goes
+   * rather than the first, and case-insensitive to agree with `blocklist`, `allowlist` and
+   * `remove_location_country`, the card's three other user-supplied patterns. A pattern
+   * that does not compile leaves the text untouched and warns once.
+   *
+   * 🚨 **A calendar can transform exactly one field, and cannot be listed twice to get a
+   * second.** `processEvents` filters each block against the calendar's *full* event set,
+   * so an event matching two blocks is pushed by both — filters escape this because
+   * `blocklist`/`allowlist` partition, while two transforms overlap. `filter_duplicates`
+   * makes it worse rather than better: the signature is built from the *raw* event, which
+   * no display transform touches, so the two copies are always identical and
+   * `deduplicateEvents` keeps the **first** block's — silently discarding the second
+   * block's transform along with its duplicate row.
+   */
+  replace_pattern?: string;
+  /**
+   * What to put in place of {@link EntityConfig.replace_pattern}, or of the whole field
+   * when no pattern is set.
+   *
+   * The two keys are independently optional, and the four combinations mean four different
+   * things:
+   *
+   * | `replace_pattern` | `replace_with` | Result                     |
+   * | ----------------- | -------------- | -------------------------- |
+   * | set               | unset          | the match is **removed**    |
+   * | set               | set            | the match is **replaced**   |
+   * | unset             | set            | the **whole field** is replaced |
+   * | unset             | unset          | nothing happens            |
+   *
+   * 🚨 That third row is not decoration, and it is the reason "delete" gets a row of its
+   * own rather than being spelled `replace_with: ''`. `isSet` in
+   * `rendering/editor/synthetic.ts` counts the empty string as unset and the write path
+   * drops it, so the visual editor **cannot store one** — a plain find/replace pair would
+   * put "strip this prefix", which is #153's own first example, out of reach of everyone
+   * not hand-editing YAML.
+   *
+   * With a pattern, this is the replacement argument of `String.replace`, so `$1` and `$&`
+   * carry their usual meaning and a literal `$` is written `$$`. Replacing the whole field
+   * takes the text verbatim instead — there are no groups to reference.
+   *
+   * Applied to the **display copy** only, so it never reaches the cache, never compounds
+   * across renders, and never changes which events the filters see. An empty field is left
+   * empty rather than filled: this rewrites text an event carries, it does not give an
+   * event a location it never had.
+   */
+  replace_with?: string;
   split_multiday_events?: boolean;
+  event_type?: EventType;
+  days_of_week?: DaysOfWeekFilter;
+  /**
+   * Clock time at which this calendar's all-day events start counting as past, `HH:MM`.
+   *
+   * An all-day event has no end *instant*, only an end date, so the `show_past_events` test
+   * cannot be applied to it directly. It is therefore past at **midnight after its last
+   * day**, and this option moves that instant earlier within the final day. Unset keeps
+   * midnight. Read only while `show_past_events` is `false`; it decides *when* an all-day
+   * event becomes past, not whether past events show.
+   */
+  allday_expires_at?: string;
 }
 
 /** Weather position-specific styling configuration. */
@@ -332,6 +502,30 @@ export interface CalendarEventData {
    * count whole calendar days for every segment.
    */
   _isMultiDaySegment?: boolean;
+  /**
+   * Set on every segment produced by splitting a **timed** multi-day event, recording the
+   * class of the event the segment came from rather than the shape the segment now has.
+   *
+   * The two differ, and only for these: splitting rewrites the middle days of a timed
+   * event as `start: { date }`, so they read as all-day to everything downstream. That is
+   * right for layout — a middle day genuinely occupies the whole day and draws no time —
+   * and wrong for `allday_expires_at`, which is a statement about all-day *events*. Without
+   * this, a calendar set to retire bin collections at 10:00 also deleted the middle day of
+   * a three-day conference while it was still running.
+   *
+   * `_isMultiDaySegment` cannot answer the question, because segments of a genuinely
+   * all-day event carry it too and must keep expiring one day at a time.
+   *
+   * 🚨 Set on **all three** segment kinds so the name is literally true of anything
+   * carrying it, but only the middle ones can ever be read: the first and last keep their
+   * `dateTime`, so the expiry branch's `isAllDayEvent` test excludes them before this is
+   * consulted. Removing it from those two therefore breaks no test — it records provenance
+   * there, not behaviour, and the alternative is a flag that lies about half its subjects.
+   *
+   * Carried into the display copies alongside `_isMultiDaySegment` for symmetry, though
+   * only the expiry filter reads it today — that filter runs before the copies are built.
+   */
+  _splitFromTimedEvent?: boolean;
   _matchedConfig?: EntityConfig;
 }
 
@@ -450,6 +644,23 @@ export interface WebSocketMessage {
  */
 export interface TranslationsResponse {
   resources?: Record<string, unknown>;
+}
+
+/**
+ * One entry of Home Assistant's reply to `config/entity_registry/list`.
+ *
+ * Only the two fields the card reads are declared. A calendar's color lives in the
+ * generic per-domain `options` blob rather than in a field of its own, and it is absent
+ * from the compressed `list_for_display` shape that feeds `hass.entities` — so this
+ * command is the only way to reach it.
+ */
+export interface EntityRegistryEntry {
+  entity_id: string;
+  options?: {
+    calendar?: {
+      color?: string | null;
+    } | null;
+  } | null;
 }
 
 /**

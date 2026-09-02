@@ -29,9 +29,13 @@
  * classification is what was wrong: refetch for a query change, reprocess for a
  * per-calendar change, nothing for a purely presentational one.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW } from './fixtures';
+import { PROCESSING_TIME_KEYS } from '../src/config/config';
 import '../src/calendar-card-pro';
 
 interface CardUnderTest extends HTMLElement {
@@ -46,6 +50,11 @@ interface CardUnderTest extends HTMLElement {
  * production comparison is field-agnostic, so a fourteenth option is covered the moment
  * it is added; this table exists so that a regression narrowing the comparison to a
  * hand-written field list fails here instead of shipping.
+ *
+ * 🚨 Reconciled against the interface below rather than trusted, because a table like this
+ * one cannot notice an option that never joined it: `it.each` simply runs one fewer case
+ * and the file stays green. Two options were added in 4.1 and this list did not fail when
+ * they were missing from it.
  */
 const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['label', 'Old label', 'New label'],
@@ -55,12 +64,58 @@ const PER_CALENDAR_OPTIONS: ReadonlyArray<[string, unknown, unknown]> = [
   ['label_icon_color', 'red', 'blue'],
   ['show_time', true, false],
   ['show_location', true, false],
+  ['location_icon', 'mdi:map-marker-outline', 'mdi:microsoft-teams'],
   ['show_description', false, true],
   ['compact_events_to_show', 1, 2],
   ['blocklist', 'standup', 'retro'],
   ['allowlist', 'standup', 'retro'],
+  ['filter_field', 'location', 'description'],
+  ['replace_field', 'location', 'description'],
+  ['replace_pattern', 'standup', 'retro'],
+  ['replace_with', 'Busy', 'Elsewhere'],
   ['split_multiday_events', true, false],
+  ['event_type', 'all_day', 'timed'],
+  ['days_of_week', 'weekdays', 'weekends'],
+  ['allday_expires_at', '10:00', '18:00'],
 ];
+
+/**
+ * The members of `EntityConfig`, read from the source.
+ *
+ * @returns Every per-calendar key except the entity id itself
+ */
+function entityConfigKeys(): string[] {
+  const source = readFileSync(join(process.cwd(), 'src/config/types.ts'), 'utf-8');
+  const block = source.match(/export interface EntityConfig\s*\{([\s\S]*?)\n\}/);
+
+  if (!block) throw new Error('EntityConfig not found in types.ts — fix this scan');
+
+  return [...block[1].matchAll(/^ {2}([a-z0-9_]+)\??:/gm)]
+    .map((match) => match[1])
+    .filter((name) => name !== 'entity');
+}
+
+/**
+ * Apply `first`, then start watching, then apply `second`. The card is deliberately
+ * never connected: the decision under test lives entirely in `setConfig`, and leaving
+ * it detached keeps the assertion synchronous and free of fetch scheduling.
+ *
+ * At module scope rather than inside one `describe`, because both the per-calendar and
+ * the card-level suites exercise the same decision and must not drift apart.
+ */
+function reconfigure(
+  first: Record<string, unknown>,
+  second: Record<string, unknown>,
+): ReturnType<typeof vi.fn> {
+  const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+  card.setConfig({ entities: [{ entity: 'calendar.test' }], days_to_show: 3, ...first });
+
+  const spy = vi.fn().mockResolvedValue(undefined);
+  card.updateEvents = spy as unknown as CardUnderTest['updateEvents'];
+
+  card.setConfig({ entities: [{ entity: 'calendar.test' }], days_to_show: 3, ...second });
+  return spy;
+}
 
 describe('per-calendar configuration changes reprocess cached events', () => {
   beforeEach(() => {
@@ -75,23 +130,18 @@ describe('per-calendar configuration changes reprocess cached events', () => {
   });
 
   /**
-   * Apply `first`, then start watching, then apply `second`. The card is deliberately
-   * never connected: the decision under test lives entirely in `setConfig`, and leaving
-   * it detached keeps the assertion synchronous and free of fetch scheduling.
+   * The reconciliation the table above cannot do for itself.
+   *
+   * Equality in both directions: an option added to `EntityConfig` without a case here
+   * fails, and a case here naming a key the interface no longer has fails too.
    */
-  function reconfigure(
-    first: Record<string, unknown>,
-    second: Record<string, unknown>,
-  ): ReturnType<typeof vi.fn> {
-    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
-    card.setConfig({ entities: [{ entity: 'calendar.test' }], days_to_show: 3, ...first });
+  it('covers every per-calendar option the interface declares', () => {
+    const declared = entityConfigKeys();
 
-    const spy = vi.fn().mockResolvedValue(undefined);
-    card.updateEvents = spy as unknown as CardUnderTest['updateEvents'];
-
-    card.setConfig({ entities: [{ entity: 'calendar.test' }], days_to_show: 3, ...second });
-    return spy;
-  }
+    // The denominator. A scan that matched nothing would agree with an empty table.
+    expect(declared.length, 'the scan found no per-calendar keys at all').toBeGreaterThan(0);
+    expect(PER_CALENDAR_OPTIONS.map(([name]) => name).sort()).toEqual([...declared].sort());
+  });
 
   it.each(PER_CALENDAR_OPTIONS)(
     'reprocesses without refetching when %s changes',
@@ -162,5 +212,241 @@ describe('per-calendar configuration changes reprocess cached events', () => {
 
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy).toHaveBeenCalledWith(false);
+  });
+});
+
+/**
+ * The card-level half of a processing-time option.
+ *
+ * `hasEntityProcessingChanged` compared only `serializeEntities(entities)` until
+ * `event_type` arrived, and `hasConfigChanged` covers only the fetch-window keys, so a
+ * card-wide filter change matched neither branch and reprocessed nothing: the events the
+ * user had just excluded stayed on screen until the next scheduled refresh, a reload, or
+ * an unrelated entity edit. The per-calendar half worked throughout, which is exactly why
+ * the gap survived — a table covering only `EntityConfig` cannot see it.
+ *
+ * That asymmetry is the reason this block exists, and the reason it carries controls in
+ * both directions.
+ */
+describe('card-level processing-time options reprocess cached events', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '';
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  /** Pinned by value, so an entry leaving fails here rather than running one fewer case. */
+  it('pins the processing-time key table', () => {
+    expect([...PROCESSING_TIME_KEYS]).toEqual(['event_type']);
+  });
+
+  /**
+   * The registration, enforced rather than remembered.
+   *
+   * This is the check that would have caught the original defect. Every `config.<key>` in
+   * the filter path must be registered — a future option added there without being listed
+   * fails here instead of silently rendering stale.
+   *
+   * 🚨 Its window is the **filter path**, which is narrower than the hazard
+   * `PROCESSING_TIME_KEYS` describes: anything read anywhere inside `processEvents` is baked
+   * into `this.events`, and `resolveEventType` is only one of the ten functions that run
+   * there. `registers every top-level option the whole fetch path reads` below covers the
+   * rest; this one is kept because equality over a small window is a stronger statement than
+   * the classification the wider scan has to make.
+   *
+   * A membership cross-check against `PER_CALENDAR_OPTIONS` was considered and is *not*
+   * the right reconciliation: `show_time`, `show_location`, `show_description` and
+   * `split_multiday_events` all exist card-level and per-calendar, and none is
+   * processing-time, so equality between the tables would report four false positives.
+   * The one direction that does hold is asserted separately below.
+   */
+  it('registers every top-level option the filter path reads', () => {
+    const source = readFileSync(join(process.cwd(), 'src/utils/events.ts'), 'utf-8');
+
+    const start = source.indexOf('function resolveEventType(');
+    const end = source.indexOf('function generateEventSignature(');
+    expect(start, 'resolveEventType not found — update this scan').toBeGreaterThan(-1);
+    expect(end, 'end marker not found — update this scan').toBeGreaterThan(start);
+
+    const read = [...source.slice(start, end).matchAll(/\bconfig\.([a-z0-9_]+)/g)].map(
+      (match) => match[1],
+    );
+
+    // The denominator. A scan that matched nothing would "pass" against any registration.
+    expect(read.length, 'the scan found no config reads at all').toBeGreaterThan(0);
+    expect([...new Set(read)].sort()).toEqual([...PROCESSING_TIME_KEYS].sort());
+  });
+
+  /**
+   * The same registration over the **whole** fetch path, rather than over the filter.
+   *
+   * 🚨 The narrow scan above was the only mechanical guard on `PROCESSING_TIME_KEYS`, and a
+   * card-level read planted in `processEvents` itself — outside `resolveEventType`, which is
+   * the obvious place for the next one — left it green along with every other test in the
+   * suite. The
+   * defect it would ship is the one the docblock on `PROCESSING_TIME_KEYS` describes: the
+   * value is baked into `this.events`, so a card-level edit renders stale until the refresh
+   * timer, a reload, or an unrelated entity edit.
+   *
+   * The path is walked rather than listed, so it needs no maintenance and covers a function
+   * nobody has written yet. Reads are then classified rather than compared for equality,
+   * because the fetch path legitimately reads three kinds of key:
+   *
+   * | Read                             | Why it is already covered                  |
+   * | -------------------------------- | ------------------------------------------ |
+   * | `entities`                       | `serializeEntities`, which is field-agnostic |
+   * | whatever `hasConfigChanged` compares | a refetch, which is strictly stronger    |
+   * | `PROCESSING_TIME_KEYS`           | the registration under test                |
+   *
+   * Both other sets are read from their own source rather than retyped here, so this adds no
+   * second table to keep in step with the first.
+   */
+  it('registers every top-level option the whole fetch path reads', () => {
+    const source = readFileSync(join(process.cwd(), 'src/utils/events.ts'), 'utf-8');
+
+    /**
+     * Every module-level function, mapped to its body.
+     *
+     * Brace counting starts only after the parameter list closes. An inline type literal in
+     * a signature — `hassLocale?: { language?: string }` — otherwise opens and closes a brace
+     * on the signature line, so a naive counter ends the slice before the body begins and
+     * returns an empty function. That failure is silent: an empty body yields no reads and
+     * agrees with any registration at all, which is what the body-length assertion below
+     * exists to catch.
+     */
+    const bodies = new Map<string, string>();
+    for (const match of source.matchAll(/^(?:export )?(?:async )?function ([A-Za-z0-9_]+)\(/gm)) {
+      let index = (match.index ?? 0) + match[0].length - 1;
+      for (let paren = 0; index < source.length; index++) {
+        if (source[index] === '(') paren += 1;
+        else if (source[index] === ')' && --paren === 0) break;
+      }
+
+      const bodyStart = source.indexOf('{', index);
+      if (bodyStart === -1) continue;
+
+      let depth = 0;
+      for (let at = bodyStart; at < source.length; at++) {
+        if (source[at] === '{') depth += 1;
+        else if (source[at] === '}' && --depth === 0) {
+          bodies.set(match[1], source.slice(bodyStart, at + 1));
+          break;
+        }
+      }
+    }
+
+    const strip = (body: string): string =>
+      body.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    const reachableFrom = (entry: string): Set<string> => {
+      const seen = new Set<string>();
+      const queue = [entry];
+
+      while (queue.length > 0) {
+        const name = queue.shift() as string;
+        if (seen.has(name) || !bodies.has(name)) continue;
+        seen.add(name);
+
+        for (const call of strip(bodies.get(name) as string).matchAll(/\b([A-Za-z0-9_]+)\(/g)) {
+          if (bodies.has(call[1])) queue.push(call[1]);
+        }
+      }
+
+      return seen;
+    };
+
+    const readsOf = (names: Set<string>): string[] => {
+      const keys = new Set<string>();
+      for (const name of names) {
+        for (const read of strip(bodies.get(name) as string).matchAll(/\bconfig\.([a-z0-9_]+)/g)) {
+          keys.add(read[1]);
+        }
+      }
+      return [...keys].sort();
+    };
+
+    const fetchPath = reachableFrom('processRawEvents');
+    const renderPath = reachableFrom('groupEventsByDay');
+
+    // Denominators, and the self-tests that stop an empty or collapsed walk passing. The
+    // render path is the contrast: a walk that returned the same thing for both would be
+    // reporting its own structure rather than the call graph.
+    expect(bodies.size, 'the function scan found nothing — fix this scan').toBeGreaterThan(20);
+    expect(fetchPath.size, 'the fetch-path walk collapsed').toBeGreaterThan(5);
+    expect(fetchPath.has('processEvents'), 'processEvents is not on the fetch path').toBe(true);
+    expect(
+      (bodies.get('groupEventsByDay') as string).length,
+      'groupEventsByDay sliced to a stub — the signature brace bug is back',
+    ).toBeGreaterThan(1000);
+    expect(fetchPath.has('groupEventsByDay'), 'the render entry leaked into the fetch path').toBe(
+      false,
+    );
+    expect(readsOf(renderPath)).not.toEqual(readsOf(fetchPath));
+
+    // The keys a refetch already covers, read from `hasConfigChanged` rather than retyped.
+    const configSource = readFileSync(join(process.cwd(), 'src/config/config.ts'), 'utf-8');
+    const from = configSource.indexOf('export function hasConfigChanged(');
+    expect(from, 'hasConfigChanged not found — update this scan').toBeGreaterThan(-1);
+    const refetchKeys = new Set(
+      [
+        ...configSource
+          .slice(from, configSource.indexOf('\n}', from))
+          .matchAll(/\b(?:previous|current)\??\.([a-z0-9_]+)/g),
+      ].map((match) => match[1]),
+    );
+    expect(refetchKeys.size, 'hasConfigChanged scan found no comparisons').toBeGreaterThan(0);
+
+    const reads = readsOf(fetchPath);
+    expect(reads.length, 'the fetch-path scan found no config reads at all').toBeGreaterThan(0);
+
+    const unregistered = reads.filter(
+      (key) =>
+        key !== 'entities' &&
+        !refetchKeys.has(key) &&
+        !(PROCESSING_TIME_KEYS as ReadonlyArray<string>).includes(key),
+    );
+
+    expect(
+      unregistered,
+      'read on the fetch path but registered nowhere, so a card-level edit renders stale',
+    ).toEqual([]);
+  });
+
+  /**
+   * The direction of the cross-check that does hold: an option read at processing time
+   * which is *also* per-calendar must appear in the per-calendar table too, or half of it
+   * goes uncovered — which is precisely how this defect shipped, only the other way round.
+   */
+  it('covers the per-calendar half of every processing-time option', () => {
+    const perCalendar = PER_CALENDAR_OPTIONS.map(([name]) => name);
+
+    for (const key of PROCESSING_TIME_KEYS) {
+      expect(perCalendar, `${key} is card-level only in the tests`).toContain(key);
+    }
+  });
+
+  it.each([...PROCESSING_TIME_KEYS])(
+    'reprocesses without refetching when a card-level %s changes',
+    (option) => {
+      const spy = reconfigure({ [option]: 'all_day' }, { [option]: 'timed' });
+
+      expect(spy).toHaveBeenCalledTimes(1);
+      // `false`, not `true`: the payload is still valid, only the filtering derived from
+      // it is stale. A refetch here would spend an API call on a dropdown change.
+      expect(spy).toHaveBeenCalledWith(false);
+    },
+  );
+
+  it('does no work when a card-level processing-time option is reapplied unchanged', () => {
+    // The control that stops the branch above from degenerating into "reprocess on every
+    // setConfig", which would restore correctness by throwing away the memoisation.
+    const spy = reconfigure({ event_type: 'timed' }, { event_type: 'timed' });
+
+    expect(spy).not.toHaveBeenCalled();
   });
 });

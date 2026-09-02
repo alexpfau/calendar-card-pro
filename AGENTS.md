@@ -235,6 +235,35 @@ entry and an unexplained new one — fail. When sweeping for this, blank one lin
 run `npx tsc --noEmit` first as a cheap kill, and restore with `cp` from a backup, never
 `git checkout --`.
 
+🚨 **The same trap one level down, on the options a dropdown offers — and this family is
+now enforced by `check:i18n` rather than by the suite.** Measured across every card-wide
+option table: **9 of 15 lose an entry with the whole suite green**, `time_format` losing
+`12` and `start_date_mode` losing `offset` among them, which takes a documented setting out
+of the editor while its control, its helper text and its translations all stay put. Only 6
+were pinned, and one of those (`view`) only because `VIEWS` drives the renderer as well.
+
+`checkEditorOptions` closes it in both directions, and the interesting part is how it gets
+the key. It cannot be modelled: **four** shapes are live — the node's own name (`view`), its
+group-qualified name (`column.min_days_fallback`), the per-calendar prefix
+(`entity.show_time`), and a key that is not the node's name at all, because
+`unionPickerField` labels the picker for a union option through the synthetic mode field
+standing in for it, so a node _named_ `show_week_numbers` resolves `week_number_mode.option.*`.
+The built schema has thrown that key away. So the schema is built under a sentinel language
+that echoes every key back instead of resolving it, and each option's `label` is then
+literally the key the editor asked for. Reconciling on **keys** rather than on per-control
+sets of values is also what removes the need for an exception list: card-wide `event_type`
+deliberately offers no `inherit` where the per-calendar one does, and the two never meet
+because they resolve through `event_type.option.*` and `entity.event_type.option.*`.
+
+Two things to know before touching it. The sentinel is registered in
+`EDITOR_LANGUAGE_STRINGS` and removed in a `finally` — insurance, not a live guard, because
+`checkEditorTranslations` reconciles the entries it parses out of the index module's
+_source_ rather than the runtime object's keys, so a leaked entry is invisible to it, at 0
+errors when planted. And an option whose label is **not** an option-label key is an error
+rather than a skip — a dropdown labelled outside the string table is untranslatable, and
+treating it as out of scope is how a gate silently stops covering the thing it was written
+for.
+
 ### The suite runs as four projects, and the split is load-bearing
 
 `vitest.config.mjs` defines a `projects` array, so `npm test` runs the same files under
@@ -276,6 +305,25 @@ fails loudly instead of silently proving nothing if it is ever run under UTC —
 `tests/week-number-dst.dst.test.ts` has one to copy. The `exclude` on the `unit` project is
 what stops those files running a fourth time under UTC; do not drop it.
 
+🚨 **The transition is the famous exposure; the plain offset is the bigger one, and it
+was uncovered until v4.1.** Everything above is about DST _transitions_, which touch two
+days a year. Under `TZ=UTC` a local clock reading and a UTC one are the **same number**
+on every day of the year, so any code reading `getHours()` is equally untested — and
+`formatTime`, which prints the time on every timed event, had no `.dst.test.ts` at all.
+Rewriting it to `getUTCHours()`/`getUTCMinutes()`, and rewriting `formatEventTime`'s
+single-day-versus-multi-day test to compare UTC calendar days instead of local ones, each
+left the **whole suite green** while misprinting the time for every user outside UTC.
+`tests/event-time-zone.dst.test.ts` closes that; the first now fails 5 assertions in each
+zone and the second 1–2.
+
+Two things that file is worth copying. Its oracle is `Intl.DateTimeFormat`, **not**
+`Date.prototype.getHours` — the code under test is built from the `Date` getters, so an
+expectation derived from those same getters restates the implementation instead of
+checking it. And it says plainly that **no zone is uniquely required there**: all three
+catch both mutations and any non-UTC zone would, which is a weaker claim than the
+week-number file's and the honest one. Do not assert a zone is the only one able to see a
+failure without planting it in the other two.
+
 **A snapshot diff you did not intend is usually a whitespace error, not a rendering
 change.** The serializer normalises whitespace _between tags only_; whitespace adjacent to
 a text node survives verbatim, so the literal source indentation inside an `html` template
@@ -296,10 +344,29 @@ the folded time/countdown spans — each added after `npm run format` reintroduc
 exact spaces a fix had just removed and turned five tests red. Locate them with
 `grep -n "prettier-ignore" src/rendering/leaves.ts` rather than by line number; two of
 the three moved the last time someone edited a comment above them. If you find one and
-wonder whether it is still needed, it is — delete it, **run `npm run format`**, then
-`npm test`. The format step is the whole experiment: without it the directive's removal
-changes nothing and the whole suite still passes, which reads as "safe to delete" and
-is not.
+wonder whether it is still needed, run the experiment rather than reasoning about it —
+delete it, **run `npm run format`**, then `npm test`. The format step is the whole
+experiment: without it the directive's removal changes nothing and the whole suite still
+passes, which reads as "safe to delete" and is not.
+
+🚨 **Run it per site, because the three no longer answer the same way.** This paragraph
+used to say "it is" — that all three are still load-bearing — and that is now true of
+two. Measured one at a time on the tip, each with the format step:
+
+| site                        | on removal + `npm run format` |
+| --------------------------- | ----------------------------- |
+| day-header weather badge    | 6 tests fail                  |
+| event weather badge         | 4 tests fail                  |
+| folded time/countdown spans | **suite stays green**         |
+
+The third is not a dead directive, and deleting it on that result would be the trap this
+section is about arriving from the other side. Prettier _does_ reformat that site — but
+it reformats it as `<span class="time-text"\n  >`, breaking **inside** the tag, which is
+the `</span\n><span` asymmetry two paragraphs up doing its job. No text node appears, so
+the DOM is identical and no snapshot moves. What the directive buys there is the source
+reading as the single line the browser sees, instead of the `>`-on-its-own-line form that
+is exactly what the comment above it is warning against. Keep it; it is documentation
+that happens to also be a guard, and the two other sites prove the guard is real.
 
 **Never resolve a snapshot failure with `vitest -u`.** It launders the change past review,
 and the gate's entire value is that it is the one artefact the person doing the refactor
@@ -450,8 +517,14 @@ because two branches had filled different columns of the same table, and once wh
 paragraph was restored that had been superseded in code.
 
 Because `main` is the default branch, `Fixes #123` in a PR merged to `dev` will **not**
-auto-close the issue — closing keywords only fire on the default branch. Issues close
-when the release PR merges, or close them manually.
+auto-close the issue — closing keywords fire only on the default branch, and GitHub
+evaluates the keyword against the PR's _own_ base. The release PR does not clean up after
+them either: merging `dev` → `main` closes only what the individual **commit messages**
+reference, and that is not a convention here — 1 of the 574 commits in the v4 range carried
+a closing keyword, and 25 of 1,277 in the project's whole history. So in practice **nothing
+closes an issue automatically**, and doing it by hand is a step of the release rather than
+an afterthought. See step 7 of _Release process_; v4.0.0 shipped with six resolved requests
+still open, the column-view epic among them.
 
 ### `dev` must never fall behind `main`
 
@@ -493,6 +566,23 @@ User-facing documentation lives on the **documentation site**,
 deployed by Cloudflare on every push to `main`. `README.md` is now only a landing page:
 badges, overview, installation, a quick-start example, What's New, and contributing.
 Everything else moved to `docs/`.
+
+**A spec is working state, not a deliverable, and never reaches `dev`.** Design documents —
+a specification, an implementation plan, the reasoning behind a large change — live under
+`docs/development/` for the life of the feature branch that needs them, and are **deleted
+there before the single PR into `dev` is opened**. One finished feature, one PR, no working
+notes inside it. A spec is reviewed on its branch; it does not get a PR of its own.
+
+Verify the deletion rather than remembering it:
+
+```bash
+git diff --name-only origin/dev...HEAD | grep '^docs/development/'
+```
+
+No output is the passing case. Nothing else will catch this: `docs/development/` is
+`srcExclude`d from the VitePress build and exempt from the docs-coverage checks, so a spec
+that slips through never appears on the site and simply ships as a repository file
+describing work as though it were still pending.
 
 The screenshots under `.github/img/` are **not** captured by anything in this repo. They
 come from a Home Assistant instance only the maintainer has, so they cannot be regenerated
@@ -592,6 +682,36 @@ age. Deep-link each bullet to the relevant docs page where one exists.
 These conventions are **enforced by `npm run check:docs`**, so this section is a
 reference for _why_, not a checklist to police by hand. Run it before pushing docs
 changes; CI runs it too.
+
+🚨 **Never write a real person into an example. Not the maintainer, not his family, not
+anyone.** Every name, entity id, birth year, address, photo and calendar name in the
+documentation, in code comments, in test fixtures and on the demo dashboards must be
+invented. Use plain fictitious **first names** — `Anna`, `Ben`, `person.anna`,
+`calendar.anna`. Not full names, not joke placeholders like `Max Mustermann`, and above
+all not whoever happens to be in the calendar the feature was developed against.
+
+This is the one rule here with a consequence that cannot be taken back. Everything else
+in this file describes something that ships wrong and can be fixed in the next release;
+this ships someone's name and date of birth to a public documentation site, a public
+repository and every clone of it, and no later commit un-publishes that.
+
+It is an easy mistake to make. A feature is often documented against whatever calendar it
+was developed on, and if that calendar holds real names, entity ids or birth years they
+flow straight into `docs/`, `RELEASE_NOTES.md`, `whats-new.md` and source comments without
+anything objecting — it is all valid prose in valid files, and no gate can tell a
+plausible fake name from a real one.
+
+So the discipline has to be at the point of writing, and it is a specific habit rather
+than general care: **when documenting a feature you developed against live data, change
+the names before you write the sentence, not after.** Copying a real event into a doc as
+a first draft and intending to anonymize it later is exactly how real data slips in.
+The same applies to fixtures created on the demo calendars and to any card added to a
+screenshot dashboard, because both end up in published images.
+
+Two things are deliberately **not** covered by this. `@author Alex Pfau` in
+`src/calendar-card-pro.ts` is authorship attribution, and `github.com/alexpfau/...` URLs
+are the repository's own address; both stay. The rule is about example _data_, not about
+the project's identity.
 
 **Headings — plain h1, emoji h2, plain h3.** The h1 becomes the page `<title>`, so an
 emoji there ends up in the browser tab, bookmarks, share previews and search results.
@@ -746,6 +866,38 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
    attaches `dist/*.js` and nothing else — since the two-file split that is **both**
    `calendar-card-pro.js` and `editor.js`. Publish it manually.
+7. **Close the issues the release resolved.** Nothing does this for you — see _Branch
+   model_ for why — so it is a step here or it does not happen. v4.0.0 shipped with six
+   still open, including the epic it was named after.
+
+   Start from the notes' _Related Issues_ section, but do not stop there: an issue is
+   linked only if whoever wrote the feature remembered to link it, and the ones nobody
+   remembered are exactly the ones that stay open. **Read the open list against what the
+   release actually shipped.** #290 asked for a dashboard-path picker; v4 delivered one as
+   a side effect of rebuilding the editor on HA's own selectors, and appeared in no commit
+   message, no PR body and no release note — it was found by diffing the editor against
+   the open issues, months late.
+
+   ```bash
+   gh issue list --state open --limit 100
+   gh issue close <n> --comment "Shipped in [vX.Y.Z](https://github.com/alexpfau/calendar-card-pro/releases/tag/vX.Y.Z) …"
+   ```
+
+   Close with a comment that names the release and deep-links the docs page, so the
+   author gets one notification that answers their request rather than a bare state
+   change. Where a release answers only part of a request, comment and leave it open —
+   #300 asked for columns _and_ a time grid, and got the first. And add anything you find
+   this way to _Related Issues_ in `docs/RELEASE_NOTES.md`, so the next person auditing
+   the same release does not have to rediscover it.
+
+   **A half-served issue goes in that list too, marked so it is not closed.** The list is
+   read at release time _as a close-list_, so the two mistakes it can produce are opposite
+   and both silent: an issue left out is forgotten, and an issue left in is closed on a
+   request the release only partly answered. Neither is visible afterwards, because a
+   wrongly-closed issue looks exactly like a correctly-closed one. Write **do not close**
+   in the entry and say which half shipped — #251 asked for all-day _and_ multi-day
+   filtering and got the first, and would otherwise have been closed by anyone working
+   the list mechanically.
 
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
 HACS downloads every asset attached to a release, so it gets the editor without being told
@@ -925,6 +1077,15 @@ repeatedly. A language is only fully wired up when **all** of these are done:
    partial file is safe to ship, so translate as much as you like and leave the rest.
    `check:i18n` reports coverage as an informational line, not as a failure.
 
+   🚨 **`en-GB` is complete at 13% — never gate on coverage without excluding it.**
+   `en-GB.json` is a _generated delta_ of ~44 spelling overrides written from `strings.ts`
+   by `scripts/generate-en-gb.mjs`, and `check:i18n` recomputes it and fails on any drift.
+   It is complete by construction and already held to a **stricter** standard than
+   coverage. Measured against the full editor string table it reads 13%, so any "warn below
+   N%" rule flags it permanently — and a permanently-red gate is the one people learn to
+   ignore, which is the failure such a gate exists to prevent. The nine hand-maintained
+   files are the only meaningful denominator.
+
    These files are reachable **only** from `src/rendering/editor/`, so they are built into
    `editor.js` rather than loaded on every dashboard load, and they may not go back into
    `languages/`. A new file also needs an `import` **and** an `EDITOR_LANGUAGE_STRINGS`
@@ -953,6 +1114,14 @@ that one, and runs in CI. Run it before you claim a language is done — but not
 verifies **wiring**, not translation quality, and it cannot tell you whether
 `pēc 2 dienām` is correct Latvian.
 
+**It also reconciles every dropdown option against the string that names it**, in both
+directions and across all 27 option tables, so adding a `select` whose values no string
+covers fails the gate rather than shipping a `humanize`d label in eleven languages, and
+dropping a value leaves its string orphaned and fails it too. See the table-walk trap under
+_Build commands_ for why that is a reconciliation and not a list. The practical consequence
+when adding a dropdown: write the `<key>.option.<value>.label` strings in `strings.ts` in
+the same edit, and let `check:i18n` tell you the exact keys it asked for.
+
 **The editor's termbase lives in [`scripts/editor-glossary.mjs`](./scripts/editor-glossary.mjs).**
 It records, per language, the decided form of each UI term and the forms rejected for it,
 and `check:i18n` enforces both: a rejected form anywhere in a governed key is an error, and
@@ -973,6 +1142,124 @@ Verify a language change by actually resolving it, not by reading the diff:
 getEffectiveLanguage('lv', undefined); // -> 'lv'
 getRelativeTimeString(futureDate, 'lv'); // -> 'pēc 2 dienām', not 'in 2 days'
 ```
+
+## Event classification and cache invalidation
+
+Two facts about `src/utils/events.ts` that no gate protects, and that have cost a defect
+each.
+
+### Render-time and processing-time options invalidate differently
+
+An option read at **render** time needs no cache invalidation; one read at **processing**
+time does. Copying an option's config shape without copying its timing is how you ship a
+control that does nothing.
+
+`split_multiday_events` is resolved in `groupEventsByDay`, per view, at render — so a
+change reaches the screen on the next render with nothing re-fetched or re-processed.
+`event_type` is read in `processEvents`, which runs only on the fetch path, so its value is
+baked into `this.events`; a card-level edit then renders stale until the next scheduled
+refresh, a reload, or an unrelated entity edit. `PROCESSING_TIME_KEYS` in `config.ts` closes
+that gap and `hasEntityProcessingChanged` consults it — **register any new processing-time
+option there.**
+
+🚨 **The per-calendar half of such an option works either way**, because any entity edit
+changes `serializeEntities` and triggers a reprocess. The defect therefore hides in the
+card-level half, and a test table covering only `EntityConfig` is structurally blind to it.
+The falsifier, which is also the shape of the fix:
+
+| change                   | `updateEvents` calls |
+| ------------------------ | -------------------- |
+| card-level, broken       | 0                    |
+| card-level, fixed        | 1, with `false`      |
+| per-calendar             | 1 — either way       |
+| control: `days_to_show`  | 1                    |
+| control: `show_location` | 0                    |
+
+Both controls are load-bearing. Without `days_to_show` the harness might be detecting
+nothing at all; without `show_location` a zero is indistinguishable from a probe that never
+ran.
+
+### A new per-calendar option must be added to a hand-written whitelist
+
+🚨 **`normalizeEntities` in `config.ts` projects each entity through a hand-written field
+list, and an option missing from it is dropped before it reaches anything.** Normalization
+runs in `setConfig`, so the key never lands in `_matchedConfig` and the option is inert no
+matter how carefully the rest of it was wired — types, editor schema, translations,
+transform and docs can all be correct and complete.
+
+It is silent by construction. Nothing in the editor can see it, because the editor writes
+the key correctly; nothing in the types can see it, because the type declares it; and
+`tsc` cannot see it, because omitting an optional property from an object literal is legal.
+Three per-calendar options were written this way in one PR, with every other layer correct,
+and were caught only by the test below.
+
+**The file already documents the hazard, one function below the one that has it.**
+`serializeEntities` sits twenty lines further down and its docblock reads: _"Being
+field-agnostic is the point. A hand-written field list would silently stop covering the
+next per-calendar option somebody adds."_ That is exactly true, and it protects only
+itself — the projection above it was written the other way, so the two disagree about
+which fields exist and only one of them says so.
+
+What catches it is a test that **reconciles the whitelist against `EntityConfig`** rather
+than walking either one, which is the same _pin the whole table by value_ discipline as the
+`Object.keys(TABLE)` trap above; `tests/entity-config-reprocess.test.ts` does this. Blanking
+one line of the projection fails that test plus every behavioural test for the dropped
+option, which is the falsifier to run when adding one.
+
+### Proximity is not reach — a note about a family should be a reconciliation
+
+🚨 **A hazard documented beside the code that has it is not a defence.** This has now been
+found three times, always in the same shape: a comment describes the trap _completely_ and
+_correctly_, for the neighbouring case, and the next member of the family arrived in a
+different pull request weeks later and was never added to it.
+
+- `normalizeEntities`'s hand-written projection against `serializeEntities`'s docblock
+  twenty lines below, which argues for being field-agnostic precisely so this cannot happen
+  — and protects only itself.
+- `entityConfigKeys` handling `label_icon_source` and not `accent_color_mode`, the other
+  half of the same feature. Substituting two identifiers in that comment yields the defect
+  report verbatim.
+
+Neither was carelessness. Both authors understood the hazard exactly. **A note generalizes
+only if a reader happens to be looking at it while writing the next case**, and the next
+case is written by someone reading a different file.
+
+**So when you write a note about a family of things, ask what the family is enumerated by.**
+If the answer is a type, an interface, or a schema the code already walks, the note can be a
+**reconciliation** instead — and a reconciliation is the only form that covers members
+nobody has written yet. `tests/editor-derived-field-mapping.test.ts` is the worked example:
+it walks the rendered schema, reads `EntityConfig` from source, and asserts that any control
+whose name is **not** a config key has been explicitly mapped, and that everything it maps
+to is a real key. There is no list to keep in step, so it fails on the _next_ derived
+control rather than on someone remembering.
+
+Two caveats worth keeping. **Reconcile against the type, not against a second list** — a
+second list is one more thing to forget, and the bug is forgetting. And this only works
+where the family has a runtime enumeration; **prose conventions, term choices and judgment
+calls have none**, which is what `scripts/editor-glossary.mjs` is for. Same lesson,
+different mechanism: enforce the family where the family is enumerable, and where it is not,
+name the members explicitly and gate on them.
+
+### The card holds three disagreeing answers to "is this multi-day?"
+
+For a **timed** event running 23:30 to 00:30:
+
+| asked of                                              | answer                                                                             |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `isMultiDayEvent` (`events.ts`, drives splitting)     | **yes** — it renders as two rows                                                   |
+| `isMultiDayAllDayEvent` (`format.ts`, drives display) | **no** — `false` for any timed event, deliberately, pinned by a test               |
+| `!event.start.dateTime` on a split **middle segment** | reads **all-day** — `splitMultiDayEvent` rewrites middle days as `start: { date }` |
+
+None is wrong for its own caller. The third bites silently: anything filtering on event
+class must run **before** `processMultiDayEvents`, or it sees the middle of a three-day
+timed meeting as all-day.
+
+The design consequence is larger than the bug. All-day-ness and multi-day-ness are
+**independent booleans**, so there are four classes, not three. A control offering
+_timed / all-day / multi-day_ is not a partition, and no selection over it can express
+"every all-day event one color, every timed event another" — which is why `event_type`
+names the all-day axis only, and why a span axis needs the card to **pick** one multi-day
+definition before it can offer one.
 
 ## Editor (`src/rendering/editor/`)
 
@@ -1003,6 +1290,97 @@ Three things are easy to get wrong:
 - **Colours are `text`, not `ui_color`.** HA's colour selector emits a theme token that
   cards pass through `computeCssColor()`; this card writes colours straight into CSS
   custom properties and has no such step. See the note in `ha-form.ts`.
+
+### The picker shows calendars; the panel list shows blocks
+
+`SYNTHETIC_FIELDS.calendars` derives **one row per calendar**, not one per entry in
+`config.entities`. A calendar listed twice — the pattern `event_type` needs, and what
+**Duplicate** creates — is one picker row and two panels. That split is deliberate: the
+picker decides _which calendars are on this card_, the panels decide _how many blocks each
+has and what is on them_. Deriving 1:1 made the picker answer both and agree with itself on
+neither, because Home Assistant's picker refuses to hold one entity twice — so a duplicate
+could be **seen** there and **cleared** there, but never **added** there.
+
+**`derive` and `apply` cannot be changed apart.** `apply` used to shift one block off a
+per-id queue per row, which is correct only when rows and blocks are 1:1. Deduplicating
+`derive` alone therefore loses every block after the first, silently, on the next thing the
+user touches in the picker. Each row emits its calendar's **whole** queue.
+
+**Collapsing duplicates costs no ordering, and this is provable rather than probable** —
+worth knowing before anyone "restores" interleaving. Only three things read the order of
+`config.entities`, and none can see block multiplicity:
+
+- `deduplicateEvents` walks `config.entities` and matches `event._entityId === entityId`.
+  A second block of the same id finds every signature already in `seen` and contributes
+  nothing, **whatever its `event_type`** — so priority under `filter_duplicates` is fixed
+  by where an id **first** appears, and multiplicity is structurally invisible to it.
+- `fetchEvents` skips an id already in `fetchedEntityIds`.
+- `getPrimaryEntityId` reads `entities[0]`.
+
+First-occurrence order preserves all three, so `[a, b, c, b]` collapsing to `[a, b, b, c]`
+changes nothing observable. Note the trap in the weaker version of this argument, which is
+the one that comes to mind first: _"two blocks split by complementary `event_type` never
+carry the same event"_ is true but far narrower, and it would stop holding the moment
+someone duplicated a calendar without differentiating it. The id-matching argument does not
+depend on the blocks differing at all.
+
+**Removal splits along the same seam.** Clearing a picker row drops every block for that
+calendar, because the row stands for the calendar; **Remove** on a panel drops one block,
+and is the only control that can. Its earlier justification — that `_entityChanged`
+upstream filters by value, so clearing one of two identical rows took both — described a
+picker that no longer exists here, and should not be restored as the reason.
+
+### Sub-headings are `constant` nodes, and they can lie
+
+A section heading is a `constant` schema node **with no `value`** — that renders as a bare
+bold label. Give it a `value` and it becomes a `Label: value` data row instead, which is not
+a heading. The type was already declared and unused, so this needs no new mechanism, and
+`check:i18n` treats it as a labelled field and requires one English string for it —
+enforcement, not cost.
+
+A heading is the one node type that can **actively lie**, because it makes a claim about
+what follows it. Adding them forced three changes to the panel filter, each preventing a
+distinct false statement:
+
+1. **A heading must never be a search hit of its own.** Its text matches like any field's,
+   so searching a word that appears only in a heading returned the heading alone,
+   captioning an empty section.
+2. **A heading whose section the filter emptied must be pruned**, or it strands above the
+   next section and relabels someone else's options.
+3. **`hasFields` must not count a heading**, or a panel reduced to nothing but labels is
+   still offered as having content.
+
+The rule governing placement: **a heading over a non-contiguous category is worse than no
+heading**, because it silently claims whatever follows it. Introducing headings therefore
+drags the reorder into the same change; they cannot be sequenced apart.
+
+Two smaller ones. A heading named the same as its only field reads as a stutter, and a DOM
+probe cannot see that — only a screenshot can. And when a schema gains headings, the test
+helpers enumerating _options_ should exclude them, with heading behavior pinned separately;
+sprinkling heading names through a dozen expectations makes each assertion less about what
+it was for.
+
+### Where a new option goes is a decision, not a default
+
+**Placing a new option at the end of its section is not placement — it is the absence of
+it.** Picking the right section is the first half of the question; the second half is where
+in that section it belongs, and appending answers it by accident. This has been raised on
+two consecutive pull requests, both times because a session chose the category carefully
+and then appended.
+
+The sections are ordered coarse-to-fine by **scope**, and the options inside them follow
+the same rule: what qualifies a whole day, then what qualifies a class of event, then what
+retires an event, then patterns matching one event's text, then the budget capping how many
+survive. That is why `compact_events_to_show` sits last in _Which Events Appear_ — it is a
+budget rather than a predicate, applied to the result set rather than to an event.
+
+Do **not** order a section by the pipeline stage the options run in. It is a real ordering
+and it is invisible to the reader, who cannot tell which options are resolved at fetch time
+and which at render time, and should not have to. `days_of_week` is resolved last of the
+per-calendar filters and belongs first, because it is the broadest question a reader asks.
+
+Treat a new option's position as needing a stated reason, the same way its name and its
+default do. Say in the PR body where it went and why.
 
 `npm run check:i18n` reconciles `strings.ts` against the fields the schemas reference, in
 both directions, by importing the schema modules. A new field with no string fails it.
@@ -1044,10 +1422,12 @@ citations that quote a released tag, such as `v3.6.0 leaves.ts:324`, are exempt 
 is immutable.
 
 **When a planning document is retired, grep for its vocabulary.** `docs/development/column-view.md`
-was deleted once the column view shipped, and nineteen references to its phases survived in
-four test files — still written in the future tense, still describing work as upcoming that
-had already landed. Comments that name a document outlive the document, so deleting one is
-not finished until `grep -rn "Phase [0-9]" src tests` comes back empty.
+was deleted once the column view shipped — late, under the older workflow that let a spec
+reach `dev` at all, where the rule under _Documenting a change_ now retires one on its own
+branch — and nineteen references to its phases survived in four test files, still written in
+the future tense, still describing work as upcoming that had already landed. Comments that
+name a document outlive the document whenever it goes, so deleting one is not finished until
+`grep -rn "Phase [0-9]" src tests` comes back empty.
 
 **A JSDoc block touches the thing it documents — no blank line between them.** This is the
 one style rule in the project that nothing mechanical enforces, so it is the one that
@@ -1081,9 +1461,32 @@ export function getView(config: Config): View {
 are a string literal, so no minifier looks inside one — comments there used to ship to every
 user, and half the stylesheet was comment. That is fixed at build time by the
 `strip-css-comments` plugin in `rollup.config.mjs`, which removes them from both
-`rendering/styles.ts` and `rendering/editor/styles.ts` and takes 18,176 raw / 7,016 gzip
-bytes off the eager path (51% of the stylesheet, measured at v4.0.0 by building with the
-plugin and again without it).
+`rendering/styles.ts` and `rendering/editor/styles.ts` and takes roughly **45 KB raw and
+about 17 KB gzipped** off the eager path — nearly all of it the card, since
+`rendering/styles.ts` is where the reasoning lives and the editor's share has held at 860
+bytes across every rebase.
+
+🚨 **That figure is deliberately approximate, and writing an exact one here is a mistake the
+same author has now made three times, in one session.** It moves with every comment anyone
+writes, so it is a reading of the tree at one instant rather than a constant — and the three
+went wrong in two different ways. `31,579` was byte-exact when written and simply rotted,
+still being quoted once it was ~13.6 KB low. `44,357` was 803 out on the day, drifting to
+about 322. `44,255` was 383 out, because the commit fixing it kept adding comments after the
+reading was taken. Nothing recomputes any of them, so all three survived review — and the
+one that was right on arrival is the most dangerous, because it reads as verified. Mind the
+units too: `31,579` was card+editor, the other two card-only. Measure when you need it, and
+**take the reading last** — after every comment in your commit is written:
+
+```bash
+npm run build && stat -f%z dist/calendar-card-pro.js          # stripping ON
+# comment out the bare `stripCssComments,` identifier in rollup.config.mjs, rebuild
+npm run build && stat -f%z dist/calendar-card-pro.js          # stripping OFF
+```
+
+🚨 **The disabling edit must match `stripCssComments,` as a bare identifier**, indented, not
+as a call — an attempt that misses reports a saving of ZERO, which reads as "the plugin does
+nothing" rather than as a failed edit. **Assert the two arms differ before believing any
+delta**, per the control rule below, and quote the gzip level with any compressed figure.
 
 This is worth stating because the alternative is worse than it looks: without knowing the
 plugin exists, the reasonable move is to keep CSS comments terse, and the reasoning in
@@ -1136,6 +1539,21 @@ different artefacts.
 | 4   | **A probe whose own structure supplies the finding** — the nastiest, because it yields a _positive claim that looks like evidence_ rather than a null.                                                                                          | Ask what result the probe is incapable of returning.                                                               |
 
 **Rules that follow from those.**
+
+- **A mutation sweep is a probe, so it lies in both directions — and the same session
+  produced one of each within an hour.** Row 4 above is the sweep manufacturing a
+  _positive_: twelve mutations reported "caught (build error)", uniformly, because
+  `execSync` throws on vitest's non-zero exit and the catch never read stdout, so a
+  generic `/error/` test relabelled every genuine test failure. The answer happened to be
+  right and the evidence was worthless. The **inverse** is nastier, because it reads as a
+  gap in the tests rather than a gap in the probe: a mutation that "moves" a template by
+  adding an attribute changes nothing observable, reports SURVIVED, and invites you to
+  delete or rewrite a test that was working. Both are caught by the same two habits —
+  **run an unmutated control that must report a non-zero pass count and zero failures**,
+  and **read what each mutation actually did to the source**, not what it was named. A
+  sweep whose rows all report the same verdict has usually measured itself; genuine
+  detection gives _different_ failure counts per mutation, because different mutations
+  break different tests.
 
 - **A null must prove it can be non-zero — and so must a passing control.** Print the
   denominator _beside_ the verdict, not as a separate step: `CONTROL x -> old:true new:true`
@@ -1193,6 +1611,31 @@ different artefacts.
   Self-test both directions — a sentinel that must not match is blind to the false negative,
   which is the direction that provokes an unnecessary restore.
 
+- **A fix is not finished at the site the report named — grep for the claim's other copies,
+  and re-read the neighbours of every line you touch.** Five review rounds on one branch
+  found something in the _previous round's fix_ four times running, and mostly not in the fix
+  itself: the corrections were right, their edges were not. A false string was corrected in
+  the documentation and left standing in three other places, two of them in the source file
+  that builds the row — and the correction then disagreed with the fixture directly below it.
+  Stale byte figures were purged from the top of a file and left in two comments further
+  down, by the commit whose entire subject was stale byte figures in that file. A one-word
+  typo fix landed inside a sentence that an _earlier_ commit had already falsified, and did
+  not notice. Mechanically: `grep` the exact claim across `src`, `tests` and `docs` before
+  committing a correction, and read the five lines either side of every hunk. Every miss
+  above is visible in a `git diff` that anyone actually reads to its edges.
+- **A number in a comment is wrong either immediately or eventually, and the second kind
+  looks verified.** Three successive byte counts in one file needed correcting, in two
+  different ways: one was byte-exact when written and then rotted, still being quoted once it
+  was ~13.6 KB low; the other two were 803 and 383 out on the day, because the reading was
+  taken before the commit stopped changing the thing it measured. **A measurement taken
+  mid-commit describes a tree that no longer exists by the time you push**, so take any
+  reading last, after every comment in the change is written — or state a magnitude that
+  cannot go stale, which is what that file now does. Watch the units too: the first of those
+  three was card+editor and the other two card-only, so the series was never comparable.
+- **Review-fix commits are the least-reviewed code in the repository.** They arrive after the
+  reviewer has reported, they look like tidying, and they are written in the tired half of the
+  session. Whatever lands to close a review deserves the same pass as the thing it fixed,
+  however small it looks.
 - **When you withdraw a finding, grep for its _consequences_, not its wording.** The
   expensive half is every place it was already turned into a rule: an imperative three
   sections away, a parsed table cell, a test that pins it, or the code a document describes.

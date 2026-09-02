@@ -32,6 +32,28 @@ export function isMultiDayAllDayEvent(event: Types.CalendarEventData): boolean {
 }
 
 /**
+ * An event's time text, with the all-day label kept separate from the rest.
+ *
+ * Split because `allday_badge` draws the label as its own element. Both fields are raw:
+ * capitalization belongs to whoever renders them, since the badge uppercases in CSS while
+ * the joined string capitalizes only its first letter.
+ */
+export interface EventTimeParts {
+  /**
+   * The localized "all day" label, present only for an all-day event. A split middle
+   * segment of a timed multi-day event carries it too, because that segment really does
+   * occupy its whole day - see `splitMultiDayEvent` in `events.ts`.
+   */
+  allDayLabel?: string;
+
+  /**
+   * Everything the label does not cover. Empty for a single-day all-day event, which has
+   * nothing to say beyond the label itself.
+   */
+  text: string;
+}
+
+/**
  * Generates a human-readable time string for calendar events
  *
  * @param event Calendar event
@@ -46,6 +68,46 @@ export function formatEventTime(
   language: string,
   hass?: Types.Hass | null,
 ): string {
+  return joinEventTimeParts(formatEventTimeParts(event, config, language, hass));
+}
+
+/**
+ * Rejoin time parts into the single string the card shows when `allday_badge` is off.
+ *
+ * The comma and the capitalization live here rather than in `formatEventTimeParts`, so the
+ * badge path can take the same parts and present them differently without either path
+ * reimplementing the other.
+ *
+ * @param parts Parts as returned by `formatEventTimeParts`
+ * @returns The joined, capitalized time string
+ */
+export function joinEventTimeParts({ allDayLabel, text }: EventTimeParts): string {
+  if (allDayLabel === undefined) {
+    return capitalizeFirstLetter(text);
+  }
+
+  return capitalizeFirstLetter(text ? `${allDayLabel}, ${text}` : allDayLabel);
+}
+
+/**
+ * Generates an event's time text as parts, so the all-day label can be drawn on its own.
+ *
+ * `formatEventTime` is exactly the join of what this returns, which is what keeps the two
+ * from drifting: any change here that moves the joined string fails the existing
+ * `formatEventTime` tests rather than passing quietly.
+ *
+ * @param event Calendar event
+ * @param config Card configuration
+ * @param language Language code
+ * @param hass Home Assistant object for system time format detection
+ * @returns The all-day label where the event has one, and the remaining time text
+ */
+export function formatEventTimeParts(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  language: string,
+  hass?: Types.Hass | null,
+): EventTimeParts {
   const isAllDayEvent = !event.start.dateTime;
 
   let startDate;
@@ -66,20 +128,21 @@ export function formatEventTime(
     adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
 
     if (startDate.toDateString() !== adjustedEndDate.toDateString()) {
-      return capitalizeFirstLetter(
-        formatMultiDayAllDayTime(adjustedEndDate, language, translations),
-      );
+      return {
+        allDayLabel: translations.allDay,
+        text: formatMultiDayAllDayEnd(adjustedEndDate, language, translations),
+      };
     }
 
-    return capitalizeFirstLetter(translations.allDay);
+    return { allDayLabel: translations.allDay, text: '' };
   }
 
   const useNativeFormatting = !!(config.time_24h === 'system' && hass?.locale);
   const use24h = config.time_24h === true;
 
   if (startDate.toDateString() !== endDate.toDateString()) {
-    return capitalizeFirstLetter(
-      formatMultiDayTime(
+    return {
+      text: formatMultiDayTime(
         startDate,
         endDate,
         language,
@@ -89,11 +152,11 @@ export function formatEventTime(
         config.time_two_digit_hours,
         hass,
       ),
-    );
+    };
   }
 
-  return capitalizeFirstLetter(
-    formatSingleDayTime(
+  return {
+    text: formatSingleDayTime(
       startDate,
       endDate,
       config.show_end_time,
@@ -102,7 +165,7 @@ export function formatEventTime(
       config.time_two_digit_hours,
       hass,
     ),
-  );
+  };
 }
 
 /**
@@ -212,12 +275,159 @@ export function formatLocation(location: string, removeCountry: boolean | string
   return locationText;
 }
 
+/** The location row's icon when nothing else applies. */
+export const LOCATION_ICON = 'mdi:map-marker-outline';
+
+/** The location row's icon for a recognised Microsoft Teams meeting. */
+export const TEAMS_LOCATION_ICON = 'mdi:microsoft-teams';
+
+/**
+ * The shapes a Teams meeting's location text takes.
+ *
+ * Two alternatives, because calendars store one of two things. Most write a phrase, and
+ * Teams **localizes** it — `Microsoft Teams-Besprechung` in German, `Réunion Microsoft
+ * Teams` in French, `Reunión de Microsoft Teams` in Spanish, `Microsoft Teams-vergadering`
+ * in Dutch, `Riunione di Microsoft Teams` in Italian. The words around it are translated
+ * and reordered; the brand name is not. Matching `Microsoft Teams` alone therefore covers
+ * every one of them, where matching the full English phrase covers only English. `\s+`
+ * rather than a literal space because some clients emit a non-breaking one, which `\s`
+ * includes. Substring rather than anchored, which also handles the hybrid form Outlook
+ * writes for a room booked alongside a call: `Conference Room A; Microsoft Teams Meeting`.
+ *
+ * Others store the join URL instead — Google Calendar mirrors of a Teams event, CalDAV
+ * bridges, some sync tools. `teams.microsoft.com` is the commercial host; `.us` is the US
+ * government clouds and `teams.live.com` is the consumer product, added because they are
+ * the same product's other front doors and cannot appear in a location that is not a Teams
+ * call.
+ *
+ * 🚨 Known gap, stated rather than papered over: a CJK tenant may render the vendor name
+ * in local script — Microsoft is commonly `微软` in Chinese — and no primary source was
+ * found either way. Such a calendar falls back to the plain marker, which is the pre-4.1
+ * behavior rather than a wrong icon, and its URL form still matches. `location_icon` sets
+ * it right on any calendar this misses.
+ */
+const TEAMS_LOCATION = /microsoft\s+teams|teams\.microsoft\.(?:com|us)|teams\.live\.com/i;
+
+/**
+ * Is this location text a Microsoft Teams meeting?
+ *
+ * @param location - Location text as the card displays it
+ * @returns True when the text names a Teams meeting or carries a Teams join URL
+ */
+export function isTeamsLocation(location: string): boolean {
+  return Boolean(location) && TEAMS_LOCATION.test(location);
+}
+
+/**
+ * The icon the location row draws.
+ *
+ * Only Teams is detected, and the reason is checkable rather than a matter of taste:
+ * **Material Design Icons ships a brand icon for it and for no competitor.** Of
+ * `microsoft-teams`, `zoom`, `google-meet` and `webex`, only the first exists in MDI's
+ * 7,447 icons — so Zoom and Meet could not be given a logo here even if they were
+ * detected. `location_icon` is the answer for everyone else, including anyone who has
+ * installed an icon pack of their own.
+ *
+ * (`mdi:microsoft-teams` carries MDI's `deprecated` flag, along with every one of its 259
+ * brand icons. It still ships and still renders; should a future MDI drop it, this
+ * constant is the single place to change and `location_icon` already overrides it.)
+ *
+ * @param location - Location text as the card displays it
+ * @param configured - This calendar's `location_icon`, where it names one
+ * @returns The icon to render beside the location
+ */
+export function resolveLocationIcon(location: string, configured?: string): string {
+  // An explicit choice wins over the detection, which is also how the detection is turned
+  // off: `location_icon: mdi:map-marker-outline` restores the plain marker, so opting out
+  // needs no second key.
+  if (configured) return configured;
+
+  return isTeamsLocation(location) ? TEAMS_LOCATION_ICON : LOCATION_ICON;
+}
+
+/**
+ * What counts as markup in an event description (#576, #581).
+ *
+ * The predecessor was `/<[^>]*>/g` — a `<`, anything that is not a `>`, then a `>` — which
+ * has no idea what a tag is. Any description pairing a `<` with a later `>` lost everything
+ * between them, so `alert if temp < 5 and pressure > 3 END` rendered as `alert if temp 3
+ * END` on a real card. Requiring the character after the opening `<` to be one that starts
+ * something is what separates prose from markup, and the rule is the HTML tokenizer's own:
+ * an ASCII letter opens a tag, `/` an end tag, `!` and `?` a markup declaration, and
+ * **anything else makes the `<` ordinary text**. A space, a digit or a hyphen therefore
+ * open nothing, which is every shape #576 reported.
+ *
+ * Four branches, one tokenizer state each, and **the order is load-bearing**:
+ *
+ * 1. `<!--(?:-?>|[\s\S]*?-->)` — a comment. `<!-->` and `<!--->` are complete *empty*
+ *    comments, which is why the short form is tried first; anything else runs to the first
+ *    `-->`. This branch has to come first overall, because a comment may span a `>` and
+ *    branch 4 would otherwise stop at it.
+ * 2. `<[a-zA-Z][^>]*>` — a start tag. The rule #576 turned on.
+ * 3. `<\/[^>]*>` — an end tag, and everything the tokenizer does when one has no name.
+ *    `</p>` is an end tag, `</>` emits nothing at all, and `</ p>`, `<//p>` and `</3 … >`
+ *    are *bogus comments*. All three outcomes run to the same `>`, so one branch covers
+ *    them — spelling them apart yields the identical language, measured exhaustively over
+ *    111,110 strings from a markup-dense alphabet rather than argued.
+ * 4. `<[!?][^>]*>` — a markup declaration or a processing instruction: `<!DOCTYPE html>`,
+ *    `<?xml … ?>`, `<![CDATA[…]]>`, and the parse errors the spec also turns into bogus
+ *    comments (`<!>`, `<! x >`). Every one consumes to the next `>`.
+ *
+ * The error-recovery halves of branches 3 and 4 are what #581 is about, and #579 had
+ * neither: in a 77-input differential against headless Chromium, released v4.0.0 agreed on
+ * 58, the pattern that shipped in #579 on 50, and this one on 71 — closing **21 shapes that
+ * both a browser and v4.0.0 removed** (`<!-->`, `<![CDATA[…]]>`, `<//p>`, `</ b >`, `<!>`,
+ * `</>`, `</élan>` and the rest) while keeping all 13 rows #576 fixed, and regressing
+ * neither. Say "approximates the tokenizer", not "is the tokenizer", when reasoning about
+ * the next edge case.
+ *
+ * 🚨 **The regex is the only thing removing tags in production, so it is not optional and
+ * it cannot be narrowed casually.** The `<textarea>` round-trip below decodes entities and
+ * nothing else: `textarea` content is RCDATA, so a real browser treats `<p>x</p>` written
+ * into it as literal text. Measured rather than read off the spec — in headless Chromium,
+ * `textarea.innerHTML = '<p>Paragraph</p>'` reads back verbatim while `&nbsp;` decodes.
+ *
+ * That matters because **happy-dom parses the same assignment as HTML**, so it strips tags
+ * the browser would keep, and the test environment silently stands in for this regex.
+ * Deleting the regex outright leaves the suite green. `tests/strip-html-tags.test.ts` runs
+ * the browser's answer explicitly for that reason, and it is the only place any of this can
+ * be seen.
+ *
+ * Branch 1 exists because of exactly that gap. `<!--` fails the letter test, so branch 2
+ * alone would have left every comment on screen in production while every gate stayed green
+ * — headless Chromium renders `Before <!-- a comment --> After` unchanged through the
+ * textarea. Branch 4 buys the same protection for `<!DOCTYPE html>` and for processing
+ * instructions, which matters for the Exchange calendars that deliver a whole HTML document
+ * as the description.
+ *
+ * Three knowing limits, all measured in the same run:
+ *
+ * - **Unterminated markup is left alone.** `Before <b bold After`, `Before <!-- never
+ *   closed` and `a </3 b` all reach the end of the string without a `>`, and a browser
+ *   discards everything from the `<` onwards. Keeping it is the deliberate side: a `<` that
+ *   ate the whole rest of a description would be far worse than a stray `<b` on screen.
+ * - **A `>` inside a quoted attribute value ends the match.** `<a title="a>b">link</a>`
+ *   leaves `b">link`. Tracking quote state is where this stops being a regex; the limit
+ *   predates v4 and #581 rules it out of scope.
+ * - **Prose that genuinely looks like markup is flattened.** `if a<b and c>d` renders as
+ *   `if ad`, and the broken-heart emoticon does the same when a `>` follows it later in the
+ *   description — `feeling </3 and >:( today` renders as `feeling :( today`. Neither is a
+ *   shortcut: both are what a browser does with the same text, and both are what released
+ *   v4.0.0 did. `<3` is unaffected, because `3` opens nothing.
+ */
+const HTML_MARKUP = /<!--(?:-?>|[\s\S]*?-->)|<[a-zA-Z][^>]*>|<\/[^>]*>|<[!?][^>]*>/g;
+
 /**
  * Strip HTML tags and decode HTML entities from a string, returning plain text
+ *
+ * @param text - Raw text as the calendar delivered it
+ * @returns The same text with markup removed and character references decoded
  */
 export function stripHtmlTags(text: string): string {
   if (!text) return '';
-  const stripped = text.replace(/<[^>]*>/g, '');
+  // `replace` seeks a global regex from 0 and resets `lastIndex` afterwards, so the shared
+  // constant carries no state between calls. `test` would; do not swap one for the other.
+  const stripped = text.replace(HTML_MARKUP, '');
   const textarea = document.createElement('textarea');
   textarea.innerHTML = stripped;
   return textarea.value.trim();
@@ -259,6 +469,28 @@ export function parseAllDayDate(dateString: string): Date {
  */
 export function getLocalDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * Check whether a date falls on a weekend.
+ *
+ * Saturday and Sunday, deliberately fixed rather than derived from the locale or from
+ * `first_day_of_week`. This is the card's **one** answer to the question, and it is read
+ * by two features that have to agree: the weekend day-header colors, and the per-calendar
+ * `days_of_week` filter. Were the filter locale-aware while the colors were not, a Friday
+ * in a Friday–Saturday weekend would be filtered as a weekend day and colored as a
+ * weekday — two visible answers to one question on the same row.
+ *
+ * Lives here rather than beside its first caller in `rendering/leaves.ts` for that reason:
+ * `leaves.ts` imports `utils/events.ts`, so the filter could not have reached it without
+ * a cycle, and a second copy is what this comment exists to prevent.
+ *
+ * @param date Date to check
+ * @returns True when the date is a Saturday or Sunday
+ */
+export function isWeekendDate(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
 }
 
 /**
@@ -573,7 +805,18 @@ function formatMultiDayTime(
   }
 }
 
-function formatMultiDayAllDayTime(
+/**
+ * The part of a multi-day all-day event's time text that follows the all-day label.
+ *
+ * Returns the remainder alone rather than the joined phrase, so `allday_badge` can draw
+ * the label as a pill and this text after it. `formatEventTime` puts the comma back.
+ *
+ * @param endDate Inclusive end date of the event
+ * @param language Language code, which selects the date order
+ * @param translations Resolved translations for that language
+ * @returns The end-date phrase, with no leading label and no separator
+ */
+function formatMultiDayAllDayEnd(
   endDate: Date,
   language: string,
   translations: Types.Translations,
@@ -584,11 +827,11 @@ function formatMultiDayAllDayTime(
   tomorrow.setDate(tomorrow.getDate() + 1);
 
   if (endDate.toDateString() === today.toDateString()) {
-    return `${translations.allDay}, ${translations.endsToday}`;
+    return translations.endsToday;
   }
 
   if (endDate.toDateString() === tomorrow.toDateString()) {
-    return `${translations.allDay}, ${translations.endsTomorrow}`;
+    return translations.endsTomorrow;
   }
 
   const endDay = endDate.getDate();
@@ -598,11 +841,11 @@ function formatMultiDayAllDayTime(
 
   switch (formatStyle) {
     case 'day-dot-month':
-      return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endDay}. ${endMonthName}`;
+      return `${translations.multiDay} ${endWeekday}, ${endDay}. ${endMonthName}`;
     case 'month-day':
-      return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endMonthName} ${endDay}`;
+      return `${translations.multiDay} ${endWeekday}, ${endMonthName} ${endDay}`;
     case 'day-month':
     default:
-      return `${translations.allDay}, ${translations.multiDay} ${endWeekday}, ${endDay} ${endMonthName}`;
+      return `${translations.multiDay} ${endWeekday}, ${endDay} ${endMonthName}`;
   }
 }

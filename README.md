@@ -140,7 +140,7 @@ show_month: false
 
 Swap `calendar.family` for one of your own `calendar.*` entities and you have a working card.
 
-**➡️ From here, [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) walks you through multiple calendars, per-calendar colours and compact mode. Every available option is listed in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and more ready-made setups are in [Examples](https://calendar-card-pro.alexpfau.com/reference/examples).**
+**➡️ From here, [Usage](https://calendar-card-pro.alexpfau.com/guide/usage) walks you through multiple calendars, per-calendar colors and compact mode. Every available option is listed in the [Configuration reference](https://calendar-card-pro.alexpfau.com/reference/configuration), and more ready-made setups are in [Examples](https://calendar-card-pro.alexpfau.com/reference/examples).**
 
 <p align="right"><a href="#top">⬆️ back to top</a></p>
 
@@ -148,7 +148,18 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v4.0
+### Latest Release: v4.1
+
+- 🏷️ **All-Day Events, as a Pill**: [`allday_badge`](https://calendar-card-pro.alexpfau.com/features/event-content#the-all-day-badge) draws a rounded pill in each calendar's own color, around the event title the way Google and Apple Calendar do, or beside the clock, `allday_badge_style` offers four shapes and `allday_badge_color` picks the color they are drawn in — each calendar's own, the row's own text color, or one you name. Off by default; try `allday_badge: title` first
+- 🎨 **Follow Home Assistant's Calendar Colors and Icons**: Set `accent_color` to `home-assistant` and each calendar takes [the color Home Assistant holds for it](https://calendar-card-pro.alexpfau.com/features/core-settings). Set its `label` the same way for [that calendar's icon](https://calendar-card-pro.alexpfau.com/features/core-settings#following-the-icon-from-home-assistant)
+- 🧑 **A Person's Photo in Front of Their Calendar**: Set a calendar's `label` to a person entity ID and the card shows [that person's picture](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-persons-picture) — faces instead of words on a household dashboard
+- 🗂️ **Split One Calendar by Event Type**: [`event_type`](https://calendar-card-pro.alexpfau.com/features/core-settings) takes `all`, `timed` or `all_day`, card-wide or per calendar — list one calendar twice for a color on each, and [**Duplicate** in the editor](https://calendar-card-pro.alexpfau.com/features/editor#per-calendar-panels-actions) builds it for you
+- 🔍 **Two New Per-Calendar Filters**: [`allday_expires_at`](https://calendar-card-pro.alexpfau.com/features/core-settings#retiring-all-day-events-during-the-day) retires an all-day event partway through the day, so a bin collection stops sitting on the card until midnight, and [`days_of_week`](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-on-weekdays-only) keeps one calendar to weekdays or weekends
+- 💬 **Teams Meetings Get the Teams Icon**: online meetings show [the Teams logo instead of a map pin](https://calendar-card-pro.alexpfau.com/features/event-content#the-location-icon) automatically, in any language Teams writes them in — or set `location_icon` on a calendar to name a different one
+- 🎂 **Ages on Birthdays, Counts on Anniversaries**: Write `YEAR=1976` in a birthday event's description and the card appends the age to the title — [nothing to configure](https://calendar-card-pro.alexpfau.com/features/event-content#birthday-ages-anniversary-counts), and it stays right every year
+- ✏️ **Rewrite What an Event Says**: [`replace_pattern`, `replace_with` and `replace_field`](https://calendar-card-pro.alexpfau.com/features/core-settings#text-replacement) rewrite one field of a calendar's events as the card draws them, leaving the calendar untouched. [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes) puts this and three of the options above into a single card
+
+### v4.0
 
 - 🗓️ **Column View**: Lay the days [side by side, one column each](https://calendar-card-pro.alexpfau.com/features/column-view), instead of stacking them — the same agenda, rotated, with its own per-view overrides and a responsive fallback to the list layout
 - ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with a [search box that finds any setting by name or YAML key](https://calendar-card-pro.alexpfau.com/features/editor#search-customized-only), a customized-only filter, per-calendar settings, and [per-view exceptions](https://calendar-card-pro.alexpfau.com/features/editor#column-view-exceptions)

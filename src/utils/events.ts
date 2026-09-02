@@ -3,10 +3,16 @@
  * Functions for fetching, processing, caching, and organizing calendar events
  */
 
+import * as EntityColors from './entity-colors';
+import * as EntityIcons from './entity-icons';
+import * as EventAge from './event-age';
 import * as FormatUtils from './format';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
+import * as PersonPictures from './person-pictures';
 import { isWeekRelative, parseStartDateExpression } from './start-date';
+import * as TextReplace from './text-replace';
+import * as Config from '../config/config';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
@@ -212,6 +218,167 @@ function deduplicateEvents(
   return events.filter((event) => keep.has(event) || !seen.has(generateEventSignature(event)));
 }
 
+//-----------------------------------------------------------------------------
+// RENDER-TIME PER-CALENDAR FILTERS
+//-----------------------------------------------------------------------------
+//
+// Both of the filters below are read from the `_matchedConfig` stamp while events are
+// **grouped**, not while they are processed, which is what keeps them out of
+// `PROCESSING_TIME_KEYS`: nothing about them is baked into `this.events`, so an edit
+// reaches the screen on the next render. They are also per-calendar only, so the entity
+// list changes whenever either does and `serializeEntities` already forces a reprocess —
+// belt and braces, but the render-time read is the load-bearing half.
+//
+// They run **after** `processMultiDayEvents`, which is the opposite of where
+// `filterEventsByType` has to sit and for a related reason. Splitting rewrites the middle
+// days of a timed multi-day event as `start: { date }`, so a filter reading an event's
+// *class* must precede it. These two read an event's *day* instead, which only exists once
+// the splitter has decided how many days the event occupies.
+
+/**
+ * Which day a grouped event is drawn on.
+ *
+ * Extracted so the weekday filter and the grouping pass cannot disagree about it. The
+ * distinction matters most for an event already in progress when the window opens: it is
+ * clamped to the window's first day, so its row lands on a day its own `start` never
+ * names. Filtering on the start date would then hide — or fail to hide — the wrong row.
+ *
+ * The second and third tests are reached only when `startDate < referenceStart`, since the
+ * first returned otherwise; the original inline form repeated that as an explicit conjunct.
+ *
+ * @param startDate Event start, as the caller resolved it for its all-day-ness
+ * @param endDate Event end, likewise, with the all-day exclusive day already removed
+ * @param referenceStart Local midnight on the window's first day
+ * @returns The day the event's row belongs to
+ */
+function resolveDisplayDate(startDate: Date, endDate: Date, referenceStart: Date): Date {
+  if (startDate >= referenceStart) return startDate;
+  if (endDate.toDateString() === referenceStart.toDateString()) return referenceStart;
+  if (endDate > referenceStart) return referenceStart;
+
+  return startDate;
+}
+
+/** `HH:MM`, or `HH:MM:SS`. A single-digit hour is accepted; 24 and above is not. */
+const TIME_OF_DAY_PATTERN = /^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/;
+
+/** Values already reported as unparseable, so one typo warns once rather than per event. */
+const reportedExpiryValues = new Set<string>();
+
+/**
+ * Read a wall-clock time of day out of a configured string.
+ *
+ * @param value Configured value, from a calendar's `allday_expires_at`
+ * @returns The time, or `null` when the value is absent or not a time
+ */
+function parseTimeOfDay(
+  value: unknown,
+): { hours: number; minutes: number; seconds: number } | null {
+  if (typeof value !== 'string') return null;
+
+  const match = TIME_OF_DAY_PATTERN.exec(value.trim());
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  if (hours > 23) return null;
+
+  return { hours, minutes: Number(match[2]), seconds: match[3] ? Number(match[3]) : 0 };
+}
+
+/**
+ * The instant an all-day event stops counting as upcoming.
+ *
+ * 🚨 The **default matters as much as the option**, and supplying it is what closes the
+ * older defect this function also fixes. An all-day event has no end instant — its end is a
+ * date — so the timed test beside this one could not be applied to it: `endDate` is local
+ * midnight *at the start* of the last day, so from 00:00:01 onward every all-day event
+ * happening **today** would have read as past. The card therefore exempted all-day events
+ * from expiry altogether, which is right for today and wrong for every day before it. With
+ * `show_past_events: false` and a window reaching backwards — `start_date: 'today-7'`, or
+ * `start_of_week` mid-week — a finished all-day event kept its row while every timed event
+ * beside it was correctly hidden.
+ *
+ * Supplying the missing instant fixes both at once. An all-day event is past at **midnight
+ * after its last day**, so today's survives the whole day and last Saturday's does not, and
+ * `allday_expires_at` moves that instant earlier *within* the final day. The option and the
+ * default are then one rule at two settings rather than two mechanisms.
+ *
+ * The last day is the event's own, not today's, so a Monday-to-Wednesday holiday retires on
+ * Wednesday night rather than on Monday's.
+ *
+ * An unparseable value falls back to midnight rather than to never, on the same principle
+ * as `resolveEventType`: a typo should leave the card behaving as though the option were
+ * absent. It is reported once per distinct value, because this runs per event and a silent
+ * typo is a support question nobody can answer.
+ *
+ * 🚨 Nothing schedules a render at the returned instant. The card's only timer is the
+ * refresh interval, so an event retires on the first render after its moment passes.
+ *
+ * @param endDate Last day the event covers, at local midnight
+ * @param configured The calendar's `allday_expires_at`, unvalidated
+ * @returns The local instant from which the event counts as past
+ */
+function allDayExpiryInstant(endDate: Date, configured: unknown): Date {
+  const time = parseTimeOfDay(configured);
+
+  if (!time) {
+    if (typeof configured === 'string' && configured.trim() !== '') {
+      const value = configured.trim();
+      if (!reportedExpiryValues.has(value)) {
+        reportedExpiryValues.add(value);
+        Logger.warn(`Invalid allday_expires_at value "${value}" — expected a time such as 10:00`);
+      }
+    }
+
+    // Midnight after the last day, built by adding a calendar day rather than by naming
+    // 24:00, so a DST transition on that night shifts it correctly.
+    const midnight = new Date(endDate);
+    midnight.setDate(midnight.getDate() + 1);
+    midnight.setHours(0, 0, 0, 0);
+
+    return midnight;
+  }
+
+  const expiresAt = new Date(endDate);
+  expiresAt.setHours(time.hours, time.minutes, time.seconds, 0);
+
+  return expiresAt;
+}
+
+/**
+ * Which days of the week one calendar may put a row on.
+ *
+ * Per-calendar only, and deliberately so. The request behind it (#225) is a school-holidays
+ * calendar whose entries run through the weekend, on a card that must keep showing every
+ * *other* calendar's weekend events — so a card-wide value would answer a question nobody
+ * asked, and narrowing the card's date window cannot express it at all.
+ *
+ * An unrecognized value filters nothing, so a typo shows too much rather than too little —
+ * the same principle `resolveEventType` follows, and the reason this returns `undefined`
+ * rather than throwing on a value the union does not name.
+ *
+ * @param entityConfig The calendar's own settings, where it has any
+ * @returns The days that calendar's events may land on, or `undefined` for every day
+ */
+function resolveDaysOfWeek(
+  entityConfig: Types.EntityConfig | undefined,
+): Types.DaysOfWeekFilter | undefined {
+  const configured = entityConfig?.days_of_week;
+
+  return configured === 'weekdays' || configured === 'weekends' ? configured : undefined;
+}
+
+/**
+ * Whether a day satisfies one calendar's `days_of_week`.
+ *
+ * @param displayDate The day the row would land on
+ * @param filter The calendar's resolved filter
+ * @returns True when the row may stay
+ */
+function dayPassesWeekFilter(displayDate: Date, filter: Types.DaysOfWeekFilter): boolean {
+  return FormatUtils.isWeekendDate(displayDate) === (filter === 'weekends');
+}
+
 /**
  * Group events by display day.
  *
@@ -336,6 +503,40 @@ export function groupEventsByDay(
       if (!isAllDayEvent && endDate < now) {
         return false;
       }
+
+      // The all-day half of the same rule, and the half that needs an instant computed for
+      // it. `show_past_events` decides *whether* past events are shown; the expiry decides
+      // *when* an all-day event becomes past. With `show_past_events: true` there is
+      // nothing for either to do, which is why both sit inside this branch.
+      //
+      // 🚨 A segment split out of a **timed** event reads as all-day here — splitting
+      // rewrites the middle days as `start: { date }` — so it reaches this branch and the
+      // configured time must not be applied to it. `allday_expires_at` is a statement about
+      // all-day events; a conference running Monday to Wednesday is not one, and retiring
+      // its Tuesday at 10:00 deleted a day out of the middle of an event still in progress.
+      //
+      // The configured value is withheld rather than the whole branch skipped, which is the
+      // difference between fixing this and reopening the defect the option's **default**
+      // was introduced to close. Skipping outright would exempt these segments from expiry
+      // altogether, and a backwards window — `start_date: 'today-7'` — would then keep the
+      // middle days of last week's meetings on a card that hides past events. Midnight
+      // after the segment's own day is already the right answer for it.
+      const configuredExpiry = event._splitFromTimedEvent
+        ? undefined
+        : getEntitySetting(event._entityId, 'allday_expires_at', config, event);
+
+      if (isAllDayEvent && now >= allDayExpiryInstant(endDate, configuredExpiry)) {
+        return false;
+      }
+    }
+
+    const daysOfWeek = resolveDaysOfWeek(event._matchedConfig);
+
+    if (
+      daysOfWeek &&
+      !dayPassesWeekFilter(resolveDisplayDate(startDate, endDate, referenceStart), daysOfWeek)
+    ) {
+      return false;
     }
 
     return true;
@@ -366,17 +567,7 @@ export function groupEventsByDay(
 
       if (!startDate || !endDate) return;
 
-      let displayDate: Date;
-
-      if (startDate >= referenceStart) {
-        displayDate = startDate;
-      } else if (endDate.toDateString() === referenceStart.toDateString()) {
-        displayDate = referenceStart;
-      } else if (startDate < referenceStart && endDate > referenceStart) {
-        displayDate = referenceStart;
-      } else {
-        displayDate = startDate;
-      }
+      const displayDate = resolveDisplayDate(startDate, endDate, referenceStart);
 
       const eventDateKey = FormatUtils.getLocalDateKey(displayDate);
       const translations = Localize.getTranslations(language);
@@ -391,18 +582,111 @@ export function groupEventsByDay(
         };
       }
 
+      const showDescription =
+        getEntitySetting(event._entityId, 'show_description', config, event) ??
+        config.show_description;
+
+      // 🚨 Read the marker off the **raw** event and write the result into the display
+      // copy. The `description` a few lines down is `''` whenever `show_description` is
+      // off — which is the default — so scanning the display copy would leave the feature
+      // doing nothing for the very people who asked for it: someone who hides
+      // descriptions is exactly the person who does not want a bare `YEAR=1976` on their
+      // card. Reading raw and writing display is the correct asymmetry.
+      //
+      // Stripping HTML *before* matching is not the same thing as reading the display
+      // copy, and it is required: Google Calendar's description editor emits `&nbsp;`, so
+      // `Born&nbsp;YEAR=1996` has no ordinary space in front of the marker until
+      // entities are decoded. The prefilter keeps that off the hot path — almost no
+      // description mentions "year" at all, and one regex test is cheaper than building a
+      // detached textarea per event per render.
+      const rawDescription = event.description || '';
+      const mayCarryMarker = EventAge.mayCarryAgeMarker(rawDescription);
+
+      const plainDescription =
+        showDescription || mayCarryMarker ? FormatUtils.stripHtmlTags(rawDescription) : '';
+
+      const markerYear = mayCarryMarker ? EventAge.readMarkerYear(plainDescription) : null;
+
+      // The occurrence's own year, not the day the row lands on. With
+      // `split_multiday_events: false` an ongoing event's display date is clamped to the
+      // window start, which moves every day — so reading the display date would make the
+      // count change from one day to the next while the card just sits there.
+      const ageCount =
+        markerYear === null ? null : EventAge.resolveAgeCount(startDate.getFullYear(), markerYear);
+
+      const summary = event.summary || '';
+
+      // Per-calendar text replacement (#153, #212). Read once per event and applied to
+      // whichever single field it names — one field per block, because two blocks of one
+      // calendar both match the same events and each pushes its own copy rather than
+      // partitioning them the way two `blocklist`/`allowlist` blocks do.
+      //
+      // 🚨 **Ordering, which is decided here and not by accident.** Every rewrite runs on
+      // the text the card has already finished formatting, so the user's pattern sees what
+      // they see:
+      //
+      // 1. **After `formatLocation`** on a location. The country strip is end-anchored and
+      //    does its own trailing-comma cleanup, so running it second would leave it
+      //    matching against text a rewrite had already moved the end of.
+      // 2. **After `stripHtmlTags` and the age-marker strip** on a description. A pattern
+      //    should be written against the words the user typed, not against Google
+      //    Calendar's `&nbsp;` and `<br>` or against card syntax the row never shows.
+      // 3. **Before `appendAgeCount`** on a title, which `event-age.ts` asked for by issue
+      //    number before this existed: a replacement pattern must see the calendar's own
+      //    title rather than one the card has already decorated, or an end-anchored pattern
+      //    has to tolerate a suffix its author never wrote.
+      //
+      // Written into the display copy only. Mutating `event` would bake the rewrite into
+      // `this.events`, compound it on every render, and change the text the filters read.
+      const replacement = TextReplace.resolveTextReplacement(
+        getEntitySetting(event._entityId, 'replace_field', config, event),
+        getEntitySetting(event._entityId, 'replace_pattern', config, event),
+        getEntitySetting(event._entityId, 'replace_with', config, event),
+      );
+
+      const replacedSummary = TextReplace.applyTextReplacement(summary, replacement, 'title');
+
+      // #124's count is suppressed on a title the user replaced outright, and on one their
+      // pattern emptied. Both say the same thing — this event's own title is not to be
+      // shown — and appending to either is the leak #212 asked to be spared: `Busy (50)`
+      // announces that the hidden event is a birthday, and a bare `(50)` announces it
+      // louder. A title merely *edited* keeps its count, which is the case #153 ex.1 wants:
+      // stripping `Birthday of ` off a birthday should still say how old they are.
+      //
+      // 🚨 **Both sides are trimmed, and each side is trimmed for its own reason.** The
+      // right-hand test has to ask the same question `appendAgeCount` asks — it draws a
+      // bare count when `summary.trim()` is empty — because any disagreement between the
+      // two is a leak by construction, and testing `text === ''` disagreed on precisely
+      // the blank-but-not-empty titles an ordinary pattern produces: `Bin Day`
+      // minus `[A-Za-z]+` is whitespace, not an empty string, so it suppressed nothing and rendered `(50)`.
+      // The left-hand side is trimmed so a title that was *already* only whitespace is not
+      // read as a deletion — nothing was taken away from it, so it keeps the bare count an
+      // untitled event has always drawn.
+      const titleWithheld =
+        replacedSummary.replacedWholeField ||
+        (summary.trim() !== '' && replacedSummary.text.trim() === '');
+
       eventsByDay[eventDateKey].events.push({
-        summary: event.summary || '',
+        summary:
+          ageCount === null || titleWithheld
+            ? replacedSummary.text
+            : EventAge.appendAgeCount(replacedSummary.text, ageCount),
         location:
           (getEntitySetting(event._entityId, 'show_location', config, event) ??
           config.show_location)
-            ? FormatUtils.formatLocation(event.location || '', config.remove_location_country)
+            ? TextReplace.applyTextReplacement(
+                FormatUtils.formatLocation(event.location || '', config.remove_location_country),
+                replacement,
+                'location',
+              ).text
             : '',
-        description:
-          (getEntitySetting(event._entityId, 'show_description', config, event) ??
-          config.show_description)
-            ? FormatUtils.stripHtmlTags(event.description || '')
-            : '',
+        description: showDescription
+          ? TextReplace.applyTextReplacement(
+              markerYear === null ? plainDescription : EventAge.stripAgeMarker(plainDescription),
+              replacement,
+              'description',
+            ).text
+          : '',
         start: event.start,
         end: event.end,
         _entityId: event._entityId,
@@ -411,6 +695,7 @@ export function groupEventsByDay(
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
+        _splitFromTimedEvent: event._splitFromTimedEvent,
       });
     });
   }
@@ -722,7 +1007,7 @@ function processEvents(
     const entityEvents = wellFormed.filter((event) => event._entityId === entityId);
     if (entityEvents.length === 0) return;
 
-    const matchedEvents = filterEventsForEntity(entityEvents, entityConfig);
+    const matchedEvents = filterEventsForEntity(entityEvents, entityConfig, config);
 
     const decoratedEvents = matchedEvents.map((event) => {
       const decorated: Types.CalendarEventData = {
@@ -862,6 +1147,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { dateTime: startDateTime.toISOString() },
         end: { dateTime: firstDayEnd.toISOString() },
         _isMultiDaySegment: true,
+        _splitFromTimedEvent: true,
       };
       segments.push(firstDaySegment);
 
@@ -887,6 +1173,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
           start: { date: currentDateStr },
           end: { date: nextDateStr },
           _isMultiDaySegment: true,
+          _splitFromTimedEvent: true,
         };
 
         segments.push(middleDaySegment);
@@ -897,6 +1184,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { dateTime: lastDayStart.toISOString() },
         end: { dateTime: endDateTime.toISOString() },
         _isMultiDaySegment: true,
+        _splitFromTimedEvent: true,
       };
       segments.push(lastDaySegment);
     } else {
@@ -907,31 +1195,127 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
   return segments;
 }
 
+/**
+ * Which class of event one calendar contributes.
+ *
+ * Per-entity first, card-level second — the same precedence `shouldSplitEvent` gives
+ * `split_multiday_events`. An unrecognized value resolves to `all` rather than hiding
+ * events: a typo should show too much, never too little.
+ *
+ * 🚨 This is the card's only *processing-time* top-level config read. Every other
+ * per-calendar-capable option is applied at render time from the `_matchedConfig` stamp,
+ * which is why they need no cache invalidation and this one does. Anything added here
+ * must be registered in `PROCESSING_TIME_KEYS` in `config.ts`, or a card-level change to
+ * it will render stale until the next refresh.
+ *
+ * @param entityConfig - The calendar's own settings, where it has any
+ * @param config - Current card configuration
+ * @returns The event class to keep for that calendar
+ */
+function resolveEventType(
+  entityConfig: Types.EntityConfig | undefined,
+  config: Types.Config,
+): Types.EventType {
+  const configured = entityConfig?.event_type ?? config.event_type;
+
+  return configured === 'timed' || configured === 'all_day' ? configured : 'all';
+}
+
+/**
+ * Keeps only the requested class of event.
+ *
+ * All-day-ness is read the way the rest of the card reads it — an event with no
+ * `start.dateTime` is all-day — so this agrees with what the row will render rather
+ * than with a second opinion about the same event.
+ *
+ * `timed` and `all_day` are exact complements, which is the property the two-block
+ * pattern depends on: the same calendar listed twice, once each way, yields every event
+ * exactly once.
+ *
+ * 🚨 Runs before `processMultiDayEvents`, and must. Splitting rewrites the middle days of
+ * a *timed* multi-day event as `start: { date }` segments, which read as all-day — so a
+ * filter applied after the split would keep the middle of a three-day meeting under
+ * `all_day`.
+ *
+ * @param events - The calendar's events
+ * @param type - Class to keep
+ * @returns The surviving events, always a new array
+ */
+function filterEventsByType(
+  events: ReadonlyArray<Types.CalendarEventData>,
+  type: Types.EventType,
+): Types.CalendarEventData[] {
+  if (type === 'all') return [...events];
+
+  const wantAllDay = type === 'all_day';
+
+  return events.filter((event) => !event.start.dateTime === wantAllDay);
+}
+
+/**
+ * The text one calendar's `blocklist` and `allowlist` are matched against.
+ *
+ * 🚨 Reads the event as the calendar delivered it, not as the card will draw it. The
+ * display copies are made later, in `groupEventsByDay`, where `formatLocation` strips a
+ * trailing country name and `stripHtmlTags` flattens the description — and where
+ * `show_location: false` blanks the location outright. Filtering the drawn text would let
+ * a *display* switch decide which events exist: turning descriptions off would empty the
+ * subject of every `description` filter, and an allowlist would silently match nothing.
+ *
+ * Absent and empty behave alike, and identically to how the title filter has always
+ * treated an event with no summary: an allowlist drops it, a blocklist keeps it. That is
+ * what makes the two-block pattern an exact partition on any field — every event lands in
+ * precisely one of the two blocks, whether or not it carries the field at all.
+ *
+ * @param event - Event being judged
+ * @param field - Field this calendar filters on; unset means the title
+ * @returns The text to match, or undefined when the event carries no such field
+ */
+function filterSubject(
+  event: Types.CalendarEventData,
+  field: Types.FilterField | undefined,
+): string | undefined {
+  if (field === 'location') return event.location;
+  if (field === 'description') return event.description;
+
+  return event.summary;
+}
+
 function filterEventsForEntity(
   events: Types.CalendarEventData[],
   entityConfig: string | Types.EntityConfig,
+  config: Types.Config,
 ): Types.CalendarEventData[] {
+  // Defensive rather than reachable: config normalization rewrites every bare entity id
+  // into an object long before events are processed, so nothing arrives here as a string.
+  // It still filters, so this cannot become the one path that ignores the card.
   if (typeof entityConfig === 'string') {
-    return [...events];
+    return filterEventsByType(events, resolveEventType(undefined, config));
   }
 
-  let matchedEvents = [...events];
+  // Before the pattern filters, and unconditionally — a calendar that carries no settings
+  // of its own still has to follow the card-level value.
+  let matchedEvents = filterEventsByType(events, resolveEventType(entityConfig, config));
+
+  const field = entityConfig.filter_field;
 
   if (entityConfig.allowlist) {
     try {
       const allowPattern = new RegExp(entityConfig.allowlist, 'i');
-      matchedEvents = matchedEvents.filter(
-        (event) => event.summary && allowPattern.test(event.summary),
-      );
+      matchedEvents = matchedEvents.filter((event) => {
+        const subject = filterSubject(event, field);
+        return Boolean(subject && allowPattern.test(subject));
+      });
     } catch (error) {
       Logger.warn(`Invalid allowlist pattern: ${entityConfig.allowlist}`, error);
     }
   } else if (entityConfig.blocklist) {
     try {
       const blockPattern = new RegExp(entityConfig.blocklist, 'i');
-      matchedEvents = matchedEvents.filter(
-        (event) => !(event.summary && blockPattern.test(event.summary)),
-      );
+      matchedEvents = matchedEvents.filter((event) => {
+        const subject = filterSubject(event, field);
+        return !(subject && blockPattern.test(subject));
+      });
     } catch (error) {
       Logger.warn(`Invalid blocklist pattern: ${entityConfig.blocklist}`, error);
     }
@@ -964,10 +1348,17 @@ function generateEventSignature(event: Types.CalendarEventData): string {
 /**
  * Get entity accent color with applied opacity
  *
+ * The sentinel adds one step above the existing chain rather than restructuring it: a
+ * calendar deferring to Home Assistant uses the color the registry holds, and falls through
+ * to whatever it would have rendered anyway when the registry holds none. That fall-through
+ * is the common path, not the edge case — Google Calendar is the only integration in core
+ * that populates a color, so most calendars have none until someone sets one by hand.
+ *
  * @param entityId - The entity ID to find color for
  * @param config - Current card configuration
  * @param opacity - Opacity value (0-100), if omitted returns solid color
  * @param event - Optional event data containing matched configuration
+ * @param registryColors - Colors Home Assistant holds, keyed by entity ID
  * @returns Color string ready for use in CSS with opacity applied if requested
  */
 export function getEntityAccentColorWithOpacity(
@@ -975,6 +1366,7 @@ export function getEntityAccentColorWithOpacity(
   config: Types.Config,
   opacity?: number,
   event?: Types.CalendarEventData,
+  registryColors?: ReadonlyMap<string, string>,
 ): string {
   if (!entityId) return 'var(--calendar-card-line-color-vertical)';
 
@@ -989,16 +1381,47 @@ export function getEntityAccentColorWithOpacity(
     );
   }
 
-  const baseColor =
-    typeof entityConfig === 'string'
-      ? config.accent_color // Use accent_color for simple entity strings
-      : entityConfig?.accent_color || config.accent_color;
+  const baseColor = resolveAccentColor(entityId, config, entityConfig, registryColors);
 
   if (opacity === undefined || opacity === 0 || isNaN(opacity)) {
     return baseColor;
   }
 
   return Helpers.convertToRGBA(baseColor, opacity);
+}
+
+/**
+ * Walk the accent-color chain for one calendar.
+ *
+ * @param entityId - Calendar the event came from
+ * @param config - Current card configuration
+ * @param entityConfig - That calendar's own settings, where it has any
+ * @param registryColors - Colors Home Assistant holds, keyed by entity ID
+ * @returns The color to draw, before any opacity is applied
+ */
+function resolveAccentColor(
+  entityId: string,
+  config: Types.Config,
+  entityConfig: string | Types.EntityConfig | undefined,
+  registryColors?: ReadonlyMap<string, string>,
+): string {
+  const fromHomeAssistant = registryColors?.get(entityId);
+
+  const perCalendar = typeof entityConfig === 'string' ? undefined : entityConfig?.accent_color;
+
+  if (EntityColors.isEntityColorSentinel(perCalendar)) {
+    if (fromHomeAssistant) return fromHomeAssistant;
+  } else if (perCalendar) {
+    return perCalendar;
+  }
+
+  if (EntityColors.isEntityColorSentinel(config.accent_color)) {
+    // Nothing to fall back to at this level: the sentinel is occupying the slot the
+    // card-wide literal would have held, so the shipped default is the floor.
+    return fromHomeAssistant ?? Config.DEFAULT_CONFIG.accent_color;
+  }
+
+  return config.accent_color;
 }
 
 /**
@@ -1028,6 +1451,65 @@ export function getEntityLabel(
   if (!entityConfig || typeof entityConfig === 'string') return undefined;
 
   return entityConfig.label;
+}
+
+/**
+ * The label to draw for one calendar, with what Home Assistant holds substituted for the
+ * value that stands in for it — its icon for the `home-assistant` sentinel, a person's
+ * picture for a `person.…` entity id.
+ *
+ * 🚨 Render time, deliberately, and this is the one thing about the feature that cannot
+ * move. `processEvents` bakes `_entityLabel` into the cached event, so resolving there would
+ * freeze whatever icon Home Assistant held at fetch time and leave it frozen until the next
+ * refresh — which is precisely the drift #188 was opened about, reintroduced by the fix for
+ * it. Resolved here, changing the icon in Home Assistant repaints on its next state update.
+ * A person's picture inherits the same property for free: change the photo and the card
+ * follows it.
+ *
+ * A calendar whose icon Home Assistant does not hold falls through to `undefined`, so
+ * `renderLabel` draws nothing at all. That is the same nothing an unlabelled calendar draws,
+ * rather than an `ha-icon` with no icon in it — which is a sized, empty box that indents the
+ * title as though a label were there. It mirrors the colors' own fall-through, where a
+ * calendar the registry has no color for renders the color it would have had anyway. A
+ * person with no picture, or a `person.…` id naming nobody, falls the same way.
+ *
+ * @param entityId - Calendar the event came from
+ * @param config - Current card configuration
+ * @param event - Event data carrying the matched per-calendar configuration
+ * @param hass - Home Assistant instance, which carries both stand-ins in its state attributes
+ * @returns The label to draw, or `undefined` when there is none
+ */
+export function resolveEntityLabel(
+  entityId: string | undefined,
+  config: Types.Config,
+  event?: Types.CalendarEventData,
+  hass?: Types.Hass | null,
+): string | undefined {
+  const label = getEntityLabel(entityId, config, event);
+
+  const followsIcon = EntityIcons.isEntityIconSentinel(label);
+  const followsPerson = PersonPictures.isPersonEntityId(label);
+
+  if (!followsIcon && !followsPerson) return label;
+
+  // An explicit shape outranks either stand-in, so `label_type: text` still renders the words.
+  // `getLabelType` reads each as the shape it resolves *to* — the sentinel as an icon, a
+  // person as an image — precisely so this is the only way to say otherwise; honouring it
+  // here as well is what keeps the two halves telling one story.
+  const declared = getEntitySetting(entityId, 'label_type', config, event);
+  if (Helpers.isLabelType(declared) && declared !== (followsIcon ? 'icon' : 'image')) {
+    return label;
+  }
+
+  // 🚨 `label` here, `entityId` one line down, and the two are different entities. The icon
+  // belongs to the calendar being labelled, so it is looked up by the calendar's own id; the
+  // picture belongs to the *person the label names*, which is a different entity that the
+  // calendar knows nothing about. Passing `entityId` to both reads as tidy and finds nothing,
+  // because a calendar carries no `entity_picture` — so the failure looks like the option
+  // doing nothing rather than like a mix-up.
+  return followsPerson
+    ? PersonPictures.personPicture(label, hass)
+    : EntityIcons.entityIcon(entityId, hass);
 }
 
 /**

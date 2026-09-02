@@ -3,7 +3,9 @@
  * Pending values preserve text that is invalid while being typed, so the field does not disappear mid-edit.
  */
 
+import * as Config from '../../config/config';
 import * as Types from '../../config/types';
+import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as StartDate from '../../utils/start-date';
 
@@ -46,6 +48,9 @@ const INITIAL_LANGUAGE = 'en';
 const INITIAL_INDICATOR_ICON = 'mdi:calendar-today';
 
 const INITIAL_INDICATOR_CUSTOM = '⭐';
+
+/** What "Custom color" starts from when the card was following Home Assistant. */
+const INITIAL_ACCENT_COLOR = Config.DEFAULT_CONFIG.accent_color;
 
 const BUILT_IN_INDICATORS = ['dot', 'pulse', 'glow'] as const;
 
@@ -162,6 +167,19 @@ export function locationCountryMode(config: Readonly<Types.Config>): 'keep' | 'b
 }
 
 /**
+ * Derives whether the card names its own accent color or defers to Home Assistant.
+ *
+ * Two modes rather than three, unlike the per-calendar control: nothing sits above the card
+ * to inherit from, so an "inherit" option would be a synonym for "custom, at the default".
+ *
+ * @param config - Current configuration
+ * @returns Which accent-color control applies
+ */
+export function accentColorMode(config: Readonly<Types.Config>): 'custom' | 'home_assistant' {
+  return EntityColors.isEntityColorSentinel(config.accent_color) ? 'home_assistant' : 'custom';
+}
+
+/**
  * Reads the entity id out of an entry that may be a bare string or a config object.
  *
  * @param entry - One member of the `entities` array
@@ -169,6 +187,21 @@ export function locationCountryMode(config: Readonly<Types.Config>): 'keep' | 'b
  */
 export function entityIdOf(entry: string | Types.EntityConfig): string {
   return typeof entry === 'string' ? entry : (entry?.entity ?? '');
+}
+
+/**
+ * The colour mode the all-day badge is in, read off the value's shape.
+ *
+ * Takes the value rather than the config, unlike `accentColorMode` beside it, because this
+ * key is view-overridable: the caller resolves it through the view first, and handing the
+ * whole config here would quietly read the card level while the panel described a column.
+ *
+ * @param value - Configured `allday_badge_color`, already resolved for the view
+ * @returns Which colour control the badge renders
+ */
+export function alldayBadgeColorMode(value: unknown): string {
+  const resolved = Helpers.resolveAlldayBadgeColor(value);
+  return resolved.source;
 }
 
 export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
@@ -300,6 +333,27 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
     },
   },
 
+  /**
+   * `allday_badge` names a position, and `off` is one of its three values rather than an
+   * absence — so the control is a dropdown and `off` derives from anything the resolver does
+   * not recognize, including a legacy boolean.
+   *
+   * Applying `off` writes `undefined` rather than the string, which clears the key back to
+   * the default instead of pinning it to a value that happens to equal the default. That is
+   * what keeps `toStoredConfig` from writing a line of YAML for a user who opened the
+   * dropdown and closed it again.
+   *
+   * The treatment lives in `allday_badge_style`, a real config key with no synthetic: it is a
+   * plain closed-set string with no off value to encode, so the schema selects it by name.
+   */
+  allday_badge_position: {
+    derive: (config) => Helpers.resolveAlldayBadgePosition(config.allday_badge) ?? 'off',
+    apply: (value) =>
+      value === 'off' || typeof value !== 'string'
+        ? { changes: { allday_badge: undefined } }
+        : { changes: { allday_badge: value } },
+  },
+
   week_number_mode: {
     derive: (config) => config.show_week_numbers ?? 'none',
     apply: (value) =>
@@ -321,6 +375,53 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       }
 
       return { changes: { remove_location_country: undefined } };
+    },
+  },
+
+  accent_color_mode: {
+    derive: (config) => accentColorMode(config),
+    apply: (value, config) => {
+      if (value === 'home_assistant') {
+        return { changes: { accent_color: EntityColors.ENTITY_COLOR_SENTINEL } };
+      }
+
+      // Carry the current value when it is already a color, the way `start_date_mode`
+      // carries an offset: only a value that cannot survive the move is replaced.
+      const current = String(config.accent_color ?? '');
+      const carried = EntityColors.isEntityColorSentinel(current) ? INITIAL_ACCENT_COLOR : current;
+
+      return { changes: { accent_color: carried || INITIAL_ACCENT_COLOR } };
+    },
+  },
+
+  /**
+   * Which colour the all-day badge is drawn in.
+   *
+   * The two keywords store themselves; `custom` means the stored value is a colour, so it
+   * has no spelling of its own and the mode is read back off the value's shape. That is the
+   * same contract `accent_color_mode` has, and it is why neither writes its own name.
+   *
+   * 🚨 `derive` reads the RAW card-level key, and so does the schema's gate. `apply` writes
+   * the card level — a column override is edited in the `column:` block — so anything
+   * resolved through the view would show a column's value in a control whose next keystroke
+   * overwrote the card's. `locationCountryMode` is raw for the same reason, and for the same
+   * cause: both are a mode dropdown paired with a value field, and the pair has to agree
+   * about which level it is describing.
+   */
+  allday_badge_color_mode: {
+    derive: (config) => alldayBadgeColorMode(config.allday_badge_color),
+    apply: (value, config) => {
+      if (value === 'accent' || value === 'text') {
+        return { changes: { allday_badge_color: value } };
+      }
+
+      // Carry a colour already stored, exactly as the accent mode above does, so switching
+      // away and back does not discard what the user picked. The accent default is the seed
+      // because it is the colour the badge was already being drawn in.
+      const current = Helpers.resolveAlldayBadgeColor(config.allday_badge_color);
+      const carried = current.source === 'custom' ? current.color : '';
+
+      return { changes: { allday_badge_color: carried || INITIAL_ACCENT_COLOR } };
     },
   },
 
@@ -385,14 +486,28 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   calendars: {
-    derive: (config) => (config.entities ?? []).map(entityIdOf),
+    // One row per calendar, not one per block. The picker answers "which calendars does
+    // this card show"; the per-calendar panels below answer "how many blocks, and what is
+    // on each". Deriving 1:1 made the picker answer both and agree with itself on
+    // neither — a duplicate could be seen there and cleared there, but never added there,
+    // because Home Assistant's picker refuses to hold one entity twice.
+    //
+    // A Set keeps first-occurrence order, which is the only ordering anything downstream
+    // reads: `deduplicateEvents` walks `config.entities` and matches on `event._entityId`,
+    // so a second block of the same id finds every signature already seen and contributes
+    // nothing — priority under `filter_duplicates` is fixed by an id's *first* position.
+    // `fetchEvents` skips an id it has already fetched, and `getPrimaryEntityId` reads
+    // `entities[0]`. Collapsing `[a, b, c, b]` to `[a, b, b, c]` therefore changes nothing
+    // observable: b still precedes c, and entities[0] is untouched.
+    derive: (config) => [...new Set((config.entities ?? []).map(entityIdOf))],
     apply: (value, config) => {
       const ids = Array.isArray(value) ? value.map((id) => String(id)) : [];
+
       // Listing the same calendar twice is supported and meaningful — each block
       // carries its own label, colour and limits. A Map keyed by entity ID kept
       // only the last block for a repeated ID, so re-opening the picker rewrote
       // every earlier duplicate with the last one's settings. Queue the blocks
-      // per ID and consume them in picker order so each keeps its own config.
+      // per ID so each keeps its own config.
       const existing = new Map<string, Array<string | Types.EntityConfig>>();
       for (const entry of config.entities ?? []) {
         const id = entityIdOf(entry);
@@ -404,7 +519,26 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
         }
       }
 
-      return { changes: { entities: ids.map((id) => existing.get(id)?.shift() ?? id) } };
+      // Each row emits that calendar's *whole* queue, because one row now stands for
+      // however many blocks the calendar has. Shifting one off instead would silently
+      // drop the rest, which is what makes this the half that cannot be changed alone.
+      // Clearing a row therefore drops every block for that calendar, which is the
+      // model the picker now presents; removing a single block is the panel's own
+      // Remove action.
+      const used = new Set<string>();
+
+      return {
+        changes: {
+          entities: ids.flatMap((id) => {
+            // The picker cannot emit an id twice, but this keeps the function total
+            // rather than duplicating a queue if anything else ever calls it.
+            if (used.has(id)) return [];
+            used.add(id);
+
+            return existing.get(id) ?? [id];
+          }),
+        },
+      };
     },
   },
 };

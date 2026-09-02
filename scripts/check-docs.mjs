@@ -19,6 +19,17 @@ const CONSTANTS_TS = join(ROOT, 'src/config/constants.ts');
 const TYPES_TS = join(ROOT, 'src/config/types.ts');
 const DOCS_DIR = join(ROOT, 'docs');
 const REFERENCE_DOC = join(DOCS_DIR, 'reference/configuration.md');
+
+/**
+ * The second table an option's values can be documented in.
+ *
+ * Per-calendar options that have no card-wide counterpart never reach the reference
+ * tables — those describe the card, and the per-entity section there is a bullet list
+ * pointing here. So this page carries the only row `days_of_week` has, and check 21 has
+ * to read both or an enumerated option documented only here goes unchecked while the
+ * gate reports a clean run.
+ */
+const ENTITY_OPTIONS_DOC = join(DOCS_DIR, 'features/core-settings.md');
 const VITEPRESS_CONFIG = join(DOCS_DIR, '.vitepress/config.mts');
 const STYLES_TS = join(ROOT, 'src/rendering/styles.ts');
 const THEMING_DOC = join(DOCS_DIR, 'features/theming.md');
@@ -746,15 +757,32 @@ function buildAnchorMap(docs) {
 function checkInternalLinks(docs) {
   const { published, anchors } = buildAnchorMap(docs);
 
-  const LINK = /\[[^\]]*\]\((\/[^)\s]*)\)|<a\s[^>]*href="(\/[^"]*)"/g;
+  // The `#…` alternatives are not decoration. A same-page fragment is the one link form
+  // nothing else validates: VitePress's dead-link check resolves it no more than this
+  // gate did, so a bare `[see below](#renamed-heading)` rotted silently through every
+  // build. Confirmed by planting one — `check:docs` and `docs:build` both exited 0.
+  const LINK = /\[[^\]]*\]\(((?:\/|#)[^)\s]*)\)|<a\s[^>]*href="((?:\/|#)[^"]*)"/g;
   let checked = 0;
 
   for (const file of published) {
     const text = readFileSync(file, 'utf8');
+
+    // The route this file publishes at, so a `#fragment` resolves against its own
+    // headings. Derived the same way buildAnchorMap does, so the two cannot disagree.
+    const ownRoute = (() => {
+      const r =
+        '/' +
+        relative(DOCS_DIR, file)
+          .replace(/\.md$/, '')
+          .replace(/\/index$/, '');
+      return r === '/index' ? '/' : r;
+    })();
+
     for (const m of text.matchAll(LINK)) {
       const target = m[1] ?? m[2];
-      const [rawPath, anchor] = target.split('#');
-      const path = rawPath.replace(/\/$/, '') || '/';
+      const samePage = target.startsWith('#');
+      const [rawPath, anchor] = samePage ? [ownRoute, target.slice(1)] : target.split('#');
+      const path = samePage ? rawPath : rawPath.replace(/\/$/, '') || '/';
       checked++;
 
       if (!anchors.has(path)) {
@@ -763,7 +791,8 @@ function checkInternalLinks(docs) {
       }
       if (anchor && !anchors.get(path).has(anchor)) {
         error(
-          `${relative(ROOT, file)} links to ${target}, but #${anchor} is not a heading on that page. ` +
+          `${relative(ROOT, file)} links to ${target}, but #${anchor} is not a heading ` +
+            `on ${samePage ? 'its own page' : 'that page'}. ` +
             "Note the site's slugify strips emoji and dots.",
         );
       }
@@ -1564,21 +1593,50 @@ function checkLanguageCounts() {
   return checked;
 }
 
+/**
+ * Print what was inspected, then the errors and warnings.
+ *
+ * 🚨 **Every clause on the summary line is a count of what was *inspected*, never a
+ * verdict on how it came out.** The line is printed before the error list is evaluated,
+ * so a clause phrased as an outcome states that outcome on a failing run too, directly
+ * above the errors contradicting it — and the summary is what a reader reads first.
+ *
+ * #547 found this in the release-surface clause and fixed it there, reasoning that the
+ * others were safe because "a link that did not resolve is not among the resolved ones".
+ * That was not true of this file: the counters increment *before* their error branches,
+ * so a broken link is counted like any other. Planting one moved "internal links
+ * resolved" from 203 to 204 while the planted link was the thing failing. The same held
+ * for the absolute-link, citation, language, enum and example clauses.
+ *
+ * Reword rather than recount. `checked` also feeds the staleness guards — `if (!checked)`
+ * and `if (checked < 20)` both exit 2 meaning "the pattern has gone stale" — so counting
+ * only successes would make a run with many genuinely broken links report a stale pattern
+ * and send the reader to edit the regex.
+ *
+ * Clauses that increment only on success (`reachable`, `themed`) and ones that report the
+ * size of something parsed (`defaults`, `rows`, `fields`, `docs`, `releases`) are already
+ * true as written and are left alone.
+ *
+ * @param counts - What each check inspected
+ * @returns Process exit code
+ */
 function report(counts) {
   console.log(
     `${counts.defaults} defaults in code, ${counts.rows} rows in the reference, ` +
-      `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} complete examples, ` +
-      `${counts.releases} release lines documented, ${counts.links} internal links resolved, ` +
-      `${counts.siteLinks} absolute site links resolved, ` +
-      `${counts.gates} CI gates documented, ` +
-      `${counts.enums} enumerated options fully listed, ` +
-      `${counts.removed} removed options migrated, ` +
+      `${counts.fields} config fields, ${counts.docs} pages, ${counts.complete} card examples checked, ` +
+      `${counts.releases} release lines documented, ${counts.links} internal links checked, ` +
+      `${counts.siteLinks} absolute site links checked, ` +
+      `${counts.gates} CI gates checked, ` +
+      `${counts.enums} enumerated options checked, ` +
+      `${counts.sentinels} sentinel rows checked, ` +
+      `${counts.runtimeEnums} runtime enum surfaces checked, ` +
+      `${counts.removed} removed options checked, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
-      `${counts.citations} line citations resolved, ` +
-      `${counts.languages} language counts reconciled, ` +
+      `${counts.citations} line citations checked, ` +
+      `${counts.languages} language counts checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
-      `release surfaces agree on v${counts.version}.\n`,
+      `release surfaces checked against v${counts.version}.\n`,
   );
 
   if (errors.length) {
@@ -1844,21 +1902,26 @@ function readEnumOptions() {
  * which is how a reader learns an option cannot do something it can.
  */
 function checkEnumValues(enums) {
-  const lines = readFileSync(REFERENCE_DOC, 'utf8').split('\n');
+  const sources = [REFERENCE_DOC, ENTITY_OPTIONS_DOC].map((file) => ({
+    file,
+    lines: readFileSync(file, 'utf8').split('\n'),
+  }));
   let described = 0;
 
   for (const [field, values] of enums) {
-    const rows = lines.filter((line) =>
-      new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line),
+    const found = sources.flatMap(({ file, lines }) =>
+      lines
+        .filter((line) => new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line))
+        .map((row) => ({ file, row })),
     );
     // Check 2 already requires every option to be documented somewhere.
-    if (!rows.length) continue;
+    if (!found.length) continue;
     described++;
-    for (const row of rows) {
+    for (const { file, row } of found) {
       const missing = values.filter((value) => !new RegExp(`\\b${value}\\b`).test(row));
       if (missing.length) {
         error(
-          `${relative(ROOT, REFERENCE_DOC)}: the \`${field}\` row never mentions ` +
+          `${relative(ROOT, file)}: the \`${field}\` row never mentions ` +
             `${missing.map((v) => `\`${v}\``).join(', ')}, so a reader cannot discover ` +
             `${missing.length > 1 ? 'those values' : 'that value'}. The type accepts ` +
             `${values.map((v) => `\`${v}\``).join(' | ')}.`,
@@ -1872,6 +1935,351 @@ function checkEnumValues(enums) {
     process.exit(2);
   }
   return described;
+}
+
+// ---------------------------------------------------------------------------
+// Check 21b — sentinel values on `string` options are named in the reference
+// ---------------------------------------------------------------------------
+
+/**
+ * Options whose grammar carries a reserved word, and the module that defines it.
+ *
+ * Check 21 cannot see these. It reads string-literal unions out of `types.ts`, and a
+ * sentinel lives inside an option that stays typed `string` precisely so that widening
+ * its grammar needs no new key — so `values` comes back empty and the option is never
+ * registered. Every other gate passes too: the option is already documented, so check 2
+ * is satisfied, and its default is unchanged, so check 1 is. An undocumented sentinel is
+ * a completely green build, which is how `show_countdown_allday` once shipped as a table
+ * row nobody could find.
+ *
+ * The literal is read from the source rather than repeated here, so renaming the sentinel
+ * in code fails this check instead of silently outdating the docs. Only the pairing of
+ * option to module is written down.
+ *
+ * Which page carries the row is deliberately *not* written down, because writing it down
+ * is what left half the corpus unchecked. `label` is per-calendar only and has no row in
+ * the reference, so an earlier version named one page per option to avoid demanding a row
+ * that is not supposed to exist — and thereby stopped looking at `core-settings.md` for
+ * `accent_color`, which has a row in *both* pages. Blanking the sentinel from the
+ * per-entity row passed the gate while the identical omission in the reference failed it.
+ *
+ * So both pages are searched and every row found in either must name the sentinel, with
+ * one row somewhere required rather than one row per page. That is how check 21 already
+ * reads its two sources, and it satisfies the original concern without the blind spot:
+ * `label`'s absence from the reference is simply no row there, not a failure.
+ */
+const SENTINEL_OPTIONS = [
+  {
+    fields: ['accent_color'],
+    file: 'src/utils/entity-colors.ts',
+    constant: 'ENTITY_COLOR_SENTINEL',
+  },
+  {
+    fields: ['label'],
+    file: 'src/utils/entity-icons.ts',
+    constant: 'ENTITY_ICON_SENTINEL',
+  },
+];
+
+/**
+ * Read each declared sentinel's value out of the module that owns it.
+ *
+ * @returns {Map<string, string[]>} option name -> its reserved words
+ */
+function readSentinelOptions() {
+  const out = new Map();
+
+  for (const { fields, file, constant } of SENTINEL_OPTIONS) {
+    const src = readFileSync(join(ROOT, file), 'utf8');
+    const match = src.match(new RegExp(`export const ${constant}\\s*=\\s*'([^']+)'`));
+
+    if (!match) {
+      console.error(`\n✗ FATAL: ${constant} not found in ${file} — fix the parser.\n`);
+      process.exit(2);
+    }
+
+    for (const field of fields) {
+      out.set(field, [...(out.get(field) ?? []), match[1]]);
+    }
+  }
+
+  assertFound(out, 'sentinel options', TYPES_TS);
+  return out;
+}
+
+/**
+ * Every row for an option with a sentinel has to name that sentinel, on either page.
+ *
+ * Rows are matched the same way check 21 matches them, so a per-entity row written
+ * `` `entity → accent_color` `` is covered as well as the card-wide one.
+ *
+ * @param {Map<string, string[]>} sentinels option name -> reserved words
+ * @returns {number} rows checked
+ */
+function checkSentinelValues(sentinels) {
+  const sources = [REFERENCE_DOC, ENTITY_OPTIONS_DOC].map((file) => ({
+    file,
+    lines: readFileSync(file, 'utf8').split('\n'),
+  }));
+  let checked = 0;
+
+  for (const [field, values] of sentinels) {
+    const rows = sources.flatMap(({ file, lines }) =>
+      lines
+        .filter((line) => new RegExp(`^\\|\\s*\`(?:[a-z0-9_]+ → )?${field}\``).test(line))
+        .map((row) => ({ file, row })),
+    );
+
+    if (!rows.length) {
+      error(
+        `No row on either page documents \`${field}\`, which accepts ` +
+          `${values.map((v) => `\`${v}\``).join(', ')}.`,
+      );
+      continue;
+    }
+
+    for (const { file, row } of rows) {
+      checked++;
+      const missing = values.filter((value) => !row.includes(`\`${value}\``));
+      if (missing.length) {
+        error(
+          `${relative(ROOT, file)}: the \`${field}\` row never mentions ` +
+            `${missing.map((v) => `\`${v}\``).join(', ')}, so a reader cannot discover that ` +
+            `the option accepts it. It is a reserved word, not a value the type system can ` +
+            `advertise — nothing else will catch this.`,
+        );
+      }
+    }
+  }
+
+  if (checked === 0) {
+    console.error(`\n✗ FATAL: no sentinel option matched a reference row — fix the parser.\n`);
+    process.exit(2);
+  }
+  return checked;
+}
+
+// ---------------------------------------------------------------------------
+// Check 21c — a page that tabulates a runtime enum tabulates all of it
+// ---------------------------------------------------------------------------
+
+/**
+ * Options whose value set lives in a runtime array rather than a `types.ts` union.
+ *
+ * Check 21 cannot see these. It reads string-literal unions out of `types.ts`, and
+ * `allday_badge` is typed `boolean | string` so that `false` and a treatment name can
+ * share one key — so `values` comes back empty and the option is never registered.
+ * Check 21b cannot see them either: that reads a single reserved word, not a set.
+ *
+ * The values are read from the module that owns them, so adding a sixth treatment
+ * fails this check instead of silently outdating the docs. Only the pairing of option
+ * to module is written down.
+ */
+const RUNTIME_ENUMS = [
+  {
+    option: 'allday_badge',
+    file: 'src/utils/helpers.ts',
+    constant: 'ALLDAY_BADGE_POSITIONS',
+    noun: 'positions',
+    // No fallback: outside this set is OFF, deliberately, so a value that reads as off can
+    // never turn the feature on. See `resolveAlldayBadgePosition`.
+    fallback: null,
+  },
+  {
+    option: 'allday_badge_style',
+    file: 'src/utils/helpers.ts',
+    constant: 'ALLDAY_BADGE_STYLES',
+    // 🚨 The noun is half the check, and renaming the prose without renaming it here is a
+    // SILENT loss rather than a failure. The count claim is matched as `<number> <noun>`, so
+    // when the docs went from "five treatments" to "four shapes" this table still said
+    // `treatments`, five prose claims across the README, the release notes, the archive, a
+    // guide and the feature page stopped matching anything, and the run reported 22 surfaces
+    // where it had reported 27 -- passing, with a fifth of its coverage gone. The denominator
+    // is printed for exactly this reason; read it when a docs change touches the word.
+    noun: 'shapes',
+    // Falls back to a shape rather than to off: this key cannot answer whether there is a
+    // badge, only which one. See `resolveAlldayBadgeStyle`.
+    fallback: 'subtle',
+  },
+  {
+    option: 'allday_badge_color',
+    file: 'src/utils/helpers.ts',
+    constant: 'ALLDAY_BADGE_COLOR_SOURCES',
+    // Two keywords, and the value set is otherwise OPEN -- any CSS colour is legal -- so the
+    // table check here reconciles only the two that are closed. That is the honest scope: a
+    // page listing `accent` and `text` must list both, and no page can be asked to tabulate
+    // every colour.
+    noun: 'color sources',
+    // Falls back to the accent, which is what the badge was drawn in before this key existed.
+    fallback: 'accent',
+  },
+];
+
+/**
+ * Read each declared runtime enum's values out of the module that owns it.
+ *
+ * @returns {Map<string, {values: string[], noun: string}>} option name -> its values
+ */
+function readRuntimeEnums() {
+  const out = new Map();
+
+  for (const { option, file, constant, noun, fallback } of RUNTIME_ENUMS) {
+    const src = readFileSync(join(ROOT, file), 'utf8');
+    const match = src.match(new RegExp(`export const ${constant}\\s*=\\s*\\[([^\\]]+)\\]`));
+
+    if (!match) {
+      console.error(`\n✗ FATAL: ${constant} not found in ${file} — fix the parser.\n`);
+      process.exit(2);
+    }
+
+    const values = (match[1].match(/'[a-z0-9_-]+'/g) || []).map((s) => s.slice(1, -1));
+    if (values.length < 2) {
+      console.error(
+        `\n✗ FATAL: ${constant} parsed to ${values.length} value(s) — fix the parser.\n`,
+      );
+      process.exit(2);
+    }
+    out.set(option, { values, noun, fallback });
+  }
+
+  assertFound(out, 'runtime enums', TYPES_TS);
+  return out;
+}
+
+/**
+ * A page that lists some of an option's values in a table has to list all of them, and
+ * any page claiming a count has to claim the right one.
+ *
+ * Both halves shipped wrong together. `neutral` was added to the reference row and the
+ * release notes but not to the feature page's table, which went on offering four
+ * treatments and calling them "four" — so the one escape hatch for a calendar whose
+ * accent does not suit its title was invisible on the page that exists to explain the
+ * option. Every other gate passed: the option is documented, its default is unchanged,
+ * and the reference row names all five.
+ *
+ * Which page carries the table is deliberately not written down — the check locates
+ * itself. A page tabulating two or more values is treated as documenting the set and
+ * must carry all of them; a page that merely uses one in an example is left alone. That
+ * is the same reasoning check 21b records for not naming pages, arrived at from the
+ * other side: there the risk was checking too few pages, here it is demanding a table
+ * from a page that has no business carrying one.
+ *
+ * @param {Map<string, {values: string[], noun: string}>} enums
+ * @param {string[]} docs markdown pages
+ * @returns {number} pages checked
+ */
+function checkRuntimeEnumTables(enums, docs) {
+  const pages = [...docs, join(ROOT, 'README.md')];
+  let checked = 0;
+
+  for (const [option, { values, noun }] of enums) {
+    const word = NUMBER_WORDS[values.length];
+
+    for (const file of pages) {
+      const text = readFileSync(file, 'utf8');
+      const rows = values.filter((v) => new RegExp(`^\\| *\`${v}\` *\\|`, 'm').test(text));
+
+      if (rows.length >= 2) {
+        checked++;
+        const missing = values.filter((v) => !rows.includes(v));
+        if (missing.length) {
+          error(
+            `${relative(ROOT, file)}: the \`${option}\` table lists ${rows.length} of ` +
+              `${values.length} values and omits ${missing.map((v) => `\`${v}\``).join(', ')}, ` +
+              `so a reader of this page cannot discover ` +
+              `${missing.length > 1 ? 'them' : 'it'} at all.`,
+          );
+        }
+      }
+
+      // A count in prose is a claim about the same set, and is wrong the moment the set
+      // grows. Matched case-insensitively because it may open a sentence. Counted whether
+      // or not it holds, so the reported denominator says how much was actually looked at.
+      const claim = text.match(new RegExp(`\\b(${NUMBER_WORDS.join('|')})\\s+${noun}\\b`, 'i'));
+      if (claim) {
+        checked++;
+        if (claim[1].toLowerCase() !== word.toLowerCase()) {
+          error(
+            `${relative(ROOT, file)}: says "${claim[0]}", but \`${option}\` has ` +
+              `${values.length}. Write "${word.toLowerCase()} ${noun}".`,
+          );
+        }
+      }
+    }
+  }
+
+  if (checked === 0) {
+    console.error(`\n✗ FATAL: no runtime enum matched a table or a count — fix the parser.\n`);
+    process.exit(2);
+  }
+  return checked;
+}
+
+// ---------------------------------------------------------------------------
+// Check 21d — a value quoted for an enumerated option is a value it accepts
+// ---------------------------------------------------------------------------
+
+/**
+ * Every `option: value` an enumerated option is shown with, anywhere a reader will find it.
+ *
+ * Check 21c above asks whether the value TABLE is complete. This asks the opposite question,
+ * and it is the one that actually bit: is each value a reader is told to WRITE still legal?
+ *
+ * `allday_badge` was a treatment name and became a position, so `allday_badge: subtle` went
+ * from correct to silently inert -- the resolver's closed set turns anything it does not
+ * recognize into off, by design, so the card renders as though the line were absent. That
+ * line survived the rename in `README.md`, which is the HACS landing page and the first
+ * config most people copy. Nothing caught it: 21c was satisfied because the treatment table
+ * was still complete, and the docs build only resolves links.
+ *
+ * Scoped to the runtime enums rather than to every option, because those are the ones whose
+ * legal set is machine-readable. `false` is allowed everywhere: it is the YAML off literal
+ * and every closed set resolves it to off deliberately.
+ *
+ * @param {Map<string, {values: string[], noun: string}>} enums - option -> its legal values
+ * @param {string[]} docs - documentation pages
+ * @returns {number} how many option/value pairs were examined
+ */
+function checkRuntimeEnumUsages(enums, docs) {
+  const pages = [...docs, join(ROOT, 'README.md'), join(ROOT, 'CONTRIBUTING.md')];
+  let checked = 0;
+
+  for (const [option, { values, fallback }] of enums) {
+    const legal = new Set([...values, 'false']);
+
+    for (const file of pages) {
+      const text = readFileSync(file, 'utf8');
+
+      for (const match of text.matchAll(new RegExp(`\\b${option}:\\s*([A-Za-z_][\\w-]*)`, 'g'))) {
+        checked++;
+        if (legal.has(match[1])) continue;
+
+        const line = text.slice(0, match.index).split('\n').length;
+
+        // The two enums fail differently and the message has to say which, or it teaches the
+        // wrong thing while catching the right one. A position outside its set resolves to
+        // OFF -- the feature vanishes. A treatment outside its set resolves to the DEFAULT
+        // treatment, because that key cannot answer whether there is a badge, only which one.
+        // Neither raises anything at runtime; that is what makes a stale example survive.
+        const consequence = fallback
+          ? `resolves to the default \`${fallback}\`, so the page teaches a value the card ` +
+            `silently ignores`
+          : `resolves to off, so this reads as working config and renders nothing`;
+
+        error(
+          `${relative(ROOT, file)}:${line}: shows \`${option}: ${match[1]}\`, which is not a ` +
+            `value it accepts. It ${consequence}. Legal: ` +
+            `${values.map((v) => `\`${v}\``).join(', ')}.`,
+        );
+      }
+    }
+  }
+
+  if (checked === 0) {
+    console.error(`\n✗ FATAL: no enumerated option was quoted anywhere — fix the parser.\n`);
+    process.exit(2);
+  }
+  return checked;
 }
 
 // ---------------------------------------------------------------------------
@@ -2005,13 +2413,21 @@ function readNavRoutes() {
  * links to still ships - reachable only by guessing the URL. Neither `docs:build` nor
  * any other check notices, which is how a documented option can still be undiscoverable.
  *
- * @param {string[]} docs absolute paths to every published markdown page
+ * `development/` is the exception, and it has to be excluded rather than listed in
+ * UNLISTED_ROUTES: `srcExclude: ['development/**']` keeps those files out of the build
+ * entirely, so they have no route to be unreachable from. Demanding a sidebar entry for
+ * one would ask the nav to link a page the site never publishes. This was latent until
+ * the first design doc since the check was written - the folder was empty, so the check
+ * had no instance to be wrong about. Verified by building: `docs:build` emits no
+ * `dist/development/` directory at all.
+ *
+ * @param {string[]} docs absolute paths to every markdown page under docs/
  * @param {Set<string>} routes routes referenced by the navigation
  * @returns {number} pages reachable from the navigation
  */
 function checkPageReachability(docs, routes) {
   const published = new Map();
-  for (const file of docs) {
+  for (const file of docs.filter((f) => !isExcluded(f, ['development/']))) {
     const route = `/${relative(DOCS_DIR, file)
       .split(sep)
       .join('/')
@@ -2341,7 +2757,20 @@ function checkAbsoluteSiteLinks(docs) {
   assertFound(surfaces, 'surfaces that can carry absolute site links', ROOT);
 
   const SITE = 'https://calendar-card-pro.alexpfau.com';
-  const pattern = new RegExp(`${SITE.replace(/\./g, '\\.')}([^)\\s"'\\]]*)`, 'g');
+
+  // The excluded set is every delimiter a link can be wrapped in, not just the markdown
+  // ones. `>` and a backtick were missing, so the two commonest non-markdown forms — an
+  // autolink `<https://…/features/weather>` and a code span — captured their own closing
+  // delimiter, and a *correct* link was reported as `/features/weather>`, "no page
+  // publishes at". That is the expensive direction: valid prose failing CI. It was latent
+  // only because nobody had written either form into a scanned file, while AGENTS.md uses
+  // the autolink form twice.
+  //
+  // Excluding them cannot hide a real broken link: RFC 3986 forbids `<`, `>` and a
+  // backtick unencoded in a URI, so no genuine target can contain one. Widening the class
+  // to what a URL can actually hold is what makes this safe by construction, rather than
+  // patching the two forms that happened to be reported.
+  const pattern = new RegExp(`${SITE.replace(/\./g, '\\.')}([^)\\s"'\\]<>\`]*)`, 'g');
   let checked = 0;
 
   for (const file of surfaces) {
@@ -2414,6 +2843,10 @@ function main() {
   const readmeAnchors = checkReadmeFragmentLinks();
   const version = checkReleaseVersion();
   const enums = checkEnumValues(readEnumOptions());
+  const sentinels = checkSentinelValues(readSentinelOptions());
+  const runtimeEnums =
+    checkRuntimeEnumTables(readRuntimeEnums(), docs) +
+    checkRuntimeEnumUsages(readRuntimeEnums(), docs);
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
   const themed = checkThemeDefaults(readThemeTable());
@@ -2432,6 +2865,8 @@ function main() {
       siteLinks,
       gates,
       enums,
+      sentinels,
+      runtimeEnums,
       removed,
       reachable,
       themed,

@@ -40,6 +40,24 @@ export function select(
 }
 
 /**
+ * A sub-heading inside a panel or group.
+ *
+ * `constant` is Home Assistant's static-text node, and with **no `value`** it renders as a
+ * bare bold label — verified against a live editor. Passing a `value` turns it into a
+ * `Label: value` data row instead, so this helper deliberately does not accept one.
+ *
+ * A heading is only worth adding where the fields under it are contiguous; one placed over
+ * a scattered category is worse than none, because it silently claims the fields that
+ * happen to follow it.
+ *
+ * @param name - String key for the heading text
+ * @returns The node
+ */
+export function heading(name: string): HaFormSchema {
+  return { name, type: 'constant' };
+}
+
+/**
  * A checkbox.
  *
  * @param name - Config key
@@ -56,7 +74,7 @@ export function bool(name: string): SelectorSchema {
  * @returns The field
  */
 export function text(name: string): SelectorSchema {
-  return { name, selector: { text: {} } };
+  return { name, selector: { text: { type: 'text' } } };
 }
 
 /**
@@ -66,7 +84,7 @@ export function text(name: string): SelectorSchema {
  * @returns The field
  */
 export function color(name: string): SelectorSchema {
-  return { name, selector: { text: {} } };
+  return { name, selector: { text: { type: 'text' } } };
 }
 
 /**

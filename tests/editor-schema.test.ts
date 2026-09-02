@@ -26,10 +26,12 @@ import {
   copySettings,
   fromEntityFormData,
   pasteSettings,
+  showsLocation,
   toEntityFormData,
   writeEntity,
 } from '../src/rendering/editor/entities';
 import {
+  EXTRA_KEYS_BY_PANEL,
   applySelection,
   declaredKeys,
   eligibleFields,
@@ -45,10 +47,16 @@ import {
 import * as Overrides from '../src/rendering/editor/overrides';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildDayHeaderSchema } from '../src/rendering/editor/schemas/day-header';
-import { entitySchemaFor } from '../src/rendering/editor/schemas/entity';
+import {
+  ENTITY_TRISTATE_DEFAULT,
+  ENTITY_TRISTATE_STORED,
+  ENTITY_TRISTATE_VALUES,
+  entitySchemaFor,
+} from '../src/rendering/editor/schemas/entity';
 import { buildLayoutSchema, widthTableRows } from '../src/rendering/editor/schemas/layout';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { exceptionSubforms } from '../src/rendering/editor/subforms';
+import * as Synthetic from '../src/rendering/editor/synthetic';
 import {
   SYNTHETIC_FIELDS,
   deriveSyntheticData,
@@ -700,6 +708,9 @@ describe('editor: change detection', () => {
    */
   it('holds the exact set of synthetic keys', () => {
     expect(Object.keys(SYNTHETIC_FIELDS).sort()).toEqual([
+      'accent_color_mode',
+      'allday_badge_color_mode',
+      'allday_badge_position',
       'calendars',
       'card_height',
       'card_max_height',
@@ -1348,6 +1359,64 @@ describe('editor: the panel set', () => {
     }
   }
 
+  /**
+   * Every text selector names its input type, so a reused element cannot keep the last one.
+   *
+   * `ha-form` reuses the DOM node when one schema entry replaces another at the same
+   * position, and `ha-selector-text` does not reset the underlying input's `type` when the
+   * new selector omits it — it keeps whatever the previous field asked for. `start_date`
+   * shipped that way: with a saved fixed date the editor's first render was
+   * `{ text: { type: 'date' } }`, and switching to "Relative to Today" swapped in
+   * `{ text: {} }`, so the Expression field stayed a date picker and the documented grammar
+   * — `wednesday`, `start_of_week`, `today+7` — could not be typed at all. Only the YAML
+   * editor could set it. Measured on a live dashboard: label `Expression`, `type="date"`,
+   * value empty.
+   *
+   * An omitted type is the whole hazard, so the rule is that none may be omitted rather
+   * than that the four typed fields must be kept apart from their neighbours. Which fields
+   * sit next to which is a function of config and would have to be re-reasoned every time a
+   * conditional field is added; "every text selector declares its type" is a property of the
+   * schema this can simply read.
+   *
+   * Walks every panel under several configurations, so a new field is covered the day it is
+   * written rather than when somebody remembers this note.
+   */
+  it('gives every text selector an explicit input type', () => {
+    const configs: Types.Config[] = [
+      buildConfig({}),
+      buildConfig({ start_date: '2026-08-26' }),
+      buildConfig({ start_date: 'wednesday' }),
+      buildConfig({ view: 'column' }),
+      buildConfig({ compact_events_to_show: 3 }),
+      // The all-day treatment select is only built once a position is chosen, so nothing
+      // else in this sweep reaches it -- the same shape as compact_events_to_show above.
+      buildConfig({ allday_badge: 'time' }),
+      // And the colour field sits behind TWO gates: the badge has to be on AND its colour
+      // has to be a custom one, so neither the boolean sweep nor the line above reaches it.
+      // The mode is read off the value's shape, so any colour puts the picker in custom.
+      buildConfig({ allday_badge: 'time', allday_badge_color: '#b5651d' }),
+    ];
+
+    const offenders: string[] = [];
+    let textSelectors = 0;
+
+    for (const config of configs) {
+      for (const { panel, node } of everyNode(config)) {
+        const selector = (node as { selector?: { text?: { type?: string } } }).selector;
+        if (!selector || !('text' in selector)) continue;
+        textSelectors++;
+        if (!selector.text?.type) {
+          offenders.push(`${panel.id} → ${(node as { name?: string }).name ?? '(unnamed)'}`);
+        }
+      }
+    }
+
+    // A clean run has to prove it looked at something: the assertion below passes trivially
+    // on an empty walk, which is exactly how a broken traversal would report success.
+    expect(textSelectors).toBeGreaterThan(30);
+    expect([...new Set(offenders)]).toEqual([]);
+  });
+
   it('registers the nine panels the design names, in order', () => {
     expect(PANELS.map((panel) => panel.id)).toEqual([
       'calendars',
@@ -1461,6 +1530,13 @@ describe('editor: the panel set', () => {
       // Reveals the complete-days modifier, which is held back until there is an event
       // limit for it to modify.
       buildConfig({ compact_events_to_show: 3 }),
+      // The all-day treatment select is only built once a position is chosen, so nothing
+      // else in this sweep reaches it -- the same shape as compact_events_to_show above.
+      buildConfig({ allday_badge: 'time' }),
+      // And the colour field sits behind TWO gates: the badge has to be on AND its colour
+      // has to be a custom one, so neither the boolean sweep nor the line above reaches it.
+      // The mode is read off the value's shape, so any colour puts the picker in custom.
+      buildConfig({ allday_badge: 'time', allday_badge_color: '#b5651d' }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),
@@ -1480,6 +1556,7 @@ describe('editor: the panel set', () => {
       language: 'language_mode',
       time_24h: 'time_format',
       show_week_numbers: 'week_number_mode',
+      allday_badge: 'allday_badge_position',
       remove_location_country: 'location_country_mode',
       today_indicator: 'today_indicator_style',
       height: 'height_mode',
@@ -2197,14 +2274,43 @@ describe('editor: fields that must survive being typed into', () => {
   }
 
   /**
-   * The renderer classifies any string it does not recognise as a plain dot, so
-   * committing each keystroke of `star.png` would switch the style to Dot on the `s`,
-   * remove this field, and leave `s` in the user's configuration.
+   * The field must not be taken away under the cursor. Two mechanisms serve that now, and
+   * which one applies depends on what is being typed.
+   *
+   * A word-shaped partial classifies as text since #573, so every keystroke of `star.png`
+   * leaves the style on Custom and commits — the field stands because the classification
+   * keeps it standing, not because the value was withheld. The cost is that the fragment
+   * reaches the config on the way, which is what every other free-text field in the editor
+   * already does.
+   *
+   * An `mdi:` partial is the case the hold still exists for: `mdi:c` classifies as an icon,
+   * which *would* move the style to Icon and replace this field mid-word, so it is held
+   * pending until the user leaves it.
    */
   it('keeps the custom indicator field standing while an image path is typed', () => {
     const start = buildConfig({ today_indicator: '⭐' });
 
     for (const partial of ['s', 'st', 'star', 'star.pn']) {
+      const { config } = type(start, 'today_indicator_custom', [partial]);
+
+      expect(config.today_indicator, partial).toBe(partial);
+      expect(
+        fieldNames(() => buildDayHeaderSchema({ view: 'list', config, language: 'en' })),
+        partial,
+      ).toContain('today_indicator_custom');
+    }
+
+    const done = type(start, 'today_indicator_custom', ['s', 'st', 'star', 'star.pn', 'star.png']);
+    expect(done.config.today_indicator).toBe('star.png');
+  });
+
+  /**
+   * The half the hold still covers, and the one that would actually lose the field.
+   */
+  it('holds an icon-shaped value rather than switching the style under the cursor', () => {
+    const start = buildConfig({ today_indicator: '⭐' });
+
+    for (const partial of ['mdi:c', 'mdi:cal', 'mdi:calendar']) {
       const { config, pending } = type(start, 'today_indicator_custom', [partial]);
 
       expect(config.today_indicator, partial).toBe('⭐');
@@ -2214,9 +2320,6 @@ describe('editor: fields that must survive being typed into', () => {
         partial,
       ).toContain('today_indicator_custom');
     }
-
-    const done = type(start, 'today_indicator_custom', ['s', 'st', 'star', 'star.pn', 'star.png']);
-    expect(done.config.today_indicator).toBe('star.png');
   });
 
   /**
@@ -2562,6 +2665,42 @@ describe('editor: per-calendar settings', () => {
     expect(data.label_type).toBe('none');
   });
 
+  /**
+   * The same wiring one shape over, and it needs its own test rather than trusting the one
+   * above. `entitySchemaFor` takes the image source as its **sixth** positional parameter,
+   * every parameter after the second has a default, and the two arguments either side of it
+   * are also a string and a boolean — so dropping it here compiles, lints, typechecks, and
+   * leaves the person picker permanently unrendered while every schema-level test of it still
+   * passes. Checked by dropping it: 2810 unit tests, none of them noticed.
+   */
+  it('renders the person picker for a calendar labelled with a person, through the chassis', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    element.setConfig({
+      entities: [
+        { entity: 'calendar.a', label: 'person.anna' },
+        { entity: 'calendar.b', label: '/local/work.png' },
+      ],
+    } as Types.Config);
+    document.body.appendChild(element);
+    await element.updateComplete;
+
+    const forms = [...element.shadowRoot!.querySelectorAll('ha-form.entity-form')];
+
+    const person = schemaOf(forms[0]).find((node) => node.name === 'label')!;
+    expect(schemaOf(forms[0]).map((node) => node.name)).toContain('label_image_source');
+    expect('selector' in person && 'entity' in person.selector, 'person mode wants a picker').toBe(
+      true,
+    );
+
+    // The other mode through the same wiring, so the assertion above is about the source
+    // rather than about every image label getting a picker.
+    const typed = schemaOf(forms[1]).find((node) => node.name === 'label')!;
+    expect('selector' in typed && 'text' in typed.selector, 'custom mode wants a text box').toBe(
+      true,
+    );
+  });
+
   it('stores a label chosen through the shape dropdown, through the chassis', async () => {
     const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
     element.hass = {} as Types.Hass;
@@ -2682,23 +2821,39 @@ describe('editor: per-calendar settings', () => {
 
   it('offers every per-calendar option the card reads', () => {
     const offered = [...walkSchema(entitySchema().schema)]
+      // Section headings are `constant` nodes, not options — they configure nothing and
+      // are never written. The headings themselves are pinned separately below.
+      .filter((entry) => !('type' in entry.node && entry.node.type === 'constant'))
       .map((entry) => entry.node.name)
       .filter(Boolean);
 
     // Every member of `EntityConfig` except the entity id itself, which is the
     // picker's business rather than a setting of the calendar's — plus `label_type`,
-    // which is not a config key at all: the label holds four shapes in one value and
-    // this names which, exactly as `today_indicator_style` does at card level.
+    // `accent_color_mode`, `label_icon_source` and `label_image_source`, which are not config
+    // keys at all. Each names which of several shapes one value holds, or where it comes
+    // from, exactly as `today_indicator_style` does at card level, and none is ever written
+    // to the stored configuration.
     expect(offered.sort()).toEqual(
       [
         'accent_color',
+        'accent_color_mode',
+        'allday_expires_at',
+        'event_type',
         'allowlist',
         'blocklist',
         'color',
         'compact_events_to_show',
+        'days_of_week',
+        'filter_field',
         'label',
         'label_icon_color',
+        'label_icon_source',
+        'label_image_source',
         'label_type',
+        'location_icon',
+        'replace_field',
+        'replace_pattern',
+        'replace_with',
         'show_description',
         'show_location',
         'show_time',
@@ -2796,6 +2951,131 @@ describe('editor: per-calendar settings', () => {
     }
   });
 
+  /**
+   * Both tristate tables, pinned by value.
+   *
+   * 🚨 The mapping table is keyed by **option** and must stay that way. Flat — one
+   * value→stored map shared by every option — it can only hold booleans, and `event_type`
+   * stores strings; widening it makes the dropdown values a shared namespace across
+   * unrelated options. `hide` already means `false` to three options here, and this key
+   * was first drafted with values `all` / `only` / `hide`: flat, its `hide` would have
+   * read back as `inherit` and the next write would have dropped the key, so a configured
+   * filter would vanish from the user's YAML on their first visit to the editor.
+   *
+   * Pinned by value in both directions rather than walked, because walking a table's own
+   * keys cannot notice a key leaving it: delete an entry and the loop runs one fewer time
+   * while every assertion still passes. That failure is silent here — a dropped option
+   * stops being offered, and a dropped value stops being storable — so `toEqual` on the
+   * whole shape is the only form that fails in both directions.
+   */
+  it('pins the vocabulary and the stored form of every inheritable option', () => {
+    expect(ENTITY_TRISTATE_VALUES).toEqual({
+      show_time: ['inherit', 'show', 'hide'],
+      show_location: ['inherit', 'show', 'hide'],
+      show_description: ['inherit', 'show', 'hide'],
+      split_multiday_events: ['inherit', 'split', 'whole'],
+      event_type: ['inherit', 'all', 'timed', 'all_day'],
+      days_of_week: ['inherit', 'weekdays', 'weekends'],
+      filter_field: ['title', 'location', 'description'],
+      replace_field: ['title', 'location', 'description'],
+    });
+
+    expect(ENTITY_TRISTATE_STORED).toEqual({
+      show_time: { inherit: undefined, show: true, hide: false },
+      show_location: { inherit: undefined, show: true, hide: false },
+      show_description: { inherit: undefined, show: true, hide: false },
+      split_multiday_events: { inherit: undefined, split: true, whole: false },
+      event_type: { inherit: undefined, all: 'all', timed: 'timed', all_day: 'all_day' },
+      days_of_week: { inherit: undefined, weekdays: 'weekdays', weekends: 'weekends' },
+      filter_field: { title: undefined, location: 'location', description: 'description' },
+      replace_field: { title: undefined, location: 'location', description: 'description' },
+    });
+
+    // Pinned by value for the same reason as the two above, and with the same consequence
+    // if it shrinks: `filter_field` losing its entry sends an explicit `filter_field:
+    // title` back to `inherit`, which that dropdown does not offer, and the control renders
+    // blank. `replace_field` is here for the same reason and carries the same risk. Every
+    // other option is absent here deliberately — `inherit` is their fallback.
+    expect(ENTITY_TRISTATE_DEFAULT).toEqual({ filter_field: 'title', replace_field: 'title' });
+
+    // Every offered value must be storable, and nothing may be storable that is not
+    // offered. Two tables describing one control drift apart silently otherwise: an
+    // unmapped value stores nothing and the dropdown snaps back, and a mapped value with
+    // no option is dead weight nobody can reach.
+    for (const [name, values] of Object.entries(ENTITY_TRISTATE_VALUES)) {
+      expect(Object.keys(ENTITY_TRISTATE_STORED[name]).sort(), name).toEqual([...values].sort());
+    }
+
+    // The third direction, which the two above cannot see: a named fallback must be a
+    // value its own dropdown offers, or it selects something that is not there.
+    for (const [name, fallback] of Object.entries(ENTITY_TRISTATE_DEFAULT)) {
+      expect(ENTITY_TRISTATE_VALUES[name], name).toContain(fallback);
+    }
+  });
+
+  /**
+   * The three states of `filter_field`, and the fourth case that has no state of its own.
+   *
+   * `filter_field` is the first per-calendar option whose absent value is a *named* choice
+   * rather than "leave it to the card", so `title` both stands for absent and stores
+   * nothing. That makes four inputs to check against three dropdown entries, and the
+   * asymmetric one — a calendar carrying an explicit `filter_field: title` — is the case a
+   * naive mapping gets wrong: it matches no stored form, and before `ENTITY_TRISTATE_DEFAULT`
+   * it fell through to `inherit`, a value this dropdown does not offer, leaving the control
+   * blank and the next write dropping the key.
+   */
+  it('shows the right field back for all four ways a calendar can carry one', () => {
+    const shown = (entry: Record<string, unknown>) =>
+      toEntityFormData({ entity: 'calendar.work', ...entry } as Types.EntityConfig).filter_field;
+
+    expect(shown({}), 'absent means the title').toBe('title');
+    expect(shown({ filter_field: 'title' }), 'written out, it still means the title').toBe('title');
+    expect(shown({ filter_field: 'location' })).toBe('location');
+    expect(shown({ filter_field: 'description' })).toBe('description');
+
+    // And back out again. Only the two non-default fields are written, so choosing the
+    // title leaves no key behind rather than putting `filter_field: title` into the YAML of
+    // every calendar whose panel is ever opened.
+    const stored = (value: string) =>
+      fromEntityFormData('calendar.work', { entity: 'calendar.work', filter_field: value });
+
+    expect(stored('title')).toBe('calendar.work');
+    expect(stored('location')).toEqual({ entity: 'calendar.work', filter_field: 'location' });
+    expect(stored('description')).toEqual({
+      entity: 'calendar.work',
+      filter_field: 'description',
+    });
+  });
+
+  /**
+   * `event_type` is the first inheritable option whose decided states store **strings**
+   * rather than booleans, and the first with four states rather than three. Both are why
+   * the mapping table had to become per-option; this round-trip is what proves each state
+   * survives the trip out to the form and back.
+   */
+  it('round-trips the three decided states of the event type', () => {
+    const cases: Array<[Types.EventType, string]> = [
+      ['all', 'all'],
+      ['timed', 'timed'],
+      ['all_day', 'all_day'],
+    ];
+
+    for (const [stored, offered] of cases) {
+      const entry = { entity: 'calendar.a', event_type: stored } as Types.EntityConfig;
+
+      expect(toEntityFormData(entry).event_type, offered).toBe(offered);
+      expect(fromEntityFormData('calendar.a', { event_type: offered }), offered).toEqual({
+        entity: 'calendar.a',
+        event_type: stored,
+      });
+    }
+
+    // The absent key, which must read back as inheriting and be written as nothing at all
+    // — not as `all`, which would pin the calendar against a later card-level change.
+    expect(toEntityFormData({ entity: 'calendar.a' }).event_type).toBe('inherit');
+    expect(fromEntityFormData('calendar.a', { event_type: 'inherit' })).toBe('calendar.a');
+  });
+
   it('writes a bare entity id for a calendar that carries no settings', () => {
     expect(fromEntityFormData('calendar.a', { label: '', color: '', show_time: 'inherit' })).toBe(
       'calendar.a',
@@ -2876,6 +3156,100 @@ describe('editor: per-calendar settings', () => {
       );
       expect(names, type).not.toContain('label_icon_color');
     }
+  });
+
+  /**
+   * The icon replaces the marker on the location row. With no location row there is no
+   * marker, so the picker decorates nothing and the editor is claiming to control something
+   * it does not — the same reason `accent_color` goes when the mode is not `custom`, and
+   * what the card-level panel already does with every location styling option.
+   *
+   * Both states, both directions, because the tri-state is the part that is easy to get
+   * wrong: an explicit `hide` on the calendar, and an absent value deferring to a card that
+   * has locations off.
+   */
+  it('shows the location icon only where there is a location row to put it on', () => {
+    const declared = entitySchema().schema;
+
+    const names = (entry: string | Types.EntityConfig, config: Types.Config): string[] =>
+      [
+        ...walkSchema(
+          entitySchemaFor(
+            declared,
+            'none',
+            'inherit',
+            'custom',
+            showsLocation(entry, config, config.view === 'column' ? 'column' : 'list'),
+          ),
+        ),
+      ].map((node) => node.node.name);
+
+    const shown = buildConfig({ show_location: true });
+    const hidden = buildConfig({ show_location: false });
+
+    // The calendar decides for itself.
+    expect(names({ entity: 'calendar.a', show_location: true }, hidden)).toContain('location_icon');
+    expect(names({ entity: 'calendar.a', show_location: false }, shown)).not.toContain(
+      'location_icon',
+    );
+
+    // Or defers, and the card's answer is the one that counts.
+    expect(names('calendar.a', shown)).toContain('location_icon');
+    expect(names('calendar.a', hidden)).not.toContain('location_icon');
+  });
+
+  /**
+   * `show_location` is a `COLUMN_OVERRIDE_KEYS` member, so "what the card does" is a
+   * different answer per view. Reading the top-level value would offer the picker on a
+   * column card that draws no locations, and hide it on a list card that does.
+   */
+  it('resolves the card-level answer for the view being edited', () => {
+    const config = buildConfig({
+      view: 'column',
+      show_location: true,
+      column: { show_location: false },
+    } as unknown as Partial<Types.Config>);
+
+    expect(showsLocation('calendar.a', config, 'column')).toBe(false);
+    expect(showsLocation('calendar.a', config, 'list')).toBe(true);
+  });
+
+  /**
+   * The risk the gate above introduces, and the reason it is acceptable.
+   *
+   * Hiding a control that still has a stored value is only safe because the form is fed
+   * `toEntityFormData(entry)` — the whole stored calendar, not the narrowed schema — and
+   * `ha-form` hands that whole object back on every keystroke. So the icon rides through an
+   * edit to any other field on the panel and is waiting when locations come back on.
+   *
+   * Were that not true, the gate would silently delete a setting the moment the user
+   * touched anything else, which is a worse bug than the inert control it removes.
+   */
+  it('keeps a hidden location icon through an edit to another field', () => {
+    const entry: Types.EntityConfig = {
+      entity: 'calendar.a',
+      show_location: false,
+      location_icon: 'mdi:microsoft-teams',
+    };
+
+    // The premise: with locations off, the picker is not on screen.
+    const config = buildConfig({ show_location: true });
+    const narrowed = entitySchemaFor(
+      entitySchema().schema,
+      'none',
+      'inherit',
+      'custom',
+      showsLocation(entry, config, 'list'),
+    );
+    expect([...walkSchema(narrowed)].map((node) => node.node.name)).not.toContain('location_icon');
+
+    // The consequence: editing something else does not take the icon with it.
+    const data = { ...toEntityFormData(entry), blocklist: 'Private' };
+    const written = fromEntityFormData('calendar.a', data, entry) as Types.EntityConfig;
+
+    expect(written.location_icon).toBe('mdi:microsoft-teams');
+    expect(written.show_location).toBe(false);
+    expect(written.blocklist).toBe('Private');
   });
 
   /**
@@ -3532,6 +3906,17 @@ describe('editor: the exceptions widget', () => {
         view: 'column',
         show_week_numbers: 'iso',
       } as Partial<Types.Config>),
+      // The all-day treatment select is only built once a position is chosen, and neither
+      // sweep above chooses one: the boolean sweep cannot reach a string key, and the plain
+      // column config leaves it at its 'off' default. Without this the check reports
+      // allday_badge_style as having no exception -- correctly, from what it can see.
+      columnConfig({ allday_badge: 'time' } as Partial<Types.Config>),
+      // And the colour field is a gate deeper again: the badge on AND a custom colour. The
+      // mode is read off the value's shape, so any colour reaches it.
+      columnConfig({
+        allday_badge: 'time',
+        allday_badge_color: '#b5651d',
+      } as Partial<Types.Config>),
     ];
 
     const offered = new Set<string>();
@@ -3746,7 +4131,7 @@ describe('editor: the exceptions widget in the chassis', () => {
 });
 
 /**
- * E11 — the three options whose stored value is a union of shapes.
+ * E11 — the options whose stored value is a union of shapes.
  *
  * Each is edited through the same mode dropdown its own panel uses, pointed at the block
  * rather than at the card. What these pin is the one thing that genuinely differs
@@ -3756,6 +4141,144 @@ describe('editor: the exceptions widget in the chassis', () => {
  * value or the exception the user just asked for would silently disappear.
  */
 describe('editor: exceptions for the union-typed options', () => {
+  it('pins EXTRA_KEYS_BY_PANEL by value, because a walk cannot see an entry leaving', () => {
+    /*
+     * Three of these six entries are vestigial and three are load-bearing, which makes a
+     * tidy-up the realistic threat rather than a hypothetical one: `show_week_numbers`,
+     * `today_indicator` and `allday_badge` are all found by the schema walk anyway, so
+     * removing them changes no behaviour, and `remove_location_country` is dead-looking for
+     * the same reason while not being dead at all.
+     *
+     * 🚨 **This pin is what tells them apart, so do not read a failure here as the pin being
+     * stale.** Before it existed, a sweep on default config reported all four as dead and
+     * only a non-default config separated them. Now every deletion fails at least this test,
+     * so the discriminator is the COUNT: one failure and nothing else means the entry was
+     * vestigial and the pin is correct; two or three means real behavioural coverage went
+     * with it. Updating the pin to make a lone failure go away is exactly the move that
+     * restores the invisibility this test was added to remove. `exceptions.ts` carries the
+     * per-entry table.
+     *
+     * Of the live entries, only `remove_location_country` is covered behaviourally BELOW --
+     * `height` and `max_height` are covered by `declares every extra key it offers as a
+     * real, selectable override` and `offers an exception for every overridable option`,
+     * in a different describe further up this file. This test covers the table
+     * itself, and it is deliberately a value comparison rather than a loop over its keys:
+     * `for (const k of Object.keys(TABLE))` runs one fewer time when an entry is deleted
+     * and stays green, which is the trap AGENTS.md names. `toEqual` fails in BOTH
+     * directions, so an addition has to be a deliberate act too.
+     */
+    expect(EXTRA_KEYS_BY_PANEL).toEqual({
+      layout: ['height', 'max_height'],
+      day_header: ['show_week_numbers', 'today_indicator'],
+      events: ['allday_badge', 'remove_location_country'],
+    });
+  });
+
+  it('still offers remove_location_country when the location group is not built', () => {
+    /*
+     * The coverage the synthetic-resolution change quietly removed. Before it, dropping
+     * `remove_location_country` from `EXTRA_KEYS_BY_PANEL.events` failed 2 tests; after, it
+     * survived at 3221 -- because the walk now finds the option in place under default
+     * config, so the extras entry looks redundant to any mutation run at that config.
+     *
+     * It is not redundant. The location group only builds `location_country_mode` when
+     * `show_location` is on, so with locations OFF the walk never sees it at any name and
+     * the extras entry is the only path. That is a real configuration: locations off in the
+     * shared config, wanted back in one view.
+     */
+    const panel = PANELS.find((entry) => entry.id === 'events')!;
+    const offered = (showLocation: boolean) =>
+      eligibleFields(
+        panel.build({
+          view: 'column',
+          config: buildConfig({
+            view: 'column',
+            show_location: showLocation,
+          } as unknown as Partial<Types.Config>),
+          language: 'en',
+        }),
+        'events',
+        'en',
+      ).map((field) => field.name);
+
+    // The control: it is offered with locations ON, so the OFF case is testing the extras
+    // path rather than an option that was never offered at all.
+    expect(offered(true)).toContain('remove_location_country');
+    expect(offered(false)).toContain('remove_location_country');
+  });
+
+  it('offers a union-typed option where its panel renders it, not at the end', () => {
+    /*
+     * `eligibleFields` documents itself as returning "one field per eligible option, in the
+     * order the panel renders them", and for these it did not. A union-typed option renders
+     * under its SYNTHETIC name, which is not a `COLUMN_OVERRIDE_KEYS` member, so the schema
+     * walk skipped it and it arrived later from `EXTRA_KEYS_BY_PANEL` -- at the end.
+     *
+     * The visible cost was the badge pair: `allday_badge_style` is a real key found in place
+     * and `allday_badge` is not, so the picker offered the STYLE at index 5 and the POSITION
+     * it depends on at index 22, seventeen entries later, with nothing saying the style is
+     * inert while the position is off. Measured after the fix: 5 and 6.
+     *
+     * Asserted as adjacency and order rather than as fixed indices, which would break on any
+     * unrelated field being added to the panel.
+     */
+    const config = buildConfig({
+      view: 'column',
+      allday_badge: 'time',
+    } as unknown as Partial<Types.Config>);
+    const panel = PANELS.find((entry) => entry.id === 'events')!;
+    const names = eligibleFields(
+      panel.build({ view: 'column', config, language: 'en' }),
+      'events',
+      'en',
+    ).map((field) => field.name);
+
+    const position = names.indexOf('allday_badge');
+    const style = names.indexOf('allday_badge_style');
+
+    // The control: both have to be offered at all for their order to mean anything.
+    expect(position, 'allday_badge offered').toBeGreaterThanOrEqual(0);
+    expect(style, 'allday_badge_style offered').toBeGreaterThanOrEqual(0);
+
+    expect(style - position).toBe(1);
+  });
+
+  /*
+   * The reconciliation this block did not have, and the defect it did not catch.
+   *
+   * `UNION_OVERRIDES` projects each union-typed option through a SYNTHETIC field, named by
+   * its `mode`. Naming one that does not exist does not throw and does not fail a type check:
+   * `overrideFormData` deletes every key in the table from the data, and `deriveOverrideData`
+   * refills it from `SYNTHETIC_FIELDS` and simply finds nothing. The control renders BLANK --
+   * showing neither the value stored in the block nor the card-level one it inherits, which
+   * is the entire job of that widget.
+   *
+   * `allday_badge_style` shipped that way on this branch: a plain closed-set string with no
+   * second shape and therefore no synthetic, registered here anyway. Stored `'outline'`
+   * derived to `undefined`. Nothing caught it -- the table was module-local so no test could
+   * walk it, and the cases below hardcode the options that existed when they were written.
+   *
+   * Reconciled against `SYNTHETIC_FIELDS` rather than against a second list, so the next
+   * entry is covered whether or not anyone remembers this.
+   */
+  it('names a real synthetic field for every union-typed option', () => {
+    const synthetics = new Set(Object.keys(Synthetic.SYNTHETIC_FIELDS));
+    const missing = Object.entries(Overrides.UNION_OVERRIDES)
+      .filter(([, override]) => !synthetics.has(override.mode))
+      .map(([key, override]) => `${key} -> ${override.mode}`);
+
+    expect(missing).toEqual([]);
+  });
+
+  it('shows a plain-string exception its stored value rather than a blank', () => {
+    // The symptom the reconciliation above prevents, asserted directly so a reader sees what
+    // "blank" meant. `allday_badge_style` is not union-typed and needs no entry at all.
+    expect(
+      Overrides.overrideFormData({ allday_badge_style: 'outline' }, ['allday_badge_style'])
+        .allday_badge_style,
+    ).toBe('outline');
+  });
+
   /** The eligible exception fields of one panel, for a configuration. */
   function eligibleFor(panelId: string, config: Types.Config) {
     const panel = PANELS.find((entry) => entry.id === panelId)!;
@@ -3908,9 +4431,11 @@ describe('editor: exceptions for the union-typed options', () => {
   });
 
   /**
-   * The same hold the card-level control uses, and needed for the same reason: an
-   * unrecognised string classifies as a plain dot, so committing `star.pn` on the way to
-   * `star.png` would switch the shape, take this very field away and store the fragment.
+   * The same hold the card-level control uses, and needed for the same reason — but since
+   * #573 only for the values that would actually move the style. A word-shaped partial
+   * classifies as text and keeps the shape on Custom, so it commits and the field stands;
+   * an `mdi:` partial would switch the shape to Icon and take this very field away, so it
+   * is held until the user finishes.
    */
   it('holds a half-typed value instead of reclassifying the shape under the cursor', () => {
     const config = columnConfig({ column: { today_indicator: '⭐' } as Types.ColumnOverrides });
@@ -3918,7 +4443,7 @@ describe('editor: exceptions for the union-typed options', () => {
     let pending: Record<string, string> = {};
     let current = config;
 
-    for (const partial of ['s', 'st', 'star', 'star.pn']) {
+    for (const partial of ['mdi:c', 'mdi:cal', 'mdi:calendar']) {
       const applied = change(
         current,
         ['today_indicator'],
@@ -4058,7 +4583,14 @@ describe('editor: exceptions for the union-typed options', () => {
  * A panel only offers what the configuration in front of it calls for, so the weather
  * and column dropdowns exist only once those features are configured.
  *
- * @returns Each dropdown's field name mapped to the values it offers
+ * Sub-forms are walked too, and their fields are keyed by path — `entity.days_of_week`
+ * rather than `days_of_week`. Without the prefix a per-calendar dropdown would overwrite
+ * the card-level one of the same name, silently swapping which surface each case below
+ * asserts about; `event_type` exists on both, and the per-calendar copy carries an extra
+ * `inherit`. Sub-forms went unwalked entirely until a per-calendar-only option needed
+ * checking, so `event_type` was passing on its card-level dropdown alone.
+ *
+ * @returns Each dropdown's field name, path-qualified for sub-forms, mapped to its values
  */
 function editorOptions(): Map<string, string[]> {
   const configs = [
@@ -4069,20 +4601,30 @@ function editorOptions(): Map<string, string[]> {
   ] as Types.Config[];
 
   const found = new Map<string, string[]>();
-  for (const config of configs) {
-    for (const panel of PANELS) {
-      const schema = panel.build({ view: config.view, config, language: 'en' });
-      for (const { node } of walkSchema(schema)) {
-        const options = (node as { selector?: { select?: { options?: unknown[] } } }).selector
-          ?.select?.options;
-        if (!node.name || !options) continue;
 
-        found.set(
-          node.name,
-          options.map((option) =>
-            typeof option === 'string' ? option : (option as SelectOption).value,
-          ),
-        );
+  const collect = (schema: ReadonlyArray<HaFormSchema>, prefix: string) => {
+    for (const { node } of walkSchema(schema)) {
+      const options = (node as { selector?: { select?: { options?: unknown[] } } }).selector?.select
+        ?.options;
+      if (!node.name || !options) continue;
+
+      found.set(
+        prefix + node.name,
+        options.map((option) =>
+          typeof option === 'string' ? option : (option as SelectOption).value,
+        ),
+      );
+    }
+  };
+
+  for (const config of configs) {
+    const ctx = { view: config.view, config, language: 'en' };
+
+    for (const panel of PANELS) {
+      collect(panel.build(ctx), '');
+
+      for (const subform of panel.subforms?.(ctx) ?? []) {
+        collect(subform.schema, `${subform.path.join('.')}.`);
       }
     }
   }
@@ -4102,6 +4644,24 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     show_week_numbers: { field: 'week_number_mode', editorOnly: ['none'] },
     position: { field: 'position' },
     min_days_fallback: { field: 'min_days_fallback' },
+    // Card-level and per-calendar share the field name. The per-calendar dropdown adds
+    // `inherit`, which is the absent key rather than a mode of its own, so the card-level
+    // control is the one whose vocabulary must match the union exactly.
+    event_type: { field: 'event_type' },
+    // Per-calendar only, so the only dropdown of this name is the one carrying `inherit`.
+    // Unlike `event_type` there is no card-level control to compare against, and unlike
+    // `event_type` the union has no `all`: absent *is* every day, and `inherit` is how a
+    // dropdown spells absent — the same accommodation `show_week_numbers` needs for `null`.
+    days_of_week: { field: 'entity.days_of_week', editorOnly: ['inherit'] },
+    // Per-calendar only as well, and the one enumerated option with **no** editor-only
+    // value at all: its absent state is a named field rather than an unfiltered one, so
+    // `title` stands for it and the dropdown is exactly the union. That is the whole
+    // difference from `days_of_week` directly above.
+    filter_field: { field: 'entity.filter_field' },
+    // The same shape as `filter_field` and for the same reason — its absent state is the
+    // title, a named field rather than an unfiltered one — so it too has no editor-only
+    // value and its dropdown is exactly the union.
+    replace_field: { field: 'entity.replace_field' },
   };
 
   /**
@@ -4193,6 +4753,53 @@ describe('editor: every enumerated synthetic option is selectable', () => {
     return applyFormChange(config, before, { ...before, [field]: value }, pending);
   }
 
+  /**
+   * 🚨 `syntheticDropdowns()` discovers from the DEFAULT schema, so a dropdown behind a gate
+   * is invisible to it and to every transition test built from it. `allday_badge_color_mode`
+   * is behind two — the badge has to be on before it is built at all — so it is discovered
+   * nowhere, and the list below is right to omit it rather than something to add it to.
+   *
+   * That is a real hole and not a technicality: this mode has the same shape as
+   * `accent_color_mode`, where a store that stopped round-tripping wrote the mode's own name
+   * into the user's YAML. Covered explicitly here, both directions, so the gate exists even
+   * though the discovery cannot reach it.
+   */
+  it('round-trips the badge colour mode, which no discovery reaches', () => {
+    const on = { ...DEFAULT_CONFIG, allday_badge: 'time' } as Types.Config;
+
+    // The keywords store themselves.
+    for (const mode of ['accent', 'text'] as const) {
+      const moved = pick(on, {}, 'allday_badge_color_mode', mode);
+      expect(moved.config.allday_badge_color, mode).toBe(mode);
+      expect(deriveSyntheticData(moved.config, moved.pending).allday_badge_color_mode).toBe(mode);
+    }
+
+    // `custom` has no spelling of its own -- it means "the stored value is a colour" -- so it
+    // must seed one rather than write its own name, which is the exact failure the sibling
+    // mode shipped once.
+    const custom = pick(on, {}, 'allday_badge_color_mode', 'custom');
+    expect(custom.config.allday_badge_color).not.toBe('custom');
+    expect(deriveSyntheticData(custom.config, custom.pending).allday_badge_color_mode).toBe(
+      'custom',
+    );
+
+    // A colour already stored is kept when `custom` is re-entered from `custom` -- which is
+    // what the carry in `apply` is for -- but it does NOT survive a trip through a keyword,
+    // and that is structural rather than a choice. One key holds either a keyword or a
+    // colour, so storing `accent` is what overwrites it; there is nowhere left for the old
+    // value to be. `accent_color_mode` loses its colour to the Home Assistant sentinel in
+    // exactly the same way. Pinned so the loss is a documented contract rather than a
+    // surprise somebody later "fixes" by writing the mode's own name into the key.
+    const chosen = { ...on, allday_badge_color: '#b5651d' } as Types.Config;
+    expect(pick(chosen, {}, 'allday_badge_color_mode', 'custom').config.allday_badge_color).toBe(
+      '#b5651d',
+    );
+
+    const away = pick(chosen, {}, 'allday_badge_color_mode', 'accent');
+    const back = pick(away.config, away.pending, 'allday_badge_color_mode', 'custom');
+    expect(back.config.allday_badge_color).toBe(DEFAULT_CONFIG.accent_color);
+  });
+
   it('pins which dropdowns store through a synthetic field', () => {
     // Discovered rather than listed, so a new synthetic dropdown is covered below the
     // moment it is added instead of being silently skipped.
@@ -4201,6 +4808,8 @@ describe('editor: every enumerated synthetic option is selectable', () => {
         .map(([name]) => name)
         .sort(),
     ).toEqual([
+      'accent_color_mode',
+      'allday_badge_position',
       'height_mode',
       'language_mode',
       'location_country_mode',

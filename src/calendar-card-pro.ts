@@ -35,6 +35,7 @@ import * as Render from './rendering/render';
 import * as Styles from './rendering/styles';
 import * as Localize from './translations/localize';
 import { editorModuleUrl } from './utils/editor-url';
+import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
 import * as FormatUtils from './utils/format';
 import * as Helpers from './utils/helpers';
@@ -424,6 +425,8 @@ class CalendarCardPro extends LitElement {
 
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
 
+    this._syncEntityColors();
+
     this._startWidthObserver();
   }
 
@@ -460,6 +463,8 @@ class CalendarCardPro extends LitElement {
     }
 
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
+
+    EntityColors.releaseEntityColors(this._onEntityColorsChanged);
 
     Logger.debug('Component disconnected');
   }
@@ -584,6 +589,8 @@ class CalendarCardPro extends LitElement {
       );
     }
 
+    this._syncEntityColors();
+
     if (changedProps.has('hass') || changedProps.has('config')) {
       this._updateTitleSubscription();
     }
@@ -679,6 +686,48 @@ class CalendarCardPro extends LitElement {
       }
     }
   };
+
+  /**
+   * Repaint when a calendar's color changes in Home Assistant.
+   *
+   * A stable field rather than an inline arrow, so registering is idempotent and
+   * `disconnectedCallback` can deregister the same function it added.
+   */
+  private _onEntityColorsChanged = () => {
+    this.requestUpdate();
+  };
+
+  /**
+   * Hold a registry-color subscription for exactly as long as the config asks for one.
+   *
+   * Called from `connectedCallback` as well as `updated()`, because `disconnectedCallback`
+   * releases and Lit requests no update on reconnect — so a card that came back without a
+   * reactive property changing would stay deregistered. It re-registered in practice only
+   * because `updateEvents()` happens to flip `isLoading` on its way through, which is
+   * incidental rather than designed and does not happen when that method returns early.
+   * Every other subscription in this file is acquired in `connectedCallback`; this one now
+   * matches its neighbours.
+   *
+   * 🚨 The `isConnected` guard is what stops the `updated()` call site undoing
+   * `disconnectedCallback`. Lit does not cancel an update scheduled before the element
+   * left the document, so `updated()` runs for a card that is already detached — and
+   * re-acquiring there puts a detached card back into the listener set and re-opens the
+   * websocket subscription that `disconnectedCallback` had just closed. Nothing releases
+   * it a second time, because that card's `disconnectedCallback` has already run. This is
+   * the same leak the teardown exists to prevent, reached from the other side, and the
+   * shape is invisible to a test that removes a card with no update in flight.
+   */
+  private _syncEntityColors(): void {
+    if (!this.isConnected) {
+      return;
+    }
+
+    if (EntityColors.usesEntityColor(this.config)) {
+      EntityColors.ensureEntityColors(this.hass, this._onEntityColorsChanged);
+    } else {
+      EntityColors.releaseEntityColors(this._onEntityColorsChanged);
+    }
+  }
 
   /**
    * Start the refresh timer

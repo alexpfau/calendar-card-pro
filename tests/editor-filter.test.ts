@@ -13,6 +13,7 @@ import {
   SEARCH_FIELD,
   filterEntitySchema,
   filterSchema,
+  hasFields,
   isCustomized,
   isFiltering,
   matchesPanel,
@@ -22,7 +23,9 @@ import {
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildEntitySchema, entitySchemaFor } from '../src/rendering/editor/schemas/entity';
+import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { CHASSIS_STRINGS, chassisSubforms } from '../src/rendering/editor/subforms';
+import { ENTITY_COLOR_SENTINEL } from '../src/utils/entity-colors';
 
 /**
  * Tests for the editor's search and "customized only" filter.
@@ -54,9 +57,24 @@ function ctxFor(config: Types.Config, criteria: Partial<FilterCriteria> = {}): F
 }
 
 /** Every field a filtered schema would render, groups excluded. */
+/**
+ * Every setting a schema renders, headings excluded.
+ *
+ * A `constant` node is a section label, not a setting, so it is not a "field" for the
+ * purposes of these assertions — every test here is about which *options* survive the
+ * filter. Heading behaviour has its own test below, so excluding them here narrows what
+ * each assertion is about rather than hiding anything.
+ */
 function fieldNames(schema: ReadonlyArray<HaFormSchema>): string[] {
   return [...walkSchema(schema)]
-    .filter(({ node }) => !('schema' in node))
+    .filter(({ node }) => !('schema' in node) && !('type' in node && node.type === 'constant'))
+    .map(({ node }) => node.name);
+}
+
+/** Section headings a schema renders, in order. */
+function headingNames(schema: ReadonlyArray<HaFormSchema>): string[] {
+  return [...walkSchema(schema)]
+    .filter(({ node }) => 'type' in node && node.type === 'constant')
     .map(({ node }) => node.name);
 }
 
@@ -402,6 +420,10 @@ describe('editor filter: the per-calendar settings', () => {
    * The label's shape dropdown is derived from the label's value and stores nothing of
    * its own. Asked in its own name, "customized only" would therefore hide it while
    * leaving the label it names on screen — a control with no way back to *None*.
+   *
+   * `label_icon_source` is derived from that same value and rides along for the same
+   * reason: hidden, a calendar following Home Assistant would keep an icon it had no
+   * control to stop following.
    */
   it('keeps the label shape dropdown wherever it keeps the label', () => {
     const config = buildConfig({
@@ -415,7 +437,7 @@ describe('editor filter: the per-calendar settings', () => {
       ENTITY_PATH,
       ctx,
     );
-    expect(fieldNames(configured)).toEqual(['label_type', 'label']);
+    expect(fieldNames(configured)).toEqual(['label_type', 'label_icon_source', 'label']);
 
     // A calendar with no label of its own keeps neither, so its panel drops out whole.
     const untouched = filterEntitySchema(
@@ -425,6 +447,86 @@ describe('editor filter: the per-calendar settings', () => {
       ctx,
     );
     expect(fieldNames(untouched)).toEqual([]);
+  });
+
+  /**
+   * The accent mode is the same contract as `label_icon_source` one field over, and it was
+   * missed. Both halves matter and they fail differently.
+   *
+   * Following Home Assistant, `entitySchemaFor` drops `accent_color` — so the mode dropdown
+   * is the *only* accent control left, and hiding it left the calendar with nothing at all.
+   * `hasFields` then answered false and the chassis dropped the whole panel: a calendar the
+   * user had configured disappeared from the filter that promises to show exactly that.
+   *
+   * With a custom colour the panel survives, but the colour field arrives with no control
+   * saying where it comes from and no way back to following the card.
+   */
+  it('keeps the accent mode dropdown wherever the calendar has set an accent color', () => {
+    const following = buildConfig({
+      entities: [{ entity: 'calendar.a', accent_color: ENTITY_COLOR_SENTINEL }],
+    });
+    const custom = buildConfig({ entities: [{ entity: 'calendar.a', accent_color: '#ff0000' }] });
+    const untouched = buildConfig({ entities: ['calendar.a'] });
+
+    const kept = (config: Types.Config, mode: string): string[] =>
+      fieldNames(
+        filterEntitySchema(
+          entitySchemaFor(entitySchema(config), 'none', mode),
+          config.entities[0],
+          ENTITY_PATH,
+          ctxFor(config, { customizedOnly: true }),
+        ),
+      );
+
+    expect(kept(following, 'home_assistant')).toEqual(['accent_color_mode']);
+    expect(kept(custom, 'custom')).toEqual(['accent_color_mode', 'accent_color']);
+
+    // The control still stores nothing of its own, so a calendar that has set no colour
+    // keeps neither and its panel drops out whole — as it did before.
+    expect(kept(untouched, 'inherit')).toEqual([]);
+  });
+
+  /**
+   * The three rules a heading has to satisfy, checked against the section added last.
+   *
+   * "Text Replacement" is the one heading whose words appear in no field under it — the
+   * fields are *Replace In*, *Find* and *Replace With*, and none of their helpers says
+   * "replacement". That makes it the sharpest test of rule one: searching for it must not
+   * return the heading captioning an empty section, which is precisely what
+   * `pruneLoneHeadings` exists to stop and what a heading is incapable of doing honestly.
+   *
+   * `hasFields` is the third rule and the one with teeth, because the chassis calls it to
+   * decide whether to render a calendar's panel at all.
+   */
+  it('never returns a heading as a search hit of its own', () => {
+    const config = buildConfig({ entities: ['calendar.a'] });
+    const schema = entitySchema(config);
+
+    // The premise: the word is in the heading and in nothing beneath it.
+    const headingOnly = 'replacement';
+    expect(EDITOR_STRINGS.heading_replace.toLowerCase()).toContain(headingOnly);
+
+    const kept = filterEntitySchema(
+      schema,
+      config.entities[0],
+      ENTITY_PATH,
+      ctxFor(config, { query: headingOnly }),
+    );
+
+    expect(fieldNames(kept)).toEqual([]);
+    expect(kept).toEqual([]);
+    expect(hasFields(kept)).toBe(false);
+
+    // The denominator: a word that *is* under a heading still comes back, so the empty
+    // result above is the rule working rather than the search finding nothing ever.
+    const found = filterEntitySchema(
+      schema,
+      config.entities[0],
+      ENTITY_PATH,
+      ctxFor(config, { query: 'replace' }),
+    );
+    expect(fieldNames(found)).toEqual(['replace_field', 'replace_pattern', 'replace_with']);
+    expect(hasFields(found)).toBe(true);
   });
 
   it('finds the label shape by searching for the label', () => {
@@ -672,5 +774,263 @@ describe('editor filter: the chassis', () => {
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]).toEqual({ entities: ['calendar.a'], days_to_show: 10 });
+  });
+});
+
+/**
+ * Section headings under the filter.
+ *
+ * A heading is a claim about the fields beneath it, which makes it the one node type that
+ * can be actively misleading when the filter runs. Two failure modes, and neither is
+ * visible to a test that only counts fields:
+ *
+ *  - A heading matching the *query* on its own text. "When There Is Nothing To Show"
+ *    contains "nothing", so searching that word would return the heading alone, captioning
+ *    an empty section.
+ *  - A heading whose fields were all filtered out, left stranded above whatever section
+ *    happens to follow — so it silently relabels someone else's options.
+ *
+ * Both are prevented the same way: headings never match, they ride along with their
+ * section, and one whose section came back empty is pruned.
+ */
+describe('editor filter: section headings', () => {
+  const entitySchema = () =>
+    buildEntitySchema({ view: 'list' as const, config: buildConfig(), language: 'en' });
+
+  it('renders its headings when nothing is filtered (denominator)', () => {
+    // Without this, every assertion below could pass against a schema that has no
+    // headings at all.
+    expect(headingNames(entitySchema())).toEqual([
+      'heading_appearance',
+      'heading_filters',
+      'heading_replace',
+      'heading_multiday',
+      'heading_details',
+    ]);
+  });
+
+  it('never returns a heading as a search hit of its own', () => {
+    // Isolated deliberately. The real content group cannot express this case: searching
+    // "nothing" *does* legitimately return `heading_nothing`, because `hide_when_empty`'s
+    // helper reads "...while it has nothing to show" and so matches too — the heading is
+    // then correctly kept for the field beneath it. A hand-built schema is the only way to
+    // present a heading whose text matches while nothing under it does.
+    const schema: HaFormSchema[] = [
+      { name: 'heading_nothing', type: 'constant' },
+      { name: 'days_to_show', selector: { number: { min: 1 } } },
+    ];
+
+    const ctx = ctxFor(buildConfig(), { query: 'nothing' });
+
+    // The denominator: the heading's own text really does contain the query, so a filter
+    // that matched on it would keep it.
+    expect(matchesQuery(schema[0], [], ctx)).toBe(true);
+    expect(matchesQuery(schema[1], [], ctx)).toBe(false);
+
+    expect(filterSchema(schema, ctx)).toEqual([]);
+  });
+
+  it('keeps a heading when a field under it matches, even if the heading does not', () => {
+    // The other direction, and the common one: the heading is not itself a hit but must
+    // survive to caption the field that is.
+    const schema: HaFormSchema[] = [
+      { name: 'heading_filters', type: 'constant' },
+      { name: 'days_to_show', selector: { number: { min: 1 } } },
+    ];
+
+    const ctx = ctxFor(buildConfig(), { query: 'days to show' });
+
+    expect(matchesQuery(schema[0], [], ctx)).toBe(false);
+    expect(fieldNames(filterSchema(schema, ctx))).toEqual(['days_to_show']);
+    expect(headingNames(filterSchema(schema, ctx))).toEqual(['heading_filters']);
+  });
+
+  it('keeps a heading whose section still has an option, and drops the rest', () => {
+    // "colour" reaches the appearance fields and nothing else, so exactly one heading
+    // should survive — the one that still has something under it.
+    const entry = { entity: 'calendar.a' };
+    const ctx = ctxFor(buildConfig({ entities: [entry] }), { query: 'accent' });
+    const filtered = filterEntitySchema(entitySchema(), entry, ['entity'], ctx);
+
+    expect(fieldNames(filtered).length).toBeGreaterThan(0);
+    expect(headingNames(filtered)).toEqual(['heading_appearance']);
+  });
+
+  it('does not count a heading as a field when deciding a panel is empty', () => {
+    // `hasFields` gates whether a panel renders at all. Counting a heading as content
+    // would show a panel containing nothing but section labels.
+    expect(hasFields([{ name: 'heading_filters', type: 'constant' }])).toBe(false);
+    expect(
+      hasFields([
+        { name: 'heading_filters', type: 'constant' },
+        { name: 'days_to_show', selector: { number: { min: 1 } } },
+      ]),
+    ).toBe(true);
+  });
+});
+
+/**
+ * The field and heading order of the two panels, pinned.
+ *
+ * Order was incidental until this change and nothing asserted it: reordering both panels
+ * passed the entire suite. It is now *designed* — the two panels share a spine, which
+ * users see and which the source comments explain — so it needs a gate, or the next
+ * refactor silently undoes the thing the reorder was for.
+ *
+ * Pinned by value, in full, rather than by walking. A test that iterates the schema and
+ * checks something about each node cannot notice a node leaving, and cannot see order at
+ * all; `toEqual` on the whole sequence fails on a move, a drop and an unexplained
+ * addition alike.
+ */
+describe('editor: the order of the two panels', () => {
+  const entitySchema = () =>
+    buildEntitySchema({ view: 'list' as const, config: buildConfig(), language: 'en' });
+
+  const contentSchema = () =>
+    PANELS.find((p) => p.id === 'content')!.build({
+      view: 'list',
+      config: buildConfig({ show_empty_days: true }),
+      language: 'en',
+    });
+
+  /** Headings and fields together, in render order, so a field crossing a heading fails. */
+  const sequence = (schema: ReadonlyArray<HaFormSchema>): string[] =>
+    [...walkSchema(schema)]
+      .filter(({ node }) => !('schema' in node))
+      .map(({ node }) =>
+        'type' in node && node.type === 'constant' ? `# ${node.name}` : node.name,
+      );
+
+  it('pins the per-calendar panel', () => {
+    expect(sequence(entitySchema())).toEqual([
+      '# heading_appearance',
+      'label_type',
+      'label_icon_source',
+      'label_image_source',
+      'label',
+      'label_icon_color',
+      'color',
+      'accent_color_mode',
+      'accent_color',
+      '# heading_filters',
+      'days_of_week',
+      'event_type',
+      'allday_expires_at',
+      'filter_field',
+      'blocklist',
+      'allowlist',
+      'compact_events_to_show',
+      '# heading_replace',
+      'replace_field',
+      'replace_pattern',
+      'replace_with',
+      '# heading_multiday',
+      'split_multiday_events',
+      '# heading_details',
+      'show_time',
+      'show_location',
+      'location_icon',
+      'show_description',
+    ]);
+  });
+
+  it('pins the card-level content group', () => {
+    // Sequenced from the group's own schema, not sliced out of the panel: a slice to the
+    // end swept in the locale group that follows.
+    const group = [...walkSchema(contentSchema())].find(
+      ({ node }) => 'schema' in node && node.name === 'content',
+    );
+
+    expect(group, 'the content group is gone').toBeDefined();
+
+    expect(sequence((group!.node as { schema: ReadonlyArray<HaFormSchema> }).schema)).toEqual([
+      '# heading_filters',
+      'event_type',
+      'show_past_events',
+      'filter_duplicates',
+      '# heading_multiday',
+      'split_multiday_events',
+      '# heading_nothing',
+      'show_empty_days',
+      'empty_day_text',
+      'empty_day_color',
+      'hide_when_empty',
+    ]);
+  });
+
+  /**
+   * The requirement itself, stated once rather than inferred from the two lists above.
+   *
+   * Those pin each panel independently, so a change that reordered *both* consistently
+   * wrongly would fail them — but a change that reordered only one would fail only one,
+   * and the diff would not say which of the two is now the odd one out. This says what
+   * the invariant is.
+   */
+  it('orders every shared category the same way in both panels', () => {
+    const headingsOf = (schema: ReadonlyArray<HaFormSchema>) =>
+      [...walkSchema(schema)]
+        .filter(({ node }) => 'type' in node && node.type === 'constant')
+        .map(({ node }) => node.name);
+
+    const entity = headingsOf(entitySchema());
+    const content = headingsOf(contentSchema());
+    const shared = entity.filter((name) => content.includes(name));
+
+    // The denominator. With no shared categories the agreement below is vacuous, and it
+    // would go vacuous silently if a heading were renamed on one side only.
+    expect(shared).toEqual(['heading_filters', 'heading_multiday']);
+
+    expect(content.filter((name) => shared.includes(name))).toEqual(shared);
+
+    /**
+     * The options a panel lists under one heading, in render order.
+     *
+     * @param schema - Panel or group schema
+     * @param name - Heading key to read under
+     * @returns The option names between that heading and the next one
+     */
+    const optionsUnder = (schema: ReadonlyArray<HaFormSchema>, name: string) => {
+      const seq = sequence(schema);
+      const from = seq.indexOf(`# ${name}`) + 1;
+      const rest = seq.slice(from);
+      const until = rest.findIndex((entry) => entry.startsWith('# '));
+
+      return (until === -1 ? rest : rest.slice(0, until)).filter(Boolean);
+    };
+
+    // What the two panels put under `heading_filters`, pinned by value so a key joining or
+    // leaving either side is a deliberate edit rather than a silently smaller comparison.
+    const entityFilters = optionsUnder(entitySchema(), 'heading_filters');
+    const contentFilters = optionsUnder(contentSchema(), 'heading_filters');
+
+    expect(entityFilters).toEqual([
+      'days_of_week',
+      'event_type',
+      'allday_expires_at',
+      'filter_field',
+      'blocklist',
+      'allowlist',
+      'compact_events_to_show',
+    ]);
+    expect(contentFilters).toEqual(['event_type', 'show_past_events', 'filter_duplicates']);
+
+    /**
+     * The invariant, stated over the options the two panels actually share.
+     *
+     * This replaces a "both panels start `heading_filters` with the same key" assertion,
+     * which was a **proxy** that held only while `event_type` was the sole shared option
+     * and every other key sat after it. The per-calendar panel now opens with
+     * `days_of_week`, which is per-calendar only — there is no card-level counterpart to
+     * disagree with — so the proxy went false without anything being wrong. Relative order
+     * over the intersection is the property that was actually meant.
+     *
+     * At one shared option this is trivially satisfied, which is why the set is pinned
+     * above: the assertion becomes real the moment a second key is shared, and cannot go
+     * quietly vacuous by one panel dropping a key in the meantime.
+     */
+    const sharedFilters = entityFilters.filter((name) => contentFilters.includes(name));
+
+    expect(sharedFilters).toEqual(['event_type']);
+    expect(contentFilters.filter((name) => sharedFilters.includes(name))).toEqual(sharedFilters);
   });
 });

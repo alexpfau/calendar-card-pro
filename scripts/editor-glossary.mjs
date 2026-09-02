@@ -32,6 +32,34 @@ export const NOUN_CAPS_LANGUAGES = ['de'];
  */
 export const GLOSSARY_TERMS = [
   {
+    // Added after German drifted between two nouns for one thing inside a single helper --
+    // labelled `Ganztags-Badge`, described as `eine abgerundete Pille`, then back to `das
+    // Badge` in the next string. `Pille` is a medicine tablet in German and carries none of
+    // English "pill"'s UI sense, so the helper read as "highlights all-day events with a
+    // rounded tablet". Nothing could catch it: this file had no entry for the term, and
+    // `check:i18n` scores coverage, not meaning -- German was at full coverage throughout.
+    //
+    // Every language that translates the editor already had ONE settled noun; they are
+    // recorded here so the next one does not have to re-decide, and so a second spelling
+    // inside one language fails instead of shipping.
+    name: 'badge',
+    sense: 'the rounded pill drawn around an all-day event label or title',
+    decided: {
+      de: 'Badge',
+      et: 'märk',
+      it: 'badge',
+      lt: 'ženklelis',
+      lv: 'nozīmīte',
+      nb: 'merke',
+      pl: 'odznaka',
+      sk: 'odznak',
+      sv: 'märke',
+    },
+    // A rejected form matches at a word start, so this catches `Pille`, `Pillen` and
+    // `Titel-Pille` alike.
+    rejected: { de: ['Pille'] },
+  },
+  {
     name: 'time',
     sense: 'the clock time printed on an event row',
     decided: {
@@ -197,6 +225,35 @@ export const GLOSSARY_TERMS = [
       sv: 'Heldag',
     },
     rejected: {},
+  },
+  {
+    name: 'multi-day',
+    sense: 'an event spanning more than one day',
+    decided: {
+      de: 'Mehrtägig',
+      et: 'Mitmepäevane',
+      it: 'Su più giorni',
+      lt: 'Kelių dienų',
+      lv: 'Vairāku dienu',
+      nb: 'Flerdags',
+      pl: 'Wielodniowe',
+      sk: 'Viacdňové',
+      sv: 'Flerdags',
+    },
+    // Both of these were in the tree and both were turned down, so neither is a guess. The
+    // heading and the option beneath it are the two strings this term governs that a user
+    // reads *stacked*, which is what made the drift visible: Slovak had `Viacdňové
+    // udalosti` captioning `Rozdeliť niekoľkodňové udalosti`, and Italian `Eventi su più
+    // giorni` captioning `Dividi eventi multi‑giorno`. Two words for one concept, one line
+    // apart, in a section whose whole job is to name that concept.
+    //
+    // The Italian form carried a non-breaking hyphen (U+2011); the plain-hyphen and
+    // unhyphenated spellings are listed too, because the next person to reach for the
+    // calque will not reach for that character.
+    rejected: {
+      it: ['Multi\u2011giorno', 'Multi-giorno', 'Multigiorno'],
+      sk: ['Niekoľkodňov'],
+    },
   },
   {
     name: 'today',
@@ -710,12 +767,41 @@ export const GLOSSARY_TERMS = [
       sk: 'Deň v týždni',
       sv: 'Veckodag',
     },
+    // 🚨 These are **stems, not words**, wherever a stem is safe. The matcher anchors at a
+    // word start and has no trailing boundary, so a rejected form catches inflections that
+    // *append* to it and misses any that change a character inside the stem — `darbdiena`
+    // never caught `darbdienās`, and `dzień powszedni` never caught `dni powszednie`. Of
+    // the five languages this term rejects, only Swedish was actually protected.
+    //
+    // The stems stop short of the adjective on purpose. A bare `pracovn` would catch every
+    // Slovak inflection and also `pracovný kalendár`, `pracovné stretnutie` and `pracovník`
+    // — all legitimate — and a rejected form is a build **error**, so over-matching fails
+    // CI on a correct translation. That is strictly worse than the gap it closes, which is
+    // why Polish carries one entry per case rather than a bare `powszedn`.
+    //
+    // For the same reason Slovak carries `pracovných dní` in full rather than shortening
+    // `pracovných dň` to `pracovných d`. The two Slovak plurals diverge before the stem
+    // ends — genitive `dní` has a plain `n`, locative `dňoch` has `ň` — so one stem cannot
+    // reach both, and the `d` that would has `pracovných dokumentov` behind it.
     rejected: {
-      sk: ['pracovný deň', 'pracovného dňa'],
-      it: ['giorno feriale'],
-      lv: ['darbdiena'],
+      // Slovak declines both words, and the plural obliques diverge from each other:
+      // `pracovných dní` is a plain `n` where `pracovných dňoch` is `ň`, so no single
+      // stem reaches both. Exact phrases rather than a shorter stem, because `pracovn`
+      // would also match `pracovný kalendár`, `pracovné stretnutie` and `pracovník` — all
+      // legitimate, and a rejected form is a build error.
+      sk: [
+        'pracovný deň',
+        'pracovného dňa',
+        'pracovné dni',
+        'pracovných dň',
+        'pracovných dní',
+        'pracovným dňom',
+        'pracovnými dňami',
+      ],
+      it: ['giorno ferial', 'giorni ferial'],
+      lv: ['darbdien'],
       sv: ['vardag'],
-      pl: ['dzień powszedni'],
+      pl: ['dzień powszedn', 'dnia powszedn', 'dniu powszedn', 'dni powszedn', 'dniach powszedn'],
     },
   },
 ];

@@ -97,8 +97,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.calendars': 'Calendars',
   'panel.calendars.helper': 'Which calendars the card shows, and how each one looks.',
   calendars: 'Calendars',
+  // "Entries" rather than "calendars": with Duplicate, the two entries carrying the same
+  // event are often two blocks of *one* calendar, and `deduplicateEvents` keeps whichever
+  // is listed first in `entities` either way. Naming calendars made the true case — the
+  // keyword-icon mapping, which is one calendar listed several times — read as impossible.
   'calendars.helper':
-    'Order matters, and can be dragged. When two calendars carry the same event and ' +
+    'Order matters, and can be dragged. When two entries carry the same event and ' +
     'duplicates are filtered, the copy from the one listed first is the one kept.',
 
   // --- Per-calendar settings ------------------------------------------------
@@ -108,8 +112,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // absent key means "follow the card", which no checkbox can say.
   'entity.customised': 'Configured',
   'entity.unconfigured': 'Using the card settings',
+  // Not "Copy 2 of 2": neither block is the copy once both exist, and which one was
+  // duplicated stops being interesting the moment their settings diverge. What the user
+  // needs is only which of the two panels they are looking at.
+  'entity.occurrence': 'Entry {position} of {total}',
   'entity.copy': 'Copy Settings',
   'entity.paste': 'Paste Settings',
+  'entity.duplicate': 'Duplicate',
+  'entity.remove': 'Remove',
 
   'entity.label_type': 'Label Type',
   'entity.label_type.helper':
@@ -119,6 +129,19 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label_type.option.text.label': 'Text or Emoji',
   'entity.label_type.option.icon.label': 'An Icon',
   'entity.label_type.option.image.label': 'An Image',
+  'entity.label_icon_source': 'Icon Source',
+  'entity.label_icon_source.helper':
+    'Home Assistant holds an icon for each calendar, under Settings, Devices & Services, ' +
+    'Entities. Following it keeps the two in step; calendars it has no icon for show no ' +
+    'label at all.',
+  'entity.label_icon_source.option.home_assistant.label': 'Follow Home Assistant',
+  'entity.label_icon_source.option.custom.label': 'Custom icon',
+  'entity.label_image_source': 'Image Source',
+  'entity.label_image_source.helper':
+    "A person's picture comes from Home Assistant, under Settings, People. Changing it " +
+    'there changes it here; people it holds no picture for show no label at all.',
+  'entity.label_image_source.option.custom.label': 'Custom image',
+  'entity.label_image_source.option.person.label': "A person's picture",
   'entity.label': 'Label',
   'entity.color': 'Event Color',
   'entity.color.helper': 'Event titles from this calendar. Overrides the card colour.',
@@ -126,6 +149,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.accent_color.helper':
     'The vertical line beside each event, and its background where the background ' +
     'opacity is above zero.',
+  'entity.accent_color_mode': 'Accent Color',
+  'entity.accent_color_mode.helper':
+    'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
+    'Services, Entities. Calendars it has no color for fall back to the card.',
+  'entity.accent_color_mode.option.inherit.label': 'Follow the card',
+  'entity.accent_color_mode.option.home_assistant.label': 'Follow Home Assistant',
+  'entity.accent_color_mode.option.custom.label': 'Custom color',
   'entity.label_icon_color': 'Label Icon Color',
   'entity.label_icon_color.helper': 'Left empty, the icon takes the text colour around it.',
 
@@ -137,15 +167,52 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.show_location.option.inherit.label': 'Follow the card',
   'entity.show_location.option.show.label': 'Always show',
   'entity.show_location.option.hide.label': 'Never show',
+  'entity.location_icon': 'Location Icon',
+  'entity.location_icon.helper':
+    'Icon shown beside this calendar\u2019s locations, in place of the map marker. Left ' +
+    'empty, Microsoft Teams meetings get the Teams icon and everything else the marker.',
   'entity.show_description': 'Event Descriptions',
   'entity.show_description.option.inherit.label': 'Follow the card',
   'entity.show_description.option.show.label': 'Always show',
   'entity.show_description.option.hide.label': 'Never show',
 
-  'entity.split_multiday_events': 'Multi-Day Events',
+  'entity.split_multiday_events': 'Split Across Days',
   'entity.split_multiday_events.option.inherit.label': 'Follow the card',
   'entity.split_multiday_events.option.split.label': 'Split across each day',
   'entity.split_multiday_events.option.whole.label': 'Keep as one event',
+
+  // --- Sub-headings ---------------------------------------------------------
+  //
+  // Rendered by `heading()` as `constant` nodes, which carry no value and no input. The
+  // same key serves both the card-level and per-calendar panels wherever they name the
+  // same category, so the two read with one vocabulary rather than two.
+  //
+  // Terse noun phrases, and deliberately so. The earlier set were sentence fragments —
+  // `Which Events Appear`, `What Each Event Shows` — which read well in isolation and
+  // collided the moment a section about what an event *says* was added beside one about
+  // what it *shows*. The collision is worse in translation than in English, because
+  // "appear" and "show" collapse to one verb in several of the nine translated languages.
+  //
+  // 🚨 `heading_multiday` names the same thing as the field beneath it once, which is why
+  // `entity.split_multiday_events` is `Split Across Days` rather than `Multi-Day Events`:
+  // a heading repeating its only field's label is the stutter `AGENTS.md` warns about, and
+  // it is invisible to a DOM probe. Renaming the field rather than the heading also moves
+  // the per-calendar label closer to the card-level `Split Multi-Day Events`.
+  heading_filters: 'Event Filtering',
+  heading_replace: 'Text Replacement',
+  heading_multiday: 'Multi-Day Events',
+  heading_nothing: 'Empty Days',
+  heading_appearance: 'Label & Colors',
+  heading_details: 'Event Details',
+
+  'entity.event_type': 'Event Type',
+  'entity.event_type.option.inherit.label': 'Follow the card',
+  'entity.event_type.option.all.label': 'All events',
+  'entity.event_type.option.timed.label': 'Only events with a time',
+  'entity.event_type.option.all_day.label': 'Only all-day events',
+  'entity.event_type.helper':
+    'List the same calendar twice \u2014 once on each of the last two \u2014 to give ' +
+    'its all-day and timed events different colors.',
 
   'entity.compact_events_to_show': 'Compact Events to Show',
   'entity.compact_events_to_show.helper':
@@ -153,12 +220,62 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'limit applies.',
   'entity.blocklist': 'Blocklist',
   'entity.blocklist.helper':
-    'Hide events whose title contains any of these terms, separated by | \u2014 for ' +
-    'example Private|Tentative.',
+    'Hide events where the field above contains any of these terms, separated by | ' +
+    '\u2014 for example Private|Tentative.',
   'entity.allowlist': 'Allowlist',
   'entity.allowlist.helper':
-    'Show only events whose title contains one of these terms, separated by | . Left ' +
-    'empty, every event is shown.',
+    'Show only events where the field above contains one of these terms, separated by ' +
+    '| . Left empty, every event is shown.',
+  'entity.filter_field': 'Match Against',
+  'entity.filter_field.option.title.label': 'Event title',
+  'entity.filter_field.option.location.label': 'Location',
+  'entity.filter_field.option.description.label': 'Description',
+  'entity.filter_field.helper':
+    'Which part of an event the two lists below read. One at a time \u2014 list the same ' +
+    'calendar twice to filter on a second.',
+  'entity.allday_expires_at': 'All-Day Events Expire At',
+  'entity.allday_expires_at.helper':
+    'Time of day this calendar\u2019s all-day events stop counting as upcoming, on the ' +
+    'last day they cover. Left empty they last until midnight. Only applies while past ' +
+    'events are hidden, and takes effect on the card\u2019s next refresh rather than on ' +
+    'the minute.',
+  'entity.days_of_week': 'Days of the Week',
+  'entity.days_of_week.option.inherit.label': 'Every day',
+  'entity.days_of_week.option.weekdays.label': 'Monday to Friday only',
+  'entity.days_of_week.option.weekends.label': 'Saturday and Sunday only',
+  'entity.days_of_week.helper':
+    'Which days this calendar may put events on. A multi-day event keeps only the days ' +
+    'that qualify, so a holiday running through a weekend still shows on the weekdays ' +
+    'around it.',
+
+  // --- Text replacement -----------------------------------------------------
+  //
+  // Find/replace wording rather than pattern wording, because that is the vocabulary every
+  // user already has. The regular expression is named in the helper for the people who
+  // want one; nobody has to know the word to strip a prefix off a birthday.
+  //
+  // 🚨 Both text fields say what happens when they are left **empty**, and those two
+  // sentences are the whole feature rather than politeness. Empty `Find` replaces the whole
+  // field; empty `Replace With` deletes the match. The editor cannot store an empty string
+  // — `isSet` in `synthetic.ts` rejects it — so an absent value is the only way either
+  // instruction can be given, and a helper that did not say so would leave both unreachable
+  // in practice.
+  'entity.replace_field': 'Replace In',
+  'entity.replace_field.option.title.label': 'Event title',
+  'entity.replace_field.option.location.label': 'Location',
+  'entity.replace_field.option.description.label': 'Description',
+  'entity.replace_field.helper':
+    'Which part of an event the two fields below rewrite. One at a time \u2014 and unlike ' +
+    'the filters above, listing the calendar twice does not add a second, because both ' +
+    'copies would draw the same events.',
+  'entity.replace_pattern': 'Find',
+  'entity.replace_pattern.helper':
+    'Text to find, as a regular expression. Every match is replaced, whatever its case. ' +
+    'Left empty, the whole field is replaced instead.',
+  'entity.replace_with': 'Replace With',
+  'entity.replace_with.helper':
+    'What to put in place of each match \u2014 or of the whole field, when nothing is ' +
+    'being searched for. Left empty, the match is removed.',
 
   // --- Exceptions -----------------------------------------------------------
   //
@@ -180,6 +297,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'The height the column layout may grow to before it scrolls. Use none for no limit.',
   'column.show_week_numbers': 'Week Numbers',
   'column.today_indicator': 'Today Indicator',
+  'column.allday_badge': 'All-Day Badge',
+  'column.allday_badge_style': 'All-Day Badge Style',
+  'column.allday_badge_color': 'All-Day Badge Color',
   'column.remove_location_country': 'Country Names',
   'column.show_empty_days.helper':
     'Column layout defaults this to on, whatever the shared setting above says.',
@@ -229,7 +349,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Rather than stopping mid-day at the event limit, show the rest of that day too.',
 
   content: 'What The Card Shows',
-  show_past_events: "Show Today's Past Events",
+  show_past_events: 'Show Past Events',
   show_empty_days: 'Show Empty Days',
   empty_day_text: 'Empty Day Text',
   'empty_day_text.helper': 'Replaces the translated default, and drops the check mark before it.',
@@ -238,12 +358,22 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'hide_when_empty.helper':
     'Removes the card from the dashboard entirely while it has nothing to show.',
   filter_duplicates: 'Filter Duplicates',
+  // See `calendars.helper`: the entry listed first wins, and that entry may be a second
+  // block of the same calendar rather than a different one.
   'filter_duplicates.helper':
     'Hides an event whose title, start, end and location all match another. The copy ' +
-    'from the calendar listed first is the one kept, along with its label and color.',
+    'from the entry listed first is the one kept, along with its label and color.',
   split_multiday_events: 'Split Multi-Day Events',
   'split_multiday_events.helper':
     'Show an event on every day it covers rather than only on the day it starts.',
+  event_type: 'Event Type',
+  'event_type.option.all.label': 'All events',
+  'event_type.option.timed.label': 'Only events with a time',
+  'event_type.option.all_day.label': 'Only all-day events',
+  'event_type.helper':
+    'Whether the card shows every event, only those with a time, or only all-day ones. ' +
+    'This is about the kind of event, not how long it lasts. Individual calendars can ' +
+    'depart from it below.',
 
   locale: 'Language & Time Format',
   language_mode: 'Language',
@@ -305,6 +435,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'today_indicator_style.option.custom.label': 'An Emoji or Image',
   today_indicator_icon: 'Icon',
   today_indicator_custom: 'Emoji Or Image Path',
+  'today_indicator_custom.helper':
+    'An emoji, an image path or URL, or any text. Words need a larger Indicator Size than the size an emoji reads at.',
   today_indicator_color: 'Indicator Color',
   today_indicator_size: 'Indicator Size',
   today_indicator_position: 'Indicator Position',
@@ -334,12 +466,42 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   accent_color: 'Accent Color',
   'accent_color.helper':
     'The bar beside each event. A calendar can override it for its own events.',
+  accent_color_mode: 'Accent Color',
+  'accent_color_mode.helper':
+    'Home Assistant can hold a color for each calendar, under Settings, Devices & ' +
+    'Services, Entities. Calendars it has no color for keep the card default.',
+  'accent_color_mode.option.custom.label': 'Custom color',
+  'accent_color_mode.option.home_assistant.label': 'Follow Home Assistant',
   vertical_line_width: 'Accent Bar Width',
   event_background_opacity: 'Event Background Opacity',
   'event_background_opacity.helper':
     'Tints each event with its accent color. Zero leaves it untinted.',
   title_max_lines: 'Title Line Limit',
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
+  allday_badge_position: 'All-Day Badge',
+  'allday_badge_position.helper':
+    'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +
+    'row it replaces the all-day label; on the title it wraps the event name. A title ' +
+    'badge is kept to one line and shortened with an ellipsis where it does not fit.',
+  'allday_badge_position.option.off.label': 'Off',
+  'allday_badge_position.option.time.label': 'Around The All-Day Label',
+  'allday_badge_position.option.title.label': 'Around The Event Title',
+  allday_badge_style: 'All-Day Badge Style',
+  'allday_badge_style.helper':
+    'How much weight the badge carries, from a quiet wash to a solid block of color.',
+  'allday_badge_style.option.outline.label': 'Outline',
+  'allday_badge_style.option.subtle.label': 'Subtle',
+  'allday_badge_style.option.tinted.label': 'Tinted',
+  'allday_badge_style.option.filled.label': 'Filled',
+  allday_badge_color_mode: 'All-Day Badge Color',
+  'allday_badge_color_mode.helper':
+    'Which color the badge is drawn in. The accent gives every calendar its own; the row ' +
+    'text color gives them all the color they already sit in, which is the time color on ' +
+    'the time row and the title color on the title.',
+  'allday_badge_color_mode.option.accent.label': 'Calendar Accent Color',
+  'allday_badge_color_mode.option.text.label': 'Row Text Color',
+  'allday_badge_color_mode.option.custom.label': 'Custom Color',
+  allday_badge_color: 'Badge Color',
   event_icon_vertical_alignment: 'Icon Alignment',
   'event_icon_vertical_alignment.option.top.label': 'Top',
   'event_icon_vertical_alignment.option.middle.label': 'Middle',
@@ -349,6 +511,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   show_time: 'Show Time',
   show_end_time: 'Show End Time',
   show_single_allday_time: 'Show Time For All-Day Events',
+  'show_single_allday_time.helper':
+    'Applies to all-day events that occupy a single day. Multi-day ones have their own ' +
+    'setting below, because their time row also carries the end date.',
+  show_multiday_allday_time: 'Show Time For Multi-Day All-Day Events',
+  'show_multiday_allday_time.helper':
+    'Their time row reads "All day, until ..." and so carries the end date, which nothing ' +
+    'else on the row shows. Timed events spanning several days are unaffected.',
   time_two_digit_hours: 'Pad Hours To Two Digits',
   time_font_size: 'Time Font Size',
   time_color: 'Time Color',
@@ -357,6 +526,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   location: 'Location',
   show_location: 'Show Location',
+  show_location_allday: 'Show Location For All-Day Events',
   location_country_mode: 'Country Names',
   'location_country_mode.option.keep.label': 'Keep Them',
   'location_country_mode.option.builtin.label': 'Remove Well-Known Ones',
@@ -372,6 +542,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   description: 'Description',
   show_description: 'Show Description',
+  show_description_allday: 'Show Description For All-Day Events',
   description_font_size: 'Description Font Size',
   description_color: 'Description Color',
   description_icon_size: 'Description Icon Size',

@@ -1,5 +1,13 @@
 /dist
 /.vscode
+
+# Worktrees and agent scratch. Both are excluded via `.git/info/exclude` rather than
+# `.gitignore`, which git honors and prettier never reads — so `check:format` walked into
+# a sibling worktree's build output and failed locally for a reason CI structurally cannot
+# reproduce, having no worktrees. The `/dist` above is root-anchored and does not cover
+# `.worktrees/<name>/dist`.
+/.worktrees
+/.agent
 package-lock.json
 package.json
 
@@ -7,3 +15,6 @@ package.json
 # "all"). Wrangler parses those fine, but VS Code flags them as jsonc(519) errors, so
 # the only effect is red squiggles in the one file whose breakage CI cannot see.
 wrangler.jsonc
+
+# Agent scratch: a full copy of the tree, so prettier would walk it and double every run.
+/.probe-sandbox

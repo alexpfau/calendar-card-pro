@@ -6,7 +6,23 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v4.0
+## Latest Release: v4.1
+
+- 🏷️ **All-Day Events, as a Pill**: [`allday_badge`](/features/event-content#the-all-day-badge) draws a rounded pill in the calendar's own color — around the event title, the way Google and Apple Calendar do, or beside the clock in place of _All day_. `allday_badge_style` offers four shapes, and `allday_badge_color` draws them in each calendar's own color, the row's own text color, or one you name
+- 🎨 **Follow Home Assistant's Calendar Colors and Icons**: Set `accent_color` to `home-assistant` and each calendar takes [the color Home Assistant holds for it](/features/core-settings). Set its `label` the same way for [that calendar's icon](/features/core-settings#following-the-icon-from-home-assistant), so changing either in Home Assistant changes it here
+- 🧑 **A Person's Photo in Front of Their Calendar**: Set a calendar's `label` to a person entity ID and the card shows [that person's picture](/features/core-settings#showing-a-persons-picture) — faces instead of words on a household dashboard, with a person picker in the editor
+- 🗂️ **Split One Calendar by Event Type**: [`event_type`](/features/core-settings) takes `all`, `timed` or `all_day`, card-wide or per calendar — list one calendar twice, once each way, for a color on each, and [**Duplicate** in the editor](/features/editor#per-calendar-panels-actions) builds it for you
+- ⚙️ **Clearer Editor Layout**: The panels deciding what the card shows now group their settings under sub-headings, and both order them the same way
+- 🗑️ **All-Day Events That Clear During the Day**: [`allday_expires_at`](/features/core-settings#retiring-all-day-events-during-the-day) moves the moment one calendar's all-day events count as past earlier into the final day, so a bin emptied this morning stops sitting on the card until midnight
+- 🐛 **Finished All-Day Events Stayed on the Card**: with past events hidden, an all-day event that had already ended kept its row on any card whose window reached backwards, while timed events beside it were correctly gone
+- 📅 **A Calendar on Weekdays Only**: [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only) takes `weekdays` or `weekends` for a single calendar, judged on the day each row lands on, while every other calendar keeps its weekend
+- 🎂 **Ages on Birthdays, Counts on Anniversaries**: Write `YEAR=1976` in a birthday event's description and the card appends the age to the title — [nothing to configure](/features/event-content#birthday-ages-anniversary-counts), and it stays right every year
+- 💬 **Teams Meetings Get the Teams Icon**: online meetings show [the Teams logo in place of the map pin](/features/event-content#the-location-icon) automatically, in any language Teams writes them in, and the per-calendar `location_icon` names a different icon for any calendar
+- 🔍 **Filter on the Location or Description**: [`filter_field`](/features/core-settings#matching-the-location-or-description-instead) points `blocklist` and `allowlist` at an event's location or description instead of its title, so a Zoom URL in a location field can finally be filtered on
+- 🔤 **A Today Indicator That Can Be Words**: [`today_indicator`](/features/layout-appearance#today-indicator) takes any text, so today can be marked `KW 34` or `Sprint 12` rather than a dot — raise `today_indicator_size` when you do, since it ships at `6px`
+- ✏️ **Rewrite What an Event Says**: [`replace_pattern`, `replace_with` and `replace_field`](/features/core-settings#text-replacement) rewrite one field of a calendar's events as the card draws them, leaving the calendar untouched — strip a `Birthday of ` prefix, or show `Busy` in place of every title
+
+## v4.0
 
 - 🗓️ **Column View**: Lay the days [side by side, one column each](/features/column-view), instead of stacking them — the same agenda, rotated, with its own per-view overrides and a responsive fallback to the list layout
 - ⚙️ **Rebuilt Visual Editor**: Nine panels built on Home Assistant's own form components, with a [search box that finds any setting by name or YAML key](/features/editor#search-customized-only), a customized-only filter, per-calendar settings, and [per-view exceptions](/features/editor#column-view-exceptions)

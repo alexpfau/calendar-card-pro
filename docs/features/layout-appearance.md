@@ -80,6 +80,12 @@ When styling your calendar, you can use:
 - Home Assistant theme variables (`var(--primary-color)`)
 - Named colors (`red`, `blue`)
 
+`accent_color` accepts one more value: `home-assistant`, which follows the color Home
+Assistant holds for each calendar instead of a color you pick here. Named colors such as
+`red` are unaffected and still mean the CSS color.
+
+**→ [Using the Colors From Home Assistant](/features/core-settings#using-the-colors-from-home-assistant)** — how to set it, and what happens for calendars that have no color.
+
 ## 📏 Spacing & Alignment
 
 Fine-tune the spacing and alignment of your calendar elements:
@@ -251,7 +257,7 @@ The date column appears on the left side of each day's events and helps users qu
 - **Weekend days** (Saturday and Sunday) using the `weekend_*` options
 - **Today's date** using the `today_*` options
 
-When special styling parameters are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
+When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
 
 ## 🌟 Today Indicator
 
@@ -268,7 +274,9 @@ today_indicator: pulse # Animated pulsing dot
 today_indicator: glow # Glowing dot
 today_indicator: mdi:star # Any Material Design icon
 today_indicator: 🎯 # Emoji
+today_indicator: KW 34 # Any text — raise today_indicator_size to make words readable
 today_indicator: /local/custom-indicator.png # Image path
+today_indicator: https://example.com/today.png # Or any image URL
 
 # Position the indicator precisely with CSS-like coordinates
 today_indicator_position: "15% 50%" # Centered left in the date column (default)
@@ -292,6 +300,9 @@ Available indicator types:
 - `mdi:icon-name`: Any Material Design Icon
 - Emoji characters: Any emoji like `🎯` or `⭐`
 - Image path: Any image URL or local path
+- Any other text: Drawn as the characters themselves — a week number, a quarter, a sprint name
+
+Anything the card does not recognize as one of the first four is drawn as its own characters, so a typo shows up on the card instead of quietly falling back to a dot. Two things follow from that. Text is sized by `today_indicator_size`, which defaults to `6px` — right for an emoji, far too small for a word, so raise it when you use one. And a value shaped like an address is read as an image, so there is no way to draw `/dev` or a URL as literal text.
 
 The `today_indicator_position` option accepts CSS-like position values in the format "x% y%", allowing precise placement of the indicator anywhere within the date column.
 
@@ -299,6 +310,6 @@ The `today_indicator_position` option accepts CSS-like position values in the fo
 `today_indicator_position` applies in list view only. A column header is as wide as the whole column with its date flush left, so a percentage that works beside a narrow date column lands on top of the day number instead — and a value far enough right ends up closer to the next day than to today. Rather than ask you to calibrate a percentage against your column width, column view puts the indicator immediately before the weekday, giving an unmistakable marker whatever the column measures. Every other indicator option — the type, `today_indicator_size` and `today_indicator_color` — works the same in both views.
 :::
 
-`today_indicator_size` scales every indicator type — it sets the icon size, the emoji font size and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors.
+`today_indicator_size` scales every indicator type — it sets the icon size, the font size for emoji and text, and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors, and text takes the color it inherits.
 
 The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column).
