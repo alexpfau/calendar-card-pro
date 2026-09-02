@@ -518,13 +518,39 @@ paragraph was restored that had been superseded in code.
 
 Because `main` is the default branch, `Fixes #123` in a PR merged to `dev` will **not**
 auto-close the issue — closing keywords fire only on the default branch, and GitHub
-evaluates the keyword against the PR's _own_ base. The release PR does not clean up after
-them either: merging `dev` → `main` closes only what the individual **commit messages**
-reference, and that is not a convention here — 1 of the 574 commits in the v4 range carried
-a closing keyword, and 25 of 1,277 in the project's whole history. So in practice **nothing
-closes an issue automatically**, and doing it by hand is a step of the release rather than
-an afterthought. See step 7 of _Release process_; v4.0.0 shipped with six resolved requests
-still open, the column-view epic among them.
+evaluates the keyword against the PR's _own_ base. What the release PR carries into `main`
+is the individual **commit messages**, and those do fire, all at once, the moment it merges.
+
+🚨 **How much that closes is a convention rather than a mechanism, and it changed under
+this document — so do not trust either extreme.** Through v4.0.0 the paragraph here was
+right that nothing closed itself: 1 of the 574 commits in the v4 range carried a closing
+keyword, and 25 of 1,277 in the project's whole history. The v4.1.0 range then used them
+routinely — **13 of its 116 commits, naming exactly the 13 issues that closed** the second
+`dev` merged to `main`. A session that had just read the old wording went to close 24
+issues and found 13 of them already done.
+
+**That does not retire step 7.** An auto-close is _silent_: the requester gets a bare state
+change with no comment naming the release or linking the docs, which is the one thing the
+step exists to provide. So it changes shape instead — **comment on every issue in _Related
+Issues_, and close only those still open.** Do not reopen an auto-closed one to close it
+"properly"; that spends two more notifications to arrive where it already was.
+
+The audit still matters too, because **the auto-closed set is whatever somebody remembered
+to write a keyword for, which is not the set the release resolved.** In v4.1.0 the two
+differed by 11 — 24 resolved, 13 carrying a keyword. Both directions cost something: an
+issue the release resolved but no keyword named stays open until step 7 finds it, and an
+issue a keyword closed but _Related Issues_ never listed is closed silently and never gets
+a comment at all. The second is the easier one to miss, because reading the open list
+cannot show it. Enumerate the keyword set directly and reconcile it against the notes:
+
+```bash
+git log <previous-tag>..<tag> --format=%B \
+  | grep -oiE '(clos(e|es|ed)|fix(e[sd])?|resolv(e|es|ed))[[:space:]]+#[0-9]+' \
+  | grep -oE '[0-9]+' | sort -un
+```
+
+See step 7 of _Release process_; v4.0.0 shipped with six resolved requests still open, the
+column-view epic among them.
 
 ### `dev` must never fall behind `main`
 
@@ -866,9 +892,11 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 6. `.github/workflows/release.yml` builds and creates a **draft** GitHub release. It
    attaches `dist/*.js` and nothing else — since the two-file split that is **both**
    `calendar-card-pro.js` and `editor.js`. Publish it manually.
-7. **Close the issues the release resolved.** Nothing does this for you — see _Branch
-   model_ for why — so it is a step here or it does not happen. v4.0.0 shipped with six
-   still open, including the epic it was named after.
+7. **Answer the issues the release resolved.** The merge to `main` closes whichever ones a
+   commit message named with a closing keyword, and leaves every other one open — see
+   _Branch model_. So part of this now happens for you, silently, and the part that
+   matters does not. v4.0.0 shipped with six still open, including the epic it was named
+   after.
 
    Start from the notes' _Related Issues_ section, but do not stop there: an issue is
    linked only if whoever wrote the feature remembered to link it, and the ones nobody
@@ -880,11 +908,14 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
 
    ```bash
    gh issue list --state open --limit 100
+   # still open — one call comments and closes
    gh issue close <n> --comment "Shipped in [vX.Y.Z](https://github.com/alexpfau/calendar-card-pro/releases/tag/vX.Y.Z) …"
+   # already closed by the merge — comment only, and do not reopen it to close it again
+   gh issue comment <n> --body "Shipped in [vX.Y.Z](https://github.com/alexpfau/calendar-card-pro/releases/tag/vX.Y.Z) …"
    ```
 
-   Close with a comment that names the release and deep-links the docs page, so the
-   author gets one notification that answers their request rather than a bare state
+   Answer with a comment that names the release and deep-links the docs page, so the
+   author gets one notification that resolves their request rather than a bare state
    change. Where a release answers only part of a request, comment and leave it open —
    #300 asked for columns _and_ a time grid, and got the first. And add anything you find
    this way to _Related Issues_ in `docs/RELEASE_NOTES.md`, so the next person auditing
