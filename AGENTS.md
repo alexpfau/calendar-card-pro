@@ -405,7 +405,7 @@ docblock.
 worse design.** The intuition is that `${items.map(...)}` makes Lit create a nested part with
 markers of its own, so routing a single value through a one-element list would move every
 snapshot. That is false here and was measured: swapping the ordinary single-label binding in
-`renderEventTitle` for `[renderLabel(...)]` left **all 3,040 unit tests green**, snapshots
+`renderEventTitle` for `[renderLabel(...)]` left **the whole unit suite green**, snapshots
 included.
 
 It matters because the false version is load-bearing in the wrong direction. Believing it
@@ -1284,8 +1284,10 @@ points at multi-day handling rather than at the projection.
 field added here since the list was written. What catches an omission is a **behavioral**
 test rather than a field-list reconciliation: rendering a merged duplicate and asserting on
 what is drawn fails immediately if the stamp never arrives, and needs no second list to keep
-in step. Removing the field from the projection fails 2 tests in
-`tests/merged-duplicate-labels.test.ts`, which is the falsifier to run when adding another.
+in step. Removing the field from the projection fails 5 tests in
+`tests/merged-duplicate-labels.test.ts` — every label and accent case, because the stamp it
+carries is what `presentation.ts` reads to resolve both — which is the falsifier to run when
+adding another.
 
 ### Proximity is not reach — a note about a family should be a reconciliation
 

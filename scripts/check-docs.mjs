@@ -217,6 +217,10 @@ const VERIFIED_RUNTIME_FALLBACKS = new Map([
   // utils/events.ts — `customEmptyText || translations.noEvents`, so absence renders the
   // translated string and no new language key is needed.
   ['empty_day_text', '_translated default_'],
+  // rendering/presentation.ts — only ever a merged row's accent override (`mergedAccent`);
+  // absent leaves `entityAccentColor` on the first-listed calendar's color, exactly as a
+  // merged row rendered before the feature. There is nothing to fall back to.
+  ['duplicate_accent_color', '-'],
   // translations/localize.ts `getEffectiveLanguage()` — config, then the HA locale, then
   // its base tag, then `en`.
   ['language', '`System`, fallback `en`'],

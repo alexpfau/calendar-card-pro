@@ -500,7 +500,7 @@ export interface EventContentParts {
    * 🚨 Kept beside `entityLabel` rather than replacing it, and **not** because an iterable
    * binding would disturb the DOM. That was the original justification here and it is
    * false: routing every single-label row through a one-element list was measured to leave
-   * all 3,040 unit tests green, snapshots included. What `undefined` buys is behavioral.
+   * the whole unit suite green, snapshots included. What `undefined` buys is behavioral.
    * It is how a row says "no merge to draw", which sends it down the branch below and
    * leaves a merge involving an unlabelled winner rendering exactly as it does today,
    * rather than promoting the label of a calendar that lost.
