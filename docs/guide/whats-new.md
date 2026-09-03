@@ -8,8 +8,8 @@ public release in January 2025 to today.
 
 ## Latest Release: v4.2
 
-- 🧑 **A Shared Event Shows Every Calendar's Label**: With duplicates filtered, an event two calendars hold kept one row and one label — so a lunch you and your partner both have showed one of you. The row now draws [the label of every calendar it came from](/features/core-settings#a-merged-event-shows-every-calendars-label), both faces instead of one, with identical labels drawn once. Colors are unchanged, and nothing changes unless you both filter duplicates and label your calendars
-- 🎨 **A Color for Events Two Calendars Share**: [`duplicate_accent_color`](/features/core-settings#giving-shared-events-a-color-of-their-own) accents every merged event in a color of its own, so joint events are findable at a glance while the labels say who each of the others belongs to. Only fires across different calendars, and unset it changes nothing
+- 🧑 **A Shared Event Shows Every Calendar's Label**: With duplicates filtered, an event two calendars hold kept one row and one label — so a lunch you and your partner both have showed one of you. The row now draws [the label of every calendar it came from](/features/core-settings#labeling-coloring-shared-events), both faces instead of one, with identical labels drawn once. Colors are unchanged, and nothing changes unless you both filter duplicates and label your calendars
+- 🎨 **A Color for Events Two Calendars Share**: [`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) accents every merged event in a color of its own, so joint events are findable at a glance while the labels say who each of the others belongs to. Only fires across different calendars, and unset it changes nothing
 
 ## v4.1
 
