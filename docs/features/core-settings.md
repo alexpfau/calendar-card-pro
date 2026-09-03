@@ -652,6 +652,8 @@ entities:
     accent_color: '#1e88e5'
 ```
 
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_shared_event_color.png" alt="One calendar's events in pink and another's in blue, with the events both calendars share drawn in green and showing both calendars' pictures" width="600"><br>
+
 Anna's own events stay pink and Ben's stay blue. Anything they both hold shows **both** faces
 in front of the title and turns green — the faces say whose it is, the green says at a glance
 that it is shared.
