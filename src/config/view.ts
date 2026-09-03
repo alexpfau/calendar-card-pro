@@ -26,6 +26,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   // Render-side filters; neither changes the Home Assistant request or cache key.
   'show_past_events',
   'filter_duplicates',
+  'duplicate_accent_color',
   'vertical_line_width',
   'event_spacing',
   'day_spacing',

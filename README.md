@@ -151,6 +151,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 ### Latest Release: v4.2
 
 - 🧑 **A Shared Event Shows Every Calendar's Label**: With duplicates filtered, an event two calendars hold kept one row and one label, so a lunch you and your partner both have showed only one of you. That row now draws [the label of every calendar it came from](https://calendar-card-pro.alexpfau.com/features/core-settings#a-merged-event-shows-every-calendars-label) — both faces instead of one, with identical labels drawn once. Colors are unchanged, and nothing changes unless you both filter duplicates and label your calendars
+- 🎨 **A Color for Events Two Calendars Share**: [`duplicate_accent_color`](https://calendar-card-pro.alexpfau.com/features/core-settings#giving-shared-events-a-color-of-their-own) accents every merged event in a color of its own — the labels say who an event belongs to, this says at a glance that it is shared. Only fires across different calendars; unset, nothing changes
 
 ### v4.1
 

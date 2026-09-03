@@ -69,25 +69,37 @@ export function buildEventPresentation(
 
   const registryColors = EntityColors.entityColors();
 
-  const entityAccentColor = EventUtils.getEntityAccentColorWithOpacity(
-    event._entityId,
-    config,
-    undefined,
-    event,
-    registryColors,
-  );
+  // A row that collapsed two or more distinct calendars can be given an accent of its own.
+  // Applied here rather than inside `getEntityAccentColorWithOpacity` so it overrides the
+  // resolved value whatever produced it — a per-calendar `accent_color`, the card default,
+  // or the `home-assistant` sentinel — and so the background tint below inherits it by
+  // reading the same source, as does the all-day badge further down.
+  const mergedAccent =
+    event._mergedFrom && event._mergedFrom.length > 1 ? config.duplicate_accent_color : undefined;
+
+  const entityAccentColor =
+    mergedAccent ||
+    EventUtils.getEntityAccentColorWithOpacity(
+      event._entityId,
+      config,
+      undefined,
+      event,
+      registryColors,
+    );
 
   const backgroundOpacity =
     config.event_background_opacity > 0 ? config.event_background_opacity : 0;
   const entityAccentBackgroundColor =
     backgroundOpacity > 0
-      ? EventUtils.getEntityAccentColorWithOpacity(
-          event._entityId,
-          config,
-          backgroundOpacity,
-          event,
-          registryColors,
-        )
+      ? mergedAccent
+        ? Helpers.convertToRGBA(mergedAccent, backgroundOpacity)
+        : EventUtils.getEntityAccentColorWithOpacity(
+            event._entityId,
+            config,
+            backgroundOpacity,
+            event,
+            registryColors,
+          )
       : ''; // Empty string for no background
 
   const showTime =

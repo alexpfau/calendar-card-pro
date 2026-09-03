@@ -336,3 +336,126 @@ describe('the stamp is per view, not per event object', () => {
     expect(after.querySelectorAll('.summary')).toHaveLength(2);
   });
 });
+
+/**
+ * `duplicate_accent_color` answers a different question from the labels above.
+ *
+ * The labels say *who* a merged row belongs to and scale to as many calendars as share it.
+ * This says only *that* it is shared, which is a binary — so one color suffices where a
+ * color per combination could never work. The two compose rather than compete, which is
+ * why the first case below asserts on both at once.
+ *
+ * Every case here is unreachable on default config: `filter_duplicates` is `false` and the
+ * option is `undefined`, so nothing in the wider suite can see any of it.
+ */
+describe('the accent color of a merged duplicate', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const twoCalendars = (extra: Partial<Types.Config> = {}) =>
+    buildConfig({
+      entities: [
+        { entity: 'calendar.anna', label: '👩', accent_color: '#e91e63' },
+        { entity: 'calendar.ben', label: '👨', accent_color: '#1e88e5' },
+      ],
+      filter_duplicates: true,
+      ...extra,
+    });
+
+  /** The inline `border-inline-start` color the row draws its accent bar with. */
+  function accentOf(container: HTMLElement, index = 0): string {
+    const cell = [...container.querySelectorAll('[style*="border-inline-start"]')][index];
+    return (cell?.getAttribute('style') ?? '').match(/border-inline-start:[^;]*/)?.[0] ?? '';
+  }
+
+  it('recolors a row merged across two calendars, and still draws both labels', () => {
+    const container = renderRows(
+      [sharedEvent('calendar.anna'), sharedEvent('calendar.ben')],
+      twoCalendars({ duplicate_accent_color: '#43a047' }),
+    );
+
+    expect(labelsDrawn(container)).toEqual(['👩', '👨']);
+    expect(accentOf(container)).toContain('#43a047');
+  });
+
+  it('leaves a solitary row on its own calendar color', () => {
+    const container = renderRows(
+      [sharedEvent('calendar.anna')],
+      twoCalendars({ duplicate_accent_color: '#43a047' }),
+    );
+
+    expect(accentOf(container)).toContain('#e91e63');
+    expect(accentOf(container)).not.toContain('#43a047');
+  });
+
+  /**
+   * The same gate the labels use, and the case that matters most: two blocks of one calendar
+   * are the keyword-icon mapping pattern, not a shared event, and recoloring them would
+   * repaint a perfectly ordinary row.
+   */
+  it('does not recolor two blocks of a single calendar', () => {
+    const swim: Types.EntityConfig = {
+      entity: 'calendar.family',
+      allowlist: 'swim',
+      label: 'mdi:swim',
+      accent_color: '#e91e63',
+    };
+    const meeting: Types.EntityConfig = { ...swim, allowlist: 'meeting', label: 'mdi:briefcase' };
+
+    const container = renderRows(
+      [
+        { ...sharedEvent('calendar.family', swim), summary: 'Swim meeting' },
+        { ...sharedEvent('calendar.family', meeting), summary: 'Swim meeting' },
+      ],
+      buildConfig({
+        entities: [swim, meeting],
+        filter_duplicates: true,
+        duplicate_accent_color: '#43a047',
+      }),
+    );
+
+    expect(accentOf(container)).toContain('#e91e63');
+    expect(accentOf(container)).not.toContain('#43a047');
+  });
+
+  it('keeps the first calendar color when the option is unset', () => {
+    const container = renderRows(
+      [sharedEvent('calendar.anna'), sharedEvent('calendar.ben')],
+      twoCalendars(),
+    );
+
+    expect(accentOf(container)).toContain('#e91e63');
+  });
+
+  /**
+   * The background tint derives from the same accent, so it has to follow the override or the
+   * row ends up wearing one calendar's wash under another's bar. Reading it separately is the
+   * only way to catch an override applied to the bar alone.
+   *
+   * Uses a `var()` color deliberately. `convertToRGBA` resolves a hex through
+   * `getComputedStyle` on a temp element, which happy-dom does not implement, so a hex comes
+   * back unchanged here and the assertion could not tell an applied opacity from a skipped
+   * one. The `var()` branch is pure string work and exercises the same call.
+   */
+  it('tints the row background from the merged color too', () => {
+    const container = renderRows(
+      [sharedEvent('calendar.anna'), sharedEvent('calendar.ben')],
+      twoCalendars({
+        duplicate_accent_color: 'var(--shared-event-color)',
+        event_background_opacity: 20,
+      }),
+    );
+
+    const style = [...container.querySelectorAll('[style*="background-color"]')]
+      .map((n) => n.getAttribute('style') ?? '')
+      .join(' ');
+
+    expect(style).toContain('color-mix(in srgb, var(--shared-event-color) 20%, transparent)');
+  });
+});

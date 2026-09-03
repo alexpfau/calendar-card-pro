@@ -1537,6 +1537,9 @@ describe('editor: the panel set', () => {
       // has to be a custom one, so neither the boolean sweep nor the line above reaches it.
       // The mode is read off the value's shape, so any colour puts the picker in custom.
       buildConfig({ allday_badge: 'time', allday_badge_color: '#b5651d' }),
+      // The merged-row accent is held back until duplicates are actually filtered, since
+      // with duplicates showing there is no merged row for it to recolor.
+      buildConfig({ filter_duplicates: true }),
       buildConfig({
         weather: { entity: 'weather.home', position: 'both', date: {}, event: {} },
       }),

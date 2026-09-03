@@ -68,6 +68,8 @@ function compactFields(hasEventLimit: boolean): HaFormSchema[] {
  *   `compact_events_complete_days` toggle depends on
  * @param showEmptyDays - Whether empty days are shown, which is what the two empty-day
  *   fields depend on
+ * @param filterDuplicates - Whether duplicates are filtered, which is what the merged-row
+ *   accent color depends on
  * @returns The panel's schema
  */
 const contentSchema = Helpers.memoizeLast(
@@ -77,6 +79,7 @@ const contentSchema = Helpers.memoizeLast(
     languageMode: string,
     hasEventLimit: boolean,
     showEmptyDays: boolean,
+    filterDuplicates: boolean,
   ): HaFormSchema[] => {
     const emptyDayFields: HaFormSchema[] = showEmptyDays
       ? [text('empty_day_text'), color('empty_day_color')]
@@ -98,6 +101,10 @@ const contentSchema = Helpers.memoizeLast(
         select(language, 'event_type', ['all', 'timed', 'all_day']),
         bool('show_past_events'),
         bool('filter_duplicates'),
+        // Dependent on purpose: with duplicates showing there is no merged row to recolor,
+        // so an always-visible field would be inert half the time — the silent no-op this
+        // editor tries hard not to ship.
+        ...(filterDuplicates ? [color('duplicate_accent_color')] : []),
 
         heading('heading_multiday'),
         bool('split_multiday_events'),
@@ -131,7 +138,26 @@ export function buildContentSchema(ctx: SchemaCtx): HaFormSchema[] {
     Synthetic.languageMode(ctx.config),
     hasCompactEventLimit(ctx.config),
     resolvesEmptyDays(ctx.config, ctx.view),
+    resolvesFilterDuplicates(ctx.config, ctx.view),
   );
+}
+
+/**
+ * Whether duplicates are filtered in the view the card is configured for.
+ *
+ * View-aware for the same reason `resolvesEmptyDays` is: `filter_duplicates` is a
+ * `COLUMN_OVERRIDE_KEYS` member, so a card filtering duplicates only in its column view
+ * must still be offered the accent color while that view's exceptions are being edited.
+ *
+ * @param config - Merged configuration
+ * @param view - View the panel is being built for
+ * @returns `true` when a merged row can exist, and so can be recolored
+ */
+function resolvesFilterDuplicates(
+  config: Readonly<Types.Config>,
+  view: Types.EffectiveView,
+): boolean {
+  return Boolean(ViewConfig.resolveViewOption(config as Types.Config, 'filter_duplicates', view));
 }
 
 /**

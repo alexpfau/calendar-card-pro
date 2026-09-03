@@ -686,6 +686,42 @@ If you label calendars with names and share events between them, prefer
 [a person's picture](#showing-a-persons-picture).
 :::
 
+### Giving Shared Events a Color of Their Own
+
+Labels say **who** a merged event belongs to. `duplicate_accent_color` says **that** it is
+shared, which is a different question and a simpler one — so a single color covers it no
+matter how many calendars are involved:
+
+```yaml
+filter_duplicates: true
+duplicate_accent_color: '#43a047'
+entities:
+  - entity: calendar.anna
+    label: '👩'
+    accent_color: '#e91e63'
+  - entity: calendar.ben
+    label: '👨'
+    accent_color: '#1e88e5'
+```
+
+Anna's events stay pink and Ben's stay blue. Anything they both hold turns green and shows
+👩👨. Scanning the card, the green line finds the joint events at a glance and the labels
+say who each of the others belongs to — the two answer different questions, so they are
+worth setting together.
+
+The color replaces the accent line, the row's background tint when
+[`event_background_opacity`](/features/layout-appearance) is on, and the
+[all-day badge](/features/event-content#the-all-day-badge), because all three derive from
+the same accent. Any CSS color works, including a theme variable such as
+`var(--success-color)`.
+
+::: tip It Only Fires Across Different Calendars
+The color needs two or more **distinct** calendars, so listing one calendar twice to
+[map icons by keyword](#mapping-icons-onto-events-by-keyword) never triggers it — those
+rows keep their calendar's own color. Leave the option unset and a merged row keeps the
+first-listed calendar's color, which is what every release before v4.2 did.
+:::
+
 ### Advanced Filtering Techniques
 
 You can combine filtering features with labels and accent colors to create sophisticated displays. For example, to apply different styling to specific event types within the same calendar:

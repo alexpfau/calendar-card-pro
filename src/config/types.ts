@@ -23,6 +23,20 @@ export interface Config {
   hide_when_empty: boolean;
   empty_day_text?: string;
   filter_duplicates: boolean;
+  /**
+   * Accent color for a row that `filter_duplicates` collapsed across two or more
+   * **distinct** calendars, replacing the first-listed calendar's own accent.
+   *
+   * Answers a different question from the labels that such a row carries. The labels say
+   * *who* the event belongs to and scale to as many calendars as share it; this says only
+   * *that* it is shared, which is a binary and so needs no second color per combination.
+   * The two compose — a glanceable marker plus a precise one — and this is why a single
+   * color is enough where a color per combination could never be.
+   *
+   * Left unset the row keeps the first-listed calendar's accent, which is the behavior
+   * every release before v4.2 had.
+   */
+  duplicate_accent_color?: string;
   split_multiday_events: boolean;
   event_type: EventType;
   language?: string;
@@ -222,6 +236,7 @@ export interface ColumnOverrides {
   // Render-side filters; they do not refetch on width transitions.
   show_past_events?: boolean;
   filter_duplicates?: boolean;
+  duplicate_accent_color?: string;
 
   // Layout and spacing
   vertical_line_width?: string;
