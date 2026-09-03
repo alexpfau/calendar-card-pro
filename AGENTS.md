@@ -401,6 +401,21 @@ has a newline, so zero whitespace has to compare equal to some, which `\s+` will
 Both are correct; the difference is the point, and the reasoning is at the helper's
 docblock.
 
+🚨 **A Lit iterable binding does not disturb the DOM, and assuming it does will cost you a
+worse design.** The intuition is that `${items.map(...)}` makes Lit create a nested part with
+markers of its own, so routing a single value through a one-element list would move every
+snapshot. That is false here and was measured: swapping the ordinary single-label binding in
+`renderEventTitle` for `[renderLabel(...)]` left **the whole unit suite green**, snapshots
+included.
+
+It matters because the false version is load-bearing in the wrong direction. Believing it
+argues for keeping a plural field beside a singular one "so the common path is untouched",
+which is a permanent wart bought with an imaginary risk. The honest reason to keep such a
+branch is behavioral — `mergedLabels` is `undefined` unless there are two labels to draw, so
+a merge whose winning calendar has no label renders as it always has — and that reason is
+testable, whereas the marker story is not. State which one you are relying on; only one of
+them survives contact with the suite.
+
 `node_modules` is absent in a fresh worktree; run `npm ci` first. `dist/` is gitignored.
 
 ### `scripts/`
@@ -930,6 +945,20 @@ vPLACEHOLDER` / `CURRENT: 'vPLACEHOLDER'` replacements.
    filtering and got the first, and would otherwise have been closed by anyone working
    the list mechanically.
 
+   🚨 **Write the audit's own reasoning without live issue references, because a mention is
+   indistinguishable from a promise.** The v4.1.0 release PR recorded which open requests had
+   been checked and ruled out, in the form _"Checked #368, #346, #151 and #321; none are
+   resolved by v4.1.0."_ Every one of those four got a cross-reference, and GitHub renders it
+   on the issue as a bare _"mentioned this in Release v4.1.0"_ with none of the surrounding
+   sentence. The author of #151 read that as his four-year-old request having shipped and
+   asked which release note covered it. Nothing was wrong with the audit; the notification
+   simply carried the opposite of what the line said.
+
+   So write those numbers as plain text — `368`, or `issue 368` — rather than `#368`, and
+   keep `#`-prefixed references for _Related Issues_, where a cross-reference is exactly the
+   signal you want. A backtick is not enough on its own to rely on; in that PR `#251` appeared
+   both backticked and bare, so which form suppressed the reference was never established.
+
 `hacs.json` pins the distributed filename to `calendar-card-pro.js` — do not rename it.
 HACS downloads every asset attached to a release, so it gets the editor without being told
 about it; `filename` only selects which asset becomes the Lovelace resource.
@@ -1236,6 +1265,29 @@ than walking either one, which is the same _pin the whole table by value_ discip
 `Object.keys(TABLE)` trap above; `tests/entity-config-reprocess.test.ts` does this. Blanking
 one line of the projection fails that test plus every behavioural test for the dropped
 option, which is the falsifier to run when adding one.
+
+### There is a second hand-written projection, and it is between grouping and rendering
+
+`groupEventsByDay` builds a **display copy** of every event through its own hand-written
+field list — `_entityId`, `_matchedConfig`, `_isEmptyDay`, `_isMultiDaySegment`,
+`_splitFromTimedEvent` and the rest. A stamp added to `CalendarEventData` and _not_ added
+there is dropped silently between grouping and rendering, so the value is computed
+correctly, survives every intermediate stage, and simply is not there when a leaf renderer
+looks for it.
+
+It is easy to miss precisely because the neighbouring path does the opposite:
+`splitMultiDayEvent` copies with a spread, so multi-day segments inherit any new field for
+free. Testing a stamp on a split segment therefore passes while the ordinary row fails, which
+points at multi-day handling rather than at the projection.
+
+`_mergedFrom` — the record of which calendars a deduplicated row came from — is the first
+field added here since the list was written. What catches an omission is a **behavioral**
+test rather than a field-list reconciliation: rendering a merged duplicate and asserting on
+what is drawn fails immediately if the stamp never arrives, and needs no second list to keep
+in step. Removing the field from the projection fails 5 tests in
+`tests/merged-duplicate-labels.test.ts` — every label and accent case, because the stamp it
+carries is what `presentation.ts` reads to resolve both — which is the falsifier to run when
+adding another.
 
 ### Proximity is not reach — a note about a family should be a reconciliation
 

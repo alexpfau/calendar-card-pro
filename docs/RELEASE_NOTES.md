@@ -2,6 +2,27 @@
 title: Release Notes
 ---
 
+# Calendar Card Pro v4.2.0
+
+**A shared event now says who it belongs to, plural — and can say so in a color of its own.** When `filter_duplicates` collapses an event two calendars hold into one row, that row now names every calendar it came from instead of only the first, and an optional accent color sets the shared events apart at a glance.
+
+## 🎉 New Features
+
+### 🧑 Shared Events, Clearly Marked
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_shared_event_color.png" alt="One calendar's events in pink and another's in blue, with the events both calendars share drawn in green and showing both calendars' pictures" width="600"><br>
+
+- **Every contributing calendar's label is drawn** - With `filter_duplicates: true`, an event held by more than one calendar keeps a single row, and that row used to carry the first-listed calendar's label alone — so a lunch you and your partner both have showed one of you. The row now shows the label of every calendar the event came from, in the order they are listed, and labels that resolve to the same thing are drawn once. Nothing to switch on, and nothing changes unless you both filter duplicates and label your calendars. Listing one calendar twice to [map icons by keyword](https://calendar-card-pro.alexpfau.com/features/core-settings#mapping-icons-onto-events-by-keyword) still takes the first block's icon alone. See [Labeling & Coloring Shared Events](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) (#151)
+- **`duplicate_accent_color`** - The one opt-in here: give every event that survives duplicate filtering across two or more **distinct** calendars a color of its own, in place of the first-listed calendar's. It reaches the accent line, the row's background tint and its all-day badge, and any CSS color works, including a theme variable. Because it keys on distinct calendars, listing one calendar twice to map icons by keyword is untouched. Unset, a merged row keeps the first calendar's color exactly as before. See [Labeling & Coloring Shared Events](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) (#151)
+
+## Related Issues
+
+- [#151](https://github.com/alexpfau/calendar-card-pro/issues/151) - Give a deduplicated event its own color instead of the first calendar's by @Bastian007, supported by @dw1562, @jbunting, @MarkSmurph and @Juergen-sudo — answered by both features above: the labels name every calendar, and `duplicate_accent_color` gives it the color its title asks for
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.1.0...v4.2.0
+
+---
+
 # Calendar Card Pro v4.1.0
 
 **Per-calendar filtering, rewriting and styling, an all-day pill in each calendar's own color, and an editor that can list one calendar twice so each copy answers differently.** A calendar used to be one thing: you added it, and it contributed all of its events, styled one way. This release takes that apart — one shared family calendar can show birthdays as a name and an age, retire bin day at eleven in the morning, and say only _Busy_ for a parent's work, all at the same time. [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes) walks through it, building a hallway dashboard out of four calendars and seven blocks; everything below is the parts list.

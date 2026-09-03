@@ -602,45 +602,89 @@ this option treats as a weekend is a day the card already colors as one.
 
 ### Filtering Duplicate Events
 
-When you subscribe to multiple calendars that might contain the same events (like shared family calendars), you can eliminate duplicates:
+When several calendars carry the same events — shared family or team calendars, most often —
+`filter_duplicates` collapses each repeated event to a single row:
 
 ```yaml
 entities:
-  - calendar.personal # Events from this calendar are prioritized
-  - calendar.family # Duplicates from this calendar will be hidden
+  - calendar.personal # Listed first, so its copy of a shared event is the one kept
+  - calendar.family # Its duplicate copy is hidden
 filter_duplicates: true
 ```
 
-The duplicate detection compares:
+An event counts as a duplicate of another when its **title**, **start**, **end** and
+**location** all match. The surviving copy is the one from the entry listed **first** in
+`entities`, carrying that entry's own `color` and `accent_color` — so reordering `entities`
+changes which calendar's styling a shared event shows. That same first-listed priority also
+picks the winner when the two competing entries are blocks of one calendar, which is what
+[keyword icon mapping](#mapping-icons-onto-events-by-keyword) relies on.
 
-- Event title
-- Start and end times
-- Event location
-- Entry order (whichever entry is listed first in `entities` has priority — that may be a
-  second block of the same calendar, not only a different one)
+When the merge spans two or more **distinct** calendars, the surviving row can do more than
+inherit one calendar's styling: it can name every calendar the event belongs to and take a
+color that marks it as shared. The next section,
+[Labeling & Coloring Shared Events](#labeling-coloring-shared-events), covers both.
 
-This is especially useful for:
+::: warning Matching Ignores Which Calendar an Event Came From
+Any two events that share a title, start, end and location are treated as duplicates, even if
+they are genuinely separate events and even if both live in the **same** calendar. Nothing is
+hidden merely for starting at the same time — all four fields must match.
 
-- Shared household calendars
-- Work calendars with team events
-- Any scenario where you might see the same event in multiple calendars
+If events start disappearing unexpectedly, set `filter_duplicates: false` to confirm whether
+this option is the cause.
+:::
 
-::: warning Two Details Are Easy to Miss
-Two aspects of this option are easy to miss:
+### Labeling & Coloring Shared Events
 
-- **The first-listed entry wins, including its styling.** Only the copy from the entry
-  listed first in `entities` is kept, and it keeps that entry's `label`, `color` and
-  `accent_color`. A shared event can therefore appear under a different calendar's styling
-  than you expect — reorder `entities` so the one you want to see takes precedence. The
-  same rule gives [keyword icon mapping](#mapping-icons-onto-events-by-keyword) its
-  priority order, where the competing entries are two blocks of one calendar.
-- **Matching ignores which calendar an event came from.** Any two events sharing a
-  title, start time, end time and location are treated as duplicates, even if they are
-  genuinely separate events, and even if both are in the _same_ calendar.
+When filtering collapses an event that two or more **distinct** calendars hold, the surviving
+row can answer two questions about it: **who** it belongs to, and **that** it is shared. Labels
+answer the first and `duplicate_accent_color` answers the second, and the two are meant to be
+read together:
 
-Events are never hidden merely for starting at the same time — all four fields must
-match. If events are disappearing unexpectedly, set `filter_duplicates: false` to
-confirm whether this option is the cause.
+```yaml
+filter_duplicates: true
+duplicate_accent_color: '#43a047'
+entities:
+  - entity: calendar.anna
+    label: person.anna
+    accent_color: '#e91e63'
+  - entity: calendar.ben
+    label: person.ben
+    accent_color: '#1e88e5'
+```
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_shared_event_color.png" alt="One calendar's events in pink and another's in blue, with the events both calendars share drawn in green and showing both calendars' pictures" width="600"><br>
+
+Anna's own events stay pink and Ben's stay blue. Anything they both hold shows **both** faces
+in front of the title and turns green — the faces say whose it is, the green says at a glance
+that it is shared.
+
+**The labels need nothing switched on.** A merged row draws the label of every calendar it
+came from, in the order the calendars are listed, so if you already label your calendars this
+is what a shared event shows. Labels that resolve to the same value are drawn **once**, so two
+calendars sharing one label — the same emoji, the same `mdi:` icon — do not stamp it twice.
+
+**The color is the one line you switch on.** `duplicate_accent_color` replaces the accent of a
+merged row — the accent line, the row's background tint when
+[`event_background_opacity`](/features/layout-appearance) is on, and the
+[all-day badge](/features/event-content#the-all-day-badge), since all three derive from the same
+accent. Any CSS color works, including a theme variable such as `var(--success-color)`. Leave it
+unset and a shared row keeps the first-listed calendar's color, exactly as every release before
+v4.2 did.
+
+Both behaviors need two or more **distinct** calendars. Listing one calendar twice to
+[map icons by keyword](#mapping-icons-onto-events-by-keyword) is deliberately untouched: that
+row keeps the first block's single icon and its own calendar's color, which is what the pattern
+needs.
+
+::: tip Pick a Label That Reads Well Beside Another One
+Any label kind works, but they do not all sit together equally well. A person's picture, an
+image, an emoji or an `mdi:` icon is drawn at a fixed size, so several in a row read as a row of
+faces or badges. Plain text is not combined into a phrase — two calendars labeled `Anna:` and
+`Ben:` render as `Anna: Ben:`, not `Anna & Ben:`, because any rule for merging your words would
+have to guess where your punctuation ends and would get it wrong for somebody.
+
+If you label calendars with names and share events between them, prefer
+[a person's picture](#showing-a-persons-picture).
 :::
 
 ### Advanced Filtering Techniques

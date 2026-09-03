@@ -251,6 +251,7 @@ function renderEventTitle(
   entityLabel: string | undefined,
   weatherForecasts?: Types.WeatherForecasts,
   titlePill?: { accent: string; mode: Helpers.AlldayBadgeStyle; inheritsText: boolean },
+  mergedLabels?: Types.ResolvedLabel[],
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
@@ -304,10 +305,21 @@ function renderEventTitle(
       >`
     : titleText;
 
+  // A merged row answers for every calendar that contributed a copy, so it draws each of
+  // their labels, in `entities` order, with nothing inserted between them — the 4px gap is
+  // the `margin-right` every label kind already carries. The branch is behavioral rather
+  // than defensive: `mergedLabels` is undefined unless there are two labels to draw, so a
+  // merge whose winner carries none renders as it always has.
+  const labels = mergedLabels
+    ? mergedLabels.map((entry) => renderLabel(entry.value, entry.iconColor, entry.type))
+    : entityLabel
+      ? renderLabel(entityLabel, labelIconColor, labelType)
+      : nothing;
+
   return html`
     <div class="summary-row">
       <div class="summary">
-        ${entityLabel ? renderLabel(entityLabel, labelIconColor, labelType) : nothing}
+        ${labels}
         <span
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
           style="color: ${entityColor}"
@@ -481,6 +493,20 @@ export interface EventContentParts {
    */
   entityLabel: string | undefined;
 
+  /**
+   * One label per calendar that contributed a copy of a merged duplicate, present only on
+   * a row `filter_duplicates` collapsed across two or more calendars that each carry one.
+   *
+   * 🚨 Kept beside `entityLabel` rather than replacing it, and **not** because an iterable
+   * binding would disturb the DOM. That was the original justification here and it is
+   * false: routing every single-label row through a one-element list was measured to leave
+   * the whole unit suite green, snapshots included. What `undefined` buys is behavioral.
+   * It is how a row says "no merge to draw", which sends it down the branch below and
+   * leaves a merge involving an unlabelled winner rendering exactly as it does today,
+   * rather than promoting the label of a calendar that lost.
+   */
+  mergedLabels?: Types.ResolvedLabel[];
+
   shouldShowTime: boolean;
 
   countdownStr: string | null;
@@ -547,6 +573,7 @@ export function renderEventContent(
     countdownStr,
     progressPercentage,
     entityLabel,
+    mergedLabels,
   } = parts;
 
   const hasProgressBar = progressPercentage !== null && config.show_progress_bar;
@@ -608,7 +635,7 @@ export function renderEventContent(
 
   return html`
     <div class="event-content">
-      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill)}
+      ${renderEventTitle(event, config, entityLabel, titleForecasts, titlePill, mergedLabels)}
       <div class="time-location">
         ${progressRow}
         ${shouldShowTime

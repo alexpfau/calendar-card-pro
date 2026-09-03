@@ -23,6 +23,20 @@ export interface Config {
   hide_when_empty: boolean;
   empty_day_text?: string;
   filter_duplicates: boolean;
+  /**
+   * Accent color for a row that `filter_duplicates` collapsed across two or more
+   * **distinct** calendars, replacing the first-listed calendar's own accent.
+   *
+   * Answers a different question from the labels that such a row carries. The labels say
+   * *who* the event belongs to and scale to as many calendars as share it; this says only
+   * *that* it is shared, which is a binary and so needs no second color per combination.
+   * The two compose — a glanceable marker plus a precise one — and this is why a single
+   * color is enough where a color per combination could never be.
+   *
+   * Left unset the row keeps the first-listed calendar's accent, which is the behavior
+   * every release before v4.2 had.
+   */
+  duplicate_accent_color?: string;
   split_multiday_events: boolean;
   event_type: EventType;
   language?: string;
@@ -222,6 +236,7 @@ export interface ColumnOverrides {
   // Render-side filters; they do not refetch on width transitions.
   show_past_events?: boolean;
   filter_duplicates?: boolean;
+  duplicate_accent_color?: string;
 
   // Layout and spacing
   vertical_line_width?: string;
@@ -527,6 +542,46 @@ export interface CalendarEventData {
    */
   _splitFromTimedEvent?: boolean;
   _matchedConfig?: EntityConfig;
+  /**
+   * Every calendar that contributed a copy of this event, in `entities` order, set only
+   * when `filter_duplicates` collapsed copies from **two or more distinct calendars**.
+   *
+   * The stamp exists because the merge is otherwise lossless in one direction only: the
+   * surviving row keeps the first-listed entry's styling, and every other calendar that
+   * held the same event is discarded without trace. A row that belongs to two people can
+   * then only say one of their names, which is less than leaving the duplicates visible
+   * would have told the reader.
+   *
+   * 🚨 Gated on distinct **entity ids**, not on the number of blocks that matched. Two
+   * blocks of one calendar are the documented keyword-icon mapping pattern, where
+   * first-listed is *supposed* to win and a title matching both `swim` and `meeting` must
+   * take one icon rather than both. Counting blocks would break that pattern outright.
+   */
+  _mergedFrom?: ReadonlyArray<MergedCalendar>;
+}
+
+/**
+ * One calendar that contributed a copy of a merged duplicate.
+ *
+ * Carries the block rather than only the id because the two answer different questions.
+ * A label's *value* lives on the block, while the `home-assistant` sentinel resolves
+ * against the calendar's own entity id — the same split `resolveEntityLabel` documents.
+ */
+export interface MergedCalendar {
+  entityId: string;
+  config?: EntityConfig;
+}
+
+/**
+ * A label with everything `renderLabel` needs to draw it, resolved against Home Assistant.
+ *
+ * Each contributing calendar answers for itself, so the shape and the icon color travel
+ * with the value instead of being read once from the row's own matched block.
+ */
+export interface ResolvedLabel {
+  value: string;
+  iconColor?: string;
+  type?: LabelType;
 }
 
 /**

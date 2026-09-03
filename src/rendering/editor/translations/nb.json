@@ -184,6 +184,8 @@
   "hide_when_empty.helper": "Fjerner kortet helt fra dashbordet så lenge det ikke har noe å vise.",
   "filter_duplicates": "Filtrer duplikater",
   "filter_duplicates.helper": "Skjuler en hendelse der tittel, start, slutt og sted stemmer med en annen. Kopien fra oppføringen som står først beholdes, sammen med etiketten og fargen sin.",
+  "duplicate_accent_color": "Felles hendelsesfarge",
+  "duplicate_accent_color.helper": "Aksentfarge for en hendelse som beholdes fra to eller flere forskjellige kalendere, i stedet for fargen til den første kalenderen. Står det tomt, beholder hendelsen fargen til den kalenderen.",
   "split_multiday_events": "Del opp flerdagshendelser",
   "split_multiday_events.helper": "Vis en hendelse hver dag den strekker seg over, i stedet for bare den dagen den begynner.",
   "event_type": "Hendelsestype",

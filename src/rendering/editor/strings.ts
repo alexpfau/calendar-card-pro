@@ -359,10 +359,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Removes the card from the dashboard entirely while it has nothing to show.',
   filter_duplicates: 'Filter Duplicates',
   // See `calendars.helper`: the entry listed first wins, and that entry may be a second
-  // block of the same calendar rather than a different one.
+  // block of the same calendar rather than a different one. Colors only — since v4.2 a row
+  // merged across two or more distinct calendars shows every one of their labels.
   'filter_duplicates.helper':
     'Hides an event whose title, start, end and location all match another. The copy ' +
-    'from the entry listed first is the one kept, along with its label and color.',
+    'from the entry listed first is the one kept, along with its color.',
+  duplicate_accent_color: 'Shared Event Color',
+  'duplicate_accent_color.helper':
+    'Accent color for an event kept from two or more different calendars, in place of ' +
+    'the first calendar\u2019s. Left empty it keeps that calendar\u2019s color.',
   split_multiday_events: 'Split Multi-Day Events',
   'split_multiday_events.helper':
     'Show an event on every day it covers rather than only on the day it starts.',

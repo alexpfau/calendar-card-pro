@@ -184,6 +184,8 @@
   "hide_when_empty.helper": "Entfernt die Karte vollständig vom Dashboard, solange sie nichts anzuzeigen hat.",
   "filter_duplicates": "Duplikate filtern",
   "filter_duplicates.helper": "Blendet einen Termin aus, dessen Titel, Beginn, Ende und Ort mit einem anderen übereinstimmen. Erhalten bleibt die Kopie aus dem zuerst aufgeführten Eintrag, samt Label und Farbe.",
+  "duplicate_accent_color": "Farbe für gemeinsame Termine",
+  "duplicate_accent_color.helper": "Akzentfarbe für einen Termin, der aus zwei oder mehr verschiedenen Kalendern erhalten bleibt, anstelle der Farbe des ersten Kalenders. Leer gelassen behält er dessen Farbe.",
   "split_multiday_events": "Mehrtägige Termine aufteilen",
   "split_multiday_events.helper": "Zeigt einen Termin an jedem Tag, den er abdeckt, statt nur an seinem Starttag.",
   "event_type": "Terminart",
