@@ -6,7 +6,11 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v4.1
+## Latest Release: v4.2
+
+- 🧑 **A Shared Event Shows Every Calendar's Label**: With duplicates filtered, an event two calendars hold kept one row and one label — so a lunch you and your partner both have showed one of you. The row now draws [the label of every calendar it came from](/features/core-settings#a-merged-event-shows-every-calendars-label), both faces instead of one, with identical labels drawn once. Colors are unchanged, and nothing changes unless you both filter duplicates and label your calendars
+
+## v4.1
 
 - 🏷️ **All-Day Events, as a Pill**: [`allday_badge`](/features/event-content#the-all-day-badge) draws a rounded pill in the calendar's own color — around the event title, the way Google and Apple Calendar do, or beside the clock in place of _All day_. `allday_badge_style` offers four shapes, and `allday_badge_color` draws them in each calendar's own color, the row's own text color, or one you name
 - 🎨 **Follow Home Assistant's Calendar Colors and Icons**: Set `accent_color` to `home-assistant` and each calendar takes [the color Home Assistant holds for it](/features/core-settings). Set its `label` the same way for [that calendar's icon](/features/core-settings#following-the-icon-from-home-assistant), so changing either in Home Assistant changes it here

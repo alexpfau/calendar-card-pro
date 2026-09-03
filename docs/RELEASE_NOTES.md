@@ -2,6 +2,24 @@
 title: Release Notes
 ---
 
+# Calendar Card Pro v4.2.0
+
+**A shared event now says who it belongs to, plural.** Filtering duplicates has always collapsed an event two calendars hold into one row, and that row could only speak for the calendar listed first — so a lunch you and your partner both have showed one of you. Every calendar that contributed now gets its label on the row, which on a household dashboard means both faces instead of one.
+
+## 🐛 Bug Fixes
+
+### 🧑 A Merged Duplicate Showed Only One Calendar's Label
+
+- **Every contributing calendar's label is drawn** - With `filter_duplicates: true`, an event found in more than one calendar kept a single row and a single label, discarding the fact that anyone else held it. The row now shows the label of each calendar it came from, in the order they are listed, and labels that resolve to the same thing are drawn once. Colors are unchanged: the first-listed entry still wins its `color` and `accent_color`, because a row can only wear one. Nothing to switch on, and nothing changes unless you both filter duplicates and label your calendars. Listing one calendar twice to [map icons by keyword](https://calendar-card-pro.alexpfau.com/features/core-settings#mapping-icons-onto-events-by-keyword) still takes the first block's icon alone. See [A Merged Event Shows Every Calendar's Label](https://calendar-card-pro.alexpfau.com/features/core-settings#a-merged-event-shows-every-calendars-label) (#151)
+
+## Related Issues
+
+- [#151](https://github.com/alexpfau/calendar-card-pro/issues/151) - Give a deduplicated event its own color instead of the first calendar's by @Bastian007, supported by @dw1562, @jbunting, @MarkSmurph and @Juergen-sudo — answered with labels rather than a color, for the reason recorded on the issue: one "shared" color cannot scale past two calendars
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.1.0...v4.2.0
+
+---
+
 # Calendar Card Pro v4.1.0
 
 **Per-calendar filtering, rewriting and styling, an all-day pill in each calendar's own color, and an editor that can list one calendar twice so each copy answers differently.** A calendar used to be one thing: you added it, and it contributed all of its events, styled one way. This release takes that apart — one shared family calendar can show birthdays as a name and an age, retire bin day at eleven in the morning, and say only _Busy_ for a parent's work, all at the same time. [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes) walks through it, building a hallway dashboard out of four calendars and seven blocks; everything below is the parts list.

@@ -628,12 +628,14 @@ This is especially useful for:
 ::: warning Two Details Are Easy to Miss
 Two aspects of this option are easy to miss:
 
-- **The first-listed entry wins, including its styling.** Only the copy from the entry
-  listed first in `entities` is kept, and it keeps that entry's `label`, `color` and
+- **The first-listed entry wins its colors.** Only the copy from the entry
+  listed first in `entities` is kept, and it keeps that entry's `color` and
   `accent_color`. A shared event can therefore appear under a different calendar's styling
   than you expect — reorder `entities` so the one you want to see takes precedence. The
   same rule gives [keyword icon mapping](#mapping-icons-onto-events-by-keyword) its
-  priority order, where the competing entries are two blocks of one calendar.
+  priority order, where the competing entries are two blocks of one calendar. Labels are
+  the deliberate exception — see
+  [A Merged Event Shows Every Calendar's Label](#a-merged-event-shows-every-calendars-label).
 - **Matching ignores which calendar an event came from.** Any two events sharing a
   title, start time, end time and location are treated as duplicates, even if they are
   genuinely separate events, and even if both are in the _same_ calendar.
@@ -641,6 +643,47 @@ Two aspects of this option are easy to miss:
 Events are never hidden merely for starting at the same time — all four fields must
 match. If events are disappearing unexpectedly, set `filter_duplicates: false` to
 confirm whether this option is the cause.
+:::
+
+### A Merged Event Shows Every Calendar's Label
+
+Collapsing a shared event to one row raises a question the card has to answer: the row
+belongs to two people, and it can only wear one calendar's colors. Labels are how it says
+the rest. A merged event draws the label of **every** calendar it came from, in the order
+the calendars are listed, so an event you and your partner both hold shows both faces.
+
+```yaml
+filter_duplicates: true
+entities:
+  - entity: calendar.anna
+    label: person.anna
+    accent_color: '#e91e63'
+  - entity: calendar.ben
+    label: person.ben
+    accent_color: '#1e88e5'
+```
+
+The row keeps Anna's accent color, because she is listed first, and shows both pictures in
+front of the title. There is nothing to switch on: if you already label your calendars and
+already filter duplicates, this is what you get.
+
+Two details are worth knowing. Labels that resolve to the same thing are drawn **once**, so
+two calendars both following
+[the icon Home Assistant holds](#following-the-icon-from-home-assistant) do not stamp the
+same icon twice. And a merge only stacks when it collapses **different calendars** — listing
+one calendar twice to
+[map icons by keyword](#mapping-icons-onto-events-by-keyword) still takes the first block's
+icon alone, which is what that pattern needs.
+
+::: tip Pick a Label That Reads Well Beside Another One
+Any label kind works, but they do not all sit together equally well. A person's picture, an
+image, an emoji or an `mdi:` icon is drawn at a fixed size, so several in a row read as a
+row of faces or badges. Plain text is not combined into a phrase — two calendars labeled
+`Anna:` and `Ben:` render as `Anna: Ben:`, not `Anna & Ben:`, because any rule for merging
+your words has to guess where your punctuation ends and would get it wrong for somebody.
+
+If you label calendars with names and share events between them, prefer
+[a person's picture](#showing-a-persons-picture).
 :::
 
 ### Advanced Filtering Techniques

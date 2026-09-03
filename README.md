@@ -148,7 +148,11 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 **➡️ View the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES) for a complete list of features.**
 
-### Latest Release: v4.1
+### Latest Release: v4.2
+
+- 🧑 **A Shared Event Shows Every Calendar's Label**: With duplicates filtered, an event two calendars hold kept one row and one label, so a lunch you and your partner both have showed only one of you. That row now draws [the label of every calendar it came from](https://calendar-card-pro.alexpfau.com/features/core-settings#a-merged-event-shows-every-calendars-label) — both faces instead of one, with identical labels drawn once. Colors are unchanged, and nothing changes unless you both filter duplicates and label your calendars
+
+### v4.1
 
 - 🏷️ **All-Day Events, as a Pill**: [`allday_badge`](https://calendar-card-pro.alexpfau.com/features/event-content#the-all-day-badge) draws a rounded pill in each calendar's own color, around the event title the way Google and Apple Calendar do, or beside the clock, `allday_badge_style` offers four shapes and `allday_badge_color` picks the color they are drawn in — each calendar's own, the row's own text color, or one you name. Off by default; try `allday_badge: title` first
 - 🎨 **Follow Home Assistant's Calendar Colors and Icons**: Set `accent_color` to `home-assistant` and each calendar takes [the color Home Assistant holds for it](https://calendar-card-pro.alexpfau.com/features/core-settings). Set its `label` the same way for [that calendar's icon](https://calendar-card-pro.alexpfau.com/features/core-settings#following-the-icon-from-home-assistant)
