@@ -527,6 +527,46 @@ export interface CalendarEventData {
    */
   _splitFromTimedEvent?: boolean;
   _matchedConfig?: EntityConfig;
+  /**
+   * Every calendar that contributed a copy of this event, in `entities` order, set only
+   * when `filter_duplicates` collapsed copies from **two or more distinct calendars**.
+   *
+   * The stamp exists because the merge is otherwise lossless in one direction only: the
+   * surviving row keeps the first-listed entry's styling, and every other calendar that
+   * held the same event is discarded without trace. A row that belongs to two people can
+   * then only say one of their names, which is less than leaving the duplicates visible
+   * would have told the reader.
+   *
+   * 🚨 Gated on distinct **entity ids**, not on the number of blocks that matched. Two
+   * blocks of one calendar are the documented keyword-icon mapping pattern, where
+   * first-listed is *supposed* to win and a title matching both `swim` and `meeting` must
+   * take one icon rather than both. Counting blocks would break that pattern outright.
+   */
+  _mergedFrom?: ReadonlyArray<MergedCalendar>;
+}
+
+/**
+ * One calendar that contributed a copy of a merged duplicate.
+ *
+ * Carries the block rather than only the id because the two answer different questions.
+ * A label's *value* lives on the block, while the `home-assistant` sentinel resolves
+ * against the calendar's own entity id — the same split `resolveEntityLabel` documents.
+ */
+export interface MergedCalendar {
+  entityId: string;
+  config?: EntityConfig;
+}
+
+/**
+ * A label with everything `renderLabel` needs to draw it, resolved against Home Assistant.
+ *
+ * Each contributing calendar answers for itself, so the shape and the icon color travel
+ * with the value instead of being read once from the row's own matched block.
+ */
+export interface ResolvedLabel {
+  value: string;
+  iconColor?: string;
+  type?: LabelType;
 }
 
 /**

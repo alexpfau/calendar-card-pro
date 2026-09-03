@@ -189,6 +189,25 @@ function keepWellFormedEvents(
   return events.filter((event) => Boolean(event.start) && Boolean(event.end));
 }
 
+/**
+ * Collapse copies of one event down to the first-listed entry's, and record which
+ * calendars held it.
+ *
+ * The two jobs are one pass because only this function ever sees the copies it drops.
+ * Everything downstream receives the survivor alone, so a row that came from three
+ * calendars is indistinguishable from one that came from a single calendar unless the
+ * answer is written down here.
+ *
+ * 🚨 Stamps a **copy** and never mutates. `filter_duplicates` is a `COLUMN_OVERRIDE_KEYS`
+ * member, so list view and column view deduplicate the *same* underlying event objects
+ * differently within one render, and a stamp written onto a shared object would leak one
+ * view's answer into the other.
+ *
+ * @param events Events to deduplicate
+ * @param config Card configuration, already resolved for the view being rendered
+ * @param enabled Whether `filter_duplicates` is on for this view
+ * @returns The surviving events, with merged rows carrying `_mergedFrom`
+ */
 function deduplicateEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
@@ -200,6 +219,7 @@ function deduplicateEvents(
 
   const seen = new Set<string>();
   const keep = new Set<Types.CalendarEventData>();
+  const contributors = new Map<string, Types.MergedCalendar[]>();
 
   for (const entityConfig of config.entities) {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
@@ -208,6 +228,18 @@ function deduplicateEvents(
       if (event._entityId !== entityId) continue;
 
       const signature = generateEventSignature(event);
+
+      // Recorded *before* the duplicate test below, because a copy about to be dropped is
+      // precisely what this has to remember. One entry per distinct calendar, taken from
+      // the block that produced the first copy that calendar contributed — which is the
+      // same "first listed wins" rule the survivor's own styling already follows.
+      const contributing = contributors.get(signature);
+      if (!contributing) {
+        contributors.set(signature, [{ entityId, config: event._matchedConfig }]);
+      } else if (!contributing.some((calendar) => calendar.entityId === entityId)) {
+        contributing.push({ entityId, config: event._matchedConfig });
+      }
+
       if (seen.has(signature)) continue;
 
       seen.add(signature);
@@ -215,7 +247,23 @@ function deduplicateEvents(
     }
   }
 
-  return events.filter((event) => keep.has(event) || !seen.has(generateEventSignature(event)));
+  const survivors: Types.CalendarEventData[] = [];
+
+  for (const event of events) {
+    const signature = generateEventSignature(event);
+
+    // The same test the previous `filter` made, negated: drop a copy only when some other
+    // copy of its signature was kept. An event whose calendar is not in `entities` reaches
+    // neither set and survives untouched.
+    if (!keep.has(event) && seen.has(signature)) continue;
+
+    const mergedFrom = contributors.get(signature);
+    survivors.push(
+      mergedFrom && mergedFrom.length > 1 ? { ...event, _mergedFrom: mergedFrom } : event,
+    );
+  }
+
+  return survivors;
 }
 
 //-----------------------------------------------------------------------------
@@ -692,6 +740,11 @@ export function groupEventsByDay(
         _entityId: event._entityId,
         _entityLabel: getEntityLabel(event._entityId, config, event),
         _matchedConfig: event._matchedConfig,
+        // 🚨 This projection is a hand-written field list, so a stamp omitted here is
+        // dropped between grouping and rendering with nothing to show it went. Split
+        // segments escape that because `splitMultiDayEvent` copies with a spread;
+        // the display copies do not.
+        _mergedFrom: event._mergedFrom,
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
@@ -1510,6 +1563,61 @@ export function resolveEntityLabel(
   return followsPerson
     ? PersonPictures.personPicture(label, hass)
     : EntityIcons.entityIcon(entityId, hass);
+}
+
+/**
+ * Resolve one label per calendar that contributed a copy of a merged duplicate.
+ *
+ * Returns `undefined` for every ordinary row, and for a merged row that has fewer than two
+ * labels to draw. That second case is deliberate: with one label the row renders through
+ * the single-label path it always did, so a merge involving an unlabelled calendar looks
+ * exactly as it looks today rather than showing the label of a calendar that did not win.
+ *
+ * @param event Event to describe, carrying `_mergedFrom` if it is a merged row
+ * @param config Card configuration
+ * @param hass Home Assistant instance, needed for person pictures and entity icons
+ * @returns One resolved label per contributing calendar, or `undefined` for an ordinary row
+ */
+export function resolveMergedLabels(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  hass?: Types.Hass | null,
+): Types.ResolvedLabel[] | undefined {
+  const mergedFrom = event._mergedFrom;
+  if (!mergedFrom || mergedFrom.length < 2) return undefined;
+
+  const labels: Types.ResolvedLabel[] = [];
+  const drawn = new Set<string>();
+
+  for (const calendar of mergedFrom) {
+    // Both readers below prefer `_matchedConfig` to walking `entities`, so each calendar is
+    // asked through a shim carrying the block that produced *its* copy. Handing them the
+    // merged event itself would answer every question with the winning block's values and
+    // draw one calendar's label as many times as there are calendars.
+    const asContributor: Types.CalendarEventData = {
+      ...event,
+      _entityId: calendar.entityId,
+      _matchedConfig: calendar.config,
+    };
+
+    const value = resolveEntityLabel(calendar.entityId, config, asContributor, hass);
+    if (!value) continue;
+
+    // Deduplicated on the **resolved** value rather than the configured one. Two calendars
+    // both set to `home-assistant` are the same config string and may still resolve to two
+    // different icons, or to `mdi:calendar` twice — and what the reader sees is the only
+    // comparison that answers whether it is the same label.
+    if (drawn.has(value)) continue;
+    drawn.add(value);
+
+    labels.push({
+      value,
+      iconColor: getEntitySetting(calendar.entityId, 'label_icon_color', config, asContributor),
+      type: getEntitySetting(calendar.entityId, 'label_type', config, asContributor),
+    });
+  }
+
+  return labels.length > 1 ? labels : undefined;
 }
 
 /**
