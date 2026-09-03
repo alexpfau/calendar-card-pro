@@ -184,6 +184,8 @@
   "hide_when_empty.helper": "Pilnībā noņem karti no paneļa, kamēr tai nav ko rādīt.",
   "filter_duplicates": "Filtrēt dublikātus",
   "filter_duplicates.helper": "Paslēpj notikumu, kura virsraksts, sākums, beigas un atrašanās vieta sakrīt ar citu. Tiek paturēta kopija no augstāk esošā ieraksta kopā ar tā etiķeti un krāsu.",
+  "duplicate_accent_color": "Kopīga notikuma krāsa",
+  "duplicate_accent_color.helper": "Akcenta krāsa notikumam, kas tiek paturēts no diviem vai vairākiem dažādiem kalendāriem, pirmā kalendāra krāsas vietā. Atstājot tukšu, tiek paturēta tā kalendāra krāsa.",
   "split_multiday_events": "Sadalīt vairāku dienu notikumus",
   "split_multiday_events.helper": "Rādīt notikumu katrā dienā, ko tas aptver, nevis tikai tā sākuma dienā.",
   "event_type": "Notikuma veids",

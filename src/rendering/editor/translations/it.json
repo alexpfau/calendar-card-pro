@@ -184,6 +184,8 @@
   "hide_when_empty.helper": "Toglie del tutto la scheda dalla plancia finché non ha nulla da mostrare.",
   "filter_duplicates": "Filtra i duplicati",
   "filter_duplicates.helper": "Nasconde un evento che ha titolo, inizio, fine e luogo uguali a quelli di un altro. Si conserva la copia della voce elencata per prima, con la sua etichetta e il suo colore.",
+  "duplicate_accent_color": "Colore evento condiviso",
+  "duplicate_accent_color.helper": "Colore accento per un evento conservato da due o più calendari diversi, al posto di quello del primo calendario. Se lasciato vuoto, mantiene il colore di quel calendario.",
   "split_multiday_events": "Dividi eventi su più giorni",
   "split_multiday_events.helper": "Mostra un evento in ogni giorno che copre, invece che solo nel giorno in cui inizia.",
   "event_type": "Tipo di evento",
