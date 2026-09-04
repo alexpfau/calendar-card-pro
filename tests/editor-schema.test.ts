@@ -12,7 +12,7 @@ import {
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   ENTITY_VIEW_SCOPE,
-  GRID_DEFAULTS,
+  GRID_DEFAULT_OVERRIDES,
   GRID_ONLY_KEYS,
   VIEWS,
   VIEW_SCOPE,
@@ -620,9 +620,14 @@ describe('editor: the column block as the form shows it', () => {
   it('shows the effective value of an option the user has not set', () => {
     const block = columnFormBlock(columnConfig());
 
-    expect(block.min_day_width).toBe(COLUMN_DEFAULTS.min_day_width);
-    expect(block.min_days_fallback).toBe(COLUMN_DEFAULTS.min_days_fallback);
-    expect(block.day_header_gap).toBe(COLUMN_DEFAULTS.day_header_gap);
+    expect(block).toEqual({
+      day_header_gap: '8px',
+      day_header_separator_width: '0px',
+      day_header_separator_color: 'var(--divider-color)',
+      min_day_width: 140,
+      min_days_fallback: 'list',
+      min_days_to_show: 3,
+    });
   });
 
   it('resolves the dynamic default of the column floor', () => {
@@ -651,10 +656,21 @@ describe('editor: the grid block as the form shows it', () => {
   it('shows the effective value of an option the user has not set', () => {
     const block = gridFormBlock(gridConfig());
 
-    expect(block.min_day_width).toBe(GRID_DEFAULTS.min_day_width);
-    expect(block.min_days_to_show).toBe(GRID_DEFAULTS.min_days_to_show);
-    expect(block.min_days_fallback).toBe(GRID_DEFAULTS.min_days_fallback);
-    expect(block.hour_height).toBe(GRID_DEFAULTS.hour_height);
+    expect(block).toEqual({
+      min_day_width: 100,
+      min_days_to_show: 1,
+      min_days_fallback: 'list',
+      start_time: '07:00',
+      end_time: '22:00',
+      slot_minutes: 30,
+      hour_height: '48px',
+      show_now_line: true,
+      now_line_color: 'var(--error-color)',
+      max_simultaneous_events: 3,
+      allday_band_max_rows: 3,
+      axis_width: '3.5em',
+      show_axis_labels: true,
+    });
   });
 
   it('lets a configured grid density override win over the projected default', () => {
@@ -3759,7 +3775,7 @@ describe('editor: the exceptions widget', () => {
   function eligibleFor(panelId: string, config: Types.Config = columnConfig()) {
     const panel = PANELS.find((entry) => entry.id === panelId)!;
     const ctx = { view: config.view, config, language: 'en' };
-    return eligibleFields(panel.build(ctx), panel.id);
+    return eligibleFields(panel.build(ctx), ctx.view, panel.id);
   }
 
   it('offers an exception only for options the card can resolve per view', () => {
@@ -3808,7 +3824,7 @@ describe('editor: the exceptions widget', () => {
 
     const shared = [...walkSchema(schema)].find((entry) => entry.node.name === 'show_location')!
       .node as { selector: unknown };
-    const exception = eligibleFields(schema, events.id).find(
+    const exception = eligibleFields(schema, ctx.view, events.id).find(
       (field) => field.name === 'show_location',
     )!;
 
@@ -3827,7 +3843,7 @@ describe('editor: the exceptions widget', () => {
   it('shows an added exception at the value it would otherwise inherit', () => {
     const config = columnConfig({ event_font_size: '18px' });
 
-    const block = exceptionFormBlock(config, ['event_font_size']);
+    const block = exceptionFormBlock(config, 'column', ['event_font_size']);
 
     expect(block.event_font_size).toBe('18px');
   });
@@ -3841,16 +3857,32 @@ describe('editor: the exceptions widget', () => {
   it('shows a divergent column default as the column default, not the shared value', () => {
     const config = columnConfig({ show_empty_days: false });
 
-    expect(exceptionFormBlock(config, ['show_empty_days']).show_empty_days).toBe(true);
+    expect(exceptionFormBlock(config, 'column', ['show_empty_days']).show_empty_days).toBe(true);
+  });
+
+  it('shows a divergent grid default as the grid default, not the shared value', () => {
+    const config = gridConfig({ show_empty_days: false });
+
+    expect(GRID_DEFAULT_OVERRIDES.show_empty_days).toBe(true);
+    expect(exceptionFormBlock(config, 'grid', ['show_empty_days']).show_empty_days).toBe(true);
   });
 
   it('stores nothing for an exception left equal to what it inherits', () => {
     const config = columnConfig({ event_font_size: '18px' });
-    const block = exceptionFormBlock(config, ['event_font_size']);
+    const block = exceptionFormBlock(config, 'column', ['event_font_size']);
 
     expect(
       toStoredConfig({ ...config, column: block as Types.ColumnOverrides }),
     ).not.toHaveProperty('column');
+  });
+
+  it('stores nothing for a grid exception left equal to what it inherits', () => {
+    const config = gridConfig({ event_font_size: '18px' });
+    const block = exceptionFormBlock(config, 'grid', ['event_font_size']);
+
+    expect(toStoredConfig({ ...config, grid: block as Types.GridOverrides })).not.toHaveProperty(
+      'grid',
+    );
   });
 
   it('seeds the exceptions a configuration already sets, and nothing else', () => {
@@ -3858,22 +3890,21 @@ describe('editor: the exceptions widget', () => {
       columnConfig({
         column: { event_font_size: '22px', min_day_width: 200 } as Types.ColumnOverrides,
       }),
+      'column',
     );
 
     expect([...declared]).toEqual(['event_font_size']);
   });
 
-  it('reads exceptions out of every view block, not only the one on screen', () => {
-    // A card switched to list view keeps its column block, so the exceptions it holds
-    // must survive being looked at from the other view.
-    const declared = declaredKeys(
-      buildConfig({
-        view: 'list',
-        column: { event_font_size: '22px' } as Types.ColumnOverrides,
-      }),
-    );
+  it('reads exceptions only out of the view block being edited', () => {
+    const config = gridConfig({
+      column: { event_font_size: '22px' } as Types.ColumnOverrides,
+      grid: { location_font_size: '12px' } as Types.GridOverrides,
+    });
 
-    expect([...declared]).toEqual(['event_font_size']);
+    expect([...declaredKeys(config, 'grid')]).toEqual(['location_font_size']);
+    expect([...declaredKeys(config, 'column')]).toEqual(['event_font_size']);
+    expect([...declaredKeys(config, 'list')]).toEqual([]);
   });
 
   it('removes an exception by deleting the key, not by writing the shared value back', () => {
@@ -4055,7 +4086,7 @@ describe('editor: the exceptions widget in the chassis', () => {
       computeHelper('en', 'list', { name: 'show_empty_days', selector: { boolean: {} } }),
     ).not.toBe(note);
 
-    expect([...declaredKeys(columnConfig())]).toEqual([]);
+    expect([...declaredKeys(columnConfig(), 'column')]).toEqual([]);
   });
 
   it('renders a field once an option is picked, and stores nothing for it yet', async () => {
@@ -4094,6 +4125,36 @@ describe('editor: the exceptions widget in the chassis', () => {
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0].column).toEqual({ event_font_size: '22px' });
+  });
+
+  it('shows declared exceptions from the active view only', async () => {
+    const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
+    element.hass = {} as Types.Hass;
+    const config = {
+      entities: ['calendar.a'],
+      column: { event_font_size: '22px' },
+      grid: { location_font_size: '12px' },
+    } as Types.Config;
+
+    document.body.appendChild(element);
+    element.setConfig({ ...config, view: 'grid' });
+    await element.updateComplete;
+
+    const current = (key: string) =>
+      (
+        element.shadowRoot!.querySelectorAll('ha-form.exception-picker')[
+          pickerIndexFor(element, key)
+        ] as unknown as { data: { exceptions: string[] } }
+      ).data.exceptions;
+
+    expect(current('location_font_size')).toEqual(['location_font_size']);
+    expect(current('event_font_size')).not.toContain('event_font_size');
+
+    element.setConfig({ ...config, view: 'column' });
+    await element.updateComplete;
+
+    expect(current('event_font_size')).toEqual(['event_font_size']);
+    expect(current('location_font_size')).not.toContain('location_font_size');
   });
 
   /**
@@ -4261,6 +4322,7 @@ describe('editor: exceptions for the union-typed options', () => {
           } as unknown as Partial<Types.Config>),
           language: 'en',
         }),
+        'column',
         'events',
         'en',
       ).map((field) => field.name);
@@ -4293,6 +4355,7 @@ describe('editor: exceptions for the union-typed options', () => {
     const panel = PANELS.find((entry) => entry.id === 'events')!;
     const names = eligibleFields(
       panel.build({ view: 'column', config, language: 'en' }),
+      'column',
       'events',
       'en',
     ).map((field) => field.name);
@@ -4347,7 +4410,7 @@ describe('editor: exceptions for the union-typed options', () => {
   function eligibleFor(panelId: string, config: Types.Config) {
     const panel = PANELS.find((entry) => entry.id === panelId)!;
     const ctx = { view: config.view, config, language: 'en' };
-    return eligibleFields(panel.build(ctx), panel.id, 'en');
+    return eligibleFields(panel.build(ctx), ctx.view, panel.id, 'en');
   }
 
   /** The rows one declared exception renders, given a block. */
@@ -4356,7 +4419,11 @@ describe('editor: exceptions for the union-typed options', () => {
     keys: string[],
     pending: Record<string, string> = {},
   ): HaFormSchema[] {
-    const data = Overrides.overrideFormData(exceptionFormBlock(config, keys), keys, pending);
+    const data = Overrides.overrideFormData(
+      exceptionFormBlock(config, config.view, keys),
+      keys,
+      pending,
+    );
 
     return Overrides.expandFields(
       keys.map((name) => ({ name, selector: { text: {} } })),
@@ -4372,7 +4439,11 @@ describe('editor: exceptions for the union-typed options', () => {
     patch: Record<string, unknown>,
     pending: Record<string, string> = {},
   ) {
-    const previous = Overrides.overrideFormData(exceptionFormBlock(config, keys), keys, pending);
+    const previous = Overrides.overrideFormData(
+      exceptionFormBlock(config, config.view, keys),
+      keys,
+      pending,
+    );
     const stored = (config.column ?? {}) as Record<string, unknown>;
 
     return Overrides.applyOverrideChange(stored, previous, { ...previous, ...patch }, pending);
@@ -4410,9 +4481,10 @@ describe('editor: exceptions for the union-typed options', () => {
 
   it('shows the inherited shape when the exception is first declared', () => {
     const config = columnConfig({ show_week_numbers: 'iso' });
-    const data = Overrides.overrideFormData(exceptionFormBlock(config, ['show_week_numbers']), [
-      'show_week_numbers',
-    ]);
+    const data = Overrides.overrideFormData(
+      exceptionFormBlock(config, 'column', ['show_week_numbers']),
+      ['show_week_numbers'],
+    );
 
     expect(data.week_number_mode).toBe('iso');
     // The raw key never reaches the form: it would ride back untouched on the next

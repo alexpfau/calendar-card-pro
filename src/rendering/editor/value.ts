@@ -89,6 +89,24 @@ function inheritedGridValue(
 }
 
 /**
+ * The value an override key resolves to when a view block does not supply it.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param view - View whose block is being edited
+ * @param key - Override key
+ * @returns The inherited or divergent view default
+ */
+function inheritedViewValue(
+  config: Readonly<Types.Config>,
+  view: Types.EffectiveView,
+  key: string,
+): unknown {
+  return view === 'grid'
+    ? inheritedGridValue(config, key as keyof Types.GridOverrides & keyof Types.Config)
+    : inheritedColumnValue(config, key as keyof Types.ColumnOverrides & keyof Types.Config);
+}
+
+/**
  * Strips redundant entries from a `column:` block.
  *
  * @param config - Merged configuration, defaults already applied
@@ -349,17 +367,31 @@ export function applyFormChange(
  */
 export function columnFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
   return {
-    ...ViewConfig.COLUMN_DEFAULTS,
+    ...Object.fromEntries(
+      Object.keys(ViewConfig.COLUMN_DEFAULTS).map((key) => [
+        key,
+        ViewConfig.resolveColumnOption(
+          config as Types.Config,
+          key as keyof typeof ViewConfig.COLUMN_DEFAULTS,
+        ),
+      ]),
+    ),
     min_days_to_show: ViewConfig.resolveMinDaysToShow(config),
-    ...(config.column ?? {}),
   };
 }
 
 export function gridFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
   return {
-    ...ViewConfig.GRID_DEFAULTS,
+    ...Object.fromEntries(
+      Object.keys(ViewConfig.GRID_DEFAULTS).map((key) => [
+        key,
+        ViewConfig.resolveGridOption(
+          config as Types.Config,
+          key as keyof typeof ViewConfig.GRID_DEFAULTS,
+        ),
+      ]),
+    ),
     min_days_to_show: ViewConfig.resolveMinDaysToShow(config, 'grid'),
-    ...(config.grid ?? {}),
   };
 }
 
@@ -447,18 +479,23 @@ export function stripWeatherDefaults(
  */
 export function exceptionFormBlock(
   config: Readonly<Types.Config>,
+  view: Types.EffectiveView,
   keys: ReadonlyArray<string>,
 ): Record<string, unknown> {
-  const block = columnFormBlock(config);
-  const stored = (config.column ?? {}) as Record<string, unknown>;
+  const block = view === 'grid' ? gridFormBlock(config) : columnFormBlock(config);
+  const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
+  const stored =
+    blockKey !== undefined && Helpers.isConfigBlock(config[blockKey])
+      ? (config[blockKey] as Record<string, unknown>)
+      : {};
 
   for (const key of keys) {
-    if (Object.prototype.hasOwnProperty.call(stored, key) && stored[key] !== undefined) continue;
+    if (Object.prototype.hasOwnProperty.call(stored, key) && stored[key] !== undefined) {
+      block[key] = stored[key];
+      continue;
+    }
 
-    block[key] = inheritedColumnValue(
-      config,
-      key as keyof Types.ColumnOverrides & keyof Types.Config,
-    );
+    block[key] = inheritedViewValue(config, view, key);
   }
 
   return block;

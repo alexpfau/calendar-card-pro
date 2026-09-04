@@ -33,7 +33,7 @@ export function exceptionSubforms(panel: PanelDef, ctx: SchemaCtx): SubformDef[]
   const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
   if (blockKey === undefined) return [];
 
-  const fields = Exceptions.eligibleFields(panel.build(ctx), panel.id, ctx.language);
+  const fields = Exceptions.eligibleFields(panel.build(ctx), ctx.view, panel.id, ctx.language);
   if (fields.length === 0) return [];
 
   const rows = new Map<string, HaFormSchema>();

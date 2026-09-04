@@ -32,7 +32,7 @@ The longer panels are divided further by sub-headings, which name what the optio
 - **Context-Aware Options** — settings appear only when they are relevant, so a panel shows what applies rather than everything that exists
 - **Search** — find any option by name or by what it does, without knowing which panel holds it
 - **Customized Only** — hide everything left at its default, to see what a card actually changes
-- **Per-View Exceptions** — give an option a different value in column view without leaving the editor
+- **Per-View Exceptions** — give an option a different value in column or grid view without leaving the editor
 
 ::: info Editor Language Support
 The editor is available in **11 languages**, and the calendar itself in **35**. Nine of the eleven — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — are translated in full. English is the source language and lives in the card's code rather than in a translation file, and British English carries only the strings where it differs from it.
@@ -125,13 +125,12 @@ get the icon picker.
 
 **→ [Entity configuration options](/features/core-settings#available-options-for-entity-configuration-objects)** — the `label` option itself, and the rest of the per-calendar table.
 
-## ⚖️ Column View Exceptions
+## ⚖️ View Exceptions
 
-Every panel that owns an option the column layout can override ends with a collapsed
-**Column View Exceptions** group. Pick an option there and it gets a second control, whose
-value applies only when the card renders as columns; remove it and the option returns to
-the shared value above. A card with no exceptions costs one collapsed heading and nothing
-else.
+Every panel that owns an option the current view can override ends with a collapsed
+**View Exceptions** group. Pick an option there and it gets a second control, whose value
+applies only when the card renders in that view; remove it and the option returns to the
+shared value above. A card with no exceptions costs one collapsed heading and nothing else.
 
 The control an exception gets is the same control the option has in the panel above, which
 now holds for every overridable option without exception. Three of them store more than one

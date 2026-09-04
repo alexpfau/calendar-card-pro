@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import '../src/calendar-card-pro';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
-import { toStoredConfig } from '../src/rendering/editor/value';
+import { columnFormBlock, gridFormBlock, toStoredConfig } from '../src/rendering/editor/value';
 
 /** The config `setConfig` would hold for a given piece of user YAML. */
 function asSetConfigWould(raw: Record<string, unknown>): Types.Config {
@@ -94,6 +94,24 @@ describe('setConfig and toStoredConfig round trip', () => {
       entities: [{ entity: 'calendar.a' }],
       view: 'column',
       column: { day_spacing: '4px' },
+    });
+  });
+
+  it('does not save projected column defaults when the editor is opened and left alone', () => {
+    const config = asSetConfigWould({ entities: ['calendar.a'], view: 'column' });
+
+    expect(toStoredConfig({ ...config, column: columnFormBlock(config) })).toEqual({
+      entities: [{ entity: 'calendar.a' }],
+      view: 'column',
+    });
+  });
+
+  it('does not save projected grid defaults when the editor is opened and left alone', () => {
+    const config = asSetConfigWould({ entities: ['calendar.a'], view: 'grid' });
+
+    expect(toStoredConfig({ ...config, grid: gridFormBlock(config) })).toEqual({
+      entities: [{ entity: 'calendar.a' }],
+      view: 'grid',
     });
   });
 

@@ -281,17 +281,17 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
 
   // --- Exceptions -----------------------------------------------------------
   //
-  // The surface for "this option has a different value in column layout". Worded as
+  // The surface for "this option has a different value in this layout". Worded as
   // exceptions throughout, because that is what they are: the card has one
   // configuration, and a handful of options may depart from it in one layout.
-  'exceptions.title': 'Column View Exceptions',
-  'exceptions.summary.none': 'Every option above applies to both layouts',
-  'exceptions.summary.one': '1 option differs in column layout',
-  'exceptions.summary.many': '{count} options differ in column layout',
+  'exceptions.title': 'View Exceptions',
+  'exceptions.summary.none': 'Every option above uses this view\u2019s normal value',
+  'exceptions.summary.one': '1 option differs in this view',
+  'exceptions.summary.many': '{count} options differ in this view',
   exceptions: 'Options With An Exception',
   'exceptions.helper':
     'Pick the options that should take a different value when this card renders as ' +
-    'columns. Removing one returns it to the shared value above.',
+    'this view. Removing one returns it to the shared value above.',
   'column.height': 'Height',
   'column.height.helper': 'A fixed height for the column layout. Use auto to let it grow.',
   'column.max_height': 'Maximum Height',

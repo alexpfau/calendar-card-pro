@@ -411,6 +411,39 @@ The editor reuses the same density group for grid, with `grid.*` labels and help
 The day-header separator controls stay column-only; adding grid to the width-fallback set
 would otherwise have leaked controls that grid does not read.
 
+### Keeping the editor honest with three views
+
+One exceptions row per panel still scales. A card is edited in one requested view at a
+time, and `SchemaCtx.view` is already known when the panel is built, so the row should mean
+"exceptions for this view" rather than "every override block on the card." The editor had
+one leak from the two-view era: `declaredKeys` unioned `column:` and `grid:`, so a stored
+column exception appeared while editing a grid card. That is now scoped to `ctx.view`;
+`tests/editor-schema.test.ts` covers both directions. A fourth `month:` block should join
+`VIEW_BLOCKS`, not add another editor branch.
+
+Do not multiply strings by view unless the words actually differ. `check:i18n` reconciles
+every schema key against `strings.ts`, so `column.height`, `grid.height`, and a future
+`month.height` are real cost: at four views, every shared override label would have four
+copies in English and every editor translation. The cheap rule is view-neutral chassis
+copy — **View Exceptions**, "this view" — plus per-view strings only for view-only groups
+whose helper text teaches different behavior, like grid's time axis or column's density.
+`check:i18n` catches missing keys, but it cannot catch copy that is true for column and
+false for grid; that stays a review responsibility.
+
+View-only groups can stay in the shared Layout panel while they answer layout questions for
+the current view and are gated by `ctx.view`. Column density and grid time axis both meet
+that test: they appear where the user already picked the layout, and disappear outside the
+view that reads them. A future month-only navigation or calendar-shape group should start
+there too. Move a group only if it stops being a layout concern, not because another view
+exists. The schema reconciliation covers whether the controls exist; no gate judges whether
+the panel is visually too crowded, so that remains a browser-review item.
+
+Resolved defaults must be display data, not stored YAML. `columnFormBlock` and
+`gridFormBlock` seed the form from the view resolvers, and `toStoredConfig` strips those
+values if the user opens the editor and changes nothing. The round-trip tests cover that
+opposite failure mode; the exception-form tests cover divergent defaults like
+`grid.show_empty_days`.
+
 **The now line ticks as of Phase 3a.** A one-minute interval repaints it, reconciled from
 `updated()` rather than acquired in `connectedCallback` — the view can change after
 connection, so a timer taken once would either never start or never stop. It runs only

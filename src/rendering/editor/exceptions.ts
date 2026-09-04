@@ -70,8 +70,6 @@ function extraField(key: string, language: string): SelectorSchema | undefined {
   return EXTRA_SELECTORS[key] ?? Overrides.unionPickerField(key, language);
 }
 
-const OVERRIDE_KEYS: ReadonlySet<string> = new Set<string>(ViewConfig.COLUMN_OVERRIDE_KEYS);
-
 /** Synthetic field name -> the config key it stands in for, read out of `UNION_OVERRIDES`. */
 const KEY_BY_SYNTHETIC: ReadonlyMap<string, string> = new Map(
   Object.entries(Overrides.UNION_OVERRIDES).map(([key, override]) => [override.mode, key]),
@@ -81,15 +79,18 @@ const KEY_BY_SYNTHETIC: ReadonlyMap<string, string> = new Map(
  * The fields a panel offers an exception for, in the order the panel renders them.
  *
  * @param schema - The panel's schema, as built for the current configuration
+ * @param view - View whose override block is being edited
  * @param panelId - Which panel it belongs to
  * @param language - Effective language code, for the extra fields' option labels
  * @returns One field per eligible option
  */
 export function eligibleFields(
   schema: ReadonlyArray<HaFormSchema>,
+  view: Types.EffectiveView,
   panelId: string,
   language = 'en',
 ): SelectorSchema[] {
+  const overrideKeys = new Set(ViewConfig.viewBlockFor(view)?.overrideKeys ?? []);
   const seen = new Set<string>();
   const fields: SelectorSchema[] = [];
 
@@ -108,7 +109,7 @@ export function eligibleFields(
     // mapping is `UNION_OVERRIDES` read backwards rather than a second list, so it covers
     // `remove_location_country` -- which had the same fault -- and anything added later.
     const key = KEY_BY_SYNTHETIC.get(node.name) ?? node.name;
-    if (!OVERRIDE_KEYS.has(key) || seen.has(key)) continue;
+    if (!overrideKeys.has(key) || seen.has(key)) continue;
 
     const field =
       key === node.name ? { name: key, selector: node.selector } : extraField(key, language);
@@ -119,7 +120,7 @@ export function eligibleFields(
   }
 
   for (const key of EXTRA_KEYS_BY_PANEL[panelId] ?? []) {
-    if (seen.has(key) || !OVERRIDE_KEYS.has(key)) continue;
+    if (seen.has(key) || !overrideKeys.has(key)) continue;
 
     const field = extraField(key, language);
     if (field === undefined) continue;
@@ -135,19 +136,25 @@ export function eligibleFields(
  * The exceptions a configuration already implies, before the user touches anything.
  *
  * @param config - Merged configuration, defaults already applied
+ * @param view - View whose override block is being edited
  * @returns Option names to show as exceptions
  */
-export function declaredKeys(config: Readonly<Types.Config>): ReadonlySet<string> {
+export function declaredKeys(
+  config: Readonly<Types.Config>,
+  view: Types.EffectiveView,
+): ReadonlySet<string> {
+  const viewBlock = ViewConfig.viewBlockFor(view);
   const declared = new Set<string>();
 
-  for (const blockKey of Object.values(ViewConfig.OVERRIDE_BLOCK_BY_VIEW)) {
-    const block = config[blockKey];
+  if (viewBlock === undefined) return declared;
 
-    if (!Helpers.isConfigBlock(block)) continue;
+  const overrideKeys = new Set(viewBlock.overrideKeys);
+  const block = config[viewBlock.blockKey];
 
-    for (const [key, value] of Object.entries(block)) {
-      if (value !== undefined && OVERRIDE_KEYS.has(key)) declared.add(key);
-    }
+  if (!Helpers.isConfigBlock(block)) return declared;
+
+  for (const [key, value] of Object.entries(block)) {
+    if (value !== undefined && overrideKeys.has(key)) declared.add(key);
   }
 
   return declared;

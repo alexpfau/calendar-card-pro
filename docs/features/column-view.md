@@ -16,8 +16,7 @@ days_to_show: 5
 
 In the [visual editor](/features/editor) the layout is the first control in the **Layout**
 panel. Choosing **Columns** reveals the column-only options below it, and adds a
-**Column View Exceptions** row to the panels whose options can differ between the two
-layouts.
+**View Exceptions** row to the panels whose options can differ between the two layouts.
 
 Column view is responsive by design. A day column has a minimum readable width, so a card
 too narrow to give every configured day that much room falls back to the list layout.

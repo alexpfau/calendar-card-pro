@@ -55,6 +55,16 @@ export class CalendarCardProEditor extends LitElement {
 
   private _renderedData = new Map<string, Record<string, unknown>>();
 
+  /**
+   * Resolves the configured view to one the editor understands.
+   *
+   * @param config - Merged configuration
+   * @returns The effective editor view
+   */
+  private _viewForConfig(config: Readonly<Types.Config>): Types.EffectiveView {
+    return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
+  }
+
   private _lastDispatched?: Record<string, unknown>;
 
   /**
@@ -75,7 +85,10 @@ export class CalendarCardProEditor extends LitElement {
 
     if (!isEcho) {
       this._pending = {};
-      this._declaredExceptions = Exceptions.declaredKeys(this._config);
+      this._declaredExceptions = Exceptions.declaredKeys(
+        this._config,
+        this._viewForConfig(this._config),
+      );
     }
 
     this._lastDispatched = Value.toStoredConfig(this._config);
@@ -90,7 +103,7 @@ export class CalendarCardProEditor extends LitElement {
    */
   private get _ctx(): SchemaCtx {
     const config = this._config!;
-    const view: Types.EffectiveView = ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
+    const view = this._viewForConfig(config);
 
     return {
       view,
@@ -144,11 +157,17 @@ export class CalendarCardProEditor extends LitElement {
     const nextData = event.detail?.value as Record<string, unknown> | undefined;
     if (!nextData) return;
 
+    const previousView = this._viewForConfig(this._config);
     const previousData = this._renderedData.get(panelId) ?? this._formData();
     const applied = Value.applyFormChange(this._config, previousData, nextData, this._pending);
 
     this._config = applied.config;
     this._pending = applied.pending;
+
+    const nextView = this._viewForConfig(this._config);
+    if (nextView !== previousView) {
+      this._declaredExceptions = Exceptions.declaredKeys(this._config, nextView);
+    }
 
     this._renderedData.set(panelId, this._formData());
 
@@ -582,7 +601,7 @@ export class CalendarCardProEditor extends LitElement {
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
     if (blockKey === undefined) return nothing;
 
-    const eligible = Exceptions.eligibleFields(schema, panel.id, ctx.language);
+    const eligible = Exceptions.eligibleFields(schema, ctx.view, panel.id, ctx.language);
     if (eligible.length === 0) return nothing;
 
     const declared = Exceptions.activeFields(eligible, this._declaredExceptions);
@@ -609,7 +628,7 @@ export class CalendarCardProEditor extends LitElement {
 
     const names = active.map((field) => field.name);
     const data = Overrides.overrideFormData(
-      Value.exceptionFormBlock(this._config!, names),
+      Value.exceptionFormBlock(this._config!, ctx.view, names),
       names,
       Overrides.pendingForBlock(this._pending, blockKey as string),
     );
@@ -726,7 +745,7 @@ export class CalendarCardProEditor extends LitElement {
     const key = blockKey as string;
     const pending = Overrides.pendingForBlock(this._pending, key);
     const previous = Overrides.overrideFormData(
-      Value.exceptionFormBlock(this._config, names),
+      Value.exceptionFormBlock(this._config, this._viewForConfig(this._config), names),
       names,
       pending,
     );
