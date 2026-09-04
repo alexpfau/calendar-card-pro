@@ -177,7 +177,7 @@ function timeAxisGroup(blockKey: string, language: string): HaFormSchema {
             select: {
               mode: 'dropdown',
               options: ([15, 20, 30, 60] as const).map((value) => ({
-                value: String(value),
+                value,
                 label:
                   lookup(language, `${blockKey}.slot_minutes.option.${value}.label`) ??
                   String(value),

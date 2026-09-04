@@ -169,7 +169,7 @@ function searchableText(
         text.push(option);
         continue;
       }
-      text.push(option.value, option.label, option.description);
+      text.push(String(option.value), option.label, option.description);
     }
   }
 

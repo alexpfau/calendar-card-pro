@@ -208,7 +208,7 @@ export function stripGridDefaults(
         value,
       );
       if (deepEqual(gridDefaults[key], resolved)) continue;
-      result[key] = value;
+      result[key] = resolved;
       continue;
     }
 

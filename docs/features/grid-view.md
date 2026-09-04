@@ -38,9 +38,9 @@ grid:
 `end_time` also accepts `24:00`, which means midnight at the end of the day rather than
 the start of it.
 
-An event partly outside the band is drawn clipped, with a dotted edge on the side it
-runs past. An event entirely outside it is not drawn at all — so a band is a decision
-about what the card shows, not only about how it looks.
+An event partly outside the band is drawn clipped, with a subtle dashed mark on the side it
+runs past. An event entirely outside it is not drawn at all — so a band is a decision about
+what the card shows, not only about how it looks.
 
 ::: warning A Bad Time Resets Both Bounds
 If either value cannot be read as `HH:mm`, the card falls back to `07:00`–`22:00` for
@@ -99,9 +99,8 @@ month_separator_width: '3px'
 
 Grid view turns day separators on by default, because a shared time axis needs visible day
 columns to read clearly. Month rules win over week rules, and week rules win over day
-rules. Day rules start below the week-number row and run through the day headers, all-day
-band and time body; week and month rules span the whole grid because they divide the larger
-range the week-number row names.
+rules. All of them stay inside the time body, so date headers remain clean and a multi-day
+all-day banner stays visually continuous across day boundaries.
 
 ## 🔴 The Now Line
 
@@ -151,6 +150,10 @@ Nothing is hidden without being counted.
 
 Raise it if you routinely have four or five things at once and would rather see them all
 narrow; lower it to keep blocks readable.
+
+Short blocks use progressive disclosure so clipped text does not look broken. A title is
+always shown, time appears once the block is tall enough for a second line, and location
+waits until there is room for another detail line.
 
 ## 📱 Fitting Narrow Cards
 

@@ -19,6 +19,7 @@ import {
   resolveColumnOption,
   resolveEffectiveConfig,
   resolveEffectiveView,
+  resolveGridOption,
   resolveMinDaysFallback,
   resolveMinDaysToShow,
   resolveViewOnMeasurement,
@@ -1469,6 +1470,18 @@ describe('resolveColumnFit — grid reduction', () => {
     expect(GRID_DEFAULTS.min_day_width).toBe(100);
     expect(GRID_DEFAULTS.min_days_to_show).toBe(1);
     expect(GRID_DEFAULTS.min_days_fallback).toBe('list');
+  });
+
+  it('normalizes grid slot density to the declared numeric union', () => {
+    expect(
+      resolveGridOption(
+        build({ slot_minutes: '60' as unknown as Types.GridSlotMinutes }),
+        'slot_minutes',
+      ),
+    ).toBe(60);
+    expect(
+      resolveGridOption(build({ slot_minutes: 45 as Types.GridSlotMinutes }), 'slot_minutes'),
+    ).toBe(30);
   });
 });
 

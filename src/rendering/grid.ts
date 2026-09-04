@@ -152,9 +152,11 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): GridSepa
  * The rule overlays the outer grid and is pulled into the gap with a negative margin,
  * so enabling it paints the boundary without changing day-column widths.
  *
- * A day rule starts below the week-number row and spans the day header, all-day band
- * and time body: it separates days, not the week label band. Week and month rules span
- * all four rows, because they divide the larger ranges the week-number row names.
+ * Grid has four rows: week numbers, day headers, all-day banners and the time body. All
+ * separator families are confined to the time body. A day rule crossing a spanning
+ * all-day banner makes one event read as chopped into days, and a week/month rule would
+ * do the same at a larger boundary; headers and week numbers are labels, not ruled
+ * paper. The boundary is still visible where it matters: against the hour axis.
  *
  * @param separator - The resolved rule for this gutter
  * @param columnIndex - Zero-based day column the rule precedes
@@ -171,7 +173,7 @@ function renderGridSeparator(
       class="grid-separator grid-separator-${separator.kind}"
       style=${styleMap({
         gridColumn: String(columnIndex + 2),
-        gridRow: separator.kind === 'day' ? '2 / -1' : '1 / -1',
+        gridRow: '4',
         width: separator.width,
         backgroundColor: separator.color,
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
@@ -323,10 +325,12 @@ function renderTimedEvent(
         backgroundColor: presentation.entityAccentBackgroundColor,
       })}
     >
-      ${Leaves.renderEventContent(event, config, presentation.contentParts, {
-        weatherPlacement: 'title',
-        hass,
-      })}
+      <div class="grid-event-disclosure">
+        ${Leaves.renderEventContent(event, config, presentation.contentParts, {
+          weatherPlacement: 'title',
+          hass,
+        })}
+      </div>
     </div>
   `;
 }

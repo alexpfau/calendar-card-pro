@@ -418,27 +418,35 @@ describe('separators between grid days', () => {
 
     expect(rules.length).toBeGreaterThan(0);
     expect(rules[0].style.gridColumn).toBe('3');
-    expect(rules[0].style.gridRow).toBe('2 / -1');
+    expect(rules[0].style.gridRow).toBe('4');
     expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 1px))');
   });
 
-  it('spans week and month rules across the week-number row too', () => {
+  it('keeps every separator family inside the time body', () => {
     const container = renderGrid(
       EVENTS,
       spanConfig({ week_separator_width: '3px', month_separator_width: '5px' }),
     );
 
-    // The row-span decision is view-specific: day rules separate day content and start at
-    // row 2, while larger boundaries include the week-number row they help divide.
-    expect(requireElement<HTMLElement>(container, '.grid-separator-day').style.gridRow).toBe(
-      '2 / -1',
+    // The row-span decision is view-specific. In grid view even week/month rules stay out
+    // of the label rows and the all-day band, because a larger boundary still cuts a
+    // spanning banner visually.
+    expect(requireElement<HTMLElement>(container, '.grid-separator-day').style.gridRow).toBe('4');
+    expect(requireElement<HTMLElement>(container, '.grid-separator-week').style.gridRow).toBe('4');
+    expect(requireElement<HTMLElement>(container, '.grid-separator-month').style.gridRow).toBe('4');
+  });
+
+  it('does not cross a genuinely multi-day all-day banner', () => {
+    const container = renderGrid(
+      [allDay('2026-06-17', '2026-06-20', 'Conference')],
+      spanConfig({ days_to_show: 3 }),
     );
-    expect(requireElement<HTMLElement>(container, '.grid-separator-week').style.gridRow).toBe(
-      '1 / -1',
-    );
-    expect(requireElement<HTMLElement>(container, '.grid-separator-month').style.gridRow).toBe(
-      '1 / -1',
-    );
+    const banner = requireElement<HTMLElement>(container, '.grid-banner');
+
+    expect(banner.style.gridColumn).toBe('2 / span 3');
+    for (const rule of separators(container)) {
+      expect(rule.style.gridRow).toBe('4');
+    }
   });
 });
 
@@ -554,7 +562,29 @@ describe('the grid reuses the shared leaves', () => {
   it('renders event bodies through the shared content leaf', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
 
-    expect(container.querySelector('.grid-event .event-content')).not.toBeNull();
+    expect(
+      container.querySelector('.grid-event .grid-event-disclosure .event-content'),
+    ).not.toBeNull();
+  });
+
+  it('marks timed blocks as height-query containers for progressive disclosure', () => {
+    const container = renderGrid([
+      timed(18, '09:00', '09:30', 'Short sync'),
+      timed(18, '10:00', '11:00', 'Long review'),
+    ]);
+    const blocks = container.querySelectorAll('.grid-event');
+
+    expect(blocks).toHaveLength(2);
+    for (const block of blocks) {
+      expect(block.querySelector('.event-title')).not.toBeNull();
+      expect(block.querySelector('.grid-event-disclosure .time')).not.toBeNull();
+      // happy-dom does not evaluate container queries, so this proves the renderer emits
+      // short and tall blocks into the CSS mechanism. `stylesheet.test.ts` pins the
+      // disclosure thresholds that a real browser applies inside the shadow root.
+      expect(block.querySelector('.grid-event-disclosure')).not.toBeNull();
+    }
+
+    expect(geometry(blocks[0]).height).toBeLessThan(geometry(blocks[1]).height);
   });
 
   it('renders day headers through the shared date leaf', () => {

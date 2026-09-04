@@ -1615,5 +1615,29 @@ describe('card stylesheet', () => {
       // a padded banner is content-box unless this rule says otherwise.
       expect(declared('.grid-banner', 'box-sizing')).toBe('border-box');
     });
+
+    it('uses height container queries for grid event disclosure', () => {
+      // This is a stylesheet gate because happy-dom does not evaluate container queries.
+      // It does not prove the browser's layout result; paired with `grid-dom.test.ts`, it
+      // proves the renderer emits short blocks into the CSS-only mechanism and that the
+      // thresholds live in CSS rather than in the percentage geometry.
+      expect(declared('.grid-event', 'container')).toBe('calendar-card-grid-event / size');
+      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 32px)');
+      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 56px)');
+      expect(declared('.grid-event-disclosure .time', 'display')).toBe('none');
+      expect(declared('.grid-event-disclosure .location', 'display')).toBe('none');
+    });
+
+    it('draws clipped grid events with a subtle inset continuation mark', () => {
+      expect(declared('.grid-event.clipped-top', 'border-block-start')).toBe('');
+      expect(declared('.grid-event.clipped-bottom', 'border-block-end')).toBe('');
+      expect(declared('.grid-event.clipped-top::before', 'border-block-start')).toBe(
+        '1px dashed currentColor',
+      );
+      expect(declared('.grid-event.clipped-bottom::after', 'border-block-start')).toBe(
+        '1px dashed currentColor',
+      );
+      expect(declared('.grid-event.clipped-top::before', 'opacity')).toBe('0.45');
+    });
   });
 });

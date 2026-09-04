@@ -7,7 +7,7 @@
  * Options offered by a `select` selector.
  */
 export interface SelectOption {
-  value: string;
+  value: string | number;
   label: string;
   description?: string;
   image?: string | { src: string; src_dark?: string };

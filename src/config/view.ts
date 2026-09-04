@@ -456,10 +456,13 @@ type GridOptionValue<K extends keyof typeof GRID_DEFAULTS> =
  * Normalizes a grid-only option to a usable value of its declared type.
  *
  * These values never pass through `normalizeConfig`, so a malformed `slot_minutes` or a
- * unitless `hour_height` is caught here rather than reaching a stylesheet. Length-valued
- * keys accept a bare number from YAML or the editor's text field and gain `px`, for the
- * reason {@link normalizeColumnValue} documents: there is no valid unitless CSS length,
- * so `height:48` is written to the style attribute and silently discarded.
+ * unitless `hour_height` is caught here rather than reaching a stylesheet. `slot_minutes`
+ * is clamped to the declared union instead of treated as an arbitrary positive number:
+ * older editor builds could write `"60"`, and that should normalize to the numeric value
+ * the type promises rather than widening the runtime vocabulary. Length-valued keys
+ * accept a bare number from YAML or the editor's text field and gain `px`, for the reason
+ * {@link normalizeColumnValue} documents: there is no valid unitless CSS length, so
+ * `height:48` is written to the style attribute and silently discarded.
  *
  * `start_time` and `end_time` are deliberately **not** validated here — they are a pair,
  * and a bad half must reset both. {@link Grid.resolveBand} owns that.
@@ -480,6 +483,9 @@ export function normalizeGridValue(
 
   if (typeof fallback === 'number') {
     const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+    if (key === 'slot_minutes') {
+      return [15, 20, 30, 60].includes(parsed) ? parsed : fallback;
+    }
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 

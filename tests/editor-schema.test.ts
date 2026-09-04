@@ -692,6 +692,14 @@ describe('editor: the grid block as the form shows it', () => {
 
     expect(stored.grid).toEqual({ min_day_width: 120 });
   });
+
+  it('stores legacy string grid slots as the numeric type the card declares', () => {
+    const stored = toStoredConfig(
+      gridConfig({ grid: { slot_minutes: '60' as unknown as Types.GridSlotMinutes } }),
+    );
+
+    expect(stored.grid).toEqual({ slot_minutes: 60 });
+  });
 });
 
 describe('editor: synthetic height mode', () => {
@@ -1040,6 +1048,19 @@ describe('editor: the Layout panel', () => {
   it('offers grid, which the card now renders', () => {
     expect(viewOptions().map((option) => option.value)).toContain('grid');
     expect(VIEWS).toContain('grid');
+  });
+
+  it('offers numeric grid slot values so the selected value matches storage', () => {
+    const nodes = [...walkSchema(buildLayoutSchema(ctx(buildConfig({ view: 'grid' }))))];
+    const slot = nodes.find(({ node }) => node.name === 'slot_minutes')?.node;
+    const options =
+      (slot as { selector?: { select?: { options?: ReadonlyArray<SelectOption> } } })?.selector
+        ?.select?.options ?? [];
+
+    // The editor seeds this control from the resolved grid default, which is the number
+    // 30. String option values cannot match that selection and then write `"60"` back into
+    // a field whose config type is the numeric `Types.GridSlotMinutes` union.
+    expect(options.map((option) => option.value)).toEqual([15, 20, 30, 60]);
   });
 
   it('renders the view selector as illustrated boxes', () => {
@@ -4747,7 +4768,7 @@ function editorOptions(): Map<string, string[]> {
       found.set(
         prefix + node.name,
         options.map((option) =>
-          typeof option === 'string' ? option : (option as SelectOption).value,
+          typeof option === 'string' ? option : String((option as SelectOption).value),
         ),
       );
     }

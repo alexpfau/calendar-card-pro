@@ -1920,19 +1920,62 @@ export const cardStyles = css`
     border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
     font-size: var(--calendar-card-font-size-event);
     line-height: 1.25;
+    container: calendar-card-grid-event / size;
   }
 
   /* The event starts before or ends after the visible band. */
   .grid-event.clipped-top {
     border-start-start-radius: 0;
     border-start-end-radius: 0;
-    border-block-start: 2px dotted currentColor;
   }
 
   .grid-event.clipped-bottom {
     border-end-start-radius: 0;
     border-end-end-radius: 0;
-    border-block-end: 2px dotted currentColor;
+  }
+
+  .grid-event.clipped-top::before,
+  .grid-event.clipped-bottom::after {
+    content: '';
+    position: absolute;
+    inset-inline: 4px;
+    border-block-start: 1px dashed currentColor;
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .grid-event.clipped-top::before {
+    top: 1px;
+  }
+
+  .grid-event.clipped-bottom::after {
+    bottom: 1px;
+  }
+
+  .grid-event-disclosure .time,
+  .grid-event-disclosure .location,
+  .grid-event-disclosure .description,
+  .grid-event-disclosure .event-weather {
+    display: none;
+  }
+
+  /* The renderer deliberately knows only percentages; the browser alone knows whether a
+     30-minute block became 24px or 44px in this card. Height container queries keep that
+     pixel decision in CSS, inside the shadow root, so the geometry module never gains a
+     hidden pixel scale. Title is always visible, time starts once the block has room for a
+     second line, and location/description wait for a third. */
+  @container calendar-card-grid-event (min-height: 32px) {
+    .grid-event-disclosure .time,
+    .grid-event-disclosure .event-weather {
+      display: block;
+    }
+  }
+
+  @container calendar-card-grid-event (min-height: 56px) {
+    .grid-event-disclosure .location,
+    .grid-event-disclosure .description {
+      display: flex;
+    }
   }
 
   /* Stands in for events the column had no room to draw. Dashed so it reads as a

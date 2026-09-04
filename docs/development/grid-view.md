@@ -296,8 +296,10 @@ row 3  all-day band       (spanning banners, capped rows)
 row 4  time body          (axis labels + absolutely positioned events)
 ```
 
-Progressive disclosure by rendered height: title always, plus time above ~32px, plus
-location above ~56px. Express as container queries where possible.
+Progressive disclosure by rendered height is implemented with CSS height container queries:
+title always, plus time above 32px, plus location/description above 56px. The renderer keeps
+emitting percentage geometry and does not learn the body's pixel height; each block is the
+container, so the browser makes the pixel threshold decision inside the shadow root.
 
 ### Phase 3 notes
 
@@ -387,7 +389,10 @@ column view. Grid diverges from their defaults with `day_separator_width: 1px`, 
 time grid with no vertical day rules makes the shared axis read detached from the columns.
 The renderer duplicates column's boundary resolution locally on purpose: month/week/day
 precedence is shared, but the row-span decision belongs beside grid's four-row template.
-Day rules span rows 2 through the body; week and month rules span all rows.
+All separator families are confined to row 4, the time body. A rule through row 3 visibly
+cuts a multi-day all-day banner into pieces; a rule through rows 1 or 2 rules labels rather
+than the clock surface. Week and month rules do not get a wider span, because they would cut
+the same banners at a larger boundary.
 
 `tests/editor-schema.test.ts` reconciles `GRID_ONLY_KEYS` against the built schema, the
 same way it already did for column's. Without that the grid block would sit in exactly the
