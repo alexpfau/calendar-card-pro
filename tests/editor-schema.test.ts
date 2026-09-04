@@ -12,6 +12,7 @@ import {
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   ENTITY_VIEW_SCOPE,
+  GRID_ONLY_KEYS,
   VIEWS,
   VIEW_SCOPE,
   appliesToView,
@@ -1612,6 +1613,11 @@ describe('editor: the panel set', () => {
       ...group('date').map((key) => `date.${key}`),
       ...group('event').map((key) => `event.${key}`),
       ...COLUMN_ONLY_KEYS.map((key) => `column.${key}`),
+      // Grid's own keys are reconciled the same way column's are. Listing only column's
+      // would leave the grid block in exactly the position this test was written to fix:
+      // a container whose members nothing checks, where deleting a node from the schema
+      // leaves every gate green.
+      ...GRID_ONLY_KEYS.map((key) => `grid.${key}`),
     ];
 
     // A container that stopped resolving would empty the domain and pass silently.
@@ -1620,6 +1626,7 @@ describe('editor: the panel set', () => {
     const offered = new Set<string>();
     const configs = [
       buildConfig({ view: 'column' }),
+      buildConfig({ view: 'grid' }),
       // The UV threshold is held back until UV is on, in both groups.
       buildConfig({
         weather: {

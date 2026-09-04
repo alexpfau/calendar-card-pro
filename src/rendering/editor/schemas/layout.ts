@@ -2,6 +2,7 @@
  * Layout schema rows.
  */
 
+import { bool, color, row, text } from './common';
 import * as Types from '../../../config/types';
 import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
@@ -132,6 +133,64 @@ function densityGroup(blockKey: string, daysToShow: number, language: string): H
 }
 
 /**
+ * The time axis — everything the `grid:` block owns that has no top-level counterpart.
+ *
+ * Ordered coarse to fine by what each option decides, the same rule the panels
+ * themselves follow: which slice of the day the card draws, then how that slice is
+ * ruled and how tall it is, then the gutter that labels it, then the two things overlaid
+ * on it, and last the budget capping how many events may share a column. Appending in
+ * the order the keys happen to be declared would put the overlap cap between the band
+ * and its ruling, which is a different question entirely.
+ *
+ * `start_time` and `end_time` share a row because they are a pair — a bad half resets
+ * both, so reading them apart misleads.
+ *
+ * @param blockKey - Config key holding this view's override block
+ * @param language - Effective language code
+ * @returns The time-axis group
+ */
+function timeAxisGroup(blockKey: string, language: string): HaFormSchema {
+  return {
+    type: 'expandable',
+    name: blockKey,
+    title: lookup(language, `${blockKey}.axis`) ?? humanize('axis'),
+    titleKey: `${blockKey}.axis`,
+    iconPath:
+      'M12 20a8 8 0 1 1 0-16 8 8 0 0 1 0 16m0-18a10 10 0 1 0 0 20 10 10 0 0 0 0-20m.5 5H11v6l5.25 3.15.75-1.23-4.5-2.67z',
+    schema: [
+      row(text('start_time'), text('end_time')),
+      row(
+        {
+          name: 'slot_minutes',
+          selector: {
+            select: {
+              mode: 'dropdown',
+              options: ([15, 20, 30, 60] as const).map((value) => ({
+                value: String(value),
+                label:
+                  lookup(language, `${blockKey}.slot_minutes.option.${value}.label`) ??
+                  String(value),
+              })),
+            },
+          },
+        },
+        text('hour_height'),
+      ),
+      row(text('axis_width'), bool('show_axis_labels')),
+      row(bool('show_now_line'), color('now_line_color')),
+      row(bool('show_allday_band'), {
+        name: 'allday_band_max_rows',
+        selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
+      }),
+      {
+        name: 'max_simultaneous_events',
+        selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
+      },
+    ],
+  };
+}
+
+/**
  * Builds the Layout panel schema.
  *
  * @param view - View the card is configured to render
@@ -193,6 +252,13 @@ const layoutSchema = Helpers.memoizeLast(
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
     if (blockKey !== undefined && ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
       schema.push(densityGroup(blockKey, daysToShow, language));
+    }
+
+    // The axis IS the layout for this view, so it belongs in this panel rather than in a
+    // panel of its own. Gated on the view, not merely on it having a block: these keys
+    // exist only in `grid:`.
+    if (blockKey !== undefined && view === 'grid') {
+      schema.push(timeAxisGroup(blockKey, language));
     }
 
     return schema;

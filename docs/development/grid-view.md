@@ -194,10 +194,10 @@ Integration branch `feature/grid-view-v5`, feature branches feeding it, one PR i
 | ----- | -------------------------------------------------------- | -------- |
 | 1     | `src/utils/grid.ts` — pure geometry, DST-tested          | **done** |
 | 0     | Generalize the view abstraction                          | **done** |
-| 2     | Register `grid`; `src/rendering/grid.ts` — the container |          |
-| 3     | Host wiring — fit resolver, now line, midnight rollover  |          |
-| 4     | Editor schema, artwork, strings                          |          |
-| 5     | Docs, `NOTICE`, release surfaces                         |          |
+| 2     | Register `grid`; `src/rendering/grid.ts` — the container | **done** |
+| 4a    | Editor panel for the `grid:` block's own options         | next     |
+| 3     | Width fallback, now-line ticking, midnight rollover      |          |
+| 5     | `NOTICE`, release surfaces                               |          |
 
 Phase 1 ran first because it touches no existing code path and settles the geometry
 decisions concretely. Phase 0 carries the real risk and ships nothing user-visible; if
@@ -363,3 +363,81 @@ entry in `COLUMN_DEFAULTS` — correctly, since its default derives from `days_t
 rather than being constant — so the consistency check reconciles that exception in both
 directions rather than skipping it. And `resolveColumnOption` was a sixth hardcoded
 `config.column` site the original survey missed; it now goes through the registry too.
+
+## What Phase 2 shipped, and what it did not
+
+`view: grid` renders. The picker offers it, the `grid:` block is registered, the four-row
+container is built, the stylesheet is written, and `docs/features/grid-view.md` documents
+all eleven grid-only options.
+
+**In the editor as of Phase 4a.** A **Time Axis** group in the Layout panel carries all
+eleven, ordered by what each decides rather than by declaration order: the slice of the
+day, then how it is ruled and how tall, then the label gutter, then the two overlays, and
+last the overlap budget. `start_time` and `end_time` share a row because they are a pair —
+a bad half resets both, so reading them apart misleads.
+
+`tests/editor-schema.test.ts` reconciles `GRID_ONLY_KEYS` against the built schema, the
+same way it already did for column's. Without that the grid block would sit in exactly the
+position that test was written to fix: a container whose members nothing checks, where
+deleting a node leaves every gate green.
+
+**Not yet responsive.** Grid is deliberately absent from `VIEWS_WITH_WIDTH_FALLBACK`, so
+the column count follows `days_to_show` exactly and a narrow card cramps rather than
+shedding columns. The width machinery — `resolveMinDaysToShow`, `resolveMinDaysFallback`,
+`computeColumnThresholdPx` — still reads `config.column` directly and has to become
+view-aware first. Until then the feature page's guidance stands: start with three days.
+
+**The now line does not tick.** It is placed from a `now` argument the renderer is handed,
+so it is correct at every render and stale between them. The controller that re-renders it
+once a minute — gated on `visibilitychange` _and_ an `IntersectionObserver`, attached
+lazily so list-view users pay nothing — is Phase 3, as is the midnight rollover.
+
+### Four things registering the view found
+
+Each was invisible before a second view existed, which is the argument for building Phase
+0 before Phase 2 rather than after.
+
+1. **`GRID_OVERRIDE_KEYS` must alias, not filter.** A `.filter()` types as
+   `ReadonlyArray<union>` rather than a literal tuple, which made the partition assertion
+   tautological — every key read as classified while the filtered-out ones were dropped at
+   runtime. That is exactly the accepted-then-silently-ignored override the assertion
+   exists to prevent, reintroduced by the thing meant to check for it.
+2. **The editor emitted column's groups for any view with a block.** A grid card was
+   offered `min_day_width`, `min_days_to_show`, `min_days_fallback`, `day_header_gap` and
+   both day-header separator keys — six controls its block does not accept, each of which
+   would have been stored and ignored. Both groups are now gated on the view owning the
+   keys rather than on it merely having a block.
+3. **The editor-schema union scan could not see an `extends` clause.** It matched
+   `export interface X {` with nothing between, so splitting `ColumnOverrides` onto a
+   shared base silently stopped discovering its enumerated options — and a silent
+   non-match reads as "that interface declares none", not as a failure.
+4. **`check-i18n` merged the two scope tables.** It spread `ENTITY_VIEW_SCOPE` over
+   `VIEW_SCOPE`, so a key in both lost its card-level scope and orphaned that string.
+   `entityScopeFor` is `??`, not a merge: the two are allowed to differ, and
+   `split_multiday_events` now does. The gate reconciles both separately; deleting the
+   card-level note was invisible before and errors now.
+
+### Two harness findings, written into `tests/grid-dom.test.ts`
+
+The test must resolve the effective config as the host does. Skipping
+`resolveEffectiveConfig` renders grid DOM without the view's divergent defaults, so every
+block comes out untinted while the real card shows them tinted — a silent disagreement
+between the test and the product.
+
+And the background assertion must **not** expect `rgba(`. `convertToRGBA` resolves a hex
+by reading `getComputedStyle().color` off a temporary element, which happy-dom does not
+implement, so the hex returns unchanged under test where a browser gives
+`rgba(3, 169, 244, 0.2)`. Tightening that assertion fails for a reason with nothing to do
+with this view.
+
+### Cost
+
+Raw bytes against `dev` at `0ed12d69`:
+
+| bundle                 | before  | after   | delta    |
+| ---------------------- | ------- | ------- | -------- |
+| `calendar-card-pro.js` | 206,064 | 220,131 | +14.1 KB |
+| `editor.js`            | 384,693 | 390,567 | +5.9 KB  |
+
+The eager path pays for the whole feature, which is the trade a third view makes. The
+reference implementation in #339 reported roughly the same figure against a larger bundle.

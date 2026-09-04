@@ -12,7 +12,7 @@ days_to_show: 3
 ```
 
 In the [visual editor](/features/editor) the layout is the first control in the **Layout**
-panel. Choosing **Time Grid** reveals the grid-only options below it.
+panel. Choosing **Time Grid** reveals a **Time Axis** group below it, holding every option on this page.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard

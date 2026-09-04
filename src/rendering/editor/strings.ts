@@ -303,6 +303,49 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.allday_badge_style': 'All-Day Badge Style',
   'column.allday_badge_color': 'All-Day Badge Color',
   'column.remove_location_country': 'Country Names',
+  'grid.axis': 'Time Axis',
+  'grid.axis.helper':
+    'Which hours the card draws, and how they are ruled. Everything on the axis is ' +
+    'positioned as a share of this band, so a fixed card height simply compresses it.',
+  'grid.start_time': 'First Hour',
+  'grid.start_time.helper':
+    'As HH:mm. Events entirely before this are not drawn at all, so this decides what ' +
+    'the card shows and not only how it looks.',
+  'grid.end_time': 'Last Hour',
+  'grid.end_time.helper':
+    'As HH:mm, or 24:00 for the end of the day. If either time cannot be read, both fall ' +
+    'back to 07:00 and 22:00 together.',
+  'grid.slot_minutes': 'Grid Lines Every',
+  'grid.slot_minutes.helper':
+    'Spacing of the rules across the axis. Ruling only — an hour is the same height ' +
+    'whichever you pick.',
+  'grid.slot_minutes.option.15.label': '15 minutes',
+  'grid.slot_minutes.option.20.label': '20 minutes',
+  'grid.slot_minutes.option.30.label': '30 minutes',
+  'grid.slot_minutes.option.60.label': '1 hour',
+  'grid.hour_height': 'Height Per Hour',
+  'grid.hour_height.helper':
+    "The card's natural height, one hour at a time. Ignored when a fixed height is set: " +
+    'the axis compresses to fit instead.',
+  'grid.axis_width': 'Hour Label Width',
+  'grid.show_axis_labels': 'Show Hour Labels',
+  'grid.show_now_line': 'Now Line',
+  'grid.show_now_line.helper':
+    "Marks the current time on today's column. Hidden when now falls outside the hours " +
+    'above, rather than pinned to an edge.',
+  'grid.now_line_color': 'Now Line Color',
+  'grid.show_allday_band': 'All-Day Band',
+  'grid.show_allday_band.helper':
+    'All-day events sit in a band between the day headers and the axis, each multi-day ' +
+    'event a single banner spanning its days.',
+  'grid.allday_band_max_rows': 'Most All-Day Rows',
+  'grid.allday_band_max_rows.helper':
+    'How tall that band may grow. Banners past this are dropped — without a cap, a week ' +
+    'of long events would push the axis off the card.',
+  'grid.max_simultaneous_events': 'Most Events Side By Side',
+  'grid.max_simultaneous_events.helper':
+    'Above this, the rest collapse into one block saying how many it stands for. Nothing ' +
+    'is hidden without being counted.',
   'grid.height': 'Height',
   'grid.height.helper': 'A fixed height for the grid layout. Use auto to let it grow.',
   'grid.max_height': 'Maximum Height',
