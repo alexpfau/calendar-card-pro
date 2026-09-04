@@ -190,19 +190,96 @@ Inert in grid view, so `VIEW_SCOPE` must say so: `compact_*` (already list-only)
 Integration branch `feature/grid-view-v5`, feature branches feeding it, one PR into
 `dev` — the v4 shape.
 
-| Phase | Scope                                                   | Status   |
-| ----- | ------------------------------------------------------- | -------- |
-| 1     | `src/utils/grid.ts` — pure geometry, DST-tested         | **done** |
-| 0     | Generalize the view abstraction; register `grid`        | next     |
-| 2     | `src/rendering/grid.ts` — the container                 |          |
-| 3     | Host wiring — fit resolver, now line, midnight rollover |          |
-| 4     | Editor schema, artwork, strings                         |          |
-| 5     | Docs, `NOTICE`, release surfaces                        |          |
+| Phase | Scope                                                    | Status   |
+| ----- | -------------------------------------------------------- | -------- |
+| 1     | `src/utils/grid.ts` — pure geometry, DST-tested          | **done** |
+| 0     | Generalize the view abstraction                          | **done** |
+| 2     | Register `grid`; `src/rendering/grid.ts` — the container |          |
+| 3     | Host wiring — fit resolver, now line, midnight rollover  |          |
+| 4     | Editor schema, artwork, strings                          |          |
+| 5     | Docs, `NOTICE`, release surfaces                         |          |
 
 Phase 1 ran first because it touches no existing code path and settles the geometry
 decisions concretely. Phase 0 carries the real risk and ships nothing user-visible; if
 the abstraction does not generalize cleanly, that is worth learning before any renderer
 exists.
+
+### What Phase 0 did
+
+`VIEW_BLOCKS` — a registry keyed by view, holding each view's block key, its two key
+arrays, its view-only defaults and its divergent defaults. Five functions used to
+hardcode `'column'` and `config.column`: `resolveViewOption`, `resolveEffectiveConfig`,
+`resolveColumnOption`, `validateView` and the override validator with its
+top-level-key warning. Registering a second view meant editing all five and remembering
+all five. Now it is one registry entry.
+
+Alongside it: `OVERRIDE_BLOCK_BY_VIEW` is derived from the registry rather than written
+out again; `validateView` builds its "expected" list from `VIEWS`; and the three
+compile-time partition assertions became reusable helpers so a second view instantiates
+them instead of copying them.
+
+A fourth change was written and then removed: a diagnostic distinguishing "not a
+recognized option" from "recognized, but it belongs to a different view's block". It is
+a genuine usability win and it is **unreachable today** — with one registered block the
+union of all block keys is that block's own keys, so the branch above it always fires
+first. Warning strings are gated at runtime rather than compiled out, so it was ~220
+bytes of dead weight on every dashboard load. It belongs with the second block, in
+Phase 2.
+
+Cost of the registry on the shipped bundles, measured against `dev` at `0ed12d69`:
+
+| bundle                 | before  | after   | delta  |
+| ---------------------- | ------- | ------- | ------ |
+| `calendar-card-pro.js` | 206,064 | 206,554 | +490 B |
+| `editor.js`            | 384,693 | 385,099 | +406 B |
+
+Raw bytes rather than gzip, because raw is the figure that cannot drift with a
+compression level or a Node major. The editor crossing 385 KB moved a figure documented
+in `docs/guide/installation.md`, which `check:bundle` caught.
+
+### What Phase 0 deliberately did **not** do — and why
+
+The first attempt widened `Types.EffectiveView` to include `grid` while leaving it out
+of `VIEWS`, the idea being to register the type ahead of the renderer so the machinery
+had a second consumer to be tested against. Four existing gates rejected it, and they
+were right:
+
+- `tests/editor-schema.test.ts` parses `src/config/types.ts` for union literals and
+  reconciles every enumerated option against the dropdown the editor builds. Widening
+  the union therefore _demands_ the picker offer `grid`. **The type union is the public
+  vocabulary** — that is a deliberate design property, not an oversight.
+- The `VIEW_SCOPE` gates require every scoped key to be inert in at least one member of
+  `VIEWS`. Scoping `split_multiday_events` out of a view that is not in `VIEWS` is a
+  no-op, and the gate says so.
+
+So there is no half-registered state for a view, by design, and the revert was the
+right answer rather than a workaround. `grid` joins `Types.EffectiveView`, `VIEWS`, the
+picker, the strings and the renderer **together**, in Phase 2. That also moves three
+small changes out of Phase 0, which are written up above and are one line each when the
+view lands: `viewCssClass` gains `grid-view`; `VIEW_SCOPE` gains its
+`split_multiday_events` entry; and `viewForcesMultidaySplit` widens from a boolean to a
+policy, because `false` collapses "inherit" and "never" into one answer. A 🚨 note on
+that function records the trap.
+
+The registry's own artwork for the editor picker is drafted and parked here rather than
+lost, since Phase 4 would otherwise redo it. Same 48×32 frame and palette as its two
+siblings; reads as hour axis, three day headers, an all-day banner spanning two of
+them, then blocks whose differing heights are the point of the view:
+
+```
+'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 32"><g fill="#8b8b8b">' +
+'<rect x="9" y="3" width="11" height="4" rx="1.5"/>' +
+'<rect x="22" y="3" width="11" height="4" rx="1.5"/>' +
+'<rect x="35" y="3" width="11" height="4" rx="1.5"/>' +
+'<rect x="9" y="9" width="24" height="3" rx="1.5" opacity=".55"/>' +
+'<rect x="2" y="15.5" width="5" height="1.5" rx=".75" opacity=".5"/>' +
+'<rect x="2" y="21" width="5" height="1.5" rx=".75" opacity=".5"/>' +
+'<rect x="2" y="26.5" width="5" height="1.5" rx=".75" opacity=".5"/>' +
+'<rect x="9" y="14.5" width="11" height="6" rx="1.5" opacity=".4"/>' +
+'<rect x="9" y="23" width="11" height="5" rx="1.5" opacity=".4"/>' +
+'<rect x="22" y="14.5" width="11" height="13.5" rx="1.5" opacity=".4"/>' +
+'<rect x="35" y="19" width="11" height="7" rx="1.5" opacity=".4"/></g></svg>'
+```
 
 ### Phase 2 layout
 
@@ -239,15 +316,15 @@ location above ~56px. Express as container queries where possible.
 ## Verification standard
 
 `utils/grid.ts` is pure — no Lit, no DOM, no clock reads, `now` injected — so everything
-in it is directly testable. Phase 1 shipped 88 unit tests and 21 DST tests (63 across
+in it is directly testable. Phase 1 shipped 90 unit tests and 21 DST tests (63 across
 three zones).
 
 Mutation results, each restored afterwards, with an unmutated control:
 
 | Mutation                                | unit        | dst         |
 | --------------------------------------- | ----------- | ----------- |
-| _control — no change_                   | 88 pass     | 63 pass     |
-| wall clock to elapsed ms                | **88 pass** | **24 fail** |
+| _control — no change_                   | 90 pass     | 63 pass     |
+| wall clock to elapsed ms                | **90 pass** | **24 fail** |
 | `segmentMinutes` midnight guard removed | 3 fail      | 6 fail      |
 | lane cap 1 drops events silently        | 5 fail      | 63 pass     |
 | banner zero-span guard removed          | 1 fail      | 63 pass     |
@@ -259,3 +336,30 @@ The first row is the point of the `.dst.test.ts` split: the DST mutation leaves 
 `unit` project **completely green**, because `TZ=UTC` has no transitions and is
 structurally incapable of seeing it. Differing failure counts per mutation are what
 distinguish genuine detection from a probe measuring itself.
+
+### Phase 0: the registry
+
+The whole existing suite — 3,456 tests — passes whether the resolvers read the registry
+or the hardcoded `'column'` literal, because column is the only registered view and both
+answers agree for it. The existing suite is therefore worth nothing as evidence here, and
+`tests/view-block-registry.test.ts` carries all of it. Against a green 25/25 control:
+
+| Mutation                                           | registry test | existing suite |
+| -------------------------------------------------- | ------------- | -------------- |
+| `resolveEffectiveConfig` reads `config.column`     | 2 fail        | **202 pass**   |
+| `resolveViewOption` reads `config.column`          | 2 fail        | **202 pass**   |
+| `resolveColumnOption` reads `config.column`        | 1 fail        | **202 pass**   |
+| `resolveEffectiveConfig` tests `view !== 'column'` | 1 fail        | **202 pass**   |
+| `resolveViewOption` tests `view !== 'column'`      | 1 fail        | **202 pass**   |
+
+The last two only became detectable once the test **registers a second view of its own**.
+With one view in the registry, "look the view up" and "compare it to `'column'`" are the
+same function — no assertion can separate them, and the first version of that file could
+not. That is the honest limit of testing a generalization before its second consumer
+exists, and it is why the real grid view is what will finally exercise this machinery.
+
+Two findings came out of writing it. `min_days_to_show` is a view-only key with **no**
+entry in `COLUMN_DEFAULTS` — correctly, since its default derives from `days_to_show`
+rather than being constant — so the consistency check reconciles that exception in both
+directions rather than skipping it. And `resolveColumnOption` was a sixth hardcoded
+`config.column` site the original survey missed; it now goes through the registry too.

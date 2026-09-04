@@ -101,13 +101,14 @@ export const COLUMN_ONLY_KEYS = [
 ] as const;
 
 /**
- * Compile-time partition check for the two key arrays above.
+ * Compile-time partition check for a view's two key arrays.
  *
- * The arrays are the only thing that decides whether a `column:` override reaches the
- * renderer: `resolveEffectiveConfig` hoists `COLUMN_OVERRIDE_KEYS` and nothing else, so a
- * key that exists on `Types.ColumnOverrides` but appears in neither array is accepted by
- * the editor, validated, stored — and then silently replaced by the top-level default at
- * render time. There is no error and no warning; the user's override simply does nothing.
+ * The arrays are the only thing that decides whether an override reaches the renderer:
+ * {@link resolveEffectiveConfig} hoists a view's `overrideKeys` and nothing else, so a
+ * key that exists on the view's override interface but appears in neither array is
+ * accepted by the editor, validated, stored — and then silently replaced by the
+ * top-level default at render time. There is no error and no warning; the user's
+ * override simply does nothing.
  *
  * That gap cannot be closed by a test. The suite's parity tests iterate the arrays
  * themselves, so a key missing from an array is equally missing from the loop that would
@@ -118,42 +119,55 @@ export const COLUMN_ONLY_KEYS = [
  * is what makes them work — with a `ReadonlyArray<...>` annotation the element type is the
  * declared union rather than the literal contents, which would make the whole check
  * tautological.
+ *
+ * 🚨 Written as three reusable helpers rather than as three checks about `column`, so a
+ * second view is registered by instantiating them rather than by copying them. Copying
+ * is how this kind of guard stops covering the case nobody has written yet — see
+ * AGENTS.md § *Proximity is not reach*. Instantiate all three for every view that owns
+ * an override block; a view with no block needs none.
  */
 type AssertNever<T extends never> = T;
 
-/** Every `ColumnOverrides` key must be classified into exactly one of the two arrays. */
-type _UnclassifiedColumnKeys = Exclude<
-  keyof Types.ColumnOverrides,
-  (typeof COLUMN_OVERRIDE_KEYS)[number] | (typeof COLUMN_ONLY_KEYS)[number]
+/**
+ * Keys of a view's override interface that neither array classifies.
+ *
+ * 🚨 The three helpers compute a leftover type; `AssertNever` is applied at each
+ * instantiation below rather than inside the helper. It cannot go inside: within a
+ * generic alias the leftover is still unresolved, so TypeScript cannot prove it is
+ * `never` and rejects the constraint outright.
+ */
+type UnclassifiedKeys<
+  Overrides,
+  OverrideKeys extends readonly PropertyKey[],
+  OnlyKeys extends readonly PropertyKey[],
+> = Exclude<keyof Overrides, OverrideKeys[number] | OnlyKeys[number]>;
+
+/** Hoisted keys lacking the top-level counterpart hoisting assumes. */
+type OverrideKeysWithoutCounterpart<
+  Overrides,
+  OverrideKeys extends readonly PropertyKey[],
+> = Exclude<OverrideKeys[number], keyof Overrides & keyof Types.Config>;
+
+/** View-only keys that do have a top-level counterpart, so belong in the other array. */
+type OnlyKeysWithCounterpart<OnlyKeys extends readonly PropertyKey[]> = Extract<
+  OnlyKeys[number],
+  keyof Types.Config
 >;
-export type _AssertEveryColumnKeyClassified = AssertNever<_UnclassifiedColumnKeys>;
 
-/** Every hoisted key must have the top-level counterpart hoisting it assumes. */
-type _OverrideKeysWithoutCounterpart = Exclude<
-  (typeof COLUMN_OVERRIDE_KEYS)[number],
-  keyof Types.ColumnOverrides & keyof Types.Config
+export type _AssertEveryColumnKeyClassified = AssertNever<
+  UnclassifiedKeys<Types.ColumnOverrides, typeof COLUMN_OVERRIDE_KEYS, typeof COLUMN_ONLY_KEYS>
 >;
-export type _AssertEveryOverrideKeyHoistable = AssertNever<_OverrideKeysWithoutCounterpart>;
-
-/** Column-only keys must have no top-level counterpart, or they belong in the other array. */
-type _OnlyKeysWithCounterpart = Extract<(typeof COLUMN_ONLY_KEYS)[number], keyof Types.Config>;
-export type _AssertColumnOnlyKeysHaveNoCounterpart = AssertNever<_OnlyKeysWithCounterpart>;
-
-const OVERRIDE_KEY_SET: ReadonlySet<string> = new Set<string>([
-  ...COLUMN_OVERRIDE_KEYS,
-  ...COLUMN_ONLY_KEYS,
-]);
+export type _AssertEveryColumnOverrideKeyHoistable = AssertNever<
+  OverrideKeysWithoutCounterpart<Types.ColumnOverrides, typeof COLUMN_OVERRIDE_KEYS>
+>;
+export type _AssertColumnOnlyKeysHaveNoCounterpart = AssertNever<
+  OnlyKeysWithCounterpart<typeof COLUMN_ONLY_KEYS>
+>;
 
 export const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column'];
 
 export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
   new Set<Types.EffectiveView>(['column']);
-
-export const OVERRIDE_BLOCK_BY_VIEW: Readonly<
-  Partial<Record<Types.EffectiveView, keyof Types.Config>>
-> = {
-  column: 'column',
-};
 
 /**
  * Which views each option actually affects. An absent key affects every view.
@@ -313,7 +327,10 @@ export function resolveColumnOption<K extends keyof typeof COLUMN_DEFAULTS>(
   config: Types.Config,
   key: K,
 ): ColumnOptionValue<K> {
-  const overrides = config.column;
+  // Reached through the registry rather than as `config.column`, so this is one fewer
+  // place a second view's block has to be threaded into by hand. The export keeps its
+  // column name because that is what it resolves; a sibling view gets its own.
+  const overrides = blockValues(config, 'column');
 
   if (overrides && hasOverride(overrides, key)) {
     return normalizeColumnValue(key, overrides[key]) as ColumnOptionValue<K>;
@@ -415,6 +432,96 @@ export const DEFAULT_OVERRIDES_BY_VIEW: Readonly<
   column: COLUMN_DEFAULT_OVERRIDES,
 };
 
+//-----------------------------------------------------------------------------
+// VIEW BLOCK REGISTRY
+//-----------------------------------------------------------------------------
+
+/**
+ * Everything the generic resolvers need to know about one view's override block.
+ *
+ * Before this existed, five functions each hardcoded `'column'` and `config.column`:
+ * {@link resolveViewOption}, {@link resolveEffectiveConfig}, {@link validateView},
+ * {@link validateViewOverrides} and its top-level-key warning. Registering a second
+ * view meant editing all five and remembering all five. Now it is one entry here, and
+ * a view with no block simply has none.
+ *
+ * 🚨 Declared **after** the tables it references, not beside `VIEWS`. These are
+ * `const` bindings, so a registry declared earlier in the file would read
+ * `COLUMN_DEFAULTS` in its own temporal dead zone and throw at module load — a failure
+ * that appears as the whole card failing to register, nowhere near its cause.
+ */
+interface ViewBlock {
+  /** The config key holding this view's block, e.g. `column` for `column: { … }`. */
+  readonly blockKey: keyof Types.Config;
+
+  /** Keys hoisted onto the effective config; each must have a top-level counterpart. */
+  readonly overrideKeys: ReadonlyArray<string>;
+
+  /** Keys that live only in the block and override nothing. */
+  readonly onlyKeys: ReadonlyArray<string>;
+
+  /** Defaults for `onlyKeys`, which have no top-level default to fall back to. */
+  readonly onlyDefaults: Readonly<Record<string, string | number>>;
+
+  /** Options whose shipped default differs in this view. */
+  readonly defaultOverrides: Readonly<Record<string, unknown>>;
+}
+
+export const VIEW_BLOCKS: Readonly<Partial<Record<Types.EffectiveView, ViewBlock>>> = {
+  column: {
+    blockKey: 'column',
+    overrideKeys: COLUMN_OVERRIDE_KEYS,
+    onlyKeys: COLUMN_ONLY_KEYS,
+    onlyDefaults: COLUMN_DEFAULTS,
+    defaultOverrides: COLUMN_DEFAULT_OVERRIDES,
+  },
+};
+
+/**
+ * The block a view reads its overrides from, or `undefined` when it has none.
+ *
+ * @param view - View to look up
+ * @returns That view's registry entry
+ */
+export function viewBlockFor(view: Types.EffectiveView): ViewBlock | undefined {
+  return VIEW_BLOCKS[view];
+}
+
+/**
+ * Which config key holds each view's override block.
+ *
+ * Derived from {@link VIEW_BLOCKS} rather than written out again, so a view cannot be
+ * registered in one and missed in the other. The editor reads this to decide which
+ * panels grow an exceptions row.
+ */
+export const OVERRIDE_BLOCK_BY_VIEW: Readonly<
+  Partial<Record<Types.EffectiveView, keyof Types.Config>>
+> = Object.fromEntries(
+  Object.entries(VIEW_BLOCKS).map(([view, block]) => [view, block.blockKey]),
+) as Readonly<Partial<Record<Types.EffectiveView, keyof Types.Config>>>;
+
+/**
+ * The raw, unvalidated contents of a view's block on a given config.
+ *
+ * @param config - Merged configuration
+ * @param view - View currently being rendered
+ * @returns The block object, or `undefined` when absent or not an object
+ */
+function blockValues(
+  config: Types.Config,
+  view: Types.EffectiveView,
+): Types.ColumnOverrides | undefined {
+  const block = VIEW_BLOCKS[view];
+
+  if (!block) {
+    return undefined;
+  }
+
+  const values = config[block.blockKey];
+
+  return values && typeof values === 'object' ? (values as Types.ColumnOverrides) : undefined;
+}
+
 /**
  * Whether a view substitutes its own default for an option.
  *
@@ -452,6 +559,13 @@ export function viewAppliesCompactLimits(view: Types.EffectiveView): boolean {
  *
  * List view returns `false`: the per-entity setting keeps its documented precedence
  * there, because a list shows a multi-day event once and reads correctly either way.
+ *
+ * 🚨 A boolean is the right shape only while every view either forces the split or
+ * inherits it. The grid view will want a third answer — never split upstream at all,
+ * because `splitMultiDayEvent` rewrites a timed event's middle days as `start: { date }`
+ * and the grid must keep them timed — and `false` collapses "inherit" and "never" into
+ * the same answer. Widen this to a policy when that view lands, rather than adding a
+ * caller that reads `false` and guesses which of the two it meant.
  *
  * @param view - View currently being rendered
  * @returns `true` when the per-entity override must be ignored and the split forced
@@ -500,11 +614,13 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
   key: K,
   effectiveView: Types.EffectiveView,
 ): Types.Config[K] {
-  if (effectiveView !== 'column') {
+  const block = VIEW_BLOCKS[effectiveView];
+
+  if (!block) {
     return config[key];
   }
 
-  const overrides = config.column;
+  const overrides = blockValues(config, effectiveView);
 
   if (overrides && hasOverride(overrides, key)) {
     // `hasOverride` has established that the option is present and not `undefined`,
@@ -519,18 +635,18 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
     return coercePixelLength(key, overrides[key]) as Types.Config[K];
   }
 
-  // `??` rather than a presence test on purpose: a column default of `false` is a
+  // `??` rather than a presence test on purpose: a view default of `false` is a
   // legitimate value and must not fall through to the top-level one.
-  return COLUMN_DEFAULT_OVERRIDES[key] ?? config[key];
+  return (block.defaultOverrides[key] as Types.Config[K] | undefined) ?? config[key];
 }
 
 /**
- * Applies the `column:` block to a configuration, once, for the view being rendered.
+ * Applies a view's override block to a configuration, once, for the view being rendered.
  *
  * This bulk form avoids threading the effective view through every renderer that reads
- * `Types.Config`. Only `COLUMN_OVERRIDE_KEYS` are hoisted; `COLUMN_ONLY_KEYS` stay in
- * the block for `resolveColumnOption`. The `column` block remains on the returned
- * object because downstream column-only resolution still needs it.
+ * `Types.Config`. Only the view's `overrideKeys` are hoisted; its `onlyKeys` stay in
+ * the block for {@link resolveColumnOption}. The block itself remains on the returned
+ * object because downstream view-only resolution still needs it.
  *
  * @param config - Merged configuration, defaults already applied
  * @param effectiveView - View currently being rendered
@@ -540,20 +656,24 @@ export function resolveEffectiveConfig(
   config: Types.Config,
   effectiveView: Types.EffectiveView,
 ): Types.Config {
-  if (effectiveView !== 'column') {
+  const block = VIEW_BLOCKS[effectiveView];
+
+  if (!block) {
     return config;
   }
 
-  const overrides = config.column;
+  const overrides = blockValues(config, effectiveView);
 
-  // Seeded first, so an explicit block value overwrites the column default and a card
+  // Seeded first, so an explicit block value overwrites the view default and a card
   // carrying no block at all still receives the divergent defaults.
-  const applied: Record<string, unknown> = { ...COLUMN_DEFAULT_OVERRIDES };
+  const applied: Record<string, unknown> = { ...block.defaultOverrides };
 
   if (overrides) {
-    for (const key of COLUMN_OVERRIDE_KEYS) {
-      if (hasOverride(overrides, key)) {
-        applied[key] = coercePixelLength(key, overrides[key]);
+    for (const key of block.overrideKeys) {
+      const typedKey = key as keyof Types.ColumnOverrides;
+
+      if (hasOverride(overrides, typedKey)) {
+        applied[key] = coercePixelLength(key as keyof Types.Config, overrides[typedKey]);
       }
     }
   }
@@ -576,45 +696,76 @@ export function resolveEffectiveConfig(
 export function validateView(config: Types.Config): void {
   const view = config.view as unknown;
 
-  if (view === 'list' || view === 'column') {
+  if (VIEWS.includes(view as Types.EffectiveView)) {
     return;
   }
 
+  // Built from VIEWS rather than written out, so registering a view cannot leave the
+  // diagnostic naming the old set — which would tell a user their correct value is
+  // unrecognized while the card silently rendered it.
+  const expected = VIEWS.map((name) => `"${name}"`).join(' or ');
+
   Logger.warn(
     `Ignoring "view: ${JSON.stringify(view)}": not a recognized view. ` +
-      `Expected "list" or "column". Falling back to "list".`,
+      `Expected ${expected}. Falling back to "list".`,
   );
 
   config.view = 'list';
 }
 
 /**
- * Reports options inside the `column:` block that will not take effect.
+ * Reports options inside any view's override block that will not take effect.
  *
  * Called once per `setConfig`. It never throws or mutates; unusable options are
  * ignored and logged in development builds.
  *
+ * Iterates {@link VIEW_BLOCKS} rather than reading `config.column` directly, so a newly
+ * registered view is validated by existing.
+ *
+ * The export keeps its column-era name because six modules and four test files import
+ * it; renaming would be a large diff for no behavioral gain.
+ *
  * @param config - Merged configuration to inspect
  */
 export function validateColumnOverrides(config: Types.Config): void {
-  // Must run before the early return, or top-level column-only keys without a
-  // `column:` block would be skipped.
-  warnAboutTopLevelColumnOnlyKeys(config);
+  for (const view of Object.keys(VIEW_BLOCKS) as Types.EffectiveView[]) {
+    validateViewOverrides(config, view);
+  }
+}
 
-  const overrides = config.column;
+/**
+ * Reports unusable options inside one view's override block.
+ *
+ * @param config - Merged configuration to inspect
+ * @param view - View whose block to check
+ */
+function validateViewOverrides(config: Types.Config, view: Types.EffectiveView): void {
+  const block = VIEW_BLOCKS[view];
 
-  if (!overrides || typeof overrides !== 'object') {
+  if (!block) {
     return;
   }
 
+  // Must run before the early return, or view-only keys written at the top level with
+  // no block present at all would be skipped.
+  warnAboutTopLevelOnlyKeys(config, block);
+
+  const overrides = blockValues(config, view);
+
+  if (!overrides) {
+    return;
+  }
+
+  const ownKeys = new Set<string>([...block.overrideKeys, ...block.onlyKeys]);
+
   for (const key of Object.keys(overrides)) {
-    if (OVERRIDE_KEY_SET.has(key)) {
+    if (ownKeys.has(key)) {
       continue;
     }
 
     if (FETCH_TIME_KEYS.has(key)) {
       Logger.warn(
-        `Ignoring "column.${key}": it determines which events are loaded from Home Assistant, ` +
+        `Ignoring "${block.blockKey}.${key}": it determines which events are loaded from Home Assistant, ` +
           `so it cannot differ between views — switching views would have to refetch. ` +
           `Set "${key}" at the top level instead.`,
       );
@@ -623,30 +774,31 @@ export function validateColumnOverrides(config: Types.Config): void {
 
     if (Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)) {
       Logger.warn(
-        `Ignoring "column.${key}": "${key}" is a valid top-level option but cannot be overridden ` +
+        `Ignoring "${block.blockKey}.${key}": "${key}" is a valid top-level option but cannot be overridden ` +
           `per view. Set it at the top level instead.`,
       );
       continue;
     }
 
-    Logger.warn(`Ignoring "column.${key}": not a recognized option.`);
+    Logger.warn(`Ignoring "${block.blockKey}.${key}": not a recognized option.`);
   }
 }
 
 /**
- * Reports column-only options mistakenly written at the top level.
+ * Reports view-only options mistakenly written at the top level.
  *
- * Without this, invalid `column.foo` gets a tailored diagnostic while a misplaced
+ * Without this, an invalid `column.foo` gets a tailored diagnostic while a misplaced
  * `day_header_gap: 32px` is silently inert.
  *
  * @param config - Merged configuration to inspect
+ * @param block - Registry entry for the view whose keys to check
  */
-function warnAboutTopLevelColumnOnlyKeys(config: Types.Config): void {
-  for (const key of COLUMN_ONLY_KEYS) {
+function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void {
+  for (const key of block.onlyKeys) {
     if (Object.prototype.hasOwnProperty.call(config, key)) {
       Logger.warn(
-        `Ignoring top-level "${key}": it is a column-view-only option and has no effect ` +
-          `outside the "column:" block. Move it to "column: { ${key}: ... }".`,
+        `Ignoring top-level "${key}": it is a ${block.blockKey}-view-only option and has no effect ` +
+          `outside the "${block.blockKey}:" block. Move it to "${block.blockKey}: { ${key}: ... }".`,
       );
     }
   }
