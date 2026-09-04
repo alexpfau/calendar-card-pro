@@ -44,6 +44,27 @@ function timed(
   };
 }
 
+function timedRange(
+  startDay: number,
+  from: string,
+  endDay: number,
+  to: string,
+  summary: string,
+  entity = 'calendar.personal',
+): Types.CalendarEventData {
+  const at = (day: number, hhmm: string) => {
+    const [h, m] = hhmm.split(':').map(Number);
+    return new Date(2026, 5, day, h, m).toISOString();
+  };
+
+  return {
+    start: { dateTime: at(startDay, from) },
+    end: { dateTime: at(endDay, to) },
+    summary,
+    _entityId: entity,
+  };
+}
+
 function allDay(from: string, to: string, summary: string): Types.CalendarEventData {
   return { start: { date: from }, end: { date: to }, summary, _entityId: 'calendar.personal' };
 }
@@ -51,6 +72,7 @@ function allDay(from: string, to: string, summary: string): Types.CalendarEventD
 function renderGrid(
   events: Types.CalendarEventData[],
   config: Types.Config = buildConfig({ view: 'grid', days_to_show: 3 }),
+  hass: Types.Hass | null = null,
 ): HTMLElement {
   // Both of these mirror what the card host does, and skipping either renders something
   // the card never would. `groupEventsByDay` resolves per-view overrides, so grouping
@@ -62,7 +84,7 @@ function renderGrid(
   const days = EventUtils.groupEventsByDay(events, config, false, 'en', 'grid');
   const container = document.createElement('div');
   litRender(
-    Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, FROZEN_NOW),
+    Grid.renderGridGroupedEvents(days, effective, 'en', undefined, hass, FROZEN_NOW),
     container,
   );
   return container;
@@ -135,6 +157,35 @@ describe('the grid shares one column template', () => {
 
     expect(container.querySelector('.grid-container')).not.toBeNull();
     expect(container.querySelectorAll('.grid-event')).toHaveLength(0);
+  });
+});
+
+describe('the grid hour axis follows the same clock convention as event times', () => {
+  const hass = {
+    states: {},
+    callApi: vi.fn(),
+    callService: vi.fn(),
+    locale: { language: 'de', time_format: 'language' },
+  } satisfies Types.Hass;
+
+  it('uses the Home Assistant locale for system time format', () => {
+    const container = renderGrid(
+      [timed(17, '14:00', '15:00', 'Review')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        grid: { start_time: '14:00', end_time: '16:00' },
+      }),
+      hass,
+    );
+
+    const axisText = Array.from(container.querySelectorAll('.grid-axis-label')).map((label) =>
+      label.textContent?.trim(),
+    );
+
+    expect(axisText[0]).not.toContain('PM');
+    expect(axisText[0]).toContain('14');
+    expect(container.textContent).toContain('14:00');
   });
 });
 
@@ -228,6 +279,42 @@ describe('a block is sized by its duration (#206)', () => {
   });
 });
 
+describe('timed multi-day events stay in the time grid', () => {
+  it('renders a three-day timed event in every touched day column', () => {
+    const container = renderGrid([timedRange(17, '09:00', 19, '17:00', 'Conference')]);
+    const columns = Array.from(container.querySelectorAll('.grid-day-body'));
+
+    expect(
+      columns.map(
+        (column) => column.querySelectorAll('.grid-event:not(.grid-event-overflow)').length,
+      ),
+    ).toEqual([1, 1, 1]);
+    expect(container.querySelectorAll('.grid-banner')).toHaveLength(0);
+  });
+
+  it('renders a single-midnight crossing in both touched day columns', () => {
+    const container = renderGrid([timedRange(17, '21:30', 18, '08:30', 'Late support')]);
+    const columns = Array.from(container.querySelectorAll('.grid-day-body'));
+
+    expect(
+      columns.map(
+        (column) => column.querySelectorAll('.grid-event:not(.grid-event-overflow)').length,
+      ),
+    ).toEqual([1, 1, 0]);
+    expect(container.querySelectorAll('.grid-banner')).toHaveLength(0);
+  });
+
+  it('keeps timed middle segments out of the all-day band even when list splitting is enabled', () => {
+    const container = renderGrid(
+      [timedRange(17, '09:00', 19, '17:00', 'Conference')],
+      buildConfig({ view: 'grid', days_to_show: 3, split_multiday_events: true }),
+    );
+
+    expect(container.querySelectorAll('.grid-event:not(.grid-event-overflow)')).toHaveLength(3);
+    expect(container.querySelectorAll('.grid-banner')).toHaveLength(0);
+  });
+});
+
 describe('overlapping events share the column', () => {
   it('puts two overlapping events side by side', () => {
     const container = renderGrid([
@@ -269,7 +356,7 @@ describe('overlapping events share the column', () => {
 
     expect(overflow, 'the cap should produce an overflow block').not.toBeNull();
     expect(overflow!.classList.contains('grid-event')).toBe(true);
-    expect(overflow!.textContent?.trim()).toBe('+3');
+    expect(overflow!.textContent?.trim()).toBe('+2');
   });
 
   // A cap that drops events silently is worse than no cap, because the card then lies
@@ -281,7 +368,7 @@ describe('overlapping events share the column', () => {
         timed(17, '09:15', '12:00', 'Hidden one'),
         timed(17, '09:30', '12:00', 'Hidden two'),
       ],
-      buildConfig({ view: 'grid', days_to_show: 3, grid: { max_simultaneous_events: 2 } }),
+      buildConfig({ view: 'grid', days_to_show: 3, grid: { max_simultaneous_events: 1 } }),
     );
 
     const title = container.querySelector('.grid-event-overflow')!.getAttribute('title');
@@ -499,6 +586,7 @@ describe('the axis', () => {
       buildConfig({
         view: 'grid',
         days_to_show: 3,
+        time_24h: true,
         grid: { start_time: '08:00', end_time: '11:00' },
       }),
     );
@@ -516,6 +604,7 @@ describe('the axis', () => {
       buildConfig({
         view: 'grid',
         days_to_show: 3,
+        time_24h: true,
         grid: { start_time: '08:00', end_time: '12:00' },
       }),
     );

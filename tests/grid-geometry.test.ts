@@ -318,14 +318,14 @@ describe('layoutLanes', () => {
       expect(layoutLanes(five, 5).placed).toHaveLength(5);
     });
 
-    it('collapses the excess into one block in the last lane', () => {
+    it('collapses lanes beyond the cap into one overflow block', () => {
       const { placed, overflows } = layoutLanes(five, 3);
 
-      expect(placed.map((event) => event.id)).toEqual(['a', 'b']);
-      expect(placed.every((event) => event.laneCount === 3)).toBe(true);
+      expect(placed.map((event) => event.id)).toEqual(['a', 'b', 'c']);
+      expect(placed.every((event) => event.laneCount === 4)).toBe(true);
       expect(overflows).toHaveLength(1);
-      expect(overflows[0]).toMatchObject({ laneIndex: 2, laneCount: 3 });
-      expect(overflows[0].hidden.map((event) => event.id)).toEqual(['c', 'd', 'e']);
+      expect(overflows[0]).toMatchObject({ laneIndex: 3, laneCount: 4 });
+      expect(overflows[0].hidden.map((event) => event.id)).toEqual(['d', 'e']);
     });
 
     it('spans the overflow block across the combined range of what it hides', () => {
@@ -334,17 +334,27 @@ describe('layoutLanes', () => {
         2,
       );
 
-      expect(overflows[0]).toMatchObject({ startMin: 10, endMin: 400 });
+      expect(overflows[0]).toMatchObject({ startMin: 20, endMin: 400 });
     });
 
-    // The trap in the card this was taken from: at a cap of 1 it dropped every event
-    // after the first with no indicator at all. Hiding must always be visible.
-    it('never drops an event silently at a cap of 1', () => {
+    it('keeps whole assigned lanes rather than splitting a cluster by position', () => {
+      const { placed, overflows } = layoutLanes(
+        [at(0, 100, 'a'), at(10, 200, 'b'), at(20, 120, 'd'), at(110, 210, 'c')],
+        2,
+      );
+
+      expect(placed.map((event) => event.id)).toEqual(['a', 'b', 'c']);
+      expect(placed.map((event) => event.laneIndex)).toEqual([0, 1, 0]);
+      expect(overflows[0].hidden.map((event) => event.id)).toEqual(['d']);
+    });
+
+    it('keeps one visible lane at a cap of 1 and counts the rest', () => {
       const { placed, overflows } = layoutLanes(five, 1);
 
-      expect(placed.map((event) => event.id)).toEqual([]);
+      expect(placed.map((event) => event.id)).toEqual(['a']);
       expect(overflows).toHaveLength(1);
-      expect(overflows[0].hidden.map((event) => event.id)).toEqual(['a', 'b', 'c', 'd', 'e']);
+      expect(overflows[0]).toMatchObject({ laneIndex: 1, laneCount: 2 });
+      expect(overflows[0].hidden.map((event) => event.id)).toEqual(['b', 'c', 'd', 'e']);
     });
 
     it('accounts for every input event exactly once', () => {
@@ -362,8 +372,8 @@ describe('layoutLanes', () => {
     it.each([0, -3, Number.NaN])('treats a cap of %o as 1', (cap) => {
       const { placed, overflows } = layoutLanes(five, cap);
 
-      expect(placed).toEqual([]);
-      expect(overflows[0].hidden).toHaveLength(5);
+      expect(placed.map((event) => event.id)).toEqual(['a']);
+      expect(overflows[0].hidden).toHaveLength(4);
     });
   });
 

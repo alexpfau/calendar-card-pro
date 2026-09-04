@@ -883,10 +883,8 @@ describe('editor: applicability', () => {
       compact_events_to_show: ['list'],
       compact_days_to_show: ['list'],
       compact_events_complete_days: ['list'],
-      // The grid answers this by construction: an all-day event spanning several days is
-      // one banner across them, and a timed one is already a separate block per day
-      // column. Scoped out rather than defaulted off, so a `grid:` block cannot switch
-      // the upstream splitter back on.
+      // Grid's card-level value is inert: all-day spans become one banner, and timed
+      // events are segmented by the renderer instead of by the upstream list splitter.
       split_multiday_events: ['column', 'list'],
     });
 
@@ -895,8 +893,8 @@ describe('editor: applicability', () => {
         Object.entries(ENTITY_VIEW_SCOPE).map(([key, views]) => [key, [...views].sort()]),
       ),
     ).toEqual({
-      // A per-calendar opt-out is ignored in column view, so later days of a multi-day
-      // event cannot vanish from the columns they belong to.
+      // Grid and column each choose their multi-day behavior by layout, so the
+      // per-calendar option only changes list view.
       split_multiday_events: ['list'],
     });
   });
@@ -3743,10 +3741,10 @@ describe('editor: per-calendar settings', () => {
   /**
    * Per-entity and card-level `split_multiday_events` are the same word for two
    * different scopes. The card-level key is a real column override — `column:
-   * { split_multiday_events: false }` skips the split entirely
-   * (`viewForcesMultidaySplit` in `events.ts`) —
-   * while the per-entity one is ignored in column view, because a column that omitted
-   * the later days of an event would be a claim about a day that is not true.
+   * { split_multiday_events: false }` skips the split entirely, while the per-entity one
+   * is ignored in column view because a column that omitted the later days of an event
+   * would be a claim about a day that is not true. Grid also fixes the answer by layout:
+   * all-day events span as one banner, and timed events split in the renderer.
    */
   it('says that a calendar own multi-day setting applies to the list layout', () => {
     expect(ENTITY_VIEW_SCOPE.split_multiday_events.has('list')).toBe(true);

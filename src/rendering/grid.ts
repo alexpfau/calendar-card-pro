@@ -91,6 +91,58 @@ function sortDayEvents(day: Types.EventsByDay): DayParts {
 }
 
 /**
+ * Expand timed events across the day columns the grid is about to draw.
+ *
+ * The shared event processor deliberately leaves grid events unsplit: its list-view
+ * splitter turns a timed event's middle days into all-day-looking data. Splitting here
+ * keeps every segment timed and makes the DOM path depend on `splitTimedEventByDay`, so
+ * a missing caller leaves visible columns empty and fails the grid DOM tests.
+ *
+ * @param days - Days to render
+ * @returns Days with timed multi-day events copied into every touched column
+ */
+function splitTimedEventsAcrossGridDays(days: Types.EventsByDay[]): Types.EventsByDay[] {
+  if (days.length === 0) {
+    return days;
+  }
+
+  const windowStart = Grid.startOfDay(new Date(days[0].timestamp));
+  const windowEnd = Grid.addDays(Grid.startOfDay(new Date(days[days.length - 1].timestamp)), 1);
+  const expanded = days.map((day) => ({ ...day, events: [] as Types.CalendarEventData[] }));
+
+  for (const day of days) {
+    for (const event of day.events) {
+      if (event._isEmptyDay) {
+        continue;
+      }
+
+      if (!event.start.dateTime) {
+        const offset = FormatUtils.getCalendarDayDiff(windowStart, new Date(day.timestamp));
+        if (expanded[offset]) {
+          expanded[offset].events.push(event);
+        }
+        continue;
+      }
+
+      for (const segment of Grid.splitTimedEventByDay(event, windowStart, windowEnd)) {
+        if (!segment.start.dateTime) {
+          continue;
+        }
+
+        const segmentDay = Grid.startOfDay(new Date(segment.start.dateTime));
+        const offset = FormatUtils.getCalendarDayDiff(windowStart, segmentDay);
+
+        if (expanded[offset]) {
+          expanded[offset].events.push(segment);
+        }
+      }
+    }
+  }
+
+  return expanded;
+}
+
+/**
  * Classify every day by the boundary it opens.
  *
  * This mirrors column view rather than importing a shared renderer helper: the
@@ -208,7 +260,8 @@ function renderAxis(
 ): TemplateResult {
   const hours = Grid.axisHours(band);
   const bandLength = band.endMin - band.startMin;
-  const use24h = config.time_24h === true || (config.time_24h === 'system' && !hass?.locale);
+  const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
+  const locale = hass?.locale?.language;
 
   return html`
     <div class="grid-axis" style=${styleMap({ gridColumn: '1', gridRow: '4' })}>
@@ -216,7 +269,7 @@ function renderAxis(
         const topPct = ((hour * 60 - band.startMin) / bandLength) * 100;
 
         return html`<div class="grid-axis-label" style=${styleMap({ top: `${topPct}%` })}>
-          ${formatHour(hour, use24h)}
+          ${formatHour(hour, use24h, locale)}
         </div>`;
       })}
     </div>
@@ -231,9 +284,17 @@ function renderAxis(
  *
  * @param hour - Hour of the day, 0-23
  * @param use24h - Whether to use 24-hour time
+ * @param locale - Locale to use for hour labels, when available
  * @returns The label
  */
-function formatHour(hour: number, use24h: boolean): string {
+function formatHour(hour: number, use24h: boolean, locale?: string): string {
+  if (locale) {
+    return new Intl.DateTimeFormat(locale, {
+      hour: 'numeric',
+      hour12: !use24h,
+    }).format(new Date(2000, 0, 1, hour));
+  }
+
   if (use24h) {
     return String(hour);
   }
@@ -543,6 +604,8 @@ export function renderGridGroupedEvents(
     return html`<div class="grid-container"></div>`;
   }
 
+  const gridDays = splitTimedEventsAcrossGridDays(days);
+
   const band = Grid.resolveBand(
     ViewConfig.resolveGridOption(config, 'start_time'),
     ViewConfig.resolveGridOption(config, 'end_time'),
@@ -556,12 +619,12 @@ export function renderGridGroupedEvents(
   const showAxisLabels = ViewConfig.resolveGridOption(config, 'show_axis_labels');
   const maxRows = ViewConfig.resolveGridOption(config, 'allday_band_max_rows');
 
-  const windowStart = Grid.startOfDay(new Date(days[0].timestamp));
+  const windowStart = Grid.startOfDay(new Date(gridDays[0].timestamp));
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
-  const boundaries = computeDayBoundaries(days);
+  const boundaries = computeDayBoundaries(gridDays);
 
-  const banners = layoutBanners(days, windowStart, maxRows);
+  const banners = layoutBanners(gridDays, windowStart, maxRows);
   const bandRows = banners.placed.reduce((max, banner) => Math.max(max, banner.row), 0);
   const separators = boundaries
     .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))
@@ -572,7 +635,7 @@ export function renderGridGroupedEvents(
     <div
       class="grid-container"
       style=${styleMap({
-        gridTemplateColumns: `${axisWidth} repeat(${days.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `${axisWidth} repeat(${gridDays.length}, minmax(0, 1fr))`,
         columnGap: gutter,
         // The band's height is the one place a configured length becomes the scale. It is
         // handed to CSS as a calc() rather than multiplied here, so `4em` and
@@ -581,16 +644,18 @@ export function renderGridGroupedEvents(
         '--calendar-card-grid-now-color': nowLineColor,
       })}
     >
-      ${renderWeekNumbers(days, config)}
-      ${days.map((day, index) => renderDayHeader(day, config, language, index, weatherForecasts))}
+      ${renderWeekNumbers(gridDays, config)}
+      ${gridDays.map((day, index) =>
+        renderDayHeader(day, config, language, index, weatherForecasts),
+      )}
       ${bandRows > 0
         ? html`
             <div
               class="grid-allday-band"
               style=${styleMap({
-                gridColumn: `1 / span ${days.length + 1}`,
+                gridColumn: `1 / span ${gridDays.length + 1}`,
                 gridRow: '3',
-                gridTemplateColumns: `${axisWidth} repeat(${days.length}, minmax(0, 1fr))`,
+                gridTemplateColumns: `${axisWidth} repeat(${gridDays.length}, minmax(0, 1fr))`,
                 gridTemplateRows: `repeat(${bandRows}, auto)`,
                 columnGap: gutter,
               })}
@@ -602,8 +667,8 @@ export function renderGridGroupedEvents(
           `
         : nothing}
       ${showAxisLabels ? renderAxis(band, config, hass) : nothing}
-      ${renderRules(band, slotMinutes, days.length)}
-      ${days.map((day, index) =>
+      ${renderRules(band, slotMinutes, gridDays.length)}
+      ${gridDays.map((day, index) =>
         renderDayBody(day, band, config, language, index, maxLanes, showNowLine, now, hass),
       )}
       ${separators}

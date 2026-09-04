@@ -70,7 +70,7 @@ describe the time axis and the grid's responsive width fallback.
 | `grid → show_axis_labels`        | boolean | `true`               | Label the axis with its hours                                                                                                                   |
 | `grid → show_now_line`           | boolean | `true`               | Draw a line across today's column at the current time                                                                                           |
 | `grid → now_line_color`          | string  | `var(--error-color)` | Color of that line                                                                                                                              |
-| `grid → max_simultaneous_events` | number  | `3`                  | Most events drawn side by side before the rest collapse into one `+N` block. Nothing is ever hidden without being counted                       |
+| `grid → max_simultaneous_events` | number  | `3`                  | Most event lanes drawn side by side before the rest collapse into one `+N` block. Nothing is ever hidden without being counted                  |
 | `grid → allday_band_max_rows`    | number  | `3`                  | Rows the all-day band may grow to before the remaining banners are dropped                                                                      |
 
 **→ [Grid View](/features/grid-view)** — worked examples.

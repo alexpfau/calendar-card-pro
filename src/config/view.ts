@@ -227,12 +227,9 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   compact_days_to_show: new Set<Types.EffectiveView>(['list']),
   compact_events_complete_days: new Set<Types.EffectiveView>(['list']),
 
-  // Inert in grid view, because the grid answers the question by construction in both
-  // directions: an all-day multi-day event is one banner spanning its days by width,
-  // and a timed one is already drawn as one block per day column, which is what placing
-  // an event by clock time means. There is no per-day row for a split to produce.
-  //
-  // 🚨 Scoped out rather than defaulted off — see the note on GRID_DEFAULT_OVERRIDES.
+  // Inert as a card-level grid override: the grid never uses the upstream list splitter.
+  // All-day multi-day events become one spanning banner, and timed multi-day events are
+  // segmented by the grid renderer so every segment stays timed.
   split_multiday_events: new Set<Types.EffectiveView>(['list', 'column']),
 };
 
@@ -407,7 +404,7 @@ export function normalizeColumnValue(
     return value === 'cramp' || value === 'list' ? value : fallback;
   }
 
-  return String(coercePixelLengthAgainst(fallback, value));
+  return String(coercePixelLengthAgainst(fallback, value, key));
 }
 
 /**
@@ -477,6 +474,10 @@ export function normalizeGridValue(
 ): string | number | boolean {
   const fallback = GRID_DEFAULTS[key];
 
+  if (key === 'min_days_fallback') {
+    return value === 'cramp' || value === 'list' ? value : fallback;
+  }
+
   if (typeof fallback === 'boolean') {
     return typeof value === 'boolean' ? value : fallback;
   }
@@ -494,7 +495,7 @@ export function normalizeGridValue(
     return typeof value === 'string' ? value : fallback;
   }
 
-  return String(coercePixelLengthAgainst(fallback, value));
+  return String(coercePixelLengthAgainst(fallback, value, key));
 }
 
 /**
@@ -619,9 +620,9 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
- * from the view's own block, so `grid: { split_multiday_events: true }` would switch the
- * upstream splitter back on and reintroduce the hazard documented on
- * `viewForcesMultidaySplit`.
+ * from the view's own block, so `grid: { split_multiday_events: true }` would imply the
+ * upstream list splitter could be switched back on. The grid instead answers `never` via
+ * `multidaySplitPolicy` and segments timed events in its renderer.
  */
 export const GRID_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.GridOverrides & keyof Types.Config]?: Types.Config[K];
@@ -761,33 +762,35 @@ export function hasDivergentDefault(key: string, view: Types.EffectiveView): boo
  * @returns `true` when `compact_*` keys should be honoured
  */
 export function viewAppliesCompactLimits(view: Types.EffectiveView): boolean {
-  return view !== 'column';
+  return view === 'list';
 }
 
 /**
- * Whether the given view forces multi-day events to be split into per-day segments,
- * overriding any per-entity `split_multiday_events: false`.
+ * How the shared event processor should handle multi-day splitting for the view.
  *
  * A column is a claim about one day. An unsplit multi-day event would appear only in
  * the column it starts in and leave every later column it spans silently blank, so the
  * split is required in column view. Per-entity precedence is ignored so one calendar
  * cannot make the layout truthful while another does not.
  *
- * List view returns `false`: the per-entity setting keeps its documented precedence
- * there, because a list shows a multi-day event once and reads correctly either way.
- *
- * 🚨 A boolean is the right shape only while every view either forces the split or
- * inherits it. The grid view will want a third answer — never split upstream at all,
- * because `splitMultiDayEvent` rewrites a timed event's middle days as `start: { date }`
- * and the grid must keep them timed — and `false` collapses "inherit" and "never" into
- * the same answer. Widen this to a policy when that view lands, rather than adding a
- * caller that reads `false` and guesses which of the two it meant.
+ * List view inherits the card and per-entity options. Grid view returns `never`: it does
+ * its own timed segmentation at render time, and the upstream list splitter would rewrite
+ * the middle day of a timed event as all-day data.
  *
  * @param view - View currently being rendered
- * @returns `true` when the per-entity override must be ignored and the split forced
+ * @returns Split policy for the shared event processor
  */
-export function viewForcesMultidaySplit(view: Types.EffectiveView): boolean {
-  return view === 'column';
+export type MultidaySplitPolicy = 'force' | 'inherit' | 'never';
+
+export function multidaySplitPolicy(view: Types.EffectiveView): MultidaySplitPolicy {
+  switch (view) {
+    case 'column':
+      return 'force';
+    case 'grid':
+      return 'never';
+    case 'list':
+      return 'inherit';
+  }
 }
 
 /**

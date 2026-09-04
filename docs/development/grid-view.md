@@ -143,12 +143,13 @@ through `DEFAULT_OVERRIDES_BY_VIEW`. That is worse in a way that is easy to miss
 default in that map is overridable from the `grid:` block, so
 `grid: { split_multiday_events: true }` would switch the upstream splitter back on and
 reintroduce the hazard above — a config the editor would offer without complaint.
-Scoping the key out of the view instead makes it unreachable rather than merely unset.
+Scoping the key out of the view instead makes the editor and docs label it inert. It does
+not enforce runtime behavior; the runtime safety comes from `multidaySplitPolicy('grid')`
+returning `never`, so the shared list splitter is not called.
 
-`viewForcesMultidaySplit` therefore becomes three-way — `inherit` for list, `always` for
-column, `never` for grid — rather than the boolean it is today, which returns
-`view === 'column'` and would hand grid the _list_ behavior. Almost right, and therefore
-dangerous.
+`multidaySplitPolicy` is therefore three-way — `inherit` for list, `force` for column,
+`never` for grid — rather than a boolean. The previous `view === 'column'` answer handed
+grid the _list_ behavior. Almost right, and therefore dangerous.
 
 ---
 
@@ -255,11 +256,11 @@ were right:
 So there is no half-registered state for a view, by design, and the revert was the
 right answer rather than a workaround. `grid` joins `Types.EffectiveView`, `VIEWS`, the
 picker, the strings and the renderer **together**, in Phase 2. That also moves three
-small changes out of Phase 0, which are written up above and are one line each when the
-view lands: `viewCssClass` gains `grid-view`; `VIEW_SCOPE` gains its
-`split_multiday_events` entry; and `viewForcesMultidaySplit` widens from a boolean to a
-policy, because `false` collapses "inherit" and "never" into one answer. A 🚨 note on
-that function records the trap.
+small changes out of Phase 0, which are written up above and landed with the view:
+`viewCssClass` gained `grid-view`; `VIEW_SCOPE` gained its `split_multiday_events`
+entry; and `multidaySplitPolicy` widened the old boolean answer into
+`inherit | force | never`, because `false` collapses "inherit" and "never" into one
+answer.
 
 The registry's own artwork for the editor picker is drafted and parked here rather than
 lost, since Phase 4 would otherwise redo it. Same 48×32 frame and palette as its two

@@ -137,8 +137,8 @@ export function formatEventTimeParts(
     return { allDayLabel: translations.allDay, text: '' };
   }
 
-  const useNativeFormatting = !!(config.time_24h === 'system' && hass?.locale);
-  const use24h = config.time_24h === true;
+  const useNativeFormatting = !!hass?.locale;
+  const use24h = resolveTimeFormat24h(config, hass);
 
   if (startDate.toDateString() !== endDate.toDateString()) {
     return {
@@ -526,7 +526,20 @@ export function getCalendarDayDiff(start: Date, end: Date): number {
  * @param twoDigitHours Whether to pad hours to two digits
  * @returns Formatted time string
  */
-export function formatTime(date: Date, use24h = true, twoDigitHours = false): string {
+export function formatTime(
+  date: Date,
+  use24h = true,
+  twoDigitHours = false,
+  locale?: string,
+): string {
+  if (locale) {
+    return new Intl.DateTimeFormat(locale, {
+      hour: twoDigitHours ? '2-digit' : 'numeric',
+      minute: '2-digit',
+      hour12: !use24h,
+    }).format(date);
+  }
+
   let hours = date.getHours();
   const minutes = date.getMinutes();
 
@@ -537,6 +550,19 @@ export function formatTime(date: Date, use24h = true, twoDigitHours = false): st
   }
 
   return `${twoDigitHours ? pad(hours) : hours}:${pad(minutes)}`;
+}
+
+/**
+ * Resolve the configured clock convention the same way everywhere times are drawn.
+ *
+ * @param config Card configuration
+ * @param hass Home Assistant instance, for the user's time-format preference
+ * @returns `true` for 24-hour output
+ */
+export function resolveTimeFormat24h(config: Types.Config, hass?: Types.Hass | null): boolean {
+  if (config.time_24h === true) return true;
+  if (config.time_24h === false) return false;
+  return Helpers.getTimeFormat24h(hass?.locale, false);
 }
 
 function pad(n: number): string {
@@ -728,11 +754,11 @@ function formatSingleDayTime(
   hass?: Types.Hass | null,
 ): string {
   if (useNativeFormatting && hass?.locale) {
-    const use24hFormat = Helpers.getTimeFormat24h(hass.locale, use24h);
+    const locale = hass.locale.language;
 
     return showEndTime
-      ? `${formatTime(startDate, use24hFormat, twoDigitHours)} - ${formatTime(endDate, use24hFormat, twoDigitHours)}`
-      : formatTime(startDate, use24hFormat, twoDigitHours);
+      ? `${formatTime(startDate, use24h, twoDigitHours, locale)} - ${formatTime(endDate, use24h, twoDigitHours, locale)}`
+      : formatTime(startDate, use24h, twoDigitHours, locale);
   }
 
   return showEndTime
@@ -757,8 +783,7 @@ function formatMultiDayTime(
 
   const formatTimeStr = (date: Date) => {
     if (useNativeFormatting && hass?.locale) {
-      const use24hFormat = Helpers.getTimeFormat24h(hass.locale, use24h);
-      return formatTime(date, use24hFormat, twoDigitHours);
+      return formatTime(date, use24h, twoDigitHours, hass.locale.language);
     }
     return formatTime(date, use24h, twoDigitHours);
   };

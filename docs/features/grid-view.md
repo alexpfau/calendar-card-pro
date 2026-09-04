@@ -146,7 +146,8 @@ grid:
 ```
 
 The collapsed block says how many it stands for — `+3` — and lists their titles on hover.
-Nothing is hidden without being counted.
+Nothing is hidden without being counted. A cap of `1` still keeps the first event lane
+visible, then adds the overflow block beside it.
 
 Raise it if you routinely have four or five things at once and would rather see them all
 narrow; lower it to keep blocks readable.
@@ -230,10 +231,10 @@ Set either inside `grid:` to change it back.
 ## 🚫 Options That Do Nothing in Grid View
 
 `split_multiday_events` has no effect here, and the reason is worth stating because it
-looks like it should. The grid already answers the question in both directions: an all-day
-event spanning several days is drawn as one banner across them, and a timed event that
-crosses midnight is already drawn as a separate block in each day it touches. There is no
-per-day row for a split to produce.
+looks like it should. The grid answers the question in both directions itself: an all-day
+event spanning several days is drawn as one banner across them, and timed events are split
+by the grid renderer into one timed block for each day they touch. The list splitter is not
+used, because it would turn the middle day of a timed event into an all-day banner.
 
 The compact options — `compact_events_to_show`, `compact_days_to_show` and
 `compact_events_complete_days` — are list-only and do nothing here either, as they do

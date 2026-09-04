@@ -390,8 +390,9 @@ export function coercePixelLengthAgainst(
  * | `progress_bar_height` | `calc(…)`      | derived from the time font size       |
  * | `height`              | `'auto'`       | a CSS keyword                         |
  * | `max_height`          | `'none'`       | a CSS keyword                         |
+ * | `axis_width`          | `'3.5em'`      | scales with the axis label text       |
  *
- * All five reach CSS where a length is expected, so a bare number breaks them exactly as
+ * All six reach CSS where a length is expected, so a bare number breaks them exactly as
  * it breaks `day_spacing`: `font-size: var(--calendar-card-font-size-title, …)` given a
  * unitless `24` **substitutes** rather than falling back, so the declaration goes invalid
  * at computed-value time and the title silently drops to its inherited size — worse than
@@ -412,6 +413,7 @@ export const LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT: ReadonlySet<string> = new Set
   'progress_bar_height',
   'height',
   'max_height',
+  'axis_width',
 ]);
 
 /**

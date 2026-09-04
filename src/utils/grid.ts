@@ -353,11 +353,11 @@ export interface LaneLayout<T> {
  * lanes the cluster actually needed, not its size: three events where only two are
  * ever simultaneous take two lanes, not three.
  *
- * Above `maxLanes`, the excess collapses into one overflow block spanning their
- * combined range. An uncapped grid answers a busy day with seven unreadable slivers;
- * the block at least says how many were hidden. The cap is never allowed to drop an
- * event silently — at `maxLanes: 1` the first event keeps its lane and every other
- * event in the cluster goes into the overflow block rather than disappearing.
+ * Above `maxLanes`, events assigned to lanes beyond the cap collapse into one overflow
+ * block spanning their combined range. An uncapped grid answers a busy day with seven
+ * unreadable slivers; the block at least says how many were hidden. The cap is never
+ * allowed to drop an event silently — at `maxLanes: 1` the first lane remains visible and
+ * every hidden lane is represented by the overflow block.
  *
  * @param events - Events to lay out; not mutated, and need not be sorted
  * @param maxLanes - Most lanes a cluster may use; values below 1 are treated as 1
@@ -404,22 +404,22 @@ export function layoutLanes<T extends LaneInput>(events: T[], maxLanes: number):
       continue;
     }
 
-    // Keep the first `cap - 1` lanes' worth of events and reserve the last lane for the
-    // overflow block. Splitting by position in the cluster rather than by assigned lane
-    // keeps the visible set the earliest-starting events, which is what a reader scanning
-    // downwards expects to see.
-    const visible = members.slice(0, cap - 1);
-    const hidden = members.slice(cap - 1);
+    // Keep whole lanes rather than the first events in the cluster. Otherwise a
+    // transitively joined cluster can hide lane 0's later event while showing lane 2's
+    // first one, leaving an empty gutter beside the overflow block.
+    const visible = assigned.filter((entry) => entry.laneIndex < cap);
+    const hidden = assigned.filter((entry) => entry.laneIndex >= cap).map((entry) => entry.event);
+    const laneCount = cap + 1;
 
-    for (const entry of assignLanes(visible)) {
-      placed.push({ ...entry.event, laneIndex: entry.laneIndex, laneCount: cap });
+    for (const entry of visible) {
+      placed.push({ ...entry.event, laneIndex: entry.laneIndex, laneCount });
     }
 
     overflows.push({
       startMin: Math.min(...hidden.map((event) => event.startMin)),
       endMin: Math.max(...hidden.map((event) => event.endMin)),
-      laneIndex: cap - 1,
-      laneCount: cap,
+      laneIndex: cap,
+      laneCount,
       hidden,
     });
   }

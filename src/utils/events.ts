@@ -469,13 +469,13 @@ export function groupEventsByDay(
   // Always run the splitter and let `shouldSplitEvent` decide per event, rather
   // than gating the call on the card-level value. A per-entity
   // `split_multiday_events: true` has to win over a card-level `false`, and a
-  // gate here would never consult it. In column view `viewForcesMultidaySplit`
-  // ignores the per-entity opt-out instead, so later days of a multi-day event
-  // cannot vanish from their columns.
+  // gate here would never consult it. Column view forces the split instead, so
+  // later days of a multi-day event cannot vanish from their columns. Grid view
+  // opts out of this splitter entirely and keeps timed segmentation in its renderer.
   const splitEvents = processMultiDayEvents(
     events,
     config,
-    ViewConfig.viewForcesMultidaySplit(effectiveView),
+    ViewConfig.multidaySplitPolicy(effectiveView),
   );
 
   const referenceDate = getStartDateReference(
@@ -1088,12 +1088,16 @@ function processEvents(
 function processMultiDayEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
-  ignorePerEntityOverride = false,
+  splitPolicy: ViewConfig.MultidaySplitPolicy = 'inherit',
 ): Types.CalendarEventData[] {
+  if (splitPolicy === 'never') {
+    return events;
+  }
+
   const result: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    if (!shouldSplitEvent(event, config, ignorePerEntityOverride)) {
+    if (!shouldSplitEvent(event, config, splitPolicy === 'force')) {
       result.push(event);
       continue;
     }

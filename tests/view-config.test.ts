@@ -14,6 +14,7 @@ import {
   computeColumnThresholdPx,
   computeColumnThresholdPxFor,
   isZeroLength,
+  multidaySplitPolicy,
   resolveColumnFit,
   resolveColumnFitOnMeasurement,
   resolveColumnOption,
@@ -27,7 +28,6 @@ import {
   validateColumnOverrides,
   validateView,
   viewAppliesCompactLimits,
-  viewForcesMultidaySplit,
 } from '../src/config/view';
 import { generateCustomPropertiesObject } from '../src/rendering/styles';
 
@@ -437,20 +437,19 @@ describe('resolveEffectiveConfig', () => {
 /**
  * View-semantics predicates.
  *
- * These replaced inline `=== 'column'` comparisons so that a third view has somewhere
- * to be answered rather than silently inheriting the list answer from a negative-form
- * check. The tests pin the two shipped answers and, deliberately, nothing about a view
- * that does not exist yet.
+ * These replaced inline view comparisons so each shipped view has its own explicit answer.
  */
 describe('view-semantics predicates', () => {
-  it('applies compact-mode limits in list view but not in column view', () => {
+  it('applies compact-mode limits in list view only', () => {
     expect(viewAppliesCompactLimits('list')).toBe(true);
     expect(viewAppliesCompactLimits('column')).toBe(false);
+    expect(viewAppliesCompactLimits('grid')).toBe(false);
   });
 
-  it('forces the multi-day split in column view but not in list view', () => {
-    expect(viewForcesMultidaySplit('column')).toBe(true);
-    expect(viewForcesMultidaySplit('list')).toBe(false);
+  it('answers each view with a distinct multi-day split policy', () => {
+    expect(multidaySplitPolicy('column')).toBe('force');
+    expect(multidaySplitPolicy('list')).toBe('inherit');
+    expect(multidaySplitPolicy('grid')).toBe('never');
   });
 });
 
@@ -1482,6 +1481,23 @@ describe('resolveColumnFit — grid reduction', () => {
     expect(
       resolveGridOption(build({ slot_minutes: 45 as Types.GridSlotMinutes }), 'slot_minutes'),
     ).toBe(30);
+  });
+
+  it('coerces bare grid length values without discarding non-pixel units', () => {
+    expect(resolveGridOption(build({ axis_width: 60 as never }), 'axis_width')).toBe('60px');
+    expect(resolveGridOption(build({ axis_width: '60' }), 'axis_width')).toBe('60px');
+    expect(resolveGridOption(build({ axis_width: '4rem' }), 'axis_width')).toBe('4rem');
+    expect(resolveGridOption(build({ hour_height: 72 as never }), 'hour_height')).toBe('72px');
+    expect(resolveGridOption(build({ hour_height: '5em' }), 'hour_height')).toBe('5em');
+  });
+
+  it('normalizes grid min-days fallback to its declared values', () => {
+    expect(resolveGridOption(build({ min_days_fallback: 'cramp' }), 'min_days_fallback')).toBe(
+      'cramp',
+    );
+    expect(
+      resolveGridOption(build({ min_days_fallback: 'banana' as never }), 'min_days_fallback'),
+    ).toBe('list');
   });
 });
 
