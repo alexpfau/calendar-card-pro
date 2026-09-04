@@ -9,6 +9,7 @@ import {
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   FETCH_TIME_KEYS,
+  GRID_DEFAULTS,
   VIEW_SWITCH_HYSTERESIS_PX,
   computeColumnThresholdPx,
   computeColumnThresholdPxFor,
@@ -1419,6 +1420,55 @@ describe('resolveColumnFit — reduction', () => {
 
       expect(Math.abs(stepped.columns - from.columns)).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe('resolveColumnFit — grid reduction', () => {
+  const build = (overrides: Partial<Types.GridOverrides> = {}) => {
+    const config = buildConfig();
+    config.days_to_show = 7;
+    config.grid = { ...overrides };
+    return config;
+  };
+
+  it('uses the grid density defaults rather than column density', () => {
+    const config = build();
+    config.column = { min_day_width: 300, min_days_to_show: 5, min_days_fallback: 'cramp' };
+
+    expect(resolveMinDaysToShow(config, 'grid')).toBe(1);
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(352);
+    expect(resolveColumnFit('grid', config, 368, null)).toEqual({ view: 'grid', columns: 3 });
+  });
+
+  it('lets grid override its own minimum day width', () => {
+    const config = build({ min_day_width: 120 });
+
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(412);
+  });
+
+  it('falls back to list below one grid day by default', () => {
+    const config = build();
+
+    expect(resolveColumnFit('grid', config, 147, null)).toEqual({ view: 'list', columns: 0 });
+    expect(resolveColumnFit('grid', config, 148, null)).toEqual({ view: 'grid', columns: 1 });
+  });
+
+  it('holds a one-day grid when asked to cramp', () => {
+    const config = build({ min_days_fallback: 'cramp' });
+
+    expect(resolveColumnFit('grid', config, 1, null)).toEqual({ view: 'grid', columns: 1 });
+  });
+
+  it('clamps a configured grid floor into the day range', () => {
+    expect(resolveMinDaysToShow(build({ min_days_to_show: 4 }), 'grid')).toBe(4);
+    expect(resolveMinDaysToShow(build({ min_days_to_show: 99 }), 'grid')).toBe(7);
+    expect(resolveMinDaysToShow(build({ min_days_to_show: 0 }), 'grid')).toBe(1);
+  });
+
+  it('keeps the documented grid width defaults pinned', () => {
+    expect(GRID_DEFAULTS.min_day_width).toBe(100);
+    expect(GRID_DEFAULTS.min_days_to_show).toBe(1);
+    expect(GRID_DEFAULTS.min_days_fallback).toBe('list');
   });
 });
 

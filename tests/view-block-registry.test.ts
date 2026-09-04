@@ -36,7 +36,7 @@ type MutableBlock = {
   blockKey: string;
   overrideKeys: ReadonlyArray<string>;
   onlyKeys: ReadonlyArray<string>;
-  onlyDefaults: Readonly<Record<string, string | number>>;
+  onlyDefaults: Readonly<Record<string, string | number | boolean>>;
   defaultOverrides: Readonly<Record<string, unknown>>;
 };
 
@@ -109,9 +109,10 @@ describe('every registered view is internally consistent', () => {
   it.each(registered)('%s: every view-only key ships a default', (_view, block) => {
     // A view-only key has no top-level counterpart to fall back to, so it needs a
     // default of its own — unless that default is *derived* from another option and so
-    // cannot be a constant. `min_days_to_show` defaults to `days_to_show` and is
+    // cannot be a constant. Column `min_days_to_show` defaults to `days_to_show` and is
     // resolved by `resolveMinDaysToShow`, which is why it is absent from
-    // `COLUMN_DEFAULTS` by design rather than by omission.
+    // `COLUMN_DEFAULTS` by design rather than by omission. Grid's sibling key defaults
+    // to a literal 1, so it belongs in `GRID_DEFAULTS` and is not an exception here.
     //
     // 🚨 Reconciled in both directions rather than skipped. A bare exception list
     // silently stops covering anything added to it, and stops meaning anything when a

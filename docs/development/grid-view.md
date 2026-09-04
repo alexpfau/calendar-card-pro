@@ -94,7 +94,7 @@ reused rather than reimplemented.
 
 **4. Narrow cards become a one-column day view, not a list.** Column view defaults
 `min_days_fallback: list` because a cramped column is unreadable. A one-column grid is
-not cramped — it is exactly the day view #325 asked for. So `grid.min_days_to_show`
+not cramped — it is exactly the day view issue 325 asked for. So `grid.min_days_to_show`
 defaults to `1` and grid joins `VIEWS_WITH_WIDTH_FALLBACK`, inheriting the existing
 hysteresis-backed fit resolver unchanged.
 
@@ -167,6 +167,7 @@ Grid-specific options live in a `grid:` block, matching the v4 `column:` pattern
 | `grid.max_simultaneous_events` | int at least 1         | `3`                  |
 | `grid.min_day_width`           | number (px)            | `100`                |
 | `grid.min_days_to_show`        | int                    | `1`                  |
+| `grid.min_days_fallback`       | `list\|cramp`          | `list`               |
 | `grid.allday_band_max_rows`    | int                    | `3`                  |
 | `grid.axis_width`              | CSS length             | `"3.5em"`            |
 | `grid.show_axis_labels`        | boolean                | `true`               |
@@ -194,8 +195,8 @@ Integration branch `feature/grid-view-v5`, feature branches feeding it, one PR i
 | 1     | `src/utils/grid.ts` — pure geometry, DST-tested          | **done** |
 | 0     | Generalize the view abstraction                          | **done** |
 | 2     | Register `grid`; `src/rendering/grid.ts` — the container | **done** |
-| 4a    | Editor panel for the `grid:` block's own options         | next     |
-| 3     | Width fallback, now-line ticking, midnight rollover      |          |
+| 4a    | Editor panel for the `grid:` block's own options         | **done** |
+| 3     | Width fallback, now-line ticking, midnight rollover      | **done** |
 | 5     | `NOTICE`, release surfaces                               |          |
 
 Phase 1 ran first because it touches no existing code path and settles the geometry
@@ -367,10 +368,10 @@ directions rather than skipping it. And `resolveColumnOption` was a sixth hardco
 
 `view: grid` renders. The picker offers it, the `grid:` block is registered, the four-row
 container is built, the stylesheet is written, and `docs/features/grid-view.md` documents
-all ten grid-only options.
+the grid-only options.
 
-**In the editor as of Phase 4a.** A **Time Axis** group in the Layout panel carries all ten,
-ordered by what each decides rather than by declaration order: the slice of the day, then
+**In the editor as of Phase 4a.** A **Time Axis** group in the Layout panel carries the
+axis options, ordered by what each decides rather than by declaration order: the slice of the day, then
 how it is ruled and how tall, then the label gutter, then the overlay and the all-day row
 budget, and last the overlap budget. `start_time` and `end_time` share a row because they
 are a pair — a bad half resets both, so reading them apart misleads.
@@ -393,11 +394,22 @@ same way it already did for column's. Without that the grid block would sit in e
 position that test was written to fix: a container whose members nothing checks, where
 deleting a node leaves every gate green.
 
-**Not yet responsive.** Grid is deliberately absent from `VIEWS_WITH_WIDTH_FALLBACK`, so
-the column count follows `days_to_show` exactly and a narrow card cramps rather than
-shedding columns. The width machinery — `resolveMinDaysToShow`, `resolveMinDaysFallback`,
-`computeColumnThresholdPx` — still reads `config.column` directly and has to become
-view-aware first. Until then the feature page's guidance stands: start with three days.
+**Responsive as of Phase 3.** Grid is now in `VIEWS_WITH_WIDTH_FALLBACK`, and the width
+machinery is view-aware instead of reading `config.column` directly. The same hysteresis
+resolver that column view uses now sheds grid day columns before falling back to list or
+cramping, but the defaults differ deliberately: `grid.min_day_width` is `100`, lower than
+column's `140`, because a time-grid column carries positioned blocks rather than a text
+list. At default spacing, three grid days need 352px before hysteresis, or 368px when
+entering grid view from the list fallback.
+
+`grid.min_days_to_show` defaults to `1`, not to `days_to_show`. A one-column grid is a
+useful day view with a now line — exactly the shape issue 325 asked for — so shedding down
+to one column is the correct narrow-card behavior. Column view keeps its dynamic default
+because a single cramped text column is not what a multi-day column card requested.
+
+The editor reuses the same density group for grid, with `grid.*` labels and helper text.
+The day-header separator controls stay column-only; adding grid to the width-fallback set
+would otherwise have leaked controls that grid does not read.
 
 **The now line ticks as of Phase 3a.** A one-minute interval repaints it, reconciled from
 `updated()` rather than acquired in `connectedCallback` — the view can change after

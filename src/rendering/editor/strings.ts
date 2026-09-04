@@ -303,6 +303,21 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.allday_badge_style': 'All-Day Badge Style',
   'column.allday_badge_color': 'All-Day Badge Color',
   'column.remove_location_country': 'Country Names',
+  'grid.density': 'Grid Density',
+  'grid.density.helper':
+    'How narrow a day column may get before the grid gives up a day, and what it does ' +
+    'when it runs out.',
+  'grid.min_day_width': 'Minimum Day Width',
+  'grid.min_day_width.helper':
+    'The narrowest a day column may be. The default 100px keeps three days at 352px, ' +
+    'or 368px when entering from the list fallback.',
+  'grid.min_days_to_show': 'Fewest Day Columns',
+  'grid.min_days_to_show.helper':
+    'How far the grid may reduce the day count to keep the time layout. Defaults to 1, ' +
+    'because a one-day grid is still a useful day view with a now line.',
+  'grid.min_days_fallback': 'When Too Narrow',
+  'grid.min_days_fallback.option.list.label': 'Fall back to a list',
+  'grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
   'grid.axis': 'Time Axis',
   'grid.axis.helper':
     'Which hours the card draws, and how they are ruled. Everything on the axis is ' +

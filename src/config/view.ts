@@ -117,8 +117,11 @@ export const COLUMN_ONLY_KEYS = [
  */
 export const GRID_OVERRIDE_KEYS = COLUMN_OVERRIDE_KEYS;
 
-/** Grid-only options — the ones describing the time axis itself. */
+/** Grid-only options — the ones describing the time axis and responsive density. */
 export const GRID_ONLY_KEYS = [
+  'min_day_width',
+  'min_days_to_show',
+  'min_days_fallback',
   'start_time',
   'end_time',
   'slot_minutes',
@@ -208,7 +211,7 @@ export type _AssertGridOnlyKeysHaveNoCounterpart = AssertNever<
 export const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column', 'grid'];
 
 export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
-  new Set<Types.EffectiveView>(['column']);
+  new Set<Types.EffectiveView>(['column', 'grid']);
 
 /**
  * Which views each option actually affects. An absent key affects every view.
@@ -337,6 +340,19 @@ export const COLUMN_DEFAULTS = {
  * label is text, so its gutter should scale with text.
  */
 export const GRID_DEFAULTS = {
+  // 100px keeps a three-day grid at 352px before hysteresis, or 368px to enter from
+  // list once the hysteresis half-band is included. A grid column carries positioned blocks rather
+  // than a full text list, so it can be narrower than column view's 140px default.
+  min_day_width: 100,
+
+  // A one-column grid is a useful day view with a now line, so grid sheds columns down to
+  // one by default. Column view keeps its dynamic `days_to_show` default because one
+  // cramped text column is not the layout a multi-day column card asked for.
+  min_days_to_show: 1,
+
+  // Preserves the wholesale fallback unless a user explicitly opts into cramping.
+  min_days_fallback: 'list',
+
   start_time: '07:00',
   end_time: '22:00',
   slot_minutes: 30,
@@ -387,6 +403,10 @@ export function normalizeColumnValue(
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
 
+  if (key === 'min_days_fallback') {
+    return value === 'cramp' || value === 'list' ? value : fallback;
+  }
+
   return String(coercePixelLengthAgainst(fallback, value));
 }
 
@@ -410,7 +430,10 @@ export function resolveColumnOption<K extends keyof typeof COLUMN_DEFAULTS>(
   const overrides = blockValues(config, 'column');
 
   if (overrides && hasOverride(overrides, key)) {
-    return normalizeColumnValue(key, overrides[key]) as ColumnOptionValue<K>;
+    return normalizeColumnValue(
+      key,
+      (overrides as Types.ColumnOverrides)[key],
+    ) as ColumnOptionValue<K>;
   }
 
   return COLUMN_DEFAULTS[key] as ColumnOptionValue<K>;
@@ -695,7 +718,7 @@ export const OVERRIDE_BLOCK_BY_VIEW: Readonly<
 function blockValues(
   config: Types.Config,
   view: Types.EffectiveView,
-): Types.ColumnOverrides | undefined {
+): Types.ColumnOverrides | Types.GridOverrides | undefined {
   const block = VIEW_BLOCKS[view];
 
   if (!block) {
@@ -704,7 +727,9 @@ function blockValues(
 
   const values = config[block.blockKey];
 
-  return values && typeof values === 'object' ? (values as Types.ColumnOverrides) : undefined;
+  return values && typeof values === 'object'
+    ? (values as Types.ColumnOverrides | Types.GridOverrides)
+    : undefined;
 }
 
 /**
@@ -1071,8 +1096,11 @@ const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
  * @param config - Merged configuration, defaults already applied
  * @returns Minimum card width in pixels for the configured number of columns
  */
-export function computeColumnThresholdPx(config: Types.Config): number {
-  return computeColumnThresholdPxFor(config, configuredDays(config));
+export function computeColumnThresholdPx(
+  config: Types.Config,
+  view: Types.EffectiveView = 'column',
+): number {
+  return computeColumnThresholdPxFor(config, configuredDays(config), view);
 }
 
 /**
@@ -1085,17 +1113,21 @@ export function computeColumnThresholdPx(config: Types.Config): number {
  * @param days - Number of columns to size for
  * @returns Minimum card width in pixels for that many columns
  */
-export function computeColumnThresholdPxFor(config: Types.Config, days: number): number {
+export function computeColumnThresholdPxFor(
+  config: Types.Config,
+  days: number,
+  view: Types.EffectiveView = 'column',
+): number {
   const count = Math.max(1, Math.floor(days));
-  const gutter = columnGutterPx(config);
-  const minDayWidth = resolveColumnOption(config, 'min_day_width');
+  const gutter = dayColumnGutterPx(config, view);
+  const minDayWidth = resolveMinDayWidth(config, view);
 
   return minDayWidth * count + COLUMN_CARD_PADDING_PX + (count - 1) * gutter;
 }
 
 // Read by hand because width arithmetic runs before the effective view is known.
-function columnGutterPx(config: Types.Config): number {
-  const overrides = config.column;
+function dayColumnGutterPx(config: Types.Config, view: Types.EffectiveView): number {
+  const overrides = blockValues(config, view);
   const configuredGap =
     overrides && hasOverride(overrides, 'day_spacing')
       ? coercePixelLength('day_spacing', overrides.day_spacing)
@@ -1109,6 +1141,23 @@ function configuredDays(config: Types.Config): number {
   return Math.max(1, Math.floor(config.days_to_show));
 }
 
+function widthFallbackDefaults(view: Types.EffectiveView): Readonly<Record<string, unknown>> {
+  return VIEW_BLOCKS[view]?.onlyDefaults ?? COLUMN_DEFAULTS;
+}
+
+function resolveMinDayWidth(config: Types.Config, view: Types.EffectiveView): number {
+  const overrides = blockValues(config, view) as Record<string, unknown> | undefined;
+  const fallback = widthFallbackDefaults(view).min_day_width;
+  const defaultValue = typeof fallback === 'number' ? fallback : COLUMN_DEFAULTS.min_day_width;
+  const raw =
+    overrides && Object.prototype.hasOwnProperty.call(overrides, 'min_day_width')
+      ? overrides.min_day_width
+      : defaultValue;
+  const parsed = typeof raw === 'number' ? raw : Number.parseFloat(String(raw));
+
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultValue;
+}
+
 /**
  * Resolves the fewest columns the card may reduce to.
  *
@@ -1118,19 +1167,25 @@ function configuredDays(config: Types.Config): number {
  * @param config - Merged configuration, defaults already applied
  * @returns Column floor, within `[1, days_to_show]`
  */
-export function resolveMinDaysToShow(config: Types.Config): number {
+export function resolveMinDaysToShow(
+  config: Types.Config,
+  view: Types.EffectiveView = 'column',
+): number {
   const days = configuredDays(config);
-  const overrides = config.column;
+  const overrides = blockValues(config, view) as Record<string, unknown> | undefined;
+  const fallback = widthFallbackDefaults(view).min_days_to_show;
+  const defaultValue =
+    typeof fallback === 'number' && Number.isFinite(fallback) ? Math.floor(fallback) : days;
 
-  if (!overrides || !hasOverride(overrides, 'min_days_to_show')) {
-    return days;
+  if (!overrides || !Object.prototype.hasOwnProperty.call(overrides, 'min_days_to_show')) {
+    return Math.min(days, Math.max(1, defaultValue));
   }
 
   const raw = overrides.min_days_to_show;
   const parsed = typeof raw === 'number' ? raw : Number.parseFloat(String(raw));
 
   if (!Number.isFinite(parsed)) {
-    return days;
+    return Math.min(days, Math.max(1, defaultValue));
   }
 
   return Math.min(days, Math.max(1, Math.floor(parsed)));
@@ -1144,8 +1199,18 @@ export function resolveMinDaysToShow(config: Types.Config): number {
  * @param config - Merged configuration, defaults already applied
  * @returns `'list'` or `'cramp'`
  */
-export function resolveMinDaysFallback(config: Types.Config): Types.ColumnMinDaysFallback {
-  return resolveColumnOption(config, 'min_days_fallback') === 'cramp' ? 'cramp' : 'list';
+export function resolveMinDaysFallback(
+  config: Types.Config,
+  view: Types.EffectiveView = 'column',
+): Types.ColumnMinDaysFallback {
+  const overrides = blockValues(config, view) as Record<string, unknown> | undefined;
+  const fallback = widthFallbackDefaults(view).min_days_fallback;
+  const value =
+    overrides && Object.prototype.hasOwnProperty.call(overrides, 'min_days_fallback')
+      ? overrides.min_days_fallback
+      : fallback;
+
+  return value === 'cramp' ? 'cramp' : 'list';
 }
 
 /**
@@ -1191,22 +1256,22 @@ export function resolveEffectiveView(
   previousEffectiveView: Types.EffectiveView | null = null,
 ): Types.EffectiveView {
   // List view has no width requirement, so there is nothing to fall back to.
-  if (requestedView !== 'column') {
+  if (!VIEWS_WITH_WIDTH_FALLBACK.has(requestedView)) {
     return requestedView;
   }
 
   // Before the first measurement, honour the request to avoid flashing the fallback.
   if (measuredWidthPx === null || measuredWidthPx <= 0) {
-    return 'column';
+    return requestedView;
   }
 
   // Schmitt trigger, centred on the threshold: enter half a band above, leave half a
   // band below.
   const halfBand = VIEW_SWITCH_HYSTERESIS_PX / 2;
   const effectiveThreshold =
-    previousEffectiveView === 'column' ? thresholdPx - halfBand : thresholdPx + halfBand;
+    previousEffectiveView === requestedView ? thresholdPx - halfBand : thresholdPx + halfBand;
 
-  return measuredWidthPx >= effectiveThreshold ? 'column' : 'list';
+  return measuredWidthPx >= effectiveThreshold ? requestedView : 'list';
 }
 
 /**
@@ -1267,9 +1332,9 @@ export interface ColumnFit {
 // diverged on 41,307. No test can kill the epsilon because there is nothing to
 // observe, so keep it on the arithmetic's own merits: a caller added without that
 // re-fit would drop a column at an exact boundary.
-function fitColumns(config: Types.Config, widthPx: number): number {
-  const gutter = columnGutterPx(config);
-  const unit = resolveColumnOption(config, 'min_day_width') + gutter;
+function fitColumns(config: Types.Config, widthPx: number, view: Types.EffectiveView): number {
+  const gutter = dayColumnGutterPx(config, view);
+  const unit = resolveMinDayWidth(config, view) + gutter;
 
   if (unit <= 0) {
     return 0;
@@ -1281,8 +1346,11 @@ function fitColumns(config: Types.Config, widthPx: number): number {
 }
 
 // Clamped half-band so adjacent column-count thresholds cannot overlap.
-function columnHysteresisHalfBandPx(config: Types.Config): number {
-  const spacing = resolveColumnOption(config, 'min_day_width') + columnGutterPx(config);
+function columnHysteresisHalfBandPx(
+  config: Types.Config,
+  view: Types.EffectiveView = 'column',
+): number {
+  const spacing = resolveMinDayWidth(config, view) + dayColumnGutterPx(config, view);
 
   return Math.max(0, Math.min(VIEW_SWITCH_HYSTERESIS_PX / 2, (spacing - 1) / 2));
 }
@@ -1290,7 +1358,7 @@ function columnHysteresisHalfBandPx(config: Types.Config): number {
 /**
  * Resolves the layout — view and column count — for a measured width.
  *
- * Column view renders as many columns as the width carries, never more than
+ * Day-column views render as many columns as the width carries, never more than
  * `days_to_show` and never fewer than `min_days_to_show`; below that floor
  * `min_days_fallback` decides between falling back to the list layout and holding
  * the floor with columns narrower than the configured minimum.
@@ -1313,36 +1381,36 @@ export function resolveColumnFit(
 ): ColumnFit {
   const days = configuredDays(config);
 
-  if (requestedView !== 'column') {
+  if (!VIEWS_WITH_WIDTH_FALLBACK.has(requestedView)) {
     return { view: requestedView, columns: 0 };
   }
 
   // Optimistic before the first measurement to avoid flashing the fallback.
   if (measuredWidthPx === null || measuredWidthPx <= 0) {
-    return { view: 'column', columns: days };
+    return { view: requestedView, columns: days };
   }
 
-  const floor = Math.min(resolveMinDaysToShow(config), days);
-  const previousColumns = previous && previous.view === 'column' ? previous.columns : 0;
-  const halfBand = columnHysteresisHalfBandPx(config);
-  const raw = fitColumns(config, measuredWidthPx);
+  const floor = Math.min(resolveMinDaysToShow(config, requestedView), days);
+  const previousColumns = previous && previous.view === requestedView ? previous.columns : 0;
+  const halfBand = columnHysteresisHalfBandPx(config, requestedView);
+  const raw = fitColumns(config, measuredWidthPx, requestedView);
 
   // A `null` previous layout uses the enter threshold; otherwise a card could qualify
   // for a column it has never been wide enough for.
   let fitted = raw;
 
   if (raw > previousColumns) {
-    fitted = fitColumns(config, measuredWidthPx - halfBand);
+    fitted = fitColumns(config, measuredWidthPx - halfBand, requestedView);
   } else if (raw < previousColumns) {
-    fitted = fitColumns(config, measuredWidthPx + halfBand);
+    fitted = fitColumns(config, measuredWidthPx + halfBand, requestedView);
   }
 
   if (fitted >= floor) {
-    return { view: 'column', columns: Math.min(fitted, days) };
+    return { view: requestedView, columns: Math.min(fitted, days) };
   }
 
-  return resolveMinDaysFallback(config) === 'cramp'
-    ? { view: 'column', columns: floor }
+  return resolveMinDaysFallback(config, requestedView) === 'cramp'
+    ? { view: requestedView, columns: floor }
     : { view: 'list', columns: 0 };
 }
 
@@ -1405,23 +1473,26 @@ export interface ColumnLayoutBands {
  * @param config - Merged configuration, defaults already applied
  * @returns Bands widest first, plus what happens below the narrowest
  */
-export function describeColumnLayoutBands(config: Types.Config): ColumnLayoutBands {
+export function describeColumnLayoutBands(
+  config: Types.Config,
+  view: Types.EffectiveView = 'column',
+): ColumnLayoutBands {
   const days = configuredDays(config);
-  const floor = Math.min(resolveMinDaysToShow(config), days);
-  const halfBand = columnHysteresisHalfBandPx(config);
+  const floor = Math.min(resolveMinDaysToShow(config, view), days);
+  const halfBand = columnHysteresisHalfBandPx(config, view);
 
   const bands: ColumnLayoutBand[] = [];
   for (let columns = days; columns >= floor; columns--) {
     bands.push({
       columns,
-      minWidthPx: Math.ceil(computeColumnThresholdPxFor(config, columns) + halfBand),
+      minWidthPx: Math.ceil(computeColumnThresholdPxFor(config, columns, view) + halfBand),
     });
   }
 
   return {
     bands,
-    fallback: resolveMinDaysFallback(config),
-    fallbackBelowPx: Math.ceil(computeColumnThresholdPxFor(config, floor) + halfBand),
+    fallback: resolveMinDaysFallback(config, view),
+    fallbackBelowPx: Math.ceil(computeColumnThresholdPxFor(config, floor, view) + halfBand),
     hysteresisPx: halfBand,
   };
 }

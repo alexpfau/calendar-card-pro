@@ -356,6 +356,26 @@ export interface ColumnOverrides extends SharedViewOverrides {
  */
 export interface GridOverrides extends SharedViewOverrides {
   /**
+   * Minimum width of one day column before the grid sheds a day.
+   *
+   * Grid columns carry timed blocks against a shared axis rather than a full text list, so
+   * their default can be narrower than column view's.
+   */
+  min_day_width?: number;
+
+  /**
+   * Fewest day columns the grid may reduce to when the width will not carry
+   * `days_to_show` of them.
+   *
+   * Defaults to one rather than `days_to_show`: a one-column grid is a useful day view
+   * with a now line, not a failed column layout.
+   */
+  min_days_to_show?: number;
+
+  /** What the grid does once even `min_days_to_show` columns will not fit. */
+  min_days_fallback?: ColumnMinDaysFallback;
+
+  /**
    * First and last moment the axis draws, as `HH:mm`. `end_time` also accepts `24:00`.
    *
    * Strings rather than integer hours because minute precision costs nothing here and a

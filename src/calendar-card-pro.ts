@@ -1240,7 +1240,9 @@ class CalendarCardPro extends LitElement {
     const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
       if (this.effectiveView === 'grid') {
         return Render.renderGridGroupedEvents(
-          days,
+          this._columnCount > 0 && this._columnCount < days.length
+            ? days.slice(0, this._columnCount)
+            : days,
           this.effectiveConfig,
           this.effectiveLanguage,
           this.weatherForecasts,

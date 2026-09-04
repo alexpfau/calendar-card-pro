@@ -12,6 +12,7 @@ import {
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   ENTITY_VIEW_SCOPE,
+  GRID_DEFAULTS,
   GRID_ONLY_KEYS,
   VIEWS,
   VIEW_SCOPE,
@@ -71,7 +72,9 @@ import {
   changedKeys,
   columnFormBlock,
   exceptionFormBlock,
+  gridFormBlock,
   stripColumnDefaults,
+  stripGridDefaults,
   toStoredConfig,
 } from '../src/rendering/editor/value';
 import { getEffectiveLanguage } from '../src/translations/localize';
@@ -93,6 +96,10 @@ import { memoizeLast, resolveLabelType } from '../src/utils/helpers';
 /** A column-view config, since the default is a list and would test nothing. */
 function columnConfig(overrides: Partial<Types.Config> = {}): Types.Config {
   return buildConfig({ view: 'column', ...overrides });
+}
+
+function gridConfig(overrides: Partial<Types.Config> = {}): Types.Config {
+  return buildConfig({ view: 'grid', ...overrides });
 }
 
 describe('editor: default stripping', () => {
@@ -637,6 +644,37 @@ describe('editor: the column block as the form shows it', () => {
     const withProjection = { ...config, column: columnFormBlock(config) } as Types.Config;
 
     expect(toStoredConfig(withProjection)).not.toHaveProperty('column');
+  });
+});
+
+describe('editor: the grid block as the form shows it', () => {
+  it('shows the effective value of an option the user has not set', () => {
+    const block = gridFormBlock(gridConfig());
+
+    expect(block.min_day_width).toBe(GRID_DEFAULTS.min_day_width);
+    expect(block.min_days_to_show).toBe(GRID_DEFAULTS.min_days_to_show);
+    expect(block.min_days_fallback).toBe(GRID_DEFAULTS.min_days_fallback);
+    expect(block.hour_height).toBe(GRID_DEFAULTS.hour_height);
+  });
+
+  it('lets a configured grid density override win over the projected default', () => {
+    const block = gridFormBlock(gridConfig({ grid: { min_day_width: 120 } }));
+
+    expect(block.min_day_width).toBe(120);
+  });
+
+  it('is stripped straight back out again on the way to storage', () => {
+    const config = gridConfig();
+    const withProjection = { ...config, grid: gridFormBlock(config) } as Types.Config;
+
+    expect(stripGridDefaults(withProjection)).toBeUndefined();
+    expect(toStoredConfig(withProjection)).not.toHaveProperty('grid');
+  });
+
+  it('keeps a grid density value that differs from its default', () => {
+    const stored = toStoredConfig(gridConfig({ grid: { min_day_width: 120 } }));
+
+    expect(stored.grid).toEqual({ min_day_width: 120 });
   });
 });
 
@@ -1960,6 +1998,7 @@ describe('editor: the Separators panel', () => {
   it('offers the day-header rule only for a view that has one', () => {
     expect(namesIn(buildConfig())).not.toContain('day_header_separator_width');
     expect(namesIn(columnConfig())).toContain('day_header_separator_width');
+    expect(namesIn(gridConfig())).not.toContain('day_header_separator_width');
   });
 
   it('stores the day-header rule inside the block it belongs to', () => {
@@ -2218,6 +2257,7 @@ describe('editor: the write path over the whole configuration', () => {
       else if (key === 'view') custom[key] = 'column';
       else if (key === 'weather') custom[key] = { ...(value as object), entity: 'weather.home' };
       else if (key === 'column') custom[key] = { min_day_width: 200, show_location: false };
+      else if (key === 'grid') custom[key] = { min_day_width: 120, show_location: false };
       else if (key === 'tap_action' || key === 'hold_action')
         custom[key] = { action: 'navigate', navigation_path: '/x' };
       else if (typeof value === 'boolean') custom[key] = !value;

@@ -152,6 +152,43 @@ Nothing is hidden without being counted.
 Raise it if you routinely have four or five things at once and would rather see them all
 narrow; lower it to keep blocks readable.
 
+## 📱 Fitting Narrow Cards
+
+Grid view uses the same responsive width fallback as column view, but with grid-specific
+options inside `grid:`:
+
+```yaml
+view: grid
+days_to_show: 5
+grid:
+  min_day_width: 100
+  min_days_to_show: 1
+  min_days_fallback: list
+```
+
+`min_day_width` is the narrowest a day column may be before the card sheds a day. The
+default is `100`, lower than column view's `140`, because a grid day mostly carries timed
+blocks against a shared axis rather than full text rows. At the default spacing, three grid
+days need 352px before hysteresis, or 368px when the card is entering grid view from the
+list fallback.
+
+`min_days_to_show` defaults to `1`, not to `days_to_show`. A one-column grid is a useful
+day view with a now line, so reducing a five-day grid to today's column is the right narrow
+card behavior rather than a failure.
+
+If the card cannot fit even `min_days_to_show`, `min_days_fallback` decides what happens
+next:
+
+- `list` switches to the list layout.
+- `cramp` keeps the grid and lets the columns become narrower than `min_day_width`.
+
+::: warning Dropped Days Are Not Marked
+When the grid sheds columns, it shows the earliest days in the configured range and drops
+the later ones. The card does not draw a marker saying more days were hidden, so use
+`min_days_fallback: cramp` if seeing the whole range matters more than preserving the
+minimum column width.
+:::
+
 ## 🎨 Overriding Options in Grid View
 
 A block on a time axis is much smaller than a full-width row, so a value tuned for the

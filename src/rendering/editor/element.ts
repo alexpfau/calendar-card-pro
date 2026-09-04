@@ -124,6 +124,7 @@ export class CalendarCardProEditor extends LitElement {
     return {
       ...(this._config as unknown as Record<string, unknown>),
       column: Value.columnFormBlock(this._config!),
+      grid: Value.gridFormBlock(this._config!),
       weather: Value.weatherFormBlock(this._config!),
       ...Synthetic.deriveSyntheticData(this._config!, this._pending),
     };

@@ -75,60 +75,71 @@ function viewOptions(language: string): SelectOption[] {
  * @param language - Effective language code
  * @returns The density group
  */
-function densityGroup(blockKey: string, daysToShow: number, language: string): HaFormSchema {
+function densityGroup(
+  view: Types.EffectiveView,
+  blockKey: string,
+  daysToShow: number,
+  language: string,
+): HaFormSchema {
+  const onlyKeys = ViewConfig.viewBlockFor(view)?.onlyKeys ?? [];
+  const schema: HaFormSchema[] = [
+    {
+      type: 'grid',
+      name: '',
+      schema: [
+        {
+          name: 'min_day_width',
+          // No ceiling: `normalizeColumnValue` accepts any positive number, and the
+          // arithmetic in `computeColumnThresholdPxFor` has no upper bound either — a
+          // large floor simply means "give me columns only if each can be this wide",
+          // which is a real config on a wide dashboard card. A `max` here made that
+          // unauthorable in the editor while YAML accepted it, and it was the only
+          // arbitrary ceiling among the editor's numeric selectors (`min_days_to_show`
+          // derives its own from `days_to_show`). The floor is `1` for the same reason:
+          // it is the smallest integer the runtime's `parsed > 0` test admits at this
+          // step. Dropping `max` also settles the control type, since Home Assistant
+          // renders a slider only when both bounds are present — `mode` states that
+          // rather than leaving it to be inferred.
+          selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
+        },
+        {
+          name: 'min_days_to_show',
+          selector: {
+            number: { min: 1, max: Math.max(1, Math.floor(daysToShow)), step: 1 },
+          },
+        },
+      ],
+    },
+    {
+      name: 'min_days_fallback',
+      selector: {
+        select: {
+          mode: 'dropdown',
+          options: (['list', 'cramp'] as const).map((value) => ({
+            value,
+            label:
+              lookup(language, `${blockKey}.min_days_fallback.option.${value}.label`) ??
+              humanize(value),
+          })),
+        },
+      },
+    },
+  ];
+
+  if (onlyKeys.includes('day_header_gap')) {
+    schema.push({
+      name: 'day_header_gap',
+      selector: { text: { type: 'text' } },
+    });
+  }
+
   return {
     type: 'expandable',
     name: blockKey,
     title: lookup(language, `${blockKey}.density`) ?? humanize('density'),
     titleKey: `${blockKey}.density`,
     iconPath: 'M4 5h16v2H4V5m0 6h16v2H4v-2m0 6h16v2H4v-2Z',
-    schema: [
-      {
-        type: 'grid',
-        name: '',
-        schema: [
-          {
-            name: 'min_day_width',
-            // No ceiling: `normalizeColumnValue` accepts any positive number, and the
-            // arithmetic in `computeColumnThresholdPxFor` has no upper bound either — a
-            // large floor simply means "give me columns only if each can be this wide",
-            // which is a real config on a wide dashboard card. A `max` here made that
-            // unauthorable in the editor while YAML accepted it, and it was the only
-            // arbitrary ceiling among the editor's numeric selectors (`min_days_to_show`
-            // derives its own from `days_to_show`). The floor is `1` for the same reason:
-            // it is the smallest integer the runtime's `parsed > 0` test admits at this
-            // step. Dropping `max` also settles the control type, since Home Assistant
-            // renders a slider only when both bounds are present — `mode` states that
-            // rather than leaving it to be inferred.
-            selector: { number: { min: 1, step: 1, mode: 'box', unit_of_measurement: 'px' } },
-          },
-          {
-            name: 'min_days_to_show',
-            selector: {
-              number: { min: 1, max: Math.max(1, Math.floor(daysToShow)), step: 1 },
-            },
-          },
-        ],
-      },
-      {
-        name: 'min_days_fallback',
-        selector: {
-          select: {
-            mode: 'dropdown',
-            options: (['list', 'cramp'] as const).map((value) => ({
-              value,
-              label:
-                lookup(language, `${blockKey}.min_days_fallback.option.${value}.label`) ??
-                humanize(value),
-            })),
-          },
-        },
-      },
-      {
-        name: 'day_header_gap',
-        selector: { text: { type: 'text' } },
-      },
-    ],
+    schema,
   };
 }
 
@@ -251,7 +262,7 @@ const layoutSchema = Helpers.memoizeLast(
     // concept the width table below is already gated on.
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
     if (blockKey !== undefined && ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
-      schema.push(densityGroup(blockKey, daysToShow, language));
+      schema.push(densityGroup(view, blockKey, daysToShow, language));
     }
 
     // The axis IS the layout for this view, so it belongs in this panel rather than in a
@@ -312,7 +323,7 @@ export function widthTableRows(ctx: SchemaCtx): WidthTableRow[] {
   const t = (key: string, values: Record<string, string | number> = {}): string =>
     translate(ctx, key, values);
 
-  const bands = ViewConfig.describeColumnLayoutBands(ctx.config);
+  const bands = ViewConfig.describeColumnLayoutBands(ctx.config, ctx.view);
 
   const rows: WidthTableRow[] = bands.bands.map((band) => ({
     width: t('width_table.at_least', { width: band.minWidthPx }),
@@ -353,7 +364,7 @@ export function layoutExtras(ctx: SchemaCtx): PanelExtra[] {
       title: t('width_table.title'),
       rows: widthTableRows(ctx),
       note: t('width_table.hysteresis', {
-        band: ViewConfig.describeColumnLayoutBands(ctx.config).hysteresisPx,
+        band: ViewConfig.describeColumnLayoutBands(ctx.config, ctx.view).hysteresisPx,
       }),
     },
   ];

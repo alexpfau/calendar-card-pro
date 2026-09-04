@@ -81,6 +81,13 @@ function inheritedColumnValue(
   return ViewConfig.COLUMN_DEFAULT_OVERRIDES[key] ?? config[key];
 }
 
+function inheritedGridValue(
+  config: Readonly<Types.Config>,
+  key: keyof Types.GridOverrides & keyof Types.Config,
+): unknown {
+  return ViewConfig.GRID_DEFAULT_OVERRIDES[key] ?? config[key];
+}
+
 /**
  * Strips redundant entries from a `column:` block.
  *
@@ -160,6 +167,49 @@ function resolvesTheSameWithout(config: Readonly<Types.Config>, key: string): bo
   );
 }
 
+export function stripGridDefaults(
+  config: Readonly<Types.Config>,
+): Record<string, unknown> | undefined {
+  const block = config.grid;
+
+  if (!Helpers.isConfigBlock(block)) {
+    return undefined;
+  }
+
+  const overrideKeys = new Set<string>(ViewConfig.GRID_OVERRIDE_KEYS);
+  const gridDefaults = ViewConfig.GRID_DEFAULTS as Readonly<Record<string, unknown>>;
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    if (value === undefined) continue;
+    if (isSyntheticKey(key)) continue;
+
+    if (key in gridDefaults) {
+      const resolved = ViewConfig.normalizeGridValue(
+        key as keyof typeof ViewConfig.GRID_DEFAULTS,
+        value,
+      );
+      if (deepEqual(gridDefaults[key], resolved)) continue;
+      result[key] = value;
+      continue;
+    }
+
+    if (overrideKeys.has(key)) {
+      const inherited = inheritedGridValue(
+        config,
+        key as keyof Types.GridOverrides & keyof Types.Config,
+      );
+      if (deepEqual(inherited, value)) continue;
+      result[key] = value;
+      continue;
+    }
+
+    result[key] = value;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
 /**
  * Removes the config keys that v3.0.0 deleted from the runtime.
  *
@@ -204,6 +254,9 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
   const column = stripColumnDefaults(config);
   delete draft.column;
 
+  const grid = stripGridDefaults(config);
+  delete draft.grid;
+
   const weather = stripWeatherDefaults(config);
   delete draft.weather;
 
@@ -220,6 +273,10 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
 
   if (column !== undefined) {
     stored.column = column;
+  }
+
+  if (grid !== undefined) {
+    stored.grid = grid;
   }
 
   if (weather !== undefined) {
@@ -295,6 +352,14 @@ export function columnFormBlock(config: Readonly<Types.Config>): Record<string, 
     ...ViewConfig.COLUMN_DEFAULTS,
     min_days_to_show: ViewConfig.resolveMinDaysToShow(config),
     ...(config.column ?? {}),
+  };
+}
+
+export function gridFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+  return {
+    ...ViewConfig.GRID_DEFAULTS,
+    min_days_to_show: ViewConfig.resolveMinDaysToShow(config, 'grid'),
+    ...(config.grid ?? {}),
   };
 }
 
