@@ -1948,7 +1948,16 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
     overflow: hidden;
-    overflow-wrap: normal;
+    /* Break at spaces, and inside a word only when that word cannot fit a line on its
+       own. The default here inserted soft hyphens, so a lane-split block rendered
+       Conference as Con-fer-en and read as three words. Plain normal is worse than
+       either: a word wider than the block then overflows and is clipped horizontally,
+       and because the clamp was never reached there is no ellipsis to say so — the
+       block showed Conferen with the ce silently gone. break-word keeps every
+       character on screen, which is the one property a calendar block cannot trade
+       away, since an unreadable title is still identifiable and a truncated one is
+       not. */
+    overflow-wrap: break-word;
     word-break: normal;
     hyphens: manual;
   }

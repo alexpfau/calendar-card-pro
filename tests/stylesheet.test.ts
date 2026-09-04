@@ -1651,11 +1651,16 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure .location', 'flex')).toBe('0 0 auto');
     });
 
-    it('keeps grid event titles breaking at word boundaries before ellipsizing', () => {
-      // `.summary` inherits emergency breaking from the list view, which is right for normal
-      // rows and wrong for narrow grid blocks: multi-line clamps may break a title mid-word
-      // before ellipsis gets a chance to stand in for an unfit word.
-      expect(declared('.grid-event-disclosure .event-title', 'overflow-wrap')).toBe('normal');
+    it('breaks a grid event title at spaces, and inside a word only as a last resort', () => {
+      // Three values, three different failures, and the middle one is the trap. The
+      // inherited `hyphens: auto` broke `Conference` as `Con-fer-en` in a lane-split
+      // block, so it read as three words. Correcting that to `overflow-wrap: normal`
+      // was worse: a word wider than the block overflowed and was clipped
+      // horizontally, and since the clamp was never reached there was no ellipsis to
+      // mark it — the block rendered `Conferen` with the `ce` silently gone, verified
+      // live at 7 columns. `break-word` prefers spaces and breaks inside a word only
+      // when that word cannot fit a line alone, so no character is ever dropped.
+      expect(declared('.grid-event-disclosure .event-title', 'overflow-wrap')).toBe('break-word');
       expect(declared('.grid-event-disclosure .event-title', 'word-break')).toBe('normal');
       expect(declared('.grid-event-disclosure .event-title', 'hyphens')).toBe('manual');
     });

@@ -67,3 +67,17 @@ docs/.vitepress/cache/
 # machine-specific, it churns on every edit, and it is worthless to anyone else. Committed
 # once at 2 KB carrying a session UUID and this machine's directory layout.
 .impeccable/
+
+# Screenshots taken while testing against a live Home Assistant, and Playwright's own
+# scratch directory. Third entry in this file to arrive by `git add -A`, and the only one
+# whose consequence cannot be taken back: a dashboard screenshot carries whatever was on
+# that instance -- calendar entries, the sidebar, the signed-in user's name and avatar --
+# and `git rm` does not retract what a public branch already published. AGENTS.md's rule
+# against real data in examples is written about docs and fixtures; this is the same rule
+# arriving through a file nobody typed. Screenshots that belong to the project live in
+# .github/img/ and are added deliberately by path.
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+.playwright-mcp/
