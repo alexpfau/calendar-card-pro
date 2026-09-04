@@ -300,6 +300,12 @@ Progressive disclosure by rendered height is implemented with CSS height contain
 title always, plus time above 32px, plus location/description above 56px. The renderer keeps
 emitting percentage geometry and does not learn the body's pixel height; each block is the
 container, so the browser makes the pixel threshold decision inside the shadow root.
+That only answers the short-block axis. Narrow columns expose a different failure: a tall
+event can have enough height for time, but a wrapped title can consume the whole block and
+leave the time row sliced by `overflow: hidden`. Grid therefore wraps the shared
+`event-content` leaf in a grid-only flex column. The wrapper and leaf take the event box's
+height, the title row is the only shrinkable part and clips/ellipsizes, and time/location
+rows are fixed-height flex items so a detail row is either fully visible or absent.
 
 ### Phase 3 notes
 

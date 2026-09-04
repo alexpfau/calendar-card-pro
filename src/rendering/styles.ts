@@ -1923,6 +1923,38 @@ export const cardStyles = css`
     container: calendar-card-grid-event / size;
   }
 
+  .grid-event-disclosure,
+  .grid-event-disclosure .event-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    height: 100%;
+  }
+
+  .grid-event-disclosure .summary-row {
+    flex: 0 1 auto;
+    min-height: 0;
+  }
+
+  .grid-event-disclosure .summary {
+    min-height: 0;
+  }
+
+  .grid-event-disclosure .event-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--calendar-card-grid-title-max-lines, 3);
+    overflow: hidden;
+  }
+
+  .grid-event-disclosure .time-location,
+  .grid-event-disclosure .time,
+  .grid-event-disclosure .location,
+  .grid-event-disclosure .description,
+  .grid-event-disclosure .event-weather {
+    flex: 0 0 auto;
+  }
+
   /* The event starts before or ends after the visible band. */
   .grid-event.clipped-top {
     border-start-start-radius: 0;

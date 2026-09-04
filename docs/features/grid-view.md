@@ -153,7 +153,8 @@ narrow; lower it to keep blocks readable.
 
 Short blocks use progressive disclosure so clipped text does not look broken. A title is
 always shown, time appears once the block is tall enough for a second line, and location
-waits until there is room for another detail line.
+waits until there is room for another detail line. In narrow columns, a long title truncates
+before it slices the time or location row.
 
 ## 📱 Fitting Narrow Cards
 

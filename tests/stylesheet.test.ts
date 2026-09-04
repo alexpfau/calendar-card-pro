@@ -1628,6 +1628,22 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure .location', 'display')).toBe('none');
     });
 
+    it('keeps grid detail rows from being sliced under wrapped titles', () => {
+      // happy-dom has no layout engine, so this does not measure the narrow-column failure
+      // directly. It pins the CSS contract that fixes it in browsers: the grid-only wrapper
+      // gets the event box height, the title area is allowed to shrink and clip, and the
+      // detail rows keep their full line height instead of becoming half-visible text.
+      expect(declared('.grid-event-disclosure', 'height')).toBe('100%');
+      expect(declared('.grid-event-disclosure .event-content', 'height')).toBe('100%');
+      expect(declared('.grid-event-disclosure .summary-row', 'flex')).toBe('0 1 auto');
+      expect(declared('.grid-event-disclosure .summary', 'min-height')).toBe('0');
+      expect(declared('.grid-event-disclosure .event-title', '-webkit-line-clamp')).toBe(
+        'var(--calendar-card-grid-title-max-lines, 3)',
+      );
+      expect(declared('.grid-event-disclosure .time', 'flex')).toBe('0 0 auto');
+      expect(declared('.grid-event-disclosure .location', 'flex')).toBe('0 0 auto');
+    });
+
     it('draws clipped grid events with a subtle inset continuation mark', () => {
       expect(declared('.grid-event.clipped-top', 'border-block-start')).toBe('');
       expect(declared('.grid-event.clipped-bottom', 'border-block-end')).toBe('');
