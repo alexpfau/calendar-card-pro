@@ -60,6 +60,16 @@ export const TIMING = {
    * and short enough to be imperceptible against Home Assistant's own load.
    */
   WIDTH_SETTLE_DELAY: 100,
+
+  /**
+   * How often the grid view repaints its now line, in milliseconds.
+   *
+   * A minute, because that is the resolution the line is drawn at — anything finer
+   * repaints for a position that has not moved. It is deliberately not aligned to the
+   * wall-clock minute: the line slides continuously, so being up to a minute stale is
+   * invisible where the arithmetic to align it would not be.
+   */
+  NOW_LINE_INTERVAL: 60_000,
 };
 
 export const UI = {

@@ -387,10 +387,22 @@ shedding columns. The width machinery — `resolveMinDaysToShow`, `resolveMinDay
 `computeColumnThresholdPx` — still reads `config.column` directly and has to become
 view-aware first. Until then the feature page's guidance stands: start with three days.
 
-**The now line does not tick.** It is placed from a `now` argument the renderer is handed,
-so it is correct at every render and stale between them. The controller that re-renders it
-once a minute — gated on `visibilitychange` _and_ an `IntersectionObserver`, attached
-lazily so list-view users pay nothing — is Phase 3, as is the midnight rollover.
+**The now line ticks as of Phase 3a.** A one-minute interval repaints it, reconciled from
+`updated()` rather than acquired in `connectedCallback` — the view can change after
+connection, so a timer taken once would either never start or never stop. It runs only
+where there is a line to move: not in list or column view, and not when `show_now_line` is
+off, so a card that cannot display one pays nothing.
+
+Midnight is handled there too, and is the reason the tick is not simply `requestUpdate()`.
+At a day rollover every header is a day stale, "today" has moved to a different column, and
+a repaint would draw the line at the top of a column that is no longer today. Only
+refetching fixes that, so the tick compares the local day key and refetches when it moves.
+
+`IntersectionObserver` was **not** added. `visibilitychange` covers the hidden-tab case,
+and the observer exists in the reference implementation to catch Home Assistant dashboard
+tabs that stay `visible` while unrendered — a real problem for that branch's per-second
+work, and a repaint a minute is a much smaller thing to be wrong about. Worth adding if it
+ever shows up in a profile; not worth the lifecycle surface on spec.
 
 ### Four things registering the view found
 
@@ -436,7 +448,7 @@ Raw bytes against `dev` at `0ed12d69`:
 
 | bundle                 | before  | after   | delta    |
 | ---------------------- | ------- | ------- | -------- |
-| `calendar-card-pro.js` | 206,064 | 220,131 | +14.1 KB |
+| `calendar-card-pro.js` | 206,064 | 220,979 | +14.9 KB |
 | `editor.js`            | 384,693 | 390,567 | +5.9 KB  |
 
 The eager path pays for the whole feature, which is the trade a third view makes. The

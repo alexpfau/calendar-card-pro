@@ -254,6 +254,16 @@ class CalendarCardPro extends LitElement {
   private _resizeObserver: ResizeObserver | null = null;
 
   /**
+   * Repaint timer for the grid's now line, and the local day it last painted.
+   *
+   * Only ever running in grid view. The line is the only thing on the card that goes
+   * stale purely with the passage of time — everything else changes when `hass` does.
+   */
+  private _nowLineTimerId: number | null = null;
+
+  private _nowLineDayKey: string | null = null;
+
+  /**
    * Pending trailing timer for the last width measurement.
    */
   private _widthSettleTimerId: number | null = null;
@@ -462,6 +472,8 @@ class CalendarCardPro extends LitElement {
       this._holdIndicator = null;
     }
 
+    this._stopNowLineTimer();
+
     document.removeEventListener('visibilitychange', this._handleVisibilityChange);
 
     EntityColors.releaseEntityColors(this._onEntityColorsChanged);
@@ -508,6 +520,80 @@ class CalendarCardPro extends LitElement {
     }, Constants.TIMING.WIDTH_SETTLE_DELAY);
   }
 
+  //-----------------------------------------------------------------------------
+  // NOW LINE
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Whether the card is currently drawing a now line that needs repainting.
+   *
+   * Both halves matter. Outside grid view there is no line, and with `show_now_line`
+   * off there is none either — starting a timer for either case would make every list
+   * card pay a repaint a minute for something it cannot display.
+   */
+  private get _wantsNowLine(): boolean {
+    return (
+      this.effectiveView === 'grid' && ViewConfig.resolveGridOption(this.config, 'show_now_line')
+    );
+  }
+
+  /**
+   * Starts or stops the now-line repaint to match what the card is currently rendering.
+   *
+   * Called from `updated()` rather than `connectedCallback`, because the view can change
+   * after connection — a width fallback or an edit to `view` both flip it — and a timer
+   * acquired once at connection would either never start or never stop.
+   */
+  private _syncNowLineTimer(): void {
+    if (!this._wantsNowLine || document.visibilityState === 'hidden') {
+      this._stopNowLineTimer();
+      return;
+    }
+
+    if (this._nowLineTimerId !== null) {
+      return;
+    }
+
+    // A minute is the resolution the line is drawn at, so anything finer repaints for a
+    // position that has not changed. The interval is deliberately not aligned to the
+    // wall-clock minute: the line moves continuously and being up to a minute stale is
+    // invisible, where the arithmetic to align it is not.
+    this._nowLineTimerId = window.setInterval(() => {
+      this._tickNowLine();
+    }, Constants.TIMING.NOW_LINE_INTERVAL);
+
+    this._nowLineDayKey = FormatUtils.getLocalDateKey(new Date());
+  }
+
+  private _stopNowLineTimer(): void {
+    if (this._nowLineTimerId !== null) {
+      clearInterval(this._nowLineTimerId);
+      this._nowLineTimerId = null;
+    }
+  }
+
+  /**
+   * Repaints the now line, and the whole card when the local day has rolled over.
+   *
+   * The rollover check is why this is not simply `requestUpdate()`. At midnight every
+   * day header is wrong, "today" has moved to a different column and the events on
+   * screen are a day out of date — a repaint would move the line to the top of a column
+   * that is no longer today. Refetching is the only thing that fixes that.
+   */
+  private _tickNowLine(): void {
+    const dayKey = FormatUtils.getLocalDateKey(new Date());
+
+    if (this._nowLineDayKey !== null && dayKey !== this._nowLineDayKey) {
+      this._nowLineDayKey = dayKey;
+      Logger.debug('Local day rolled over, refreshing events');
+      this.updateEvents(true);
+      return;
+    }
+
+    this._nowLineDayKey = dayKey;
+    this.requestUpdate();
+  }
+
   private _stopWidthObserver(): void {
     this._resizeObserver?.disconnect();
     this._resizeObserver = null;
@@ -549,6 +635,11 @@ class CalendarCardPro extends LitElement {
   }
 
   updated(changedProps: PropertyValues) {
+    // Reconciled after every update rather than acquired once: the view can change after
+    // connection — a width fallback or an edit to `view` both flip it — so a timer taken
+    // in `connectedCallback` would either never start or never stop.
+    this._syncNowLineTimer();
+
     if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
       this.updateEvents(true);
     }
@@ -678,7 +769,16 @@ class CalendarCardPro extends LitElement {
    * Handle visibility changes to refresh data when returning to the page
    */
   private _handleVisibilityChange = () => {
+    // A hidden tab must not keep repainting, and a tab coming back must not wait a
+    // minute for its line to catch up. `_syncNowLineTimer` does both, and the
+    // `requestUpdate` below it is what redraws immediately on return.
+    this._syncNowLineTimer();
+
     if (document.visibilityState === 'visible') {
+      if (this._wantsNowLine) {
+        this.requestUpdate();
+      }
+
       const now = Date.now();
       if (now - this._lastUpdateTime > Constants.TIMING.VISIBILITY_REFRESH_THRESHOLD) {
         Logger.debug('Visibility changed to visible, updating events');
