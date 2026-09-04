@@ -88,6 +88,21 @@ the hour at a fine setting.
 `axis_width` sets the label gutter, and `show_axis_labels: false` removes the labels while
 keeping the scale — useful on a narrow card where the ruling alone is enough.
 
+The existing separator options draw vertical rules between day columns in grid view:
+
+```yaml
+day_separator_width: '1px'
+day_separator_color: var(--secondary-text-color)
+week_separator_width: '2px'
+month_separator_width: '3px'
+```
+
+Grid view turns day separators on by default, because a shared time axis needs visible day
+columns to read clearly. Month rules win over week rules, and week rules win over day
+rules. Day rules start below the week-number row and run through the day headers, all-day
+band and time body; week and month rules span the whole grid because they divide the larger
+range the week-number row names.
+
 ## 🔴 The Now Line
 
 A line marks the current time on today's column, and only there. It is drawn from the same
@@ -110,7 +125,6 @@ days**, not a chip repeated in each:
 
 ```yaml
 grid:
-  show_allday_band: true
   allday_band_max_rows: 3
 ```
 
@@ -156,17 +170,19 @@ Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Two options do not inherit their top-level value in grid view. The **Default** column
+Three options do not inherit their top-level value in grid view. The **Default** column
 is what grid view uses; **Instead of** is the top-level default it replaces:
 
 | Option                     | Type    | Default | Instead of |
 | -------------------------- | ------- | ------- | ---------- |
 | `event_background_opacity` | number  | `20`    | `0`        |
 | `show_empty_days`          | boolean | `true`  | `false`    |
+| `day_separator_width`      | string  | `1px`   | `0px`      |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
-a day of axis, so empty days are shown.
+a day of axis, so empty days are shown. Day separators are also on by default, so the
+shared axis still reads as separate day columns.
 
 Set either inside `grid:` to change it back.
 

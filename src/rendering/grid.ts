@@ -41,6 +41,23 @@ interface DayParts {
 }
 
 /**
+ * Where each day sits relative to the one before it.
+ */
+interface DayBoundary {
+  isNewWeek: boolean;
+
+  isNewMonth: boolean;
+}
+
+type SeparatorKind = 'day' | 'week' | 'month';
+
+interface GridSeparator {
+  kind: SeparatorKind;
+  width: string;
+  color: string;
+}
+
+/**
  * Split a day's events into the band and the body.
  *
  * A placeholder for an empty day is dropped outright: the grid already shows an empty
@@ -71,6 +88,96 @@ function sortDayEvents(day: Types.EventsByDay): DayParts {
   }
 
   return { allDay, timed };
+}
+
+/**
+ * Classify every day by the boundary it opens.
+ *
+ * This mirrors column view rather than importing a shared renderer helper: the
+ * boundary test is the same, but the row a rule spans is view-specific and needs to
+ * live beside each view's grid-template reasoning.
+ *
+ * @param days - Days to classify, already grouped and in ascending date order
+ * @returns One entry per day, index-aligned with the input
+ */
+function computeDayBoundaries(days: Types.EventsByDay[]): DayBoundary[] {
+  return days.map((day, index) => {
+    const prevDay = index > 0 ? days[index - 1] : undefined;
+
+    return {
+      isNewWeek: !prevDay || day.weekNumber !== prevDay.weekNumber,
+      isNewMonth: Boolean(prevDay && day.monthNumber !== prevDay.monthNumber),
+    };
+  });
+}
+
+/**
+ * Decide which vertical rule belongs in the gutter to the inline-start of a day.
+ *
+ * Precedence is month, then week, then day, matching list and column view. Each
+ * family is gated on its own width, so a disabled month or week rule falls through to
+ * the next visible boundary rather than leaving a blank gap.
+ *
+ * @param boundary - What this day opens relative to the previous one
+ * @param config - Card configuration, already resolved for the grid view
+ * @returns The rule to draw, or null when the gutter carries none
+ */
+function resolveSeparator(boundary: DayBoundary, config: Types.Config): GridSeparator | null {
+  if (boundary.isNewMonth && !ViewConfig.isZeroLength(config.month_separator_width)) {
+    return {
+      kind: 'month',
+      width: config.month_separator_width,
+      color: config.month_separator_color,
+    };
+  }
+
+  if (boundary.isNewWeek && !ViewConfig.isZeroLength(config.week_separator_width)) {
+    return {
+      kind: 'week',
+      width: config.week_separator_width,
+      color: config.week_separator_color,
+    };
+  }
+
+  if (!ViewConfig.isZeroLength(config.day_separator_width)) {
+    return { kind: 'day', width: config.day_separator_width, color: config.day_separator_color };
+  }
+
+  return null;
+}
+
+/**
+ * Render one vertical separator, centered in the gutter before a day column.
+ *
+ * The rule overlays the outer grid and is pulled into the gap with a negative margin,
+ * so enabling it paints the boundary without changing day-column widths.
+ *
+ * A day rule starts below the week-number row and spans the day header, all-day band
+ * and time body: it separates days, not the week label band. Week and month rules span
+ * all four rows, because they divide the larger ranges the week-number row names.
+ *
+ * @param separator - The resolved rule for this gutter
+ * @param columnIndex - Zero-based day column the rule precedes
+ * @param gap - The grid's column gap, i.e. the resolved `day_spacing`
+ * @returns Rendered separator
+ */
+function renderGridSeparator(
+  separator: GridSeparator,
+  columnIndex: number,
+  gap: string,
+): TemplateResult {
+  return html`
+    <div
+      class="grid-separator grid-separator-${separator.kind}"
+      style=${styleMap({
+        gridColumn: String(columnIndex + 2),
+        gridRow: separator.kind === 'day' ? '2 / -1' : '1 / -1',
+        width: separator.width,
+        backgroundColor: separator.color,
+        marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
+      })}
+    ></div>
+  `;
 }
 
 //-----------------------------------------------------------------------------
@@ -440,7 +547,6 @@ export function renderGridGroupedEvents(
   const hourHeight = ViewConfig.resolveGridOption(config, 'hour_height');
   const axisWidth = ViewConfig.resolveGridOption(config, 'axis_width');
   const maxLanes = ViewConfig.resolveGridOption(config, 'max_simultaneous_events');
-  const showBand = ViewConfig.resolveGridOption(config, 'show_allday_band');
   const showNowLine = ViewConfig.resolveGridOption(config, 'show_now_line');
   const nowLineColor = ViewConfig.resolveGridOption(config, 'now_line_color');
   const showAxisLabels = ViewConfig.resolveGridOption(config, 'show_axis_labels');
@@ -449,9 +555,14 @@ export function renderGridGroupedEvents(
   const windowStart = Grid.startOfDay(new Date(days[0].timestamp));
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
+  const boundaries = computeDayBoundaries(days);
 
-  const banners = showBand ? layoutBanners(days, windowStart, maxRows) : { placed: [], hidden: 0 };
+  const banners = layoutBanners(days, windowStart, maxRows);
   const bandRows = banners.placed.reduce((max, banner) => Math.max(max, banner.row), 0);
+  const separators = boundaries
+    .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))
+    .filter(({ separator, index }) => separator !== null && index > 0)
+    .map(({ separator, index }) => renderGridSeparator(separator as GridSeparator, index, gutter));
 
   return html`
     <div
@@ -468,7 +579,7 @@ export function renderGridGroupedEvents(
     >
       ${renderWeekNumbers(days, config)}
       ${days.map((day, index) => renderDayHeader(day, config, language, index, weatherForecasts))}
-      ${showBand && bandRows > 0
+      ${bandRows > 0
         ? html`
             <div
               class="grid-allday-band"
@@ -491,6 +602,7 @@ export function renderGridGroupedEvents(
       ${days.map((day, index) =>
         renderDayBody(day, band, config, language, index, maxLanes, showNowLine, now, hass),
       )}
+      ${separators}
     </div>
   `;
 }

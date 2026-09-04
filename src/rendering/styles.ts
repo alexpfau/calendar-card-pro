@@ -1836,6 +1836,11 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
+  .grid-separator {
+    pointer-events: none;
+    z-index: 1;
+  }
+
   /* ----- Day headers ----- */
 
   .grid-day-header {
@@ -1864,6 +1869,10 @@ export const cardStyles = css`
   .grid-banner {
     display: flex;
     align-items: center;
+    /* The card sets box-sizing only where a box needs it, not globally. These
+       positioned grid boxes combine percentage sizing with padding or borders, so
+       content-box would add the decoration outside the geometry the renderer wrote. */
+    box-sizing: border-box;
     min-width: 0;
     padding: 1px 6px;
     border-radius: 4px;
@@ -1901,6 +1910,9 @@ export const cardStyles = css`
      deliberately does not know. */
   .grid-event {
     position: absolute;
+    /* See .grid-banner: height is a percentage of the time band, and padding/borders
+       must live inside that percentage or events visually run past their end rule. */
+    box-sizing: border-box;
     overflow: hidden;
     min-height: 14px;
     padding: 2px 4px;

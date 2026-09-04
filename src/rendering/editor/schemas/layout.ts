@@ -178,10 +178,10 @@ function timeAxisGroup(blockKey: string, language: string): HaFormSchema {
       ),
       row(text('axis_width'), bool('show_axis_labels')),
       row(bool('show_now_line'), color('now_line_color')),
-      row(bool('show_allday_band'), {
+      {
         name: 'allday_band_max_rows',
         selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },
-      }),
+      },
       {
         name: 'max_simultaneous_events',
         selector: { number: { min: 1, max: 10, step: 1, mode: 'box' } },

@@ -167,7 +167,6 @@ Grid-specific options live in a `grid:` block, matching the v4 `column:` pattern
 | `grid.max_simultaneous_events` | int at least 1         | `3`                  |
 | `grid.min_day_width`           | number (px)            | `100`                |
 | `grid.min_days_to_show`        | int                    | `1`                  |
-| `grid.show_allday_band`        | boolean                | `true`               |
 | `grid.allday_band_max_rows`    | int                    | `3`                  |
 | `grid.axis_width`              | CSS length             | `"3.5em"`            |
 | `grid.show_axis_labels`        | boolean                | `true`               |
@@ -368,13 +367,26 @@ directions rather than skipping it. And `resolveColumnOption` was a sixth hardco
 
 `view: grid` renders. The picker offers it, the `grid:` block is registered, the four-row
 container is built, the stylesheet is written, and `docs/features/grid-view.md` documents
-all eleven grid-only options.
+all ten grid-only options.
 
-**In the editor as of Phase 4a.** A **Time Axis** group in the Layout panel carries all
-eleven, ordered by what each decides rather than by declaration order: the slice of the
-day, then how it is ruled and how tall, then the label gutter, then the two overlays, and
-last the overlap budget. `start_time` and `end_time` share a row because they are a pair —
-a bad half resets both, so reading them apart misleads.
+**In the editor as of Phase 4a.** A **Time Axis** group in the Layout panel carries all ten,
+ordered by what each decides rather than by declaration order: the slice of the day, then
+how it is ruled and how tall, then the label gutter, then the overlay and the all-day row
+budget, and last the overlap budget. `start_time` and `end_time` share a row because they
+are a pair — a bad half resets both, so reading them apart misleads.
+
+**After the live Home Assistant pass.** `show_allday_band` was removed before release. It
+only hid all-day events, which `event_type: timed` already expresses at either card or
+per-calendar scope, so keeping both would make the API larger without adding a new state.
+The band now renders whenever all-day events survive filtering and costs no height when
+none do.
+
+Grid separators now use the same existing day/week/month separator options as list and
+column view. Grid diverges from their defaults with `day_separator_width: 1px`, because a
+time grid with no vertical day rules makes the shared axis read detached from the columns.
+The renderer duplicates column's boundary resolution locally on purpose: month/week/day
+precedence is shared, but the row-span decision belongs beside grid's four-row template.
+Day rules span rows 2 through the body; week and month rules span all rows.
 
 `tests/editor-schema.test.ts` reconciles `GRID_ONLY_KEYS` against the built schema, the
 same way it already did for column's. Without that the grid block would sit in exactly the

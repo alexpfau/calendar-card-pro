@@ -68,8 +68,7 @@ describe the time axis itself. Their defaults open the card on a domestic day.
 | `grid → show_now_line`           | boolean | `true`               | Draw a line across today's column at the current time                                                                     |
 | `grid → now_line_color`          | string  | `var(--error-color)` | Color of that line                                                                                                        |
 | `grid → max_simultaneous_events` | number  | `3`                  | Most events drawn side by side before the rest collapse into one `+N` block. Nothing is ever hidden without being counted |
-| `grid → show_allday_band`        | boolean | `true`               | Show the band of all-day events between the day headers and the axis                                                      |
-| `grid → allday_band_max_rows`    | number  | `3`                  | Rows that band may grow to before the remaining banners are dropped                                                       |
+| `grid → allday_band_max_rows`    | number  | `3`                  | Rows the all-day band may grow to before the remaining banners are dropped                                                |
 
 **→ [Grid View](/features/grid-view)** — worked examples.
 
@@ -142,7 +141,7 @@ Both height options may be overridden inside a `column:` block, and usually shou
 | `week_number_color`            | string  | `var(--primary-text-color)`   | Text color for week number pills                                             |
 | `week_number_background_color` | string  | `#03a9f450`                   | Background color for week number pills                                       |
 | `first_day_of_week`            | string  | `system`                      | First day of week ('monday', 'sunday', or 'system' to follow Home Assistant) |
-| `day_separator_width`          | string  | `0px`                         | Width of separator line between days                                         |
+| `day_separator_width`          | string  | `0px`                         | Width of separator line between days. Grid view defaults this to `1px`       |
 | `day_separator_color`          | string  | `var(--secondary-text-color)` | Color of separator line between days                                         |
 | `week_separator_width`         | string  | `0px`                         | Width of separator line between weeks                                        |
 | `week_separator_color`         | string  | `#03a9f450`                   | Color of separator line between weeks                                        |

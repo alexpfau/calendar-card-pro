@@ -1600,4 +1600,20 @@ describe('card stylesheet', () => {
       }
     });
   });
+
+  describe('the grid view box model', () => {
+    it('keeps positioned event boxes inside their percentage geometry', () => {
+      // happy-dom cannot prove the 17:00 pixel edge is aligned with the 17:00 rule; it
+      // does not do layout. What this stylesheet gate can prove is the declaration that
+      // makes the browser include padding and borders inside the height emitted by the
+      // grid renderer, rather than adding them below it.
+      expect(declared('.grid-event', 'box-sizing')).toBe('border-box');
+    });
+
+    it('keeps all-day banners inside their grid tracks', () => {
+      // Same failure class as `.grid-event`: the card does not set global box sizing, so
+      // a padded banner is content-box unless this rule says otherwise.
+      expect(declared('.grid-banner', 'box-sizing')).toBe('border-box');
+    });
+  });
 });

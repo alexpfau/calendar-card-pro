@@ -334,10 +334,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     "Marks the current time on today's column. Hidden when now falls outside the hours " +
     'above, rather than pinned to an edge.',
   'grid.now_line_color': 'Now Line Color',
-  'grid.show_allday_band': 'All-Day Band',
-  'grid.show_allday_band.helper':
-    'All-day events sit in a band between the day headers and the axis, each multi-day ' +
-    'event a single banner spanning its days.',
   'grid.allday_band_max_rows': 'Most All-Day Rows',
   'grid.allday_band_max_rows.helper':
     'How tall that band may grow. Banners past this are dropped — without a cap, a week ' +
@@ -366,6 +362,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // chrome on every card that has asked for none.
   'view_default.grid.show_empty_days':
     'Grid layout defaults this to on, whatever the shared setting above says.',
+  'view_default.grid.day_separator_width':
+    'Grid layout draws day separators by default, whatever this is set to, so the day ' +
+    'columns stay visible against the shared time axis.',
   'view_default.grid.event_background_opacity':
     'Grid layout defaults this to 20, whatever the shared setting above says — a block ' +
     'on a time axis is read by its area, so an untinted one is an outline you have to ' +

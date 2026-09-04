@@ -394,10 +394,7 @@ export interface GridOverrides extends SharedViewOverrides {
    */
   max_simultaneous_events?: number;
 
-  /** Show the band of all-day events between the day headers and the axis. */
-  show_allday_band?: boolean;
-
-  /** Rows that band may grow to before the remaining banners are summarised. */
+  /** Rows that band may grow to before the remaining banners are summarized. */
   allday_band_max_rows?: number;
 
   /** Width of the hour-label gutter, as a CSS length. */

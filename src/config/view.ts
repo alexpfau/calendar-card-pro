@@ -126,7 +126,6 @@ export const GRID_ONLY_KEYS = [
   'show_now_line',
   'now_line_color',
   'max_simultaneous_events',
-  'show_allday_band',
   'allday_band_max_rows',
   'axis_width',
   'show_axis_labels',
@@ -345,7 +344,6 @@ export const GRID_DEFAULTS = {
   show_now_line: true,
   now_line_color: 'var(--error-color)',
   max_simultaneous_events: 3,
-  show_allday_band: true,
   allday_band_max_rows: 3,
   axis_width: '3.5em',
   show_axis_labels: true,
@@ -599,6 +597,7 @@ export const COLUMN_DEFAULT_OVERRIDES: {
 export const GRID_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.GridOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
+  day_separator_width: '1px',
   event_background_opacity: 20,
   show_empty_days: true,
 };

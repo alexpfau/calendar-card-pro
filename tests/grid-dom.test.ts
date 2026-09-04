@@ -1,7 +1,7 @@
 import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { FROZEN_NOW, buildConfig } from './fixtures';
+import { EVENTS, FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Grid from '../src/rendering/grid';
@@ -72,6 +72,12 @@ function renderGrid(
 function geometry(element: Element): { top: number; height: number } {
   const style = (element as HTMLElement).style;
   return { top: Number.parseFloat(style.top), height: Number.parseFloat(style.height) };
+}
+
+function requireElement<T extends Element = Element>(root: ParentNode, selector: string): T {
+  const element = root.querySelector(selector);
+  expect(element, `expected to find ${selector}`).not.toBeNull();
+  return element as T;
 }
 
 beforeEach(() => {
@@ -201,6 +207,25 @@ describe('a block is sized by its duration (#206)', () => {
     // a third of that. A pixel-per-minute scale would report the same number for both.
     expect(geometry(narrow.querySelector('.grid-event')!).height).toBeCloseTo(25, 6);
   });
+
+  it('emits geometry that stays inside the visible band', () => {
+    const container = renderGrid(
+      [timed(17, '16:00', '17:00', 'Ends on the line')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        grid: { start_time: '15:00', end_time: '17:00' },
+      }),
+    );
+
+    const { top, height } = geometry(requireElement(container, '.grid-event'));
+
+    // This pins the renderer's percentage declaration. It cannot prove browser pixel
+    // alignment by itself — happy-dom does no layout — so `stylesheet.test.ts` also pins
+    // the `box-sizing` rule that keeps padding and borders inside this emitted height.
+    expect(top + height).toBeCloseTo(100, 6);
+    expect(top + height).toBeLessThanOrEqual(100.000001);
+  });
 });
 
 describe('overlapping events share the column', () => {
@@ -243,6 +268,7 @@ describe('overlapping events share the column', () => {
     const overflow = container.querySelector('.grid-event-overflow');
 
     expect(overflow, 'the cap should produce an overflow block').not.toBeNull();
+    expect(overflow!.classList.contains('grid-event')).toBe(true);
     expect(overflow!.textContent?.trim()).toBe('+3');
   });
 
@@ -316,19 +342,103 @@ describe('all-day events go in the band, not the body', () => {
     expect(new Set(rows).size).toBe(1);
   });
 
-  it('omits the band entirely when it is switched off', () => {
-    const container = renderGrid(
-      [allDay('2026-06-17', '2026-06-18', 'Public holiday')],
-      buildConfig({ view: 'grid', days_to_show: 3, grid: { show_allday_band: false } }),
-    );
-
-    expect(container.querySelector('.grid-allday-band')).toBeNull();
-  });
-
   it('costs no height when there are no all-day events', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
 
     expect(container.querySelector('.grid-allday-band')).toBeNull();
+  });
+});
+
+describe('separators between grid days', () => {
+  function spanConfig(overrides: Partial<Types.Config> = {}): Types.Config {
+    return buildConfig({
+      view: 'grid',
+      days_to_show: 15,
+      ...overrides,
+    });
+  }
+
+  function separators(container: HTMLElement): HTMLElement[] {
+    return Array.from(container.querySelectorAll<HTMLElement>('.grid-separator'));
+  }
+
+  it('draws day separators by default in grid view', () => {
+    const container = renderGrid(EVENTS, spanConfig());
+    const rules = separators(container);
+
+    // Grid view overrides `day_separator_width` to 1px, unlike list and column view,
+    // because a time grid with no vertical rulings leaves the shared axis visually
+    // detached from its day columns.
+    expect(rules).toHaveLength(14);
+    expect(rules.every((rule) => rule.classList.contains('grid-separator-day'))).toBe(true);
+    expect(new Set(rules.map((rule) => rule.style.width))).toEqual(new Set(['1px']));
+  });
+
+  it('uses the existing day separator options for grid rules', () => {
+    const config = spanConfig({ day_separator_width: '0px', day_separator_color: 'rgb(1, 2, 3)' });
+    config.grid = { day_separator_width: '2px' };
+
+    const container = renderGrid(EVENTS, config);
+    const rule = requireElement<HTMLElement>(container, '.grid-separator-day');
+
+    expect(rule.style.width).toBe('2px');
+    expect(rule.style.backgroundColor).toBe('rgb(1, 2, 3)');
+  });
+
+  it('lets week and month separators win over day separators', () => {
+    const container = renderGrid(
+      EVENTS,
+      spanConfig({
+        day_separator_width: '1px',
+        week_separator_width: '3px',
+        week_separator_color: 'rgb(4, 5, 6)',
+        month_separator_width: '5px',
+        month_separator_color: 'rgb(7, 8, 9)',
+      }),
+    );
+
+    const weekRules = Array.from(container.querySelectorAll<HTMLElement>('.grid-separator-week'));
+    const monthRules = Array.from(container.querySelectorAll<HTMLElement>('.grid-separator-month'));
+
+    expect(weekRules.map((rule) => rule.style.gridColumn)).toEqual(['7', '14']);
+    expect(weekRules.map((rule) => rule.style.width)).toEqual(['3px', '3px']);
+    expect(weekRules.map((rule) => rule.style.backgroundColor)).toEqual([
+      'rgb(4, 5, 6)',
+      'rgb(4, 5, 6)',
+    ]);
+    expect(monthRules.map((rule) => rule.style.gridColumn)).toEqual(['16']);
+    expect(monthRules[0].style.width).toBe('5px');
+    expect(monthRules[0].style.backgroundColor).toBe('rgb(7, 8, 9)');
+    expect(container.querySelectorAll('.grid-separator-day')).toHaveLength(11);
+  });
+
+  it('places separators explicitly without displacing grid rows', () => {
+    const container = renderGrid(EVENTS, spanConfig({ day_spacing: '20px' }));
+    const rules = separators(container);
+
+    expect(rules.length).toBeGreaterThan(0);
+    expect(rules[0].style.gridColumn).toBe('3');
+    expect(rules[0].style.gridRow).toBe('2 / -1');
+    expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 1px))');
+  });
+
+  it('spans week and month rules across the week-number row too', () => {
+    const container = renderGrid(
+      EVENTS,
+      spanConfig({ week_separator_width: '3px', month_separator_width: '5px' }),
+    );
+
+    // The row-span decision is view-specific: day rules separate day content and start at
+    // row 2, while larger boundaries include the week-number row they help divide.
+    expect(requireElement<HTMLElement>(container, '.grid-separator-day').style.gridRow).toBe(
+      '2 / -1',
+    );
+    expect(requireElement<HTMLElement>(container, '.grid-separator-week').style.gridRow).toBe(
+      '1 / -1',
+    );
+    expect(requireElement<HTMLElement>(container, '.grid-separator-month').style.gridRow).toBe(
+      '1 / -1',
+    );
   });
 });
 
