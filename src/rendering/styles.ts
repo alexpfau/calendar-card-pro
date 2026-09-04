@@ -1932,18 +1932,21 @@ export const cardStyles = css`
   }
 
   .grid-event-disclosure .summary-row {
+    display: none;
     flex: 0 1 auto;
     min-height: 0;
+    overflow: hidden;
   }
 
   .grid-event-disclosure .summary {
     min-height: 0;
+    padding-block: 0;
   }
 
   .grid-event-disclosure .event-title {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: var(--calendar-card-grid-title-max-lines, 3);
+    -webkit-line-clamp: 1;
     overflow: hidden;
   }
 
@@ -1991,22 +1994,48 @@ export const cardStyles = css`
     display: none;
   }
 
+  @container calendar-card-grid-event (min-height: 19px) {
+    .grid-event-disclosure .summary-row {
+      display: flex;
+    }
+  }
+
+  @container calendar-card-grid-event (min-height: 36px) {
+    .grid-event-disclosure .event-title {
+      -webkit-line-clamp: 2;
+    }
+  }
+
   /* The renderer deliberately knows only percentages; the browser alone knows whether a
      30-minute block became 24px or 44px in this card. Height container queries keep that
      pixel decision in CSS, inside the shadow root, so the geometry module never gains a
-     hidden pixel scale. Title is always visible, time starts once the block has room for a
-     second line, and location/description wait for a third. */
-  @container calendar-card-grid-event (min-height: 32px) {
+     hidden pixel scale. The title waits until one full row fits, adds a second line only
+     when there is room, and yields back to one line when the time row appears. */
+  @container calendar-card-grid-event (min-height: 40px) {
+    .grid-event-disclosure .event-title {
+      -webkit-line-clamp: 1;
+    }
+
     .grid-event-disclosure .time,
     .grid-event-disclosure .event-weather {
       display: block;
     }
   }
 
-  @container calendar-card-grid-event (min-height: 56px) {
+  @container calendar-card-grid-event (min-height: 72px) {
+    .grid-event-disclosure .event-title {
+      -webkit-line-clamp: 2;
+    }
+
     .grid-event-disclosure .location,
     .grid-event-disclosure .description {
       display: flex;
+    }
+  }
+
+  @container calendar-card-grid-event (min-height: 96px) {
+    .grid-event-disclosure .event-title {
+      -webkit-line-clamp: 3;
     }
   }
 

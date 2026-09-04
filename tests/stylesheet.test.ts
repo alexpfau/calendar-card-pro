@@ -1622,8 +1622,11 @@ describe('card stylesheet', () => {
       // proves the renderer emits short blocks into the CSS-only mechanism and that the
       // thresholds live in CSS rather than in the percentage geometry.
       expect(declared('.grid-event', 'container')).toBe('calendar-card-grid-event / size');
-      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 32px)');
-      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 56px)');
+      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 19px)');
+      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 36px)');
+      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 40px)');
+      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 72px)');
+      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 96px)');
       expect(declared('.grid-event-disclosure .time', 'display')).toBe('none');
       expect(declared('.grid-event-disclosure .location', 'display')).toBe('none');
     });
@@ -1635,11 +1638,15 @@ describe('card stylesheet', () => {
       // detail rows keep their full line height instead of becoming half-visible text.
       expect(declared('.grid-event-disclosure', 'height')).toBe('100%');
       expect(declared('.grid-event-disclosure .event-content', 'height')).toBe('100%');
+      expect(declared('.grid-event-disclosure .summary-row', 'display')).toBe('none');
       expect(declared('.grid-event-disclosure .summary-row', 'flex')).toBe('0 1 auto');
+      expect(declared('.grid-event-disclosure .summary-row', 'overflow')).toBe('hidden');
       expect(declared('.grid-event-disclosure .summary', 'min-height')).toBe('0');
-      expect(declared('.grid-event-disclosure .event-title', '-webkit-line-clamp')).toBe(
-        'var(--calendar-card-grid-title-max-lines, 3)',
-      );
+      expect(declared('.grid-event-disclosure .summary', 'padding-block')).toBe('0');
+      expect(declared('.grid-event-disclosure .event-title', '-webkit-line-clamp')).toBe('1');
+      expect(CSS).toContain('-webkit-line-clamp: 2;');
+      expect(CSS).toContain('-webkit-line-clamp: 1;');
+      expect(CSS).toContain('-webkit-line-clamp: 3;');
       expect(declared('.grid-event-disclosure .time', 'flex')).toBe('0 0 auto');
       expect(declared('.grid-event-disclosure .location', 'flex')).toBe('0 0 auto');
     });
