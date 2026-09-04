@@ -36,21 +36,35 @@ surveyed card solves it. It is not a regression and not a v5 goal.
   now sit inside. The branch it was previously adopted onto no longer exists on `origin`
   or in any reflog, so the renames and fixes recorded in the #339 thread are re-derived
   here rather than recovered.
-- **`Uko/multiday-calendar-card`** v0.1.2, MIT.
+- **`Uko/multiday-calendar-card`** v0.1.2, MIT. Surveyed for comparison only.
 
-They are near-exact complements — each solved one half of the geometry correctly.
+They are near-exact complements — each solved one half of the geometry correctly, which
+is why the design below reads as a merge of the two rather than a port of either.
 
-| Concern                                     | Taken from | Because                                                      |
-| ------------------------------------------- | ---------- | ------------------------------------------------------------ |
-| Percentage vertical geometry                | Uko        | Fixed height compresses for free; no px math in `rendering/` |
-| Wall-clock minute placement                 | lenaxia    | Uko's elapsed-ms form is an hour wrong on DST days           |
-| Overlap cap with a `+N more` block          | Uko        | lenaxia has no cap; seven overlaps give seven slivers        |
-| Spanning all-day banner, continuation marks | lenaxia    | Uko's per-day chips never visually join                      |
-| `"HH:mm"` band bounds                       | Uko        | Minute precision at the same cost as integer hours           |
-| One grid, shared column template            | both       | The structural fix for axis/header misalignment              |
+| Concern                                     | Better answer | Because                                                      |
+| ------------------------------------------- | ------------- | ------------------------------------------------------------ |
+| Percentage vertical geometry                | Uko           | Fixed height compresses for free; no px math in `rendering/` |
+| Wall-clock minute placement                 | lenaxia       | Uko's elapsed-ms form is an hour wrong on DST days           |
+| An overlap cap rather than unbounded lanes  | Uko           | lenaxia has no cap; seven overlaps give seven slivers        |
+| Spanning all-day banner, continuation marks | lenaxia       | Uko's per-day chips never visually join                      |
+| `"HH:mm"` band bounds                       | Uko           | Minute precision at the same cost as integer hours           |
+| One grid, shared column template            | both          | The structural fix for axis/header misalignment              |
 
-Attribution goes in `NOTICE` (entries 4 and 5), the feature docs page and the release
-notes. Restate design decisions in our own words — do not copy either project's prose.
+### Attribution
+
+**`NOTICE` gets one new entry, for @lenaxia.** Their work was written against this
+codebase and offered upstream as a contribution in #339, which is a different
+relationship from a card we read for comparison. Credit them there, on the feature docs
+page, and in the release notes.
+
+**Nothing is owed to `Uko/multiday-calendar-card`, and no entry is added for it.** MIT
+obliges attribution when substantial portions of the _code_ are copied; none are. Every
+function here is written from scratch against our own types and conventions, and what
+was taken is the shape of an answer — percentages rather than pixels, a cap rather than
+unbounded lanes — which is not copyrightable subject matter in any practical sense.
+
+Do not copy either project's prose. Design-doc text is protected far more strongly than
+code structure; restate every decision in our own words.
 
 ---
 
@@ -105,16 +119,36 @@ silently changes class.
 AGENTS.md § _The card holds three disagreeing answers to "is this multi-day?"_ documents
 this; lenaxia hit it independently and wrote a separate splitter to escape it.
 
-Two halves to the fix:
+The grid never runs the upstream splitter. `utils/grid.ts:splitTimedEventByDay` splits
+at local day boundaries keeping `dateTime` on every segment, and drops zero-length
+segments.
 
-1. Grid defaults `split_multiday_events: false` via `DEFAULT_OVERRIDES_BY_VIEW`, so
-   `groupEventsByDay` hands over whole events.
-2. `utils/grid.ts:splitTimedEventByDay` splits at local day boundaries keeping
-   `dateTime` on every segment, and drops zero-length segments.
+### `split_multiday_events` is inert in grid view
 
-`viewForcesMultidaySplit` becomes three-way: list honours the per-entity setting, column
-forces the split on, grid forces it off. It currently returns `view === 'column'`, which
-would hand grid the _list_ behavior — almost right, and therefore dangerous.
+The option asks a question the grid has already answered, in both directions:
+
+- An **all-day** multi-day event sits in the all-day band and spans its days by width.
+  It is one banner either way; there is no per-day row for splitting to produce.
+- A **timed** multi-day event is drawn by the time body as one block per day column,
+  because that is what placing an event by clock time means. It is already per-day
+  without anyone asking for it.
+
+So the key changes nothing a user can see. It belongs in `VIEW_SCOPE` as affecting
+`list` and `column` only — the editor then annotates it as inert and `check:docs` keeps
+the claim honest. The per-entity half already scopes to `list` in `ENTITY_VIEW_SCOPE`
+and needs no change.
+
+🚨 **Inert, not defaulted.** An earlier draft had grid set `split_multiday_events: false`
+through `DEFAULT_OVERRIDES_BY_VIEW`. That is worse in a way that is easy to miss: a
+default in that map is overridable from the `grid:` block, so
+`grid: { split_multiday_events: true }` would switch the upstream splitter back on and
+reintroduce the hazard above — a config the editor would offer without complaint.
+Scoping the key out of the view instead makes it unreachable rather than merely unset.
+
+`viewForcesMultidaySplit` therefore becomes three-way — `inherit` for list, `always` for
+column, `never` for grid — rather than the boolean it is today, which returns
+`view === 'column'` and would hand grid the _list_ behavior. Almost right, and therefore
+dangerous.
 
 ---
 
@@ -146,7 +180,8 @@ Four of lenaxia's eleven keys are absorbed by machinery we already have:
 
 Inert in grid view, so `VIEW_SCOPE` must say so: `compact_*` (already list-only),
 `show_empty_days` / `empty_day_text` (a time axis is never empty), `event_spacing`
-(spacing is time, not margin), `show_description` (no room in a block).
+(spacing is time, not margin), `show_description` (no room in a block), and
+`split_multiday_events` (the grid answers that question by construction — see above).
 
 ---
 

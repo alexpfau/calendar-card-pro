@@ -36,10 +36,12 @@ import {
  * long. That is not a rounding artefact — it is a whole slot, in a view whose entire
  * purpose is putting events at the right height.
  *
- * This is not hypothetical. `Uko/multiday-calendar-card`, surveyed while designing
- * this module, computes event placement with the elapsed-ms form and its now-line with
- * the wall-clock form, so on a transition day its line and its events sit an hour
- * apart. It has no DST test of any kind.
+ * This is not hypothetical. A widely-used HA calendar card surveyed while this module
+ * was designed (`Uko/multiday-calendar-card`) places events with the elapsed-ms form
+ * and draws its now-line with the wall-clock form, so on a transition day its line and
+ * its events sit an hour apart. Cited as evidence that the bug is reachable in real
+ * code rather than as criticism — the reason it survives there is the reason this file
+ * exists here: a suite pinned to a single non-transitioning zone cannot see it.
  *
  * Transition days are **discovered at run time** rather than hardcoded, because the
  * northern and southern zones transition in opposite months and no single date is a

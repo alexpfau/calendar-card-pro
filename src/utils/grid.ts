@@ -43,12 +43,15 @@ export const DEFAULT_BAND_END = '22:00';
 //-----------------------------------------------------------------------------
 
 /**
- * `HH:mm`, plus `24:00` for a band that runs to the end of the day.
+ * Two colon-separated pairs of digits, and nothing else.
  *
- * Anchored at both ends so `"7:00am"` and `"09:00 "` are rejected rather than
+ * Shape only — the ranges are checked numerically below. Splitting the two concerns
+ * keeps the `24:00` case an explicit branch that says what it is, rather than a third
+ * alternative buried in the pattern where nothing explains why it exists. Anchored at
+ * both ends so `"7:00am"` and `"09:00 "` are rejected outright instead of being
  * half-parsed into a plausible-looking wrong answer.
  */
-const TIME_OF_DAY_PATTERN = /^(?:([01]\d|2[0-3]):([0-5]\d)|(24):(00))$/;
+const TIME_OF_DAY_SHAPE = /^(\d{2}):(\d{2})$/;
 
 /**
  * Parse a `HH:mm` time of day into minutes from midnight.
@@ -56,6 +59,10 @@ const TIME_OF_DAY_PATTERN = /^(?:([01]\d|2[0-3]):([0-5]\d)|(24):(00))$/;
  * Minute precision rather than whole hours is close to free here and is strictly more
  * expressive: a band starting at `06:30` is a real thing to want, and an integer-hour
  * option cannot say it.
+ *
+ * `24:00` is accepted as the one time past the last clock reading of the day, because a
+ * band has to be able to end at midnight. `24:30` is not — the exception exists to name
+ * the end of the day, not to admit a 25th hour.
  *
  * @param value - Time of day as `HH:mm`, or `24:00` for the end of the day
  * @returns Minutes from midnight in `[0, 1440]`, or `null` when unparseable
@@ -65,17 +72,24 @@ export function parseTimeOfDay(value: string): number | null {
     return null;
   }
 
-  const match = TIME_OF_DAY_PATTERN.exec(value);
+  const shape = TIME_OF_DAY_SHAPE.exec(value);
 
-  if (!match) {
+  if (!shape) {
     return null;
   }
 
-  if (match[3]) {
-    return MINUTES_PER_DAY;
+  const hours = Number(shape[1]);
+  const minutes = Number(shape[2]);
+
+  if (minutes > 59) {
+    return null;
   }
 
-  return Number(match[1]) * 60 + Number(match[2]);
+  if (hours === 24) {
+    return minutes === 0 ? MINUTES_PER_DAY : null;
+  }
+
+  return hours < 24 ? hours * 60 + minutes : null;
 }
 
 /**

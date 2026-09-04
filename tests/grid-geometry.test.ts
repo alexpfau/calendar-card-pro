@@ -61,7 +61,9 @@ describe('parseTimeOfDay', () => {
 
   it.each([
     ['24:01', 'past the end of the day'],
+    ['24:30', 'a 25th hour by another name'],
     ['25:00', 'not a clock hour'],
+    ['99:99', 'both fields out of range'],
     ['7:00', 'unpadded'],
     ['07:60', 'not a clock minute'],
     ['7am', 'not the format'],
