@@ -101,6 +101,38 @@ export const COLUMN_ONLY_KEYS = [
 ] as const;
 
 /**
+ * Options a `grid:` block may override, each with a top-level counterpart.
+ *
+ * The same list as column's, and the same array rather than a copy. The question both
+ * views ask is identical — how much room does one day get — and they answer it in the
+ * same direction, away from the list layout. Separators included: a grid still rules
+ * vertical lines between its day columns and still has week and month boundaries.
+ *
+ * 🚨 Aliased, not filtered. A `.filter()` here would type as `ReadonlyArray<union>`
+ * rather than a literal tuple, which quietly makes the partition assertion below
+ * tautological: every key would read as classified while the filtered-out ones were
+ * dropped at runtime, producing exactly the accepted-then-silently-ignored override the
+ * assertion exists to prevent. If grid ever needs a genuinely different set, write it
+ * out `as const` — do not derive it.
+ */
+export const GRID_OVERRIDE_KEYS = COLUMN_OVERRIDE_KEYS;
+
+/** Grid-only options — the ones describing the time axis itself. */
+export const GRID_ONLY_KEYS = [
+  'start_time',
+  'end_time',
+  'slot_minutes',
+  'hour_height',
+  'show_now_line',
+  'now_line_color',
+  'max_simultaneous_events',
+  'show_allday_band',
+  'allday_band_max_rows',
+  'axis_width',
+  'show_axis_labels',
+] as const;
+
+/**
  * Compile-time partition check for a view's two key arrays.
  *
  * The arrays are the only thing that decides whether an override reaches the renderer:
@@ -164,7 +196,17 @@ export type _AssertColumnOnlyKeysHaveNoCounterpart = AssertNever<
   OnlyKeysWithCounterpart<typeof COLUMN_ONLY_KEYS>
 >;
 
-export const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column'];
+export type _AssertEveryGridKeyClassified = AssertNever<
+  UnclassifiedKeys<Types.GridOverrides, typeof GRID_OVERRIDE_KEYS, typeof GRID_ONLY_KEYS>
+>;
+export type _AssertEveryGridOverrideKeyHoistable = AssertNever<
+  OverrideKeysWithoutCounterpart<Types.GridOverrides, typeof GRID_OVERRIDE_KEYS>
+>;
+export type _AssertGridOnlyKeysHaveNoCounterpart = AssertNever<
+  OnlyKeysWithCounterpart<typeof GRID_ONLY_KEYS>
+>;
+
+export const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column', 'grid'];
 
 export const VIEWS_WITH_WIDTH_FALLBACK: ReadonlySet<Types.EffectiveView> =
   new Set<Types.EffectiveView>(['column']);
@@ -182,6 +224,14 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   compact_events_to_show: new Set<Types.EffectiveView>(['list']),
   compact_days_to_show: new Set<Types.EffectiveView>(['list']),
   compact_events_complete_days: new Set<Types.EffectiveView>(['list']),
+
+  // Inert in grid view, because the grid answers the question by construction in both
+  // directions: an all-day multi-day event is one banner spanning its days by width,
+  // and a timed one is already drawn as one block per day column, which is what placing
+  // an event by clock time means. There is no per-day row for a split to produce.
+  //
+  // 🚨 Scoped out rather than defaulted off — see the note on GRID_DEFAULT_OVERRIDES.
+  split_multiday_events: new Set<Types.EffectiveView>(['list', 'column']),
 };
 
 /**
@@ -273,6 +323,35 @@ export const COLUMN_DEFAULTS = {
 } as const;
 
 /**
+ * Defaults for grid-only options.
+ *
+ * `07:00`–`22:00` covers a domestic day without wasting a third of the axis on hours
+ * nothing is scheduled in; the band is scrollable, so the bound is about where the card
+ * *opens*, not what it can reach.
+ *
+ * `hour_height` is a CSS length rather than a number so it can be given in `em` and
+ * track the font, and so `calc()` works. It sets the intrinsic height only — under
+ * `height_mode: fixed` the axis compresses to the card instead.
+ *
+ * `max_simultaneous_events: 3` is where blocks stop carrying readable text at a typical
+ * card width. `axis_width` is in `em` for the same reason as `hour_height`: an hour
+ * label is text, so its gutter should scale with text.
+ */
+export const GRID_DEFAULTS = {
+  start_time: '07:00',
+  end_time: '22:00',
+  slot_minutes: 30,
+  hour_height: '48px',
+  show_now_line: true,
+  now_line_color: 'var(--error-color)',
+  max_simultaneous_events: 3,
+  show_allday_band: true,
+  allday_band_max_rows: 3,
+  axis_width: '3.5em',
+  show_axis_labels: true,
+} as const;
+
+/**
  * Value type a column-only option resolves to.
  *
  * Derived from `COLUMN_DEFAULTS`; the conditional widens numeric literals so user
@@ -337,6 +416,84 @@ export function resolveColumnOption<K extends keyof typeof COLUMN_DEFAULTS>(
   }
 
   return COLUMN_DEFAULTS[key] as ColumnOptionValue<K>;
+}
+
+/**
+ * Value type a grid-only option resolves to.
+ *
+ * Derived from {@link GRID_DEFAULTS}; the conditionals widen the literals so a user
+ * value such as `'06:30'` or `60` stays assignable.
+ */
+type GridOptionValue<K extends keyof typeof GRID_DEFAULTS> =
+  (typeof GRID_DEFAULTS)[K] extends boolean
+    ? boolean
+    : (typeof GRID_DEFAULTS)[K] extends number
+      ? number
+      : string;
+
+/**
+ * Normalizes a grid-only option to a usable value of its declared type.
+ *
+ * These values never pass through `normalizeConfig`, so a malformed `slot_minutes` or a
+ * unitless `hour_height` is caught here rather than reaching a stylesheet. Length-valued
+ * keys accept a bare number from YAML or the editor's text field and gain `px`, for the
+ * reason {@link normalizeColumnValue} documents: there is no valid unitless CSS length,
+ * so `height:48` is written to the style attribute and silently discarded.
+ *
+ * `start_time` and `end_time` are deliberately **not** validated here — they are a pair,
+ * and a bad half must reset both. {@link Grid.resolveBand} owns that.
+ *
+ * @param key - Option being resolved
+ * @param value - Raw configured value
+ * @returns A value of the key's declared type
+ */
+export function normalizeGridValue(
+  key: keyof typeof GRID_DEFAULTS,
+  value: unknown,
+): string | number | boolean {
+  const fallback = GRID_DEFAULTS[key];
+
+  if (typeof fallback === 'boolean') {
+    return typeof value === 'boolean' ? value : fallback;
+  }
+
+  if (typeof fallback === 'number') {
+    const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  }
+
+  // Times are validated as a pair, not individually — see the docblock.
+  if (key === 'start_time' || key === 'end_time') {
+    return typeof value === 'string' ? value : fallback;
+  }
+
+  return String(coercePixelLengthAgainst(fallback, value));
+}
+
+/**
+ * Resolves a grid-only option.
+ *
+ * No inheritance step: the value is in the `grid:` block or falls back to
+ * {@link GRID_DEFAULTS}.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @param key - Grid-only option to resolve
+ * @returns The configured value, or its default
+ */
+export function resolveGridOption<K extends keyof typeof GRID_DEFAULTS>(
+  config: Types.Config,
+  key: K,
+): GridOptionValue<K> {
+  const overrides = blockValues(config, 'grid');
+
+  if (overrides && hasOverride(overrides, key as keyof Types.ColumnOverrides)) {
+    return normalizeGridValue(
+      key,
+      (overrides as Record<string, unknown>)[key],
+    ) as GridOptionValue<K>;
+  }
+
+  return GRID_DEFAULTS[key] as GridOptionValue<K>;
 }
 
 /**
@@ -425,11 +582,33 @@ export const COLUMN_DEFAULT_OVERRIDES: {
   split_multiday_events: true,
 };
 
+/**
+ * Options whose shipped default differs in grid view.
+ *
+ * `event_background_opacity` is the whole change. The list layout ships `0` — no tint,
+ * just an accent line — which reads well against a full-width row. A grid block is a
+ * shape whose *area* carries the meaning, and an untinted one is an outline the eye has
+ * to reconstruct. Every calendar app that draws a time axis fills its blocks.
+ *
+ * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
+ * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
+ * from the view's own block, so `grid: { split_multiday_events: true }` would switch the
+ * upstream splitter back on and reintroduce the hazard documented on
+ * `viewForcesMultidaySplit`.
+ */
+export const GRID_DEFAULT_OVERRIDES: {
+  readonly [K in keyof Types.GridOverrides & keyof Types.Config]?: Types.Config[K];
+} = {
+  event_background_opacity: 20,
+  show_empty_days: true,
+};
+
 /** Views whose defaults depart from the top level, mapped to what they substitute. */
 export const DEFAULT_OVERRIDES_BY_VIEW: Readonly<
   Partial<Record<Types.EffectiveView, Readonly<Record<string, unknown>>>>
 > = {
   column: COLUMN_DEFAULT_OVERRIDES,
+  grid: GRID_DEFAULT_OVERRIDES,
 };
 
 //-----------------------------------------------------------------------------
@@ -461,7 +640,7 @@ interface ViewBlock {
   readonly onlyKeys: ReadonlyArray<string>;
 
   /** Defaults for `onlyKeys`, which have no top-level default to fall back to. */
-  readonly onlyDefaults: Readonly<Record<string, string | number>>;
+  readonly onlyDefaults: Readonly<Record<string, string | number | boolean>>;
 
   /** Options whose shipped default differs in this view. */
   readonly defaultOverrides: Readonly<Record<string, unknown>>;
@@ -474,6 +653,13 @@ export const VIEW_BLOCKS: Readonly<Partial<Record<Types.EffectiveView, ViewBlock
     onlyKeys: COLUMN_ONLY_KEYS,
     onlyDefaults: COLUMN_DEFAULTS,
     defaultOverrides: COLUMN_DEFAULT_OVERRIDES,
+  },
+  grid: {
+    blockKey: 'grid',
+    overrideKeys: GRID_OVERRIDE_KEYS,
+    onlyKeys: GRID_ONLY_KEYS,
+    onlyDefaults: GRID_DEFAULTS,
+    defaultOverrides: GRID_DEFAULT_OVERRIDES,
   },
 };
 
@@ -588,6 +774,8 @@ export function viewCssClass(view: Types.EffectiveView): string {
   switch (view) {
     case 'column':
       return 'column-view';
+    case 'grid':
+      return 'grid-view';
     case 'list':
       return '';
   }

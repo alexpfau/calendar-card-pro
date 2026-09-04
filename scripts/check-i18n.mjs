@@ -237,8 +237,15 @@ async function readEditorSchemaKeys() {
     helpers,
     roots,
     strings: EDITOR_STRINGS,
-    // Both scope tables make the same promise on different surfaces.
-    viewScope: { ...VIEW_SCOPE, ...ENTITY_VIEW_SCOPE },
+    // Both scope tables make the same promise on different surfaces, but a key may
+    // legitimately appear in both with DIFFERENT scopes — `entityScopeFor` is
+    // `ENTITY_VIEW_SCOPE[key] ?? VIEW_SCOPE[key]`, not a merge, so the per-calendar
+    // control and the card-level one can be inert in different views and need different
+    // notes. Spreading one over the other silently dropped the loser's scope and
+    // orphaned its string: `split_multiday_events` is card-level `['list','column']` and
+    // per-calendar `['list']`, and only the second survived the spread. Pairs, so both
+    // are reconciled.
+    viewScopeEntries: [...Object.entries(VIEW_SCOPE), ...Object.entries(ENTITY_VIEW_SCOPE)],
     defaultOverridesByView: DEFAULT_OVERRIDES_BY_VIEW,
   };
 }
@@ -638,7 +645,7 @@ function checkDayjsWiring(entries, { imports, supported, specialCased }) {
  * that label nothing. Helper text remains optional.
  */
 async function checkEditorStrings() {
-  const { labels, titles, helpers, roots, strings, viewScope, defaultOverridesByView } =
+  const { labels, titles, helpers, roots, strings, viewScopeEntries, defaultOverridesByView } =
     await readEditorSchemaKeys();
 
   assertFound([...labels.keys()], 'any labelled fields in the editor panels', PANELS_TS);
@@ -666,7 +673,7 @@ async function checkEditorStrings() {
   // against VIEW_SCOPE rather than against the schema: a scoped option with no note
   // says nothing about which layout it applies to, which is the whole point of scoping
   // it. `scope.<id>_only` is the shared wording, `scope.<id>_only.<key>` the specific.
-  for (const [key, views] of Object.entries(viewScope)) {
+  for (const [key, views] of viewScopeEntries) {
     const scopeId = [...views].sort().join('_');
     const general = `scope.${scopeId}_only`;
 

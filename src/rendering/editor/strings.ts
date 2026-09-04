@@ -30,6 +30,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.list.description': 'Days stacked, one per row',
   'view.option.column.label': 'Columns',
   'view.option.column.description': 'Days side by side',
+  'view.option.grid.label': 'Time Grid',
+  'view.option.grid.description': 'Days side by side on an hour axis',
   'view.helper':
     'Column layout needs width. Below the threshold in the table, the same card ' +
     'renders as a list — so both layouts are live for one card, and the list ' +
@@ -301,6 +303,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.allday_badge_style': 'All-Day Badge Style',
   'column.allday_badge_color': 'All-Day Badge Color',
   'column.remove_location_country': 'Country Names',
+  'grid.height': 'Height',
+  'grid.height.helper': 'A fixed height for the grid layout. Use auto to let it grow.',
+  'grid.max_height': 'Maximum Height',
+  'grid.max_height.helper': 'The tallest the grid layout may grow before it scrolls.',
+  'grid.show_week_numbers': 'Week Numbers',
+  'grid.allday_badge': 'All-Day Badge',
+  'grid.remove_location_country': 'Remove Country From Location',
   'column.show_empty_days.helper':
     'Column layout defaults this to on, whatever the shared setting above says.',
   'column.split_multiday_events.helper':
@@ -312,6 +321,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // statement is that the view has already decided the option, which is information
   // about the control the user is looking at — an exception row would be two rows of
   // chrome on every card that has asked for none.
+  'view_default.grid.show_empty_days':
+    'Grid layout defaults this to on, whatever the shared setting above says.',
+  'view_default.grid.event_background_opacity':
+    'Grid layout defaults this to 20, whatever the shared setting above says — a block ' +
+    'on a time axis is read by its area, so an untinted one is an outline you have to ' +
+    'reconstruct.',
   'view_default.column.show_empty_days':
     'Column layout shows empty days whatever this is set to, so that the columns keep ' +
     'matching consecutive days. Add an exception below to change that.',
@@ -646,6 +661,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // Phrased as what the option *does* apply to, never as "this does nothing".
   // A column card renders as a list on a narrow screen, so a list-only option on a
   // column card is still the live control for what that card shows on a phone.
+  'scope.column_list_only': 'Applies to the list and column layouts, not to the time grid.',
+  'scope.column_list_only.split_multiday_events':
+    'The time grid does not need this. An all-day event spanning several days is drawn ' +
+    'as one banner across them, and a timed one is already drawn as a separate block in ' +
+    'each day it touches.',
   'scope.list_only': 'Applies to the list layout, which this card also uses on narrow screens.',
   'scope.list_only.today_indicator_position':
     'Applies to the list layout — column layout places the indicator for you.',

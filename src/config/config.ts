@@ -150,6 +150,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   refresh_on_navigate: true,
 
   column: undefined,
+  grid: undefined,
 };
 
 //-----------------------------------------------------------------------------

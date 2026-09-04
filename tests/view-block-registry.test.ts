@@ -53,7 +53,7 @@ const baseConfig = (overrides: Record<string, unknown> = {}): Types.Config =>
 
 describe('the registry is the single source', () => {
   it('registers exactly the views that own a block', () => {
-    expect(Object.keys(VIEW_BLOCKS)).toEqual(['column']);
+    expect(Object.keys(VIEW_BLOCKS).sort()).toEqual(['column', 'grid']);
   });
 
   it('reports no block for a view that has none', () => {
@@ -270,7 +270,7 @@ describe('behaviour follows the registry', () => {
 
 describe('validateView derives its vocabulary', () => {
   it('accepts every view the card offers', () => {
-    for (const view of ['list', 'column'] as const) {
+    for (const view of ['list', 'column', 'grid'] as const) {
       const config = baseConfig({ view });
       validateView(config);
 
@@ -278,10 +278,13 @@ describe('validateView derives its vocabulary', () => {
     }
   });
 
-  it.each([['grid'], ['agenda'], [''], [null], [undefined], [7]])('coerces %o to list', (value) => {
-    const config = baseConfig({ view: value });
-    validateView(config);
+  it.each([['agenda'], ['time-grid'], [''], [null], [undefined], [7]])(
+    'coerces %o to list',
+    (value) => {
+      const config = baseConfig({ view: value });
+      validateView(config);
 
-    expect(config.view).toBe('list');
-  });
+      expect(config.view).toBe('list');
+    },
+  );
 });

@@ -146,10 +146,16 @@ export interface Config {
 
   // Column view
   column?: ColumnOverrides;
+
+  // Grid view
+  grid?: GridOverrides;
 }
 
-/** Views the card can render. Width fallback belongs to `column`, not a third mode. */
-export type EffectiveView = 'list' | 'column';
+/** Views the card can render. */
+export type EffectiveView = 'list' | 'column' | 'grid';
+
+/** How finely the grid rules its time axis. */
+export type GridSlotMinutes = 15 | 20 | 30 | 60;
 
 /**
  * Which class of event a calendar contributes.
@@ -227,7 +233,19 @@ export type ColumnMinDaysFallback = 'list' | 'cramp';
  *
  * @see resolveViewOption in `src/config/view.ts`
  */
-export interface ColumnOverrides {
+/**
+ * Options any multi-day view may override for itself.
+ *
+ * These are the content and appearance keys whose right value depends on how much room
+ * a day gets, not on which axis the days run along — so a column and a grid column want
+ * the same freedom to differ from the list. Every key here has a top-level counterpart
+ * and is read with `resolveViewOption`.
+ *
+ * Shared rather than duplicated per view: a second copy is a second thing to forget,
+ * and the failure is silent — an override the editor offers, validates and stores, and
+ * that the renderer then replaces with the top-level default.
+ */
+export interface SharedViewOverrides {
   // Day grouping and empty days
   show_empty_days?: boolean;
   empty_day_text?: string;
@@ -302,7 +320,12 @@ export interface ColumnOverrides {
   week_separator_color?: string;
   month_separator_width?: string;
   month_separator_color?: string;
+}
 
+/**
+ * The `column:` block — every shared override, plus column's own layout keys.
+ */
+export interface ColumnOverrides extends SharedViewOverrides {
   // Column-only layout. These have no top-level counterpart and are read with
   // `resolveColumnOption`, not `resolveViewOption`.
   day_header_gap?: string;
@@ -322,6 +345,66 @@ export interface ColumnOverrides {
 
   /** What the card does once even `min_days_to_show` columns will not fit. */
   min_days_fallback?: ColumnMinDaysFallback;
+}
+
+/**
+ * The `grid:` block — every shared override, plus the time axis's own keys.
+ *
+ * The grid-only keys below describe the *axis*: which slice of the day it draws, how
+ * finely it is ruled, and how tall an hour is. They have no top-level counterpart and
+ * are read with `resolveGridOption`, not `resolveViewOption`.
+ */
+export interface GridOverrides extends SharedViewOverrides {
+  /**
+   * First and last moment the axis draws, as `HH:mm`. `end_time` also accepts `24:00`.
+   *
+   * Strings rather than integer hours because minute precision costs nothing here and a
+   * band starting at `06:30` is a real thing to want. A bad value resets **both**, so a
+   * half-honoured band cannot masquerade as one the user asked for.
+   */
+  start_time?: string;
+
+  /** @see start_time */
+  end_time?: string;
+
+  /** Spacing of the axis rules. Density only — it does not change the scale. */
+  slot_minutes?: GridSlotMinutes;
+
+  /**
+   * Height of one hour of the axis, as a CSS length.
+   *
+   * Sets the grid's *intrinsic* height only. Under `height_mode: fixed` the card's own
+   * height wins and the axis compresses to fit, which costs no arithmetic because every
+   * event is positioned as a percentage of the band rather than in pixels.
+   */
+  hour_height?: string;
+
+  /** Draw a line across today's column at the current time. */
+  show_now_line?: boolean;
+
+  /** Colour of that line. */
+  now_line_color?: string;
+
+  /**
+   * Most events drawn side by side before the rest collapse into one "+N" block.
+   *
+   * A cap rather than unbounded lanes, because a busy morning otherwise renders as a row
+   * of unreadable slivers. Nothing is ever hidden silently: at a cap of 1 the overflow
+   * block still says how many events it stands for.
+   */
+  max_simultaneous_events?: number;
+
+  /** Show the band of all-day events between the day headers and the axis. */
+  show_allday_band?: boolean;
+
+  /** Rows that band may grow to before the remaining banners are summarised. */
+  allday_band_max_rows?: number;
+
+  /** Width of the hour-label gutter, as a CSS length. */
+  axis_width?: string;
+
+  /** Label the axis with its hours. */
+  show_axis_labels?: boolean;
 }
 
 /** Calendar entity configuration. */

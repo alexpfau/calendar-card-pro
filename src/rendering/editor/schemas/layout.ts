@@ -28,6 +28,23 @@ const VIEW_ARTWORK: Readonly<Record<Types.EffectiveView, string>> = {
     '<rect x="2" y="10.5" width="13" height="18.5" rx="2" opacity=".4"/>' +
     '<rect x="17.5" y="10.5" width="13" height="18.5" rx="2" opacity=".4"/>' +
     '<rect x="33" y="10.5" width="13" height="18.5" rx="2" opacity=".4"/></g></svg>',
+  // Reads left to right as the grid's own structure: an hour axis, three day headers,
+  // an all-day banner spanning two of them, then blocks whose differing heights are the
+  // whole point of the view. Same 48x32 frame and palette as its two siblings, so the
+  // three picker tiles stay a set.
+  grid:
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 32"><g fill="#8b8b8b">' +
+    '<rect x="9" y="3" width="11" height="4" rx="1.5"/>' +
+    '<rect x="22" y="3" width="11" height="4" rx="1.5"/>' +
+    '<rect x="35" y="3" width="11" height="4" rx="1.5"/>' +
+    '<rect x="9" y="9" width="24" height="3" rx="1.5" opacity=".55"/>' +
+    '<rect x="2" y="15.5" width="5" height="1.5" rx=".75" opacity=".5"/>' +
+    '<rect x="2" y="21" width="5" height="1.5" rx=".75" opacity=".5"/>' +
+    '<rect x="2" y="26.5" width="5" height="1.5" rx=".75" opacity=".5"/>' +
+    '<rect x="9" y="14.5" width="11" height="6" rx="1.5" opacity=".4"/>' +
+    '<rect x="9" y="23" width="11" height="5" rx="1.5" opacity=".4"/>' +
+    '<rect x="22" y="14.5" width="11" height="13.5" rx="1.5" opacity=".4"/>' +
+    '<rect x="35" y="19" width="11" height="7" rx="1.5" opacity=".4"/></g></svg>',
 };
 
 function svgDataUri(svg: string): string {
@@ -167,8 +184,14 @@ const layoutSchema = Helpers.memoizeLast(
       schema.push({ name: 'card_max_height', selector: { text: { type: 'text' } } });
     }
 
+    // Gated on the view owning these keys, not merely on it owning a block. The group
+    // is column's density story — `min_day_width`, `min_days_to_show`,
+    // `min_days_fallback`, `day_header_gap` — and emitting it for any view with a block
+    // offered a grid card four controls its `grid:` block does not accept, each of which
+    // would have been stored and then ignored. `VIEWS_WITH_WIDTH_FALLBACK` is the same
+    // concept the width table below is already gated on.
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
-    if (blockKey !== undefined) {
+    if (blockKey !== undefined && ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
       schema.push(densityGroup(blockKey, daysToShow, language));
     }
 

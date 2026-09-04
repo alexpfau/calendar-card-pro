@@ -25,12 +25,15 @@ const RULES = ['day', 'week', 'month'] as const;
  * @returns The panel's schema
  */
 const separatorsSchema = Helpers.memoizeLast(
-  (language: string, blockKey: string | undefined): HaFormSchema[] => {
+  (language: string, blockKey: string | undefined, view: Types.EffectiveView): HaFormSchema[] => {
     const schema: HaFormSchema[] = RULES.map((rule) =>
       row(text(`${rule}_separator_width`), color(`${rule}_separator_color`)),
     );
 
-    if (blockKey !== undefined) {
+    // Gated on the view owning the keys, not merely on it having a block.
+    // `day_header_separator_*` are column-only, so offering them to another view's block
+    // would store a value the renderer never reads.
+    if (blockKey !== undefined && ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
       schema.push(
         nested(language, blockKey, `${blockKey}.day_header_separator`, DAY_HEADER_RULE_ICON, [
           row(text('day_header_separator_width'), color('day_header_separator_color')),
@@ -49,7 +52,7 @@ const separatorsSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildSeparatorsSchema(ctx: SchemaCtx): HaFormSchema[] {
-  return separatorsSchema(ctx.language, overrideBlockKey(ctx.view));
+  return separatorsSchema(ctx.language, overrideBlockKey(ctx.view), ctx.view);
 }
 
 /**

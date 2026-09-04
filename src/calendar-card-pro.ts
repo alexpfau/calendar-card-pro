@@ -1137,8 +1137,18 @@ class CalendarCardPro extends LitElement {
 
     let content: TemplateResult;
 
-    const renderDays = (days: Types.EventsByDay[]): TemplateResult =>
-      this.effectiveView === 'column'
+    const renderDays = (days: Types.EventsByDay[]): TemplateResult => {
+      if (this.effectiveView === 'grid') {
+        return Render.renderGridGroupedEvents(
+          days,
+          this.effectiveConfig,
+          this.effectiveLanguage,
+          this.weatherForecasts,
+          this.safeHass,
+        );
+      }
+
+      return this.effectiveView === 'column'
         ? Render.renderColumnGroupedEvents(
             this._columnCount > 0 && this._columnCount < days.length
               ? days.slice(0, this._columnCount)
@@ -1155,6 +1165,7 @@ class CalendarCardPro extends LitElement {
             this.weatherForecasts,
             this.safeHass,
           );
+    };
 
     if (this.isInitialLoad) {
       content = Render.renderCardContent('loading', this.effectiveLanguage);

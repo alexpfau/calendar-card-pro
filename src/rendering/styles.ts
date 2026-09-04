@@ -1768,4 +1768,197 @@ export const cardStyles = css`
     justify-self: start;
     pointer-events: none;
   }
+
+  /* ===== GRID VIEW STYLES ===== */
+
+  /* Same 16px inset as column view, and for the same reason: the axis gutter is the
+     first track, so the card must supply the whole horizontal inset itself or the
+     hour labels sit inboard of the title. */
+  .calendar-card-pro.grid-view {
+    padding-inline: 16px;
+  }
+
+  .calendar-card-pro.grid-view .card-header {
+    margin-inline-start: 0;
+  }
+
+  /* One grid for the whole view. The four rows -- week numbers, day headers, the
+     all-day band, the time body -- all resolve against this single column template,
+     which is what keeps the axis measuring the columns it is drawn beside. Laying the
+     rows out independently is the classic way for an axis to end up a few pixels out.
+
+     The body row takes its height from a custom property rather than from content,
+     because a time axis has a height whether or not anything is scheduled. Under a
+     fixed card height the property is overridden with a share of the card instead, and
+     nothing needs recomputing: every block inside is positioned as a percentage. */
+  .grid-container {
+    display: grid;
+    grid-template-rows: auto auto auto var(--calendar-card-grid-body-height, 720px);
+    width: 100%;
+    --calendar-card-grid-event-gap: 1px;
+  }
+
+  /* ----- Time axis ----- */
+
+  .grid-axis {
+    position: relative;
+  }
+
+  /* Nudged up by half a line so the text centres on its rule rather than hanging
+     below it. Right-aligned against the gutter's inner edge, which is where the eye
+     looks for a scale. */
+  .grid-axis-label {
+    position: absolute;
+    inset-inline-end: 8px;
+    transform: translateY(-50%);
+    font-size: var(--calendar-card-font-size-time);
+    line-height: 1;
+    color: var(--secondary-text-color);
+    white-space: nowrap;
+  }
+
+  /* Two repeating gradients rather than an element per slot: a week at a 15-minute
+     resolution would otherwise cost several hundred empty divs. The hour rule is drawn
+     second so it wins where the two coincide. */
+  .grid-rules {
+    background-image:
+      repeating-linear-gradient(
+        to bottom,
+        var(--divider-color) 0 1px,
+        transparent 1px var(--calendar-card-grid-slot-pct)
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        var(--divider-color) 0 1px,
+        transparent 1px var(--calendar-card-grid-hour-pct)
+      );
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  /* ----- Day headers ----- */
+
+  .grid-day-header {
+    padding-block-end: 8px;
+    min-width: 0;
+  }
+
+  .grid-week-number {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-inline-end: 8px;
+  }
+
+  /* ----- All-day band ----- */
+
+  /* Its own nested grid so banners can span day columns while the band as a whole
+     spans the outer grid's full width. The row template is set inline from the number
+     of rows the packing actually needed, so an empty band costs no height. */
+  .grid-allday-band {
+    display: grid;
+    row-gap: 2px;
+    padding-block-end: 4px;
+  }
+
+  .grid-banner {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 1px 6px;
+    border-radius: 4px;
+    border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
+    font-size: var(--calendar-card-font-size-event);
+    line-height: 1.4;
+  }
+
+  .grid-banner-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The event runs past the window edge. Drawn as content rather than as a border so
+     it travels with the text direction. */
+  .grid-banner.continues-before .grid-banner-title::before {
+    content: '\\25C2\\00A0';
+  }
+
+  .grid-banner.continues-after .grid-banner-title::after {
+    content: '\\00A0\\25B8';
+  }
+
+  /* ----- Time body ----- */
+
+  .grid-day-body {
+    position: relative;
+    min-width: 0;
+  }
+
+  /* Absolute, because a block's position is its start time. min-height is what keeps a
+     ten-minute event legible, and it belongs here rather than in the placement maths:
+     CSS resolves it against the band's real pixel height, which the geometry module
+     deliberately does not know. */
+  .grid-event {
+    position: absolute;
+    overflow: hidden;
+    min-height: 14px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
+    font-size: var(--calendar-card-font-size-event);
+    line-height: 1.25;
+  }
+
+  /* The event starts before or ends after the visible band. */
+  .grid-event.clipped-top {
+    border-start-start-radius: 0;
+    border-start-end-radius: 0;
+    border-block-start: 2px dotted currentColor;
+  }
+
+  .grid-event.clipped-bottom {
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+    border-block-end: 2px dotted currentColor;
+  }
+
+  /* Stands in for events the column had no room to draw. Dashed so it reads as a
+     placeholder rather than as an event in its own right. */
+  .grid-event-overflow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--secondary-text-color);
+    background: transparent;
+    color: var(--secondary-text-color);
+  }
+
+  .grid-event-overflow-label {
+    font-size: var(--calendar-card-font-size-time);
+    white-space: nowrap;
+  }
+
+  /* Inside today's column only, so it says where today has got to rather than drawing
+     a line across days it makes no claim about. */
+  .grid-now-line {
+    position: absolute;
+    inset-inline: 0;
+    height: 2px;
+    background: var(--calendar-card-grid-now-color, var(--error-color));
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* The dot that marks which column the line belongs to. */
+  .grid-now-line::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: -3px;
+    top: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: inherit;
+  }
 `;

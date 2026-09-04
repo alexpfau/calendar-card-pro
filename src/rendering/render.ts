@@ -16,9 +16,10 @@ import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 
 /**
- * Re-exported so the card can dispatch between views through a single import namespace. Keeping both renderers reachable as `Render.*` means the two call sites in the card's view dispatch read as a symmetrical pair rather than pulling from different modules.
+ * Re-exported so the card can dispatch between views through a single import namespace. Keeping every renderer reachable as `Render.*` means the call sites in the card's view dispatch read as a set rather than pulling from different modules.
  */
 export { renderColumnGroupedEvents } from './column';
+export { renderGridGroupedEvents } from './grid';
 
 //-----------------------------------------------------------------------------
 // MAIN CARD STRUCTURE RENDERING

@@ -820,6 +820,11 @@ describe('editor: applicability', () => {
       compact_events_to_show: ['list'],
       compact_days_to_show: ['list'],
       compact_events_complete_days: ['list'],
+      // The grid answers this by construction: an all-day event spanning several days is
+      // one banner across them, and a timed one is already a separate block per day
+      // column. Scoped out rather than defaulted off, so a `grid:` block cannot switch
+      // the upstream splitter back on.
+      split_multiday_events: ['column', 'list'],
     });
 
     expect(
@@ -971,12 +976,15 @@ describe('editor: the Layout panel', () => {
   });
 
   /**
-   * `grid` is a reserved name in the design and nothing implements it, so `validateView`
-   * rejects it and falls back to a list. Offering it would let the editor write a
-   * configuration the card refuses to load.
+   * `grid` was a reserved name until v5 implemented it. The test above already pins the
+   * picker to `VIEWS`, so this one exists for the direction that rule cannot express:
+   * a view is offered because the card renders it, not merely because the union names
+   * it. Registering a value in `Types.EffectiveView` without a renderer would satisfy
+   * the equality above and still write a configuration the card cannot load.
    */
-  it('does not offer the reserved grid view', () => {
-    expect(viewOptions().map((option) => option.value)).not.toContain('grid');
+  it('offers grid, which the card now renders', () => {
+    expect(viewOptions().map((option) => option.value)).toContain('grid');
+    expect(VIEWS).toContain('grid');
   });
 
   it('renders the view selector as illustrated boxes', () => {
@@ -1566,10 +1574,10 @@ describe('editor: the panel set', () => {
       max_height: 'height_mode',
     };
 
-    // `weather` and `column` are containers offered as their members rather than under
-    // their own name, so neither is expected here. Their members are reconciled by the
+    // `weather`, `column` and `grid` are containers offered as their members rather than
+    // under their own name, so none is expected here. Their members are reconciled by the
     // test below — skipping a container here once skipped everything inside it too.
-    const containers = new Set(['weather', 'column']);
+    const containers = new Set(['weather', 'column', 'grid']);
 
     const missing = Object.keys(DEFAULT_CONFIG).filter((key) => {
       if (containers.has(key)) return false;
@@ -3669,7 +3677,13 @@ describe('editor: per-calendar settings', () => {
     );
 
     expect(note).toBeTypeOf('string');
-    expect(VIEW_SCOPE.split_multiday_events).toBeUndefined();
+
+    // The card-level key now carries a scope of its own (it is inert in grid view), so
+    // this can no longer assert the table is empty. What matters is unchanged and is
+    // what `entityScopeFor` promises: the per-calendar table wins outright, rather than
+    // the two being merged or the card-level one leaking through.
+    expect(entityScopeFor('split_multiday_events')).toBe(ENTITY_VIEW_SCOPE.split_multiday_events);
+    expect(entityScopeFor('split_multiday_events')).not.toBe(VIEW_SCOPE.split_multiday_events);
   });
 
   /**
@@ -4685,8 +4699,21 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     }
 
     const found = new Map<string, string[]>();
-    for (const name of ['Config', 'EntityConfig', 'WeatherConfig', 'ColumnOverrides']) {
-      const block = source.match(new RegExp(`export interface ${name}\\s*\\{([\\s\\S]*?)\\n\\}`));
+    // `SharedViewOverrides` and `GridOverrides` are named because v5 split the override
+    // interface: most enumerated keys moved out of `ColumnOverrides` into the shared
+    // base, and scanning only the old name silently stopped discovering them.
+    for (const name of [
+      'Config',
+      'EntityConfig',
+      'WeatherConfig',
+      'SharedViewOverrides',
+      'ColumnOverrides',
+      'GridOverrides',
+    ]) {
+      // `[^{]*` absorbs an `extends` clause. Without it this silently stopped matching
+      // `ColumnOverrides` the moment it gained one, and a silent non-match here reads as
+      // "that interface declares no enumerated options" rather than as a failure.
+      const block = source.match(new RegExp(`export interface ${name}[^{]*\\{([\\s\\S]*?)\\n\\}`));
       if (!block) continue;
 
       for (const line of block[1].split('\n')) {
