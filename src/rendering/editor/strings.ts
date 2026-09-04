@@ -33,8 +33,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.grid.label': 'Time Grid',
   'view.option.grid.description': 'Days side by side on an hour axis',
   'view.helper':
-    'Column layout needs width. Below the threshold in the table, the same card ' +
-    'renders as a list — so both layouts are live for one card, and the list ' +
+    'Side-by-side layouts need width. Below the threshold in the table, the same card ' +
+    'renders as a list — so multiple layouts are live for one card, and the list ' +
     'settings still matter.',
 
   // --- Width table ----------------------------------------------------------
@@ -730,8 +730,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Applies to the list layout. Capping events per card would empty columns rather ' +
     'than shorten the card.',
   'scope.list_only.compact_mode':
-    'No effect in column view. These only shorten the list layout, which also appears ' +
-    'on narrow screens; in columns, limits would remove whole days instead.',
+    'No effect in side-by-side layouts. These only shorten the list layout, which also ' +
+    'appears on narrow screens; otherwise, limits would remove whole days instead.',
 };
 
 /**

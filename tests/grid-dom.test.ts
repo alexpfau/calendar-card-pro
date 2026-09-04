@@ -280,6 +280,12 @@ describe('a block is sized by its duration (#206)', () => {
 });
 
 describe('timed multi-day events stay in the time grid', () => {
+  function blockTexts(container: HTMLElement): string[] {
+    return Array.from(container.querySelectorAll('.grid-event:not(.grid-event-overflow)')).map(
+      (event) => event.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+    );
+  }
+
   it('renders a three-day timed event in every touched day column', () => {
     const container = renderGrid([timedRange(17, '09:00', 19, '17:00', 'Conference')]);
     const columns = Array.from(container.querySelectorAll('.grid-day-body'));
@@ -312,6 +318,33 @@ describe('timed multi-day events stay in the time grid', () => {
 
     expect(container.querySelectorAll('.grid-event:not(.grid-event-overflow)')).toHaveLength(3);
     expect(container.querySelectorAll('.grid-banner')).toHaveLength(0);
+  });
+
+  it('keeps single-day timed event labels unchanged', () => {
+    const container = renderGrid(
+      [timed(17, '14:00', '16:00', 'Workshop')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true }),
+    );
+
+    expect(blockTexts(container)).toEqual(['Workshop 14:00 - 16:00']);
+  });
+
+  it('shows only the start time on a multi-day timed event first segment', () => {
+    const container = renderGrid(
+      [timedRange(17, '14:00', 19, '11:00', 'Conference Trip')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true }),
+    );
+
+    expect(blockTexts(container)[0]).toBe('Conference Trip 14:00');
+  });
+
+  it('shows title only on multi-day timed continuation segments', () => {
+    const container = renderGrid(
+      [timedRange(17, '14:00', 19, '11:00', 'Conference Trip')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_24h: true }),
+    );
+
+    expect(blockTexts(container).slice(1)).toEqual(['Conference Trip', 'Conference Trip']);
   });
 });
 

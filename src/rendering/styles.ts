@@ -1948,6 +1948,9 @@ export const cardStyles = css`
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
     overflow: hidden;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: manual;
   }
 
   .grid-event-disclosure .time-location,

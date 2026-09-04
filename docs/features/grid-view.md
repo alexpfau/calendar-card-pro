@@ -42,6 +42,10 @@ An event partly outside the band is drawn clipped, with a subtle dashed mark on 
 runs past. An event entirely outside it is not drawn at all — so a band is a decision about
 what the card shows, not only about how it looks.
 
+Timed events that run across more than one day are split into one block per day column. The
+block's position and height show that day's span, so the text stays short: the first block
+shows the event's start time, and continuation blocks show the title only.
+
 ::: warning A Bad Time Resets Both Bounds
 If either value cannot be read as `HH:mm`, the card falls back to `07:00`–`22:00` for
 both. Honoring one half of a pair would produce a band you never asked for and could not
@@ -155,7 +159,7 @@ narrow; lower it to keep blocks readable.
 Short blocks use progressive disclosure so clipped text does not look broken. A title shows
 once a full text row fits, time appears once the block can hold a full title row plus a full
 time row, and location waits until there is room for another detail line. In narrow columns,
-a long title truncates before it slices the time or location row.
+a long title breaks at word boundaries and truncates before it slices the time or location row.
 
 ## 📱 Fitting Narrow Cards
 

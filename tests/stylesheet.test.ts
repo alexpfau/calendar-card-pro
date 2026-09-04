@@ -1651,6 +1651,15 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure .location', 'flex')).toBe('0 0 auto');
     });
 
+    it('keeps grid event titles breaking at word boundaries before ellipsizing', () => {
+      // `.summary` inherits emergency breaking from the list view, which is right for normal
+      // rows and wrong for narrow grid blocks: multi-line clamps may break a title mid-word
+      // before ellipsis gets a chance to stand in for an unfit word.
+      expect(declared('.grid-event-disclosure .event-title', 'overflow-wrap')).toBe('normal');
+      expect(declared('.grid-event-disclosure .event-title', 'word-break')).toBe('normal');
+      expect(declared('.grid-event-disclosure .event-title', 'hyphens')).toBe('manual');
+    });
+
     it('draws clipped grid events with a subtle inset continuation mark', () => {
       expect(declared('.grid-event.clipped-top', 'border-block-start')).toBe('');
       expect(declared('.grid-event.clipped-bottom', 'border-block-end')).toBe('');

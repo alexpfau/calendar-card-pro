@@ -366,6 +366,7 @@ function renderTimedEvent(
   hass?: Types.Hass | null,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
+  const contentParts = gridTimedEventContentParts(event, presentation.contentParts, config, hass);
   const laneWidth = 100 / event.laneCount;
 
   return html`
@@ -387,13 +388,54 @@ function renderTimedEvent(
       })}
     >
       <div class="grid-event-disclosure">
-        ${Leaves.renderEventContent(event, config, presentation.contentParts, {
+        ${Leaves.renderEventContent(event, config, contentParts, {
           weatherPlacement: 'title',
           hass,
         })}
       </div>
     </div>
   `;
+}
+
+/**
+ * Adapt shared event content to the grid's per-day timed block convention.
+ *
+ * List and column views need cross-day time phrases because their rows do not themselves
+ * show where the event starts and ends. A grid block's position and height already do, so a
+ * timed segment either keeps only its true start time for that day or shows title only.
+ *
+ * @param event - Timed grid event segment
+ * @param parts - Shared presentation content
+ * @param config - Card configuration
+ * @param hass - Home Assistant instance
+ * @returns Content parts with grid-specific time text
+ */
+function gridTimedEventContentParts(
+  event: Types.CalendarEventData,
+  parts: Leaves.EventContentParts,
+  config: Types.Config,
+  hass?: Types.Hass | null,
+): Leaves.EventContentParts {
+  if (!event._isMultiDaySegment) {
+    return parts;
+  }
+
+  if (!event._gridSegmentStartsEvent || !event.start.dateTime) {
+    return { ...parts, eventTime: '', shouldShowTime: false };
+  }
+
+  const startDate = new Date(event.start.dateTime);
+  if (Number.isNaN(startDate.getTime())) {
+    return { ...parts, eventTime: '', shouldShowTime: false };
+  }
+
+  const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
+  const locale = hass?.locale ? hass.locale.language : undefined;
+
+  return {
+    ...parts,
+    eventTime: FormatUtils.formatTime(startDate, use24h, config.time_two_digit_hours, locale),
+  };
 }
 
 /**

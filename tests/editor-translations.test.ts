@@ -85,6 +85,23 @@ describe('editor strings resolve in the requested language', () => {
     expect(lookup('en-GB', 'title_color')).toBe('Title Colour');
   });
 
+  it('states the two shared-layout helpers without naming one layout', () => {
+    // Both helpers described column view alone until grid view arrived. Grid shares the
+    // same width fallback and the same list-only compact limits, so naming just the one
+    // layout told a Time Grid user the note was about somebody else's card.
+    //
+    // Pinned as English wording rather than as an absence in the other nine files. The
+    // nine stale translations were deleted so each key falls back to this text, but a
+    // translator is free to translate the replacement — asserting no language may ever
+    // carry these keys, or that German must resolve to English, would fail a correct
+    // translation. That is the gate lying rather than the translation being wrong. The
+    // per-key fallback those deletions rely on is already pinned above.
+    expect(EDITOR_STRINGS['view.helper']).toContain('Side-by-side layouts');
+    expect(EDITOR_STRINGS['view.helper']).not.toContain('Column layout');
+    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).toContain('side-by-side layouts');
+    expect(EDITOR_STRINGS['scope.list_only.compact_mode']).not.toContain('column view');
+  });
+
   it('falls back to English for a language with no file at all', () => {
     // French is a registered card language with no editor translations. It must render
     // English rather than raw key names — the failure the per-key chain replaced.
@@ -140,6 +157,9 @@ describe('editor strings resolve in the requested language', () => {
 
     expect(computeHelper('en', 'list', compactGroup)).toBe(EDITOR_STRINGS['compact_mode.helper']);
     expect(computeHelper('en', 'column', compactGroup)).toBe(
+      `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
+    );
+    expect(computeHelper('en', 'grid', compactGroup)).toBe(
       `${EDITOR_STRINGS['compact_mode.helper']} ${EDITOR_STRINGS['scope.list_only.compact_mode']}`,
     );
     expect(computeHelper('en', 'column', compactGroup)).not.toContain('⚠️');

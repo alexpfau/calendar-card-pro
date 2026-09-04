@@ -508,6 +508,7 @@ export function splitTimedEventByDay(
       start: { dateTime: segmentStart.toISOString() },
       end: { dateTime: segmentEnd.toISOString() },
       _isMultiDaySegment: segments.length > 0 || segmentStart > start || segmentEnd < end,
+      _gridSegmentStartsEvent: segmentStart.getTime() === start.getTime(),
     });
   }
 
