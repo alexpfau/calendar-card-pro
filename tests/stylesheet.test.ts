@@ -1673,7 +1673,7 @@ describe('card stylesheet', () => {
         19: ['.grid-event-disclosure .summary-row'],
         36: ['.grid-event-disclosure .event-title'],
         40: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .time'],
-        52: ['.grid-event-disclosure .progress-bar-row'],
+        48: ['.grid-event-disclosure .progress-bar-row'],
         72: [
           '.grid-event-disclosure .description',
           '.grid-event-disclosure .event-title',

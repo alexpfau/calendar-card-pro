@@ -202,15 +202,21 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(60_000);
-    // The v5 grid view moved the ceiling last, from 55,000. Its stylesheet is a time axis
-    // built from two repeating gradients, percentage geometry and a body height that is a
-    // custom property rather than content -- none of which a reader can infer from the
+    expect(saved).toBeLessThan(62_000);
+    // The grid progress rung moved the ceiling last, from 60,000. Its note records a
+    // measured height and, more usefully, that these rungs query the CONTENT box while the
+    // block's padding sits outside it — a distinction that cost two browser probes to find
+    // and that the declaration itself cannot show, since `48px` looks like it should match
+    // a 48px block and does not.
+    //
+    // Before that the v5 grid view moved it from 55,000. Its stylesheet is a time axis built
+    // from two repeating gradients, percentage geometry and a body height that is a custom
+    // property rather than content -- none of which a reader can infer from the
     // declarations, and all of which someone will otherwise "simplify" back. Same trade as
     // every jump below it.
     //
     // A little under 68% today, up through 66.7%, 64.9%, 63.6%, 60.4% and before ~51% -- those
-    // are historical readings and stay as written. Both jumps were paid
+    // are historical readings and stay as written. Every jump was paid
     // for the same thing: a fault whose cause is invisible from the CSS and whose symptoms
     // point the wrong way needs a long explanation or the next person repeats the
     // investigation. That is the trade this plugin exists to make — none of it reaches a

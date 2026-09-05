@@ -2103,10 +2103,24 @@ export const cardStyles = css`
   /* The progress bar earns its own rung. It is the one row here whose value is highest
      exactly while an event is short — a meeting happening right now — so pairing it with
      location and description at 72px would withhold it from the blocks most likely to want
-     it. It cannot join the 40px rung either: the bar is 9px at the shipped time font plus a
-     2px margin, and a 40px block is already spending roughly 34px on the title and time, so
-     it would be drawn straight into the clip. 52px is that 40px plus the row's own cost. */
-  @container calendar-card-grid-event (min-height: 52px) {
+     it. It cannot join the 40px rung either, which has only about 4px of slack once the
+     title and the time have been drawn.
+
+     48px is measured rather than reasoned. In a browser, at the shipped fonts, the title row
+     is 18.8px and the row carrying the time plus the bar is 27.4px, so the content needs
+     46.2px; this is that, rounded up. Note these rungs query the CONTENT box, because
+     .grid-event sets container-type through the container shorthand with a size type, while
+     the block's own 4px of vertical padding sits outside it — so a rung of 48 is reached by
+     a block that measures 52px on screen. An earlier 52 here was picked from arithmetic and
+     carried 6px of dead slack, which pushed the bar out of every one-hour event at any
+     normal density.
+
+     It is still not reachable by a one-hour event at the default 48px hour height: that is
+     44px of content, so such a block draws its title and time and stops. The bar arrives
+     from about 52px of block, i.e. a longer event or a taller axis. That is a real limit of
+     the space rather than a threshold worth lowering — below 46.2px something would have to
+     be clipped, and clipping the time to show a progress bar is the worse trade. */
+  @container calendar-card-grid-event (min-height: 48px) {
     .grid-event-disclosure .progress-bar-row {
       display: block;
     }
