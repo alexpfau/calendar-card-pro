@@ -2060,7 +2060,8 @@ export const cardStyles = css`
   .grid-event-disclosure .time,
   .grid-event-disclosure .location,
   .grid-event-disclosure .description,
-  .grid-event-disclosure .event-weather {
+  .grid-event-disclosure .event-weather,
+  .grid-event-disclosure .progress-bar-row {
     display: none;
   }
 
@@ -2079,14 +2080,34 @@ export const cardStyles = css`
   /* The renderer deliberately knows only percentages; the browser alone knows whether a
      30-minute block became 24px or 44px in this card. Height container queries keep that
      pixel decision in CSS, inside the shadow root, so the geometry module never gains a
-     hidden pixel scale. The title waits until one full row fits, adds a second line only
-     when there is room, and yields back to one line when the time row appears. */
+     hidden pixel scale.
+
+     The rungs below move two independent things: which rows are revealed, and how many
+     lines the title may take. Only the first is live in the shipped default. Title lines
+     ride on title_max_lines, which defaults to 0 meaning unlimited, and an unlimited
+     title resolves every rung to none — so by default the title simply wraps and the
+     block's own overflow: hidden cuts it off at the bottom. The ladder of 1, 2 and 3
+     lines applies only once a user sets a limit, and it is that configured case the
+     clamp is written for: the title waits until one full row fits, adds a second line
+     only when there is room, and yields back to one line when the time row appears. */
   @container calendar-card-grid-event (min-height: 40px) {
     .grid-event-disclosure .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
     }
 
     .grid-event-disclosure .time {
+      display: block;
+    }
+  }
+
+  /* The progress bar earns its own rung. It is the one row here whose value is highest
+     exactly while an event is short — a meeting happening right now — so pairing it with
+     location and description at 72px would withhold it from the blocks most likely to want
+     it. It cannot join the 40px rung either: the bar is 9px at the shipped time font plus a
+     2px margin, and a 40px block is already spending roughly 34px on the title and time, so
+     it would be drawn straight into the clip. 52px is that 40px plus the row's own cost. */
+  @container calendar-card-grid-event (min-height: 52px) {
+    .grid-event-disclosure .progress-bar-row {
       display: block;
     }
   }

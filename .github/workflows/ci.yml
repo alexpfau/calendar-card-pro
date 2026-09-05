@@ -18,6 +18,19 @@ on:
       - main
       - dev
       - 'feature/**'
+  # A long-lived integration branch is not always the head of an open PR. While v5 was
+  # assembled on `feature/grid-view-v5`, its own PR had been merged and the next one could
+  # not be opened yet — `dev` was holding an unreleased v4.2, so pointing anything at it,
+  # even a draft, was the wrong signal. That left every push to the branch carrying the
+  # release completely unchecked, which is the blind spot described above arriving from the
+  # other direction: there is no PR for the PR UI to under-report.
+  #
+  # Pushes to `main` and `dev` are deliberately not listed. Both are reached only through a
+  # PR that this workflow already gates, so adding them would re-run the same commit rather
+  # than cover anything new.
+  push:
+    branches:
+      - 'feature/**'
 
 jobs:
   lint-build:

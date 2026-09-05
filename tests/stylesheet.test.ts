@@ -756,16 +756,36 @@ describe('card stylesheet', () => {
     });
 
     it('keys the row on the placement, not on the view', () => {
-      // `.progress-bar-row` is emitted by a placement parameter, so it must be styled
-      // unqualified. Scoping it under `.column-events` would tie a *placement* to a
-      // *view*, and a future layout that asks for the row would silently get the inline
-      // styling. Same reasoning as the named view predicates, one level down.
+      // `.progress-bar-row` is emitted by a placement parameter, so its *styling* must be
+      // unqualified. Scoping the width or the margins under `.column-events` would tie a
+      // *placement* to a *view*, and a future layout that asks for the row would silently
+      // get the inline styling. Same reasoning as the named view predicates, one level down.
+      //
+      // Visibility is a different question, and it is allowed to be view-scoped. Grid's
+      // disclosure ladder decides which rows a block is tall enough to show, and it already
+      // does exactly this for .time, .location, .description and .event-weather. So a
+      // view-qualified rule may set `display` and nothing else — that is the line drawn
+      // here, and it is the one that actually protects the placement: a scoped rule which
+      // only reveals or hides cannot leak styling into another view.
       const rules = RULES.filter((rule) =>
         rule.selectors.some((selector) => selector.includes('progress-bar-row')),
       );
+      const isUnqualified = (rule: { selectors: string[] }) =>
+        rule.selectors.every((selector) => selector === '.progress-bar-row');
 
-      expect(rules).toHaveLength(1);
-      expect(rules[0].selectors).toEqual(['.progress-bar-row']);
+      const styling = rules.filter(isUnqualified);
+      expect(styling).toHaveLength(1);
+      expect(styling[0].selectors).toEqual(['.progress-bar-row']);
+
+      for (const rule of rules.filter((rule) => !isUnqualified(rule))) {
+        const props = rule.body
+          .split(';')
+          .map((declaration) => declaration.split(':')[0].trim())
+          .filter(Boolean);
+        expect(props, `${rule.selectors.join(', ')} may only govern visibility`).toEqual([
+          'display',
+        ]);
+      }
     });
 
     it('sits flush left, aligned with the title above it', () => {
@@ -1621,29 +1641,52 @@ describe('card stylesheet', () => {
       // It does not prove the browser's layout result; paired with `grid-dom.test.ts`, it
       // proves the renderer emits short blocks into the CSS-only mechanism and that the
       // thresholds live in CSS rather than in the percentage geometry.
+      //
+      // Reconciled as a whole map rather than asserted rung by rung. `scanRules()` is a
+      // top-level scanner and skips at-rules by design, so every rule in this ladder is
+      // invisible to `RULES` and to `declared()` — which means a `toContain` per rung was
+      // the only guard, and that idiom cannot notice a rung *leaving*: drop one and the
+      // remaining assertions all still pass. Comparing the full map by value fails in both
+      // directions, on a removed rung and on an unexplained new one.
+      const ladder: Record<number, string[]> = {};
+      const opening = /@container calendar-card-grid-event \(min-height: (\d+)px\)\s*\{/g;
+      let match = opening.exec(CSS);
+      while (match !== null) {
+        let depth = 1;
+        let cursor = opening.lastIndex;
+        while (cursor < CSS.length && depth > 0) {
+          if (CSS[cursor] === '{') depth += 1;
+          else if (CSS[cursor] === '}') depth -= 1;
+          cursor += 1;
+        }
+        const body = CSS.slice(opening.lastIndex, cursor - 1);
+        ladder[Number(match[1])] = [...body.matchAll(/([^{}]+)\{/g)]
+          .flatMap((rule) => rule[1].split(','))
+          .map((selector) => selector.replace(/\s+/g, ' ').trim())
+          .filter(Boolean)
+          .sort();
+        match = opening.exec(CSS);
+      }
+
       expect(declared('.grid-event', 'container')).toBe('calendar-card-grid-event / size');
-      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 19px)');
-      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 36px)');
-      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 40px)');
-      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 72px)');
-      expect(CSS).toContain('@container calendar-card-grid-event (min-height: 96px)');
-      expect(declared('.grid-event-disclosure .time', 'display')).toBe('none');
-      expect(declared('.grid-event-disclosure .location', 'display')).toBe('none');
-      expect(declared('.grid-event-disclosure .event-weather', 'display')).toBe('none');
-      expect(CSS).not.toContain(
-        '@container calendar-card-grid-event (min-height: 40px) {\n' +
-          '    .grid-event-disclosure .time,\n' +
-          '    .grid-event-disclosure .event-weather',
-      );
-      expect(CSS).toContain(
-        '@container calendar-card-grid-event (min-height: 72px) {\n' +
-          '    .grid-event-disclosure .event-title',
-      );
-      expect(CSS).toContain(
-        '.grid-event-disclosure .location,\n' +
-          '    .grid-event-disclosure .description,\n' +
-          '    .grid-event-disclosure .event-weather',
-      );
+      expect(ladder).toEqual({
+        19: ['.grid-event-disclosure .summary-row'],
+        36: ['.grid-event-disclosure .event-title'],
+        40: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .time'],
+        52: ['.grid-event-disclosure .progress-bar-row'],
+        72: [
+          '.grid-event-disclosure .description',
+          '.grid-event-disclosure .event-title',
+          '.grid-event-disclosure .event-weather',
+          '.grid-event-disclosure .location',
+        ],
+        96: ['.grid-event-disclosure .event-title'],
+      });
+
+      // Everything the ladder reveals must start hidden, or its rung is decorative.
+      for (const row of ['.time', '.location', '.description', '.event-weather']) {
+        expect(declared(`.grid-event-disclosure ${row}`, 'display')).toBe('none');
+      }
     });
 
     it('keeps grid detail rows from being sliced under wrapped titles', () => {

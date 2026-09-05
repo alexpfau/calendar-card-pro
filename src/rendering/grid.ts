@@ -390,7 +390,7 @@ function renderTimedEvent(
         ${Leaves.renderEventContent(event, config, contentParts, {
           weatherForecasts,
           weatherPlacement: 'row',
-          progressPlacement: 'inline',
+          progressPlacement: 'row',
           countdownPlacement: 'text',
           hass,
         })}
@@ -670,6 +670,22 @@ export function renderGridGroupedEvents(
   const boundaries = computeDayBoundaries(gridDays);
 
   const banners = layoutBanners(gridDays, maxRows);
+  // The all-day band below takes `grid-template-columns: subgrid` rather than repeating the
+  // parent's own template. The two have to agree on where every day column starts, and
+  // neither can be the authority: repeating `${axisWidth} repeat(N, 1fr)` inside the band
+  // looked equivalent and was not, because the band's leading gutter cell holds nothing.
+  // Its `max-content` track collapsed to zero while the body's stayed as wide as the hour
+  // labels, so every banner drew shifted left of its own column by that difference and each
+  // day span came out proportionally too wide. Subgrid removes the second opinion instead of
+  // correcting it — there is no template here left to drift.
+  //
+  // This is the card's only use of subgrid, so it is worth naming the floor it sets: Chrome
+  // 117, Safari 16, Firefox 71. Grid view already required container queries (Chrome 105,
+  // Safari 16, Firefox 110) for the event disclosure ladder, so the binding constraint was
+  // already this generation, and the view is opt-in. But the failure is not graceful: an
+  // engine that does not know `subgrid` drops the declaration, leaving a grid with no column
+  // template at all, and each banner's `grid-column` then invents an implicit track. Keep
+  // one source for the columns in anything that replaces it.
   const bandRows = banners.reduce((max, banner) => Math.max(max, banner.row), 0);
   const separators = boundaries
     .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))

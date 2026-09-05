@@ -1159,14 +1159,19 @@ describe('the grid reuses the shared leaves', () => {
     expect(container.querySelector('.grid-event .summary-row .event-weather')).toBeNull();
   });
 
-  it('keeps progress inline in the compact timed grid block', () => {
+  it('gives progress its own row in the timed grid block, as column view does', () => {
+    // The last of the three leaf placements to be harmonized with column view, and the one
+    // that survived longest because nothing rendered it: an inline bar is a 60px chip
+    // right-aligned on the time row, which in a narrow grid column reads as a stray artifact
+    // rather than as progress. Column has always placed it on its own row under the title,
+    // where it is as wide as the block, and grid now matches.
     const container = renderGrid(
       [timed(17, '09:30', '11:00', 'Running review')],
       buildConfig({ view: 'grid', days_to_show: 3, show_progress_bar: true }),
     );
 
-    expect(container.querySelector('.grid-event .time > .progress-bar')).not.toBeNull();
-    expect(container.querySelector('.grid-event .progress-bar-row')).toBeNull();
+    expect(container.querySelector('.grid-event .progress-bar-row')).not.toBeNull();
+    expect(container.querySelector('.grid-event .time > .progress-bar')).toBeNull();
   });
 
   it('folds countdowns into the timed grid time text', () => {
