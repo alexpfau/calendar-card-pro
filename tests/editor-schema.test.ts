@@ -74,6 +74,7 @@ import {
   columnFormBlock,
   exceptionFormBlock,
   gridFormBlock,
+  seedGridDivergentDefaults,
   stripColumnDefaults,
   stripGridDefaults,
   toStoredConfig,
@@ -912,6 +913,17 @@ describe('editor: applicability', () => {
     expect(helper).toMatch(/list layout/i);
   });
 
+  it('derives grid default notes from divergent defaults', () => {
+    for (const [key, value] of Object.entries(GRID_DEFAULT_OVERRIDES)) {
+      const helper = computeHelper('en', 'grid', {
+        name: key,
+        selector: { text: {} },
+      });
+
+      expect(helper, key).toContain(`Time grid starts this option from ${String(value)}`);
+    }
+  });
+
   it('agrees with appliesToView', () => {
     expect(appliesToView('date_vertical_alignment', 'list')).toBe(true);
     expect(appliesToView('date_vertical_alignment', 'column')).toBe(false);
@@ -1052,21 +1064,23 @@ describe('editor: the Layout panel', () => {
     expect(VIEWS).toContain('grid');
   });
 
-  it('seeds a visible day-rule exception when the user switches into grid', () => {
+  it('seeds visible exceptions when the user switches into grid', () => {
     const config = buildConfig({ view: 'list' });
     const previous = { ...(config as unknown as Record<string, unknown>) };
     const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
 
-    expect(applied.config.grid).toEqual({ day_separator_width: '1px' });
-    expect(declaredKeys(applied.config, 'grid')).toEqual(new Set(['day_separator_width']));
+    expect(applied.config.grid).toEqual(GRID_DEFAULT_OVERRIDES);
+    expect(declaredKeys(applied.config, 'grid')).toEqual(
+      new Set(Object.keys(GRID_DEFAULT_OVERRIDES)),
+    );
     expect(toStoredConfig(applied.config)).toEqual({
       entities: [{ entity: 'calendar.personal' }],
       view: 'grid',
-      grid: { day_separator_width: '1px' },
+      grid: GRID_DEFAULT_OVERRIDES,
     });
   });
 
-  it('does not seed the day rule over a grid value the user already stored', () => {
+  it('does not seed over a grid value the user already stored', () => {
     const config = buildConfig({
       view: 'column',
       grid: { day_separator_width: '0px' },
@@ -1074,14 +1088,17 @@ describe('editor: the Layout panel', () => {
     const previous = { ...(config as unknown as Record<string, unknown>) };
     const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
 
-    expect(applied.config.grid).toEqual({ day_separator_width: '0px' });
+    expect(applied.config.grid).toEqual({
+      ...GRID_DEFAULT_OVERRIDES,
+      day_separator_width: '0px',
+    });
     expect(toStoredConfig(applied.config)).toMatchObject({
       view: 'grid',
-      grid: { day_separator_width: '0px' },
+      grid: { ...GRID_DEFAULT_OVERRIDES, day_separator_width: '0px' },
     });
   });
 
-  it('does not seed the day rule again after the editor session suppresses it', () => {
+  it('does not seed again after the editor session suppresses it', () => {
     const config = buildConfig({ view: 'column' });
     const previous = { ...(config as unknown as Record<string, unknown>) };
     const applied = applyFormChange(
@@ -1089,13 +1106,31 @@ describe('editor: the Layout panel', () => {
       previous,
       { ...previous, view: 'grid' },
       {},
-      { seedGridDaySeparatorWidth: false },
+      { seedGridDivergentDefaults: false },
     );
 
     expect(applied.config.grid).toBeUndefined();
     expect(toStoredConfig(applied.config)).toEqual({
       entities: [{ entity: 'calendar.personal' }],
       view: 'grid',
+    });
+  });
+
+  it('does not seed without a transition into grid', () => {
+    const config = buildConfig({ view: 'grid' });
+    const previous = { ...(config as unknown as Record<string, unknown>) };
+    const applied = applyFormChange(config, previous, { ...previous, days_to_show: 5 }, {});
+
+    expect(applied.config.grid).toBeUndefined();
+    expect(applied.config.days_to_show).toBe(5);
+  });
+
+  it('seeds each divergent grid default from the registry', () => {
+    const config = buildConfig({ view: 'grid', grid: { day_separator_width: '3px' } });
+
+    expect(seedGridDivergentDefaults(config).grid).toEqual({
+      ...GRID_DEFAULT_OVERRIDES,
+      day_separator_width: '3px',
     });
   });
 

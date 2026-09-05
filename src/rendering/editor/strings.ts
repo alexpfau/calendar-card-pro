@@ -377,15 +377,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // statement is that the view has already decided the option, which is information
   // about the control the user is looking at — an exception row would be two rows of
   // chrome on every card that has asked for none.
-  'view_default.grid.show_empty_days':
-    'Grid layout defaults this to on, whatever the shared setting above says.',
-  'view_default.grid.day_separator_width':
-    'Grid layout draws day separators by default, whatever this is set to, so the day ' +
-    'columns stay visible against the shared time axis.',
-  'view_default.grid.event_background_opacity':
-    'Grid layout defaults this to 20, whatever the shared setting above says — a block ' +
-    'on a time axis is read by its area, so an untinted one is an outline you have to ' +
-    'reconstruct.',
+  'view_default.grid':
+    'Time grid starts this option from {value}, whatever the shared setting above says. ' +
+    'Add a grid exception below to change it.',
   'view_default.column.show_empty_days':
     'Column layout shows empty days whatever this is set to, so that the columns keep ' +
     'matching consecutive days. Add an exception below to change that.',

@@ -692,11 +692,14 @@ async function checkEditorStrings() {
   // An option a view has already decided for the user needs saying so beside the
   // shared control, or the control appears to be lying about what the card renders.
   for (const [view, defaults] of Object.entries(defaultOverridesByView)) {
+    const general = `view_default.${view}`;
+    roots.add(general);
+
     for (const key of Object.keys(defaults)) {
       const note = `view_default.${view}.${key}`;
       roots.add(note);
 
-      if (!(note in strings)) {
+      if (!(general in strings) && !(note in strings)) {
         error(
           'strings.ts',
           `\`${key}\` defaults differently in ${view} view but has no note — the shared ` +

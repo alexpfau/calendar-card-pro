@@ -15,7 +15,7 @@ const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
 const WEATHER_GROUPS = ['date', 'event'] as const;
 
 interface FormChangeOptions {
-  seedGridDaySeparatorWidth?: boolean;
+  seedGridDivergentDefaults?: boolean;
 }
 
 /**
@@ -317,13 +317,13 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
 }
 
 /**
- * Adds the visible grid day-rule exception the editor creates on first switch.
+ * Adds visible exceptions for the grid defaults the editor creates on first switch.
  *
  * @param config - Configuration after the view changed
  * @param enabled - Whether this editor session still wants the seed
  * @returns The seeded configuration, or the original when no seed is needed
  */
-export function seedGridDaySeparatorWidth(
+export function seedGridDivergentDefaults(
   config: Readonly<Types.Config>,
   enabled = true,
 ): Types.Config {
@@ -332,17 +332,21 @@ export function seedGridDaySeparatorWidth(
   const block = Helpers.isConfigBlock(config.grid)
     ? (config.grid as Record<string, unknown>)
     : undefined;
+  const seeded = { ...(block ?? {}) };
 
-  if (block && Object.prototype.hasOwnProperty.call(block, 'day_separator_width')) {
+  for (const [key, value] of Object.entries(ViewConfig.GRID_DEFAULT_OVERRIDES)) {
+    if (!Object.prototype.hasOwnProperty.call(seeded, key)) {
+      seeded[key] = value;
+    }
+  }
+
+  if (deepEqual(block ?? {}, seeded)) {
     return config as Types.Config;
   }
 
   return {
     ...(config as unknown as Record<string, unknown>),
-    grid: {
-      ...(block ?? {}),
-      day_separator_width: ViewConfig.GRID_DEFAULT_OVERRIDES.day_separator_width,
-    },
+    grid: seeded,
   } as unknown as Types.Config;
 }
 
@@ -403,7 +407,7 @@ export function applyFormChange(
 
   let nextConfig = next as unknown as Types.Config;
   if (previousView !== 'grid' && effectiveView(nextConfig) === 'grid') {
-    nextConfig = seedGridDaySeparatorWidth(nextConfig, options.seedGridDaySeparatorWidth !== false);
+    nextConfig = seedGridDivergentDefaults(nextConfig, options.seedGridDivergentDefaults !== false);
   }
 
   return { config: nextConfig, pending: nextPending };

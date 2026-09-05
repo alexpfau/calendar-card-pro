@@ -67,7 +67,7 @@ export class CalendarCardProEditor extends LitElement {
 
   private _lastDispatched?: Record<string, unknown>;
 
-  private _skipGridDaySeparatorSeed = false;
+  private _skipGridDivergentDefaultSeed = false;
 
   /**
    * Accepts a configuration from Home Assistant.
@@ -87,7 +87,7 @@ export class CalendarCardProEditor extends LitElement {
 
     if (!isEcho) {
       this._pending = {};
-      this._skipGridDaySeparatorSeed = false;
+      this._skipGridDivergentDefaultSeed = false;
       this._declaredExceptions = Exceptions.declaredKeys(
         this._config,
         this._viewForConfig(this._config),
@@ -163,7 +163,7 @@ export class CalendarCardProEditor extends LitElement {
     const previousView = this._viewForConfig(this._config);
     const previousData = this._renderedData.get(panelId) ?? this._formData();
     const applied = Value.applyFormChange(this._config, previousData, nextData, this._pending, {
-      seedGridDaySeparatorWidth: !this._skipGridDaySeparatorSeed,
+      seedGridDivergentDefaults: !this._skipGridDivergentDefaultSeed,
     });
 
     this._config = applied.config;
@@ -718,12 +718,19 @@ export class CalendarCardProEditor extends LitElement {
 
     const chosen = selection.map((key) => String(key));
     const eligibleNames = eligible.map((field) => field.name);
-    if (blockKey === 'grid' && eligibleNames.includes('day_separator_width')) {
-      const hasDayRule = chosen.includes('day_separator_width');
-      if (this._declaredExceptions.has('day_separator_width') && !hasDayRule) {
-        this._skipGridDaySeparatorSeed = true;
-      } else if (hasDayRule) {
-        this._skipGridDaySeparatorSeed = false;
+    if (blockKey === 'grid') {
+      const divergentKeys = Object.keys(ViewConfig.GRID_DEFAULT_OVERRIDES);
+      const eligibleDivergentKeys = divergentKeys.filter((key) => eligibleNames.includes(key));
+      if (eligibleDivergentKeys.length > 0) {
+        const removedSeededKey = eligibleDivergentKeys.some(
+          (key) => this._declaredExceptions.has(key) && !chosen.includes(key),
+        );
+        const hasSeededKey = eligibleDivergentKeys.some((key) => chosen.includes(key));
+        if (removedSeededKey) {
+          this._skipGridDivergentDefaultSeed = true;
+        } else if (hasSeededKey) {
+          this._skipGridDivergentDefaultSeed = false;
+        }
       }
     }
 

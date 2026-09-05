@@ -3,7 +3,7 @@
  */
 
 import type { HaFormSchema } from './ha-form';
-import { EDITOR_STRINGS } from './strings';
+import { EDITOR_STRINGS, interpolate } from './strings';
 import { EDITOR_LANGUAGE_STRINGS } from './translations/index';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -168,11 +168,18 @@ function divergentDefaultNote(
   key: string,
   view: Types.EffectiveView,
 ): string | undefined {
-  if (!ViewConfig.hasDivergentDefault(key, view)) {
+  const defaults = ViewConfig.DEFAULT_OVERRIDES_BY_VIEW[view];
+  if (defaults === undefined || !Object.prototype.hasOwnProperty.call(defaults, key)) {
     return undefined;
   }
 
-  return lookup(language, `view_default.${view}.${key}`);
+  const specific = lookup(language, `view_default.${view}.${key}`);
+  if (specific !== undefined) return specific;
+
+  const fallback = lookup(language, `view_default.${view}`);
+  if (fallback === undefined) return undefined;
+
+  return interpolate(fallback, { value: String(defaults[key]) });
 }
 
 /**

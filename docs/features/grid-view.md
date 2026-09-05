@@ -117,10 +117,10 @@ columns to read clearly. Month rules win over week rules, and week rules win ove
 rules. All of them stay inside the time body, so date headers remain clean and a multi-day
 all-day banner stays visually continuous across day boundaries.
 
-When you choose **Time Grid** in the visual editor, it adds
-`grid: { day_separator_width: '1px' }` for you. That makes the default day rule visible in
-the **Separators** panel, where you can turn it off or change its color without changing
-the list or column layouts.
+When you choose **Time Grid** in the visual editor, it adds the grid defaults that differ
+from the shared card defaults into `grid:` for you. That makes the default day rule, event
+background opacity and empty-day behavior visible in their panels, where you can change
+them without changing the list or column layouts.
 
 ## 🔴 The Now Line
 
