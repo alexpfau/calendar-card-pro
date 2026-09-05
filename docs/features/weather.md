@@ -24,7 +24,7 @@ weather:
     color: '#3498db'
   event:
     # Event row shows just the temperature. In the list layout that means no icon;
-    # the column layout always keeps the icon (see Weather In The Column Layout).
+    # column and grid keep the icon (see Weather In Column & Grid Layouts).
     show_conditions: false
     show_temp: true
     font_size: '13px'
@@ -37,27 +37,27 @@ This flexible configuration allows you to create a personalized experience that 
 
 ## ⚙️ Weather Configuration Options
 
-| Option                            | Type    | Default                       | Description                                                                                                                        |
-| --------------------------------- | ------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `entity`                          | string  | -                             | Weather entity to use for forecasts                                                                                                |
-| `position`                        | string  | `date`                        | Where to show weather data: `'none'` (nowhere), `'date'` (day header), `'event'` (next to events), or `'both'`                     |
-| `date → show_conditions`          | boolean | `true`                        | Whether to show weather condition icons in the day header                                                                          |
-| `date → show_high_temp`           | boolean | `true`                        | Whether to show high temperature in the day header                                                                                 |
-| `date → show_low_temp`            | boolean | `false`                       | Whether to show low temperature in the day header. The UV index takes this place on days it is shown                               |
-| `date → show_uv_index`            | boolean | `false`                       | Whether to show UV index in the day header                                                                                         |
-| `date → uv_index_threshold`       | number  | `0`                           | Only show UV index when it exceeds this value (0 = always show when enabled)                                                       |
-| `date → icon_size`                | string  | `14px`                        | Size of weather icons in the day header                                                                                            |
-| `date → font_size`                | string  | `12px`                        | Size of weather text in the day header                                                                                             |
-| `date → color`                    | string  | `var(--primary-text-color)`   | Color of weather text and icons in the day header. Matches the weekday, day number and month it sits beside                        |
-| `event → show_conditions`         | boolean | `true`                        | List layout: whether to show the condition icon. Column layout: whether to state the condition in words — the icon is always shown |
-| `event → show_temp`               | boolean | `true`                        | Whether to show temperature in the event row                                                                                       |
-| `event → show_uv_index`           | boolean | `false`                       | Whether to show UV index in the event row                                                                                          |
-| `event → uv_index_threshold`      | number  | `0`                           | Only show UV index when it exceeds this value (0 = always show when enabled)                                                       |
-| `event → daily_forecast_fallback` | boolean | `true`                        | Fall back to the daily forecast for timed events beyond the hourly forecast horizon                                                |
-| `event → max_lines`               | number  | `0`                           | Maximum number of lines the event weather row may use (0 = unlimited). Truncated text shows `...`                                  |
-| `event → icon_size`               | string  | `14px`                        | Size of weather icons in the event row                                                                                             |
-| `event → font_size`               | string  | `12px`                        | Size of weather text in the event row                                                                                              |
-| `event → color`                   | string  | `var(--secondary-text-color)` | Color of weather text and icons beside events. Matches the time and location it sits beside                                        |
+| Option                            | Type    | Default                       | Description                                                                                                                                  |
+| --------------------------------- | ------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `entity`                          | string  | -                             | Weather entity to use for forecasts                                                                                                          |
+| `position`                        | string  | `date`                        | Where to show weather data: `'none'` (nowhere), `'date'` (day header), `'event'` (next to events), or `'both'`                               |
+| `date → show_conditions`          | boolean | `true`                        | Whether to show weather condition icons in the day header                                                                                    |
+| `date → show_high_temp`           | boolean | `true`                        | Whether to show high temperature in the day header                                                                                           |
+| `date → show_low_temp`            | boolean | `false`                       | Whether to show low temperature in the day header. The UV index takes this place on days it is shown                                         |
+| `date → show_uv_index`            | boolean | `false`                       | Whether to show UV index in the day header                                                                                                   |
+| `date → uv_index_threshold`       | number  | `0`                           | Only show UV index when it exceeds this value (0 = always show when enabled)                                                                 |
+| `date → icon_size`                | string  | `14px`                        | Size of weather icons in the day header                                                                                                      |
+| `date → font_size`                | string  | `12px`                        | Size of weather text in the day header                                                                                                       |
+| `date → color`                    | string  | `var(--primary-text-color)`   | Color of weather text and icons in the day header. Matches the weekday, day number and month it sits beside                                  |
+| `event → show_conditions`         | boolean | `true`                        | List layout: whether to show the condition icon. Column and grid layouts: whether to state the condition in words — the icon is always shown |
+| `event → show_temp`               | boolean | `true`                        | Whether to show temperature in the event row                                                                                                 |
+| `event → show_uv_index`           | boolean | `false`                       | Whether to show UV index in the event row                                                                                                    |
+| `event → uv_index_threshold`      | number  | `0`                           | Only show UV index when it exceeds this value (0 = always show when enabled)                                                                 |
+| `event → daily_forecast_fallback` | boolean | `true`                        | Fall back to the daily forecast for timed events beyond the hourly forecast horizon                                                          |
+| `event → max_lines`               | number  | `0`                           | Maximum number of lines the event weather row may use (0 = unlimited). Truncated text shows `...`                                            |
+| `event → icon_size`               | string  | `14px`                        | Size of weather icons in the event row                                                                                                       |
+| `event → font_size`               | string  | `12px`                        | Size of weather text in the event row                                                                                                        |
+| `event → color`                   | string  | `var(--secondary-text-color)` | Color of weather text and icons beside events. Matches the time and location it sits beside                                                  |
 
 These sit under the card's `weather` option — see [Weather in the configuration reference](/reference/configuration#weather).
 
@@ -67,7 +67,7 @@ You can choose where weather information appears in your calendar:
 
 - `none`: Hides weather everywhere, without clearing the entity — the card subscribes to no forecast at all
 - `date`: Shows daily forecasts in the day header — the date column in list view, the column heading in column view
-- `event`: Shows hourly forecasts next to event titles
+- `event`: Shows hourly forecasts beside each event
 - `both`: Displays weather in both positions simultaneously
 
 ::: info How Far Forecasts Reach
@@ -97,7 +97,7 @@ Each display position can be customized independently with different content and
 **Event Weather:**
 
 - `show_conditions`: Show the weather condition — as an icon in the list layout, in
-  words in the column layout
+  words in the column and grid layouts
 - `show_temp`: Show temperature
 - `show_uv_index`: Show UV index
 - `uv_index_threshold`: Minimum UV index value to display (0 = always)
@@ -111,10 +111,10 @@ Each display position can be customized independently with different content and
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_column_weather.png" alt="Weather on both the day header and each event in column view"><br>
 
-The column layout gives each event's forecast a row of its own, beneath the time and
-above the location, instead of putting it on the title row beside the summary. A column
-track is as narrow as 140px, and a badge on the title row competes with the summary for
-that width — a two-word title breaks into three lines around it.
+Column and grid layouts give each event's forecast a row of its own, beneath the time and
+above the location, instead of putting it on the title row beside the summary. A narrow
+track leaves little room beside the title; moving weather into the detail stack keeps the
+title readable and lets the condition words wrap like ordinary row text.
 
 That row shares a leading icon edge with the time, location and description rows, so
 **the condition icon is always shown there**. `show_conditions` instead decides whether
@@ -129,7 +129,7 @@ weather:
   entity: weather.forecast_home
   position: event
   event:
-    show_conditions: true # Column layout: states the condition in words
+    show_conditions: true # Column and grid layouts: state the condition in words
     show_temp: true
     show_uv_index: true
     max_lines: 1 # Keep the row to one line, truncating the words if needed

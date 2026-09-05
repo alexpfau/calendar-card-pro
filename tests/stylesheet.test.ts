@@ -1629,6 +1629,21 @@ describe('card stylesheet', () => {
       expect(CSS).toContain('@container calendar-card-grid-event (min-height: 96px)');
       expect(declared('.grid-event-disclosure .time', 'display')).toBe('none');
       expect(declared('.grid-event-disclosure .location', 'display')).toBe('none');
+      expect(declared('.grid-event-disclosure .event-weather', 'display')).toBe('none');
+      expect(CSS).not.toContain(
+        '@container calendar-card-grid-event (min-height: 40px) {\n' +
+          '    .grid-event-disclosure .time,\n' +
+          '    .grid-event-disclosure .event-weather',
+      );
+      expect(CSS).toContain(
+        '@container calendar-card-grid-event (min-height: 72px) {\n' +
+          '    .grid-event-disclosure .event-title',
+      );
+      expect(CSS).toContain(
+        '.grid-event-disclosure .location,\n' +
+          '    .grid-event-disclosure .description,\n' +
+          '    .grid-event-disclosure .event-weather',
+      );
     });
 
     it('keeps grid detail rows from being sliced under wrapped titles', () => {

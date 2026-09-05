@@ -256,10 +256,10 @@ shows the forecast for its own start time:
 | `weather → event` | `show_conditions` · `show_temp` · `show_uv_index` · `uv_index_threshold` · `daily_forecast_fallback` · `max_lines` · `icon_size` · `font_size` · `color` |
 
 `show_conditions` means something different in each layout. In the list layout it shows
-the condition icon. In the column layout the event forecast has a row of its own,
+the condition icon. In the column and grid layouts the event forecast has a row of its own,
 sharing a leading icon edge with the time and location, so the icon is always shown
-there and `show_conditions` writes the condition out in words instead. That row
-separates its pieces with a middot and reads `21° · Partly cloudy`.
+there and `show_conditions` writes the condition out in words instead. That row separates
+its pieces with a middot and reads `21° · Partly cloudy`.
 `weather → event → max_lines` limits how many lines those words may occupy, with `0`
 meaning no limit.
 

@@ -2086,8 +2086,7 @@ export const cardStyles = css`
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
     }
 
-    .grid-event-disclosure .time,
-    .grid-event-disclosure .event-weather {
+    .grid-event-disclosure .time {
       display: block;
     }
   }
@@ -2098,7 +2097,8 @@ export const cardStyles = css`
     }
 
     .grid-event-disclosure .location,
-    .grid-event-disclosure .description {
+    .grid-event-disclosure .description,
+    .grid-event-disclosure .event-weather {
       display: flex;
     }
   }

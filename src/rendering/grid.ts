@@ -389,7 +389,7 @@ function renderTimedEvent(
       <div class="grid-event-disclosure">
         ${Leaves.renderEventContent(event, config, contentParts, {
           weatherForecasts,
-          weatherPlacement: 'title',
+          weatherPlacement: 'row',
           progressPlacement: 'inline',
           countdownPlacement: 'text',
           hass,

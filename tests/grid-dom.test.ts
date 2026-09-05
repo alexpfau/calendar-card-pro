@@ -989,6 +989,19 @@ describe('the axis', () => {
 });
 
 describe('the grid reuses the shared leaves', () => {
+  /** A `hass` whose formatter localizes conditions the way Home Assistant's does. */
+  function weatherHass(): Types.Hass {
+    return {
+      states: {
+        'weather.home': { entity_id: 'weather.home', state: 'sunny', attributes: {} },
+      },
+      callApi: async () => undefined,
+      callService: vi.fn(),
+      formatEntityState: (_stateObj: Types.HassEntity, state?: string) =>
+        state === 'sunny' ? 'Sunny' : (state ?? ''),
+    } as unknown as Types.Hass;
+  }
+
   // The architectural claim the whole view split exists to support. Without this the
   // grid could quietly grow its own copy of the title/time/location markup, and the only
   // symptom would be the views drifting apart one option at a time.
@@ -1000,23 +1013,28 @@ describe('the grid reuses the shared leaves', () => {
     ).not.toBeNull();
   });
 
-  it('threads event weather forecasts into timed grid titles', () => {
+  it('threads event weather forecasts into timed grid detail rows', () => {
     const container = renderGrid(
       [timed(17, '14:00', '15:00', 'Forecasted review')],
       buildConfig({
         view: 'grid',
         days_to_show: 3,
-        weather: { entity: 'weather.home', position: 'event' },
+        weather: {
+          entity: 'weather.home',
+          position: 'event',
+          event: { show_conditions: true, show_temp: true },
+        },
       }),
-      null,
+      weatherHass(),
       WEATHER,
     );
-    const weather = requireElement(container, '.grid-event .summary-row .event-weather');
+    const weather = requireElement(container, '.grid-event .time-location > .event-weather');
     const icon = requireElement<HTMLElement>(weather, 'ha-icon') as HTMLElement & { icon?: string };
 
     expect(icon.icon).toBe('mdi:weather-sunny');
     expect(weather.textContent).toContain('24°');
-    expect(container.querySelector('.grid-event .time-location > .event-weather')).toBeNull();
+    expect(weather.querySelector('.weather-condition')?.textContent?.trim()).toBe('Sunny');
+    expect(container.querySelector('.grid-event .summary-row .event-weather')).toBeNull();
   });
 
   it('keeps progress inline in the compact timed grid block', () => {

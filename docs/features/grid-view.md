@@ -198,11 +198,11 @@ once a full text row fits, time appears once the block can hold a full title row
 time row, and location waits until there is room for another detail line. In narrow columns,
 a long title breaks at word boundaries and truncates before it slices the time or location row.
 
-Timed blocks use the same shared event content as list and column view, but compact
-placements differ from column view: event weather sits beside the title, the progress bar
-stays inline on the time row, and countdowns trail the time row. Giving any of those its
-own row would hide the title sooner in the short blocks where the grid needs the most
-compression.
+Timed blocks use the same shared event content as list and column view. Event weather
+matches column view: it gets its own detail row under the time, where the condition words
+can wrap beneath the temperature instead of competing with the title. The progress bar stays
+inline on the time row, and countdowns trail the time text, so those two still compress
+inside the first detail row.
 
 ::: tip Keep Detail Rows Short
 Grid blocks have less room than list rows. If you show time, location and description in

@@ -686,8 +686,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'weather.event.helper': "The forecast for each event's own start time.",
   'event.show_conditions': 'Show Conditions',
   'event.show_conditions.helper':
-    'Shows the condition icon. In the column layout the icon is always shown, because ' +
-    'the row shares an icon edge with the time and location, and this adds the ' +
+    'Shows the condition icon. In column and grid layouts the icon is always shown, ' +
+    'because the row shares an icon edge with the time and location, and this adds the ' +
     'condition in words instead.',
   'event.show_temp': 'Show Temperature',
   'event.show_uv_index': 'Show UV Index',
@@ -701,9 +701,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'event.color': 'Color',
   'event.max_lines': 'Weather Line Limit',
   'event.max_lines.helper':
-    'Zero means no limit. Only the column layout writes the condition out in words, ' +
-    'so only there can this row reach a second line. The temperature and UV index are ' +
-    'never truncated.',
+    'Zero means no limit. Column and grid layouts write the condition out in words, so ' +
+    'only those layouts can make this row reach a second line. The temperature and UV ' +
+    'index are never truncated.',
 
   // --- Actions & Refresh ----------------------------------------------------
   'panel.actions': 'Actions & Refresh',
