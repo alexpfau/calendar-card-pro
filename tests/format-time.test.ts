@@ -129,10 +129,15 @@ describe('formatTime', () => {
     });
 
     it('still pads to two digits for an English 24-hour card', () => {
-      // `Intl` renders `hour: 'numeric'` and `hour: '2-digit'` identically for `en` under a
-      // 24-hour cycle -- both `09:05` -- so while the card formatted through it this option
-      // distinguished nothing at all for the commonest configuration there is. Asserting
-      // the pair together is what makes that visible; either line alone passes.
+      // `Intl` renders `hour: 'numeric'` and `hour: '2-digit'` identically for `en` under
+      // a 24-hour cycle -- both `09:05` -- so while the card formatted through it this
+      // option distinguished nothing at all for the commonest configuration there is.
+      //
+      // The first assertion is the falsifier and the second is the documentation, which
+      // is worth saying because the obvious reading is the wrong way round: if `Intl`
+      // gives `09:05` for both settings, then the line expecting `9:05` is the only one
+      // it can fail. Restoring the `Intl` branch fails line one and leaves line two
+      // green. Do not drop line one as the redundant half of a pair.
       const event: Types.CalendarEventData = {
         start: { dateTime: at(9, 5).toISOString() },
         end: { dateTime: at(10, 5).toISOString() },

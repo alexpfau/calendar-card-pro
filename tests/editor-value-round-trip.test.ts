@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import '../src/calendar-card-pro';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
+import * as ViewConfig from '../src/config/view';
 import { columnFormBlock, gridFormBlock, toStoredConfig } from '../src/rendering/editor/value';
 
 /** The config `setConfig` would hold for a given piece of user YAML. */
@@ -165,30 +166,69 @@ describe('the card element fills nested blocks on setConfig', () => {
 /**
  * The panel binds a whole view block as one expandable `ha-form` field and writes it back
  * wholesale, so whatever the form block omits is deleted from the user's YAML the moment
- * they touch any option in that panel. That makes the block a data-preservation contract,
- * not just a display convenience.
+ * the user touches any option in that panel. That makes the block a data-preservation
+ * contract, not just a display convenience.
  *
- * 🚨 Every one of these stores an option from `COLUMN_OVERRIDE_KEYS`, deliberately. The
- * form block projects `COLUMN_DEFAULTS` / `GRID_DEFAULTS`, which are the view-*only* keys
- * and a disjoint set from the overrides — so a fixture storing `min_day_width` is
- * reproduced by the projection whether or not the stored block is read at all, and cannot
- * fail. Every existing fixture stored exactly that, which is why the block silently
- * dropped overrides for both views with the whole suite green.
+ * 🚨 Driven off {@link ViewConfig.VIEW_BLOCKS} rather than a written-out list of views,
+ * and the override key is *found* on each block rather than named. A third view therefore
+ * arrives here already covered, which a hardcoded pair would not — `AGENTS.md` records
+ * three separate occasions where a note beside a family protected only the member it sat
+ * next to.
+ *
+ * The key each case stores is deliberately an `overrideKeys` member, never an
+ * `onlyDefaults` one. The form block projects the defaults, so a fixture storing one of
+ * those is reproduced by the projection whether the stored block is read at all — which
+ * is precisely why every fixture that existed before this, all of them storing
+ * `min_day_width`, stayed green while the block silently dropped overrides for both
+ * views.
  */
 describe('a view block survives the round trip the panel puts it through', () => {
-  it.each([
-    ['column', 'day_spacing', '4px'],
-    ['column', 'show_location', false],
-    ['grid', 'event_background_opacity', 55],
-    ['grid', 'show_empty_days', false],
-  ] as const)('keeps %s.%s', (view, key, value) => {
+  const formBlockFor: Record<string, (config: Types.Config) => Record<string, unknown>> = {
+    column: columnFormBlock,
+    grid: gridFormBlock,
+  };
+
+  it.each(Object.keys(ViewConfig.VIEW_BLOCKS))('keeps a stored %s override', (view) => {
+    const block = ViewConfig.VIEW_BLOCKS[view as Types.EffectiveView];
+    const buildBlock = formBlockFor[view];
+
+    // Every view in the registry needs a form block here. A new one that reaches the
+    // panel without one is the gap this reconciliation exists to report.
+    expect(block, view).toBeDefined();
+    expect(buildBlock, `no form block wired for view '${view}'`).toBeDefined();
+
+    // A boolean override that ships `true`, so storing `false` is a real difference the
+    // strip cannot mistake for the inherited value. Found on the block, not named here.
+    const key = block!.overrideKeys.find(
+      (candidate) =>
+        (Config.DEFAULT_CONFIG as unknown as Record<string, unknown>)[candidate] === true &&
+        !(candidate in block!.defaultOverrides),
+    );
+
+    expect(key, `${view} has no boolean override to test with`).toBeDefined();
+
     const config = asSetConfigWould({
       entities: ['calendar.a'],
       view,
-      [view]: { [key]: value },
+      [view]: { [key!]: false },
     });
 
-    const block = view === 'column' ? columnFormBlock(config) : gridFormBlock(config);
+    expect(buildBlock(config)[key!], `${view}.${key} missing from the form block`).toBe(false);
+    expect(toStoredConfig({ ...config, [view]: buildBlock(config) })).toEqual({
+      entities: [{ entity: 'calendar.a' }],
+      view,
+      [view]: { [key!]: false },
+    });
+  });
+
+  it.each([
+    ['column', 'day_spacing', '4px'],
+    ['grid', 'event_background_opacity', 55],
+  ] as const)('keeps a stored non-boolean %s.%s', (view, key, value) => {
+    // The reconciliation above can only pick a boolean. These two pin a length and a
+    // number, so a strip that mishandled one type would not hide behind the other.
+    const config = asSetConfigWould({ entities: ['calendar.a'], view, [view]: { [key]: value } });
+    const block = formBlockFor[view](config);
 
     expect(block[key], `${view}.${key} missing from the form block`).toBe(value);
     expect(toStoredConfig({ ...config, [view]: block })).toEqual({
