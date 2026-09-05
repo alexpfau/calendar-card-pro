@@ -22,3 +22,17 @@ It incorporates code and design elements from the following projects:
    Calendar design elements were inspired by Home Assistant community member
    @kdw2060's button-card calendar design.
    https://community.home-assistant.io/t/calendar-add-on-some-calendar-designs/385790
+
+4. Grid View Design
+   The grid (time axis) view was designed with reference to a proposed
+   implementation by GitHub user @lenaxia, offered as pull request #339.
+   https://github.com/alexpfau/calendar-card-pro/pull/339
+
+   No code was carried across. That branch was written against a much earlier
+   revision of this card and had fallen some eight hundred commits behind, so
+   it could not be merged and was instead read for its design decisions. Two
+   in particular are theirs: positioning events by wall-clock minutes rather
+   than by elapsed milliseconds, which is what keeps placement correct on
+   daylight-saving transition days, and drawing a multi-day all-day event as
+   one continuous banner with continuation marks rather than as a separate
+   chip in each day it covers.
