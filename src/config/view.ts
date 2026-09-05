@@ -626,8 +626,10 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  *
  * `event_background_opacity` tints compact timed blocks, whose area carries their
  * meaning more than a list row's accent line can. `show_empty_days` keeps the time axis
- * contiguous unless a user explicitly hides empty columns in `time_grid:`. `day_separator_width`
- * turns on vertical rules so a shared axis reads as belonging to separate day columns.
+ * contiguous unless a user explicitly hides empty columns in `time_grid:`.
+ * `show_past_events` keeps today's finished blocks on the axis instead of emptying the
+ * morning as the day passes. `day_separator_width` turns on vertical rules so a shared
+ * axis reads as belonging to separate day columns.
  *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
@@ -641,6 +643,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   day_separator_width: '1px',
   event_background_opacity: 20,
   show_empty_days: true,
+  show_past_events: true,
 };
 
 /** Views whose defaults depart from the top level, mapped to what they substitute. */

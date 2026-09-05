@@ -13,10 +13,10 @@ import * as ViewConfig from '../config/view';
  *
  * @param configured - User-configured maximum title lines, where 0 means unlimited
  * @param ladderMaximum - Lines the grid block's current height can support
- * @returns The safe line count for that rung
+ * @returns The safe line count for that rung, or `none` when titles are unlimited
  */
 function gridTitleLineRung(configured: number, ladderMaximum: number): string {
-  return String(configured > 0 ? Math.min(configured, ladderMaximum) : ladderMaximum);
+  return configured > 0 ? String(Math.min(configured, ladderMaximum)) : 'none';
 }
 
 /**

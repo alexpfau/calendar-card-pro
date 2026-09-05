@@ -924,6 +924,15 @@ describe('editor: applicability', () => {
     }
   });
 
+  it('notes that grid view keeps past events visible by default', () => {
+    const helper = computeHelper('en', 'grid', {
+      name: 'show_past_events',
+      selector: { boolean: {} },
+    });
+
+    expect(helper).toContain('Time grid starts this option from true');
+  });
+
   it('agrees with appliesToView', () => {
     expect(appliesToView('date_vertical_alignment', 'list')).toBe(true);
     expect(appliesToView('date_vertical_alignment', 'column')).toBe(false);
@@ -1078,6 +1087,14 @@ describe('editor: the Layout panel', () => {
       view: 'grid',
       time_grid: TIME_GRID_DEFAULT_OVERRIDES,
     });
+  });
+
+  it('seeds the past-event grid exception when the user switches into grid', () => {
+    const config = buildConfig({ view: 'list' });
+    const previous = { ...(config as unknown as Record<string, unknown>) };
+    const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
+
+    expect(applied.config.time_grid?.show_past_events).toBe(true);
   });
 
   it('does not seed over a grid value the user already stored', () => {

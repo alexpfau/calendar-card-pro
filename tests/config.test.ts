@@ -237,6 +237,7 @@ describe('hasConfigChanged', () => {
   // round-trip and a loading state to re-fetch a byte-identical payload.
   it.each([
     ['show_past_events', { show_past_events: true }],
+    ['time_grid.show_past_events', { time_grid: { show_past_events: true } }],
     ['filter_duplicates', { filter_duplicates: true }],
   ])('does not request a refetch for the render-only option %s', (_label, patch) => {
     expect(hasConfigChanged(base, { ...base, ...patch } as Types.Config)).toBe(false);

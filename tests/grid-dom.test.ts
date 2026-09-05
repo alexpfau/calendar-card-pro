@@ -394,6 +394,17 @@ describe('events sit at their clock time (#300)', () => {
     expect(container.querySelector('.grid-event')!.classList.contains('past-event')).toBe(true);
   });
 
+  it("keeps today's finished timed blocks in grid view by default", () => {
+    const container = renderGrid(
+      [timed(17, '08:00', '09:00', 'Past standup')],
+      buildConfig({ view: 'grid', days_to_show: 3 }),
+    );
+
+    const block = container.querySelector('.grid-event');
+    expect(block?.textContent).toContain('Past standup');
+    expect(block?.classList.contains('past-event')).toBe(true);
+  });
+
   it('draws nothing for an event wholly outside the band', () => {
     const container = renderGrid([timed(17, '02:00', '03:00', 'Night shift')]);
 

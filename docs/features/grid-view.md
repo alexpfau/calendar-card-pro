@@ -120,9 +120,9 @@ rules. All of them stay inside the time body, so date headers remain clean and a
 all-day banner stays visually continuous across day boundaries.
 
 When you choose **Time Grid** in the visual editor, it adds the grid defaults that differ
-from the shared card defaults into `time_grid:` for you. That makes the default day rule, event
-background opacity and empty-day behavior visible in their panels, where you can change
-them without changing the list or column layouts.
+from the shared card defaults into `time_grid:` for you. That makes the default day rule,
+event background opacity, finished-event visibility and empty-day behavior visible in their
+panels, where you can change them without changing the list or column layouts.
 
 ## 🔴 The Now Line
 
@@ -197,8 +197,10 @@ narrow; lower it to keep blocks readable.
 
 Short blocks use progressive disclosure so clipped text does not look broken. A title shows
 once a full text row fits, time appears once the block can hold a full title row plus a full
-time row, and location waits until there is room for another detail line. In narrow columns,
-a long title breaks at word boundaries and truncates before it slices the time or location row.
+time row, and location waits until there is room for another detail line. With the default
+unlimited title lines, long titles wrap until the block clips at the bottom. Set
+`title_max_lines` above `0` when you want the title itself to stop after a fixed number of
+lines.
 
 Timed blocks use the same shared event content as list and column view. Event weather
 matches column view: it gets its own detail row under the time, where the condition words
@@ -276,19 +278,21 @@ Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Three shared options do not inherit their top-level value in grid view. The **Default** column
+Four shared options do not inherit their top-level value in grid view. The **Default** column
 is what grid view uses; **Instead of** is the top-level default it replaces:
 
 | Option                     | Type    | Default | Instead of |
 | -------------------------- | ------- | ------- | ---------- |
 | `event_background_opacity` | number  | `20`    | `0`        |
 | `show_empty_days`          | boolean | `true`  | `false`    |
+| `show_past_events`         | boolean | `true`  | `false`    |
 | `day_separator_width`      | string  | `1px`   | `0px`      |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
-a day of axis, so empty days are shown. Day separators are also on by default, so the
-shared axis still reads as separate day columns.
+a day of axis, so empty days are shown. A finished meeting earlier today is still part of
+today's hour-by-hour shape, so past events stay visible. Day separators are also on by
+default, so the shared axis still reads as separate day columns.
 
 Set any of them inside `time_grid:` to change it back.
 

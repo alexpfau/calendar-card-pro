@@ -10,6 +10,7 @@ import {
   COLUMN_OVERRIDE_KEYS,
   FETCH_TIME_KEYS,
   TIME_GRID_DEFAULTS,
+  TIME_GRID_DEFAULT_OVERRIDES,
   VIEW_SWITCH_HYSTERESIS_PX,
   computeColumnThresholdPx,
   computeColumnThresholdPxFor,
@@ -327,6 +328,36 @@ describe('resolveEffectiveConfig', () => {
     // A default that no block can reach is unconditional, not a default.
     it('keeps every divergent default reachable through the block', () => {
       Object.keys(COLUMN_DEFAULT_OVERRIDES).forEach((key) => {
+        expect(COLUMN_OVERRIDE_KEYS).toContain(key);
+      });
+    });
+  });
+
+  describe('divergent grid defaults', () => {
+    it('defaults show_past_events to true in grid view and false in list view', () => {
+      const config = buildConfig({});
+
+      expect(config.show_past_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'list').show_past_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'grid').show_past_events).toBe(true);
+    });
+
+    it('does not inherit an explicit top-level show_past_events false into grid view', () => {
+      const config = buildConfig({ show_past_events: false });
+
+      expect(resolveEffectiveConfig(config, 'list').show_past_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'grid').show_past_events).toBe(true);
+    });
+
+    it('lets the block switch past events back off in grid view', () => {
+      const config = buildConfig({ time_grid: { show_past_events: false } });
+
+      expect(resolveEffectiveConfig(config, 'grid').show_past_events).toBe(false);
+      expect(resolveEffectiveConfig(config, 'list').show_past_events).toBe(false);
+    });
+
+    it('keeps every divergent default reachable through the block', () => {
+      Object.keys(TIME_GRID_DEFAULT_OVERRIDES).forEach((key) => {
         expect(COLUMN_OVERRIDE_KEYS).toContain(key);
       });
     });

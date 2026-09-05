@@ -58,12 +58,12 @@ describe('per-field max-lines custom properties', () => {
     expect(props['--calendar-card-grid-title-lines-expanded']).toBe('1');
   });
 
-  it('leaves the grid disclosure ladder intact when title lines are unlimited', () => {
+  it('leaves grid titles unclamped when title lines are unlimited', () => {
     const props = generateCustomPropertiesObject(buildConfig({ title_max_lines: 0 }));
 
-    expect(props['--calendar-card-grid-title-lines-compact']).toBe('1');
-    expect(props['--calendar-card-grid-title-lines-medium']).toBe('2');
-    expect(props['--calendar-card-grid-title-lines-expanded']).toBe('3');
+    expect(props['--calendar-card-grid-title-lines-compact']).toBe('none');
+    expect(props['--calendar-card-grid-title-lines-medium']).toBe('none');
+    expect(props['--calendar-card-grid-title-lines-expanded']).toBe('none');
   });
 
   it('keeps the grid disclosure ladder from rising above a two-line title limit', () => {
