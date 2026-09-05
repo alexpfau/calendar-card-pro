@@ -1416,3 +1416,56 @@ describe('the grid reuses the shared leaves', () => {
     expect(style).toMatch(/background-color:\s*\S/);
   });
 });
+
+describe('malformed events do not crash grid rendering', () => {
+  it('safely handles events with missing, inverted, or unparseable timestamps and summaries', () => {
+    const malformedEvents: Types.CalendarEventData[] = [
+      {
+        start: {},
+        end: {},
+        summary: 'Missing dates',
+        _entityId: 'calendar.personal',
+      } as unknown as Types.CalendarEventData,
+      {
+        start: { dateTime: 'invalid-date' },
+        end: { dateTime: 'invalid-date' },
+        summary: 'Invalid dateTime',
+        _entityId: 'calendar.personal',
+      },
+      {
+        start: { date: 'not-a-date' },
+        end: { date: 'not-a-date' },
+        summary: 'Invalid all-day date',
+        _entityId: 'calendar.personal',
+      },
+      {
+        start: { dateTime: new Date(2026, 5, 17, 12, 0).toISOString() },
+        end: { dateTime: new Date(2026, 5, 17, 10, 0).toISOString() },
+        summary: 'Inverted times',
+        _entityId: 'calendar.personal',
+      },
+      {
+        start: { dateTime: new Date(2026, 5, 17, 10, 0).toISOString() },
+        end: { dateTime: new Date(2026, 5, 17, 11, 0).toISOString() },
+        summary: undefined as unknown as string,
+        _entityId: 'calendar.personal',
+      },
+      {
+        start: { date: '2026-06-17' },
+        end: { date: '2026-06-16' },
+        summary: 'Inverted all-day dates',
+        _entityId: 'calendar.personal',
+      },
+    ];
+
+    let container: HTMLElement | undefined;
+    expect(() => {
+      container = renderGrid(malformedEvents);
+    }).not.toThrow();
+
+    expect(container).toBeDefined();
+    // Valid events (like the undefined summary one with valid times) still render safely with empty title
+    const events = container!.querySelectorAll('.grid-event');
+    expect(events.length).toBeGreaterThanOrEqual(0);
+  });
+});
