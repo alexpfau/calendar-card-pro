@@ -7,6 +7,19 @@ import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 
 /**
+ * The grid disclosure ladder can reveal one, two, or three title lines as the block grows.
+ * `title_max_lines` is a count, not a CSS length, so capping the ladder in TypeScript keeps
+ * the user's configured ceiling without relying on unsupported CSS math in line-clamp.
+ *
+ * @param configured - User-configured maximum title lines, where 0 means unlimited
+ * @param ladderMaximum - Lines the grid block's current height can support
+ * @returns The safe line count for that rung
+ */
+function gridTitleLineRung(configured: number, ladderMaximum: number): string {
+  return String(configured > 0 ? Math.min(configured, ladderMaximum) : ladderMaximum);
+}
+
+/**
  * Generate CSS custom properties from card configuration.
  * @param config Card configuration.
  * @returns CSS custom property names mapped to values.
@@ -44,6 +57,9 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       config.description_max_lines > 0 ? String(config.description_max_lines) : 'none',
     '--calendar-card-title-max-lines':
       config.title_max_lines > 0 ? String(config.title_max_lines) : 'none',
+    '--calendar-card-grid-title-lines-compact': gridTitleLineRung(config.title_max_lines, 1),
+    '--calendar-card-grid-title-lines-medium': gridTitleLineRung(config.title_max_lines, 2),
+    '--calendar-card-grid-title-lines-expanded': gridTitleLineRung(config.title_max_lines, 3),
     '--calendar-card-time-max-lines':
       config.time_max_lines > 0 ? String(config.time_max_lines) : 'none',
     '--calendar-card-location-max-lines':
@@ -1972,7 +1988,7 @@ export const cardStyles = css`
   .grid-event-disclosure .event-title {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
+    -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
     overflow: hidden;
     /* Break at spaces, and inside a word only when that word cannot fit a line on its
        own. The default here inserted soft hyphens, so a lane-split block rendered
@@ -2053,7 +2069,7 @@ export const cardStyles = css`
 
   @container calendar-card-grid-event (min-height: 36px) {
     .grid-event-disclosure .event-title {
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: var(--calendar-card-grid-title-lines-medium);
     }
   }
 
@@ -2064,7 +2080,7 @@ export const cardStyles = css`
      when there is room, and yields back to one line when the time row appears. */
   @container calendar-card-grid-event (min-height: 40px) {
     .grid-event-disclosure .event-title {
-      -webkit-line-clamp: 1;
+      -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
     }
 
     .grid-event-disclosure .time,
@@ -2075,7 +2091,7 @@ export const cardStyles = css`
 
   @container calendar-card-grid-event (min-height: 72px) {
     .grid-event-disclosure .event-title {
-      -webkit-line-clamp: 2;
+      -webkit-line-clamp: var(--calendar-card-grid-title-lines-medium);
     }
 
     .grid-event-disclosure .location,
@@ -2086,7 +2102,7 @@ export const cardStyles = css`
 
   @container calendar-card-grid-event (min-height: 96px) {
     .grid-event-disclosure .event-title {
-      -webkit-line-clamp: 3;
+      -webkit-line-clamp: var(--calendar-card-grid-title-lines-expanded);
     }
   }
 

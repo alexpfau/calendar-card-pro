@@ -938,6 +938,45 @@ describe('the grid reuses the shared leaves', () => {
     ).not.toBeNull();
   });
 
+  it('threads event weather forecasts into timed grid titles', () => {
+    const container = renderGrid(
+      [timed(17, '14:00', '15:00', 'Forecasted review')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        weather: { entity: 'weather.home', position: 'event' },
+      }),
+      null,
+      WEATHER,
+    );
+    const weather = requireElement(container, '.grid-event .summary-row .event-weather');
+    const icon = requireElement<HTMLElement>(weather, 'ha-icon') as HTMLElement & { icon?: string };
+
+    expect(icon.icon).toBe('mdi:weather-sunny');
+    expect(weather.textContent).toContain('24°');
+    expect(container.querySelector('.grid-event .time-location > .event-weather')).toBeNull();
+  });
+
+  it('keeps progress inline in the compact timed grid block', () => {
+    const container = renderGrid(
+      [timed(17, '09:30', '11:00', 'Running review')],
+      buildConfig({ view: 'grid', days_to_show: 3, show_progress_bar: true }),
+    );
+
+    expect(container.querySelector('.grid-event .time > .progress-bar')).not.toBeNull();
+    expect(container.querySelector('.grid-event .progress-bar-row')).toBeNull();
+  });
+
+  it('keeps countdowns trailing on the timed grid row', () => {
+    const container = renderGrid(
+      [timed(17, '14:00', '15:00', 'Upcoming review')],
+      buildConfig({ view: 'grid', days_to_show: 3, show_countdown: true }),
+    );
+
+    expect(container.querySelector('.grid-event .time > .time-countdown')).not.toBeNull();
+    expect(container.querySelector('.grid-event .time-text > .time-countdown')).toBeNull();
+  });
+
   it('marks timed blocks as height-query containers for progressive disclosure', () => {
     const container = renderGrid([
       timed(18, '09:00', '09:30', 'Short sync'),

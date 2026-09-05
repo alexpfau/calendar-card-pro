@@ -50,6 +50,30 @@ describe('per-field max-lines custom properties', () => {
     expect(props['--calendar-card-title-display']).toBe('-webkit-box');
   });
 
+  it('caps every grid disclosure title rung at the configured title limit', () => {
+    const props = generateCustomPropertiesObject(buildConfig({ title_max_lines: 1 }));
+
+    expect(props['--calendar-card-grid-title-lines-compact']).toBe('1');
+    expect(props['--calendar-card-grid-title-lines-medium']).toBe('1');
+    expect(props['--calendar-card-grid-title-lines-expanded']).toBe('1');
+  });
+
+  it('leaves the grid disclosure ladder intact when title lines are unlimited', () => {
+    const props = generateCustomPropertiesObject(buildConfig({ title_max_lines: 0 }));
+
+    expect(props['--calendar-card-grid-title-lines-compact']).toBe('1');
+    expect(props['--calendar-card-grid-title-lines-medium']).toBe('2');
+    expect(props['--calendar-card-grid-title-lines-expanded']).toBe('3');
+  });
+
+  it('keeps the grid disclosure ladder from rising above a two-line title limit', () => {
+    const props = generateCustomPropertiesObject(buildConfig({ title_max_lines: 2 }));
+
+    expect(props['--calendar-card-grid-title-lines-compact']).toBe('1');
+    expect(props['--calendar-card-grid-title-lines-medium']).toBe('2');
+    expect(props['--calendar-card-grid-title-lines-expanded']).toBe('2');
+  });
+
   it('honours a per-field value overridden inside a column block', () => {
     const config = buildConfig({ time_max_lines: 0, column: { time_max_lines: 1 } });
     // The override lives in the column block; generateCustomPropertiesObject reads

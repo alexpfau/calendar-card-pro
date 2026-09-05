@@ -121,6 +121,9 @@ describe('custom property mapping', () => {
       // Asserted in their own dedicated files, listed here so this check stays exhaustive.
       '--calendar-card-description-max-lines',
       '--calendar-card-title-max-lines',
+      '--calendar-card-grid-title-lines-compact',
+      '--calendar-card-grid-title-lines-medium',
+      '--calendar-card-grid-title-lines-expanded',
       '--calendar-card-time-max-lines',
       '--calendar-card-location-max-lines',
       '--calendar-card-title-display',

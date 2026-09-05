@@ -166,6 +166,12 @@ A banner for an event that starts before the first column or ends after the last
 carries a small arrow on that side, so a week-long holiday reads as continuing rather
 than as ending exactly at the card's edge.
 
+All-day banners are title-only. They still use the calendar accent, background opacity and
+past-event dimming, but they do not draw event detail rows: time badges, location,
+description, event weather, countdowns, progress bars and label icons stay out of the band.
+Those rows would make one all-day item taller than its neighbors and break the band into a
+stack of uneven cards rather than a compact spanning banner.
+
 `allday_band_max_rows` caps how tall the band may grow. Banners that do not fit are
 dropped — without it, a week containing several long events would push the axis off the
 bottom of the card.
@@ -191,6 +197,12 @@ Short blocks use progressive disclosure so clipped text does not look broken. A 
 once a full text row fits, time appears once the block can hold a full title row plus a full
 time row, and location waits until there is room for another detail line. In narrow columns,
 a long title breaks at word boundaries and truncates before it slices the time or location row.
+
+Timed blocks use the same shared event content as list and column view, but compact
+placements differ from column view: event weather sits beside the title, the progress bar
+stays inline on the time row, and countdowns trail the time row. Giving any of those its
+own row would hide the title sooner in the short blocks where the grid needs the most
+compression.
 
 ::: tip Keep Detail Rows Short
 Grid blocks have less room than list rows. If you show time, location and description in
@@ -301,5 +313,12 @@ used, because it would turn the middle day of a timed event into an all-day bann
 The compact options — `compact_events_to_show`, `compact_days_to_show` and
 `compact_events_complete_days` — are list-only and do nothing here either, as they do
 nothing in column view.
+
+The detail-row options also do nothing on all-day banners: `show_time`,
+`show_single_allday_time`, `show_multiday_allday_time`, `allday_badge`,
+`show_location_allday`, `show_description_allday`, `show_countdown_allday`,
+`show_progress_bar`, `weather.position: event`, per-calendar `label`,
+`label_type: home-assistant`, `label_icon_color` and their max-line companions affect
+timed blocks or the other views, not the all-day band.
 
 **→ [Grid-Only Options in the configuration reference](/reference/configuration#grid-only-options)** — full option table.

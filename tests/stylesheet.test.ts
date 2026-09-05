@@ -1643,10 +1643,11 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure .summary-row', 'overflow')).toBe('hidden');
       expect(declared('.grid-event-disclosure .summary', 'min-height')).toBe('0');
       expect(declared('.grid-event-disclosure .summary', 'padding-block')).toBe('0');
-      expect(declared('.grid-event-disclosure .event-title', '-webkit-line-clamp')).toBe('1');
-      expect(CSS).toContain('-webkit-line-clamp: 2;');
-      expect(CSS).toContain('-webkit-line-clamp: 1;');
-      expect(CSS).toContain('-webkit-line-clamp: 3;');
+      expect(declared('.grid-event-disclosure .event-title', '-webkit-line-clamp')).toBe(
+        'var(--calendar-card-grid-title-lines-compact)',
+      );
+      expect(CSS).toContain('-webkit-line-clamp: var(--calendar-card-grid-title-lines-medium);');
+      expect(CSS).toContain('-webkit-line-clamp: var(--calendar-card-grid-title-lines-expanded);');
       expect(declared('.grid-event-disclosure .time', 'flex')).toBe('0 0 auto');
       expect(declared('.grid-event-disclosure .time', 'min-width')).toBe('0');
       expect(declared('.grid-event-disclosure .time', 'overflow')).toBe('hidden');

@@ -358,6 +358,7 @@ function renderRules(
  * @param placement - Where it sits in the band
  * @param config - Card configuration
  * @param language - Language code for translations
+ * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
  * @returns Rendered block
  */
@@ -366,6 +367,7 @@ function renderTimedEvent(
   placement: Grid.EventPlacement,
   config: Types.Config,
   language: string,
+  weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
@@ -392,7 +394,10 @@ function renderTimedEvent(
     >
       <div class="grid-event-disclosure">
         ${Leaves.renderEventContent(event, config, contentParts, {
+          weatherForecasts,
           weatherPlacement: 'title',
+          progressPlacement: 'inline',
+          countdownPlacement: 'trailing',
           hass,
         })}
       </div>
@@ -736,7 +741,18 @@ export function renderGridGroupedEvents(
         : nothing}
       ${renderRules(band, slotMinutes, gridDays.length)}
       ${gridDays.map((day, index) =>
-        renderDayBody(day, band, config, language, index, maxLanes, showNowLine, now, hass),
+        renderDayBody(
+          day,
+          band,
+          config,
+          language,
+          index,
+          maxLanes,
+          showNowLine,
+          now,
+          weatherForecasts,
+          hass,
+        ),
       )}
       ${separators}
     </div>
@@ -837,6 +853,7 @@ function renderDayHeader(
  * @param maxLanes - Overlap cap
  * @param showNowLine - Whether the now line is enabled
  * @param now - Instant to draw the now line at
+ * @param weatherForecasts - Weather forecasts for event badges
  * @param hass - Home Assistant instance
  * @returns Rendered column
  */
@@ -849,6 +866,7 @@ function renderDayBody(
   maxLanes: number,
   showNowLine: boolean,
   now: Date,
+  weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
@@ -876,7 +894,9 @@ function renderDayBody(
         (event) => {
           const placement = Grid.computeEventPlacement(event.startMin, event.endMin, band);
 
-          return placement ? renderTimedEvent(event, placement, config, language, hass) : nothing;
+          return placement
+            ? renderTimedEvent(event, placement, config, language, weatherForecasts, hass)
+            : nothing;
         },
       )}
       ${overflows.map((overflow) => {
