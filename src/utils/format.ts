@@ -137,7 +137,6 @@ export function formatEventTimeParts(
     return { allDayLabel: translations.allDay, text: '' };
   }
 
-  const useNativeFormatting = !!(config.time_24h === 'system' && hass?.locale);
   const use24h = resolveTimeFormat24h(config, hass);
 
   if (startDate.toDateString() !== endDate.toDateString()) {
@@ -147,10 +146,8 @@ export function formatEventTimeParts(
         endDate,
         language,
         translations,
-        useNativeFormatting,
         use24h,
         config.time_two_digit_hours,
-        hass,
       ),
     };
   }
@@ -160,10 +157,8 @@ export function formatEventTimeParts(
       startDate,
       endDate,
       config.show_end_time,
-      useNativeFormatting,
       use24h,
       config.time_two_digit_hours,
-      hass,
     ),
   };
 }
@@ -524,23 +519,9 @@ export function getCalendarDayDiff(start: Date, end: Date): number {
  * @param date Date to format
  * @param use24h Whether to use 24-hour time
  * @param twoDigitHours Whether to pad hours to two digits
- * @param locale Locale to use for native formatting
  * @returns Formatted time string
  */
-export function formatTime(
-  date: Date,
-  use24h = true,
-  twoDigitHours = false,
-  locale?: string,
-): string {
-  if (locale) {
-    return new Intl.DateTimeFormat(locale, {
-      hour: twoDigitHours ? '2-digit' : 'numeric',
-      minute: '2-digit',
-      hour12: !use24h,
-    }).format(date);
-  }
-
+export function formatTime(date: Date, use24h = true, twoDigitHours = false): string {
   let hours = date.getHours();
   const minutes = date.getMinutes();
 
@@ -749,19 +730,9 @@ function formatSingleDayTime(
   startDate: Date,
   endDate: Date,
   showEndTime: boolean,
-  useNativeFormatting: boolean,
   use24h: boolean = true,
   twoDigitHours: boolean = false,
-  hass?: Types.Hass | null,
 ): string {
-  if (useNativeFormatting && hass?.locale) {
-    const locale = hass.locale.language;
-
-    return showEndTime
-      ? `${formatTime(startDate, use24h, twoDigitHours, locale)} - ${formatTime(endDate, use24h, twoDigitHours, locale)}`
-      : formatTime(startDate, use24h, twoDigitHours, locale);
-  }
-
   return showEndTime
     ? `${formatTime(startDate, use24h, twoDigitHours)} - ${formatTime(endDate, use24h, twoDigitHours)}`
     : formatTime(startDate, use24h, twoDigitHours);
@@ -772,22 +743,15 @@ function formatMultiDayTime(
   endDate: Date,
   language: string,
   translations: Types.Translations,
-  useNativeFormatting: boolean,
   use24h: boolean = true,
   twoDigitHours: boolean = false,
-  hass?: Types.Hass | null,
 ): string {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const formatTimeStr = (date: Date) => {
-    if (useNativeFormatting && hass?.locale) {
-      return formatTime(date, use24h, twoDigitHours, hass.locale.language);
-    }
-    return formatTime(date, use24h, twoDigitHours);
-  };
+  const formatTimeStr = (date: Date) => formatTime(date, use24h, twoDigitHours);
 
   let endPart: string;
 

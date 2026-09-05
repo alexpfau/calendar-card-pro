@@ -207,6 +207,12 @@ describe('the grid hour axis follows the same clock convention as event times', 
   }
 
   it('uses the Home Assistant locale to resolve system time format', () => {
+    // Danish, not German. Both are 24-hour, so either proves the axis resolved `'system'`
+    // through the locale rather than falling back — but Danish writes its separator as a
+    // full stop, so it is the one that also proves the *card's own* formatter drew the
+    // event. While these times went through `Intl` the German assertion below passed
+    // unchanged, because `14:00` is the one rendering the two agree on character for
+    // character; Danish would have read `14.00` and said so.
     const container = renderGrid(
       [timed(17, '14:00', '15:00', 'Review')],
       buildConfig({
@@ -214,7 +220,7 @@ describe('the grid hour axis follows the same clock convention as event times', 
         days_to_show: 3,
         grid: { start_time: '14:00', end_time: '16:00' },
       }),
-      hassWithLocale('de', 'language'),
+      hassWithLocale('da', 'language'),
     );
 
     const axisText = axisLabels(container);
@@ -222,6 +228,7 @@ describe('the grid hour axis follows the same clock convention as event times', 
     expect(axisText[0]).not.toContain('PM');
     expect(axisText[0]).toBe('14');
     expect(container.textContent).toContain('14:00');
+    expect(container.textContent).not.toContain('14.00');
   });
 
   it.each([

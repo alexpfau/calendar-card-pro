@@ -423,11 +423,10 @@ function gridTimedEventContentParts(
   }
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const locale = config.time_24h === 'system' && hass?.locale ? hass.locale.language : undefined;
 
   return {
     ...parts,
-    eventTime: FormatUtils.formatTime(startDate, use24h, config.time_two_digit_hours, locale),
+    eventTime: FormatUtils.formatTime(startDate, use24h, config.time_two_digit_hours),
   };
 }
 
@@ -523,21 +522,25 @@ function renderBanner(
  * Lay every all-day banner out into rows, packing non-overlapping ones together.
  *
  * Greedy first-fit on columns, which is the same shape as the timed lane packing one
- * axis over. Banners beyond `allday_band_max_rows` are dropped and counted, so the band
- * cannot grow without bound on a week containing a long holiday.
+ * axis over. Banners beyond `allday_band_max_rows` are dropped, so the band cannot grow
+ * without bound on a week containing a long holiday.
+ *
+ * Nothing marks the ones that did not fit, which is the opposite of the timed path's
+ * `+N` block, and the asymmetry is forced rather than chosen: a timed overflow marker
+ * has a lane to sit in, whereas a banner that does not fit has no row to announce
+ * itself from without occupying the very row the cap just refused. This counted the
+ * drops for a while and threw the number away — `docs/features/grid-view.md` says
+ * plainly that they are dropped, so the card was not claiming otherwise, and a total
+ * nothing reads is not a lesser bug than one that lies.
  *
  * @param days - Days on screen, in order
- * @param windowStart - Local midnight of the first column
  * @param maxRows - Rows the band may use
- * @returns Placed banners, plus how many did not fit
+ * @returns Placed banners, in row order
  */
 function layoutBanners(
   days: Types.EventsByDay[],
   maxRows: number,
-): {
-  placed: Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement; row: number }>;
-  hidden: number;
-} {
+): Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement; row: number }> {
   const seen = new Set<string>();
   const banners: Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement }> = [];
   const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
@@ -576,7 +579,6 @@ function layoutBanners(
     placement: Grid.BannerPlacement;
     row: number;
   }> = [];
-  let hidden = 0;
 
   for (const banner of banners) {
     const start = banner.placement.columnIndex;
@@ -588,7 +590,6 @@ function layoutBanners(
 
     if (row < 0) {
       if (rowSpans.length >= maxRows) {
-        hidden += 1;
         continue;
       }
 
@@ -600,7 +601,7 @@ function layoutBanners(
     placed.push({ ...banner, row: row + 1 });
   }
 
-  return { placed, hidden };
+  return placed;
 }
 
 //-----------------------------------------------------------------------------
@@ -659,7 +660,7 @@ export function renderGridGroupedEvents(
   const boundaries = computeDayBoundaries(gridDays);
 
   const banners = layoutBanners(gridDays, maxRows);
-  const bandRows = banners.placed.reduce((max, banner) => Math.max(max, banner.row), 0);
+  const bandRows = banners.reduce((max, banner) => Math.max(max, banner.row), 0);
   const separators = boundaries
     .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))
     .filter(({ separator, index }) => separator !== null && index > 0)
@@ -694,7 +695,7 @@ export function renderGridGroupedEvents(
                 columnGap: gutter,
               })}
             >
-              ${banners.placed.map((banner) =>
+              ${banners.map((banner) =>
                 renderBanner(banner.event, banner.placement, banner.row, config, language, hass),
               )}
             </div>

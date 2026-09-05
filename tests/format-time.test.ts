@@ -92,22 +92,64 @@ describe('formatTime', () => {
       expect(formatTime(at(9, 5), true, true)).toBe('09:05');
     });
 
-    it('keeps explicit 24-hour formatting language-neutral unless native formatting is requested', () => {
+    it('renders the same digits whatever the locale, on every time_24h setting', () => {
+      // The regression this pins ran the other way round. A grid fix made the axis and the
+      // events agree on 12-versus-24, which was right, and reached for
+      // `Intl.DateTimeFormat` to do it, which was not: the card's own formatter was the
+      // only thing list and column had ever used, so every user who never set `time_24h`
+      // -- the shipped default is `'system'` -- silently moved onto `Intl`. Danish renders
+      // `9.05`, Japanese prefixes `午前`, and English 24-hour pads to `09:05` under
+      // `hour: 'numeric'`, which also made `time_two_digit_hours` a no-op for the largest
+      // cohort of all. A later fix narrowed the gate back and left the formatter, so the
+      // default cohort was still affected.
+      //
+      // Danish is the discriminator: it is the setting where `Intl` differs from this
+      // card by a character a reader would notice, and the previous test picked
+      // `time_24h: true`, an explicit value the gate never selected -- it passed with the
+      // regression live. `'system'` is the value that matters, so it is asserted first.
       const event: Types.CalendarEventData = {
         start: { dateTime: at(9, 5).toISOString() },
         end: { dateTime: at(10, 5).toISOString() },
         summary: 'Review',
       };
-      const hass = {
+      const danish = {
         states: {},
         callApi: async () => undefined,
         callService: () => undefined,
         locale: { language: 'da', time_format: '24' },
       } as unknown as Types.Hass;
 
-      expect(formatEventTimeParts(event, buildConfig({ time_24h: true }), 'en', hass).text).toBe(
+      expect(formatEventTimeParts(event, buildConfig(), 'en', danish).text).toBe('9:05 - 10:05');
+      expect(formatEventTimeParts(event, buildConfig({ time_24h: true }), 'en', danish).text).toBe(
         '9:05 - 10:05',
       );
+      expect(formatEventTimeParts(event, buildConfig({ time_24h: false }), 'en', danish).text).toBe(
+        '9:05 AM - 10:05 AM',
+      );
+    });
+
+    it('still pads to two digits for an English 24-hour card', () => {
+      // `Intl` renders `hour: 'numeric'` and `hour: '2-digit'` identically for `en` under a
+      // 24-hour cycle -- both `09:05` -- so while the card formatted through it this option
+      // distinguished nothing at all for the commonest configuration there is. Asserting
+      // the pair together is what makes that visible; either line alone passes.
+      const event: Types.CalendarEventData = {
+        start: { dateTime: at(9, 5).toISOString() },
+        end: { dateTime: at(10, 5).toISOString() },
+        summary: 'Review',
+      };
+      const english = {
+        states: {},
+        callApi: async () => undefined,
+        callService: () => undefined,
+        locale: { language: 'en', time_format: '24' },
+      } as unknown as Types.Hass;
+
+      expect(formatEventTimeParts(event, buildConfig(), 'en', english).text).toBe('9:05 - 10:05');
+      expect(
+        formatEventTimeParts(event, buildConfig({ time_two_digit_hours: true }), 'en', english)
+          .text,
+      ).toBe('09:05 - 10:05');
     });
   });
 
