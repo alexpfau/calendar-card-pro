@@ -68,7 +68,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height_mode.option.fixed.label': 'Fixed height',
   'height_mode.option.maximum.label': 'Maximum height',
   card_height: 'Height',
-  'card_height.helper': 'The card is always this tall, scrolling if the events do not fit.',
+  'card_height.helper':
+    'The card is always this tall. List and column views scroll if the events do not fit; ' +
+    'grid view compresses the time axis.',
   card_max_height: 'Maximum Height',
   'card_max_height.helper': 'The card grows with its content up to this height, then scrolls.',
 
@@ -360,7 +362,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Above this, the rest collapse into one block saying how many it stands for. Nothing ' +
     'is hidden without being counted.',
   'time_grid.height': 'Height',
-  'time_grid.height.helper': 'A fixed height for the grid layout. Use auto to let it grow.',
+  'time_grid.height.helper':
+    'A fixed height for the grid layout. The time axis compresses to fit; use auto to let it grow.',
   'time_grid.max_height': 'Maximum Height',
   'time_grid.max_height.helper': 'The tallest the grid layout may grow before it scrolls.',
   'time_grid.show_week_numbers': 'Week Numbers',

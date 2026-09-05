@@ -33,7 +33,6 @@
   "height_mode.option.fixed.label": "Pevná výška",
   "height_mode.option.maximum.label": "Maximálna výška",
   "card_height": "Výška",
-  "card_height.helper": "Karta má vždy túto výšku a ak sa udalosti nezmestia, posúva sa.",
   "card_max_height": "Maximálna výška",
   "card_max_height.helper": "Karta rastie so svojím obsahom až do tejto výšky a potom sa posúva.",
   "column.density": "Hustota stĺpcov",

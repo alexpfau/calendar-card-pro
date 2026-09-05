@@ -33,7 +33,6 @@
   "height_mode.option.fixed.label": "Fast høyde",
   "height_mode.option.maximum.label": "Maksimal høyde",
   "card_height": "Høyde",
-  "card_height.helper": "Kortet er alltid så høyt, og ruller hvis hendelsene ikke får plass.",
   "card_max_height": "Maksimal høyde",
   "card_max_height.helper": "Kortet vokser med innholdet opp til denne høyden, og ruller deretter.",
   "column.density": "Kolonnetetthet",

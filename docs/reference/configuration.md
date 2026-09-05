@@ -132,8 +132,10 @@ the card-wide settings for that one calendar:
 
 **→ [Using the Colors From Home Assistant](/features/core-settings#using-the-colors-from-home-assistant)** — what `accent_color: home-assistant` follows, and what calendars without a color fall back to.
 
-Both height options may be overridden inside a `column:` block, and usually should be — see
-[Height in Column View](/features/layout-appearance#height-in-column-view).
+Both height options may be overridden inside a `column:` or `time_grid:` block — see
+[Height in Column View](/features/layout-appearance#height-in-column-view) and
+[Height in Grid View](/features/layout-appearance#height-in-grid-view). In grid view a
+fixed `height` compresses the time axis rather than scrolling.
 
 **→ [Layout and appearance](/features/layout-appearance)**
 

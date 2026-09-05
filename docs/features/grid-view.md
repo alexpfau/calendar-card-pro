@@ -78,6 +78,8 @@ height: 400px
 That is the setting to reach for on a dashboard where the card has to be a particular
 size.
 
+**→ [Height in Grid View](/features/layout-appearance#height-in-grid-view)** — how this interacts with `max_height` and the other views.
+
 ## 📐 Ruling the Axis
 
 `slot_minutes` sets how finely the axis is ruled — `15`, `20`, `30` or `60`. It changes

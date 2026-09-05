@@ -33,7 +33,6 @@
   "height_mode.option.fixed.label": "Stała wysokość",
   "height_mode.option.maximum.label": "Maksymalna wysokość",
   "card_height": "Wysokość",
-  "card_height.helper": "Karta ma zawsze tę wysokość i przewija się, jeśli wydarzenia się nie mieszczą.",
   "card_max_height": "Maksymalna wysokość",
   "card_max_height.helper": "Karta rośnie wraz z zawartością do tej wysokości, a potem się przewija.",
   "column.density": "Gęstość kolumn",

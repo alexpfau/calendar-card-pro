@@ -23,11 +23,12 @@ The card offers two distinct height control mechanisms:
 
 - **Maximum Height (`max_height`)**: Allows the card to grow naturally up to the specified limit. This provides flexibility while still ensuring the card doesn't become too large.
 
-Both options provide:
+In list and column views, both options scroll when content exceeds the available space.
+In grid view a fixed `height` compresses the time axis instead — see
+[Height in Grid View](#height-in-grid-view). `max_height` still scrolls in every view.
 
-- Automatic scrolling when content exceeds the available space
-- Modern, clean scrollbars that only appear during hover/scrolling
-- Consistent behavior across desktop and mobile browsers
+Scrollbars are modern and clean, appearing only during hover or scrolling, and behave the
+same on desktop and mobile.
 
 ### Height in Column View
 
@@ -46,15 +47,35 @@ column:
 
 What scrolls is the **whole card**, not an individual day. The columns sit inside one
 scrolling area, so the day headers move together with their events and nothing scrolls out
-of alignment with its neighbors. The grid is exactly as tall as its tallest day, which
-means a quiet day leaves empty space beneath its last event rather than stretching to
-match — the events stay anchored under their header.
+of alignment with its neighbors. The column layout is exactly as tall as its tallest day,
+which means a quiet day leaves empty space beneath its last event rather than stretching
+to match — the events stay anchored under their header.
 
 ::: tip Sizing From The Dashboard Instead
 Home Assistant's own layout controls (⋮ → **Edit** → **Layout**) can constrain the card
 too, and they scroll it the same way. Use them when a row height is precise enough;
 reach for `max_height` when you want an exact pixel value, or a different limit per view.
 :::
+
+### Height in Grid View
+
+A fixed `height` here compresses the time axis rather than scrolling. Hours, events, and
+the now line are all positioned as a share of the band, so they squeeze into whatever
+room the card has left after the day headers and the all-day band. `hour_height` stops
+applying. Reach for this when the dashboard has already decided the card's size.
+
+`max_height` still caps and scrolls, the same as in the other views.
+
+Both options may be overridden inside a `time_grid:` block. A height tuned for a list of
+events is the wrong size for a compressed axis, for the same reason a list height is
+usually wrong for columns.
+
+```yaml
+view: grid
+height: 400px
+```
+
+**→ [How Tall an Hour Is](/features/grid-view#how-tall-an-hour-is)** — `hour_height` and when a fixed height takes over.
 
 ## 🎨 Visual Styling & Colors
 
