@@ -2,6 +2,33 @@
 title: Release Notes
 ---
 
+# Calendar Card Pro v5.0.0
+
+**Your days, side by side, against an hour axis.** Grid view draws each day as a column and each event as a block at its real start time, sized by how long it runs — the week view a calendar app gives you, in a Lovelace card. All-day events sit in a band of their own above the axis, a line marks the current time, and everything you already configure about how an event looks carries straight over.
+
+## 🎉 New Features
+
+### 🗓️ Grid View
+
+Set `view: grid` and the card stops being a list. Days become columns against a shared hour axis, and an event is drawn where it starts and as tall as it lasts, so a morning stacked with meetings looks different from an empty one before you read a word of it. Events happening at once sit side by side, and when more overlap than will fit, the rest collapse into a counted `+N` block rather than disappearing.
+
+- **Events sized and placed by their real time** - A block's position and height come from the event's own start and end, which is what makes the shape of a day readable at a glance. Multi-day timed events are drawn in each day they touch. (#300, #206)
+- **A line across today at the current time** - `show_now_line` draws it, `now_line_color` colors it. Only today's column carries it, and only while the current time is inside the visible hours — a line clamped to an edge would say something false. (#325)
+- **An all-day band above the axis** - All-day and multi-day events sit in their own rows between the day headers and the grid, spanning the days they cover, exactly as they do in a calendar app. `allday_band_max_rows` caps how tall that band may grow.
+- **The axis is yours to set** - `start_time` and `end_time` choose the hours drawn, `hour_height` how tall an hour is, `slot_minutes` how finely it is ruled, and `axis_width` how wide the hour gutter sits. `show_axis_labels` turns the labels off entirely.
+- **It gives way gracefully when narrow** - `min_day_width` sets how narrow a day column may get before the grid sheds one, `min_days_to_show` the fewest it will shrink to, and `min_days_fallback` what happens when even that will not fit — fall back to the list, or cramp. The same flexible width machinery column view already uses.
+- **Blocks reveal more as they grow** - A short block shows its title; a taller one adds the time, then the progress bar, then location, description and weather. The card never draws a row into a block that cannot hold it, so nothing is clipped mid-sentence.
+- **Sensible different defaults, visible in the editor** - A few options mean something different on a time axis, so grid substitutes its own: filled event blocks, empty days kept, past events kept, a hairline between day columns, and a full-width progress bar. Switch a card to grid in the visual editor and each one is written into `time_grid:` as an exception you can see and change, rather than hiding in resolution.
+
+Every option grid view adds lives under `time_grid:`, and that block is also where you override any presentation option for grid alone. See [Grid View](https://calendar-card-pro.alexpfau.com/features/grid-view).
+
+## Related Issues
+
+- [#300](https://github.com/alexpfau/calendar-card-pro/issues/300) - Time grid, place events on an hour axis at their real start time — the core of this release. Note it also asked for a time grid _and_ a month view; only the first shipped, **do not close**
+- [#206](https://github.com/alexpfau/calendar-card-pro/issues/206) - Size an event by its duration — answered by the block geometry
+- [#325](https://github.com/alexpfau/calendar-card-pro/issues/325) - A "now" line on a time-axis day view — answered by `show_now_line`
+- [#339](https://github.com/alexpfau/calendar-card-pro/pull/339) - The original grid-view proposal by @lenaxia, whose design and config surface shaped this one. Its paging controls and event-detail popup are deliberately not here: both are view-independent and belong to [#185](https://github.com/alexpfau/calendar-card-pro/issues/185) and [#241](https://github.com/alexpfau/calendar-card-pro/issues/241) rather than inside the grid renderer
+
 # Calendar Card Pro v4.2.0
 
 **A shared event now says who it belongs to, plural — and can say so in a color of its own.** When `filter_duplicates` collapses an event two calendars hold into one row, that row now names every calendar it came from instead of only the first, and an optional accent color sets the shared events apart at a glance.

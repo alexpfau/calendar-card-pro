@@ -6,7 +6,16 @@ Each entry below covers a whole minor release line — the `X.Y.0` release plus 
 patch that followed it — so this page reads as the card's progression from the first
 public release in January 2025 to today.
 
-## Latest Release: v4.2
+## Latest Release: v5.0
+
+- 🗓️ **Grid View**: Set [`view: grid`](/features/grid-view) and days become columns against a shared hour axis, each event drawn at its real start time and sized by how long it runs — the week view a calendar app gives you, in a Lovelace card. Overlapping events sit side by side, and when more overlap than will fit the rest collapse into a counted `+N` block
+- 🕒 **A Line Across Today**: [`show_now_line`](/features/grid-view) marks the current time on today's column only, and only while it falls inside the hours you draw
+- 🏷️ **An All-Day Band**: all-day and multi-day events get their own rows above the axis, spanning the days they cover, so they never compete with the hour grid for space
+- ⚙️ **An Axis You Set**: `start_time`, `end_time`, `hour_height`, `slot_minutes` and `axis_width` decide which hours are drawn and how they are ruled
+- 📐 **It Gives Way Gracefully**: `min_day_width`, `min_days_to_show` and `min_days_fallback` decide how narrow the grid may get before it sheds a column, and what happens when even that will not fit
+- 🎚️ **Different Defaults Where a Time Axis Needs Them**: filled event blocks, empty days kept, past events kept, a hairline between columns and a full-width progress bar — each written into `time_grid:` as a visible exception when you switch a card to grid, rather than hidden in resolution
+
+## v4.2
 
 - 🧑 **A Shared Event Shows Every Calendar's Label**: With duplicates filtered, an event two calendars hold kept one row and one label — so a lunch you and your partner both have showed one of you. The row now draws [the label of every calendar it came from](/features/core-settings#labeling-coloring-shared-events), both faces instead of one, with identical labels drawn once. Colors are unchanged, and nothing changes unless you both filter duplicates and label your calendars
 - 🎨 **A Color for Events Two Calendars Share**: [`duplicate_accent_color`](/features/core-settings#labeling-coloring-shared-events) accents every merged event in a color of its own, so joint events are findable at a glance while the labels say who each of the others belongs to. Only fires across different calendars, and unset it changes nothing
