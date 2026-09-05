@@ -861,7 +861,14 @@ function renderDayBody(
   const dayDate = new Date(day.timestamp);
   const { isToday } = Leaves.classifyDay(day.timestamp);
   const { timed } = sortDayEvents(day);
-  const { placed, overflows } = Grid.layoutLanes(timed, maxLanes);
+  // Lanes are shared out among events that overlap, so the set they are computed over
+  // decides how wide each drawn block is. Handing `layoutLanes` the whole day let an event
+  // outside the visible hours claim a lane it would never draw into: a card showing 18:00
+  // onward gave a lone evening event half its column because a lunchtime meeting, nowhere
+  // on screen, was still counted as overlapping it. Narrow to what the band can actually
+  // show first, so width is decided by what the reader can see.
+  const visible = timed.filter((event) => Grid.intersectsBand(event.startMin, event.endMin, band));
+  const { placed, overflows } = Grid.layoutLanes(visible, maxLanes);
 
   // Only today's column carries the line, and only when the current time is inside the
   // band. A line drawn across every column would say nothing; one clamped to an edge

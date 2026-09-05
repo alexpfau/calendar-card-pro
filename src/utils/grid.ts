@@ -237,16 +237,38 @@ export interface EventPlacement {
  * @param band - The visible band
  * @returns Placement, or `null` when the event falls wholly outside the band
  */
+/**
+ * Whether any part of an event falls inside the band.
+ *
+ * Extracted so the renderer's lane pass and `computeEventPlacement` cannot disagree about
+ * what "visible" means. They must answer identically: lanes are assigned before placement,
+ * so an event this call admits but placement then rejects reserves a lane and draws
+ * nothing, leaving a visible event at a fraction of its column beside an empty gap. That
+ * is precisely the defect the filter exists to prevent, and duplicating the comparison is
+ * how it would come back.
+ *
+ * Half-open, matching the lane packer: an event ending exactly at the band start is out,
+ * and one starting exactly at the band end is out.
+ *
+ * @param startMin - Event start, minutes from midnight.
+ * @param endMin - Event end, minutes from midnight.
+ * @param band - The visible window.
+ * @returns True when the event has any part inside the band.
+ */
+export function intersectsBand(startMin: number, endMin: number, band: GridBand): boolean {
+  if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || endMin <= startMin) {
+    return false;
+  }
+
+  return endMin > band.startMin && startMin < band.endMin;
+}
+
 export function computeEventPlacement(
   startMin: number,
   endMin: number,
   band: GridBand,
 ): EventPlacement | null {
-  if (!Number.isFinite(startMin) || !Number.isFinite(endMin) || endMin <= startMin) {
-    return null;
-  }
-
-  if (endMin <= band.startMin || startMin >= band.endMin) {
+  if (!intersectsBand(startMin, endMin, band)) {
     return null;
   }
 

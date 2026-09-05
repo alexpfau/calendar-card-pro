@@ -281,18 +281,22 @@ Anything the block does not mention keeps its top-level value.
 Four shared options do not inherit their top-level value in grid view. The **Default** column
 is what grid view uses; **Instead of** is the top-level default it replaces:
 
-| Option                     | Type    | Default | Instead of |
-| -------------------------- | ------- | ------- | ---------- |
-| `event_background_opacity` | number  | `20`    | `0`        |
-| `show_empty_days`          | boolean | `true`  | `false`    |
-| `show_past_events`         | boolean | `true`  | `false`    |
-| `day_separator_width`      | string  | `0.5px` | `0px`      |
+| Option                     | Type    | Default | Instead of      |
+| -------------------------- | ------- | ------- | --------------- |
+| `event_background_opacity` | number  | `20`    | `0`             |
+| `show_empty_days`          | boolean | `true`  | `false`         |
+| `show_past_events`         | boolean | `true`  | `false`         |
+| `day_separator_width`      | string  | `0.5px` | `0px`           |
+| `progress_bar_width`       | string  | `100%`  | _per placement_ |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
 a day of axis, so empty days are shown. A finished meeting earlier today is still part of
 today's hour-by-hour shape, so past events stay visible. Day separators are also on by
-default, so the shared axis still reads as separate day columns.
+default, so the shared axis still reads as separate day columns. The progress bar fills
+the block's full width: column view draws it at 80% of a row with no boundary of its own,
+where a full width would read as an underline, but a grid block is a tinted box with an
+edge, and a bar stopping short of that edge reads as unfinished rather than as restraint.
 
 Set any of them inside `time_grid:` to change it back.
 

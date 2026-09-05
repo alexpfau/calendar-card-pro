@@ -1184,6 +1184,49 @@ describe('the grid reuses the shared leaves', () => {
     expect(container.querySelector('.grid-event .time-text > .time-countdown')).not.toBeNull();
   });
 
+  it('sizes lanes from what the band shows, not from the whole day', () => {
+    // Lanes are shared among overlapping events and decide each block's width, so the set
+    // they are computed over is a layout decision. Computing it over the whole day let an
+    // event nowhere on screen take a lane it would never draw into: a card showing only
+    // the evening gave its one visible event half a column, with the other half empty,
+    // because a lunchtime meeting outside the band still counted as overlapping it.
+    //
+    // The out-of-band event has to genuinely overlap the visible one for this to bite,
+    // which is why the workshop starts before the band and the lunch sits inside it.
+    const config = buildConfig({ view: 'grid', days_to_show: 1 });
+    config.time_grid = { start_time: '18:00', end_time: '24:00' };
+
+    const container = renderGrid(
+      [timed(17, '08:00', '23:00', 'Long workshop'), timed(17, '12:00', '13:00', 'Lunch')],
+      config,
+    );
+    const blocks = Array.from(container.querySelectorAll<HTMLElement>('.grid-event'));
+
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0].textContent).toContain('Long workshop');
+    expect(
+      blocks[0].getAttribute('style'),
+      'the only visible event should own its column',
+    ).toContain('calc(100%');
+  });
+
+  it('still lanes two events that both reach into the band', () => {
+    // The control for the test above: the filter must narrow to the band, not to one event.
+    const config = buildConfig({ view: 'grid', days_to_show: 1 });
+    config.time_grid = { start_time: '18:00', end_time: '24:00' };
+
+    const container = renderGrid(
+      [timed(17, '08:00', '23:00', 'Long workshop'), timed(17, '19:00', '20:00', 'Evening talk')],
+      config,
+    );
+    const blocks = Array.from(container.querySelectorAll<HTMLElement>('.grid-event'));
+
+    expect(blocks).toHaveLength(2);
+    for (const block of blocks) {
+      expect(block.getAttribute('style')).toContain('calc(50%');
+    }
+  });
+
   it('marks timed blocks as height-query containers for progressive disclosure', () => {
     const container = renderGrid([
       timed(18, '09:00', '09:30', 'Short sync'),

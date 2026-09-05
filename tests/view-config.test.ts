@@ -334,6 +334,26 @@ describe('resolveEffectiveConfig', () => {
   });
 
   describe('divergent grid defaults', () => {
+    it('fills the grid block with the progress bar, where column view leaves a margin', () => {
+      // `progress_bar_width` ships as `undefined` so each placement can supply its own
+      // fallback — 60px inline, 80% on its own row. Column's row has no boundary of its
+      // own, so a full-width bar there would read as an underline. A grid block is a
+      // tinted box with an edge, and a bar stopping short of that edge reads as
+      // unfinished rather than as restraint, so grid substitutes an explicit 100%.
+      const config = buildConfig({});
+
+      expect(config.progress_bar_width).toBeUndefined();
+      expect(resolveEffectiveConfig(config, 'list').progress_bar_width).toBeUndefined();
+      expect(resolveEffectiveConfig(config, 'column').progress_bar_width).toBeUndefined();
+      expect(resolveEffectiveConfig(config, 'grid').progress_bar_width).toBe('100%');
+    });
+
+    it('lets the block set its own progress bar width in grid view', () => {
+      const config = buildConfig({ time_grid: { progress_bar_width: '60%' } });
+
+      expect(resolveEffectiveConfig(config, 'grid').progress_bar_width).toBe('60%');
+    });
+
     it('defaults show_past_events to true in grid view and false in list view', () => {
       const config = buildConfig({});
 

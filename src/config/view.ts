@@ -629,7 +629,10 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * contiguous unless a user explicitly hides empty columns in `time_grid:`.
  * `show_past_events` keeps today's finished blocks on the axis instead of emptying the
  * morning as the day passes. `day_separator_width` turns on vertical rules so a shared
- * axis reads as belonging to separate day columns.
+ * axis reads as belonging to separate day columns. `progress_bar_width` fills the block:
+ * column view draws the bar at 80% of a row that has no boundary of its own, where a full
+ * width would read as an underline, while a grid block is a tinted box with an edge — so
+ * a bar short of that edge reads as unfinished rather than as restraint.
  *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
@@ -642,6 +645,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
 } = {
   day_separator_width: '0.5px',
   event_background_opacity: 20,
+  progress_bar_width: '100%',
   show_empty_days: true,
   show_past_events: true,
 };
