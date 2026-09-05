@@ -271,6 +271,13 @@ describe('layoutLanes', () => {
     expect(placed.every((event) => event.laneCount === 1)).toBe(true);
   });
 
+  it('reuses a lane for abutting events inside a wider cluster', () => {
+    const { placed } = layoutLanes([at(0, 90, 'a'), at(60, 120, 'b'), at(90, 150, 'c')], 5);
+
+    expect(placed.every((event) => event.laneCount === 2)).toBe(true);
+    expect(placed.map((event) => event.laneIndex)).toEqual([0, 1, 0]);
+  });
+
   it('puts two genuinely overlapping events side by side', () => {
     const { placed } = layoutLanes([at(0, 90, 'a'), at(60, 120, 'b')], 3);
 

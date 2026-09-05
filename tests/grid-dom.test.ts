@@ -189,6 +189,17 @@ describe('the grid shares one column template', () => {
     expect(columns).toEqual(['2', '3', '4']);
   });
 
+  it('carries shared day-state classes onto the grid header', () => {
+    const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
+    const headers = Array.from(container.querySelectorAll('.grid-day-header'));
+
+    expect(headers.map((header) => header.classList.contains('today'))).toEqual([
+      true,
+      false,
+      false,
+    ]);
+  });
+
   it('renders nothing but an empty container for no days', () => {
     const container = document.createElement('div');
     litRender(
@@ -372,6 +383,15 @@ describe('events sit at their clock time (#300)', () => {
     const container = renderGrid([timed(17, '21:00', '23:30', 'Late')]);
 
     expect(container.querySelector('.grid-event')!.classList.contains('clipped-bottom')).toBe(true);
+  });
+
+  it('dims a past timed block when past events are shown', () => {
+    const container = renderGrid(
+      [timed(17, '08:00', '09:00', 'Past standup')],
+      buildConfig({ view: 'grid', show_past_events: true, days_to_show: 3 }),
+    );
+
+    expect(container.querySelector('.grid-event')!.classList.contains('past-event')).toBe(true);
   });
 
   it('draws nothing for an event wholly outside the band', () => {
@@ -667,6 +687,62 @@ describe('all-day events go in the band, not the body', () => {
     );
 
     expect(new Set(rows).size).toBe(1);
+  });
+
+  it('honors the all-day band row cap exactly and silently drops the next banner', () => {
+    const days = [
+      gridDay(17, [
+        allDay('2026-06-17', '2026-06-20', 'Trip'),
+        allDay('2026-06-17', '2026-06-18', 'Workshop'),
+        allDay('2026-06-17', '2026-06-18', 'Birthday'),
+      ]),
+      gridDay(18),
+      gridDay(19),
+    ];
+    const container = renderGridDays(
+      days,
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { allday_band_max_rows: 2 } }),
+    );
+    const banners = Array.from(container.querySelectorAll<HTMLElement>('.grid-banner'));
+
+    expect(banners).toHaveLength(2);
+    expect(banners.map((banner) => banner.textContent?.trim())).toEqual(['Trip', 'Workshop']);
+    expect(container.textContent).not.toContain('Birthday');
+    expect(requireElement<HTMLElement>(container, '.grid-allday-band').style.gridTemplateRows).toBe(
+      'repeat(2, auto)',
+    );
+  });
+
+  it('still renders a one-row all-day band when the cap is 1', () => {
+    const container = renderGridDays(
+      [
+        gridDay(17, [
+          allDay('2026-06-17', '2026-06-20', 'Trip'),
+          allDay('2026-06-18', '2026-06-19', 'Hidden conflict'),
+        ]),
+        gridDay(18),
+        gridDay(19),
+      ],
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { allday_band_max_rows: 1 } }),
+    );
+
+    expect(container.querySelectorAll('.grid-banner')).toHaveLength(1);
+    expect(container.textContent).toContain('Trip');
+    expect(container.textContent).not.toContain('Hidden conflict');
+    expect(requireElement<HTMLElement>(container, '.grid-allday-band').style.gridTemplateRows).toBe(
+      'repeat(1, auto)',
+    );
+  });
+
+  it('sizes the all-day band from rows actually used rather than the configured cap', () => {
+    const container = renderGrid(
+      [allDay('2026-06-17', '2026-06-18', 'Only banner')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { allday_band_max_rows: 3 } }),
+    );
+
+    expect(requireElement<HTMLElement>(container, '.grid-allday-band').style.gridTemplateRows).toBe(
+      'repeat(1, auto)',
+    );
   });
 
   it('keeps a later multi-day banner when empty grid days are hidden', () => {
