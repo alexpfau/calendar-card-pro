@@ -223,4 +223,19 @@ describe('weather custom properties', () => {
     expect(props['--calendar-card-weather-date-icon-size']).toBe('41px');
     expect(props['--calendar-card-weather-event-icon-size']).toBe('14px');
   });
+
+  it('keeps clamped event conditions in inline flow', () => {
+    // The stylesheet still supplies the clamp declarations. This custom property chooses
+    // whether the condition becomes a block or stays in the surrounding text run.
+    expect(
+      propsFor({ weather: { entity: 'weather.home', event: { max_lines: 0 } } })[
+        '--calendar-card-weather-event-condition-display'
+      ],
+    ).toBe('inline');
+    expect(
+      propsFor({ weather: { entity: 'weather.home', event: { max_lines: 2 } } })[
+        '--calendar-card-weather-event-condition-display'
+      ],
+    ).toBe('-webkit-inline-box');
+  });
 });

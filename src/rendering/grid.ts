@@ -423,12 +423,12 @@ function gridTimedEventContentParts(
   }
 
   if (!event._gridSegmentStartsEvent || !event.start.dateTime) {
-    return { ...parts, eventTime: '', shouldShowTime: false };
+    return { ...parts, eventTime: '', shouldShowTime: false, countdownStr: null };
   }
 
   const startDate = new Date(event.start.dateTime);
   if (Number.isNaN(startDate.getTime())) {
-    return { ...parts, eventTime: '', shouldShowTime: false };
+    return { ...parts, eventTime: '', shouldShowTime: false, countdownStr: null };
   }
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);

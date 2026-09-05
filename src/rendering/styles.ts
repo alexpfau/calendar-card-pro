@@ -122,7 +122,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
         ? String(config.weather?.event?.max_lines)
         : 'none',
     '--calendar-card-weather-event-condition-display':
-      (config.weather?.event?.max_lines ?? 0) > 0 ? '-webkit-box' : 'inline',
+      (config.weather?.event?.max_lines ?? 0) > 0 ? '-webkit-inline-box' : 'inline',
   };
 
   // Emit optional properties only when the user set them, so placement-specific

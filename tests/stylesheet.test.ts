@@ -410,15 +410,15 @@ describe('card stylesheet', () => {
       // flex item or a literal -webkit-box, flex line collection moves the whole
       // "· Clear, night" item to the next line before the browser ever considers the
       // break opportunity after the comma. The generated display custom property resolves
-      // to inline when max_lines is 0, and to -webkit-box only when the user asks to clamp.
+      // to inline when max_lines is 0, and to an inline box when the user asks to clamp.
       expect(declared('.time-location .event-weather .weather-condition', 'display')).toBe(
         'var(--calendar-card-weather-event-condition-display)',
       );
     });
 
     it('clamps the words with the same mechanism as every other line limit', () => {
-      // -webkit-line-clamp only takes effect on a -webkit-box, and unlimited is the
-      // keyword `none`, which generateCustomPropertiesObject emits when the option is 0.
+      // -webkit-line-clamp needs a WebKit box display, and unlimited is the keyword `none`,
+      // which generateCustomPropertiesObject emits when the option is 0.
       const selector = '.time-location .event-weather .weather-condition';
 
       expect(declared(selector, '-webkit-box-orient')).toBe('vertical');

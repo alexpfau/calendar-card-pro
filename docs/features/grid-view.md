@@ -44,7 +44,9 @@ what the card shows, not only about how it looks.
 
 Timed events that run across more than one day are split into one block per day column. The
 block's position and height show that day's span, so the text stays short: the first block
-shows the event's start time, and continuation blocks show the title only.
+shows the event's start time and countdown, while continuation blocks show neither. Optional
+detail rows such as weather, location and description can still appear because they describe
+the event rather than when it starts.
 
 ::: warning A Bad Time Resets Both Bounds
 If either value cannot be read as `HH:mm`, the card falls back to `07:00`–`22:00` for

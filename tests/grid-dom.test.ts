@@ -497,6 +497,21 @@ describe('timed multi-day events stay in the time grid', () => {
     expect(blockTexts(container).slice(1)).toEqual(['Conference Trip', 'Conference Trip']);
   });
 
+  it('omits countdowns from multi-day timed continuation segments', () => {
+    const container = renderGrid(
+      [timedRange(17, '14:00', 19, '11:00', 'Conference Trip')],
+      buildConfig({ view: 'grid', days_to_show: 3, show_countdown: true, time_24h: true }),
+    );
+    const blocks = Array.from(container.querySelectorAll('.grid-event:not(.grid-event-overflow)'));
+
+    expect(blocks[0].querySelector('.time-text > .time-countdown')).not.toBeNull();
+    expect(blocks.slice(1).map((block) => block.querySelector('.time-countdown'))).toEqual([
+      null,
+      null,
+    ]);
+    expect(blockTexts(container).slice(1)).toEqual(['Conference Trip', 'Conference Trip']);
+  });
+
   it('shows a Tuesday start time and title-only Wednesday and Thursday continuations', () => {
     const event = timedRange(23, '22:00', 25, '02:00', 'Overnight Migration');
     const container = renderGridDays(
@@ -1022,7 +1037,7 @@ describe('the grid reuses the shared leaves', () => {
         weather: {
           entity: 'weather.home',
           position: 'event',
-          event: { show_conditions: true, show_temp: true },
+          event: { show_conditions: true, show_temp: true, max_lines: 2 },
         },
       }),
       weatherHass(),
