@@ -162,7 +162,7 @@
   "time_grid.density": "Densità griglia",
   "time_grid.density.helper": "Quanto può stringersi una colonna giorno prima che la griglia rinunci a un giorno, e cosa fa quando non ne restano più.",
   "time_grid.min_day_width": "Larghezza minima giorno",
-  "time_grid.min_day_width.helper": "La larghezza minima che può avere una colonna giorno. Il valore predefinito 100px mantiene tre giorni a 352px, o 368px quando si arriva dal fallback alla lista.",
+  "time_grid.min_day_width.helper": "La larghezza minima che può avere una colonna giorno. Il valore predefinito 100px mantiene tre giorni a 410px, o 426px quando si arriva dal fallback alla lista.",
   "time_grid.min_days_to_show": "Numero minimo di colonne giorno",
   "time_grid.min_days_to_show.helper": "Fino a quanto la griglia può ridurre il numero di giorni per mantenere il layout orario. Il valore predefinito è 1, perché una griglia di un giorno è comunque una vista giornaliera utile con una linea dell'ora corrente.",
   "time_grid.min_days_fallback": "Quando è troppo stretta",

@@ -1489,21 +1489,34 @@ describe('resolveColumnFit — grid reduction', () => {
     config.column = { min_day_width: 300, min_days_to_show: 5, min_days_fallback: 'cramp' };
 
     expect(resolveMinDaysToShow(config, 'grid')).toBe(1);
-    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(352);
-    expect(resolveColumnFit('grid', config, 368, null)).toEqual({ view: 'grid', columns: 3 });
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(410);
+    expect(resolveColumnFit('grid', config, 426, null)).toEqual({ view: 'grid', columns: 3 });
   });
 
   it('lets grid override its own minimum day width', () => {
     const config = build({ min_day_width: 120 });
 
-    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(412);
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(470);
+  });
+
+  it('reserves a fixed time axis and every gap before accepting day tracks', () => {
+    const config = build({ axis_width: '48px' });
+
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(410);
+    expect(resolveColumnFit('grid', config, 368, null)).toEqual({ view: 'grid', columns: 2 });
+  });
+
+  it('keeps the axis-to-day gap when hidden max-content labels collapse the axis', () => {
+    const config = build({ axis_width: 'max-content', show_axis_labels: false });
+
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(362);
   });
 
   it('falls back to list below one grid day by default', () => {
     const config = build();
 
-    expect(resolveColumnFit('grid', config, 147, null)).toEqual({ view: 'list', columns: 0 });
-    expect(resolveColumnFit('grid', config, 148, null)).toEqual({ view: 'grid', columns: 1 });
+    expect(resolveColumnFit('grid', config, 205, null)).toEqual({ view: 'list', columns: 0 });
+    expect(resolveColumnFit('grid', config, 206, null)).toEqual({ view: 'grid', columns: 1 });
   });
 
   it('holds a one-day grid when asked to cramp', () => {

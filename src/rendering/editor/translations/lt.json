@@ -162,7 +162,7 @@
   "time_grid.density": "Tinklelio tankis",
   "time_grid.density.helper": "Kiek gali susiaurėti dienos stulpelis, kol tinklelis atsisakys dienos, ir ką jis daro, kai vietos pritrūksta.",
   "time_grid.min_day_width": "Mažiausias dienos plotis",
-  "time_grid.min_day_width.helper": "Siauriausias leidžiamas dienos stulpelio plotis. Numatytoji 100px reikšmė išlaiko tris dienas ties 352px arba 368px, kai pereinama iš sąrašo atsarginio vaizdo.",
+  "time_grid.min_day_width.helper": "Siauriausias leidžiamas dienos stulpelio plotis. Numatytoji 100px reikšmė išlaiko tris dienas ties 410px arba 426px, kai pereinama iš sąrašo atsarginio vaizdo.",
   "time_grid.min_days_to_show": "Mažiausiai dienos stulpelių",
   "time_grid.min_days_to_show.helper": "Kiek tinklelis gali sumažinti dienų skaičių, kad išlaikytų laiko išdėstymą. Numatytoji reikšmė yra 1, nes vienos dienos tinklelis su dabarties linija vis tiek yra naudingas dienos vaizdas.",
   "time_grid.min_days_fallback": "Kai per siaura",

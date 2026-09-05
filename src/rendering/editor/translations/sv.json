@@ -162,7 +162,7 @@
   "time_grid.density": "Rutnätstäthet",
   "time_grid.density.helper": "Hur smal en dagkolumn får bli innan rutnätet ger upp en dag, och vad det gör när utrymmet tar slut.",
   "time_grid.min_day_width": "Minsta dagbredd",
-  "time_grid.min_day_width.helper": "Den smalaste en dagkolumn får vara. Standardvärdet 100px håller tre dagar vid 352px, eller 368px när den kommer från listreservläget.",
+  "time_grid.min_day_width.helper": "Den smalaste en dagkolumn får vara. Standardvärdet 100px håller tre dagar vid 410px, eller 426px när den kommer från listreservläget.",
   "time_grid.min_days_to_show": "Minst antal dagkolumner",
   "time_grid.min_days_to_show.helper": "Hur långt rutnätet får minska antalet dagar för att behålla tidslayouten. Standard är 1, eftersom ett endagsrutnät fortfarande är en användbar dagsvy med en nu-linje.",
   "time_grid.min_days_fallback": "När det blir för smalt",

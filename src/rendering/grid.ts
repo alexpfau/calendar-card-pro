@@ -321,6 +321,9 @@ function renderRules(
   const bandLength = band.endMin - band.startMin;
   const slotPct = (slotMinutes / bandLength) * 100;
   const hourPct = (60 / bandLength) * 100;
+  const slotOffsetPct =
+    (((slotMinutes - (band.startMin % slotMinutes)) % slotMinutes) / bandLength) * 100;
+  const hourOffsetPct = (((60 - (band.startMin % 60)) % 60) / bandLength) * 100;
 
   return html`
     <div
@@ -331,6 +334,8 @@ function renderRules(
         gridRow: '4',
         '--calendar-card-grid-slot-pct': `${slotPct}%`,
         '--calendar-card-grid-hour-pct': `${hourPct}%`,
+        '--calendar-card-grid-slot-offset': `${slotOffsetPct}%`,
+        '--calendar-card-grid-hour-offset': `${hourOffsetPct}%`,
       })}
     ></div>
   `;
@@ -550,23 +555,11 @@ function layoutBanners(
   days: Types.EventsByDay[],
   maxRows: number,
 ): Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement; row: number }> {
-  const seen = new Set<string>();
   const banners: Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement }> = [];
   const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
 
   for (const day of days) {
     for (const event of sortDayEvents(day).allDay) {
-      // A multi-day all-day event appears in every day it covers, but its banner spans
-      // them all, so it must be drawn once. Keyed on what identifies the event rather
-      // than on object identity, which grouping does not preserve.
-      const key = `${event._entityId ?? ''}|${event.summary ?? ''}|${event.start.date ?? ''}|${event.end.date ?? ''}`;
-
-      if (seen.has(key)) {
-        continue;
-      }
-
-      seen.add(key);
-
       const placement = Grid.computeBannerPlacement(event, visibleDayStarts);
 
       if (placement) {

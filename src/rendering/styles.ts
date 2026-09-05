@@ -1857,19 +1857,25 @@ export const cardStyles = css`
   }
 
   /* Two repeating gradients rather than an element per slot: a week at a 15-minute
-     resolution would otherwise cost several hundred empty divs. The hour rule is drawn
-     second so it wins where the two coincide. */
+     resolution would otherwise cost several hundred empty divs. Each pattern starts at
+     the next clock boundary rather than at the configured band edge, so a 06:30 band
+     still rules whole hours at 07:00, 08:00 and onward. The hour rule is drawn second so
+     it wins where the two coincide. */
   .grid-rules {
     background-image:
       repeating-linear-gradient(
         to bottom,
-        var(--divider-color) 0 1px,
-        transparent 1px var(--calendar-card-grid-slot-pct)
+        var(--divider-color) var(--calendar-card-grid-slot-offset)
+          calc(var(--calendar-card-grid-slot-offset) + 1px),
+        transparent calc(var(--calendar-card-grid-slot-offset) + 1px)
+          calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-slot-pct))
       ),
       repeating-linear-gradient(
         to bottom,
-        var(--divider-color) 0 1px,
-        transparent 1px var(--calendar-card-grid-hour-pct)
+        var(--divider-color) var(--calendar-card-grid-hour-offset)
+          calc(var(--calendar-card-grid-hour-offset) + 1px),
+        transparent calc(var(--calendar-card-grid-hour-offset) + 1px)
+          calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-hour-pct))
       );
     opacity: 0.5;
     pointer-events: none;

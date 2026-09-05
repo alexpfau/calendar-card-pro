@@ -707,6 +707,21 @@ describe('all-day events go in the band, not the body', () => {
     expect(new Set(rows).size, 'overlapping banners must not share a row').toBe(2);
   });
 
+  it('keeps distinct all-day events when their visible fields are identical', () => {
+    // Calendar payloads carry no stable event id, so equal title, calendar and dates do not
+    // establish identity. The grid used that lossy tuple to suppress copies it assumed came
+    // from day expansion, but only timed events are expanded: two genuinely distinct all-day
+    // entries collapsed into one banner. They overlap and therefore must occupy two rows.
+    const container = renderGrid([
+      allDay('2026-06-17', '2026-06-18', 'Day off'),
+      allDay('2026-06-17', '2026-06-18', 'Day off'),
+    ]);
+    const banners = Array.from(container.querySelectorAll<HTMLElement>('.grid-banner'));
+
+    expect(banners).toHaveLength(2);
+    expect(banners.map((banner) => banner.style.gridRow)).toEqual(['1', '2']);
+  });
+
   it('packs two non-overlapping banners onto the same row', () => {
     const container = renderGrid([
       allDay('2026-06-17', '2026-06-18', 'Monday thing'),
@@ -1047,6 +1062,26 @@ describe('the axis', () => {
       Number.parseFloat(block.style.top),
       6,
     );
+  });
+
+  it('aligns slot and hour rules to clock boundaries in a half-past band', () => {
+    const container = renderGrid(
+      [timed(17, '07:00', '08:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_grid: { start_time: '06:30', end_time: '09:00', slot_minutes: 20 },
+      }),
+    );
+    const rules = container.querySelector<HTMLElement>('.grid-rules')!;
+
+    // 06:40 is 10 minutes into the 150-minute band; 07:00 is 30 minutes in.
+    expect(
+      Number.parseFloat(rules.style.getPropertyValue('--calendar-card-grid-slot-offset')),
+    ).toBeCloseTo((10 / 150) * 100, 6);
+    expect(
+      Number.parseFloat(rules.style.getPropertyValue('--calendar-card-grid-hour-offset')),
+    ).toBeCloseTo((30 / 150) * 100, 6);
   });
 
   it('drops the labels when they are switched off but keeps the scale', () => {

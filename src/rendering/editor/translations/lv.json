@@ -162,7 +162,7 @@
   "time_grid.density": "Režģa blīvums",
   "time_grid.density.helper": "Cik šaura drīkst kļūt dienas kolonna, pirms režģis atsakās no dienas, un ko tas dara, kad vietas vairs nepietiek.",
   "time_grid.min_day_width": "Minimālais dienas platums",
-  "time_grid.min_day_width.helper": "Šaurākais pieļaujamais dienas kolonnas platums. Noklusējuma 100px saglabā trīs dienas pie 352px vai 368px, ja ienāk no saraksta rezerves režīma.",
+  "time_grid.min_day_width.helper": "Šaurākais pieļaujamais dienas kolonnas platums. Noklusējuma 100px saglabā trīs dienas pie 410px vai 426px, ja ienāk no saraksta rezerves režīma.",
   "time_grid.min_days_to_show": "Mazākais dienu kolonnu skaits",
   "time_grid.min_days_to_show.helper": "Cik tālu režģis drīkst samazināt dienu skaitu, lai saglabātu laika izkārtojumu. Noklusējums ir 1, jo vienas dienas režģis ar pašreizējā laika līniju joprojām ir noderīgs dienas skats.",
   "time_grid.min_days_fallback": "Kad ir pārāk šauri",

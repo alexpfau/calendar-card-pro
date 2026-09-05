@@ -162,7 +162,7 @@
   "time_grid.density": "Rutenetttetthet",
   "time_grid.density.helper": "Hvor smal en dagkolonne kan bli før rutenettet gir opp en dag, og hva det gjør når det går tomt.",
   "time_grid.min_day_width": "Minste dagbredde",
-  "time_grid.min_day_width.helper": "Den smaleste en dagkolonne kan være. Standardverdien 100px holder tre dager ved 352px, eller 368px når kortet kommer fra listefallbacken.",
+  "time_grid.min_day_width.helper": "Den smaleste en dagkolonne kan være. Standardverdien 100px holder tre dager ved 410px, eller 426px når kortet kommer fra listefallbacken.",
   "time_grid.min_days_to_show": "Færrest dagkolonner",
   "time_grid.min_days_to_show.helper": "Hvor langt rutenettet kan redusere antall dager for å beholde tidsoppsettet. Standard er 1, fordi et endagsrutenett fortsatt er en nyttig dagsvisning med en nå-linje.",
   "time_grid.min_days_fallback": "Når det blir for smalt",

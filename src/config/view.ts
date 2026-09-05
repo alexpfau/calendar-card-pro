@@ -348,9 +348,9 @@ export const TIME_GRID_DEFAULTS = {
   day_header_separator_width: '0px',
   day_header_separator_color: 'var(--divider-color)',
 
-  // 100px keeps a three-day grid at 352px before hysteresis, or 368px to enter from
-  // list once the hysteresis half-band is included. A grid column carries positioned blocks rather
-  // than a full text list, so it can be narrower than column view's 140px default.
+  // A grid column carries positioned blocks rather than a full text list, so it can be
+  // narrower than column view's 140px default. The width threshold also reserves the
+  // time axis and the extra gap between that axis and the first day.
   min_day_width: 100,
 
   // A one-column grid is a useful day view with a now line, so grid sheds columns down to
@@ -1051,6 +1051,16 @@ function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void
 const COLUMN_CARD_PADDING_PX = 32;
 
 /**
+ * Conservative pixel reservation for a content-sized grid axis.
+ *
+ * The actual track is measured by CSS from the widest hour label. Width fitting runs
+ * before that grid exists, so it cannot read the track. Forty-eight pixels covers the
+ * shipped 12px labels in both 24-hour and 12-hour formats, including the axis's 12px
+ * inline padding. An explicit pixel `axis_width` is accounted for exactly.
+ */
+const GRID_MAX_CONTENT_AXIS_PX = 48;
+
+/**
  * Width band, in pixels, by which the column-to-list threshold is lowered once
  * column view is already showing.
  *
@@ -1112,6 +1122,9 @@ const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
  * column.min_day_width x days_to_show + card padding + (days_to_show - 1) x gutter
  * ```
  *
+ * Grid view additionally reserves its time-axis track and one more gutter, because its
+ * template has `axis + days` tracks rather than only day tracks.
+ *
  * Both the width floor and the gutter are read out of `column:` by hand, and cannot
  * use `resolveEffectiveConfig` to get there. This function decides *whether* column
  * view renders, so it necessarily runs before the view is known, whereas
@@ -1148,8 +1161,36 @@ export function computeColumnThresholdPxFor(
   const count = Math.max(1, Math.floor(days));
   const gutter = dayColumnGutterPx(config, view);
   const minDayWidth = resolveMinDayWidth(config, view);
+  const viewOverhead = dayColumnViewOverheadPx(config, view, gutter);
 
-  return minDayWidth * count + COLUMN_CARD_PADDING_PX + (count - 1) * gutter;
+  return minDayWidth * count + COLUMN_CARD_PADDING_PX + (count - 1) * gutter + viewOverhead;
+}
+
+/**
+ * Width occupied before the repeating day tracks begin.
+ *
+ * Column view has no leading track. Grid view has a time axis followed by a gap, and
+ * omitting either lets the fitted day tracks fall below `min_day_width`.
+ */
+function dayColumnViewOverheadPx(
+  config: Types.Config,
+  view: Types.EffectiveView,
+  gutter: number,
+): number {
+  if (view !== 'grid') {
+    return 0;
+  }
+
+  const axisWidth = String(resolveTimeGridOption(config, 'axis_width')).trim();
+  const match = /^(\d+(?:\.\d+)?)px$/.exec(axisWidth);
+  const axis =
+    match !== null
+      ? Number.parseFloat(match[1])
+      : axisWidth === 'max-content' && !resolveTimeGridOption(config, 'show_axis_labels')
+        ? 0
+        : GRID_MAX_CONTENT_AXIS_PX;
+
+  return axis + gutter;
 }
 
 // Read by hand because width arithmetic runs before the effective view is known.
@@ -1362,12 +1403,15 @@ export interface ColumnFit {
 function fitColumns(config: Types.Config, widthPx: number, view: Types.EffectiveView): number {
   const gutter = dayColumnGutterPx(config, view);
   const unit = resolveMinDayWidth(config, view) + gutter;
+  const viewOverhead = dayColumnViewOverheadPx(config, view, gutter);
 
   if (unit <= 0) {
     return 0;
   }
 
-  const fitted = Math.floor((widthPx - COLUMN_CARD_PADDING_PX + gutter) / unit + 1e-9);
+  const fitted = Math.floor(
+    (widthPx - COLUMN_CARD_PADDING_PX + gutter - viewOverhead) / unit + 1e-9,
+  );
 
   return Math.max(0, Math.min(configuredDays(config), fitted));
 }

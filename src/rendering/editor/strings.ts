@@ -311,8 +311,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'when it runs out.',
   'time_grid.min_day_width': 'Minimum Day Width',
   'time_grid.min_day_width.helper':
-    'The narrowest a day column may be. The default 100px keeps three days at 352px, ' +
-    'or 368px when entering from the list fallback.',
+    'The narrowest a day column may be. The default 100px keeps three days at 410px, ' +
+    'or 426px when entering from the list fallback.',
   'time_grid.min_days_to_show': 'Fewest Day Columns',
   'time_grid.min_days_to_show.helper':
     'How far the grid may reduce the day count to keep the time layout. Defaults to 1, ' +

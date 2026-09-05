@@ -420,7 +420,7 @@ export interface TimeGridOverrides extends SharedViewOverrides {
    */
   max_simultaneous_events?: number;
 
-  /** Rows that band may grow to before the remaining banners are summarized. */
+  /** Rows the band may grow to before the remaining banners are dropped. */
   allday_band_max_rows?: number;
 
   /** Width of the hour-label gutter, as a CSS length. */

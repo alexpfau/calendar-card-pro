@@ -1478,7 +1478,12 @@ function resolveAccentColor(
     return fromHomeAssistant ?? Config.DEFAULT_CONFIG.accent_color;
   }
 
-  return config.accent_color;
+  // The visual editor can clear a card-wide color to `null`. List and column normally
+  // leave event backgrounds transparent, so that malformed value stayed dormant there;
+  // grid's non-zero background opacity sends it through `convertToRGBA`, where a null
+  // color cannot be parsed. Treat an empty color like the missing per-calendar value
+  // above and fall back to the shipped accent.
+  return config.accent_color || Config.DEFAULT_CONFIG.accent_color;
 }
 
 /**

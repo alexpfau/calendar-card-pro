@@ -224,20 +224,6 @@ export interface EventPlacement {
 }
 
 /**
- * Place an event within the band.
- *
- * There is deliberately no minimum-height argument. A floor belongs in CSS, where
- * `min-height` already wins over a percentage `height` at layout time and composes
- * with whatever the band's real pixel height turns out to be. Applying one here would
- * mean clamping in percent against a band whose height this module does not know, and
- * would then have to be re-clamped so a floored block did not overflow the bottom.
- *
- * @param startMin - Event start, in minutes from midnight
- * @param endMin - Event end, in minutes from midnight; `1440` means midnight tonight
- * @param band - The visible band
- * @returns Placement, or `null` when the event falls wholly outside the band
- */
-/**
  * Whether any part of an event falls inside the band.
  *
  * Extracted so the renderer's lane pass and `computeEventPlacement` cannot disagree about
@@ -263,6 +249,20 @@ export function intersectsBand(startMin: number, endMin: number, band: GridBand)
   return endMin > band.startMin && startMin < band.endMin;
 }
 
+/**
+ * Place an event within the band.
+ *
+ * There is deliberately no minimum-height argument. A floor belongs in CSS, where
+ * `min-height` already wins over a percentage `height` at layout time and composes
+ * with whatever the band's real pixel height turns out to be. Applying one here would
+ * mean clamping in percent against a band whose height this module does not know, and
+ * would then have to be re-clamped so a floored block did not overflow the bottom.
+ *
+ * @param startMin - Event start, in minutes from midnight
+ * @param endMin - Event end, in minutes from midnight; `1440` means midnight tonight
+ * @param band - The visible band
+ * @returns Placement, or `null` when the event falls wholly outside the band
+ */
 export function computeEventPlacement(
   startMin: number,
   endMin: number,

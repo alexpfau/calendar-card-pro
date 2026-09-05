@@ -162,7 +162,7 @@
   "time_grid.density": "Gęstość siatki",
   "time_grid.density.helper": "Jak wąska może być kolumna dnia, zanim siatka zrezygnuje z jednego dnia, i co robi, gdy zabraknie miejsca.",
   "time_grid.min_day_width": "Minimalna szerokość dnia",
-  "time_grid.min_day_width.helper": "Najmniejsza dopuszczalna szerokość kolumny dnia. Domyślne 100px mieści trzy dni przy 352px albo 368px przy przejściu z awaryjnej listy.",
+  "time_grid.min_day_width.helper": "Najmniejsza dopuszczalna szerokość kolumny dnia. Domyślne 100px mieści trzy dni przy 410px albo 426px przy przejściu z awaryjnej listy.",
   "time_grid.min_days_to_show": "Najmniej kolumn dni",
   "time_grid.min_days_to_show.helper": "O ile siatka może zmniejszyć liczbę dni, aby zachować układ czasu. Domyślnie jest to 1, bo jednodniowa siatka nadal jest użytecznym widokiem dnia z linią bieżącego czasu.",
   "time_grid.min_days_fallback": "Gdy jest za wąsko",

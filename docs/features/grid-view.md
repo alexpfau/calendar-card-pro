@@ -92,8 +92,8 @@ The hour rules are drawn more strongly than the ones between them, so the eye st
 the hour at a fine setting.
 
 `axis_width` sets the label gutter. It defaults to `max-content`, so the gutter sizes to
-the widest visible label — including the translated all-day label when the all-day band is
-shown — with fixed padding on both sides. Set a CSS length when you want a fixed gutter:
+the widest visible hour label with fixed padding on both sides. Set a CSS length when you
+want a fixed gutter:
 
 ```yaml
 time_grid:
@@ -204,9 +204,8 @@ lines.
 
 Timed blocks use the same shared event content as list and column view. Event weather
 matches column view: it gets its own detail row under the time, where the condition words
-can wrap beneath the temperature instead of competing with the title. The progress bar stays
-inline on the time row, and countdowns trail the time text, so those two still compress
-inside the first detail row.
+can wrap beneath the temperature instead of competing with the title. The progress bar gets
+its own row under the title, while countdowns trail the time text.
 
 ::: tip Keep Detail Rows Short
 Grid blocks have less room than list rows. If you show time, location and description in
@@ -239,9 +238,9 @@ time_grid:
 
 `min_day_width` is the narrowest a day column may be before the card sheds a day. The
 default is `100`, lower than column view's `140`, because a grid day mostly carries timed
-blocks against a shared axis rather than full text rows. At the default spacing, three grid
-days need 352px before hysteresis, or 368px when the card is entering grid view from the
-list fallback.
+blocks against a shared axis rather than full text rows. At the default spacing and
+content-sized axis, three grid days need 410px before hysteresis, or 426px when the card is
+entering grid view from the list fallback.
 
 `min_days_to_show` defaults to `1`, not to `days_to_show`. A one-column grid is a useful
 day view with a now line, so reducing a five-day grid to today's column is the right narrow

@@ -162,7 +162,7 @@
   "time_grid.density": "Hustota mriežky",
   "time_grid.density.helper": "Aký úzky môže byť stĺpec dňa, kým sa mriežka vzdá jedného dňa, a čo urobí, keď sa minie miesto.",
   "time_grid.min_day_width": "Minimálna šírka dňa",
-  "time_grid.min_day_width.helper": "Najužšia povolená šírka stĺpca dňa. Predvolených 100px udrží tri dni pri 352px alebo 368px pri vstupe zo záložného zoznamu.",
+  "time_grid.min_day_width.helper": "Najužšia povolená šírka stĺpca dňa. Predvolených 100px udrží tri dni pri 410px alebo 426px pri vstupe zo záložného zoznamu.",
   "time_grid.min_days_to_show": "Najmenej stĺpcov dní",
   "time_grid.min_days_to_show.helper": "Ako veľmi môže mriežka znížiť počet dní, aby zachovala časové rozloženie. Predvolená hodnota je 1, pretože jednodňová mriežka je stále užitočný denný pohľad s čiarou aktuálneho času.",
   "time_grid.min_days_fallback": "Keď je príliš úzko",

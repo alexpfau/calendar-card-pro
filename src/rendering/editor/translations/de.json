@@ -162,7 +162,7 @@
   "time_grid.density": "Rasterdichte",
   "time_grid.density.helper": "Wie schmal eine Tagesspalte werden darf, bevor das Raster einen Tag aufgibt, und was es tut, wenn keine mehr übrig sind.",
   "time_grid.min_day_width": "Minimale Tagesbreite",
-  "time_grid.min_day_width.helper": "Die geringste Breite, die eine Tagesspalte haben darf. Der Standard 100px hält drei Tage bei 352px oder 368px beim Wechsel aus dem Listen-Fallback.",
+  "time_grid.min_day_width.helper": "Die geringste Breite, die eine Tagesspalte haben darf. Der Standard 100px hält drei Tage bei 410px oder 426px beim Wechsel aus dem Listen-Fallback.",
   "time_grid.min_days_to_show": "Minimale Tagesspalten",
   "time_grid.min_days_to_show.helper": "Wie weit das Raster die Anzahl der Tage senken darf, um das Zeitlayout zu behalten. Standard ist 1, weil ein eintägiges Raster mit Jetzt-Linie weiterhin eine nützliche Tagesansicht ist.",
   "time_grid.min_days_fallback": "Wenn es zu schmal wird",

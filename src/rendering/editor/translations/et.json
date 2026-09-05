@@ -162,7 +162,7 @@
   "time_grid.density": "Rastri tihedus",
   "time_grid.density.helper": "Kui kitsaks võib päevaveerg minna, enne kui raster loobub ühest päevast, ja mida see teeb, kui ruum otsa saab.",
   "time_grid.min_day_width": "Minimaalne päeva laius",
-  "time_grid.min_day_width.helper": "Kitsaim lubatud päevaveeru laius. Vaikimisi 100px hoiab kolm päeva 352px juures või 368px juures, kui tullakse loetelu varuvariandist.",
+  "time_grid.min_day_width.helper": "Kitsaim lubatud päevaveeru laius. Vaikimisi 100px hoiab kolm päeva 410px juures või 426px juures, kui tullakse loetelu varuvariandist.",
   "time_grid.min_days_to_show": "Vähim päevaveergude arv",
   "time_grid.min_days_to_show.helper": "Kui palju võib raster päevade arvu vähendada, et ajapaigutus säiliks. Vaikimisi on 1, sest ühepäevane raster koos praeguse aja joonega on endiselt kasulik päevavaade.",
   "time_grid.min_days_fallback": "Kui on liiga kitsas",
