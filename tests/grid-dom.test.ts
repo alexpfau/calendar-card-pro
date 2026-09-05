@@ -1029,14 +1029,14 @@ describe('the grid reuses the shared leaves', () => {
     expect(container.querySelector('.grid-event .progress-bar-row')).toBeNull();
   });
 
-  it('keeps countdowns trailing on the timed grid row', () => {
+  it('folds countdowns into the timed grid time text', () => {
     const container = renderGrid(
       [timed(17, '14:00', '15:00', 'Upcoming review')],
       buildConfig({ view: 'grid', days_to_show: 3, show_countdown: true }),
     );
 
-    expect(container.querySelector('.grid-event .time > .time-countdown')).not.toBeNull();
-    expect(container.querySelector('.grid-event .time-text > .time-countdown')).toBeNull();
+    expect(container.querySelector('.grid-event .time > .time-countdown')).toBeNull();
+    expect(container.querySelector('.grid-event .time-text > .time-countdown')).not.toBeNull();
   });
 
   it('marks timed blocks as height-query containers for progressive disclosure', () => {

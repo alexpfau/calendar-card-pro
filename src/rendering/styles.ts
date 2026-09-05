@@ -2022,6 +2022,12 @@ export const cardStyles = css`
     flex-wrap: nowrap;
   }
 
+  .grid-event-disclosure .time .time-actual .time-text {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
   /* The event starts before or ends after the visible band. */
   .grid-event.clipped-top {
     border-start-start-radius: 0;

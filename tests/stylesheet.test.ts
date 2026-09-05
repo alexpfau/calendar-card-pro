@@ -1656,6 +1656,15 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure .time', 'flex-wrap')).toBe('nowrap');
       expect(declared('.grid-event-disclosure .time-actual', 'min-width')).toBe('0');
       expect(declared('.grid-event-disclosure .time-text', 'white-space')).toBe('nowrap');
+      expect(declared('.grid-event-disclosure .time .time-actual .time-text', 'overflow')).toBe(
+        'visible',
+      );
+      expect(
+        declared('.grid-event-disclosure .time .time-actual .time-text', 'text-overflow'),
+      ).toBe('clip');
+      expect(declared('.grid-event-disclosure .time .time-actual .time-text', 'white-space')).toBe(
+        'normal',
+      );
       expect(declared('.grid-event-disclosure .location', 'flex')).toBe('0 0 auto');
     });
 

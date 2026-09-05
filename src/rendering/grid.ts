@@ -391,7 +391,7 @@ function renderTimedEvent(
           weatherForecasts,
           weatherPlacement: 'title',
           progressPlacement: 'inline',
-          countdownPlacement: 'trailing',
+          countdownPlacement: 'text',
           hass,
         })}
       </div>
