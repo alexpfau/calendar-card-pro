@@ -80,7 +80,7 @@ describe('the timer runs only where there is a line to move', () => {
   // Starting a timer for a card that cannot display a line would make it pay a repaint a
   // minute for nothing — the same waste as running it in list view, one option deeper.
   it('does not run when the line is switched off', async () => {
-    const element = await mounted({ view: 'grid', grid: { show_now_line: false } });
+    const element = await mounted({ view: 'grid', time_grid: { show_now_line: false } });
 
     expect(element._wantsNowLine).toBe(false);
     expect(element._nowLineTimerId).toBeNull();

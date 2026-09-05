@@ -15,7 +15,7 @@ const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
 const WEATHER_GROUPS = ['date', 'event'] as const;
 
 interface FormChangeOptions {
-  seedGridDivergentDefaults?: boolean;
+  seedTimeGridDivergentDefaults?: boolean;
 }
 
 /**
@@ -85,11 +85,11 @@ function inheritedColumnValue(
   return ViewConfig.COLUMN_DEFAULT_OVERRIDES[key] ?? config[key];
 }
 
-function inheritedGridValue(
+function inheritedTimeGridValue(
   config: Readonly<Types.Config>,
-  key: keyof Types.GridOverrides & keyof Types.Config,
+  key: keyof Types.TimeGridOverrides & keyof Types.Config,
 ): unknown {
-  return ViewConfig.GRID_DEFAULT_OVERRIDES[key] ?? config[key];
+  return ViewConfig.TIME_GRID_DEFAULT_OVERRIDES[key] ?? config[key];
 }
 
 /**
@@ -106,7 +106,7 @@ function inheritedViewValue(
   key: string,
 ): unknown {
   return view === 'grid'
-    ? inheritedGridValue(config, key as keyof Types.GridOverrides & keyof Types.Config)
+    ? inheritedTimeGridValue(config, key as keyof Types.TimeGridOverrides & keyof Types.Config)
     : inheritedColumnValue(config, key as keyof Types.ColumnOverrides & keyof Types.Config);
 }
 
@@ -193,17 +193,17 @@ function resolvesTheSameWithout(config: Readonly<Types.Config>, key: string): bo
   );
 }
 
-export function stripGridDefaults(
+export function stripTimeGridDefaults(
   config: Readonly<Types.Config>,
 ): Record<string, unknown> | undefined {
-  const block = config.grid;
+  const block = config.time_grid;
 
   if (!Helpers.isConfigBlock(block)) {
     return undefined;
   }
 
-  const overrideKeys = new Set<string>(ViewConfig.GRID_OVERRIDE_KEYS);
-  const gridDefaults = ViewConfig.GRID_DEFAULTS as Readonly<Record<string, unknown>>;
+  const overrideKeys = new Set<string>(ViewConfig.TIME_GRID_OVERRIDE_KEYS);
+  const gridDefaults = ViewConfig.TIME_GRID_DEFAULTS as Readonly<Record<string, unknown>>;
   const result: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
@@ -211,8 +211,8 @@ export function stripGridDefaults(
     if (isSyntheticKey(key)) continue;
 
     if (key in gridDefaults) {
-      const resolved = ViewConfig.normalizeGridValue(
-        key as keyof typeof ViewConfig.GRID_DEFAULTS,
+      const resolved = ViewConfig.normalizeTimeGridValue(
+        key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS,
         value,
       );
       if (deepEqual(gridDefaults[key], resolved)) continue;
@@ -221,11 +221,11 @@ export function stripGridDefaults(
     }
 
     if (overrideKeys.has(key)) {
-      const inherited = inheritedGridValue(
+      const inherited = inheritedTimeGridValue(
         config,
-        key as keyof Types.GridOverrides & keyof Types.Config,
+        key as keyof Types.TimeGridOverrides & keyof Types.Config,
       );
-      if (Object.prototype.hasOwnProperty.call(ViewConfig.GRID_DEFAULT_OVERRIDES, key)) {
+      if (Object.prototype.hasOwnProperty.call(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES, key)) {
         result[key] = value;
         continue;
       }
@@ -284,8 +284,8 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
   const column = stripColumnDefaults(config);
   delete draft.column;
 
-  const grid = stripGridDefaults(config);
-  delete draft.grid;
+  const grid = stripTimeGridDefaults(config);
+  delete draft.time_grid;
 
   const weather = stripWeatherDefaults(config);
   delete draft.weather;
@@ -306,7 +306,7 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
   }
 
   if (grid !== undefined) {
-    stored.grid = grid;
+    stored.time_grid = grid;
   }
 
   if (weather !== undefined) {
@@ -323,18 +323,18 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
  * @param enabled - Whether this editor session still wants the seed
  * @returns The seeded configuration, or the original when no seed is needed
  */
-export function seedGridDivergentDefaults(
+export function seedTimeGridDivergentDefaults(
   config: Readonly<Types.Config>,
   enabled = true,
 ): Types.Config {
   if (!enabled) return config as Types.Config;
 
-  const block = Helpers.isConfigBlock(config.grid)
-    ? (config.grid as Record<string, unknown>)
+  const block = Helpers.isConfigBlock(config.time_grid)
+    ? (config.time_grid as Record<string, unknown>)
     : undefined;
   const seeded = { ...(block ?? {}) };
 
-  for (const [key, value] of Object.entries(ViewConfig.GRID_DEFAULT_OVERRIDES)) {
+  for (const [key, value] of Object.entries(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES)) {
     if (!Object.prototype.hasOwnProperty.call(seeded, key)) {
       seeded[key] = value;
     }
@@ -346,7 +346,7 @@ export function seedGridDivergentDefaults(
 
   return {
     ...(config as unknown as Record<string, unknown>),
-    grid: seeded,
+    time_grid: seeded,
   } as unknown as Types.Config;
 }
 
@@ -407,7 +407,10 @@ export function applyFormChange(
 
   let nextConfig = next as unknown as Types.Config;
   if (previousView !== 'grid' && effectiveView(nextConfig) === 'grid') {
-    nextConfig = seedGridDivergentDefaults(nextConfig, options.seedGridDivergentDefaults !== false);
+    nextConfig = seedTimeGridDivergentDefaults(
+      nextConfig,
+      options.seedTimeGridDivergentDefaults !== false,
+    );
   }
 
   return { config: nextConfig, pending: nextPending };
@@ -449,7 +452,7 @@ export function columnFormBlock(config: Readonly<Types.Config>): Record<string, 
 }
 
 /**
- * Builds the `grid:` block as the form should show it.
+ * Builds the `time_grid:` block as the form should show it.
  *
  * Same two layers as {@link columnFormBlock}, and the same reason the stored spread has
  * to come last.
@@ -457,19 +460,19 @@ export function columnFormBlock(config: Readonly<Types.Config>): Record<string, 
  * @param config - Merged configuration, defaults already applied
  * @returns The block, with every unset option at its effective value
  */
-export function gridFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+export function timeGridFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
   return {
     ...Object.fromEntries(
-      Object.keys(ViewConfig.GRID_DEFAULTS).map((key) => [
+      Object.keys(ViewConfig.TIME_GRID_DEFAULTS).map((key) => [
         key,
-        ViewConfig.resolveGridOption(
+        ViewConfig.resolveTimeGridOption(
           config as Types.Config,
-          key as keyof typeof ViewConfig.GRID_DEFAULTS,
+          key as keyof typeof ViewConfig.TIME_GRID_DEFAULTS,
         ),
       ]),
     ),
     min_days_to_show: ViewConfig.resolveMinDaysToShow(config, 'grid'),
-    ...(config.grid ?? {}),
+    ...(config.time_grid ?? {}),
   };
 }
 
@@ -560,7 +563,7 @@ export function exceptionFormBlock(
   view: Types.EffectiveView,
   keys: ReadonlyArray<string>,
 ): Record<string, unknown> {
-  const block = view === 'grid' ? gridFormBlock(config) : columnFormBlock(config);
+  const block = view === 'grid' ? timeGridFormBlock(config) : columnFormBlock(config);
   const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
   const stored =
     blockKey !== undefined && Helpers.isConfigBlock(config[blockKey])

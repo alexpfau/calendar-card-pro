@@ -17,7 +17,7 @@ import '../src/calendar-card-pro';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
-import { columnFormBlock, gridFormBlock, toStoredConfig } from '../src/rendering/editor/value';
+import { columnFormBlock, timeGridFormBlock, toStoredConfig } from '../src/rendering/editor/value';
 
 /** The config `setConfig` would hold for a given piece of user YAML. */
 function asSetConfigWould(raw: Record<string, unknown>): Types.Config {
@@ -110,7 +110,7 @@ describe('setConfig and toStoredConfig round trip', () => {
   it('does not save projected grid defaults when the editor is opened and left alone', () => {
     const config = asSetConfigWould({ entities: ['calendar.a'], view: 'grid' });
 
-    expect(toStoredConfig({ ...config, grid: gridFormBlock(config) })).toEqual({
+    expect(toStoredConfig({ ...config, time_grid: timeGridFormBlock(config) })).toEqual({
       entities: [{ entity: 'calendar.a' }],
       view: 'grid',
     });
@@ -122,13 +122,13 @@ describe('setConfig and toStoredConfig round trip', () => {
         asSetConfigWould({
           entities: ['calendar.a'],
           view: 'grid',
-          grid: { day_separator_width: '1px' },
+          time_grid: { day_separator_width: '1px' },
         }),
       ),
     ).toEqual({
       entities: [{ entity: 'calendar.a' }],
       view: 'grid',
-      grid: { day_separator_width: '1px' },
+      time_grid: { day_separator_width: '1px' },
     });
   });
 
@@ -201,12 +201,13 @@ describe('the card element fills nested blocks on setConfig', () => {
 describe('a view block survives the round trip the panel puts it through', () => {
   const formBlockFor: Record<string, (config: Types.Config) => Record<string, unknown>> = {
     column: columnFormBlock,
-    grid: gridFormBlock,
+    grid: timeGridFormBlock,
   };
 
   it.each(Object.keys(ViewConfig.VIEW_BLOCKS))('keeps a stored %s override', (view) => {
     const block = ViewConfig.VIEW_BLOCKS[view as Types.EffectiveView];
     const buildBlock = formBlockFor[view];
+    const blockKey = block?.blockKey;
 
     // Every view in the registry needs a form block here. A new one that reaches the
     // panel without one is the gap this reconciliation exists to report.
@@ -226,14 +227,14 @@ describe('a view block survives the round trip the panel puts it through', () =>
     const config = asSetConfigWould({
       entities: ['calendar.a'],
       view,
-      [view]: { [key!]: false },
+      [blockKey!]: { [key!]: false },
     });
 
     expect(buildBlock(config)[key!], `${view}.${key} missing from the form block`).toBe(false);
-    expect(toStoredConfig({ ...config, [view]: buildBlock(config) })).toEqual({
+    expect(toStoredConfig({ ...config, [blockKey!]: buildBlock(config) })).toEqual({
       entities: [{ entity: 'calendar.a' }],
       view,
-      [view]: { [key!]: false },
+      [blockKey!]: { [key!]: false },
     });
   });
 
@@ -243,14 +244,19 @@ describe('a view block survives the round trip the panel puts it through', () =>
   ] as const)('keeps a stored non-boolean %s.%s', (view, key, value) => {
     // The reconciliation above can only pick a boolean. These two pin a length and a
     // number, so a strip that mishandled one type would not hide behind the other.
-    const config = asSetConfigWould({ entities: ['calendar.a'], view, [view]: { [key]: value } });
+    const blockKey = ViewConfig.VIEW_BLOCKS[view]!.blockKey;
+    const config = asSetConfigWould({
+      entities: ['calendar.a'],
+      view,
+      [blockKey]: { [key]: value },
+    });
     const block = formBlockFor[view](config);
 
     expect(block[key], `${view}.${key} missing from the form block`).toBe(value);
-    expect(toStoredConfig({ ...config, [view]: block })).toEqual({
+    expect(toStoredConfig({ ...config, [blockKey]: block })).toEqual({
       entities: [{ entity: 'calendar.a' }],
       view,
-      [view]: { [key]: value },
+      [blockKey]: { [key]: value },
     });
   });
 });

@@ -305,7 +305,7 @@ describe('the grid hour axis follows the same clock convention as event times', 
       buildConfig({
         view: 'grid',
         days_to_show: 3,
-        grid: { start_time: '14:00', end_time: '16:00' },
+        time_grid: { start_time: '14:00', end_time: '16:00' },
       }),
       hassWithLocale('da', 'language'),
     );
@@ -330,7 +330,7 @@ describe('the grid hour axis follows the same clock convention as event times', 
         view: 'grid',
         days_to_show: 3,
         time_24h: use24h,
-        grid: { start_time: '06:00', end_time: '08:00' },
+        time_grid: { start_time: '06:00', end_time: '08:00' },
       }),
       hassWithLocale(language, 'language'),
     );
@@ -400,7 +400,7 @@ describe('a block is sized by its duration (#206)', () => {
       buildConfig({
         view: 'grid',
         days_to_show: 3,
-        grid: { start_time: '08:00', end_time: '12:00' },
+        time_grid: { start_time: '08:00', end_time: '12:00' },
       }),
     );
 
@@ -415,7 +415,7 @@ describe('a block is sized by its duration (#206)', () => {
       buildConfig({
         view: 'grid',
         days_to_show: 3,
-        grid: { start_time: '15:00', end_time: '17:00' },
+        time_grid: { start_time: '15:00', end_time: '17:00' },
       }),
     );
 
@@ -505,7 +505,7 @@ describe('timed multi-day events stay in the time grid', () => {
         view: 'grid',
         days_to_show: 3,
         time_24h: true,
-        grid: { start_time: '00:00', end_time: '24:00' },
+        time_grid: { start_time: '00:00', end_time: '24:00' },
       }),
     );
 
@@ -519,7 +519,7 @@ describe('timed multi-day events stay in the time grid', () => {
   it('keeps later timed columns populated when empty grid days are hidden', () => {
     const container = renderGrid(
       [timed(18, '09:00', '10:00', 'Thursday Review'), timed(21, '09:00', '10:00', 'Sunday Plan')],
-      buildConfig({ view: 'grid', days_to_show: 7, grid: { show_empty_days: false } }),
+      buildConfig({ view: 'grid', days_to_show: 7, time_grid: { show_empty_days: false } }),
     );
     const columns = Array.from(container.querySelectorAll('.grid-day-body'));
 
@@ -563,7 +563,7 @@ describe('overlapping events share the column', () => {
         timed(17, '09:30', '12:00', 'C'),
         timed(17, '09:45', '12:00', 'D'),
       ],
-      buildConfig({ view: 'grid', days_to_show: 3, grid: { max_simultaneous_events: 2 } }),
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { max_simultaneous_events: 2 } }),
     );
 
     const overflow = container.querySelector('.grid-event-overflow');
@@ -582,7 +582,7 @@ describe('overlapping events share the column', () => {
         timed(17, '09:15', '12:00', 'Hidden one'),
         timed(17, '09:30', '12:00', 'Hidden two'),
       ],
-      buildConfig({ view: 'grid', days_to_show: 3, grid: { max_simultaneous_events: 1 } }),
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { max_simultaneous_events: 1 } }),
     );
 
     const title = container.querySelector('.grid-event-overflow')!.getAttribute('title');
@@ -661,7 +661,7 @@ describe('all-day events go in the band, not the body', () => {
         allDay('2026-06-21', '2026-06-23', 'Sunday Trip'),
         timed(22, '09:00', '10:00', 'Monday Review'),
       ],
-      buildConfig({ view: 'grid', days_to_show: 7, grid: { show_empty_days: false } }),
+      buildConfig({ view: 'grid', days_to_show: 7, time_grid: { show_empty_days: false } }),
     );
     const banner = requireElement<HTMLElement>(container, '.grid-banner');
 
@@ -737,7 +737,7 @@ describe('separators between grid days', () => {
 
   it('uses the existing day separator options for grid rules', () => {
     const config = spanConfig({ day_separator_width: '0px', day_separator_color: 'rgb(1, 2, 3)' });
-    config.grid = { day_separator_width: '2px' };
+    config.time_grid = { day_separator_width: '2px' };
 
     const container = renderGrid(EVENTS, config);
     const rule = requireElement<HTMLElement>(container, '.grid-separator-day');
@@ -833,7 +833,7 @@ describe('the now line (#325)', () => {
   it('draws no line when it is switched off', () => {
     const container = renderGrid(
       [timed(17, '09:00', '10:00', 'Standup')],
-      buildConfig({ view: 'grid', days_to_show: 3, grid: { show_now_line: false } }),
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { show_now_line: false } }),
     );
 
     expect(container.querySelectorAll('.grid-now-line')).toHaveLength(0);
@@ -845,7 +845,7 @@ describe('the now line (#325)', () => {
       buildConfig({
         view: 'grid',
         days_to_show: 3,
-        grid: { start_time: '14:00', end_time: '18:00' },
+        time_grid: { start_time: '14:00', end_time: '18:00' },
       }),
     );
 
@@ -854,6 +854,37 @@ describe('the now line (#325)', () => {
 });
 
 describe('the axis', () => {
+  it('uses the default time band as the control row for block-key probes', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({ view: 'grid', days_to_show: 3 }),
+    );
+
+    expect(geometry(container.querySelector('.grid-event')!).top).toBeCloseTo((120 / 900) * 100, 6);
+  });
+
+  it('reads the time band from the time_grid block', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { start_time: '09:00' } }),
+    );
+
+    expect(geometry(container.querySelector('.grid-event')!).top).toBeCloseTo(0, 6);
+  });
+
+  it('ignores the former grid block key', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        grid: { start_time: '09:00' },
+      } as unknown as Partial<Types.Config>),
+    );
+
+    expect(geometry(container.querySelector('.grid-event')!).top).toBeCloseTo((120 / 900) * 100, 6);
+  });
+
   it('labels each whole hour in the band and never the closing one', () => {
     const container = renderGrid(
       [timed(17, '09:00', '10:00', 'Standup')],
@@ -861,7 +892,7 @@ describe('the axis', () => {
         view: 'grid',
         days_to_show: 3,
         time_24h: true,
-        grid: { start_time: '08:00', end_time: '11:00' },
+        time_grid: { start_time: '08:00', end_time: '11:00' },
       }),
     );
 
@@ -879,7 +910,7 @@ describe('the axis', () => {
         view: 'grid',
         days_to_show: 3,
         time_24h: true,
-        grid: { start_time: '08:00', end_time: '12:00' },
+        time_grid: { start_time: '08:00', end_time: '12:00' },
       }),
     );
 
@@ -899,7 +930,7 @@ describe('the axis', () => {
   it('drops the labels when they are switched off but keeps the scale', () => {
     const container = renderGrid(
       [timed(17, '09:00', '10:00', 'Standup')],
-      buildConfig({ view: 'grid', days_to_show: 3, grid: { show_axis_labels: false } }),
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { show_axis_labels: false } }),
     );
 
     expect(container.querySelectorAll('.grid-axis-label')).toHaveLength(0);
@@ -909,7 +940,7 @@ describe('the axis', () => {
   it('falls back to the default band when a bound is unparseable', () => {
     const container = renderGrid(
       [timed(17, '09:00', '10:00', 'Standup')],
-      buildConfig({ view: 'grid', days_to_show: 3, grid: { start_time: 'nonsense' } }),
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { start_time: 'nonsense' } }),
     );
 
     // 07:00-22:00, so 09:00 is 120 minutes into a 900-minute band. A half-honoured band
@@ -997,7 +1028,10 @@ describe('the grid reuses the shared leaves', () => {
         days_to_show: 3,
         today_indicator: true,
         weather: { entity: 'weather.home', position: 'date' },
-        grid: { day_header_separator_width: '2px', day_header_separator_color: 'rgb(1, 2, 3)' },
+        time_grid: {
+          day_header_separator_width: '2px',
+          day_header_separator_color: 'rgb(1, 2, 3)',
+        },
       }),
       null,
       WEATHER,

@@ -101,7 +101,7 @@ export const COLUMN_ONLY_KEYS = [
 ] as const;
 
 /**
- * Options a `grid:` block may override, each with a top-level counterpart.
+ * Options a `time_grid:` block may override, each with a top-level counterpart.
  *
  * The same list as column's, and the same array rather than a copy. The question both
  * views ask is identical — how much room does one day get — and they answer it in the
@@ -115,10 +115,10 @@ export const COLUMN_ONLY_KEYS = [
  * assertion exists to prevent. If grid ever needs a genuinely different set, write it
  * out `as const` — do not derive it.
  */
-export const GRID_OVERRIDE_KEYS = COLUMN_OVERRIDE_KEYS;
+export const TIME_GRID_OVERRIDE_KEYS = COLUMN_OVERRIDE_KEYS;
 
 /** Grid-only options — the ones describing the time axis and responsive density. */
-export const GRID_ONLY_KEYS = [
+export const TIME_GRID_ONLY_KEYS = [
   'day_header_gap',
   'day_header_separator_width',
   'day_header_separator_color',
@@ -202,13 +202,17 @@ export type _AssertColumnOnlyKeysHaveNoCounterpart = AssertNever<
 >;
 
 export type _AssertEveryGridKeyClassified = AssertNever<
-  UnclassifiedKeys<Types.GridOverrides, typeof GRID_OVERRIDE_KEYS, typeof GRID_ONLY_KEYS>
+  UnclassifiedKeys<
+    Types.TimeGridOverrides,
+    typeof TIME_GRID_OVERRIDE_KEYS,
+    typeof TIME_GRID_ONLY_KEYS
+  >
 >;
 export type _AssertEveryGridOverrideKeyHoistable = AssertNever<
-  OverrideKeysWithoutCounterpart<Types.GridOverrides, typeof GRID_OVERRIDE_KEYS>
+  OverrideKeysWithoutCounterpart<Types.TimeGridOverrides, typeof TIME_GRID_OVERRIDE_KEYS>
 >;
 export type _AssertGridOnlyKeysHaveNoCounterpart = AssertNever<
-  OnlyKeysWithCounterpart<typeof GRID_ONLY_KEYS>
+  OnlyKeysWithCounterpart<typeof TIME_GRID_ONLY_KEYS>
 >;
 
 export const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column', 'grid'];
@@ -339,7 +343,7 @@ export const COLUMN_DEFAULTS = {
  * card width. `axis_width` sizes to its own labels by default, so the gutter follows
  * whichever visible label is widest while keeping fixed inline padding around it.
  */
-export const GRID_DEFAULTS = {
+export const TIME_GRID_DEFAULTS = {
   day_header_gap: '8px',
   day_header_separator_width: '0px',
   day_header_separator_color: 'var(--divider-color)',
@@ -446,13 +450,13 @@ export function resolveColumnOption<K extends keyof typeof COLUMN_DEFAULTS>(
 /**
  * Value type a grid-only option resolves to.
  *
- * Derived from {@link GRID_DEFAULTS}; the conditionals widen the literals so a user
+ * Derived from {@link TIME_GRID_DEFAULTS}; the conditionals widen the literals so a user
  * value such as `'06:30'` or `60` stays assignable.
  */
-type GridOptionValue<K extends keyof typeof GRID_DEFAULTS> =
-  (typeof GRID_DEFAULTS)[K] extends boolean
+type TimeGridOptionValue<K extends keyof typeof TIME_GRID_DEFAULTS> =
+  (typeof TIME_GRID_DEFAULTS)[K] extends boolean
     ? boolean
-    : (typeof GRID_DEFAULTS)[K] extends number
+    : (typeof TIME_GRID_DEFAULTS)[K] extends number
       ? number
       : string;
 
@@ -475,11 +479,11 @@ type GridOptionValue<K extends keyof typeof GRID_DEFAULTS> =
  * @param value - Raw configured value
  * @returns A value of the key's declared type
  */
-export function normalizeGridValue(
-  key: keyof typeof GRID_DEFAULTS,
+export function normalizeTimeGridValue(
+  key: keyof typeof TIME_GRID_DEFAULTS,
   value: unknown,
 ): string | number | boolean {
-  const fallback = GRID_DEFAULTS[key];
+  const fallback = TIME_GRID_DEFAULTS[key];
 
   if (key === 'min_days_fallback') {
     return value === 'cramp' || value === 'list' ? value : fallback;
@@ -508,27 +512,27 @@ export function normalizeGridValue(
 /**
  * Resolves a grid-only option.
  *
- * No inheritance step: the value is in the `grid:` block or falls back to
- * {@link GRID_DEFAULTS}.
+ * No inheritance step: the value is in the `time_grid:` block or falls back to
+ * {@link TIME_GRID_DEFAULTS}.
  *
  * @param config - Merged configuration, defaults already applied
  * @param key - Grid-only option to resolve
  * @returns The configured value, or its default
  */
-export function resolveGridOption<K extends keyof typeof GRID_DEFAULTS>(
+export function resolveTimeGridOption<K extends keyof typeof TIME_GRID_DEFAULTS>(
   config: Types.Config,
   key: K,
-): GridOptionValue<K> {
+): TimeGridOptionValue<K> {
   const overrides = blockValues(config, 'grid');
 
   if (overrides && hasOverride(overrides, key as keyof Types.ColumnOverrides)) {
-    return normalizeGridValue(
+    return normalizeTimeGridValue(
       key,
       (overrides as Record<string, unknown>)[key],
-    ) as GridOptionValue<K>;
+    ) as TimeGridOptionValue<K>;
   }
 
-  return GRID_DEFAULTS[key] as GridOptionValue<K>;
+  return TIME_GRID_DEFAULTS[key] as TimeGridOptionValue<K>;
 }
 
 /**
@@ -622,17 +626,17 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  *
  * `event_background_opacity` tints compact timed blocks, whose area carries their
  * meaning more than a list row's accent line can. `show_empty_days` keeps the time axis
- * contiguous unless a user explicitly hides empty columns in `grid:`. `day_separator_width`
+ * contiguous unless a user explicitly hides empty columns in `time_grid:`. `day_separator_width`
  * turns on vertical rules so a shared axis reads as belonging to separate day columns.
  *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
- * from the view's own block, so `grid: { split_multiday_events: true }` would imply the
+ * from the view's own block, so `time_grid: { split_multiday_events: true }` would imply the
  * upstream list splitter could be switched back on. The grid instead answers `never` via
  * `multidaySplitPolicy` and segments timed events in its renderer.
  */
-export const GRID_DEFAULT_OVERRIDES: {
-  readonly [K in keyof Types.GridOverrides & keyof Types.Config]?: Types.Config[K];
+export const TIME_GRID_DEFAULT_OVERRIDES: {
+  readonly [K in keyof Types.TimeGridOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
   day_separator_width: '1px',
   event_background_opacity: 20,
@@ -644,7 +648,7 @@ export const DEFAULT_OVERRIDES_BY_VIEW: Readonly<
   Partial<Record<Types.EffectiveView, Readonly<Record<string, unknown>>>>
 > = {
   column: COLUMN_DEFAULT_OVERRIDES,
-  grid: GRID_DEFAULT_OVERRIDES,
+  grid: TIME_GRID_DEFAULT_OVERRIDES,
 };
 
 //-----------------------------------------------------------------------------
@@ -691,11 +695,11 @@ export const VIEW_BLOCKS: Readonly<Partial<Record<Types.EffectiveView, ViewBlock
     defaultOverrides: COLUMN_DEFAULT_OVERRIDES,
   },
   grid: {
-    blockKey: 'grid',
-    overrideKeys: GRID_OVERRIDE_KEYS,
-    onlyKeys: GRID_ONLY_KEYS,
-    onlyDefaults: GRID_DEFAULTS,
-    defaultOverrides: GRID_DEFAULT_OVERRIDES,
+    blockKey: 'time_grid',
+    overrideKeys: TIME_GRID_OVERRIDE_KEYS,
+    onlyKeys: TIME_GRID_ONLY_KEYS,
+    onlyDefaults: TIME_GRID_DEFAULTS,
+    defaultOverrides: TIME_GRID_DEFAULT_OVERRIDES,
   },
 };
 
@@ -732,7 +736,7 @@ export const OVERRIDE_BLOCK_BY_VIEW: Readonly<
 function blockValues(
   config: Types.Config,
   view: Types.EffectiveView,
-): Types.ColumnOverrides | Types.GridOverrides | undefined {
+): Types.ColumnOverrides | Types.TimeGridOverrides | undefined {
   const block = VIEW_BLOCKS[view];
 
   if (!block) {
@@ -742,7 +746,7 @@ function blockValues(
   const values = config[block.blockKey];
 
   return values && typeof values === 'object'
-    ? (values as Types.ColumnOverrides | Types.GridOverrides)
+    ? (values as Types.ColumnOverrides | Types.TimeGridOverrides)
     : undefined;
 }
 

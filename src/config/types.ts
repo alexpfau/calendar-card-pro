@@ -148,14 +148,14 @@ export interface Config {
   column?: ColumnOverrides;
 
   // Grid view
-  grid?: GridOverrides;
+  time_grid?: TimeGridOverrides;
 }
 
 /** Views the card can render. */
 export type EffectiveView = 'list' | 'column' | 'grid';
 
 /** How finely the grid rules its time axis. */
-export type GridSlotMinutes = 15 | 20 | 30 | 60;
+export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
 
 /**
  * Which class of event a calendar contributes.
@@ -348,15 +348,15 @@ export interface ColumnOverrides extends SharedViewOverrides {
 }
 
 /**
- * The `grid:` block — every shared override, plus the time axis's own keys.
+ * The `time_grid:` block — every shared override, plus the time axis's own keys.
  *
  * The grid-only keys below describe the *axis*: which slice of the day it draws, how
  * finely it is ruled, and how tall an hour is. They have no top-level counterpart and
- * are read with `resolveGridOption`, not `resolveViewOption`.
+ * are read with `resolveTimeGridOption`, not `resolveViewOption`.
  */
-export interface GridOverrides extends SharedViewOverrides {
+export interface TimeGridOverrides extends SharedViewOverrides {
   // Shared day-header layout. These have no top-level counterpart and are read with
-  // `resolveGridOption`, not `resolveViewOption`.
+  // `resolveTimeGridOption`, not `resolveViewOption`.
   day_header_gap?: string;
   day_header_separator_width?: string;
   day_header_separator_color?: string;
@@ -394,7 +394,7 @@ export interface GridOverrides extends SharedViewOverrides {
   end_time?: string;
 
   /** Spacing of the axis rules. Density only — it does not change the scale. */
-  slot_minutes?: GridSlotMinutes;
+  slot_minutes?: TimeGridSlotMinutes;
 
   /**
    * Height of one hour of the axis, as a CSS length.

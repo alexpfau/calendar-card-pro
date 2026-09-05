@@ -94,7 +94,7 @@ reused rather than reimplemented.
 
 **4. Narrow cards become a one-column day view, not a list.** Column view defaults
 `min_days_fallback: list` because a cramped column is unreadable. A one-column grid is
-not cramped — it is exactly the day view issue 325 asked for. So `grid.min_days_to_show`
+not cramped — it is exactly the day view issue 325 asked for. So `time_grid.min_days_to_show`
 defaults to `1` and grid joins `VIEWS_WITH_WIDTH_FALLBACK`, inheriting the existing
 hysteresis-backed fit resolver unchanged.
 
@@ -140,8 +140,8 @@ and needs no change.
 
 🚨 **Inert, not defaulted.** An earlier draft had grid set `split_multiday_events: false`
 through `DEFAULT_OVERRIDES_BY_VIEW`. That is worse in a way that is easy to miss: a
-default in that map is overridable from the `grid:` block, so
-`grid: { split_multiday_events: true }` would switch the upstream splitter back on and
+default in that map is overridable from the `time_grid:` block, so
+`time_grid: { split_multiday_events: true }` would switch the upstream splitter back on and
 reintroduce the hazard above — a config the editor would offer without complaint.
 Scoping the key out of the view instead makes the editor and docs label it inert. It does
 not enforce runtime behavior; the runtime safety comes from `multidaySplitPolicy('grid')`
@@ -155,23 +155,23 @@ grid the _list_ behavior. Almost right, and therefore dangerous.
 
 ## Config surface
 
-Grid-specific options live in a `grid:` block, matching the v4 `column:` pattern.
+Grid-specific options live in a `time_grid:` block, matching the v4 `column:` pattern.
 
-| Key                            | Type                   | Default              |
-| ------------------------------ | ---------------------- | -------------------- |
-| `grid.start_time`              | `"HH:mm"`              | `"07:00"`            |
-| `grid.end_time`                | `"HH:mm"` or `"24:00"` | `"22:00"`            |
-| `grid.slot_minutes`            | `15\|20\|30\|60`       | `30`                 |
-| `grid.hour_height`             | CSS length             | `"48px"`             |
-| `grid.show_now_line`           | boolean                | `true`               |
-| `grid.now_line_color`          | CSS color              | `var(--error-color)` |
-| `grid.max_simultaneous_events` | int at least 1         | `3`                  |
-| `grid.min_day_width`           | number (px)            | `100`                |
-| `grid.min_days_to_show`        | int                    | `1`                  |
-| `grid.min_days_fallback`       | `list\|cramp`          | `list`               |
-| `grid.allday_band_max_rows`    | int                    | `3`                  |
-| `grid.axis_width`              | CSS length             | `"3.5em"`            |
-| `grid.show_axis_labels`        | boolean                | `true`               |
+| Key                                 | Type                   | Default              |
+| ----------------------------------- | ---------------------- | -------------------- |
+| `time_grid.start_time`              | `"HH:mm"`              | `"07:00"`            |
+| `time_grid.end_time`                | `"HH:mm"` or `"24:00"` | `"22:00"`            |
+| `time_grid.slot_minutes`            | `15\|20\|30\|60`       | `30`                 |
+| `time_grid.hour_height`             | CSS length             | `"48px"`             |
+| `time_grid.show_now_line`           | boolean                | `true`               |
+| `time_grid.now_line_color`          | CSS color              | `var(--error-color)` |
+| `time_grid.max_simultaneous_events` | int at least 1         | `3`                  |
+| `time_grid.min_day_width`           | number (px)            | `100`                |
+| `time_grid.min_days_to_show`        | int                    | `1`                  |
+| `time_grid.min_days_fallback`       | `list\|cramp`          | `list`               |
+| `time_grid.allday_band_max_rows`    | int                    | `3`                  |
+| `time_grid.axis_width`              | CSS length             | `"3.5em"`            |
+| `time_grid.show_axis_labels`        | boolean                | `true`               |
 
 Four of lenaxia's eleven keys are absorbed by machinery we already have:
 `time_grid_allday_bg_opacity` becomes `DEFAULT_OVERRIDES_BY_VIEW` (grid sets
@@ -196,7 +196,7 @@ Integration branch `feature/grid-view-v5`, feature branches feeding it, one PR i
 | 1     | `src/utils/grid.ts` — pure geometry, DST-tested          | **done** |
 | 0     | Generalize the view abstraction                          | **done** |
 | 2     | Register `grid`; `src/rendering/grid.ts` — the container | **done** |
-| 4a    | Editor panel for the `grid:` block's own options         | **done** |
+| 4a    | Editor panel for the `time_grid:` block's own options    | **done** |
 | 3     | Width fallback, now-line ticking, midnight rollover      | **done** |
 | 5     | `NOTICE`, release surfaces                               |          |
 
@@ -383,7 +383,7 @@ directions rather than skipping it. And `resolveColumnOption` was a sixth hardco
 
 ## What Phase 2 shipped, and what it did not
 
-`view: grid` renders. The picker offers it, the `grid:` block is registered, the four-row
+`view: grid` renders. The picker offers it, the `time_grid:` block is registered, the four-row
 container is built, the stylesheet is written, and `docs/features/grid-view.md` documents
 the grid-only options.
 
@@ -409,7 +409,7 @@ cuts a multi-day all-day banner into pieces; a rule through rows 1 or 2 rules la
 than the clock surface. Week and month rules do not get a wider span, because they would cut
 the same banners at a larger boundary.
 
-`tests/editor-schema.test.ts` reconciles `GRID_ONLY_KEYS` against the built schema, the
+`tests/editor-schema.test.ts` reconciles `TIME_GRID_ONLY_KEYS` against the built schema, the
 same way it already did for column's. Without that the grid block would sit in exactly the
 position that test was written to fix: a container whose members nothing checks, where
 deleting a node leaves every gate green.
@@ -417,17 +417,17 @@ deleting a node leaves every gate green.
 **Responsive as of Phase 3.** Grid is now in `VIEWS_WITH_WIDTH_FALLBACK`, and the width
 machinery is view-aware instead of reading `config.column` directly. The same hysteresis
 resolver that column view uses now sheds grid day columns before falling back to list or
-cramping, but the defaults differ deliberately: `grid.min_day_width` is `100`, lower than
+cramping, but the defaults differ deliberately: `time_grid.min_day_width` is `100`, lower than
 column's `140`, because a time-grid column carries positioned blocks rather than a text
 list. At default spacing, three grid days need 352px before hysteresis, or 368px when
 entering grid view from the list fallback.
 
-`grid.min_days_to_show` defaults to `1`, not to `days_to_show`. A one-column grid is a
+`time_grid.min_days_to_show` defaults to `1`, not to `days_to_show`. A one-column grid is a
 useful day view with a now line — exactly the shape issue 325 asked for — so shedding down
 to one column is the correct narrow-card behavior. Column view keeps its dynamic default
 because a single cramped text column is not what a multi-day column card requested.
 
-The editor reuses the same density group for grid, with `grid.*` labels and helper text.
+The editor reuses the same density group for grid, with `time_grid.*` labels and helper text.
 The day-header separator controls stay column-only; adding grid to the width-fallback set
 would otherwise have leaked controls that grid does not read.
 
@@ -436,13 +436,13 @@ would otherwise have leaked controls that grid does not read.
 One exceptions row per panel still scales. A card is edited in one requested view at a
 time, and `SchemaCtx.view` is already known when the panel is built, so the row should mean
 "exceptions for this view" rather than "every override block on the card." The editor had
-one leak from the two-view era: `declaredKeys` unioned `column:` and `grid:`, so a stored
+one leak from the two-view era: `declaredKeys` unioned `column:` and `time_grid:`, so a stored
 column exception appeared while editing a grid card. That is now scoped to `ctx.view`;
 `tests/editor-schema.test.ts` covers both directions. A fourth `month:` block should join
 `VIEW_BLOCKS`, not add another editor branch.
 
 Do not multiply strings by view unless the words actually differ. `check:i18n` reconciles
-every schema key against `strings.ts`, so `column.height`, `grid.height`, and a future
+every schema key against `strings.ts`, so `column.height`, `time_grid.height`, and a future
 `month.height` are real cost: at four views, every shared override label would have four
 copies in English and every editor translation. The cheap rule is view-neutral chassis
 copy — **View Exceptions**, "this view" — plus per-view strings only for view-only groups
@@ -459,10 +459,10 @@ exists. The schema reconciliation covers whether the controls exist; no gate jud
 the panel is visually too crowded, so that remains a browser-review item.
 
 Resolved defaults must be display data, not stored YAML. `columnFormBlock` and
-`gridFormBlock` seed the form from the view resolvers, and `toStoredConfig` strips those
+`timeGridFormBlock` seed the form from the view resolvers, and `toStoredConfig` strips those
 values if the user opens the editor and changes nothing. The round-trip tests cover that
 opposite failure mode; the exception-form tests cover divergent defaults like
-`grid.show_empty_days`.
+`time_grid.show_empty_days`.
 
 **The now line ticks as of Phase 3a.** A one-minute interval repaints it, reconciled from
 `updated()` rather than acquired in `connectedCallback` — the view can change after
@@ -486,7 +486,7 @@ ever shows up in a profile; not worth the lifecycle surface on spec.
 Each was invisible before a second view existed, which is the argument for building Phase
 0 before Phase 2 rather than after.
 
-1. **`GRID_OVERRIDE_KEYS` must alias, not filter.** A `.filter()` types as
+1. **`TIME_GRID_OVERRIDE_KEYS` must alias, not filter.** A `.filter()` types as
    `ReadonlyArray<union>` rather than a literal tuple, which made the partition assertion
    tautological — every key read as classified while the filtered-out ones were dropped at
    runtime. That is exactly the accepted-then-silently-ignored override the assertion

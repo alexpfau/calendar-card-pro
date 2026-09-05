@@ -112,7 +112,7 @@ describe('every registered view is internally consistent', () => {
     // cannot be a constant. Column `min_days_to_show` defaults to `days_to_show` and is
     // resolved by `resolveMinDaysToShow`, which is why it is absent from
     // `COLUMN_DEFAULTS` by design rather than by omission. Grid's sibling key defaults
-    // to a literal 1, so it belongs in `GRID_DEFAULTS` and is not an exception here.
+    // to a literal 1, so it belongs in `TIME_GRID_DEFAULTS` and is not an exception here.
     //
     // 🚨 Reconciled in both directions rather than skipped. A bare exception list
     // silently stops covering anything added to it, and stops meaning anything when a

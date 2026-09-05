@@ -658,18 +658,18 @@ export function renderGridGroupedEvents(
   const gridDays = splitTimedEventsAcrossGridDays(days);
 
   const band = Grid.resolveBand(
-    ViewConfig.resolveGridOption(config, 'start_time'),
-    ViewConfig.resolveGridOption(config, 'end_time'),
+    ViewConfig.resolveTimeGridOption(config, 'start_time'),
+    ViewConfig.resolveTimeGridOption(config, 'end_time'),
   );
-  const slotMinutes = ViewConfig.resolveGridOption(config, 'slot_minutes');
-  const hourHeight = ViewConfig.resolveGridOption(config, 'hour_height');
-  const axisWidth = ViewConfig.resolveGridOption(config, 'axis_width');
-  const maxLanes = ViewConfig.resolveGridOption(config, 'max_simultaneous_events');
-  const showNowLine = ViewConfig.resolveGridOption(config, 'show_now_line');
-  const nowLineColor = ViewConfig.resolveGridOption(config, 'now_line_color');
-  const showAxisLabels = ViewConfig.resolveGridOption(config, 'show_axis_labels');
-  const maxRows = ViewConfig.resolveGridOption(config, 'allday_band_max_rows');
-  const headerGap = ViewConfig.resolveGridOption(config, 'day_header_gap');
+  const slotMinutes = ViewConfig.resolveTimeGridOption(config, 'slot_minutes');
+  const hourHeight = ViewConfig.resolveTimeGridOption(config, 'hour_height');
+  const axisWidth = ViewConfig.resolveTimeGridOption(config, 'axis_width');
+  const maxLanes = ViewConfig.resolveTimeGridOption(config, 'max_simultaneous_events');
+  const showNowLine = ViewConfig.resolveTimeGridOption(config, 'show_now_line');
+  const nowLineColor = ViewConfig.resolveTimeGridOption(config, 'now_line_color');
+  const showAxisLabels = ViewConfig.resolveTimeGridOption(config, 'show_axis_labels');
+  const maxRows = ViewConfig.resolveTimeGridOption(config, 'allday_band_max_rows');
+  const headerGap = ViewConfig.resolveTimeGridOption(config, 'day_header_gap');
 
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
@@ -795,8 +795,8 @@ function renderDayHeader(
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
-  const separatorWidth = ViewConfig.resolveGridOption(config, 'day_header_separator_width');
-  const separatorColor = ViewConfig.resolveGridOption(config, 'day_header_separator_color');
+  const separatorWidth = ViewConfig.resolveTimeGridOption(config, 'day_header_separator_width');
+  const separatorColor = ViewConfig.resolveTimeGridOption(config, 'day_header_separator_color');
   const headerSeparator = ViewConfig.isZeroLength(separatorWidth)
     ? null
     : { width: separatorWidth, color: separatorColor };

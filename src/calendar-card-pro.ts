@@ -533,7 +533,8 @@ class CalendarCardPro extends LitElement {
    */
   private get _wantsNowLine(): boolean {
     return (
-      this.effectiveView === 'grid' && ViewConfig.resolveGridOption(this.config, 'show_now_line')
+      this.effectiveView === 'grid' &&
+      ViewConfig.resolveTimeGridOption(this.config, 'show_now_line')
     );
   }
 

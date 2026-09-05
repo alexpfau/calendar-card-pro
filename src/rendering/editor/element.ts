@@ -67,7 +67,7 @@ export class CalendarCardProEditor extends LitElement {
 
   private _lastDispatched?: Record<string, unknown>;
 
-  private _skipGridDivergentDefaultSeed = false;
+  private _skipTimeGridDivergentDefaultSeed = false;
 
   /**
    * Accepts a configuration from Home Assistant.
@@ -87,7 +87,7 @@ export class CalendarCardProEditor extends LitElement {
 
     if (!isEcho) {
       this._pending = {};
-      this._skipGridDivergentDefaultSeed = false;
+      this._skipTimeGridDivergentDefaultSeed = false;
       this._declaredExceptions = Exceptions.declaredKeys(
         this._config,
         this._viewForConfig(this._config),
@@ -140,7 +140,7 @@ export class CalendarCardProEditor extends LitElement {
     return {
       ...(this._config as unknown as Record<string, unknown>),
       column: Value.columnFormBlock(this._config!),
-      grid: Value.gridFormBlock(this._config!),
+      time_grid: Value.timeGridFormBlock(this._config!),
       weather: Value.weatherFormBlock(this._config!),
       ...Synthetic.deriveSyntheticData(this._config!, this._pending),
     };
@@ -163,7 +163,7 @@ export class CalendarCardProEditor extends LitElement {
     const previousView = this._viewForConfig(this._config);
     const previousData = this._renderedData.get(panelId) ?? this._formData();
     const applied = Value.applyFormChange(this._config, previousData, nextData, this._pending, {
-      seedGridDivergentDefaults: !this._skipGridDivergentDefaultSeed,
+      seedTimeGridDivergentDefaults: !this._skipTimeGridDivergentDefaultSeed,
     });
 
     this._config = applied.config;
@@ -718,8 +718,8 @@ export class CalendarCardProEditor extends LitElement {
 
     const chosen = selection.map((key) => String(key));
     const eligibleNames = eligible.map((field) => field.name);
-    if (blockKey === 'grid') {
-      const divergentKeys = Object.keys(ViewConfig.GRID_DEFAULT_OVERRIDES);
+    if (blockKey === 'time_grid') {
+      const divergentKeys = Object.keys(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES);
       const eligibleDivergentKeys = divergentKeys.filter((key) => eligibleNames.includes(key));
       if (eligibleDivergentKeys.length > 0) {
         const removedSeededKey = eligibleDivergentKeys.some(
@@ -727,9 +727,9 @@ export class CalendarCardProEditor extends LitElement {
         );
         const hasSeededKey = eligibleDivergentKeys.some((key) => chosen.includes(key));
         if (removedSeededKey) {
-          this._skipGridDivergentDefaultSeed = true;
+          this._skipTimeGridDivergentDefaultSeed = true;
         } else if (hasSeededKey) {
-          this._skipGridDivergentDefaultSeed = false;
+          this._skipTimeGridDivergentDefaultSeed = false;
         }
       }
     }

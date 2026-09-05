@@ -144,7 +144,7 @@ function densityGroup(
 }
 
 /**
- * The time axis — everything the `grid:` block owns that has no top-level counterpart.
+ * The time axis — everything the `time_grid:` block owns that has no top-level counterpart.
  *
  * Ordered coarse to fine by what each option decides, the same rule the panels
  * themselves follow: which slice of the day the card draws, then how that slice is
@@ -257,7 +257,7 @@ const layoutSchema = Helpers.memoizeLast(
     // Gated on the view owning these keys, not merely on it owning a block. The group
     // is column's density story — `min_day_width`, `min_days_to_show`,
     // `min_days_fallback`, `day_header_gap` — and emitting it for any view with a block
-    // offered a grid card four controls its `grid:` block does not accept, each of which
+    // offered a grid card four controls its `time_grid:` block does not accept, each of which
     // would have been stored and then ignored. `VIEWS_WITH_WIDTH_FALLBACK` is the same
     // concept the width table below is already gated on.
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
@@ -267,7 +267,7 @@ const layoutSchema = Helpers.memoizeLast(
 
     // The axis IS the layout for this view, so it belongs in this panel rather than in a
     // panel of its own. Gated on the view, not merely on it having a block: these keys
-    // exist only in `grid:`.
+    // exist only in `time_grid:`.
     if (blockKey !== undefined && view === 'grid') {
       schema.push(timeAxisGroup(blockKey, language));
     }

@@ -9,7 +9,7 @@ import {
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   FETCH_TIME_KEYS,
-  GRID_DEFAULTS,
+  TIME_GRID_DEFAULTS,
   VIEW_SWITCH_HYSTERESIS_PX,
   computeColumnThresholdPx,
   computeColumnThresholdPxFor,
@@ -20,9 +20,9 @@ import {
   resolveColumnOption,
   resolveEffectiveConfig,
   resolveEffectiveView,
-  resolveGridOption,
   resolveMinDaysFallback,
   resolveMinDaysToShow,
+  resolveTimeGridOption,
   resolveViewOnMeasurement,
   resolveViewOption,
   validateColumnOverrides,
@@ -612,7 +612,7 @@ describe('validateColumnOverrides', () => {
       expect(warnMock.mock.calls[0][0]).toContain(`top-level "${key}"`);
       expect(warnMock.mock.calls[0][0]).toContain(`column: { ${key}`);
       expect(warnMock.mock.calls[1][0]).toContain(`top-level "${key}"`);
-      expect(warnMock.mock.calls[1][0]).toContain(`grid: { ${key}`);
+      expect(warnMock.mock.calls[1][0]).toContain(`time_grid: { ${key}`);
     },
   );
 
@@ -1426,10 +1426,10 @@ describe('resolveColumnFit — reduction', () => {
 });
 
 describe('resolveColumnFit — grid reduction', () => {
-  const build = (overrides: Partial<Types.GridOverrides> = {}) => {
+  const build = (overrides: Partial<Types.TimeGridOverrides> = {}) => {
     const config = buildConfig();
     config.days_to_show = 7;
-    config.grid = { ...overrides };
+    config.time_grid = { ...overrides };
     return config;
   };
 
@@ -1468,38 +1468,41 @@ describe('resolveColumnFit — grid reduction', () => {
   });
 
   it('keeps the documented grid width defaults pinned', () => {
-    expect(GRID_DEFAULTS.min_day_width).toBe(100);
-    expect(GRID_DEFAULTS.min_days_to_show).toBe(1);
-    expect(GRID_DEFAULTS.min_days_fallback).toBe('list');
-    expect(GRID_DEFAULTS.axis_width).toBe('max-content');
+    expect(TIME_GRID_DEFAULTS.min_day_width).toBe(100);
+    expect(TIME_GRID_DEFAULTS.min_days_to_show).toBe(1);
+    expect(TIME_GRID_DEFAULTS.min_days_fallback).toBe('list');
+    expect(TIME_GRID_DEFAULTS.axis_width).toBe('max-content');
   });
 
   it('normalizes grid slot density to the declared numeric union', () => {
     expect(
-      resolveGridOption(
-        build({ slot_minutes: '60' as unknown as Types.GridSlotMinutes }),
+      resolveTimeGridOption(
+        build({ slot_minutes: '60' as unknown as Types.TimeGridSlotMinutes }),
         'slot_minutes',
       ),
     ).toBe(60);
     expect(
-      resolveGridOption(build({ slot_minutes: 45 as Types.GridSlotMinutes }), 'slot_minutes'),
+      resolveTimeGridOption(
+        build({ slot_minutes: 45 as Types.TimeGridSlotMinutes }),
+        'slot_minutes',
+      ),
     ).toBe(30);
   });
 
   it('coerces bare grid length values without discarding non-pixel units', () => {
-    expect(resolveGridOption(build({ axis_width: 60 as never }), 'axis_width')).toBe('60px');
-    expect(resolveGridOption(build({ axis_width: '60' }), 'axis_width')).toBe('60px');
-    expect(resolveGridOption(build({ axis_width: '4rem' }), 'axis_width')).toBe('4rem');
-    expect(resolveGridOption(build({ hour_height: 72 as never }), 'hour_height')).toBe('72px');
-    expect(resolveGridOption(build({ hour_height: '5em' }), 'hour_height')).toBe('5em');
+    expect(resolveTimeGridOption(build({ axis_width: 60 as never }), 'axis_width')).toBe('60px');
+    expect(resolveTimeGridOption(build({ axis_width: '60' }), 'axis_width')).toBe('60px');
+    expect(resolveTimeGridOption(build({ axis_width: '4rem' }), 'axis_width')).toBe('4rem');
+    expect(resolveTimeGridOption(build({ hour_height: 72 as never }), 'hour_height')).toBe('72px');
+    expect(resolveTimeGridOption(build({ hour_height: '5em' }), 'hour_height')).toBe('5em');
   });
 
   it('normalizes grid min-days fallback to its declared values', () => {
-    expect(resolveGridOption(build({ min_days_fallback: 'cramp' }), 'min_days_fallback')).toBe(
+    expect(resolveTimeGridOption(build({ min_days_fallback: 'cramp' }), 'min_days_fallback')).toBe(
       'cramp',
     );
     expect(
-      resolveGridOption(build({ min_days_fallback: 'banana' as never }), 'min_days_fallback'),
+      resolveTimeGridOption(build({ min_days_fallback: 'banana' as never }), 'min_days_fallback'),
     ).toBe('list');
   });
 });

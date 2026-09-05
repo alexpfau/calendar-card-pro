@@ -12,8 +12,8 @@ import {
   COLUMN_ONLY_KEYS,
   COLUMN_OVERRIDE_KEYS,
   ENTITY_VIEW_SCOPE,
-  GRID_DEFAULT_OVERRIDES,
-  GRID_ONLY_KEYS,
+  TIME_GRID_DEFAULT_OVERRIDES,
+  TIME_GRID_ONLY_KEYS,
   VIEWS,
   VIEW_SCOPE,
   appliesToView,
@@ -73,10 +73,10 @@ import {
   changedKeys,
   columnFormBlock,
   exceptionFormBlock,
-  gridFormBlock,
-  seedGridDivergentDefaults,
+  seedTimeGridDivergentDefaults,
   stripColumnDefaults,
-  stripGridDefaults,
+  stripTimeGridDefaults,
+  timeGridFormBlock,
   toStoredConfig,
 } from '../src/rendering/editor/value';
 import { getEffectiveLanguage } from '../src/translations/localize';
@@ -656,7 +656,7 @@ describe('editor: the column block as the form shows it', () => {
 
 describe('editor: the grid block as the form shows it', () => {
   it('shows the effective value of an option the user has not set', () => {
-    const block = gridFormBlock(gridConfig());
+    const block = timeGridFormBlock(gridConfig());
 
     expect(block).toEqual({
       min_day_width: 100,
@@ -679,31 +679,31 @@ describe('editor: the grid block as the form shows it', () => {
   });
 
   it('lets a configured grid density override win over the projected default', () => {
-    const block = gridFormBlock(gridConfig({ grid: { min_day_width: 120 } }));
+    const block = timeGridFormBlock(gridConfig({ time_grid: { min_day_width: 120 } }));
 
     expect(block.min_day_width).toBe(120);
   });
 
   it('is stripped straight back out again on the way to storage', () => {
     const config = gridConfig();
-    const withProjection = { ...config, grid: gridFormBlock(config) } as Types.Config;
+    const withProjection = { ...config, time_grid: timeGridFormBlock(config) } as Types.Config;
 
-    expect(stripGridDefaults(withProjection)).toBeUndefined();
-    expect(toStoredConfig(withProjection)).not.toHaveProperty('grid');
+    expect(stripTimeGridDefaults(withProjection)).toBeUndefined();
+    expect(toStoredConfig(withProjection)).not.toHaveProperty('time_grid');
   });
 
   it('keeps a grid density value that differs from its default', () => {
-    const stored = toStoredConfig(gridConfig({ grid: { min_day_width: 120 } }));
+    const stored = toStoredConfig(gridConfig({ time_grid: { min_day_width: 120 } }));
 
-    expect(stored.grid).toEqual({ min_day_width: 120 });
+    expect(stored.time_grid).toEqual({ min_day_width: 120 });
   });
 
   it('stores legacy string grid slots as the numeric type the card declares', () => {
     const stored = toStoredConfig(
-      gridConfig({ grid: { slot_minutes: '60' as unknown as Types.GridSlotMinutes } }),
+      gridConfig({ time_grid: { slot_minutes: '60' as unknown as Types.TimeGridSlotMinutes } }),
     );
 
-    expect(stored.grid).toEqual({ slot_minutes: 60 });
+    expect(stored.time_grid).toEqual({ slot_minutes: 60 });
   });
 });
 
@@ -914,7 +914,7 @@ describe('editor: applicability', () => {
   });
 
   it('derives grid default notes from divergent defaults', () => {
-    for (const [key, value] of Object.entries(GRID_DEFAULT_OVERRIDES)) {
+    for (const [key, value] of Object.entries(TIME_GRID_DEFAULT_OVERRIDES)) {
       const helper = computeHelper('en', 'grid', {
         name: key,
         selector: { text: {} },
@@ -1069,32 +1069,32 @@ describe('editor: the Layout panel', () => {
     const previous = { ...(config as unknown as Record<string, unknown>) };
     const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
 
-    expect(applied.config.grid).toEqual(GRID_DEFAULT_OVERRIDES);
+    expect(applied.config.time_grid).toEqual(TIME_GRID_DEFAULT_OVERRIDES);
     expect(declaredKeys(applied.config, 'grid')).toEqual(
-      new Set(Object.keys(GRID_DEFAULT_OVERRIDES)),
+      new Set(Object.keys(TIME_GRID_DEFAULT_OVERRIDES)),
     );
     expect(toStoredConfig(applied.config)).toEqual({
       entities: [{ entity: 'calendar.personal' }],
       view: 'grid',
-      grid: GRID_DEFAULT_OVERRIDES,
+      time_grid: TIME_GRID_DEFAULT_OVERRIDES,
     });
   });
 
   it('does not seed over a grid value the user already stored', () => {
     const config = buildConfig({
       view: 'column',
-      grid: { day_separator_width: '0px' },
+      time_grid: { day_separator_width: '0px' },
     });
     const previous = { ...(config as unknown as Record<string, unknown>) };
     const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
 
-    expect(applied.config.grid).toEqual({
-      ...GRID_DEFAULT_OVERRIDES,
+    expect(applied.config.time_grid).toEqual({
+      ...TIME_GRID_DEFAULT_OVERRIDES,
       day_separator_width: '0px',
     });
     expect(toStoredConfig(applied.config)).toMatchObject({
       view: 'grid',
-      grid: { ...GRID_DEFAULT_OVERRIDES, day_separator_width: '0px' },
+      time_grid: { ...TIME_GRID_DEFAULT_OVERRIDES, day_separator_width: '0px' },
     });
   });
 
@@ -1106,10 +1106,10 @@ describe('editor: the Layout panel', () => {
       previous,
       { ...previous, view: 'grid' },
       {},
-      { seedGridDivergentDefaults: false },
+      { seedTimeGridDivergentDefaults: false },
     );
 
-    expect(applied.config.grid).toBeUndefined();
+    expect(applied.config.time_grid).toBeUndefined();
     expect(toStoredConfig(applied.config)).toEqual({
       entities: [{ entity: 'calendar.personal' }],
       view: 'grid',
@@ -1121,21 +1121,24 @@ describe('editor: the Layout panel', () => {
     const previous = { ...(config as unknown as Record<string, unknown>) };
     const applied = applyFormChange(config, previous, { ...previous, days_to_show: 5 }, {});
 
-    expect(applied.config.grid).toBeUndefined();
+    expect(applied.config.time_grid).toBeUndefined();
     expect(applied.config.days_to_show).toBe(5);
   });
 
   it('seeds each divergent grid default from the registry', () => {
-    const config = buildConfig({ view: 'grid', grid: { day_separator_width: '3px' } });
+    const config = buildConfig({ view: 'grid', time_grid: { day_separator_width: '3px' } });
 
-    expect(seedGridDivergentDefaults(config).grid).toEqual({
-      ...GRID_DEFAULT_OVERRIDES,
+    expect(seedTimeGridDivergentDefaults(config).time_grid).toEqual({
+      ...TIME_GRID_DEFAULT_OVERRIDES,
       day_separator_width: '3px',
     });
   });
 
   it('keeps an explicit grid day-rule value ahead of the divergent default', () => {
-    const config = gridConfig({ day_separator_width: '3px', grid: { day_separator_width: '0px' } });
+    const config = gridConfig({
+      day_separator_width: '3px',
+      time_grid: { day_separator_width: '0px' },
+    });
 
     expect(resolveEffectiveConfig(config, 'grid').day_separator_width).toBe('0px');
   });
@@ -1149,7 +1152,7 @@ describe('editor: the Layout panel', () => {
 
     // The editor seeds this control from the resolved grid default, which is the number
     // 30. String option values cannot match that selection and then write `"60"` back into
-    // a field whose config type is the numeric `Types.GridSlotMinutes` union.
+    // a field whose config type is the numeric `Types.TimeGridSlotMinutes` union.
     expect(options.map((option) => option.value)).toEqual([15, 20, 30, 60]);
   });
 
@@ -1740,10 +1743,10 @@ describe('editor: the panel set', () => {
       max_height: 'height_mode',
     };
 
-    // `weather`, `column` and `grid` are containers offered as their members rather than
+    // `weather`, `column` and `time_grid` are containers offered as their members rather than
     // under their own name, so none is expected here. Their members are reconciled by the
     // test below — skipping a container here once skipped everything inside it too.
-    const containers = new Set(['weather', 'column', 'grid']);
+    const containers = new Set(['weather', 'column', 'time_grid']);
 
     const missing = Object.keys(DEFAULT_CONFIG).filter((key) => {
       if (containers.has(key)) return false;
@@ -1782,7 +1785,7 @@ describe('editor: the panel set', () => {
       // would leave the grid block in exactly the position this test was written to fix:
       // a container whose members nothing checks, where deleting a node from the schema
       // leaves every gate green.
-      ...GRID_ONLY_KEYS.map((key) => `grid.${key}`),
+      ...TIME_GRID_ONLY_KEYS.map((key) => `time_grid.${key}`),
     ];
 
     // A container that stopped resolving would empty the domain and pass silently.
@@ -2384,7 +2387,7 @@ describe('editor: the write path over the whole configuration', () => {
       else if (key === 'view') custom[key] = 'column';
       else if (key === 'weather') custom[key] = { ...(value as object), entity: 'weather.home' };
       else if (key === 'column') custom[key] = { min_day_width: 200, show_location: false };
-      else if (key === 'grid') custom[key] = { min_day_width: 120, show_location: false };
+      else if (key === 'time_grid') custom[key] = { min_day_width: 120, show_location: false };
       else if (key === 'tap_action' || key === 'hold_action')
         custom[key] = { action: 'navigate', navigation_path: '/x' };
       else if (typeof value === 'boolean') custom[key] = !value;
@@ -3974,7 +3977,7 @@ describe('editor: the exceptions widget', () => {
   it('shows a divergent grid default as the grid default, not the shared value', () => {
     const config = gridConfig({ show_empty_days: false });
 
-    expect(GRID_DEFAULT_OVERRIDES.show_empty_days).toBe(true);
+    expect(TIME_GRID_DEFAULT_OVERRIDES.show_empty_days).toBe(true);
     expect(exceptionFormBlock(config, 'grid', ['show_empty_days']).show_empty_days).toBe(true);
   });
 
@@ -3991,9 +3994,9 @@ describe('editor: the exceptions widget', () => {
     const config = gridConfig({ event_font_size: '18px' });
     const block = exceptionFormBlock(config, 'grid', ['event_font_size']);
 
-    expect(toStoredConfig({ ...config, grid: block as Types.GridOverrides })).not.toHaveProperty(
-      'grid',
-    );
+    expect(
+      toStoredConfig({ ...config, time_grid: block as Types.TimeGridOverrides }),
+    ).not.toHaveProperty('grid');
   });
 
   it('seeds the exceptions a configuration already sets, and nothing else', () => {
@@ -4010,7 +4013,7 @@ describe('editor: the exceptions widget', () => {
   it('reads exceptions only out of the view block being edited', () => {
     const config = gridConfig({
       column: { event_font_size: '22px' } as Types.ColumnOverrides,
-      grid: { location_font_size: '12px' } as Types.GridOverrides,
+      time_grid: { location_font_size: '12px' } as Types.TimeGridOverrides,
     });
 
     expect([...declaredKeys(config, 'grid')]).toEqual(['location_font_size']);
@@ -4244,7 +4247,7 @@ describe('editor: the exceptions widget in the chassis', () => {
     const config = {
       entities: ['calendar.a'],
       column: { event_font_size: '22px' },
-      grid: { location_font_size: '12px' },
+      time_grid: { location_font_size: '12px' },
     } as Types.Config;
 
     document.body.appendChild(element);
@@ -4929,7 +4932,7 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
     }
 
     const found = new Map<string, string[]>();
-    // `SharedViewOverrides` and `GridOverrides` are named because v5 split the override
+    // `SharedViewOverrides` and `TimeGridOverrides` are named because v5 split the override
     // interface: most enumerated keys moved out of `ColumnOverrides` into the shared
     // base, and scanning only the old name silently stopped discovering them.
     for (const name of [
@@ -4938,7 +4941,7 @@ describe('editor: enumerated options offer their whole vocabulary', () => {
       'WeatherConfig',
       'SharedViewOverrides',
       'ColumnOverrides',
-      'GridOverrides',
+      'TimeGridOverrides',
     ]) {
       // `[^{]*` absorbs an `extends` clause. Without it this silently stopped matching
       // `ColumnOverrides` the moment it gained one, and a silent non-match here reads as

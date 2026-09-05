@@ -30,7 +30,7 @@ entities:
   - calendar.family
 view: grid
 days_to_show: 3
-grid:
+time_grid:
   start_time: '06:30'
   end_time: '20:00'
 ```
@@ -58,7 +58,7 @@ recognize as a fallback.
 in the band:
 
 ```yaml
-grid:
+time_grid:
   hour_height: 64px
 ```
 
@@ -82,7 +82,7 @@ size.
 the ruling only. An hour is the same height whichever you pick:
 
 ```yaml
-grid:
+time_grid:
   slot_minutes: 15
 ```
 
@@ -94,7 +94,7 @@ the widest visible label — including the translated all-day label when the all
 shown — with fixed padding on both sides. Set a CSS length when you want a fixed gutter:
 
 ```yaml
-grid:
+time_grid:
   axis_width: 3.5em
 ```
 
@@ -105,7 +105,7 @@ The existing separator options draw vertical rules between day columns in grid v
 
 ```yaml
 day_separator_color: var(--secondary-text-color)
-grid:
+time_grid:
   day_separator_width: '1px'
   day_separator_color: var(--secondary-text-color)
   week_separator_width: '2px'
@@ -118,7 +118,7 @@ rules. All of them stay inside the time body, so date headers remain clean and a
 all-day banner stays visually continuous across day boundaries.
 
 When you choose **Time Grid** in the visual editor, it adds the grid defaults that differ
-from the shared card defaults into `grid:` for you. That makes the default day rule, event
+from the shared card defaults into `time_grid:` for you. That makes the default day rule, event
 background opacity and empty-day behavior visible in their panels, where you can change
 them without changing the list or column layouts.
 
@@ -128,7 +128,7 @@ A line marks the current time on today's column, and only there. It is drawn fro
 arithmetic as the events, so it cannot drift away from them.
 
 ```yaml
-grid:
+time_grid:
   show_now_line: true
   now_line_color: var(--error-color)
 ```
@@ -158,7 +158,7 @@ between the day headers and the grid. A multi-day event is **one banner spanning
 days**, not a chip repeated in each:
 
 ```yaml
-grid:
+time_grid:
   allday_band_max_rows: 3
 ```
 
@@ -182,7 +182,7 @@ Events that overlap are drawn side by side, sharing the column's width. `max_sim
 caps how many before the rest collapse into a single block:
 
 ```yaml
-grid:
+time_grid:
   max_simultaneous_events: 3
 ```
 
@@ -212,7 +212,7 @@ overflow falls off the bottom of the block:
 ```yaml
 show_location: true
 show_description: true
-grid:
+time_grid:
   location_max_lines: 1
   description_max_lines: 2
 ```
@@ -222,12 +222,12 @@ grid:
 ## 📱 Fitting Narrow Cards
 
 Grid view uses the same responsive width fallback as column view, but with grid-specific
-options inside `grid:`:
+options inside `time_grid:`:
 
 ```yaml
 view: grid
 days_to_show: 5
-grid:
+time_grid:
   min_day_width: 100
   min_days_to_show: 1
   min_days_fallback: list
@@ -259,13 +259,13 @@ minimum column width.
 ## 🎨 Overriding Options in Grid View
 
 A block on a time axis is much smaller than a full-width row, so a value tuned for the
-list layout is often wrong in it. The `grid:` block holds the values that apply only when
+list layout is often wrong in it. The `time_grid:` block holds the values that apply only when
 the card renders as a grid, exactly like `column:` does for the column layout:
 
 ```yaml
 view: grid
 show_location: true
-grid:
+time_grid:
   show_location: false
   event_font_size: 12px
 ```
@@ -288,12 +288,12 @@ reconstruct — so grid view fills blocks by default. And a day with nothing in 
 a day of axis, so empty days are shown. Day separators are also on by default, so the
 shared axis still reads as separate day columns.
 
-Set any of them inside `grid:` to change it back.
+Set any of them inside `time_grid:` to change it back.
 
 Grid also accepts the same day-header spacing options as column view:
 
 ```yaml
-grid:
+time_grid:
   day_header_gap: 12px
   day_header_separator_width: 2px
   day_header_separator_color: var(--primary-color)

@@ -90,8 +90,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
   'column.day_header_gap': 'Day Header Gap',
   'column.day_header_gap.helper': 'Space between a column heading and the events under it.',
-  'grid.day_header_gap': 'Day Header Gap',
-  'grid.day_header_gap.helper': 'Space between a grid heading and the content below it.',
+  'time_grid.day_header_gap': 'Day Header Gap',
+  'time_grid.day_header_gap.helper': 'Space between a grid heading and the content below it.',
 
   // --- Calendars ------------------------------------------------------------
   //
@@ -305,67 +305,67 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.allday_badge_style': 'All-Day Badge Style',
   'column.allday_badge_color': 'All-Day Badge Color',
   'column.remove_location_country': 'Country Names',
-  'grid.density': 'Grid Density',
-  'grid.density.helper':
+  'time_grid.density': 'Grid Density',
+  'time_grid.density.helper':
     'How narrow a day column may get before the grid gives up a day, and what it does ' +
     'when it runs out.',
-  'grid.min_day_width': 'Minimum Day Width',
-  'grid.min_day_width.helper':
+  'time_grid.min_day_width': 'Minimum Day Width',
+  'time_grid.min_day_width.helper':
     'The narrowest a day column may be. The default 100px keeps three days at 352px, ' +
     'or 368px when entering from the list fallback.',
-  'grid.min_days_to_show': 'Fewest Day Columns',
-  'grid.min_days_to_show.helper':
+  'time_grid.min_days_to_show': 'Fewest Day Columns',
+  'time_grid.min_days_to_show.helper':
     'How far the grid may reduce the day count to keep the time layout. Defaults to 1, ' +
     'because a one-day grid is still a useful day view with a now line.',
-  'grid.min_days_fallback': 'When Too Narrow',
-  'grid.min_days_fallback.option.list.label': 'Fall back to a list',
-  'grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
-  'grid.axis': 'Time Axis',
-  'grid.axis.helper':
+  'time_grid.min_days_fallback': 'When Too Narrow',
+  'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
+  'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
+  'time_grid.axis': 'Time Axis',
+  'time_grid.axis.helper':
     'Which hours the card draws, and how they are ruled. Everything on the axis is ' +
     'positioned as a share of this band, so a fixed card height simply compresses it.',
-  'grid.start_time': 'First Hour',
-  'grid.start_time.helper':
+  'time_grid.start_time': 'First Hour',
+  'time_grid.start_time.helper':
     'As HH:mm. Events entirely before this are not drawn at all, so this decides what ' +
     'the card shows and not only how it looks.',
-  'grid.end_time': 'Last Hour',
-  'grid.end_time.helper':
+  'time_grid.end_time': 'Last Hour',
+  'time_grid.end_time.helper':
     'As HH:mm, or 24:00 for the end of the day. If either time cannot be read, both fall ' +
     'back to 07:00 and 22:00 together.',
-  'grid.slot_minutes': 'Grid Lines Every',
-  'grid.slot_minutes.helper':
+  'time_grid.slot_minutes': 'Grid Lines Every',
+  'time_grid.slot_minutes.helper':
     'Spacing of the rules across the axis. Ruling only — an hour is the same height ' +
     'whichever you pick.',
-  'grid.slot_minutes.option.15.label': '15 minutes',
-  'grid.slot_minutes.option.20.label': '20 minutes',
-  'grid.slot_minutes.option.30.label': '30 minutes',
-  'grid.slot_minutes.option.60.label': '1 hour',
-  'grid.hour_height': 'Height Per Hour',
-  'grid.hour_height.helper':
+  'time_grid.slot_minutes.option.15.label': '15 minutes',
+  'time_grid.slot_minutes.option.20.label': '20 minutes',
+  'time_grid.slot_minutes.option.30.label': '30 minutes',
+  'time_grid.slot_minutes.option.60.label': '1 hour',
+  'time_grid.hour_height': 'Height Per Hour',
+  'time_grid.hour_height.helper':
     "The card's natural height, one hour at a time. Ignored when a fixed height is set: " +
     'the axis compresses to fit instead.',
-  'grid.axis_width': 'Hour Label Width',
-  'grid.show_axis_labels': 'Show Hour Labels',
-  'grid.show_now_line': 'Now Line',
-  'grid.show_now_line.helper':
+  'time_grid.axis_width': 'Hour Label Width',
+  'time_grid.show_axis_labels': 'Show Hour Labels',
+  'time_grid.show_now_line': 'Now Line',
+  'time_grid.show_now_line.helper':
     "Marks the current time on today's column. Hidden when now falls outside the hours " +
     'above, rather than pinned to an edge.',
-  'grid.now_line_color': 'Now Line Color',
-  'grid.allday_band_max_rows': 'Most All-Day Rows',
-  'grid.allday_band_max_rows.helper':
+  'time_grid.now_line_color': 'Now Line Color',
+  'time_grid.allday_band_max_rows': 'Most All-Day Rows',
+  'time_grid.allday_band_max_rows.helper':
     'How tall that band may grow. Banners past this are dropped — without a cap, a week ' +
     'of long events would push the axis off the card.',
-  'grid.max_simultaneous_events': 'Most Events Side By Side',
-  'grid.max_simultaneous_events.helper':
+  'time_grid.max_simultaneous_events': 'Most Events Side By Side',
+  'time_grid.max_simultaneous_events.helper':
     'Above this, the rest collapse into one block saying how many it stands for. Nothing ' +
     'is hidden without being counted.',
-  'grid.height': 'Height',
-  'grid.height.helper': 'A fixed height for the grid layout. Use auto to let it grow.',
-  'grid.max_height': 'Maximum Height',
-  'grid.max_height.helper': 'The tallest the grid layout may grow before it scrolls.',
-  'grid.show_week_numbers': 'Week Numbers',
-  'grid.allday_badge': 'All-Day Badge',
-  'grid.remove_location_country': 'Remove Country From Location',
+  'time_grid.height': 'Height',
+  'time_grid.height.helper': 'A fixed height for the grid layout. Use auto to let it grow.',
+  'time_grid.max_height': 'Maximum Height',
+  'time_grid.max_height.helper': 'The tallest the grid layout may grow before it scrolls.',
+  'time_grid.show_week_numbers': 'Week Numbers',
+  'time_grid.allday_badge': 'All-Day Badge',
+  'time_grid.remove_location_country': 'Remove Country From Location',
   'column.show_empty_days.helper':
     'Column layout defaults this to on, whatever the shared setting above says.',
   'column.split_multiday_events.helper':
@@ -645,12 +645,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'it off does not move the events.',
   'column.day_header_separator_width': 'Day Header Rule Width',
   'column.day_header_separator_color': 'Day Header Rule Color',
-  'grid.day_header_separator': 'Day Header Rule',
-  'grid.day_header_separator.helper':
+  'time_grid.day_header_separator': 'Day Header Rule',
+  'time_grid.day_header_separator.helper':
     'The rule under a grid heading. It sits inside the day header gap and above the ' +
     'all-day band, so switching it off does not move events or slice banners.',
-  'grid.day_header_separator_width': 'Day Header Rule Width',
-  'grid.day_header_separator_color': 'Day Header Rule Color',
+  'time_grid.day_header_separator_width': 'Day Header Rule Width',
+  'time_grid.day_header_separator_color': 'Day Header Rule Color',
 
   // --- Weather --------------------------------------------------------------
   //

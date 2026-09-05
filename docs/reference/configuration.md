@@ -33,7 +33,7 @@ cards.
 | `event_type`                   | string  | `all`                         | Which class of event the card keeps — `all` shows every event, `timed` keeps only those with a clock time, and `all_day` keeps only all-day ones. It describes the kind of event, not how long it lasts. Setting it per calendar, on a calendar listed twice, is how one calendar's all-day events get their own color. See [Separating All-Day From Timed Events](/features/core-settings#separating-all-day-from-timed-events)                                 |
 | `language`                     | string  | `System`, fallback `en`       | Interface language (auto-detects from HA). Governs every string the card renders, including the weather condition words — see [Weather](/features/weather#weather-in-the-column-layout)                                                                                                                                                                                                                                                                          |
 | `column`                       | object  | Inherits the top-level values | Options that should take a different value in column view. Only presentation options may appear here — see [Column View](/features/column-view)                                                                                                                                                                                                                                                                                                                  |
-| `grid`                         | object  | Inherits the top-level values | Options that should take a different value in grid view, plus the time axis's own settings. Only presentation options may appear here — see [Grid View](/features/grid-view)                                                                                                                                                                                                                                                                                     |
+| `time_grid`                    | object  | Inherits the top-level values | Options that should take a different value in grid view, plus the time axis's own settings. Only presentation options may appear here — see [Grid View](/features/grid-view)                                                                                                                                                                                                                                                                                     |
 
 ### Column-Only Options
 
@@ -54,27 +54,27 @@ absent `column:` block a visual no-op.
 
 ### Grid-Only Options
 
-These live inside the `grid:` block and have no top-level counterpart, because they
+These live inside the `time_grid:` block and have no top-level counterpart, because they
 describe the shared day header, the time axis and the grid's responsive width fallback.
 
-| Option                              | Type    | Default                | Description                                                                                                                                     |
-| ----------------------------------- | ------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `grid → day_header_gap`             | string  | `8px`                  | Vertical space between a day header and the content below it                                                                                    |
-| `grid → day_header_separator_width` | string  | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule                                                                |
-| `grid → day_header_separator_color` | string  | `var(--divider-color)` | Color of that rule                                                                                                                              |
-| `grid → min_day_width`              | number  | `100`                  | Narrowest a day column may become, in pixels, before the grid sheds a column. Three days fit at 352px, or 368px entering from the list fallback |
-| `grid → min_days_to_show`           | number  | `1`                    | Fewest day columns the grid may shrink to. Defaults to one because a one-day grid is a useful day view with a now line                          |
-| `grid → min_days_fallback`          | string  | `list`                 | What happens when even `min_days_to_show` will not fit: `list` or `cramp`                                                                       |
-| `grid → start_time`                 | string  | `07:00`                | First moment the axis draws, as `HH:mm`. A value that cannot be read resets this and `end_time` together                                        |
-| `grid → end_time`                   | string  | `22:00`                | Last moment the axis draws. Also accepts `24:00` for the end of the day                                                                         |
-| `grid → slot_minutes`               | number  | `30`                   | Spacing of the axis rules, in minutes: `15`, `20`, `30` or `60`. Changes the ruling only, never how tall an hour is                             |
-| `grid → hour_height`                | string  | `48px`                 | Height of one hour. Sets the card's natural height; under a fixed `height` the axis compresses to fit instead                                   |
-| `grid → axis_width`                 | string  | `max-content`          | Width of the hour-label gutter. The default sizes to the widest visible gutter label with fixed padding                                         |
-| `grid → show_axis_labels`           | boolean | `true`                 | Label the axis with its hours                                                                                                                   |
-| `grid → show_now_line`              | boolean | `true`                 | Draw a line across today's column at the current time                                                                                           |
-| `grid → now_line_color`             | string  | `var(--error-color)`   | Color of that line                                                                                                                              |
-| `grid → max_simultaneous_events`    | number  | `3`                    | Most event lanes drawn side by side before the rest collapse into one `+N` block. Nothing is ever hidden without being counted                  |
-| `grid → allday_band_max_rows`       | number  | `3`                    | Rows the all-day band may grow to before the remaining banners are dropped                                                                      |
+| Option                                   | Type    | Default                | Description                                                                                                                                     |
+| ---------------------------------------- | ------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `time_grid → day_header_gap`             | string  | `8px`                  | Vertical space between a day header and the content below it                                                                                    |
+| `time_grid → day_header_separator_width` | string  | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule                                                                |
+| `time_grid → day_header_separator_color` | string  | `var(--divider-color)` | Color of that rule                                                                                                                              |
+| `time_grid → min_day_width`              | number  | `100`                  | Narrowest a day column may become, in pixels, before the grid sheds a column. Three days fit at 352px, or 368px entering from the list fallback |
+| `time_grid → min_days_to_show`           | number  | `1`                    | Fewest day columns the grid may shrink to. Defaults to one because a one-day grid is a useful day view with a now line                          |
+| `time_grid → min_days_fallback`          | string  | `list`                 | What happens when even `min_days_to_show` will not fit: `list` or `cramp`                                                                       |
+| `time_grid → start_time`                 | string  | `07:00`                | First moment the axis draws, as `HH:mm`. A value that cannot be read resets this and `end_time` together                                        |
+| `time_grid → end_time`                   | string  | `22:00`                | Last moment the axis draws. Also accepts `24:00` for the end of the day                                                                         |
+| `time_grid → slot_minutes`               | number  | `30`                   | Spacing of the axis rules, in minutes: `15`, `20`, `30` or `60`. Changes the ruling only, never how tall an hour is                             |
+| `time_grid → hour_height`                | string  | `48px`                 | Height of one hour. Sets the card's natural height; under a fixed `height` the axis compresses to fit instead                                   |
+| `time_grid → axis_width`                 | string  | `max-content`          | Width of the hour-label gutter. The default sizes to the widest visible gutter label with fixed padding                                         |
+| `time_grid → show_axis_labels`           | boolean | `true`                 | Label the axis with its hours                                                                                                                   |
+| `time_grid → show_now_line`              | boolean | `true`                 | Draw a line across today's column at the current time                                                                                           |
+| `time_grid → now_line_color`             | string  | `var(--error-color)`   | Color of that line                                                                                                                              |
+| `time_grid → max_simultaneous_events`    | number  | `3`                    | Most event lanes drawn side by side before the rest collapse into one `+N` block. Nothing is ever hidden without being counted                  |
+| `time_grid → allday_band_max_rows`       | number  | `3`                    | Rows the all-day band may grow to before the remaining banners are dropped                                                                      |
 
 **→ [Grid View](/features/grid-view)** — worked examples.
 
@@ -139,20 +139,20 @@ Both height options may be overridden inside a `column:` block, and usually shou
 
 ## 📐 Week Numbers & Horizontal Separators
 
-| Option                         | Type    | Default                       | Description                                                                           |
-| ------------------------------ | ------- | ----------------------------- | ------------------------------------------------------------------------------------- |
-| `show_week_numbers`            | string  | `null`                        | Week number display method ('iso', 'simple', or null to disable)                      |
-| `show_current_week_number`     | boolean | `true`                        | Whether to show week number for the first/current week in view                        |
-| `week_number_font_size`        | string  | `12px`                        | Font size for week number pills                                                       |
-| `week_number_color`            | string  | `var(--primary-text-color)`   | Text color for week number pills                                                      |
-| `week_number_background_color` | string  | `#03a9f450`                   | Background color for week number pills                                                |
-| `first_day_of_week`            | string  | `system`                      | First day of week ('monday', 'sunday', or 'system' to follow Home Assistant)          |
-| `day_separator_width`          | string  | `0px`                         | Width of separator line between days. Grid view defaults this to `1px` inside `grid:` |
-| `day_separator_color`          | string  | `var(--secondary-text-color)` | Color of separator line between days                                                  |
-| `week_separator_width`         | string  | `0px`                         | Width of separator line between weeks                                                 |
-| `week_separator_color`         | string  | `#03a9f450`                   | Color of separator line between weeks                                                 |
-| `month_separator_width`        | string  | `0px`                         | Width of separator line between months                                                |
-| `month_separator_color`        | string  | `var(--primary-text-color)`   | Color of separator line between months                                                |
+| Option                         | Type    | Default                       | Description                                                                                |
+| ------------------------------ | ------- | ----------------------------- | ------------------------------------------------------------------------------------------ |
+| `show_week_numbers`            | string  | `null`                        | Week number display method ('iso', 'simple', or null to disable)                           |
+| `show_current_week_number`     | boolean | `true`                        | Whether to show week number for the first/current week in view                             |
+| `week_number_font_size`        | string  | `12px`                        | Font size for week number pills                                                            |
+| `week_number_color`            | string  | `var(--primary-text-color)`   | Text color for week number pills                                                           |
+| `week_number_background_color` | string  | `#03a9f450`                   | Background color for week number pills                                                     |
+| `first_day_of_week`            | string  | `system`                      | First day of week ('monday', 'sunday', or 'system' to follow Home Assistant)               |
+| `day_separator_width`          | string  | `0px`                         | Width of separator line between days. Grid view defaults this to `1px` inside `time_grid:` |
+| `day_separator_color`          | string  | `var(--secondary-text-color)` | Color of separator line between days                                                       |
+| `week_separator_width`         | string  | `0px`                         | Width of separator line between weeks                                                      |
+| `week_separator_color`         | string  | `#03a9f450`                   | Color of separator line between weeks                                                      |
+| `month_separator_width`        | string  | `0px`                         | Width of separator line between months                                                     |
+| `month_separator_color`        | string  | `var(--primary-text-color)`   | Color of separator line between months                                                     |
 
 **→ [Week numbers and visual separators](/features/layout-appearance#week-numbers-visual-separators)**
 
@@ -192,7 +192,7 @@ Both height options may be overridden inside a `column:` block, and usually shou
 
 | Option                          | Type              | Default                                            | Description                                                                                                                                                                                                      |
 | ------------------------------- | ----------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `event_background_opacity`      | number            | `0`                                                | Background opacity (0-100) for events using entity accent color. Grid view defaults this to `20` inside `grid:`                                                                                                  |
+| `event_background_opacity`      | number            | `0`                                                | Background opacity (0-100) for events using entity accent color. Grid view defaults this to `20` inside `time_grid:`                                                                                             |
 | `event_icon_vertical_alignment` | string            | `top`                                              | Vertical alignment of event icons (time, location, description): `top`, `middle`, or `bottom`                                                                                                                    |
 | `show_past_events`              | boolean           | `false`                                            | Whether to show events that have already ended                                                                                                                                                                   |
 | `show_countdown`                | boolean           | `false`                                            | Show how much time remains until an event starts                                                                                                                                                                 |
