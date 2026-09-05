@@ -161,3 +161,40 @@ describe('the card element fills nested blocks on setConfig', () => {
     ]);
   });
 });
+
+/**
+ * The panel binds a whole view block as one expandable `ha-form` field and writes it back
+ * wholesale, so whatever the form block omits is deleted from the user's YAML the moment
+ * they touch any option in that panel. That makes the block a data-preservation contract,
+ * not just a display convenience.
+ *
+ * 🚨 Every one of these stores an option from `COLUMN_OVERRIDE_KEYS`, deliberately. The
+ * form block projects `COLUMN_DEFAULTS` / `GRID_DEFAULTS`, which are the view-*only* keys
+ * and a disjoint set from the overrides — so a fixture storing `min_day_width` is
+ * reproduced by the projection whether or not the stored block is read at all, and cannot
+ * fail. Every existing fixture stored exactly that, which is why the block silently
+ * dropped overrides for both views with the whole suite green.
+ */
+describe('a view block survives the round trip the panel puts it through', () => {
+  it.each([
+    ['column', 'day_spacing', '4px'],
+    ['column', 'show_location', false],
+    ['grid', 'event_background_opacity', 55],
+    ['grid', 'show_empty_days', false],
+  ] as const)('keeps %s.%s', (view, key, value) => {
+    const config = asSetConfigWould({
+      entities: ['calendar.a'],
+      view,
+      [view]: { [key]: value },
+    });
+
+    const block = view === 'column' ? columnFormBlock(config) : gridFormBlock(config);
+
+    expect(block[key], `${view}.${key} missing from the form block`).toBe(value);
+    expect(toStoredConfig({ ...config, [view]: block })).toEqual({
+      entities: [{ entity: 'calendar.a' }],
+      view,
+      [view]: { [key]: value },
+    });
+  });
+});

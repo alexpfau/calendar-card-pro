@@ -715,7 +715,15 @@ export function renderGridGroupedEvents(
  * Render the week-number band, or nothing when it is switched off.
  *
  * The pill sits in the axis gutter rather than over a day column, which is where a week
- * label belongs when the columns are days of that week.
+ * label belongs when the columns are days of that week. That placement is also why there
+ * is exactly one: the gutter is a single cell, so a window straddling two ISO weeks is
+ * labelled with the week its first day falls in rather than with both. Column view, which
+ * has a cell per day, does label each boundary.
+ *
+ * `show_current_week_number` means the same here as it does there — suppress the label on
+ * the *first* visible week — and because grid only ever draws that one, switching it off
+ * leaves the band empty. It was ignored entirely until this was written, so a card that
+ * hid the pill in list and column still showed it in grid.
  *
  * @param days - Days on screen
  * @param config - Card configuration
@@ -725,7 +733,7 @@ function renderWeekNumbers(
   days: Types.EventsByDay[],
   config: Types.Config,
 ): TemplateResult | typeof nothing {
-  if (config.show_week_numbers === null) {
+  if (config.show_week_numbers === null || !config.show_current_week_number) {
     return nothing;
   }
 

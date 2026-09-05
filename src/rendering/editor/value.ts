@@ -362,6 +362,19 @@ export function applyFormChange(
 /**
  * Builds the `column:` block as the form should show it.
  *
+ * Two layers, and the order matters. The projection resolves every column-only key to
+ * what the card would actually use, so an option the user never set shows its effective
+ * value rather than blank. The stored block then goes back on top.
+ *
+ * 🚨 That second spread is load-bearing and was missing for a while. `COLUMN_DEFAULTS`
+ * holds only the column-*only* keys; the sixty-odd members of `COLUMN_OVERRIDE_KEYS` are
+ * a disjoint set, so a projection over `COLUMN_DEFAULTS` alone cannot see an override the
+ * user stored. The panel binds this whole object as one expandable `ha-form` field and
+ * writes it back wholesale on any change, so a key absent here is a key deleted from
+ * their YAML the moment they touch an unrelated slider. It is silent, it hits column as
+ * well as grid, and no test caught it because every fixture stored a `COLUMN_DEFAULTS`
+ * key, which the projection reproduces by accident.
+ *
  * @param config - Merged configuration, defaults already applied
  * @returns The block, with every unset option at its effective value
  */
@@ -377,9 +390,19 @@ export function columnFormBlock(config: Readonly<Types.Config>): Record<string, 
       ]),
     ),
     min_days_to_show: ViewConfig.resolveMinDaysToShow(config),
+    ...(config.column ?? {}),
   };
 }
 
+/**
+ * Builds the `grid:` block as the form should show it.
+ *
+ * Same two layers as {@link columnFormBlock}, and the same reason the stored spread has
+ * to come last.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The block, with every unset option at its effective value
+ */
 export function gridFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
   return {
     ...Object.fromEntries(
@@ -392,6 +415,7 @@ export function gridFormBlock(config: Readonly<Types.Config>): Record<string, un
       ]),
     ),
     min_days_to_show: ViewConfig.resolveMinDaysToShow(config, 'grid'),
+    ...(config.grid ?? {}),
   };
 }
 

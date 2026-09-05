@@ -206,6 +206,26 @@ describe('the grid hour axis follows the same clock convention as event times', 
     );
   }
 
+  it('honors show_current_week_number, which grid ignored entirely', () => {
+    // `gridDay` fixes `weekNumber: null`, so every other grid DOM test returns early from
+    // `renderWeekNumbers` and the pill is never drawn once. That is why an option the
+    // reference documents globally, and which list and column both honor, did nothing
+    // here: the suite could not render the thing it governs. Give the days a real week
+    // number so the band is actually reachable.
+    const withWeek = (days: Types.EventsByDay[]) => days.map((day) => ({ ...day, weekNumber: 23 }));
+    const base = { view: 'grid' as const, days_to_show: 2, show_week_numbers: 'iso' as const };
+
+    const shown = renderGridDays(withWeek([gridDay(3), gridDay(4)]), buildConfig(base));
+    expect(shown.querySelector('.grid-week-number')).not.toBeNull();
+    expect(shown.textContent).toContain('23');
+
+    const hidden = renderGridDays(
+      withWeek([gridDay(3), gridDay(4)]),
+      buildConfig({ ...base, show_current_week_number: false }),
+    );
+    expect(hidden.querySelector('.grid-week-number')).toBeNull();
+  });
+
   it('uses the Home Assistant locale to resolve system time format', () => {
     // Danish, not German. Both are 24-hour, so either proves the axis resolved `'system'`
     // through the locale rather than falling back — but Danish writes its separator as a

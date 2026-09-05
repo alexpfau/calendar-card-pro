@@ -120,6 +120,21 @@ grid:
 When the current time falls outside the band the line is not drawn. A line pinned to the
 top or bottom edge would be a false statement about how far through the day you are.
 
+## 🔢 Week Numbers
+
+The week-number pill sits in the hour-axis gutter, above the day headers, rather than over
+a column — which is where a week label belongs when every column is a day of that week.
+
+```yaml
+show_week_numbers: iso
+show_current_week_number: true
+```
+
+There is exactly one pill, because the gutter is one cell. A window that straddles two ISO
+weeks is labelled with the week its **first day** falls in; column view, which has a cell
+per day, labels each boundary it crosses. `show_current_week_number: false` hides the
+label, and since grid draws only that one, it leaves the band empty.
+
 ## 📅 All-Day Events
 
 All-day events do not belong anywhere on an hour axis, so they get a band of their own
