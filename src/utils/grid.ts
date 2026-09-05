@@ -92,19 +92,6 @@ export function parseTimeOfDay(value: string): number | null {
   return hours < 24 ? hours * 60 + minutes : null;
 }
 
-/**
- * Render minutes from midnight back as `HH:mm`.
- *
- * @param minutes - Minutes from midnight in `[0, 1440]`
- * @returns Zero-padded `HH:mm`
- */
-export function formatTimeOfDay(minutes: number): string {
-  const clamped = Math.max(0, Math.min(MINUTES_PER_DAY, Math.round(minutes)));
-  const hours = Math.floor(clamped / 60);
-
-  return `${String(hours).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`;
-}
-
 //-----------------------------------------------------------------------------
 // BAND
 //-----------------------------------------------------------------------------
@@ -581,16 +568,14 @@ export interface BannerPlacement {
  * rather than empty, and returning `null` keeps a `span: 0` out of the CSS.
  *
  * @param event - An all-day event, i.e. one carrying `start.date`
- * @param windowStart - Local midnight of the first visible day
- * @param visibleDays - Number of day columns on screen
+ * @param visibleDayStarts - Local midnights for the day columns on screen, in render order
  * @returns The banner's placement, or `null` when it does not intersect the window
  */
 export function computeBannerPlacement(
   event: Types.CalendarEventData,
-  windowStart: Date,
-  visibleDays: number,
+  visibleDayStarts: readonly Date[],
 ): BannerPlacement | null {
-  if (!event.start.date || visibleDays < 1) {
+  if (!event.start.date || visibleDayStarts.length < 1) {
     return null;
   }
 
@@ -604,20 +589,23 @@ export function computeBannerPlacement(
     return null;
   }
 
-  const startOffset = FormatUtils.getCalendarDayDiff(windowStart, start);
-  const endOffset = FormatUtils.getCalendarDayDiff(windowStart, lastDay);
+  const normalizedDays = visibleDayStarts.map((day) => startOfDay(day));
+  const coveredIndices = normalizedDays
+    .map((day, index) => ({ day, index }))
+    .filter(({ day }) => day >= start && day <= lastDay)
+    .map(({ index }) => index);
 
-  if (endOffset < 0 || startOffset > visibleDays - 1) {
+  if (coveredIndices.length === 0) {
     return null;
   }
 
-  const columnIndex = Math.max(0, startOffset);
-  const lastVisible = Math.min(endOffset, visibleDays - 1);
+  const columnIndex = coveredIndices[0];
+  const lastVisible = coveredIndices[coveredIndices.length - 1];
 
   return {
     columnIndex,
     span: lastVisible - columnIndex + 1,
-    continuesBefore: startOffset < 0,
-    continuesAfter: endOffset > visibleDays - 1,
+    continuesBefore: start < normalizedDays[columnIndex],
+    continuesAfter: lastDay > normalizedDays[lastVisible],
   };
 }

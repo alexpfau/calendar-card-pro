@@ -1648,6 +1648,13 @@ describe('card stylesheet', () => {
       expect(CSS).toContain('-webkit-line-clamp: 1;');
       expect(CSS).toContain('-webkit-line-clamp: 3;');
       expect(declared('.grid-event-disclosure .time', 'flex')).toBe('0 0 auto');
+      expect(declared('.grid-event-disclosure .time', 'min-width')).toBe('0');
+      expect(declared('.grid-event-disclosure .time', 'overflow')).toBe('hidden');
+      expect(declared('.grid-event-disclosure .time', 'text-overflow')).toBe('ellipsis');
+      expect(declared('.grid-event-disclosure .time', 'white-space')).toBe('nowrap');
+      expect(declared('.grid-event-disclosure .time', 'flex-wrap')).toBe('nowrap');
+      expect(declared('.grid-event-disclosure .time-actual', 'min-width')).toBe('0');
+      expect(declared('.grid-event-disclosure .time-text', 'white-space')).toBe('nowrap');
       expect(declared('.grid-event-disclosure .location', 'flex')).toBe('0 0 auto');
     });
 

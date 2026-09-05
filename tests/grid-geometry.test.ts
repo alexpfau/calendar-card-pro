@@ -5,11 +5,11 @@ import {
   DEFAULT_BAND_END,
   DEFAULT_BAND_START,
   MINUTES_PER_DAY,
+  addDays,
   axisHours,
   computeBannerPlacement,
   computeEventPlacement,
   computeNowLinePct,
-  formatTimeOfDay,
   layoutLanes,
   parseTimeOfDay,
   resolveBand,
@@ -28,6 +28,9 @@ import {
  */
 
 const band = (startTime: string, endTime: string) => resolveBand(startTime, endTime);
+
+const visibleDayRange = (start: Date, count: number): Date[] =>
+  Array.from({ length: count }, (_, index) => addDays(start, index));
 
 /** A timed event, expressed in whole local hours on a fixed non-transition day. */
 function timedEvent(
@@ -51,12 +54,6 @@ describe('parseTimeOfDay', () => {
     ['24:00', MINUTES_PER_DAY],
   ])('parses %s as %d minutes', (value, expected) => {
     expect(parseTimeOfDay(value)).toBe(expected);
-  });
-
-  // Minute precision is the reason this option is a string rather than an integer
-  // hour, so a half-past bound has to survive the round trip.
-  it('round-trips a half-hour bound', () => {
-    expect(formatTimeOfDay(parseTimeOfDay('06:30') as number)).toBe('06:30');
   });
 
   it.each([
@@ -545,7 +542,9 @@ describe('computeBannerPlacement', () => {
 
   // iCal end dates are exclusive, so a one-day event ends on the following date.
   it('places a single-day event in one column', () => {
-    expect(computeBannerPlacement(allDay('2026-05-13', '2026-05-14'), windowStart, 7)).toEqual({
+    expect(
+      computeBannerPlacement(allDay('2026-05-13', '2026-05-14'), visibleDayRange(windowStart, 7)),
+    ).toEqual({
       columnIndex: 2,
       span: 1,
       continuesBefore: false,
@@ -556,7 +555,9 @@ describe('computeBannerPlacement', () => {
   // One banner spanning its days is what makes a multi-day event read as one thing;
   // a chip per day never visually joins.
   it('spans a multi-day event across its columns', () => {
-    expect(computeBannerPlacement(allDay('2026-05-12', '2026-05-15'), windowStart, 7)).toEqual({
+    expect(
+      computeBannerPlacement(allDay('2026-05-12', '2026-05-15'), visibleDayRange(windowStart, 7)),
+    ).toEqual({
       columnIndex: 1,
       span: 3,
       continuesBefore: false,
@@ -565,7 +566,9 @@ describe('computeBannerPlacement', () => {
   });
 
   it('clamps and marks an event that began before the window', () => {
-    expect(computeBannerPlacement(allDay('2026-05-08', '2026-05-13'), windowStart, 7)).toEqual({
+    expect(
+      computeBannerPlacement(allDay('2026-05-08', '2026-05-13'), visibleDayRange(windowStart, 7)),
+    ).toEqual({
       columnIndex: 0,
       span: 2,
       continuesBefore: true,
@@ -574,7 +577,9 @@ describe('computeBannerPlacement', () => {
   });
 
   it('clamps and marks an event that runs past the window', () => {
-    expect(computeBannerPlacement(allDay('2026-05-16', '2026-05-25'), windowStart, 7)).toEqual({
+    expect(
+      computeBannerPlacement(allDay('2026-05-16', '2026-05-25'), visibleDayRange(windowStart, 7)),
+    ).toEqual({
       columnIndex: 5,
       span: 2,
       continuesBefore: false,
@@ -583,7 +588,9 @@ describe('computeBannerPlacement', () => {
   });
 
   it('marks both ends for an event that swallows the window', () => {
-    expect(computeBannerPlacement(allDay('2026-05-01', '2026-05-30'), windowStart, 7)).toEqual({
+    expect(
+      computeBannerPlacement(allDay('2026-05-01', '2026-05-30'), visibleDayRange(windowStart, 7)),
+    ).toEqual({
       columnIndex: 0,
       span: 7,
       continuesBefore: true,
@@ -596,34 +603,38 @@ describe('computeBannerPlacement', () => {
     ['entirely after', '2026-05-20', '2026-05-25'],
     ['ending the day the window opens', '2026-05-05', '2026-05-11'],
   ])('returns null for an event %s the window', (_case, start, end) => {
-    expect(computeBannerPlacement(allDay(start, end), windowStart, 7)).toBeNull();
+    expect(computeBannerPlacement(allDay(start, end), visibleDayRange(windowStart, 7))).toBeNull();
   });
 
   // Malformed iCal where start equals end covers no days; a span of 0 is not valid CSS.
   it('returns null rather than a zero span for a degenerate event', () => {
-    expect(computeBannerPlacement(allDay('2026-05-13', '2026-05-13'), windowStart, 7)).toBeNull();
+    expect(
+      computeBannerPlacement(allDay('2026-05-13', '2026-05-13'), visibleDayRange(windowStart, 7)),
+    ).toBeNull();
   });
 
   it('treats a missing end date as a single day', () => {
     expect(
-      computeBannerPlacement({ start: { date: '2026-05-13' }, end: {} }, windowStart, 7),
+      computeBannerPlacement(
+        { start: { date: '2026-05-13' }, end: {} },
+        visibleDayRange(windowStart, 7),
+      ),
     ).toMatchObject({ columnIndex: 2, span: 1 });
   });
 
   it('returns null for a timed event', () => {
-    expect(computeBannerPlacement(timedEvent(9, 17), windowStart, 7)).toBeNull();
+    expect(computeBannerPlacement(timedEvent(9, 17), visibleDayRange(windowStart, 7))).toBeNull();
   });
 
   it('returns null when there are no columns to place into', () => {
-    expect(computeBannerPlacement(allDay('2026-05-13', '2026-05-14'), windowStart, 0)).toBeNull();
+    expect(computeBannerPlacement(allDay('2026-05-13', '2026-05-14'), [])).toBeNull();
   });
 
   it('never produces a span that runs off the end of the window', () => {
     for (let visibleDays = 1; visibleDays <= 7; visibleDays++) {
       const placement = computeBannerPlacement(
         allDay('2026-05-01', '2026-05-30'),
-        windowStart,
-        visibleDays,
+        visibleDayRange(windowStart, visibleDays),
       );
 
       expect(placement?.columnIndex ?? 0).toBeGreaterThanOrEqual(0);

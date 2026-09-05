@@ -315,7 +315,13 @@ describe('all-day banners across a transition', () => {
         end: { date: dateKey(addDays(day, 2)) },
       };
 
-      expect(computeBannerPlacement(event, windowStart, 7), day.toDateString()).toEqual({
+      expect(
+        computeBannerPlacement(
+          event,
+          Array.from({ length: 7 }, (_, index) => addDays(windowStart, index)),
+        ),
+        day.toDateString(),
+      ).toEqual({
         columnIndex: 1,
         span: 3,
         continuesBefore: false,
@@ -329,8 +335,7 @@ describe('all-day banners across a transition', () => {
       expect(
         computeBannerPlacement(
           { start: { date: dateKey(day) }, end: { date: dateKey(addDays(day, 1)) } },
-          addDays(day, -2),
-          7,
+          Array.from({ length: 7 }, (_, index) => addDays(addDays(day, -2), index)),
         ),
         day.toDateString(),
       ).toMatchObject({ columnIndex: 2, span: 1 });

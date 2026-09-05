@@ -1970,6 +1970,19 @@ export const cardStyles = css`
     flex: 0 0 auto;
   }
 
+  .grid-event-disclosure .time,
+  .grid-event-disclosure .time-actual,
+  .grid-event-disclosure .time-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .grid-event-disclosure .time {
+    flex-wrap: nowrap;
+  }
+
   /* The event starts before or ends after the visible band. */
   .grid-event.clipped-top {
     border-start-start-radius: 0;

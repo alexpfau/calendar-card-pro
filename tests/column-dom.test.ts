@@ -808,7 +808,7 @@ describe('column view DOM', () => {
       // `hass` was declared by this file's render harness and threaded into the
       // renderer, but never actually supplied by a test — so deleting it from the
       // `buildEventPresentation` call passed the whole suite. It only bites when
-      // `time_24h: 'system'`, which is the one path that reads `hass.locale`.
+      // `time_24h: 'system'`, which is the event-time path that reads `hass.locale`.
       const config = buildConfig();
       config.time_24h = 'system';
 

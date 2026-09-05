@@ -90,6 +90,33 @@ function renderGrid(
   return container;
 }
 
+function renderGridDays(
+  days: Types.EventsByDay[],
+  config: Types.Config = buildConfig({ view: 'grid', days_to_show: days.length }),
+): HTMLElement {
+  const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
+  const container = document.createElement('div');
+  litRender(
+    Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, FROZEN_NOW),
+    container,
+  );
+  return container;
+}
+
+function gridDay(day: number, events: Types.CalendarEventData[] = []): Types.EventsByDay {
+  const date = new Date(2026, 5, day);
+
+  return {
+    weekday: date.toLocaleDateString('en-US', { weekday: 'short' }),
+    day,
+    month: date.toLocaleDateString('en-US', { month: 'long' }),
+    timestamp: date.getTime(),
+    events,
+    weekNumber: null,
+    monthNumber: date.getMonth(),
+  };
+}
+
 /** The `top`/`height` a block was given, as numbers. */
 function geometry(element: Element): { top: number; height: number } {
   const style = (element as HTMLElement).style;
@@ -161,14 +188,25 @@ describe('the grid shares one column template', () => {
 });
 
 describe('the grid hour axis follows the same clock convention as event times', () => {
-  const hass = {
-    states: {},
-    callApi: vi.fn(),
-    callService: vi.fn(),
-    locale: { language: 'de', time_format: 'language' },
-  } satisfies Types.Hass;
+  function hassWithLocale(
+    language: string,
+    time_format: NonNullable<Types.Hass['locale']>['time_format'],
+  ) {
+    return {
+      states: {},
+      callApi: vi.fn(),
+      callService: vi.fn(),
+      locale: { language, time_format },
+    } satisfies Types.Hass;
+  }
 
-  it('uses the Home Assistant locale for system time format', () => {
+  function axisLabels(container: ParentNode): string[] {
+    return Array.from(container.querySelectorAll('.grid-axis-label')).map(
+      (label) => label.textContent?.trim() ?? '',
+    );
+  }
+
+  it('uses the Home Assistant locale to resolve system time format', () => {
     const container = renderGrid(
       [timed(17, '14:00', '15:00', 'Review')],
       buildConfig({
@@ -176,16 +214,34 @@ describe('the grid hour axis follows the same clock convention as event times', 
         days_to_show: 3,
         grid: { start_time: '14:00', end_time: '16:00' },
       }),
-      hass,
+      hassWithLocale('de', 'language'),
     );
 
-    const axisText = Array.from(container.querySelectorAll('.grid-axis-label')).map((label) =>
-      label.textContent?.trim(),
-    );
+    const axisText = axisLabels(container);
 
     expect(axisText[0]).not.toContain('PM');
-    expect(axisText[0]).toContain('14');
+    expect(axisText[0]).toBe('14');
     expect(container.textContent).toContain('14:00');
+  });
+
+  it.each([
+    ['de', true, ['6', '7']],
+    ['en', true, ['6', '7']],
+    ['de', false, ['6 AM', '7 AM']],
+    ['en', false, ['6 AM', '7 AM']],
+  ] as const)('keeps %s axis labels compact in %s-hour mode', (language, use24h, expected) => {
+    const container = renderGrid(
+      [timed(17, '06:00', '07:00', 'Breakfast')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_24h: use24h,
+        grid: { start_time: '06:00', end_time: '08:00' },
+      }),
+      hassWithLocale(language, 'language'),
+    );
+
+    expect(axisLabels(container)).toEqual(expected);
   });
 });
 
@@ -346,6 +402,37 @@ describe('timed multi-day events stay in the time grid', () => {
 
     expect(blockTexts(container).slice(1)).toEqual(['Conference Trip', 'Conference Trip']);
   });
+
+  it('shows a Tuesday start time and title-only Wednesday and Thursday continuations', () => {
+    const event = timedRange(23, '22:00', 25, '02:00', 'Overnight Migration');
+    const container = renderGridDays(
+      [gridDay(23, [event]), gridDay(24), gridDay(25)],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_24h: true,
+        grid: { start_time: '00:00', end_time: '24:00' },
+      }),
+    );
+
+    expect(blockTexts(container)).toEqual([
+      'Overnight Migration 22:00',
+      'Overnight Migration',
+      'Overnight Migration',
+    ]);
+  });
+
+  it('keeps later timed columns populated when empty grid days are hidden', () => {
+    const container = renderGrid(
+      [timed(18, '09:00', '10:00', 'Thursday Review'), timed(21, '09:00', '10:00', 'Sunday Plan')],
+      buildConfig({ view: 'grid', days_to_show: 7, grid: { show_empty_days: false } }),
+    );
+    const columns = Array.from(container.querySelectorAll('.grid-day-body'));
+
+    expect(columns).toHaveLength(2);
+    expect(columns[0].textContent).toContain('Thursday Review');
+    expect(columns[1].textContent).toContain('Sunday Plan');
+  });
 });
 
 describe('overlapping events share the column', () => {
@@ -460,6 +547,21 @@ describe('all-day events go in the band, not the body', () => {
     );
 
     expect(new Set(rows).size).toBe(1);
+  });
+
+  it('keeps a later multi-day banner when empty grid days are hidden', () => {
+    const container = renderGrid(
+      [
+        timed(18, '09:00', '10:00', 'Thursday Review'),
+        allDay('2026-06-21', '2026-06-23', 'Sunday Trip'),
+        timed(22, '09:00', '10:00', 'Monday Review'),
+      ],
+      buildConfig({ view: 'grid', days_to_show: 7, grid: { show_empty_days: false } }),
+    );
+    const banner = requireElement<HTMLElement>(container, '.grid-banner');
+
+    expect(banner.textContent).toContain('Sunday Trip');
+    expect(banner.style.gridColumn).toBe('3 / span 2');
   });
 
   it('costs no height when there are no all-day events', () => {

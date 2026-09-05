@@ -106,8 +106,10 @@ function splitTimedEventsAcrossGridDays(days: Types.EventsByDay[]): Types.Events
     return days;
   }
 
-  const windowStart = Grid.startOfDay(new Date(days[0].timestamp));
-  const windowEnd = Grid.addDays(Grid.startOfDay(new Date(days[days.length - 1].timestamp)), 1);
+  const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
+  const dayIndexByTime = new Map(visibleDayStarts.map((day, index) => [day.getTime(), index]));
+  const windowStart = visibleDayStarts[0];
+  const windowEnd = Grid.addDays(visibleDayStarts[visibleDayStarts.length - 1], 1);
   const expanded = days.map((day) => ({ ...day, events: [] as Types.CalendarEventData[] }));
 
   for (const day of days) {
@@ -117,9 +119,9 @@ function splitTimedEventsAcrossGridDays(days: Types.EventsByDay[]): Types.Events
       }
 
       if (!event.start.dateTime) {
-        const offset = FormatUtils.getCalendarDayDiff(windowStart, new Date(day.timestamp));
-        if (expanded[offset]) {
-          expanded[offset].events.push(event);
+        const index = dayIndexByTime.get(Grid.startOfDay(new Date(day.timestamp)).getTime());
+        if (index !== undefined) {
+          expanded[index].events.push(event);
         }
         continue;
       }
@@ -130,10 +132,10 @@ function splitTimedEventsAcrossGridDays(days: Types.EventsByDay[]): Types.Events
         }
 
         const segmentDay = Grid.startOfDay(new Date(segment.start.dateTime));
-        const offset = FormatUtils.getCalendarDayDiff(windowStart, segmentDay);
+        const index = dayIndexByTime.get(segmentDay.getTime());
 
-        if (expanded[offset]) {
-          expanded[offset].events.push(segment);
+        if (index !== undefined) {
+          expanded[index].events.push(segment);
         }
       }
     }
@@ -261,7 +263,6 @@ function renderAxis(
   const hours = Grid.axisHours(band);
   const bandLength = band.endMin - band.startMin;
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const locale = hass?.locale?.language;
 
   return html`
     <div class="grid-axis" style=${styleMap({ gridColumn: '1', gridRow: '4' })}>
@@ -269,7 +270,7 @@ function renderAxis(
         const topPct = ((hour * 60 - band.startMin) / bandLength) * 100;
 
         return html`<div class="grid-axis-label" style=${styleMap({ top: `${topPct}%` })}>
-          ${formatHour(hour, use24h, locale)}
+          ${formatHour(hour, use24h)}
         </div>`;
       })}
     </div>
@@ -284,17 +285,9 @@ function renderAxis(
  *
  * @param hour - Hour of the day, 0-23
  * @param use24h - Whether to use 24-hour time
- * @param locale - Locale to use for hour labels, when available
  * @returns The label
  */
-function formatHour(hour: number, use24h: boolean, locale?: string): string {
-  if (locale) {
-    return new Intl.DateTimeFormat(locale, {
-      hour: 'numeric',
-      hour12: !use24h,
-    }).format(new Date(2000, 0, 1, hour));
-  }
-
+function formatHour(hour: number, use24h: boolean): string {
   if (use24h) {
     return String(hour);
   }
@@ -430,7 +423,7 @@ function gridTimedEventContentParts(
   }
 
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const locale = hass?.locale ? hass.locale.language : undefined;
+  const locale = config.time_24h === 'system' && hass?.locale ? hass.locale.language : undefined;
 
   return {
     ...parts,
@@ -540,7 +533,6 @@ function renderBanner(
  */
 function layoutBanners(
   days: Types.EventsByDay[],
-  windowStart: Date,
   maxRows: number,
 ): {
   placed: Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement; row: number }>;
@@ -548,6 +540,7 @@ function layoutBanners(
 } {
   const seen = new Set<string>();
   const banners: Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement }> = [];
+  const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
 
   for (const day of days) {
     for (const event of sortDayEvents(day).allDay) {
@@ -562,7 +555,7 @@ function layoutBanners(
 
       seen.add(key);
 
-      const placement = Grid.computeBannerPlacement(event, windowStart, days.length);
+      const placement = Grid.computeBannerPlacement(event, visibleDayStarts);
 
       if (placement) {
         banners.push({ event, placement });
@@ -661,12 +654,11 @@ export function renderGridGroupedEvents(
   const showAxisLabels = ViewConfig.resolveGridOption(config, 'show_axis_labels');
   const maxRows = ViewConfig.resolveGridOption(config, 'allday_band_max_rows');
 
-  const windowStart = Grid.startOfDay(new Date(gridDays[0].timestamp));
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
   const boundaries = computeDayBoundaries(gridDays);
 
-  const banners = layoutBanners(gridDays, windowStart, maxRows);
+  const banners = layoutBanners(gridDays, maxRows);
   const bandRows = banners.placed.reduce((max, banner) => Math.max(max, banner.row), 0);
   const separators = boundaries
     .map((boundary, index) => ({ separator: resolveSeparator(boundary, config), index }))

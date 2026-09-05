@@ -613,10 +613,10 @@ export const COLUMN_DEFAULT_OVERRIDES: {
 /**
  * Options whose shipped default differs in grid view.
  *
- * `event_background_opacity` is the whole change. The list layout ships `0` — no tint,
- * just an accent line — which reads well against a full-width row. A grid block is a
- * shape whose *area* carries the meaning, and an untinted one is an outline the eye has
- * to reconstruct. Every calendar app that draws a time axis fills its blocks.
+ * `event_background_opacity` tints compact timed blocks, whose area carries their
+ * meaning more than a list row's accent line can. `show_empty_days` keeps the time axis
+ * contiguous unless a user explicitly hides empty columns in `grid:`. `day_separator_width`
+ * turns on vertical rules so a shared axis reads as belonging to separate day columns.
  *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable

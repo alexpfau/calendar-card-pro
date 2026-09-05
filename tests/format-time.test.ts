@@ -25,7 +25,9 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { formatTime } from '../src/utils/format';
+import { buildConfig } from './fixtures';
+import type * as Types from '../src/config/types';
+import { formatEventTimeParts, formatTime } from '../src/utils/format';
 
 /** A date whose local wall-clock time is exactly `hours:minutes`, in any timezone. */
 const at = (hours: number, minutes = 0) => new Date(2026, 5, 17, hours, minutes);
@@ -88,6 +90,24 @@ describe('formatTime', () => {
     it('pads the hour only when asked', () => {
       expect(formatTime(at(9, 5), true)).toBe('9:05');
       expect(formatTime(at(9, 5), true, true)).toBe('09:05');
+    });
+
+    it('keeps explicit 24-hour formatting language-neutral unless native formatting is requested', () => {
+      const event: Types.CalendarEventData = {
+        start: { dateTime: at(9, 5).toISOString() },
+        end: { dateTime: at(10, 5).toISOString() },
+        summary: 'Review',
+      };
+      const hass = {
+        states: {},
+        callApi: async () => undefined,
+        callService: () => undefined,
+        locale: { language: 'da', time_format: '24' },
+      } as unknown as Types.Hass;
+
+      expect(formatEventTimeParts(event, buildConfig({ time_24h: true }), 'en', hass).text).toBe(
+        '9:05 - 10:05',
+      );
     });
   });
 

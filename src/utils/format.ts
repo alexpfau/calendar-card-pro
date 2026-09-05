@@ -137,7 +137,7 @@ export function formatEventTimeParts(
     return { allDayLabel: translations.allDay, text: '' };
   }
 
-  const useNativeFormatting = !!hass?.locale;
+  const useNativeFormatting = !!(config.time_24h === 'system' && hass?.locale);
   const use24h = resolveTimeFormat24h(config, hass);
 
   if (startDate.toDateString() !== endDate.toDateString()) {
@@ -524,6 +524,7 @@ export function getCalendarDayDiff(start: Date, end: Date): number {
  * @param date Date to format
  * @param use24h Whether to use 24-hour time
  * @param twoDigitHours Whether to pad hours to two digits
+ * @param locale Locale to use for native formatting
  * @returns Formatted time string
  */
 export function formatTime(
