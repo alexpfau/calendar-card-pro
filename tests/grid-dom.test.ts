@@ -1463,9 +1463,13 @@ describe('malformed events do not crash grid rendering', () => {
       container = renderGrid(malformedEvents);
     }).not.toThrow();
 
-    expect(container).toBeDefined();
-    // Valid events (like the undefined summary one with valid times) still render safely with empty title
+    // Exactly one of the six fixtures is well-formed — the 10:00-11:00 event whose only
+    // problem is a missing summary — so that is the count this must land on. An earlier
+    // version asserted `toBeGreaterThanOrEqual(0)`, which a length satisfies by definition:
+    // it reads as coverage, cannot fail, and would have stayed green if the malformed
+    // entries had been rendered as blocks or if the valid one had been discarded with them.
     const events = container!.querySelectorAll('.grid-event');
-    expect(events.length).toBeGreaterThanOrEqual(0);
+    expect(events.length, 'only the well-formed event may reach the grid').toBe(1);
+    expect(events[0].textContent).not.toContain('Inverted');
   });
 });
