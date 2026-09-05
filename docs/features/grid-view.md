@@ -95,16 +95,23 @@ keeping the scale — useful on a narrow card where the ruling alone is enough.
 The existing separator options draw vertical rules between day columns in grid view:
 
 ```yaml
-day_separator_width: '1px'
 day_separator_color: var(--secondary-text-color)
-week_separator_width: '2px'
-month_separator_width: '3px'
+grid:
+  day_separator_width: '1px'
+  day_separator_color: var(--secondary-text-color)
+  week_separator_width: '2px'
+  month_separator_width: '3px'
 ```
 
 Grid view turns day separators on by default, because a shared time axis needs visible day
 columns to read clearly. Month rules win over week rules, and week rules win over day
 rules. All of them stay inside the time body, so date headers remain clean and a multi-day
 all-day banner stays visually continuous across day boundaries.
+
+When you choose **Time Grid** in the visual editor, it adds
+`grid: { day_separator_width: '1px' }` for you. That makes the default day rule visible in
+the **Separators** panel, where you can turn it off or change its color without changing
+the list or column layouts.
 
 ## 🔴 The Now Line
 
@@ -245,7 +252,7 @@ reconstruct — so grid view fills blocks by default. And a day with nothing in 
 a day of axis, so empty days are shown. Day separators are also on by default, so the
 shared axis still reads as separate day columns.
 
-Set either inside `grid:` to change it back.
+Set any of them inside `grid:` to change it back.
 
 Grid also accepts the same day-header spacing options as column view:
 

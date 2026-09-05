@@ -677,6 +677,40 @@ describe('separators between grid days', () => {
     return Array.from(container.querySelectorAll<HTMLElement>('.grid-separator'));
   }
 
+  function separatorSummary(overrides: Partial<Types.Config>) {
+    const container = renderGrid(EVENTS, spanConfig({ days_to_show: 30, ...overrides }));
+    const rules = separators(container);
+
+    return {
+      day: rules.filter((rule) => rule.classList.contains('grid-separator-day')),
+      week: rules.filter((rule) => rule.classList.contains('grid-separator-week')),
+      month: rules.filter((rule) => rule.classList.contains('grid-separator-month')),
+    };
+  }
+
+  it.each([
+    ['defaults', {}, 29, 0, 0, '1px'],
+    ['card-level day width 3px', { day_separator_width: '3px' }, 29, 0, 0, '1px'],
+    ['card-level day width 0px', { day_separator_width: '0px' }, 29, 0, 0, '1px'],
+    ['week width 4px', { week_separator_width: '4px' }, 25, 4, 0, '4px'],
+    ['month width 5px', { month_separator_width: '5px' }, 28, 0, 1, '5px'],
+  ] as const)(
+    'matches the 30-day separator probe for %s',
+    (_label, overrides, expectedDay, expectedWeek, expectedMonth, appliedWidth) => {
+      const summary = separatorSummary(overrides);
+
+      expect(summary.day).toHaveLength(expectedDay);
+      expect(summary.week).toHaveLength(expectedWeek);
+      expect(summary.month).toHaveLength(expectedMonth);
+
+      const applied =
+        summary.month[0]?.style.width ??
+        summary.week[0]?.style.width ??
+        summary.day[0]?.style.width;
+      expect(applied).toBe(appliedWidth);
+    },
+  );
+
   it('draws day separators by default in grid view', () => {
     const container = renderGrid(EVENTS, spanConfig());
     const rules = separators(container);

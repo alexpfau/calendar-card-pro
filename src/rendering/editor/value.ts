@@ -14,6 +14,10 @@ const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
 /** The nested groups of a `weather:` block, each defaulted option by option. */
 const WEATHER_GROUPS = ['date', 'event'] as const;
 
+interface FormChangeOptions {
+  seedGridDaySeparatorWidth?: boolean;
+}
+
 /**
  * Structural comparison, enough for the small plain objects a config holds.
  *
@@ -104,6 +108,10 @@ function inheritedViewValue(
   return view === 'grid'
     ? inheritedGridValue(config, key as keyof Types.GridOverrides & keyof Types.Config)
     : inheritedColumnValue(config, key as keyof Types.ColumnOverrides & keyof Types.Config);
+}
+
+function effectiveView(config: Readonly<Types.Config>): Types.EffectiveView {
+  return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
 }
 
 /**
@@ -217,6 +225,10 @@ export function stripGridDefaults(
         config,
         key as keyof Types.GridOverrides & keyof Types.Config,
       );
+      if (Object.prototype.hasOwnProperty.call(ViewConfig.GRID_DEFAULT_OVERRIDES, key)) {
+        result[key] = value;
+        continue;
+      }
       if (deepEqual(inherited, value)) continue;
       result[key] = value;
       continue;
@@ -304,6 +316,36 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
   return stored;
 }
 
+/**
+ * Adds the visible grid day-rule exception the editor creates on first switch.
+ *
+ * @param config - Configuration after the view changed
+ * @param enabled - Whether this editor session still wants the seed
+ * @returns The seeded configuration, or the original when no seed is needed
+ */
+export function seedGridDaySeparatorWidth(
+  config: Readonly<Types.Config>,
+  enabled = true,
+): Types.Config {
+  if (!enabled) return config as Types.Config;
+
+  const block = Helpers.isConfigBlock(config.grid)
+    ? (config.grid as Record<string, unknown>)
+    : undefined;
+
+  if (block && Object.prototype.hasOwnProperty.call(block, 'day_separator_width')) {
+    return config as Types.Config;
+  }
+
+  return {
+    ...(config as unknown as Record<string, unknown>),
+    grid: {
+      ...(block ?? {}),
+      day_separator_width: ViewConfig.GRID_DEFAULT_OVERRIDES.day_separator_width,
+    },
+  } as unknown as Types.Config;
+}
+
 interface FormApplication {
   config: Types.Config;
   pending: Record<string, string>;
@@ -316,6 +358,7 @@ interface FormApplication {
  * @param previousData - Form data as it was rendered
  * @param nextData - Form data as returned by the form
  * @param pending - Uncommitted text held for synthetic fields
+ * @param options - Extra write-path behavior for view transitions
  * @returns The configuration and pending text after the edit
  */
 export function applyFormChange(
@@ -323,9 +366,11 @@ export function applyFormChange(
   previousData: Readonly<Record<string, unknown>>,
   nextData: Readonly<Record<string, unknown>>,
   pending: Readonly<Record<string, string>>,
+  options: FormChangeOptions = {},
 ): FormApplication {
   const next = { ...(config as unknown as Record<string, unknown>) };
   const nextPending: Record<string, string> = { ...pending };
+  const previousView = effectiveView(config);
 
   const write = (key: string, value: unknown): void => {
     if (value === undefined) {
@@ -356,7 +401,12 @@ export function applyFormChange(
     }
   }
 
-  return { config: next as unknown as Types.Config, pending: nextPending };
+  let nextConfig = next as unknown as Types.Config;
+  if (previousView !== 'grid' && effectiveView(nextConfig) === 'grid') {
+    nextConfig = seedGridDaySeparatorWidth(nextConfig, options.seedGridDaySeparatorWidth !== false);
+  }
+
+  return { config: nextConfig, pending: nextPending };
 }
 
 /**

@@ -20,6 +20,7 @@ import {
   describeColumnLayoutBands,
   entityScopeFor,
   resolveColumnFit,
+  resolveEffectiveConfig,
 } from '../src/config/view';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
@@ -1049,6 +1050,59 @@ describe('editor: the Layout panel', () => {
   it('offers grid, which the card now renders', () => {
     expect(viewOptions().map((option) => option.value)).toContain('grid');
     expect(VIEWS).toContain('grid');
+  });
+
+  it('seeds a visible day-rule exception when the user switches into grid', () => {
+    const config = buildConfig({ view: 'list' });
+    const previous = { ...(config as unknown as Record<string, unknown>) };
+    const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
+
+    expect(applied.config.grid).toEqual({ day_separator_width: '1px' });
+    expect(declaredKeys(applied.config, 'grid')).toEqual(new Set(['day_separator_width']));
+    expect(toStoredConfig(applied.config)).toEqual({
+      entities: [{ entity: 'calendar.personal' }],
+      view: 'grid',
+      grid: { day_separator_width: '1px' },
+    });
+  });
+
+  it('does not seed the day rule over a grid value the user already stored', () => {
+    const config = buildConfig({
+      view: 'column',
+      grid: { day_separator_width: '0px' },
+    });
+    const previous = { ...(config as unknown as Record<string, unknown>) };
+    const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
+
+    expect(applied.config.grid).toEqual({ day_separator_width: '0px' });
+    expect(toStoredConfig(applied.config)).toMatchObject({
+      view: 'grid',
+      grid: { day_separator_width: '0px' },
+    });
+  });
+
+  it('does not seed the day rule again after the editor session suppresses it', () => {
+    const config = buildConfig({ view: 'column' });
+    const previous = { ...(config as unknown as Record<string, unknown>) };
+    const applied = applyFormChange(
+      config,
+      previous,
+      { ...previous, view: 'grid' },
+      {},
+      { seedGridDaySeparatorWidth: false },
+    );
+
+    expect(applied.config.grid).toBeUndefined();
+    expect(toStoredConfig(applied.config)).toEqual({
+      entities: [{ entity: 'calendar.personal' }],
+      view: 'grid',
+    });
+  });
+
+  it('keeps an explicit grid day-rule value ahead of the divergent default', () => {
+    const config = gridConfig({ day_separator_width: '3px', grid: { day_separator_width: '0px' } });
+
+    expect(resolveEffectiveConfig(config, 'grid').day_separator_width).toBe('0px');
   });
 
   it('offers numeric grid slot values so the selected value matches storage', () => {

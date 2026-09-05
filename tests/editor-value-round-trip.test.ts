@@ -116,6 +116,22 @@ describe('setConfig and toStoredConfig round trip', () => {
     });
   });
 
+  it('keeps an explicit grid day separator equal to its divergent default', () => {
+    expect(
+      toStoredConfig(
+        asSetConfigWould({
+          entities: ['calendar.a'],
+          view: 'grid',
+          grid: { day_separator_width: '1px' },
+        }),
+      ),
+    ).toEqual({
+      entities: [{ entity: 'calendar.a' }],
+      view: 'grid',
+      grid: { day_separator_width: '1px' },
+    });
+  });
+
   it('control: a genuinely changed top-level option is kept', () => {
     // Without this, every assertion above is satisfied by a strip that drops everything.
     expect(toStoredConfig(asSetConfigWould({ entities: ['calendar.a'], days_to_show: 7 }))).toEqual(

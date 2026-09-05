@@ -67,6 +67,8 @@ export class CalendarCardProEditor extends LitElement {
 
   private _lastDispatched?: Record<string, unknown>;
 
+  private _skipGridDaySeparatorSeed = false;
+
   /**
    * Accepts a configuration from Home Assistant.
    *
@@ -85,6 +87,7 @@ export class CalendarCardProEditor extends LitElement {
 
     if (!isEcho) {
       this._pending = {};
+      this._skipGridDaySeparatorSeed = false;
       this._declaredExceptions = Exceptions.declaredKeys(
         this._config,
         this._viewForConfig(this._config),
@@ -159,7 +162,9 @@ export class CalendarCardProEditor extends LitElement {
 
     const previousView = this._viewForConfig(this._config);
     const previousData = this._renderedData.get(panelId) ?? this._formData();
-    const applied = Value.applyFormChange(this._config, previousData, nextData, this._pending);
+    const applied = Value.applyFormChange(this._config, previousData, nextData, this._pending, {
+      seedGridDaySeparatorWidth: !this._skipGridDaySeparatorSeed,
+    });
 
     this._config = applied.config;
     this._pending = applied.pending;
@@ -711,12 +716,23 @@ export class CalendarCardProEditor extends LitElement {
     const selection = event.detail?.value?.[EXCEPTION_PICKER];
     if (!Array.isArray(selection)) return;
 
+    const chosen = selection.map((key) => String(key));
+    const eligibleNames = eligible.map((field) => field.name);
+    if (blockKey === 'grid' && eligibleNames.includes('day_separator_width')) {
+      const hasDayRule = chosen.includes('day_separator_width');
+      if (this._declaredExceptions.has('day_separator_width') && !hasDayRule) {
+        this._skipGridDaySeparatorSeed = true;
+      } else if (hasDayRule) {
+        this._skipGridDaySeparatorSeed = false;
+      }
+    }
+
     const applied = Exceptions.applySelection(
       this._config,
       blockKey,
-      eligible.map((field) => field.name),
+      eligibleNames,
       this._declaredExceptions,
-      selection.map((key) => String(key)),
+      chosen,
     );
 
     this._config = applied.config;
