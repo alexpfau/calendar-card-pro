@@ -232,6 +232,51 @@ describe('the grid shares one column template', () => {
   });
 });
 
+describe('a fixed card height compresses the band, a max height does not', () => {
+  // The event blocks are already percentages (see "uses percentages, never pixels"), but a
+  // percentage of what? The body row is `hour_height * bandHours` pixels by default, a fixed
+  // scale that cannot shrink, so a `height` smaller than the content scrolled instead of
+  // compressing -- the feature `docs/features/grid-view.md` and the `.grid-container`
+  // stylesheet comment both promise. Compression needs the body row to become `minmax(0, 1fr)`
+  // AND the container stretched to a definite `100%` so the `1fr` has room to resolve.
+  function bodyHeightVar(container: ParentNode): string {
+    return requireElement<HTMLElement>(container, '.grid-container').style.getPropertyValue(
+      '--calendar-card-grid-body-height',
+    );
+  }
+  function containerHeight(container: ParentNode): string {
+    return requireElement<HTMLElement>(container, '.grid-container').style.height;
+  }
+  const oneEvent = [timed(17, '09:00', '10:00', 'Standup')];
+
+  it('keeps a pixel scale and no container height at the default auto height', () => {
+    const container = renderGrid(oneEvent, buildConfig({ view: 'grid', days_to_show: 3 }));
+
+    expect(bodyHeightVar(container)).toMatch(/^calc\(/);
+    expect(containerHeight(container)).toBe('');
+  });
+
+  it('switches the body row to a fraction and stretches the container under a fixed height', () => {
+    const container = renderGrid(
+      oneEvent,
+      buildConfig({ view: 'grid', days_to_show: 3, height: '400px' }),
+    );
+
+    expect(bodyHeightVar(container)).toBe('minmax(0, 1fr)');
+    expect(containerHeight(container)).toBe('100%');
+  });
+
+  it('leaves a max height on the pixel scale so it caps and scrolls rather than compresses', () => {
+    const container = renderGrid(
+      oneEvent,
+      buildConfig({ view: 'grid', days_to_show: 3, max_height: '400px' }),
+    );
+
+    expect(bodyHeightVar(container)).toMatch(/^calc\(/);
+    expect(containerHeight(container)).toBe('');
+  });
+});
+
 describe('the grid hour axis follows the same clock convention as event times', () => {
   function hassWithLocale(
     language: string,

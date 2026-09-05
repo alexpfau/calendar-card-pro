@@ -685,6 +685,17 @@ export function renderGridGroupedEvents(
     .filter(({ separator, index }) => separator !== null && index > 0)
     .map(({ separator, index }) => renderGridSeparator(separator as GridSeparator, index, gutter));
 
+  // A configured `height` turns the axis from a fixed scale into a share of the card, as
+  // both `docs/features/grid-view.md` and the `.grid-container` stylesheet comment promise.
+  // The body row stops being `hour_height * bandHours` pixels and becomes `minmax(0, 1fr)`,
+  // which only distributes space once the grid itself has a definite height -- so the
+  // container is stretched to `100%` of the fixed-height `.content-container` it sits
+  // directly inside. `max_height` is deliberately excluded: it caps and scrolls rather than
+  // compresses, so its body stays the natural pixel height and only the container clips.
+  // `height` defaults to the string `'auto'`, so a truthy check is not enough -- a fixed
+  // height is a real length, matching the editor's own `heightMode` 'fixed' predicate.
+  const fixedHeight = config.height != null && config.height !== '' && config.height !== 'auto';
+
   return html`
     <div
       class="grid-container"
@@ -693,8 +704,13 @@ export function renderGridGroupedEvents(
         columnGap: gutter,
         // The band's height is the one place a configured length becomes the scale. It is
         // handed to CSS as a calc() rather than multiplied here, so `4em` and
-        // `calc(3vh + 2px)` survive intact.
-        '--calendar-card-grid-body-height': `calc(${hourHeight} * ${bandHours})`,
+        // `calc(3vh + 2px)` survive intact. Under a fixed card height it is a track
+        // function instead of a length, and the block above stretches the container so the
+        // `1fr` has room to fill.
+        '--calendar-card-grid-body-height': fixedHeight
+          ? 'minmax(0, 1fr)'
+          : `calc(${hourHeight} * ${bandHours})`,
+        ...(fixedHeight ? { height: '100%' } : {}),
         '--calendar-card-grid-now-color': nowLineColor,
         '--calendar-card-column-header-gap': headerGap,
       })}
