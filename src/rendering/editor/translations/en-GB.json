@@ -53,6 +53,7 @@
   "week_separator_color": "Week Rule Colour",
   "month_separator_color": "Month Rule Colour",
   "column.day_header_separator_color": "Day Header Rule Colour",
+  "grid.day_header_separator_color": "Day Header Rule Colour",
   "date.color": "Colour",
   "event.color": "Colour"
 }

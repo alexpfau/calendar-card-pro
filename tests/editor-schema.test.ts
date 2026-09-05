@@ -670,6 +670,9 @@ describe('editor: the grid block as the form shows it', () => {
       allday_band_max_rows: 3,
       axis_width: '3.5em',
       show_axis_labels: true,
+      day_header_gap: '8px',
+      day_header_separator_width: '0px',
+      day_header_separator_color: 'var(--divider-color)',
     });
   });
 
@@ -2030,10 +2033,10 @@ describe('editor: the Separators panel', () => {
    * inside a view's override block, and belongs beside the three rules it is a fourth
    * of rather than in the panel that happens to own that block.
    */
-  it('offers the day-header rule only for a view that has one', () => {
+  it('offers the day-header rule only for views that have one', () => {
     expect(namesIn(buildConfig())).not.toContain('day_header_separator_width');
     expect(namesIn(columnConfig())).toContain('day_header_separator_width');
-    expect(namesIn(gridConfig())).not.toContain('day_header_separator_width');
+    expect(namesIn(gridConfig())).toContain('day_header_separator_width');
   });
 
   it('stores the day-header rule inside the block it belongs to', () => {

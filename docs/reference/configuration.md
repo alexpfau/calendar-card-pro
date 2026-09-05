@@ -55,23 +55,26 @@ absent `column:` block a visual no-op.
 ### Grid-Only Options
 
 These live inside the `grid:` block and have no top-level counterpart, because they
-describe the time axis and the grid's responsive width fallback.
+describe the shared day header, the time axis and the grid's responsive width fallback.
 
-| Option                           | Type    | Default              | Description                                                                                                                                     |
-| -------------------------------- | ------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `grid → min_day_width`           | number  | `100`                | Narrowest a day column may become, in pixels, before the grid sheds a column. Three days fit at 352px, or 368px entering from the list fallback |
-| `grid → min_days_to_show`        | number  | `1`                  | Fewest day columns the grid may shrink to. Defaults to one because a one-day grid is a useful day view with a now line                          |
-| `grid → min_days_fallback`       | string  | `list`               | What happens when even `min_days_to_show` will not fit: `list` or `cramp`                                                                       |
-| `grid → start_time`              | string  | `07:00`              | First moment the axis draws, as `HH:mm`. A value that cannot be read resets this and `end_time` together                                        |
-| `grid → end_time`                | string  | `22:00`              | Last moment the axis draws. Also accepts `24:00` for the end of the day                                                                         |
-| `grid → slot_minutes`            | number  | `30`                 | Spacing of the axis rules, in minutes: `15`, `20`, `30` or `60`. Changes the ruling only, never how tall an hour is                             |
-| `grid → hour_height`             | string  | `48px`               | Height of one hour. Sets the card's natural height; under a fixed `height` the axis compresses to fit instead                                   |
-| `grid → axis_width`              | string  | `3.5em`              | Width of the hour-label gutter                                                                                                                  |
-| `grid → show_axis_labels`        | boolean | `true`               | Label the axis with its hours                                                                                                                   |
-| `grid → show_now_line`           | boolean | `true`               | Draw a line across today's column at the current time                                                                                           |
-| `grid → now_line_color`          | string  | `var(--error-color)` | Color of that line                                                                                                                              |
-| `grid → max_simultaneous_events` | number  | `3`                  | Most event lanes drawn side by side before the rest collapse into one `+N` block. Nothing is ever hidden without being counted                  |
-| `grid → allday_band_max_rows`    | number  | `3`                  | Rows the all-day band may grow to before the remaining banners are dropped                                                                      |
+| Option                              | Type    | Default                | Description                                                                                                                                     |
+| ----------------------------------- | ------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `grid → day_header_gap`             | string  | `8px`                  | Vertical space between a day header and the content below it                                                                                    |
+| `grid → day_header_separator_width` | string  | `0px`                  | Thickness of the rule under each day header; `0px`, the default, renders no rule                                                                |
+| `grid → day_header_separator_color` | string  | `var(--divider-color)` | Color of that rule                                                                                                                              |
+| `grid → min_day_width`              | number  | `100`                  | Narrowest a day column may become, in pixels, before the grid sheds a column. Three days fit at 352px, or 368px entering from the list fallback |
+| `grid → min_days_to_show`           | number  | `1`                    | Fewest day columns the grid may shrink to. Defaults to one because a one-day grid is a useful day view with a now line                          |
+| `grid → min_days_fallback`          | string  | `list`                 | What happens when even `min_days_to_show` will not fit: `list` or `cramp`                                                                       |
+| `grid → start_time`                 | string  | `07:00`                | First moment the axis draws, as `HH:mm`. A value that cannot be read resets this and `end_time` together                                        |
+| `grid → end_time`                   | string  | `22:00`                | Last moment the axis draws. Also accepts `24:00` for the end of the day                                                                         |
+| `grid → slot_minutes`               | number  | `30`                   | Spacing of the axis rules, in minutes: `15`, `20`, `30` or `60`. Changes the ruling only, never how tall an hour is                             |
+| `grid → hour_height`                | string  | `48px`                 | Height of one hour. Sets the card's natural height; under a fixed `height` the axis compresses to fit instead                                   |
+| `grid → axis_width`                 | string  | `3.5em`                | Width of the hour-label gutter                                                                                                                  |
+| `grid → show_axis_labels`           | boolean | `true`                 | Label the axis with its hours                                                                                                                   |
+| `grid → show_now_line`              | boolean | `true`                 | Draw a line across today's column at the current time                                                                                           |
+| `grid → now_line_color`             | string  | `var(--error-color)`   | Color of that line                                                                                                                              |
+| `grid → max_simultaneous_events`    | number  | `3`                    | Most event lanes drawn side by side before the rest collapse into one `+N` block. Nothing is ever hidden without being counted                  |
+| `grid → allday_band_max_rows`       | number  | `3`                    | Rows the all-day band may grow to before the remaining banners are dropped                                                                      |
 
 **→ [Grid View](/features/grid-view)** — worked examples.
 

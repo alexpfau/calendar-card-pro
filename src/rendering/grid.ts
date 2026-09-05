@@ -654,6 +654,7 @@ export function renderGridGroupedEvents(
   const nowLineColor = ViewConfig.resolveGridOption(config, 'now_line_color');
   const showAxisLabels = ViewConfig.resolveGridOption(config, 'show_axis_labels');
   const maxRows = ViewConfig.resolveGridOption(config, 'allday_band_max_rows');
+  const headerGap = ViewConfig.resolveGridOption(config, 'day_header_gap');
 
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
@@ -677,6 +678,7 @@ export function renderGridGroupedEvents(
         // `calc(3vh + 2px)` survive intact.
         '--calendar-card-grid-body-height': `calc(${hourHeight} * ${bandHours})`,
         '--calendar-card-grid-now-color': nowLineColor,
+        '--calendar-card-column-header-gap': headerGap,
       })}
     >
       ${renderWeekNumbers(gridDays, config)}
@@ -712,42 +714,34 @@ export function renderGridGroupedEvents(
 }
 
 /**
- * Render the week-number band, or nothing when it is switched off.
+ * Build one week-number cell per day column, following column view.
  *
- * The pill sits in the axis gutter rather than over a day column, which is where a week
- * label belongs when the columns are days of that week. That placement is also why there
- * is exactly one: the gutter is a single cell, so a window straddling two ISO weeks is
- * labelled with the week its first day falls in rather than with both. Column view, which
- * has a cell per day, does label each boundary.
- *
- * `show_current_week_number` means the same here as it does there — suppress the label on
- * the *first* visible week — and because grid only ever draws that one, switching it off
- * leaves the band empty. It was ignored entirely until this was written, so a card that
- * hid the pill in list and column still showed it in grid.
+ * Grid's first column is the hour axis, so day week-number cells are offset by one
+ * track. They sit above their own dates, not in the gutter, so a window crossing a week
+ * boundary can label the upcoming week too.
  *
  * @param days - Days on screen
  * @param config - Card configuration
- * @returns Rendered week-number cell, or nothing
+ * @returns One cell per day, or one `nothing` per day when no row is warranted
  */
 function renderWeekNumbers(
   days: Types.EventsByDay[],
   config: Types.Config,
-): TemplateResult | typeof nothing {
-  if (config.show_week_numbers === null || !config.show_current_week_number) {
-    return nothing;
+): Array<TemplateResult | typeof nothing> {
+  const visible = days.map((day, index) => {
+    const prevDay = index > 0 ? days[index - 1] : undefined;
+    const isNewWeek = !prevDay || day.weekNumber !== prevDay.weekNumber;
+
+    return isNewWeek && !(index === 0 && !config.show_current_week_number);
+  });
+
+  if (config.show_week_numbers === null || !visible.some(Boolean)) {
+    return days.map(() => nothing);
   }
 
-  const weekNumber = days[0]?.weekNumber;
-
-  if (weekNumber === null || weekNumber === undefined) {
-    return nothing;
-  }
-
-  return html`
-    <div class="grid-week-number" style=${styleMap({ gridColumn: '1', gridRow: '1' })}>
-      <div class="week-number">${weekNumber}</div>
-    </div>
-  `;
+  return days.map((day, index) =>
+    Leaves.renderDayWeekNumber(day.weekNumber, visible[index], index + 2),
+  );
 }
 
 /**
@@ -773,6 +767,11 @@ function renderDayHeader(
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
+  const separatorWidth = ViewConfig.resolveGridOption(config, 'day_header_separator_width');
+  const separatorColor = ViewConfig.resolveGridOption(config, 'day_header_separator_color');
+  const headerSeparator = ViewConfig.isZeroLength(separatorWidth)
+    ? null
+    : { width: separatorWidth, color: separatorColor };
 
   return html`
     <div
@@ -785,7 +784,14 @@ function renderDayHeader(
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '2' })}
     >
-      ${Leaves.renderDateContent(dayDate, config, language, isToday, weatherContent)}
+      ${Leaves.renderSharedDayHeader(
+        dayDate,
+        config,
+        language,
+        isToday,
+        weatherContent,
+        headerSeparator,
+      )}
     </div>
   `;
 }

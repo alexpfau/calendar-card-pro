@@ -122,18 +122,18 @@ top or bottom edge would be a false statement about how far through the day you 
 
 ## 🔢 Week Numbers
 
-The week-number pill sits in the hour-axis gutter, above the day headers, rather than over
-a column — which is where a week label belongs when every column is a day of that week.
+Week-number pills sit above the date columns, matching column view. Every day column gets
+a cell in the week-number row; cells that do not open a week are hidden so the date row
+keeps one stable height.
 
 ```yaml
 show_week_numbers: iso
 show_current_week_number: true
 ```
 
-There is exactly one pill, because the gutter is one cell. A window that straddles two ISO
-weeks is labelled with the week its **first day** falls in; column view, which has a cell
-per day, labels each boundary it crosses. `show_current_week_number: false` hides the
-label, and since grid draws only that one, it leaves the band empty.
+A window that straddles two ISO weeks labels both the first visible week and the next
+boundary it crosses. `show_current_week_number: false` hides only the first visible week,
+so an upcoming week boundary can still be labeled.
 
 ## 📅 All-Day Events
 
@@ -231,7 +231,7 @@ Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Three options do not inherit their top-level value in grid view. The **Default** column
+Three shared options do not inherit their top-level value in grid view. The **Default** column
 is what grid view uses; **Instead of** is the top-level default it replaces:
 
 | Option                     | Type    | Default | Instead of |
@@ -246,6 +246,18 @@ a day of axis, so empty days are shown. Day separators are also on by default, s
 shared axis still reads as separate day columns.
 
 Set either inside `grid:` to change it back.
+
+Grid also accepts the same day-header spacing options as column view:
+
+```yaml
+grid:
+  day_header_gap: 12px
+  day_header_separator_width: 2px
+  day_header_separator_color: var(--primary-color)
+```
+
+The rule sits inside the header cell, above the all-day band, so it never slices through a
+banner that spans several days.
 
 ## 🚫 Options That Do Nothing in Grid View
 

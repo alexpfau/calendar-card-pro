@@ -1,7 +1,7 @@
 import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { EVENTS, FROZEN_NOW, buildConfig } from './fixtures';
+import { EVENTS, FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Grid from '../src/rendering/grid';
@@ -73,6 +73,7 @@ function renderGrid(
   events: Types.CalendarEventData[],
   config: Types.Config = buildConfig({ view: 'grid', days_to_show: 3 }),
   hass: Types.Hass | null = null,
+  weatherForecasts: Types.WeatherForecasts | undefined = undefined,
 ): HTMLElement {
   // Both of these mirror what the card host does, and skipping either renders something
   // the card never would. `groupEventsByDay` resolves per-view overrides, so grouping
@@ -84,7 +85,7 @@ function renderGrid(
   const days = EventUtils.groupEventsByDay(events, config, false, 'en', 'grid');
   const container = document.createElement('div');
   litRender(
-    Grid.renderGridGroupedEvents(days, effective, 'en', undefined, hass, FROZEN_NOW),
+    Grid.renderGridGroupedEvents(days, effective, 'en', weatherForecasts, hass, FROZEN_NOW),
     container,
   );
   return container;
@@ -127,6 +128,18 @@ function requireElement<T extends Element = Element>(root: ParentNode, selector:
   const element = root.querySelector(selector);
   expect(element, `expected to find ${selector}`).not.toBeNull();
   return element as T;
+}
+
+/** True when the week-number cell is present but hidden. */
+function isHidden(cell: Element): boolean {
+  return (cell.getAttribute('style') ?? '').replace(/\s/g, '').includes('visibility:hidden');
+}
+
+/** One entry per grid day column: the rendered week number, or null when the cell is hidden. */
+function visibleWeekNumbers(container: ParentNode): Array<string | null> {
+  return Array.from(container.querySelectorAll('.column-week-number')).map((cell) =>
+    isHidden(cell) ? null : (cell.textContent?.trim() ?? ''),
+  );
 }
 
 beforeEach(() => {
@@ -216,14 +229,67 @@ describe('the grid hour axis follows the same clock convention as event times', 
     const base = { view: 'grid' as const, days_to_show: 2, show_week_numbers: 'iso' as const };
 
     const shown = renderGridDays(withWeek([gridDay(3), gridDay(4)]), buildConfig(base));
-    expect(shown.querySelector('.grid-week-number')).not.toBeNull();
+    expect(shown.querySelector('.column-week-number')).not.toBeNull();
     expect(shown.textContent).toContain('23');
 
     const hidden = renderGridDays(
       withWeek([gridDay(3), gridDay(4)]),
       buildConfig({ ...base, show_current_week_number: false }),
     );
-    expect(hidden.querySelector('.grid-week-number')).toBeNull();
+    expect(hidden.querySelector('.column-week-number')).toBeNull();
+  });
+
+  it('renders one week-number cell per day track, offset past the axis gutter', () => {
+    const days = [
+      { ...gridDay(19), weekNumber: 25 },
+      { ...gridDay(20), weekNumber: 25 },
+      { ...gridDay(21), weekNumber: 25 },
+      { ...gridDay(22), weekNumber: 26 },
+    ];
+    const container = renderGridDays(
+      days,
+      buildConfig({ view: 'grid', days_to_show: days.length, show_week_numbers: 'iso' }),
+    );
+    const cells = Array.from(container.querySelectorAll<HTMLElement>('.column-week-number'));
+
+    expect(cells).toHaveLength(days.length);
+    expect(cells.map((cell) => cell.style.gridColumn)).toEqual(['2', '3', '4', '5']);
+    expect(cells.map((cell) => cell.style.gridRow)).toEqual(['1', '1', '1', '1']);
+  });
+
+  it('shows a second week boundary above the date column it opens', () => {
+    const days = [
+      { ...gridDay(19), weekNumber: 25 },
+      { ...gridDay(20), weekNumber: 25 },
+      { ...gridDay(21), weekNumber: 25 },
+      { ...gridDay(22), weekNumber: 26 },
+    ];
+    const container = renderGridDays(
+      days,
+      buildConfig({ view: 'grid', days_to_show: days.length, show_week_numbers: 'iso' }),
+    );
+
+    expect(visibleWeekNumbers(container)).toEqual(['25', null, null, '26']);
+  });
+
+  it('suppresses only the first grid week when show_current_week_number is false', () => {
+    const days = [
+      { ...gridDay(19), weekNumber: 25 },
+      { ...gridDay(20), weekNumber: 25 },
+      { ...gridDay(21), weekNumber: 25 },
+      { ...gridDay(22), weekNumber: 26 },
+    ];
+    const container = renderGridDays(
+      days,
+      buildConfig({
+        view: 'grid',
+        days_to_show: days.length,
+        show_week_numbers: 'iso',
+        show_current_week_number: false,
+      }),
+    );
+
+    expect(visibleWeekNumbers(container)).toEqual([null, null, null, '26']);
   });
 
   it('uses the Home Assistant locale to resolve system time format', () => {
@@ -838,14 +904,30 @@ describe('the grid reuses the shared leaves', () => {
     expect(geometry(blocks[0]).height).toBeLessThan(geometry(blocks[1]).height);
   });
 
-  it('renders day headers through the shared date leaf', () => {
-    const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
+  it('renders day headers through the shared column-style header leaf', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        today_indicator: true,
+        weather: { entity: 'weather.home', position: 'date' },
+        grid: { day_header_separator_width: '2px', day_header_separator_color: 'rgb(1, 2, 3)' },
+      }),
+      null,
+      WEATHER,
+    );
+    const header = requireElement(container, '.grid-day-header');
+    const content = requireElement(header, '.column-date-content');
 
-    // `.weekday` and `.day` come from `renderDateContent`, the same leaf the list and
-    // column views label a day with. `.date-content` is deliberately not asserted: it is
-    // dead CSS that nothing emits, as `column-dom.test.ts` records.
-    expect(container.querySelector('.grid-day-header .weekday')).not.toBeNull();
-    expect(container.querySelector('.grid-day-header .day')).not.toBeNull();
+    expect(requireElement(content, '.weekday')).not.toBeNull();
+    expect(requireElement(content, '.day')).not.toBeNull();
+    expect(requireElement(content, '.weather').parentElement).toBe(content);
+    expect(requireElement(content, '.today-indicator-container.inline')).not.toBeNull();
+
+    const separator = requireElement<HTMLElement>(header, '.column-header-separator');
+    expect(separator.style.borderTopWidth).toBe('2px');
+    expect(separator.style.borderTopColor).toBe('rgb(1, 2, 3)');
   });
 
   it('carries the entity accent onto a block, as the other views do', () => {

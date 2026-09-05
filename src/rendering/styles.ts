@@ -1844,15 +1844,12 @@ export const cardStyles = css`
   /* ----- Day headers ----- */
 
   .grid-day-header {
-    padding-block-end: 8px;
     min-width: 0;
   }
 
-  .grid-week-number {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding-inline-end: 8px;
+  .grid-container > .column-week-number {
+    justify-self: start;
+    margin-bottom: 2px;
   }
 
   /* ----- All-day band ----- */

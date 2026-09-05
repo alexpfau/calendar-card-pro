@@ -6,6 +6,7 @@
  */
 
 import { TemplateResult, html, nothing } from 'lit';
+import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Types from '../config/types';
@@ -100,6 +101,87 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
 //-----------------------------------------------------------------------------
 // DATE LEAVES
 //-----------------------------------------------------------------------------
+
+/**
+ * Render the shared column-style day header.
+ *
+ * The class names are the shared day-header classes now, even though they still say
+ * `column`. They predate grid view, and renaming them would be a separate mechanical
+ * change that should not be bundled with a behavior fix.
+ *
+ * @param date Date to display
+ * @param config Card configuration
+ * @param language Language code for translations
+ * @param isToday Whether the date is today
+ * @param weatherContent Already-rendered weather badge, or `nothing`
+ * @param separator Optional rule under the header
+ * @returns Rendered shared day header
+ */
+export function renderSharedDayHeader(
+  date: Date,
+  config: Types.Config,
+  language: string,
+  isToday: boolean,
+  weatherContent: TemplateResult | typeof nothing = nothing,
+  separator?: { width: string; color: string } | null,
+): TemplateResult {
+  const todayIndicator = renderTodayIndicator(config, isToday, 'inline');
+  const hasInlineIndicator = todayIndicator !== nothing;
+  const headerSeparator = separator
+    ? html`<div
+        class="column-header-separator"
+        style=${styleMap({
+          borderTopWidth: separator.width,
+          borderTopColor: separator.color,
+          borderTopStyle: 'solid',
+        })}
+      ></div>`
+    : nothing;
+
+  return html`
+    <div class="column-day-header">
+      <div
+        class=${classMap({
+          'column-date-content': true,
+          'with-today-indicator': hasInlineIndicator,
+        })}
+      >
+        ${todayIndicator} ${renderDateContent(date, config, language, isToday, weatherContent)}
+      </div>
+    </div>
+    ${headerSeparator}
+  `;
+}
+
+/**
+ * Render one day's week-number cell.
+ *
+ * The class name is shared with column view for the same reason as the day-header
+ * classes in {@link renderSharedDayHeader}: it was named before grid view reused it.
+ *
+ * @param weekNumber Week number for this day, or null when unavailable
+ * @param visible Whether this column is the one that shows the number
+ * @param gridColumn One-based CSS grid column line for the cell
+ * @returns Rendered week-number cell
+ */
+export function renderDayWeekNumber(
+  weekNumber: number | null | undefined,
+  visible: boolean,
+  gridColumn: number,
+): TemplateResult {
+  return html`
+    <div
+      class="column-week-number"
+      style=${styleMap({
+        gridColumn: String(gridColumn),
+        gridRow: '1',
+        ...(visible ? {} : { visibility: 'hidden' }),
+      })}
+    >
+      <div class="week-number">${weekNumber ?? ''}</div>
+    </div>
+  `;
+}
 
 /**
  * Render the contents of a date block: weekday, day number, optional month, and the already-rendered weather badge.

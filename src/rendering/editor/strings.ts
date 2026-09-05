@@ -90,6 +90,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.min_days_fallback.option.cramp.label': 'Keep the columns, narrower',
   'column.day_header_gap': 'Day Header Gap',
   'column.day_header_gap.helper': 'Space between a column heading and the events under it.',
+  'grid.day_header_gap': 'Day Header Gap',
+  'grid.day_header_gap.helper': 'Space between a grid heading and the content below it.',
 
   // --- Calendars ------------------------------------------------------------
   //
@@ -649,6 +651,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'it off does not move the events.',
   'column.day_header_separator_width': 'Day Header Rule Width',
   'column.day_header_separator_color': 'Day Header Rule Color',
+  'grid.day_header_separator': 'Day Header Rule',
+  'grid.day_header_separator.helper':
+    'The rule under a grid heading. It sits inside the day header gap and above the ' +
+    'all-day band, so switching it off does not move events or slice banners.',
+  'grid.day_header_separator_width': 'Day Header Rule Width',
+  'grid.day_header_separator_color': 'Day Header Rule Color',
 
   // --- Weather --------------------------------------------------------------
   //

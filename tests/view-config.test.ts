@@ -597,9 +597,9 @@ describe('validateColumnOverrides', () => {
   });
 
   // The mirror-image mistake, and the more likely one: the reference documentation
-  // lists these three in the same visual table as genuine top-level options, so
-  // nothing about their presentation signals that they are nested. Left unreported
-  // they are silently inert, which spec E rules out.
+  // lists these keys beside genuine top-level options, so nothing about their
+  // presentation signals that they are nested. Left unreported they are silently inert,
+  // and each view that owns the key needs its own placement hint.
   it.each(['day_header_gap', 'day_header_separator_width', 'day_header_separator_color'])(
     'warns when %s is written at the top level instead of inside the block',
     (key) => {
@@ -608,9 +608,11 @@ describe('validateColumnOverrides', () => {
 
       validateColumnOverrides(config);
 
-      expect(warnMock).toHaveBeenCalledTimes(1);
+      expect(warnMock).toHaveBeenCalledTimes(2);
       expect(warnMock.mock.calls[0][0]).toContain(`top-level "${key}"`);
       expect(warnMock.mock.calls[0][0]).toContain(`column: { ${key}`);
+      expect(warnMock.mock.calls[1][0]).toContain(`top-level "${key}"`);
+      expect(warnMock.mock.calls[1][0]).toContain(`grid: { ${key}`);
     },
   );
 

@@ -355,6 +355,12 @@ export interface ColumnOverrides extends SharedViewOverrides {
  * are read with `resolveGridOption`, not `resolveViewOption`.
  */
 export interface GridOverrides extends SharedViewOverrides {
+  // Shared day-header layout. These have no top-level counterpart and are read with
+  // `resolveGridOption`, not `resolveViewOption`.
+  day_header_gap?: string;
+  day_header_separator_width?: string;
+  day_header_separator_color?: string;
+
   /**
    * Minimum width of one day column before the grid sheds a day.
    *

@@ -16,7 +16,7 @@ export const SEPARATORS_ICON = mdiFormatLineWeight;
 const DAY_HEADER_RULE_ICON = 'M3 5h18v2H3V5m0 12h18v2H3v-2Z';
 
 const RULES = ['day', 'week', 'month'] as const;
-const VIEWS_WITH_DAY_HEADER_SEPARATORS = new Set<Types.EffectiveView>(['column']);
+const VIEWS_WITH_DAY_HEADER_SEPARATORS = new Set<Types.EffectiveView>(['column', 'grid']);
 
 /**
  * Builds the Separators panel schema.
@@ -32,7 +32,7 @@ const separatorsSchema = Helpers.memoizeLast(
     );
 
     // Gated on the view owning the keys, not merely on it having a block.
-    // `day_header_separator_*` are column-only, so offering them to another view's block
+    // `day_header_separator_*` are day-header-only, so offering them to a view whose block
     // would store a value the renderer never reads.
     if (blockKey !== undefined && VIEWS_WITH_DAY_HEADER_SEPARATORS.has(view)) {
       schema.push(

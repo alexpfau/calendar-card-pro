@@ -119,6 +119,9 @@ export const GRID_OVERRIDE_KEYS = COLUMN_OVERRIDE_KEYS;
 
 /** Grid-only options — the ones describing the time axis and responsive density. */
 export const GRID_ONLY_KEYS = [
+  'day_header_gap',
+  'day_header_separator_width',
+  'day_header_separator_color',
   'min_day_width',
   'min_days_to_show',
   'min_days_fallback',
@@ -337,6 +340,10 @@ export const COLUMN_DEFAULTS = {
  * label is text, so its gutter should scale with text.
  */
 export const GRID_DEFAULTS = {
+  day_header_gap: '8px',
+  day_header_separator_width: '0px',
+  day_header_separator_color: 'var(--divider-color)',
+
   // 100px keeps a three-day grid at 352px before hysteresis, or 368px to enter from
   // list once the hysteresis half-band is included. A grid column carries positioned blocks rather
   // than a full text list, so it can be narrower than column view's 140px default.
