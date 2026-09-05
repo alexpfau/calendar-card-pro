@@ -29,6 +29,27 @@ import {
 
 const band = (startTime: string, endTime: string) => resolveBand(startTime, endTime);
 
+it('bounds lane search by the visible cap rather than the number of hidden overlaps', () => {
+  const count = 2000;
+  let startReads = 0;
+  const events = Array.from({ length: count }, (_, index) => ({
+    get startMin() {
+      startReads++;
+      return 540;
+    },
+    endMin: 600,
+    summary: `Meeting ${index}`,
+  }));
+  const result = layoutLanes(events, 3);
+
+  expect(result.placed).toHaveLength(3);
+  expect(result.overflows).toHaveLength(1);
+  expect(result.overflows[0].hidden).toHaveLength(count - 3);
+  // Count input reads, not milliseconds: the old search reread the start once for
+  // every hidden lane, making even a three-lane cap quadratic on a crowded day.
+  expect(startReads, `start-time reads for ${count} overlapping events`).toBeLessThan(count * 20);
+});
+
 const visibleDayRange = (start: Date, count: number): Date[] =>
   Array.from({ length: count }, (_, index) => addDays(start, index));
 

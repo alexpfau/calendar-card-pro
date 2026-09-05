@@ -33,6 +33,7 @@
   "height_mode.option.fixed.label": "Fiksēts augstums",
   "height_mode.option.maximum.label": "Maksimālais augstums",
   "card_height": "Augstums",
+  "card_height.helper": "Kartītei vienmēr ir šāds augstums. Saraksta un kolonnu skatus var ritināt, ja notikumi neietilpst; laika režģī tā vietā tiek saspiesta laika ass.",
   "card_max_height": "Maksimālais augstums",
   "card_max_height.helper": "Karte aug līdzi saturam līdz šim augstumam un pēc tam sāk ritināties.",
   "column.density": "Kolonnu blīvums",

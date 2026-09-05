@@ -33,6 +33,7 @@
   "height_mode.option.fixed.label": "Altezza fissa",
   "height_mode.option.maximum.label": "Altezza massima",
   "card_height": "Altezza",
+  "card_height.helper": "La scheda mantiene sempre questa altezza. Le viste lista e colonne scorrono se gli eventi non entrano; la griglia oraria comprime invece l'asse del tempo.",
   "card_max_height": "Altezza massima",
   "card_max_height.helper": "La scheda cresce insieme al suo contenuto fino a questa altezza, poi scorre.",
   "column.density": "Densità colonne",

@@ -33,6 +33,7 @@
   "height_mode.option.fixed.label": "Fikseeritud kõrgus",
   "height_mode.option.maximum.label": "Maksimaalne kõrgus",
   "card_height": "Kõrgus",
+  "card_height.helper": "Kaart on alati selle kõrgusega. Loetelu- ja veeruvaates saab kerida, kui sündmused ei mahu ära; ajarastris surutakse selle asemel ajatelg kokku.",
   "card_max_height": "Maksimaalne kõrgus",
   "card_max_height.helper": "Kaart kasvab koos sisuga kuni selle kõrguseni ja hakkab siis kerima.",
   "column.density": "Veergude tihedus",

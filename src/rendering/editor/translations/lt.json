@@ -33,6 +33,7 @@
   "height_mode.option.fixed.label": "Fiksuotas aukštis",
   "height_mode.option.maximum.label": "Maksimalus aukštis",
   "card_height": "Aukštis",
+  "card_height.helper": "Kortelė visada yra tokio aukščio. Sąrašo ir stulpelių rodinius galima slinkti, jei įvykiai netelpa; laiko tinklelyje vietoj to suspaudžiama laiko ašis.",
   "card_max_height": "Maksimalus aukštis",
   "card_max_height.helper": "Kortelė auga kartu su turiniu iki šio aukščio, o paskui pradedama slinkti.",
   "column.density": "Stulpelių tankis",

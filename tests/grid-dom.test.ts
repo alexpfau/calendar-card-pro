@@ -161,6 +161,24 @@ describe('the grid shares one column template', () => {
     const grid = container.querySelector<HTMLElement>('.grid-container');
 
     expect(grid?.style.gridTemplateColumns).toBe('max-content repeat(3, minmax(0, 1fr))');
+    expect(grid?.style.overflowX).toBe('');
+  });
+
+  it('keeps positive, horizontally scrollable tracks when cramp runs out of width', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 7,
+        time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp', axis_width: '4em' },
+      }),
+    );
+    const grid = requireElement<HTMLElement>(container, '.grid-container');
+
+    expect(grid.style.gridTemplateColumns).toBe('4em repeat(7, minmax(2rem, 1fr))');
+    expect(grid.style.overflowX).toBe('auto');
+    expect(grid.tabIndex).toBe(0);
+    expect(container.querySelectorAll('.grid-day-body')).toHaveLength(7);
   });
 
   it('places every row against that template by column and row', () => {
@@ -237,7 +255,7 @@ describe('a fixed card height compresses the band, a max height does not', () =>
   // percentage of what? The body row is `hour_height * bandHours` pixels by default, a fixed
   // scale that cannot shrink, so a `height` smaller than the content scrolled instead of
   // compressing -- the feature `docs/features/grid-view.md` and the `.grid-container`
-  // stylesheet comment both promise. Compression needs the body row to become `minmax(0, 1fr)`
+  // stylesheet comment both promise. Compression needs the body row to become fractional
   // AND the container stretched to a definite `100%` so the `1fr` has room to resolve.
   function bodyHeightVar(container: ParentNode): string {
     return requireElement<HTMLElement>(container, '.grid-container').style.getPropertyValue(
@@ -262,8 +280,31 @@ describe('a fixed card height compresses the band, a max height does not', () =>
       buildConfig({ view: 'grid', days_to_show: 3, height: '400px' }),
     );
 
-    expect(bodyHeightVar(container)).toBe('minmax(0, 1fr)');
+    expect(bodyHeightVar(container)).toBe('minmax(50%, 1fr)');
     expect(containerHeight(container)).toBe('100%');
+    expect(
+      requireElement<HTMLElement>(container, '.grid-container').style.getPropertyValue(
+        '--calendar-card-grid-allday-height',
+      ),
+    ).toBe('minmax(0, auto)');
+  });
+
+  it('makes a tall all-day band keyboard-scrollable without dropping its admitted banners', () => {
+    const events = Array.from({ length: 6 }, (_, index) =>
+      allDay('2026-06-17', '2026-06-19', `Workshop ${index}`),
+    );
+    const container = renderGrid(
+      events,
+      buildConfig({
+        view: 'grid',
+        height: '12rem',
+        time_grid: { allday_band_max_rows: 6 },
+      }),
+    );
+
+    expect(bodyHeightVar(container)).toBe('minmax(50%, 1fr)');
+    expect(container.querySelectorAll('.grid-banner')).toHaveLength(6);
+    expect(requireElement<HTMLElement>(container, '.grid-allday-band').tabIndex).toBe(0);
   });
 
   it('leaves a max height on the pixel scale so it caps and scrolls rather than compresses', () => {

@@ -1737,6 +1737,20 @@ describe('card stylesheet', () => {
       expect(declared('.grid-axis-sizer span', 'display')).toBe('block');
     });
 
+    it('lets the all-day track shrink and scroll while the time track retains its floor', () => {
+      expect(declared('.grid-container', 'grid-template-rows').replace(/\s+/g, ' ')).toBe(
+        'auto auto var(--calendar-card-grid-allday-height, auto) var(--calendar-card-grid-body-height, 720px)',
+      );
+      expect(declared('.grid-allday-band', 'min-height')).toBe('0');
+      expect(declared('.grid-allday-band', 'overflow-y')).toBe('auto');
+      expect(declared('.grid-allday-band', 'align-content')).toBe('start');
+    });
+
+    it('prevents invisible sizing labels from creating phantom vertical scroll overflow', () => {
+      expect(declared('.grid-axis-sizer', 'height')).toBe('0');
+      expect(declared('.grid-axis-sizer', 'overflow')).toBe('hidden');
+    });
+
     it('dims a past all-day banner, which has no event-content to dim', () => {
       // `.past-event .event-content` is the card's only dimming rule, and a grid banner
       // emits a bare title span rather than an event-content wrapper -- so it carried the

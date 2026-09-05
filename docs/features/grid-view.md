@@ -69,6 +69,8 @@ It is a CSS length, so `4em` works too and tracks your font size.
 Set a fixed `height` and `hour_height` stops mattering: the axis compresses to whatever
 room the card has. Everything on it is positioned as a share of the band rather than in
 pixels, so nothing needs recalculating and nothing drifts out of alignment.
+At least half the configured content height stays available to the time axis; a tall
+all-day band scrolls in the space above it instead of squeezing the axis away.
 
 ```yaml
 view: grid
@@ -253,6 +255,8 @@ next:
 
 - `list` switches to the list layout.
 - `cramp` keeps the grid and lets the columns become narrower than `min_day_width`.
+  At extreme widths, each day retains a `2rem` floor and the grid scrolls horizontally
+  rather than collapsing days to zero width. The axis and day gaps keep their configured sizes.
 
 ::: warning Dropped Days Are Not Marked
 When the grid sheds columns, it shows the earliest days in the configured range and drops
@@ -279,7 +283,7 @@ Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Four shared options do not inherit their top-level value in grid view. The **Default** column
+Five shared options do not inherit their top-level value in grid view. The **Default** column
 is what grid view uses; **Instead of** is the top-level default it replaces:
 
 | Option                     | Type    | Default | Instead of      |

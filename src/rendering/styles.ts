@@ -1818,7 +1818,9 @@ export const cardStyles = css`
      nothing needs recomputing: every block inside is positioned as a percentage. */
   .grid-container {
     display: grid;
-    grid-template-rows: auto auto auto var(--calendar-card-grid-body-height, 720px);
+    grid-template-rows:
+      auto auto var(--calendar-card-grid-allday-height, auto)
+      var(--calendar-card-grid-body-height, 720px);
     width: 100%;
     --calendar-card-grid-event-gap: 1px;
   }
@@ -1834,6 +1836,10 @@ export const cardStyles = css`
   .grid-axis-sizer {
     visibility: hidden;
     pointer-events: none;
+    /* Size only the width. Stacking invisible labels otherwise adds scrollable overflow
+       below a compressed time body even though the visible labels all fit inside it. */
+    height: 0;
+    overflow: hidden;
   }
 
   .grid-axis-sizer span {
@@ -1906,6 +1912,9 @@ export const cardStyles = css`
     display: grid;
     row-gap: 2px;
     padding-block-end: 4px;
+    min-height: 0;
+    overflow-y: auto;
+    align-content: start;
   }
 
   .grid-banner {

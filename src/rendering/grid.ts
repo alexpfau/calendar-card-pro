@@ -687,20 +687,26 @@ export function renderGridGroupedEvents(
 
   // A configured `height` turns the axis from a fixed scale into a share of the card, as
   // both `docs/features/grid-view.md` and the `.grid-container` stylesheet comment promise.
-  // The body row stops being `hour_height * bandHours` pixels and becomes `minmax(0, 1fr)`,
-  // which only distributes space once the grid itself has a definite height -- so the
+  // Reserve at least half the content height for time, letting the all-day band scroll
+  // in the remaining space rather than starving the body. Fractional tracks only
+  // distribute space once the grid itself has a definite height -- so the
   // container is stretched to `100%` of the fixed-height `.content-container` it sits
   // directly inside. `max_height` is deliberately excluded: it caps and scrolls rather than
   // compresses, so its body stays the natural pixel height and only the container clips.
   // `height` defaults to the string `'auto'`, so a truthy check is not enough -- a fixed
   // height is a real length, matching the editor's own `heightMode` 'fixed' predicate.
   const fixedHeight = config.height != null && config.height !== '' && config.height !== 'auto';
+  // Cramp trades readability for keeping days, not for losing zero-width tracks.
+  // Below two root-font units per day, preserve the tracks and scroll horizontally.
+  const cramp = ViewConfig.resolveMinDaysFallback(config, 'grid') === 'cramp';
 
   return html`
     <div
       class="grid-container"
+      tabindex=${cramp ? '0' : nothing}
       style=${styleMap({
-        gridTemplateColumns: `${axisWidth} repeat(${gridDays.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `${axisWidth} repeat(${gridDays.length}, minmax(${cramp ? '2rem' : '0'}, 1fr))`,
+        ...(cramp ? { overflowX: 'auto' } : {}),
         columnGap: gutter,
         // The band's height is the one place a configured length becomes the scale. It is
         // handed to CSS as a calc() rather than multiplied here, so `4em` and
@@ -708,9 +714,11 @@ export function renderGridGroupedEvents(
         // function instead of a length, and the block above stretches the container so the
         // `1fr` has room to fill.
         '--calendar-card-grid-body-height': fixedHeight
-          ? 'minmax(0, 1fr)'
+          ? 'minmax(50%, 1fr)'
           : `calc(${hourHeight} * ${bandHours})`,
-        ...(fixedHeight ? { height: '100%' } : {}),
+        ...(fixedHeight
+          ? { height: '100%', '--calendar-card-grid-allday-height': 'minmax(0, auto)' }
+          : {}),
         '--calendar-card-grid-now-color': nowLineColor,
         '--calendar-card-column-header-gap': headerGap,
       })}
@@ -723,6 +731,7 @@ export function renderGridGroupedEvents(
         ? html`
             <div
               class="grid-allday-band"
+              tabindex=${fixedHeight ? '0' : nothing}
               style=${styleMap({
                 gridColumn: `1 / span ${gridDays.length + 1}`,
                 gridRow: '3',

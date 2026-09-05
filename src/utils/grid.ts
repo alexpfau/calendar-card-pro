@@ -402,7 +402,7 @@ export function layoutLanes<T extends LaneInput>(events: T[], maxLanes: number):
   const overflows: LaneOverflow<T>[] = [];
 
   for (const members of clusters) {
-    const assigned = assignLanes(members);
+    const assigned = assignLanes(members, cap);
     const needed = assigned.reduce((max, entry) => Math.max(max, entry.laneIndex + 1), 0);
 
     if (needed <= cap) {
@@ -439,10 +439,18 @@ export function layoutLanes<T extends LaneInput>(events: T[], maxLanes: number):
 /**
  * Greedy lowest-free-lane assignment within one cluster.
  *
+ * Hidden lanes never affect the availability of a lower, visible lane. Once the cap
+ * is full, use its index as an overflow sentinel instead of allocating and searching
+ * more lanes nobody will draw. This bounds the scan by the cap, even in a dense cluster.
+ *
  * @param members - Cluster members, already in start order
+ * @param cap - Number of visible lanes to track
  * @returns Each member with the lane it was given
  */
-function assignLanes<T extends LaneInput>(members: T[]): Array<{ event: T; laneIndex: number }> {
+function assignLanes<T extends LaneInput>(
+  members: T[],
+  cap: number,
+): Array<{ event: T; laneIndex: number }> {
   const laneEnds: number[] = [];
 
   return members.map((event) => {
@@ -452,7 +460,9 @@ function assignLanes<T extends LaneInput>(members: T[]): Array<{ event: T; laneI
       laneIndex = laneEnds.length;
     }
 
-    laneEnds[laneIndex] = event.endMin;
+    if (laneIndex < cap) {
+      laneEnds[laneIndex] = event.endMin;
+    }
 
     return { event, laneIndex };
   });

@@ -33,6 +33,7 @@
   "height_mode.option.fixed.label": "Feste Höhe",
   "height_mode.option.maximum.label": "Maximale Höhe",
   "card_height": "Höhe",
+  "card_height.helper": "Die Karte hat immer diese Höhe. In der Listen- und Spaltenansicht wird gescrollt, wenn die Termine nicht hineinpassen; im Zeitraster wird stattdessen die Zeitachse gestaucht.",
   "card_max_height": "Maximale Höhe",
   "card_max_height.helper": "Die Karte wächst mit ihrem Inhalt bis zu dieser Höhe und scrollt danach.",
   "column.density": "Spaltendichte",
