@@ -189,6 +189,26 @@ describe('the grid shares one column template', () => {
     expect(columns).toEqual(['2', '3', '4']);
   });
 
+  it('places all-day banners on the same day tracks as the time body', () => {
+    const container = renderGrid([
+      timed(17, '09:00', '10:00', 'Standup'),
+      allDay('2026-06-17', '2026-06-18', 'Workshop'),
+      allDay('2026-06-17', '2026-06-20', 'Trip'),
+    ]);
+    const band = requireElement<HTMLElement>(container, '.grid-allday-band');
+    const bodyColumns = Array.from(container.querySelectorAll<HTMLElement>('.grid-day-body')).map(
+      (element) => element.style.gridColumn,
+    );
+    const banners = Array.from(container.querySelectorAll<HTMLElement>('.grid-banner'));
+
+    expect(
+      band.style.gridTemplateColumns,
+      'the band must reuse the parent grid tracks, not repeat an empty max-content gutter',
+    ).toBe('subgrid');
+    expect(banners.map((banner) => banner.style.gridColumn)).toEqual(['2 / span 3', '2 / span 1']);
+    expect(banners[1].style.gridColumn.split(' / ')[0]).toBe(bodyColumns[0]);
+  });
+
   it('carries shared day-state classes onto the grid header', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
     const headers = Array.from(container.querySelectorAll('.grid-day-header'));

@@ -701,9 +701,8 @@ export function renderGridGroupedEvents(
               style=${styleMap({
                 gridColumn: `1 / span ${gridDays.length + 1}`,
                 gridRow: '3',
-                gridTemplateColumns: `${axisWidth} repeat(${gridDays.length}, minmax(0, 1fr))`,
+                gridTemplateColumns: 'subgrid',
                 gridTemplateRows: `repeat(${bandRows}, auto)`,
-                columnGap: gutter,
               })}
             >
               ${banners.map((banner) =>
