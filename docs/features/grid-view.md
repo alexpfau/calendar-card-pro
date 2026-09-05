@@ -286,7 +286,7 @@ is what grid view uses; **Instead of** is the top-level default it replaces:
 | `event_background_opacity` | number  | `20`    | `0`        |
 | `show_empty_days`          | boolean | `true`  | `false`    |
 | `show_past_events`         | boolean | `true`  | `false`    |
-| `day_separator_width`      | string  | `1px`   | `0px`      |
+| `day_separator_width`      | string  | `0.5px` | `0px`      |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still

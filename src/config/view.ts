@@ -640,7 +640,7 @@ export const COLUMN_DEFAULT_OVERRIDES: {
 export const TIME_GRID_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.TimeGridOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
-  day_separator_width: '1px',
+  day_separator_width: '0.5px',
   event_background_opacity: 20,
   show_empty_days: true,
   show_past_events: true,

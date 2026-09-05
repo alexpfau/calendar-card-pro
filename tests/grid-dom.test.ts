@@ -823,9 +823,9 @@ describe('separators between grid days', () => {
   }
 
   it.each([
-    ['defaults', {}, 29, 0, 0, '1px'],
-    ['card-level day width 3px', { day_separator_width: '3px' }, 29, 0, 0, '1px'],
-    ['card-level day width 0px', { day_separator_width: '0px' }, 29, 0, 0, '1px'],
+    ['defaults', {}, 29, 0, 0, '0.5px'],
+    ['card-level day width 3px', { day_separator_width: '3px' }, 29, 0, 0, '0.5px'],
+    ['card-level day width 0px', { day_separator_width: '0px' }, 29, 0, 0, '0.5px'],
     ['week width 4px', { week_separator_width: '4px' }, 25, 4, 0, '4px'],
     ['month width 5px', { month_separator_width: '5px' }, 28, 0, 1, '5px'],
   ] as const)(
@@ -849,12 +849,12 @@ describe('separators between grid days', () => {
     const container = renderGrid(EVENTS, spanConfig());
     const rules = separators(container);
 
-    // Grid view overrides `day_separator_width` to 1px, unlike list and column view,
-    // because a time grid with no vertical rulings leaves the shared axis visually
-    // detached from its day columns.
+    // Grid view overrides `day_separator_width` to a 0.5px hairline, unlike list and
+    // column view, because a time grid with no vertical rulings leaves the shared axis
+    // visually detached from its day columns.
     expect(rules).toHaveLength(14);
     expect(rules.every((rule) => rule.classList.contains('grid-separator-day'))).toBe(true);
-    expect(new Set(rules.map((rule) => rule.style.width))).toEqual(new Set(['1px']));
+    expect(new Set(rules.map((rule) => rule.style.width))).toEqual(new Set(['0.5px']));
   });
 
   it('uses the existing day separator options for grid rules', () => {
@@ -902,7 +902,7 @@ describe('separators between grid days', () => {
     expect(rules.length).toBeGreaterThan(0);
     expect(rules[0].style.gridColumn).toBe('3');
     expect(rules[0].style.gridRow).toBe('4');
-    expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 1px))');
+    expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 0.5px))');
   });
 
   it('keeps every separator family inside the time body', () => {
