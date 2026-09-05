@@ -600,22 +600,15 @@ describe('all-day events go in the band, not the body', () => {
     expect(container.querySelectorAll('.grid-event')).toHaveLength(0);
   });
 
-  it('labels a non-empty all-day band in the axis gutter', () => {
+  it('leaves the axis gutter empty beside the all-day band', () => {
+    // The band carried a translated `all day` label here for one build. It was dropped
+    // because it cost the gutter its width -- the axis sizes to its widest label, and
+    // that label was far wider than any hour -- while telling the reader something a row
+    // of banners above the hour grid already says.
     const container = renderGrid([allDay('2026-06-17', '2026-06-18', 'Public holiday')]);
-    const label = requireElement<HTMLElement>(container, '.grid-allday-axis');
 
-    expect(label.textContent?.trim()).toBe('all day');
-    expect(label.style.gridColumn).toBe('1');
-    expect(label.style.gridRow).toBe('1');
-  });
-
-  it('uses the existing all-day translation for the all-day band label', () => {
-    const container = renderGrid(
-      [allDay('2026-06-17', '2026-06-18', 'Feiertag')],
-      buildConfig({ view: 'grid', days_to_show: 3, language: 'de' }),
-    );
-
-    expect(requireElement(container, '.grid-allday-axis').textContent?.trim()).toBe('ganztägig');
+    expect(container.querySelector('.grid-allday-axis')).toBeNull();
+    expect(container.querySelectorAll('.grid-banner')).toHaveLength(1);
   });
 
   // One banner across its days, rather than one chip per day, is what makes a multi-day
@@ -680,7 +673,6 @@ describe('all-day events go in the band, not the body', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
 
     expect(container.querySelector('.grid-allday-band')).toBeNull();
-    expect(container.querySelector('.grid-allday-axis')).toBeNull();
   });
 });
 

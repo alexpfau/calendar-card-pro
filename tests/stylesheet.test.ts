@@ -1660,12 +1660,14 @@ describe('card stylesheet', () => {
     });
 
     it('sizes the grid axis gutter from its visible labels with fixed inline padding', () => {
+      // The gutter is `max-content` so it is exactly as wide as the widest hour label and
+      // no wider, with the breathing room fixed either side rather than baked into a
+      // width. A translated all-day caption used to sit in this column and set that
+      // width for everything else; it was dropped, so the hours decide it again.
       expect(declared('.grid-axis', 'box-sizing')).toBe('border-box');
       expect(declared('.grid-axis', 'padding-inline')).toBe('4px 8px');
       expect(declared('.grid-axis-sizer', 'visibility')).toBe('hidden');
       expect(declared('.grid-axis-sizer span', 'display')).toBe('block');
-      expect(declared('.grid-allday-axis', 'padding-inline')).toBe('4px 8px');
-      expect(declared('.grid-allday-axis', 'text-align')).toBe('end');
     });
 
     it('matches all-day banner titles to timed event titles', () => {

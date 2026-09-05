@@ -1893,18 +1893,6 @@ export const cardStyles = css`
     padding-block-end: 4px;
   }
 
-  .grid-allday-axis {
-    box-sizing: border-box;
-    padding-inline: 4px 8px;
-    align-self: center;
-    justify-self: stretch;
-    text-align: end;
-    font-size: var(--calendar-card-font-size-time);
-    line-height: 1;
-    color: var(--secondary-text-color);
-    white-space: nowrap;
-  }
-
   .grid-banner {
     display: flex;
     align-items: center;

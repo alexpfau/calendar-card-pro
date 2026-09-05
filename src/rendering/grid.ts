@@ -534,23 +534,6 @@ function renderBanner(
 }
 
 /**
- * Render the translated label that names the all-day band in the axis gutter.
- *
- * The label is drawn only with a non-empty band, because the band otherwise costs no row
- * height and a standalone label would create the empty strip the grid deliberately avoids.
- *
- * @param language - Language code for translations
- * @returns Rendered all-day axis label
- */
-function renderAllDayAxisLabel(language: string): TemplateResult {
-  return html`
-    <div class="grid-allday-axis" style=${styleMap({ gridColumn: '1', gridRow: '1' })}>
-      ${Localize.getTranslations(language).allDay}
-    </div>
-  `;
-}
-
-/**
  * Lay every all-day banner out into rows, packing non-overlapping ones together.
  *
  * Greedy first-fit on columns, which is the same shape as the timed lane packing one
@@ -729,7 +712,6 @@ export function renderGridGroupedEvents(
                 columnGap: gutter,
               })}
             >
-              ${renderAllDayAxisLabel(language)}
               ${banners.map((banner) =>
                 renderBanner(banner.event, banner.placement, banner.row, config, language, hass),
               )}
