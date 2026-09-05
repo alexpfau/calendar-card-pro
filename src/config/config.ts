@@ -390,7 +390,7 @@ export function coercePixelLengthAgainst(
  * | `progress_bar_height` | `calc(…)`      | derived from the time font size       |
  * | `height`              | `'auto'`       | a CSS keyword                         |
  * | `max_height`          | `'none'`       | a CSS keyword                         |
- * | `axis_width`          | `'3.5em'`      | scales with the axis label text       |
+ * | `axis_width`          | `'max-content'` | scales with the axis label text       |
  *
  * All six reach CSS where a length is expected, so a bare number breaks them exactly as
  * it breaks `day_spacing`: `font-size: var(--calendar-card-font-size-title, …)` given a

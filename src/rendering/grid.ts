@@ -22,6 +22,7 @@ import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
+import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
 
@@ -258,19 +259,28 @@ function renderGridSeparator(
 function renderAxis(
   band: Grid.GridBand,
   config: Types.Config,
+  includeAllDayLabel: boolean,
+  language: string,
   hass?: Types.Hass | null,
 ): TemplateResult {
   const hours = Grid.axisHours(band);
   const bandLength = band.endMin - band.startMin;
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
+  const labels = hours.map((hour) => formatHour(hour, use24h));
+  const sizingLabels = includeAllDayLabel
+    ? [...labels, Localize.getTranslations(language).allDay]
+    : labels;
 
   return html`
     <div class="grid-axis" style=${styleMap({ gridColumn: '1', gridRow: '4' })}>
-      ${hours.map((hour) => {
+      <div class="grid-axis-sizer" aria-hidden="true">
+        ${sizingLabels.map((label) => html`<span>${label}</span>`)}
+      </div>
+      ${hours.map((hour, index) => {
         const topPct = ((hour * 60 - band.startMin) / bandLength) * 100;
 
         return html`<div class="grid-axis-label" style=${styleMap({ top: `${topPct}%` })}>
-          ${formatHour(hour, use24h)}
+          ${labels[index]}
         </div>`;
       })}
     </div>
@@ -519,6 +529,23 @@ function renderBanner(
 }
 
 /**
+ * Render the translated label that names the all-day band in the axis gutter.
+ *
+ * The label is drawn only with a non-empty band, because the band otherwise costs no row
+ * height and a standalone label would create the empty strip the grid deliberately avoids.
+ *
+ * @param language - Language code for translations
+ * @returns Rendered all-day axis label
+ */
+function renderAllDayAxisLabel(language: string): TemplateResult {
+  return html`
+    <div class="grid-allday-axis" style=${styleMap({ gridColumn: '1', gridRow: '1' })}>
+      ${Localize.getTranslations(language).allDay}
+    </div>
+  `;
+}
+
+/**
  * Lay every all-day banner out into rows, packing non-overlapping ones together.
  *
  * Greedy first-fit on columns, which is the same shape as the timed lane packing one
@@ -697,13 +724,16 @@ export function renderGridGroupedEvents(
                 columnGap: gutter,
               })}
             >
+              ${renderAllDayAxisLabel(language)}
               ${banners.map((banner) =>
                 renderBanner(banner.event, banner.placement, banner.row, config, language, hass),
               )}
             </div>
           `
         : nothing}
-      ${showAxisLabels ? renderAxis(band, config, hass) : nothing}
+      ${showAxisLabels || bandRows > 0
+        ? renderAxis(band, config, bandRows > 0, language, hass)
+        : nothing}
       ${renderRules(band, slotMinutes, gridDays.length)}
       ${gridDays.map((day, index) =>
         renderDayBody(day, band, config, language, index, maxLanes, showNowLine, now, hass),

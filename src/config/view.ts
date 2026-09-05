@@ -336,8 +336,8 @@ export const COLUMN_DEFAULTS = {
  * `height_mode: fixed` the axis compresses to the card instead.
  *
  * `max_simultaneous_events: 3` is where blocks stop carrying readable text at a typical
- * card width. `axis_width` is in `em` for the same reason as `hour_height`: an hour
- * label is text, so its gutter should scale with text.
+ * card width. `axis_width` sizes to its own labels by default, so the gutter follows
+ * whichever visible label is widest while keeping fixed inline padding around it.
  */
 export const GRID_DEFAULTS = {
   day_header_gap: '8px',
@@ -365,7 +365,7 @@ export const GRID_DEFAULTS = {
   now_line_color: 'var(--error-color)',
   max_simultaneous_events: 3,
   allday_band_max_rows: 3,
-  axis_width: '3.5em',
+  axis_width: 'max-content',
   show_axis_labels: true,
 } as const;
 

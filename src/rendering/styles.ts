@@ -1802,6 +1802,20 @@ export const cardStyles = css`
 
   .grid-axis {
     position: relative;
+    box-sizing: border-box;
+    padding-inline: 4px 8px;
+  }
+
+  .grid-axis-sizer {
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .grid-axis-sizer span {
+    display: block;
+    font-size: var(--calendar-card-font-size-time);
+    line-height: 1;
+    white-space: nowrap;
   }
 
   /* Nudged up by half a line so the text centres on its rule rather than hanging
@@ -1863,6 +1877,18 @@ export const cardStyles = css`
     padding-block-end: 4px;
   }
 
+  .grid-allday-axis {
+    box-sizing: border-box;
+    padding-inline: 4px 8px;
+    align-self: center;
+    justify-self: stretch;
+    text-align: end;
+    font-size: var(--calendar-card-font-size-time);
+    line-height: 1;
+    color: var(--secondary-text-color);
+    white-space: nowrap;
+  }
+
   .grid-banner {
     display: flex;
     align-items: center;
@@ -1875,10 +1901,13 @@ export const cardStyles = css`
     border-radius: 4px;
     border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
     font-size: var(--calendar-card-font-size-event);
-    line-height: 1.4;
   }
 
   .grid-banner-title {
+    font-size: var(--calendar-card-font-size-event);
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--calendar-card-color-event);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1930,7 +1959,7 @@ export const cardStyles = css`
 
   .grid-event-disclosure .summary-row {
     display: none;
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     min-height: 0;
     overflow: hidden;
   }

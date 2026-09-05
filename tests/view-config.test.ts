@@ -1471,6 +1471,7 @@ describe('resolveColumnFit — grid reduction', () => {
     expect(GRID_DEFAULTS.min_day_width).toBe(100);
     expect(GRID_DEFAULTS.min_days_to_show).toBe(1);
     expect(GRID_DEFAULTS.min_days_fallback).toBe('list');
+    expect(GRID_DEFAULTS.axis_width).toBe('max-content');
   });
 
   it('normalizes grid slot density to the declared numeric union', () => {

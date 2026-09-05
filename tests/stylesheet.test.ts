@@ -1639,7 +1639,7 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure', 'height')).toBe('100%');
       expect(declared('.grid-event-disclosure .event-content', 'height')).toBe('100%');
       expect(declared('.grid-event-disclosure .summary-row', 'display')).toBe('none');
-      expect(declared('.grid-event-disclosure .summary-row', 'flex')).toBe('0 1 auto');
+      expect(declared('.grid-event-disclosure .summary-row', 'flex')).toBe('0 0 auto');
       expect(declared('.grid-event-disclosure .summary-row', 'overflow')).toBe('hidden');
       expect(declared('.grid-event-disclosure .summary', 'min-height')).toBe('0');
       expect(declared('.grid-event-disclosure .summary', 'padding-block')).toBe('0');
@@ -1656,6 +1656,24 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure .time-actual', 'min-width')).toBe('0');
       expect(declared('.grid-event-disclosure .time-text', 'white-space')).toBe('nowrap');
       expect(declared('.grid-event-disclosure .location', 'flex')).toBe('0 0 auto');
+    });
+
+    it('sizes the grid axis gutter from its visible labels with fixed inline padding', () => {
+      expect(declared('.grid-axis', 'box-sizing')).toBe('border-box');
+      expect(declared('.grid-axis', 'padding-inline')).toBe('4px 8px');
+      expect(declared('.grid-axis-sizer', 'visibility')).toBe('hidden');
+      expect(declared('.grid-axis-sizer span', 'display')).toBe('block');
+      expect(declared('.grid-allday-axis', 'padding-inline')).toBe('4px 8px');
+      expect(declared('.grid-allday-axis', 'text-align')).toBe('end');
+    });
+
+    it('matches all-day banner titles to timed event titles', () => {
+      expect(declared('.grid-banner-title', 'font-size')).toBe(
+        'var(--calendar-card-font-size-event)',
+      );
+      expect(declared('.grid-banner-title', 'font-weight')).toBe('500');
+      expect(declared('.grid-banner-title', 'line-height')).toBe('1.2');
+      expect(declared('.grid-banner-title', 'color')).toBe('var(--calendar-card-color-event)');
     });
 
     it('breaks a grid event title at spaces, and inside a word only as a last resort', () => {

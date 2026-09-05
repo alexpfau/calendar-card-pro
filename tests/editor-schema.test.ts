@@ -669,7 +669,7 @@ describe('editor: the grid block as the form shows it', () => {
       now_line_color: 'var(--error-color)',
       max_simultaneous_events: 3,
       allday_band_max_rows: 3,
-      axis_width: '3.5em',
+      axis_width: 'max-content',
       show_axis_labels: true,
       day_header_gap: '8px',
       day_header_separator_width: '0px',

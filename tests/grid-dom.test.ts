@@ -82,10 +82,11 @@ function renderGrid(
   // `event_background_opacity` above all — never arrive, and every block renders
   // untinted while the card shows them tinted.
   const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
+  const language = config.language ?? 'en';
   const days = EventUtils.groupEventsByDay(events, config, false, 'en', 'grid');
   const container = document.createElement('div');
   litRender(
-    Grid.renderGridGroupedEvents(days, effective, 'en', weatherForecasts, hass, FROZEN_NOW),
+    Grid.renderGridGroupedEvents(days, effective, language, weatherForecasts, hass, FROZEN_NOW),
     container,
   );
   return container;
@@ -159,7 +160,7 @@ describe('the grid shares one column template', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
     const grid = container.querySelector<HTMLElement>('.grid-container');
 
-    expect(grid?.style.gridTemplateColumns).toBe('3.5em repeat(3, minmax(0, 1fr))');
+    expect(grid?.style.gridTemplateColumns).toBe('max-content repeat(3, minmax(0, 1fr))');
   });
 
   it('places every row against that template by column and row', () => {
@@ -599,6 +600,24 @@ describe('all-day events go in the band, not the body', () => {
     expect(container.querySelectorAll('.grid-event')).toHaveLength(0);
   });
 
+  it('labels a non-empty all-day band in the axis gutter', () => {
+    const container = renderGrid([allDay('2026-06-17', '2026-06-18', 'Public holiday')]);
+    const label = requireElement<HTMLElement>(container, '.grid-allday-axis');
+
+    expect(label.textContent?.trim()).toBe('all day');
+    expect(label.style.gridColumn).toBe('1');
+    expect(label.style.gridRow).toBe('1');
+  });
+
+  it('uses the existing all-day translation for the all-day band label', () => {
+    const container = renderGrid(
+      [allDay('2026-06-17', '2026-06-18', 'Feiertag')],
+      buildConfig({ view: 'grid', days_to_show: 3, language: 'de' }),
+    );
+
+    expect(requireElement(container, '.grid-allday-axis').textContent?.trim()).toBe('ganztägig');
+  });
+
   // One banner across its days, rather than one chip per day, is what makes a multi-day
   // event read as a single thing.
   it('spans a multi-day event across its columns as one banner', () => {
@@ -661,6 +680,7 @@ describe('all-day events go in the band, not the body', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
 
     expect(container.querySelector('.grid-allday-band')).toBeNull();
+    expect(container.querySelector('.grid-allday-axis')).toBeNull();
   });
 });
 

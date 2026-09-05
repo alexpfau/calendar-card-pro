@@ -89,8 +89,17 @@ grid:
 The hour rules are drawn more strongly than the ones between them, so the eye still finds
 the hour at a fine setting.
 
-`axis_width` sets the label gutter, and `show_axis_labels: false` removes the labels while
-keeping the scale — useful on a narrow card where the ruling alone is enough.
+`axis_width` sets the label gutter. It defaults to `max-content`, so the gutter sizes to
+the widest visible label — including the translated all-day label when the all-day band is
+shown — with fixed padding on both sides. Set a CSS length when you want a fixed gutter:
+
+```yaml
+grid:
+  axis_width: 3.5em
+```
+
+`show_axis_labels: false` removes the hour labels while keeping the scale — useful on a
+narrow card where the ruling alone is enough.
 
 The existing separator options draw vertical rules between day columns in grid view:
 
@@ -182,6 +191,21 @@ Short blocks use progressive disclosure so clipped text does not look broken. A 
 once a full text row fits, time appears once the block can hold a full title row plus a full
 time row, and location waits until there is room for another detail line. In narrow columns,
 a long title breaks at word boundaries and truncates before it slices the time or location row.
+
+::: tip Keep Detail Rows Short
+Grid blocks have less room than list rows. If you show time, location and description in
+the grid, cap the optional detail rows to one or two lines so the title stays readable and
+overflow falls off the bottom of the block:
+
+```yaml
+show_location: true
+show_description: true
+grid:
+  location_max_lines: 1
+  description_max_lines: 2
+```
+
+:::
 
 ## 📱 Fitting Narrow Cards
 
