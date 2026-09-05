@@ -507,6 +507,15 @@ export const cardStyles = css`
     opacity: 0.6;
   }
 
+  /* The grid's all-day banner is title-only, so it emits no event-content for the rule
+     above to reach. It carried the past-event class from the day it was written and that
+     class selected nothing, which meant a finished holiday stayed bright beside a
+     finished meeting that dimmed, and dimmed in list and column but not here. Same
+     opacity, applied to what the banner does emit. */
+  .grid-banner.past-event .grid-banner-title {
+    opacity: 0.6;
+  }
+
   .event-content {
     display: flex;
     flex-direction: column;

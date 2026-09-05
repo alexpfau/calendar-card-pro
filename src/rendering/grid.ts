@@ -22,7 +22,6 @@ import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
-import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
 import * as Grid from '../utils/grid';
 
@@ -259,22 +258,17 @@ function renderGridSeparator(
 function renderAxis(
   band: Grid.GridBand,
   config: Types.Config,
-  includeAllDayLabel: boolean,
-  language: string,
   hass?: Types.Hass | null,
 ): TemplateResult {
   const hours = Grid.axisHours(band);
   const bandLength = band.endMin - band.startMin;
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
   const labels = hours.map((hour) => formatHour(hour, use24h));
-  const sizingLabels = includeAllDayLabel
-    ? [...labels, Localize.getTranslations(language).allDay]
-    : labels;
 
   return html`
     <div class="grid-axis" style=${styleMap({ gridColumn: '1', gridRow: '4' })}>
       <div class="grid-axis-sizer" aria-hidden="true">
-        ${sizingLabels.map((label) => html`<span>${label}</span>`)}
+        ${labels.map((label) => html`<span>${label}</span>`)}
       </div>
       ${hours.map((hour, index) => {
         const topPct = ((hour * 60 - band.startMin) / bandLength) * 100;
@@ -718,9 +712,7 @@ export function renderGridGroupedEvents(
             </div>
           `
         : nothing}
-      ${showAxisLabels || bandRows > 0
-        ? renderAxis(band, config, bandRows > 0, language, hass)
-        : nothing}
+      ${showAxisLabels ? renderAxis(band, config, hass) : nothing}
       ${renderRules(band, slotMinutes, gridDays.length)}
       ${gridDays.map((day, index) =>
         renderDayBody(

@@ -1670,6 +1670,15 @@ describe('card stylesheet', () => {
       expect(declared('.grid-axis-sizer span', 'display')).toBe('block');
     });
 
+    it('dims a past all-day banner, which has no event-content to dim', () => {
+      // `.past-event .event-content` is the card's only dimming rule, and a grid banner
+      // emits a bare title span rather than an event-content wrapper -- so it carried the
+      // past-event class from the day it was written with nothing selecting it. A finished
+      // holiday stayed bright while the finished meeting under it dimmed.
+      expect(declared('.past-event .event-content', 'opacity')).toBe('0.6');
+      expect(declared('.grid-banner.past-event .grid-banner-title', 'opacity')).toBe('0.6');
+    });
+
     it('matches all-day banner titles to timed event titles', () => {
       expect(declared('.grid-banner-title', 'font-size')).toBe(
         'var(--calendar-card-font-size-event)',

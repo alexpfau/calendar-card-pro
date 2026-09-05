@@ -937,6 +937,45 @@ describe('the axis', () => {
     expect(container.querySelector('.grid-rules')).not.toBeNull();
   });
 
+  it('keeps the labels off when an all-day event is also on screen', () => {
+    // The fixture above has no all-day event, and for one build that was the difference
+    // between a passing test and a true one. The axis was rendered whenever a band
+    // existed, so that it could hold an `all day` caption in the gutter; the caption was
+    // later removed and the widened condition stayed. Hour labels then vanished on a day
+    // with nothing all-day and came back the moment one appeared.
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup'), allDay('2026-06-17', '2026-06-18', 'Holiday')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { show_axis_labels: false } }),
+    );
+
+    expect(container.querySelectorAll('.grid-banner')).toHaveLength(1);
+    expect(container.querySelectorAll('.grid-axis-label')).toHaveLength(0);
+  });
+
+  it('sizes the gutter from the hour labels alone, band or no band', () => {
+    // The hidden sizer is the only thing contributing width to a `max-content` gutter, and
+    // it used to carry the translated all-day caption too. So the column that numbers the
+    // hours was as wide as `ganztagig` whenever any all-day event existed -- in German,
+    // measurably wider than in English on identical hours.
+    const sizerText = (container: HTMLElement) =>
+      Array.from(container.querySelectorAll('.grid-axis-sizer span')).map((span) =>
+        span.textContent?.trim(),
+      );
+
+    const withBand = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup'), allDay('2026-06-17', '2026-06-18', 'Feiertag')],
+      buildConfig({ view: 'grid', days_to_show: 3, language: 'de' }),
+    );
+    const withoutBand = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({ view: 'grid', days_to_show: 3, language: 'de' }),
+    );
+
+    expect(withBand.querySelectorAll('.grid-banner')).toHaveLength(1);
+    expect(sizerText(withBand)).not.toContain('ganztägig');
+    expect(sizerText(withBand)).toEqual(sizerText(withoutBand));
+  });
+
   it('falls back to the default band when a bound is unparseable', () => {
     const container = renderGrid(
       [timed(17, '09:00', '10:00', 'Standup')],
