@@ -230,6 +230,23 @@ describe('updated(): title template subscription lifecycle', () => {
 
     expect(card.renderedTitle).toBe('');
   });
+
+  it('does not recreate the subscription when sync runs after disconnect', async () => {
+    const card = make({ title: '{{ states("sensor.x") }}' });
+    await mount(card);
+    expect(subscriptions).toHaveLength(1);
+
+    card.remove();
+    expect(card._titleSubscription).toBeUndefined();
+    expect(subscriptions[0].destroyed).toBe(1);
+
+    // Same shape as the now-line timer leak: disconnect tears the resource down,
+    // then a late updated() path would otherwise re-arm it on a detached card.
+    (card as CardUnderTest & { _updateTitleSubscription(): void })._updateTitleSubscription();
+
+    expect(card._titleSubscription).toBeUndefined();
+    expect(subscriptions).toHaveLength(1);
+  });
 });
 
 describe('_applyVisibility(): gate conditions', () => {

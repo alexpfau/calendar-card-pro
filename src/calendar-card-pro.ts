@@ -806,8 +806,17 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Keep the title template subscription aligned with the current config.
+   *
+   * 🚨 The `isConnected` guard matches `_syncEntityColors` / `_syncNowLineTimer`:
+   * `disconnectedCallback` destroys the subscription, then a queued `updated()` can
+   * still run with a hass/config change and recreate it on a detached card — leaving
+   * a live template subscription (and its `requestUpdate` path) with nothing on screen.
    */
   private _updateTitleSubscription(): void {
+    if (!this.isConnected) {
+      return;
+    }
+
     const isTemplated = Templates.isTemplate(this.config.title);
 
     if (!isTemplated) {
