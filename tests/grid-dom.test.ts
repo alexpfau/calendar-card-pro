@@ -1035,7 +1035,7 @@ describe('separators between grid days', () => {
     expect(rule.style.backgroundColor).toBe('rgb(4, 5, 6)');
   });
 
-  it('rules the grid in the divider grey the horizontal rules use', () => {
+  it('rules the grid in the divider gray the horizontal rules use', () => {
     // `.grid-rules` paints `var(--divider-color)`, so the verticals carry the same token
     // rather than the card-level `var(--secondary-text-color)`, which is a text hue and
     // drew them several times heavier than the lines they cross.

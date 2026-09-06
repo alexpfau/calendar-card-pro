@@ -128,7 +128,7 @@ time_grid:
 
 Grid view turns day separators on by default, because a shared time axis needs visible day
 columns to read clearly. Both halves of that rule start from a grid default rather than
-from the card-level value: a `0.5px` hairline in `var(--divider-color)`, the same grey the
+from the card-level value: a `0.5px` hairline in `var(--divider-color)`, the same gray the
 horizontal hour rules are drawn in, so the paper reads as one grid rather than as a table
 of boxes. Set either inside `time_grid:` to change it — a card-level `day_separator_color`
 belongs to the list and column layouts and is left there.
@@ -318,7 +318,7 @@ A block on a time axis is read by its **area** — an untinted one is an outline
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
 a day of axis, so empty days are shown. A finished meeting earlier today is still part of
 today's hour-by-hour shape, so past events stay visible. Day separators are also on by
-default, and in the same divider grey the hour rules use, so the vertical and horizontal
+default, and in the same divider gray the hour rules use, so the vertical and horizontal
 lines carry the same weight and the shared axis reads as one grid. The progress bar fills
 the block's full width: column view draws it at 80% of a row with no boundary of its own,
 where a full width would read as an underline, but a grid block is a tinted box with an
@@ -326,7 +326,7 @@ edge, and a bar stopping short of that edge reads as unfinished rather than as r
 `day_spacing` is the gutter between day columns here rather than vertical space between
 days, and the list value of `10px` left every block visibly floating inside its column
 instead of sitting in the grid — a block already clears its own column, so 10px of gutter
-put 12px between two neighbours. `2px` is the tightest gutter that still holds the whole
+put 12px between two neighbors. `2px` is the tightest gutter that still holds the whole
 day rule inside it: the rule is centered in the gap, so at `0px` it would straddle the
 column boundary and paint over anything flush against a column edge. And the weekend
 columns are tinted, which is what makes a week scannable rather than readable one header

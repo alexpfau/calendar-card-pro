@@ -303,7 +303,7 @@ weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, tran
 ```
 
 Keep it faint — event text sits on top of it. A mix of a theme color, as above, darkens a
-light theme and lightens a dark one, where a fixed grey can only suit one of them.
+light theme and lightens a dark one, where a fixed gray can only suit one of them.
 
 ::: tip Grid View Shades Weekends Already
 Grid view turns this on by default, because its columns all stand the same height and a

@@ -642,7 +642,7 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * `show_past_events` keeps today's finished blocks on the axis instead of emptying the
  * morning as the day passes. `day_separator_width` turns on vertical rules so a shared
  * axis reads as belonging to separate day columns, and `day_separator_color` lightens
- * them to the same token the horizontal rules already use. Ruled paper wants one grey,
+ * them to the same token the horizontal rules already use. Ruled paper wants one gray,
  * and the top-level `var(--secondary-text-color)` is a text hue: it drew the verticals
  * far heavier than the horizontals, which read as a table of boxes rather than as a
  * grid. The two now carry identical ink — `.grid-rules` paints 1px of
@@ -669,7 +669,7 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * scannable at a glance rather than readable one header at a time. Off everywhere else
  * and on here for a reason of geometry rather than taste — see the stylesheet comment
  * beside the rule, which is where the three views' day containers are compared. The value
- * is a mix rather than a fixed grey so that it darkens a light theme and lightens a dark
+ * is a mix rather than a fixed gray so that it darkens a light theme and lightens a dark
  * one; `color-mix` is Chrome 111, well under the Chrome 117 floor grid view already sets
  * with `subgrid`. Which days are shaded comes from Home Assistant's language, so this is
  * Friday and Saturday in an Israeli household.

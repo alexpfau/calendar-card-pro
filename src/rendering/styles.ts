@@ -344,7 +344,7 @@ export const cardStyles = css`
      rendering fault rather than as shading. And a list-view day is a full-width row with
      no neighbor beside it to compare against, which is the whole use the shading has.
 
-     The color is deliberately not a fixed grey. A theme token mixed down to a few percent
+     The color is deliberately not a fixed gray. A theme token mixed down to a few percent
      darkens a light theme and lightens a dark one, which is what a weekend tint has to do
      to survive both. */
   .day-table.weekend,

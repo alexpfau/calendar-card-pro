@@ -24,7 +24,7 @@ Every option grid view adds lives under `time_grid:`, and that block is also whe
 
 ### 🌗 Weekend Shading
 
-**A week you can read without reading it.** `weekend_background_color` tints the whole of a weekend day, so the shape of a week — five days of work and two of rest — is visible before you read a single date. Grid view turns it on by default, because its columns all stand the same height and a tinted one reads as a clean stripe; list and column view leave it off and take any CSS color you give them. Set a mix of a theme color rather than a fixed grey and it darkens a light theme and lightens a dark one. See [Shading a Weekend Day](https://calendar-card-pro.alexpfau.com/features/layout-appearance#shading-a-weekend-day).
+**A week you can read without reading it.** `weekend_background_color` tints the whole of a weekend day, so the shape of a week — five days of work and two of rest — is visible before you read a single date. Grid view turns it on by default, because its columns all stand the same height and a tinted one reads as a clean stripe; list and column view leave it off and take any CSS color you give them. Set a mix of a theme color rather than a fixed gray and it darkens a light theme and lightens a dark one. See [Shading a Weekend Day](https://calendar-card-pro.alexpfau.com/features/layout-appearance#shading-a-weekend-day).
 
 ### 🌍 The Weekend Is Not Always Saturday and Sunday
 
@@ -35,7 +35,7 @@ Every option grid view adds lives under `time_grid:`, and that block is also whe
 A pass over grid view against the week view of macOS Calendar, which is the layout most people already have in their heads:
 
 - **One rule per hour** - `slot_minutes` now defaults to `60` instead of `30`. The half-hour rule drew a second, unlabelled line between every pair of hours, which doubles the lines on the card without adding a landmark you can name. `15`, `20` and `30` are still there for anyone scheduling in quarter hours
-- **One grey for the whole grid** - Vertical day rules were drawn in a text color several times heavier than the horizontal hour rules they crossed, so the body read as a table of boxes rather than as ruled paper. Both are now the same divider grey, carrying the same weight
+- **One gray for the whole grid** - Vertical day rules were drawn in a text color several times heavier than the horizontal hour rules they crossed, so the body read as a table of boxes rather than as ruled paper. Both are now the same divider gray, carrying the same weight
 - **Blocks sit in the grid rather than floating in it** - The gutter between day columns was the list view's 10px, which left 12px between two neighboring blocks. Grid starts from 2px, so a block very nearly meets its day rule
 - **A banner's ends say where its event ends** - An all-day banner is now a full pill where the event genuinely starts or finishes, and squared off where it runs past the edge of the card. The small arrow is still there; the shape says the same thing before you look for it
 
