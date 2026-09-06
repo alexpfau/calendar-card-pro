@@ -252,6 +252,9 @@ class CalendarCardPro extends LitElement {
   private _holdTriggered = false;
   private _holdTimer: number | null = null;
   private _holdIndicator: HTMLElement | null = null;
+  /** Element that currently holds pointer capture for the active card gesture, if any. */
+  private _pointerCaptureTarget: Element | null = null;
+  private _capturedPointerId: number | null = null;
 
   /**
    * Card width in CSS pixels, as most recently measured.
@@ -488,6 +491,12 @@ class CalendarCardPro extends LitElement {
       Feedback.removeHoldIndicator(this._holdIndicator);
       this._holdIndicator = null;
     }
+
+    this._releaseActivePointerCapture();
+    this._activePointerId = null;
+    this._pointerStart = null;
+    this._pointerMoved = false;
+    this._holdTriggered = false;
 
     this._stopNowLineTimer();
 
@@ -1022,6 +1031,51 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Release any pointer capture taken for the active card gesture.
+   */
+  private _releaseActivePointerCapture(): void {
+    if (
+      this._pointerCaptureTarget &&
+      this._capturedPointerId !== null &&
+      this._pointerCaptureTarget.hasPointerCapture?.(this._capturedPointerId)
+    ) {
+      try {
+        this._pointerCaptureTarget.releasePointerCapture(this._capturedPointerId);
+      } catch {
+        // Already released or the pointer ended — nothing left to clean up.
+      }
+    }
+
+    this._pointerCaptureTarget = null;
+    this._capturedPointerId = null;
+  }
+
+  /**
+   * Capture the active pointer on the card so move/up survive leaving its box.
+   *
+   * Without capture, a hold that has already painted its indicator dies if the
+   * finger slips a pixel past the card edge: `pointerleave` clears the gesture
+   * and the matching `pointerup` never arrives on the card. Capture keeps the
+   * sequence intact until up or cancel.
+   */
+  private _captureActivePointer(ev: PointerEvent): void {
+    this._releaseActivePointerCapture();
+
+    const target = ev.currentTarget;
+    if (!(target instanceof Element) || typeof target.setPointerCapture !== 'function') {
+      return;
+    }
+
+    try {
+      target.setPointerCapture(ev.pointerId);
+      this._pointerCaptureTarget = target;
+      this._capturedPointerId = ev.pointerId;
+    } catch {
+      // Synthetic or inactive pointers throw — fall back to the uncaptured path.
+    }
+  }
+
+  /**
    * Handle pointer down events for hold detection
    */
   private _handlePointerDown(ev: PointerEvent) {
@@ -1029,6 +1083,7 @@ class CalendarCardPro extends LitElement {
     this._pointerStart = { x: ev.clientX, y: ev.clientY };
     this._pointerMoved = false;
     this._holdTriggered = false;
+    this._captureActivePointer(ev);
 
     // A second finger can land after the first hold already painted its indicator. The
     // previous gesture's timer is replaced below, but the body-level disc is not unless
@@ -1121,6 +1176,7 @@ class CalendarCardPro extends LitElement {
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
 
+    this._releaseActivePointerCapture();
     this._activePointerId = null;
     this._pointerStart = null;
     this._pointerMoved = false;
@@ -1133,7 +1189,7 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Handle pointer cancel/leave events to clean up
+   * Handle pointer cancel events to clean up an aborted gesture
    */
   private _handlePointerCancel(ev: PointerEvent) {
     if (ev.pointerId !== this._activePointerId) {
@@ -1145,6 +1201,7 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = null;
     }
 
+    this._releaseActivePointerCapture();
     this._activePointerId = null;
     this._pointerStart = null;
     this._pointerMoved = false;
@@ -1154,6 +1211,33 @@ class CalendarCardPro extends LitElement {
       Feedback.removeHoldIndicator(this._holdIndicator);
       this._holdIndicator = null;
     }
+  }
+
+  /**
+   * Geometric leave is not a gesture end while the card still holds capture.
+   *
+   * `pointerleave` fires when the hit-test leaves the card even though the finger
+   * is still down. With capture, move and up keep arriving on the card, so
+   * canceling here is what made a post-threshold hold die if the finger slipped
+   * a pixel past the edge — the indicator had already confirmed the long-press,
+   * then leave wiped it and the outside up never reached the listener. Without
+   * capture, leave remains the only cleanup path for a contact that left.
+   */
+  private _handlePointerLeave(ev: PointerEvent) {
+    if (ev.pointerId !== this._activePointerId) {
+      return;
+    }
+
+    const target = ev.currentTarget;
+    if (
+      target instanceof Element &&
+      this._capturedPointerId === ev.pointerId &&
+      target.hasPointerCapture?.(ev.pointerId)
+    ) {
+      return;
+    }
+
+    this._handlePointerCancel(ev);
   }
 
   /**
@@ -1404,7 +1488,7 @@ class CalendarCardPro extends LitElement {
       pointerMove: (ev: PointerEvent) => this._handlePointerMove(ev),
       pointerUp: (ev: PointerEvent) => this._handlePointerUp(ev),
       pointerCancel: (ev: PointerEvent) => this._handlePointerCancel(ev),
-      pointerLeave: (ev: PointerEvent) => this._handlePointerCancel(ev),
+      pointerLeave: (ev: PointerEvent) => this._handlePointerLeave(ev),
     };
 
     let content: TemplateResult;

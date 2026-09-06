@@ -44,6 +44,7 @@ interface CardUnderTest extends HTMLElement {
   _handlePointerMove(ev: PointerEvent): void;
   _handlePointerUp(ev: PointerEvent): void;
   _handlePointerCancel(ev: PointerEvent): void;
+  _handlePointerLeave(ev: PointerEvent): void;
   _handleKeyDown(ev: KeyboardEvent): void;
   _holdTriggered: boolean;
   _holdIndicator: HTMLElement | null;
@@ -257,6 +258,58 @@ describe('host pointer handling', () => {
 
     expect(handleAction).toHaveBeenCalledTimes(1);
     expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
+  it('keeps a post-threshold hold when the pointer leaves under capture', async () => {
+    // pointerleave is geometric: the hit-test left the card while the finger is
+    // still down. Treating it like cancel after the hold indicator appeared used
+    // to wipe the gesture, and without capture the matching outside pointerup
+    // never arrived — same "saw the disc, got nothing" failure as a lift-slip.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+      hasPointerCapture(id: number): boolean;
+      releasePointerCapture(id: number): void;
+    };
+    expect(haCard).toBeTruthy();
+
+    const captured = new Set<number>();
+    haCard.setPointerCapture = (id: number) => {
+      captured.add(id);
+    };
+    haCard.hasPointerCapture = (id: number) => captured.has(id);
+    haCard.releasePointerCapture = (id: number) => {
+      captured.delete(id);
+    };
+
+    dispatchPointer(haCard, 'pointerdown', 10, 100, 100);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+    expect(captured.has(10)).toBe(true);
+
+    dispatchPointer(haCard, 'pointerleave', 10, 100, 100);
+    expect(card._holdTriggered).toBe(true);
+
+    dispatchPointer(haCard, 'pointerup', 10, 100, 140);
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+    expect(captured.has(10)).toBe(false);
+  });
+
+  it('still cancels on leave when the pointer was never captured', async () => {
+    // Positive control for the capture path above: without capture, leave is the
+    // only cleanup when contact leaves the card, and must still abort the gesture.
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(13, 100, 100));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+
+    card._handlePointerLeave(pointer(13, 100, 100));
+    expect(card._holdTriggered).toBe(false);
+
+    card._handlePointerUp(pointer(13, 100, 100));
+    expect(handleAction).not.toHaveBeenCalled();
   });
 });
 
