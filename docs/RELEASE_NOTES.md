@@ -22,6 +22,23 @@ Set `view: grid` and the card stops being a list. Days become columns against a 
 
 Every option grid view adds lives under `time_grid:`, and that block is also where you override any presentation option for grid alone. See [Grid View](https://calendar-card-pro.alexpfau.com/features/grid-view).
 
+### 🌗 Weekend Shading
+
+**A week you can read without reading it.** `weekend_background_color` tints the whole of a weekend day, so the shape of a week — five days of work and two of rest — is visible before you read a single date. Grid view turns it on by default, because its columns all stand the same height and a tinted one reads as a clean stripe; list and column view leave it off and take any CSS color you give them. Set a mix of a theme color rather than a fixed grey and it darkens a light theme and lightens a dark one. See [Shading a Weekend Day](https://calendar-card-pro.alexpfau.com/features/layout-appearance#shading-a-weekend-day).
+
+### 🌍 The Weekend Is Not Always Saturday and Sunday
+
+**The card now asks Home Assistant which days you rest.** It used to answer Saturday and Sunday for everybody — wrong in every Arabic- and Hebrew-speaking region, where the weekend is Friday and Saturday, wrong in Persian, where it is Friday alone, and wrong across much of India, where it is Sunday alone. Your Home Assistant language decides it now, which reaches everything that asks: the weekend shading above, the `weekend_*` date colors, and the per-calendar `days_of_week` filter, so all three agree about a Friday instead of contradicting each other on the same row. Nothing changes for a Saturday–Sunday household. See [Showing a Calendar on Weekdays Only](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-on-weekdays-only).
+
+### ✨ Grid View, Closer to a Calendar App
+
+A pass over grid view against the week view of macOS Calendar, which is the layout most people already have in their heads:
+
+- **One rule per hour** - `slot_minutes` now defaults to `60` instead of `30`. The half-hour rule drew a second, unlabelled line between every pair of hours, which doubles the lines on the card without adding a landmark you can name. `15`, `20` and `30` are still there for anyone scheduling in quarter hours
+- **One grey for the whole grid** - Vertical day rules were drawn in a text color several times heavier than the horizontal hour rules they crossed, so the body read as a table of boxes rather than as ruled paper. Both are now the same divider grey, carrying the same weight
+- **Blocks sit in the grid rather than floating in it** - The gutter between day columns was the list view's 10px, which left 12px between two neighboring blocks. Grid starts from 2px, so a block very nearly meets its day rule
+- **A banner's ends say where its event ends** - An all-day banner is now a full pill where the event genuinely starts or finishes, and squared off where it runs past the edge of the card. The small arrow is still there; the shape says the same thing before you look for it
+
 ### ↔️ Scrolling Long Titles
 
 **Long titles finally have somewhere to go.** Turn on `scroll_long_titles` and a title too wide for its space is kept to one line and scrolls sideways — when, and only when, it actually overflows — so the end of a long meeting subject can still be read instead of wrapping the row taller or being lost. A title that already fits never moves. The scroll speed is derived from how far each title has to travel, so a slightly-too-long one and a very long one drift at the same pace rather than one crawling while the other races, and each pauses at both ends so the start and the finish are readable. It respects the system **reduce motion** setting and stops while the card is scrolled off-screen, and because it forces a single line it takes the place of `title_max_lines` for as long as it is on. Off by default, and settable per view — a natural pairing is to scroll only in the narrow grid columns and leave the roomier list wrapping. See [Scrolling Long Titles](https://calendar-card-pro.alexpfau.com/features/event-content#scrolling-long-titles). (#374)

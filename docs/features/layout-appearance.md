@@ -271,6 +271,7 @@ month_font_size: '12px'
 month_color: 'var(--primary-text-color)'
 
 # Special styling for weekends (inherits from base when not specified)
+weekend_background_color: 'rgba(0, 0, 0, 0.04)' # Shading behind the whole day
 weekend_weekday_color: '#e67c73' # Weekend day names
 weekend_day_color: '#e67c73' # Weekend day numbers
 weekend_month_color: '#e67c73' # Weekend month names
@@ -287,6 +288,37 @@ The date column appears on the left side of each day's events and helps users qu
 - **Today's date** using the `today_*` options
 
 When the special styling options are not specified, they will inherit from the base styling. If today falls on a weekend, today styling takes precedence over weekend styling.
+
+### Shading a Weekend Day
+
+`weekend_background_color` tints the whole of a weekend day rather than its date text, which
+is what lets a week be read at a glance instead of one header at a time. It takes any CSS
+color and is unset by default, so nothing is shaded until you ask:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)'
+```
+
+Keep it faint — event text sits on top of it. A mix of a theme color, as above, darkens a
+light theme and lightens a dark one, where a fixed grey can only suit one of them.
+
+::: tip Grid View Shades Weekends Already
+Grid view turns this on by default, because its columns all stand the same height and a
+tinted one reads as a clean stripe down the week. List and column view leave it off:
+a column-view column is only as tall as that day's events, so the tint would end in a
+different place on every day. Set it there yourself if you want it, or set
+`time_grid: { weekend_background_color: transparent }` to turn it off in grid.
+
+**→ [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default)**
+:::
+
+Which days are shaded comes from your Home Assistant language, so this is Friday and
+Saturday in an Arabic or Hebrew household and Sunday alone in an Indian one — the same
+definition [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only)
+filters by.
 
 ## 🌟 Today Indicator
 

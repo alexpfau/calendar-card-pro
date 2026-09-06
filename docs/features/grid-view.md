@@ -300,18 +300,19 @@ Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Seven shared options do not inherit their top-level value in grid view. The **Default**
+Eight shared options do not inherit their top-level value in grid view. The **Default**
 column is what grid view uses; **Instead of** is the top-level default it replaces:
 
-| Option                     | Type    | Default                | Instead of                    |
-| -------------------------- | ------- | ---------------------- | ----------------------------- |
-| `event_background_opacity` | number  | `20`                   | `0`                           |
-| `show_empty_days`          | boolean | `true`                 | `false`                       |
-| `show_past_events`         | boolean | `true`                 | `false`                       |
-| `day_separator_width`      | string  | `0.5px`                | `0px`                         |
-| `day_separator_color`      | string  | `var(--divider-color)` | `var(--secondary-text-color)` |
-| `day_spacing`              | string  | `2px`                  | `10px`                        |
-| `progress_bar_width`       | string  | `100%`                 | _per placement_               |
+| Option                     | Type    | Default                                                         | Instead of                    |
+| -------------------------- | ------- | --------------------------------------------------------------- | ----------------------------- |
+| `event_background_opacity` | number  | `20`                                                            | `0`                           |
+| `show_empty_days`          | boolean | `true`                                                          | `false`                       |
+| `show_past_events`         | boolean | `true`                                                          | `false`                       |
+| `day_separator_width`      | string  | `0.5px`                                                         | `0px`                         |
+| `day_separator_color`      | string  | `var(--divider-color)`                                          | `var(--secondary-text-color)` |
+| `day_spacing`              | string  | `2px`                                                           | `10px`                        |
+| `weekend_background_color` | string  | `color-mix(in srgb, var(--primary-text-color) 4%, transparent)` | `-`                           |
+| `progress_bar_width`       | string  | `100%`                                                          | _per placement_               |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
@@ -327,7 +328,13 @@ days, and the list value of `10px` left every block visibly floating inside its 
 instead of sitting in the grid — a block already clears its own column, so 10px of gutter
 put 12px between two neighbours. `2px` is the tightest gutter that still holds the whole
 day rule inside it: the rule is centered in the gap, so at `0px` it would straddle the
-column boundary and paint over anything flush against a column edge.
+column boundary and paint over anything flush against a column edge. And the weekend
+columns are tinted, which is what makes a week scannable rather than readable one header
+at a time — every grid column stands the same height, so the shading is a clean stripe
+down the week rather than the ragged tab it would be in a column-view layout.
+
+**→ [Shading a Weekend Day](/features/layout-appearance#shading-a-weekend-day)** — the
+option itself, and how it decides which days are the weekend.
 
 Set any of them inside `time_grid:` to change it back.
 

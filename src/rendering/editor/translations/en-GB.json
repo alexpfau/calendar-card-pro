@@ -21,6 +21,7 @@
   "day_color": "Day Number Colour",
   "month_color": "Month Colour",
   "weekend_colors": "Weekend Colours",
+  "weekend_background_color.helper": "Tints the whole of a weekend day, so a week reads at a glance. Any CSS colour — keep it faint, since event text sits on top of it.",
   "weekend_weekday_color": "Weekend Weekday Colour",
   "weekend_day_color": "Weekend Day Number Colour",
   "weekend_month_color": "Weekend Month Colour",

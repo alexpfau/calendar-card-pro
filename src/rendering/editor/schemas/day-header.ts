@@ -127,7 +127,13 @@ const dayHeaderSchema = Helpers.memoizeLast(
     bool('show_month'),
     ...(showMonth ? [row(text('month_font_size'), color('month_color'))] : []),
 
+    // First in its group, ahead of the three text colors, because the group is ordered by
+    // scope the way the panels are: the surface a weekend day is drawn on, then the words
+    // drawn on it. It belongs in this group rather than in Layout & Appearance for the
+    // same reason — this is the card's one answer to "what is different about a weekend",
+    // and splitting it across two panels is how one of the four ends up undiscoverable.
     group(language, 'weekend_colors', WEEKEND_ICON, [
+      color('weekend_background_color'),
       color('weekend_weekday_color'),
       color('weekend_day_color'),
       color('weekend_month_color'),

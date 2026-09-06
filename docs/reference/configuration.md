@@ -184,22 +184,23 @@ fixed `height` compresses the time axis rather than scrolling.
 
 ## 📆 Date Column
 
-| Option                    | Type    | Default                                                | Description                                                      |
-| ------------------------- | ------- | ------------------------------------------------------ | ---------------------------------------------------------------- |
-| `date_vertical_alignment` | string  | `middle`                                               | Vertical alignment of date column (`top`, `middle`, or `bottom`) |
-| `weekday_font_size`       | string  | `14px`                                                 | Weekday name font size                                           |
-| `weekday_color`           | string  | `--primary-text-color`                                 | Weekday name font color                                          |
-| `day_font_size`           | string  | `26px`                                                 | Day numbers font size                                            |
-| `day_color`               | string  | `--primary-text-color`                                 | Day numbers font color                                           |
-| `show_month`              | boolean | `true`                                                 | Whether to show month names                                      |
-| `month_font_size`         | string  | `12px`                                                 | Month name font size                                             |
-| `month_color`             | string  | `--primary-text-color`                                 | Month name font color                                            |
-| `weekend_weekday_color`   | string  | inherits `weekday_color`                               | Color for the weekday name (e.g., "Sat", "Sun") on weekend days  |
-| `weekend_day_color`       | string  | inherits `day_color`                                   | Color for the day number on weekend days                         |
-| `weekend_month_color`     | string  | inherits `month_color`                                 | Color for the month name on weekend days                         |
-| `today_weekday_color`     | string  | inherits `weekend_weekday_color`, then `weekday_color` | Color for the weekday name (e.g., "Sat", "Sun") on today's date  |
-| `today_day_color`         | string  | inherits `weekend_day_color`, then `day_color`         | Color for the day number on today's date                         |
-| `today_month_color`       | string  | inherits `weekend_month_color`, then `month_color`     | Color for the month name on today's date                         |
+| Option                     | Type    | Default                                                | Description                                                                                                                                                                              |
+| -------------------------- | ------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `date_vertical_alignment`  | string  | `middle`                                               | Vertical alignment of date column (`top`, `middle`, or `bottom`)                                                                                                                         |
+| `weekday_font_size`        | string  | `14px`                                                 | Weekday name font size                                                                                                                                                                   |
+| `weekday_color`            | string  | `--primary-text-color`                                 | Weekday name font color                                                                                                                                                                  |
+| `day_font_size`            | string  | `26px`                                                 | Day numbers font size                                                                                                                                                                    |
+| `day_color`                | string  | `--primary-text-color`                                 | Day numbers font color                                                                                                                                                                   |
+| `show_month`               | boolean | `true`                                                 | Whether to show month names                                                                                                                                                              |
+| `month_font_size`          | string  | `12px`                                                 | Month name font size                                                                                                                                                                     |
+| `month_color`              | string  | `--primary-text-color`                                 | Month name font color                                                                                                                                                                    |
+| `weekend_background_color` | string  | `-`                                                    | Background tint for the whole of a weekend day. Unset, nothing is shaded. Grid view defaults this to `color-mix(in srgb, var(--primary-text-color) 4%, transparent)` inside `time_grid:` |
+| `weekend_weekday_color`    | string  | inherits `weekday_color`                               | Color for the weekday name (e.g., "Sat", "Sun") on weekend days                                                                                                                          |
+| `weekend_day_color`        | string  | inherits `day_color`                                   | Color for the day number on weekend days                                                                                                                                                 |
+| `weekend_month_color`      | string  | inherits `month_color`                                 | Color for the month name on weekend days                                                                                                                                                 |
+| `today_weekday_color`      | string  | inherits `weekend_weekday_color`, then `weekday_color` | Color for the weekday name (e.g., "Sat", "Sun") on today's date                                                                                                                          |
+| `today_day_color`          | string  | inherits `weekend_day_color`, then `day_color`         | Color for the day number on today's date                                                                                                                                                 |
+| `today_month_color`        | string  | inherits `weekend_month_color`, then `month_color`     | Color for the month name on today's date                                                                                                                                                 |
 
 **→ [Date column customization](/features/layout-appearance#date-column-customization)** — including weekend and today overrides.
 

@@ -53,6 +53,7 @@ const PASS_THROUGH: readonly Pair[] = [
   ['location_icon_size', '--calendar-card-icon-size-location', '116px'],
   ['description_icon_size', '--calendar-card-icon-size-description', '117px'],
   ['height', '--calendar-card-height', '118px'],
+  ['weekend_background_color', '--calendar-card-weekend-background', 'rgb(15, 0, 0)'],
 ] as const;
 
 /** Properties that fall back to a fixed value rather than to the browser's default. */
@@ -98,6 +99,16 @@ describe('custom property mapping', () => {
     expect(
       propsFor({ day_font_size: 'calc(1em + 2px)' })['--calendar-card-date-column-width'],
     ).toBe('calc(1.75 * (calc(1em + 2px)))');
+  });
+
+  it('emits no weekend shading until something asks for it', () => {
+    // The pass-through row above cannot see this: the property is emitted conditionally,
+    // so a mapping that always emitted it would satisfy that row and shade every card
+    // whose theme happens to define the variable. Absence is the off state here.
+    expect(propsFor({})).not.toHaveProperty('--calendar-card-weekend-background');
+    expect(propsFor({ weekend_background_color: undefined })).not.toHaveProperty(
+      '--calendar-card-weekend-background',
+    );
   });
 
   it('dims the default empty day color and passes a configured one through', () => {

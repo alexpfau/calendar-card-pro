@@ -36,6 +36,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'today_indicator',
   'today_indicator_size',
   'today_indicator_color',
+  'weekend_background_color',
   'weekday_font_size',
   'day_font_size',
   'show_month',
@@ -664,6 +665,15 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * whatever is flush against a column edge. At `2px` the boundary is rule plus 0.75px of
  * clear space on each side, and the visible gap between two blocks falls from 12px to 4px.
  *
+ * `weekend_background_color` tints the weekend columns, which is what makes a week
+ * scannable at a glance rather than readable one header at a time. Off everywhere else
+ * and on here for a reason of geometry rather than taste — see the stylesheet comment
+ * beside the rule, which is where the three views' day containers are compared. The value
+ * is a mix rather than a fixed grey so that it darkens a light theme and lightens a dark
+ * one; `color-mix` is Chrome 111, well under the Chrome 117 floor grid view already sets
+ * with `subgrid`. Which days are shaded comes from Home Assistant's language, so this is
+ * Friday and Saturday in an Israeli household.
+ *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
  * from the view's own block, so `time_grid: { split_multiday_events: true }` would imply the
@@ -676,6 +686,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   day_separator_width: '0.5px',
   day_separator_color: 'var(--divider-color)',
   day_spacing: '2px',
+  weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
   event_background_opacity: 20,
   progress_bar_width: '100%',
   show_empty_days: true,

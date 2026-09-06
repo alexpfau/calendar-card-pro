@@ -127,6 +127,15 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
 
   // Emit optional properties only when the user set them, so placement-specific
   // stylesheet fallbacks remain distinguishable from explicit choices.
+  //
+  // Weekend shading is off unless asked for, and grid view asks for it through its own
+  // divergent default rather than through a stylesheet rule — which is what lets a user
+  // turn it off there with `time_grid: { weekend_background_color: transparent }` and on
+  // anywhere else, through one option instead of two.
+  if (config.weekend_background_color) {
+    props['--calendar-card-weekend-background'] = config.weekend_background_color;
+  }
+
   if (config.progress_bar_width) {
     props['--calendar-card-progress-bar-width'] = config.progress_bar_width;
   }
@@ -316,6 +325,32 @@ export const cardStyles = css`
 
   .day-table {
     border: none !important;
+  }
+
+  /* ----- Weekend shading -----
+
+     One declaration per view's day container, all fed by the same property, because the
+     class is already on all three and the question a reader asks is the same in every
+     layout: which of these days is the weekend. Nothing is painted unless
+     generateCustomPropertiesObject emitted the property, which it does only when the
+     option is set — so the transparent fallback here is the off state rather than a
+     placeholder.
+
+     Grid gets the tint by default and the other two do not, and the reason is geometry
+     rather than taste. A grid column is exactly as tall as the time band, so the shading
+     is a clean full-height stripe. A column-view column is a flex stack the grid holds at
+     start, so its height is whatever that day's events came to: a Saturday with one event
+     would take a short tab of color and a Sunday with six a tall one, which reads as a
+     rendering fault rather than as shading. And a list-view day is a full-width row with
+     no neighbor beside it to compare against, which is the whole use the shading has.
+
+     The color is deliberately not a fixed grey. A theme token mixed down to a few percent
+     darkens a light theme and lightens a dark one, which is what a weekend tint has to do
+     to survive both. */
+  .day-table.weekend,
+  .day-column.weekend,
+  .grid-day-body.weekend {
+    background-color: var(--calendar-card-weekend-background, transparent);
   }
 
   table:last-of-type {

@@ -1641,6 +1641,26 @@ describe('card stylesheet', () => {
       expect(declared('.grid-banner', 'box-sizing')).toBe('border-box');
     });
 
+    it('shades a weekend day the same way in every view', () => {
+      // One property, three day containers, because the class is already on all three and
+      // the question is the same in every layout. Reconciled as a whole selector set
+      // rather than one assertion per view: a `toContain` per selector cannot notice one
+      // leaving, which would silently drop the shading from that layout only.
+      const shading = RULES.filter((rule) =>
+        rule.body.includes('var(--calendar-card-weekend-background'),
+      );
+
+      expect(shading).toHaveLength(1);
+      expect(new Set(shading[0].selectors)).toEqual(
+        new Set(['.day-table.weekend', '.day-column.weekend', '.grid-day-body.weekend']),
+      );
+      // Transparent, not a color: nothing is painted unless the option is set, and the
+      // property is emitted only then.
+      expect(shading[0].body).toContain(
+        'background-color: var(--calendar-card-weekend-background, transparent)',
+      );
+    });
+
     it('rounds a banner end only where the event genuinely starts or ends', () => {
       // The shape is the claim: a fully rounded end says the event begins or ends inside
       // the window, and a squared one says it carries on past the edge. The renderer

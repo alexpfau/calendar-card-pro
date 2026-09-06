@@ -67,6 +67,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_month: true,
   month_font_size: '12px',
   month_color: 'var(--primary-text-color)',
+  weekend_background_color: undefined, // No shading; grid view substitutes a tint
   weekend_weekday_color: undefined, // Inherit from weekday_color
   weekend_day_color: undefined, // Inherit from day_color
   weekend_month_color: undefined, // Inherit from month_color
