@@ -1610,6 +1610,9 @@ class CalendarCardPro extends LitElement {
     if (!this._hasCardAction) {
       return;
     }
+    if (ev.isPrimary === false || this._activePointerId !== null) {
+      return;
+    }
 
     this._activePointerId = ev.pointerId;
     this._pointerStart = { x: ev.clientX, y: ev.clientY };

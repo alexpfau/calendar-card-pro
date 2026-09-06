@@ -306,7 +306,12 @@ describe('teardown', () => {
     const card = mount({ hold_action: { action: 'expand' } });
 
     card._handlePointerDown(
-      new PointerEvent('pointerdown', { pointerId: 1, clientX: 0, clientY: 0 }),
+      new PointerEvent('pointerdown', {
+        pointerId: 1,
+        clientX: 0,
+        clientY: 0,
+        isPrimary: true,
+      }),
     );
 
     // The user starts a hold, then the dashboard swaps views before it matures.
@@ -326,7 +331,12 @@ describe('teardown', () => {
     const card = mount({ hold_action: { action: 'expand' } });
 
     card._handlePointerDown(
-      new PointerEvent('pointerdown', { pointerId: 1, clientX: 0, clientY: 0 }),
+      new PointerEvent('pointerdown', {
+        pointerId: 1,
+        clientX: 0,
+        clientY: 0,
+        isPrimary: true,
+      }),
     );
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
 

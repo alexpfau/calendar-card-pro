@@ -59,7 +59,7 @@ function pointer(
   pointerId: number,
   clientX = 0,
   clientY = 0,
-  extras: { button?: number } = {},
+  extras: { button?: number; isPrimary?: boolean } = {},
 ): PointerEvent {
   return { pointerId, clientX, clientY, ...extras } as PointerEvent;
 }
@@ -196,61 +196,56 @@ describe('host pointer handling', () => {
     expect(handleAction.mock.calls[0][2]).toBe('tap');
   });
 
-  it('ignores a hold timer belonging to a pointer that is no longer active', async () => {
+  it('does not let a second touch steal the active gesture', async () => {
     const card = await mount({ hold_action: { action: 'expand' } });
 
-    card._handlePointerDown(pointer(1));
-    // A second finger lands before the first one's timer fires, taking over the gesture.
-    card._handlePointerDown(pointer(2));
+    card._handlePointerDown(pointer(1, 0, 0, { isPrimary: true }));
+    card._handlePointerDown(pointer(2, 0, 0, { isPrimary: false }));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
 
-    // The surviving timer is the second pointer's, so a hold is still recognised --
-    // but the first pointer's timer must not have been the one to set it.
     expect(card._holdTriggered).toBe(true);
+    expect(card._activePointerId).toBe(1);
 
-    // Releasing the pointer that never became active must do nothing at all.
     handleAction.mockClear();
     card._handlePointerUp(pointer(1));
-    expect(handleAction).not.toHaveBeenCalled();
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
   });
 
-  it('does not leave a hold indicator behind when a second finger takes over after hold', async () => {
-    // createHoldIndicator appends straight to document.body. A second pointerdown after
-    // the first hold has already drawn its disc used to overwrite the card's reference
-    // without removing the first node, so the disc stayed on the page forever.
+  it('keeps the original hold indicator when a second finger lands', async () => {
+    // Only the primary touch owns the gesture. Transferring ownership to a second
+    // finger used to require replacing the first body-level indicator and made the
+    // second contact capable of firing an action the user began with the first.
     const card = await mount({ hold_action: { action: 'expand' } });
 
-    card._handlePointerDown(pointer(11));
+    card._handlePointerDown(pointer(11, 0, 0, { isPrimary: true }));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
     const first = card._holdIndicator;
     expect(first).toBeTruthy();
     expect(first!.parentNode).toBe(document.body);
 
-    card._handlePointerDown(pointer(12));
-    // The card drops the reference immediately; the fadeout then unmounts the node.
-    expect(card._holdIndicator).toBeNull();
-    vi.advanceTimersByTime(Constants.TIMING.HOLD_INDICATOR_FADEOUT + 10);
-    expect(first!.parentNode).toBeNull();
-
-    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
-    const second = card._holdIndicator;
-    expect(second).toBeTruthy();
-    expect(second).not.toBe(first);
-    expect(first!.parentNode).toBeNull();
+    card._handlePointerDown(pointer(12, 0, 0, { isPrimary: false }));
+    expect(card._activePointerId).toBe(11);
+    expect(card._holdIndicator).toBe(first);
 
     card._handlePointerUp(pointer(12));
+    expect(handleAction).not.toHaveBeenCalled();
+    expect(card._holdIndicator).toBe(first);
+
+    card._handlePointerUp(pointer(11));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_INDICATOR_FADEOUT + 10);
-    expect(second!.parentNode).toBeNull();
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(first!.parentNode).toBeNull();
   });
 
   it('does not cancel the active pointer when a different finger is canceled', async () => {
     const card = await mount({ hold_action: { action: 'expand' } });
 
-    card._handlePointerDown(pointer(1));
-    card._handlePointerDown(pointer(2));
-    card._handlePointerCancel(pointer(1));
+    card._handlePointerDown(pointer(1, 0, 0, { isPrimary: true }));
+    card._handlePointerDown(pointer(2, 0, 0, { isPrimary: false }));
+    card._handlePointerCancel(pointer(2));
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
-    card._handlePointerUp(pointer(2));
+    card._handlePointerUp(pointer(1));
 
     expect(handleAction).toHaveBeenCalledTimes(1);
     expect(handleAction.mock.calls[0][2]).toBe('hold');

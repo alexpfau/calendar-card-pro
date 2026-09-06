@@ -186,6 +186,23 @@ describe('weather subscriptions: registry and teardown', () => {
     expect(conn.subs.map((s) => s.unsubscribed)).toEqual([1, 1]);
   });
 
+  it('subscribes again when a disconnected card is reconnected', async () => {
+    const { card, conn } = await mount({ entity: 'weather.home', position: 'date' });
+    const first = conn.subs[0];
+
+    card.remove();
+    expect(first.unsubscribed).toBe(1);
+    expect(card._weatherUnsubscribers).toHaveLength(0);
+
+    document.body.appendChild(card);
+    await card.updateComplete;
+    await flush();
+
+    expect(conn.subs).toHaveLength(2);
+    expect(conn.subs[1].unsubscribed).toBe(0);
+    expect(card._weatherUnsubscribers).toHaveLength(1);
+  });
+
   it('does not unsubscribe the same subscription twice', async () => {
     const { card, conn } = await mount({ entity: 'weather.home', position: 'date' });
 
