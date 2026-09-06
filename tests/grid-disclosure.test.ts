@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import '../src/calendar-card-pro';
-import { gridContentOverflows } from '../src/calendar-card-pro';
+import {
+  GRID_DETAIL_ROWS,
+  fittedGridDetailLines,
+  gridContentOverflows,
+  resolveLineHeightPx,
+} from '../src/calendar-card-pro';
 
 describe('grid disclosure safety', () => {
   it('tolerates a one-pixel rounding difference but detects a clipped detail row', () => {
@@ -103,6 +108,55 @@ describe('grid disclosure safety', () => {
     ).toEqual([false, false]);
   });
 
+  it('keeps time ahead of lower-priority detail rows', () => {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="progress-bar-row"></div>
+            <div class="time">10:00</div>
+            <div class="event-weather">Sunny</div>
+            <div class="location">Office</div>
+            <div class="description">Notes</div>
+          </div>
+        </div>
+      </div>
+    `;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    const rows = Array.from(content.children) as HTMLElement[];
+    rows.forEach((row) => {
+      row.getClientRects = () =>
+        row.classList.contains('grid-event-detail-clipped')
+          ? ({} as DOMRectList)
+          : ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList);
+    });
+    Object.defineProperties(content, {
+      clientHeight: { value: 60 },
+      scrollHeight: {
+        get: () =>
+          100 -
+          rows.filter((row) => row.classList.contains('grid-event-detail-clipped')).length * 10,
+      },
+    });
+
+    card._applyGridDisclosureSafety();
+
+    expect(content.querySelector('.time')?.classList).not.toContain('grid-event-detail-clipped');
+    expect(content.querySelector('.progress-bar-row')?.classList).toContain(
+      'grid-event-detail-clipped',
+    );
+    expect(content.querySelector('.event-weather')?.classList).toContain(
+      'grid-event-detail-clipped',
+    );
+    expect(content.querySelector('.location')?.classList).toContain('grid-event-detail-clipped');
+    expect(content.querySelector('.description')?.classList).toContain('grid-event-detail-clipped');
+  });
+
   it('restores a previously hidden detail row once it fits', () => {
     const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
       _applyGridDisclosureSafety(): void;
@@ -162,6 +216,343 @@ describe('grid disclosure safety', () => {
     card._applyGridDisclosureSafety();
 
     expect(root.querySelector('.grid-event-detail-clipped')).toBeNull();
+  });
+});
+
+describe('grid disclosure line fitting', () => {
+  const LINE_HEIGHT = 14.4;
+
+  /**
+   * How tall a text row's icon is by default here, which is the floor its text cannot shrink
+   * below.
+   *
+   * Real rows are a flex line holding an `ha-icon` beside the text. `location_icon_size`
+   * defaults to 14px — just under a default line box — but is configurable, so both sides of
+   * the comparison are reachable and the fixtures pick one deliberately. A floor above one
+   * line box is what makes the "shortening did not pay for the overflow" branch reachable at
+   * all; a floor below one is what lets a row clamped to zero lines shrink, which is the case
+   * the `fitted < 1` guard exists to refuse.
+   */
+  const ICON_HEIGHT = 24;
+
+  interface RowSpec {
+    className: 'time' | 'location' | 'description' | 'progress-bar-row';
+    /** Lines the text takes when nothing clamps it. */
+    naturalLines?: number;
+    /** Lines the user's own `*_max_lines` option already allows. */
+    configuredLines?: number;
+    /** Height of a row that carries no text of its own. */
+    fixedHeight?: number;
+  }
+
+  const LINE_PROPERTY: Partial<Record<RowSpec['className'], string>> = {
+    location: '--calendar-card-location-max-lines',
+    description: '--calendar-card-description-max-lines',
+  };
+
+  /**
+   * Builds a grid block whose layout responds to clamping, because happy-dom's does not.
+   *
+   * The host is attached to the document so `getComputedStyle` resolves at all — detached, it
+   * answers `''` for every property, which would make every row read as unclampable and let a
+   * fixture pass against code that never clamps anything.
+   */
+  function buildBlock(options: {
+    titleHeight: number;
+    contentHeight: number;
+    rows: RowSpec[];
+    iconHeight?: number;
+  }) {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const host = document.createElement('div');
+    const root = host.attachShadow({ mode: 'open' });
+    document.body.appendChild(host);
+    Object.defineProperty(card, 'renderRoot', { value: root });
+
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="summary"><span class="event-title">Autumn programme workshop</span></div>
+            ${options.rows
+              .map(
+                (row) =>
+                  `<div class="${row.className}">${
+                    row.naturalLines
+                      ? `<ha-icon></ha-icon><span style="line-height: ${LINE_HEIGHT}px; font-size: 12px">${row.className}</span>`
+                      : ''
+                  }</div>`,
+              )
+              .join('')}
+          </div>
+        </div>
+      </div>
+    `;
+
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    const elementFor = (spec: RowSpec) => root.querySelector<HTMLElement>(`.${spec.className}`)!;
+
+    /** Lines the row draws now: the inline clamp when one is set, else the configured cap. */
+    const renderedLines = (spec: RowSpec): number => {
+      const property = LINE_PROPERTY[spec.className];
+      const inline = property ? elementFor(spec).style.getPropertyValue(property) : '';
+      const limit = inline ? Number(inline) : (spec.configuredLines ?? spec.naturalLines!);
+      return Math.min(spec.naturalLines!, limit);
+    };
+
+    for (const spec of options.rows) {
+      const element = elementFor(spec);
+      element.getClientRects = () =>
+        element.classList.contains('grid-event-detail-clipped')
+          ? ({ length: 0 } as unknown as DOMRectList)
+          : ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList);
+
+      const span = element.querySelector<HTMLElement>('span');
+      if (span) {
+        span.getBoundingClientRect = () =>
+          ({ height: renderedLines(spec) * LINE_HEIGHT }) as DOMRect;
+      }
+    }
+
+    const rowHeight = (spec: RowSpec): number => {
+      if (elementFor(spec).classList.contains('grid-event-detail-clipped')) {
+        return 0;
+      }
+      if (!spec.naturalLines) {
+        return spec.fixedHeight ?? LINE_HEIGHT;
+      }
+      return Math.max(options.iconHeight ?? ICON_HEIGHT, renderedLines(spec) * LINE_HEIGHT);
+    };
+
+    let contentHeight = options.contentHeight;
+    Object.defineProperties(content, {
+      clientHeight: { get: () => contentHeight },
+      scrollHeight: {
+        get: () =>
+          options.titleHeight + options.rows.reduce((total, spec) => total + rowHeight(spec), 0),
+      },
+    });
+
+    return {
+      card,
+      content,
+      row: (className: RowSpec['className']) => root.querySelector<HTMLElement>(`.${className}`)!,
+      clamp: (className: RowSpec['className']) =>
+        root
+          .querySelector<HTMLElement>(`.${className}`)!
+          .style.getPropertyValue(LINE_PROPERTY[className] ?? '--unused'),
+      grow: (height: number) => {
+        contentHeight = height;
+      },
+      cleanup: () => host.remove(),
+    };
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('removes only the number of lines needed to pay for the overflow', () => {
+    expect(fittedGridDetailLines(15, 60, 20)).toBe(2);
+    expect(fittedGridDetailLines(21, 60, 20)).toBe(1);
+    expect(fittedGridDetailLines(10, 60, 0)).toBe(0);
+    // Two lines rendered at 14.4px, overflowing by 20px: 20px is two line boxes rounded up,
+    // so nothing survives and the caller must withdraw rather than clamp.
+    expect(fittedGridDetailLines(20, 28.8, 14.4)).toBe(0);
+    // The maintainer's arithmetic: five rendered lines, 26.4px over, two lines to give back.
+    expect(fittedGridDetailLines(26.4, 72, 14.4)).toBe(3);
+    // A single pixel short of a whole line box still costs a whole line.
+    expect(fittedGridDetailLines(1, 72, 14.4)).toBe(4);
+  });
+
+  it('uses an explicit pixel line height when the browser resolves one', () => {
+    expect(resolveLineHeightPx({ lineHeight: '18px', fontSize: '30px' })).toBe(18);
+  });
+
+  it('falls back from normal line height to the font size', () => {
+    expect(resolveLineHeightPx({ lineHeight: 'normal', fontSize: '20px' })).toBe(24);
+    expect(resolveLineHeightPx({ lineHeight: 'normal', fontSize: 'invalid' })).toBe(0);
+    // A detached element answers '' for everything, which must not read as a real line box.
+    expect(resolveLineHeightPx({ lineHeight: '', fontSize: '' })).toBe(0);
+    // A ratio is not a length. Browsers resolve `line-height: 1.25` to pixels before this
+    // reads it, but nothing guarantees that, and taking the ratio at face value would call
+    // every line box 1.25px tall and clamp every row to one line.
+    expect(resolveLineHeightPx({ lineHeight: '1.25', fontSize: '16px' })).toBeCloseTo(19.2);
+  });
+
+  it('maps every disclosed detail row to the clamp it may use, most expendable first', () => {
+    // Pinned by value rather than walked, because walking the table cannot see an entry
+    // leaving it — and both directions matter here. A row gaining a clamp property it has no
+    // lines for would have the pass write a meaningless `-webkit-line-clamp` onto it, and the
+    // order is the withdrawal priority: reversing it gives up the time before the description.
+    expect(GRID_DETAIL_ROWS).toEqual([
+      { selector: '.description', lineProperty: '--calendar-card-description-max-lines' },
+      { selector: '.location', lineProperty: '--calendar-card-location-max-lines' },
+      { selector: '.event-weather', lineProperty: null },
+      { selector: '.progress-bar-row', lineProperty: null },
+      { selector: '.time', lineProperty: null },
+    ]);
+  });
+
+  it('shows the location lines that fit instead of withdrawing the whole row', () => {
+    // The maintainer's report: an 11:30-14:00 block whose title wraps and whose location is a
+    // five-line postal address showed its title and its time and then nothing, with roughly
+    // three empty lines below them inside the block. Measured in the browser at 55.6px of
+    // dead space. The address does not fit whole; three of its five lines do.
+    const block = buildBlock({
+      titleHeight: 40,
+      contentHeight: 100,
+      rows: [
+        { className: 'time', fixedHeight: LINE_HEIGHT },
+        { className: 'location', naturalLines: 5 },
+      ],
+    });
+
+    block.card._applyGridDisclosureSafety();
+
+    expect(
+      block.row('location').classList.contains('grid-event-detail-clipped'),
+      'the address partly fits, so withdrawing the row throws away lines there was room for',
+    ).toBe(false);
+    expect(block.clamp('location')).toBe('3');
+    expect(block.row('time').classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(gridContentOverflows(block.content)).toBe(false);
+
+    block.cleanup();
+  });
+
+  it('withdraws a row whose first line does not fit either', () => {
+    // A 12px icon sits under the 14.4px line box, so a row clamped to zero lines really would
+    // shrink and the block really would fit — as an address row showing a map pin and no
+    // address. That is the outcome `fitted < 1` refuses: below one line there is nothing worth
+    // keeping, so the row goes.
+    const block = buildBlock({
+      titleHeight: 40,
+      contentHeight: 66,
+      iconHeight: 12,
+      rows: [
+        { className: 'time', fixedHeight: LINE_HEIGHT },
+        { className: 'location', naturalLines: 3 },
+      ],
+    });
+
+    block.card._applyGridDisclosureSafety();
+
+    expect(block.row('location').classList.contains('grid-event-detail-clipped')).toBe(true);
+    expect(block.clamp('location'), 'a withdrawn row must not carry a clamp').toBe('');
+    expect(block.row('time').classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(gridContentOverflows(block.content)).toBe(false);
+
+    block.cleanup();
+  });
+
+  it('withdraws a row whose icon floor swallows the lines the clamp gave back', () => {
+    // Three lines of address beside a 24px icon in a block 21.6px too small. Two lines come
+    // off, but the row only shrinks to its icon — 24px, not 14.4px — so the block still does
+    // not fit and shortening bought nothing. The row goes entirely, and the clamp that failed
+    // to pay for it must not be left standing on the hidden element.
+    const block = buildBlock({
+      titleHeight: 40,
+      contentHeight: 76,
+      rows: [
+        { className: 'time', fixedHeight: LINE_HEIGHT },
+        { className: 'location', naturalLines: 3 },
+      ],
+    });
+
+    block.card._applyGridDisclosureSafety();
+
+    expect(block.row('location').classList.contains('grid-event-detail-clipped')).toBe(true);
+    expect(block.clamp('location')).toBe('');
+    expect(block.row('time').classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(gridContentOverflows(block.content)).toBe(false);
+
+    block.cleanup();
+  });
+
+  it('never clamps the progress bar, which has no lines to give', () => {
+    const block = buildBlock({
+      titleHeight: 40,
+      contentHeight: 55,
+      rows: [
+        { className: 'time', fixedHeight: LINE_HEIGHT },
+        { className: 'progress-bar-row', fixedHeight: 6 },
+      ],
+    });
+
+    block.card._applyGridDisclosureSafety();
+
+    expect(block.row('progress-bar-row').classList.contains('grid-event-detail-clipped')).toBe(
+      true,
+    );
+    expect(block.row('progress-bar-row').getAttribute('style')).toBeNull();
+    expect(block.row('time').classList.contains('grid-event-detail-clipped')).toBe(false);
+
+    block.cleanup();
+  });
+
+  it('tightens a configured location_max_lines and never loosens it', () => {
+    // The address is eight lines long and the user asked for two. Fitting may take the second
+    // away; it may not hand back any of the six the configuration already withheld.
+    const block = buildBlock({
+      titleHeight: 40,
+      contentHeight: 80,
+      rows: [
+        { className: 'time', fixedHeight: LINE_HEIGHT },
+        { className: 'location', naturalLines: 8, configuredLines: 2 },
+      ],
+    });
+
+    block.card._applyGridDisclosureSafety();
+
+    expect(block.row('location').classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(Number(block.clamp('location'))).toBeLessThanOrEqual(2);
+    expect(block.clamp('location')).toBe('1');
+
+    block.cleanup();
+  });
+
+  it('drops the clamp again once the block has room for the whole address', () => {
+    const block = buildBlock({
+      titleHeight: 40,
+      contentHeight: 100,
+      rows: [
+        { className: 'time', fixedHeight: LINE_HEIGHT },
+        { className: 'location', naturalLines: 5 },
+      ],
+    });
+
+    block.card._applyGridDisclosureSafety();
+    expect(block.clamp('location')).toBe('3');
+
+    block.grow(200);
+    block.card._applyGridDisclosureSafety();
+
+    expect(block.clamp('location')).toBe('');
+    expect(block.row('location').classList.contains('grid-event-detail-clipped')).toBe(false);
+
+    block.cleanup();
+  });
+
+  it('keeps every detail row and every line when the title alone is what overflows', () => {
+    const block = buildBlock({
+      titleHeight: 120,
+      contentHeight: 60,
+      rows: [
+        { className: 'time', fixedHeight: LINE_HEIGHT },
+        { className: 'location', naturalLines: 3 },
+      ],
+    });
+
+    block.card._applyGridDisclosureSafety();
+
+    expect(block.row('time').classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(block.row('location').classList.contains('grid-event-detail-clipped')).toBe(false);
+    expect(block.clamp('location')).toBe('');
+
+    block.cleanup();
   });
 });
 
@@ -260,7 +651,7 @@ describe('grid disclosure observer lifecycle', () => {
     expect(labels).toContain('grid-event');
     expect(labels).toContain('summary');
     expect(labels).toContain('event-title');
-    // Optional rows go display:none under grid-event-content-clipped. Observing them
+    // Optional rows can go display:none under the safety fallback. Observing them
     // re-fires the observer from the apply pass that hid them and reschedules forever.
     expect(labels).not.toContain('time');
     expect(labels).not.toContain('location');

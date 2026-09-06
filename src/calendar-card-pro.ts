@@ -117,6 +117,80 @@ export function gridContentOverflows(
   return content.scrollHeight > content.clientHeight + 1;
 }
 
+/**
+ * Resolves a computed `line-height` to pixels, including the `normal` keyword.
+ *
+ * `getComputedStyle` returns a used pixel value for both a length and a unitless ratio, but
+ * `normal` stays a keyword — and a keyword parses to `NaN`, which would make every line count
+ * derived from it garbage. 1.2 is the ratio browsers use for `normal` at ordinary font stacks;
+ * an approximation is acceptable here because a wrong count only costs one line of fitting,
+ * and the caller re-measures and withdraws the row if the clamp did not resolve the overflow.
+ *
+ * @param style - The row text's computed `line-height` and `font-size`
+ * @returns The line box height in pixels, or 0 when neither value is usable
+ */
+export function resolveLineHeightPx(
+  style: Pick<CSSStyleDeclaration, 'lineHeight' | 'fontSize'>,
+): number {
+  if (style.lineHeight.endsWith('px')) {
+    const lineHeight = Number.parseFloat(style.lineHeight);
+    if (Number.isFinite(lineHeight) && lineHeight > 0) {
+      return lineHeight;
+    }
+  }
+
+  const fontSize = Number.parseFloat(style.fontSize);
+  return Number.isFinite(fontSize) && fontSize > 0 ? fontSize * 1.2 : 0;
+}
+
+/**
+ * How many of a grid detail row's lines still fit once the block's overflow is paid for.
+ *
+ * Returned counts below 1 mean the row cannot show even its first line, so the caller
+ * withdraws it rather than clamping it. The count can never exceed what the row already
+ * draws, because `renderedHeightPx` is measured after the user's own `*_max_lines` clamp has
+ * applied — so this pass can only ever reduce what is shown, never restore a line the
+ * configuration had already taken away.
+ *
+ * @param overflowPx - How far the block's content exceeds its box
+ * @param renderedHeightPx - The row text's current rendered height
+ * @param lineHeightPx - One line box, from `resolveLineHeightPx`
+ * @returns The number of lines the row may keep, which may be zero or negative
+ */
+export function fittedGridDetailLines(
+  overflowPx: number,
+  renderedHeightPx: number,
+  lineHeightPx: number,
+): number {
+  if (lineHeightPx <= 0) {
+    return 0;
+  }
+
+  const currentLines = Math.max(1, Math.round(renderedHeightPx / lineHeightPx));
+  return currentLines - Math.ceil(overflowPx / lineHeightPx);
+}
+
+/**
+ * The disclosed grid detail rows, most expendable first, and how each one may be shortened.
+ *
+ * `lineProperty` names the custom property the row's own stylesheet rule already reads for
+ * `-webkit-line-clamp`, so setting it inline on the row cascades to the text span and reuses
+ * the shipped clamp — including the ellipsis it draws on the last visible line.
+ *
+ * Only the two rows whose content is a paragraph carry one. `.time` is `white-space: nowrap`
+ * inside a grid block and so is one line by construction, ellipsised horizontally already.
+ * `.event-weather` clamps a chip run whose text stays `display: inline` unless
+ * `weather.event.max_lines` is set, so a line count alone would not bind. `.progress-bar-row`
+ * has no text at all. Those three remain all-or-nothing.
+ */
+export const GRID_DETAIL_ROWS: ReadonlyArray<{ selector: string; lineProperty: string | null }> = [
+  { selector: '.description', lineProperty: '--calendar-card-description-max-lines' },
+  { selector: '.location', lineProperty: '--calendar-card-location-max-lines' },
+  { selector: '.event-weather', lineProperty: null },
+  { selector: '.progress-bar-row', lineProperty: null },
+  { selector: '.time', lineProperty: null },
+];
+
 //-----------------------------------------------------------------------------
 // MAIN COMPONENT CLASS
 //-----------------------------------------------------------------------------
@@ -307,10 +381,10 @@ class CalendarCardPro extends LitElement {
   /**
    * When true, ResizeObserver callbacks for grid disclosure are ignored.
    *
-   * `_applyGridDisclosureSafety` always removes then may re-add
-   * `grid-event-content-clipped`, which reflows observed title/block nodes and would
-   * otherwise re-schedule apply from its own layout. Generation bumps invalidate
-   * pending double-rAF clears after stop or a newer apply.
+   * `_applyGridDisclosureSafety` always restores then may re-hide detail rows, which
+   * reflows observed title/block nodes and would otherwise re-schedule apply from its
+   * own layout. Generation bumps invalidate pending double-rAF clears after stop or a
+   * newer apply.
    */
   private _gridDisclosureSuppressRo = false;
   private _gridDisclosureSuppressGeneration = 0;
@@ -720,17 +794,27 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Hides only the trailing optional grid details that cannot fit.
+   * Fits the disclosed grid details into their block, by the line rather than by the row.
    *
    * Container queries make the usual case cheap, but their fixed pixel rungs cannot account
-   * for a theme or configuration that enlarges text. Keep the title visible and withdraw
-   * optional rows from the bottom until the remaining disclosed content fits. Removing every
-   * optional row at the first overflow hid time and progress that still fitted above one tall
-   * description.
+   * for a theme or configuration that enlarges text. Keep the title visible and, from the
+   * bottom up, first shorten and then — only if shortening cannot help — withdraw the
+   * optional rows until the remaining disclosed content fits.
    *
-   * Measuring requires dropping `grid-event-content-clipped` first, so every apply can
-   * reflow observed title/block nodes even when the final class is unchanged. Suppress
-   * ResizeObserver until two animation frames later so that reflow cannot re-arm schedule.
+   * Shortening comes first because withdrawal reads as a bug. A 2.5-hour event with a
+   * five-line postal address showed its title and its time and then nothing at all, with
+   * roughly three empty lines sitting inside the block below them: the whole location row
+   * had been given up because its last line did not fit. `-webkit-line-clamp` is already how
+   * `location_max_lines` and `description_max_lines` limit those rows, and it supplies the
+   * ellipsis on the last visible line for free, so the fix is to compute how many lines the
+   * remaining space holds and set that row's own clamp property inline. The clamp can only
+   * tighten: the line count is measured after the user's configured limit has applied, so a
+   * `location_max_lines: 2` stays at two even where four would have fitted.
+   *
+   * Measuring requires restoring every hidden and every clamped detail row first, so every
+   * apply can reflow observed title/block nodes even when the final result is unchanged.
+   * Suppress ResizeObserver until two animation frames later so that reflow cannot re-arm
+   * schedule.
    */
   private _applyGridDisclosureSafety(): void {
     this._gridDisclosureSuppressGeneration += 1;
@@ -747,45 +831,63 @@ class CalendarCardPro extends LitElement {
           continue;
         }
 
-        const detailRows = [
-          content.querySelector<HTMLElement>('.description'),
-          content.querySelector<HTMLElement>('.location'),
-          content.querySelector<HTMLElement>('.event-weather'),
-          content.querySelector<HTMLElement>('.progress-bar-row'),
-          content.querySelector<HTMLElement>('.time'),
-        ].filter((row): row is HTMLElement => row !== null);
-        detailRows.forEach((row) => row.classList.remove('grid-event-detail-clipped'));
+        const detailRows = GRID_DETAIL_ROWS.map((row) => ({
+          lineProperty: row.lineProperty,
+          element: content.querySelector<HTMLElement>(row.selector),
+        })).filter(
+          (row): row is { lineProperty: string | null; element: HTMLElement } =>
+            row.element !== null,
+        );
 
-        // Withdrawing a row is only worth doing if it resolves the overflow, so the pass is
-        // transactional: remember what it gave up, and put it all back if the block still
+        for (const row of detailRows) {
+          row.element.classList.remove('grid-event-detail-clipped');
+          if (row.lineProperty) {
+            row.element.style.removeProperty(row.lineProperty);
+          }
+        }
+
+        // Fitting a row is only worth doing if the block ends up fitting, so the pass is
+        // transactional: remember every withdrawal and put it all back if the block still
         // overflows once there is nothing left to give.
         //
         // The case that forces this is a title too tall for its own block — three wrapped
         // lines in a narrow column. No detail row is responsible for that overflow and
-        // hiding one cannot fix it, but the loop happily hid every one of them on the way
-        // to discovering so, and a 2.5-hour event rendered with neither its time nor its
-        // location while a taller neighbour showed both. The block clips at the bottom in
-        // that case, which is the documented behaviour and the better answer than silently
-        // dropping the rows the user asked for.
+        // neither shortening nor hiding one can fix it, but the loop happily gave up every
+        // one of them on the way to discovering so, and a 2.5-hour event rendered with
+        // neither its time nor its location while a taller neighbour showed both. The block
+        // clips at the bottom in that case, which is the documented behaviour and the better
+        // answer than silently dropping the rows the user asked for.
+        //
+        // A clamp needs no undo entry: the loop keeps one only when it has just resolved the
+        // overflow and stopped, so the restore below cannot be reached with a clamp standing.
+        // The clamps from the previous pass are cleared above, unconditionally, like the
+        // withdrawals.
         const withdrawn: HTMLElement[] = [];
 
-        while (gridContentOverflows(content)) {
-          let lastVisibleDetail: HTMLElement | undefined;
-          for (let index = 0; index < detailRows.length; index++) {
-            const row = detailRows[index];
-            if (
-              !row.classList.contains('grid-event-detail-clipped') &&
-              row.getClientRects().length > 0
-            ) {
-              lastVisibleDetail = row;
-              break;
-            }
-          }
-          if (!lastVisibleDetail) {
+        for (const row of detailRows) {
+          if (!gridContentOverflows(content)) {
             break;
           }
-          lastVisibleDetail.classList.add('grid-event-detail-clipped');
-          withdrawn.push(lastVisibleDetail);
+          if (row.element.getClientRects().length === 0) {
+            continue;
+          }
+
+          if (
+            row.lineProperty &&
+            this._clampGridDetailRow(content, row.element, row.lineProperty)
+          ) {
+            if (!gridContentOverflows(content)) {
+              break;
+            }
+
+            // Shortening bought lines and the block still does not fit, which means the row
+            // has a floor its text cannot go under — its icon. Nothing is left to trade
+            // there, so give up the row entirely and take its clamp with it.
+            row.element.style.removeProperty(row.lineProperty);
+          }
+
+          row.element.classList.add('grid-event-detail-clipped');
+          withdrawn.push(row.element);
         }
 
         if (gridContentOverflows(content)) {
@@ -802,6 +904,38 @@ class CalendarCardPro extends LitElement {
         });
       });
     }
+  }
+
+  /**
+   * Clamps one detail row to the number of its lines that still fit, if that is at least one.
+   *
+   * Measures the text span rather than the row, because the row is a flex line that also
+   * carries an icon; the span is both what wraps and what the clamp rule targets.
+   *
+   * @param content - The block's disclosed content, whose overflow is being paid for
+   * @param row - The detail row to shorten
+   * @param lineProperty - The custom property that row's clamp rule reads
+   * @returns Whether a clamp was applied
+   */
+  private _clampGridDetailRow(
+    content: HTMLElement,
+    row: HTMLElement,
+    lineProperty: string,
+  ): boolean {
+    const text = row.querySelector<HTMLElement>('span') ?? row;
+    const lineHeight = resolveLineHeightPx(getComputedStyle(text));
+    const fitted = fittedGridDetailLines(
+      content.scrollHeight - content.clientHeight,
+      text.getBoundingClientRect().height,
+      lineHeight,
+    );
+
+    if (fitted < 1) {
+      return false;
+    }
+
+    row.style.setProperty(lineProperty, String(fitted));
+    return true;
   }
 
   /**
@@ -830,8 +964,8 @@ class CalendarCardPro extends LitElement {
    * Block height is absolute time geometry, so a late font load or a theme that only
    * enlarges the title can overflow `.event-content` without resizing `.grid-event`.
    * Observing `.summary` / `.event-title` catches that without watching optional detail
-   * rows: those rows are `display: none` while `grid-event-content-clipped` is on, so
-   * observing them re-fires ResizeObserver from the apply pass that just hid them.
+   * rows: those rows can be `display: none` after the safety pass, so observing them
+   * re-fires ResizeObserver from the apply pass that just hid them.
    * Apply also suppresses RO for two frames after every measure, because unclip→reclip
    * reflows the title/block nodes we *do* observe even when the final clip state matches.
    * `document.fonts` covers detail-row font loads; `updated()` re-applies after
