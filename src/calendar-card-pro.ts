@@ -205,11 +205,12 @@ class CalendarCardPro extends LitElement {
   /**
    * Monotonic ticket for in-flight event requests.
    *
-   * `updateEvents()` awaits the API, and `setConfig()` can regenerate `_instanceId` and
-   * start a second request during that await. The two requests go to different
-   * calendars, so their latencies are unrelated and the older one can settle last.
-   * Comparing the ticket a request started with against the current value is what tells
-   * a superseded response to discard itself instead of committing.
+   * `updateEvents()` awaits the API, and two entry points can bump this during that
+   * await: `setConfig()` regenerating `_instanceId` and starting a second request, and
+   * `disconnectedCallback` superseding any fetch that is still open so a detached
+   * `setConfig` cannot stamp a late response with a new identity. Comparing the ticket
+   * a request started with against the current value is what tells a superseded
+   * response to discard itself instead of committing.
    */
   private _eventRequestGeneration = 0;
   private _language = '';
@@ -1028,6 +1029,12 @@ class CalendarCardPro extends LitElement {
         this.config,
         type,
         (forecasts) => {
+          // The stream can still deliver after unsubscribe (or after a newer
+          // setup has already blanked forecasts for an entity switch). Without
+          // this ticket check the previous entity's forecast is written back.
+          if (this._weatherSetupVersion !== version) {
+            return;
+          }
           this.weatherForecasts = {
             ...this.weatherForecasts,
             [type]: forecasts,

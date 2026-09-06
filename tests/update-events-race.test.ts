@@ -5,13 +5,17 @@
  * and again — after the await — when it commits the result. Between those two reads the
  * user can reconfigure the card. `setConfig()` regenerates `_instanceId` from the entity
  * list and immediately calls `updateEvents(true)`, so two requests can be in flight at
- * once, and nothing records which identity each of them started under.
+ * once. Each call takes a ticket from `_eventRequestGeneration` before awaiting; a
+ * response whose ticket no longer matches is discarded instead of committing.
  *
- * If the older request settles last it wins twice over: it replaces `events` with the
- * previous calendar's payload, and it stamps `_eventsInstanceId` with the *current*
- * identity. That second half is what makes the state unrecoverable rather than merely
- * stale — `eventsMatchCurrentQuery` now reports true, so the card believes the old
- * calendar's events belong to the new query and no later refresh treats them as suspect.
+ * Without that ticket, if the older request settles last it wins twice over: it replaces
+ * `events` with the previous calendar's payload, and it stamps `_eventsInstanceId` with
+ * the *current* identity. That second half is what makes the state unrecoverable rather
+ * than merely stale — `eventsMatchCurrentQuery` now reports true, so the card believes
+ * the old calendar's events belong to the new query and no later refresh treats them as
+ * suspect. The same shape appears on disconnect: a fetch started while connected can
+ * settle after a detached `setConfig` rewrote `_instanceId`, so `disconnectedCallback`
+ * bumps the ticket as well.
  *
  * The ordering is not exotic. Home Assistant calls `setConfig` on every keystroke in the
  * visual editor, and the two requests go to different calendars, so their latencies are
