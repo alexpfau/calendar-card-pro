@@ -790,7 +790,7 @@ describe('grid disclosure observer lifecycle', () => {
     expect(gridObserver.disconnected).toBe(true);
   });
 
-  it('does not re-arm disclosure from a ResizeObserver notification caused by its own clip toggle', async () => {
+  it('ignores its own unchanged resize but keeps a real resize during suppression', async () => {
     class FiringResizeObserver {
       static instances: FiringResizeObserver[] = [];
       readonly observed = new Set<Element>();
@@ -813,11 +813,15 @@ describe('grid disclosure observer lifecycle', () => {
         this.observed.clear();
       }
 
-      /** Deliver a notification as if every currently observed target resized. */
-      fire(): void {
+      /** Deliver a notification with the supplied content-box size for every target. */
+      fire(width = 100, height = 60): void {
         if (this.disconnected || !this.observed.size) return;
         const entries = [...this.observed].map(
-          (target) => ({ target }) as unknown as ResizeObserverEntry,
+          (target) =>
+            ({
+              target,
+              contentRect: { width, height },
+            }) as unknown as ResizeObserverEntry,
         );
         this.callback(entries, this as unknown as ResizeObserver);
       }
@@ -865,16 +869,25 @@ describe('grid disclosure observer lifecycle', () => {
       originalSchedule();
     };
 
+    // Seed the observer's last-delivered sizes before apply arms suppression.
+    observer.fire();
+    scheduleCount = 0;
+
     // Detail rows must not be observed: a clip toggle would notify them every apply.
     const time = root.querySelector('.time')!;
     expect(observer.observed.has(time)).toBe(false);
 
     // Apply always unclips then may reclip, which reflows title/block. While suppress
-    // is armed, even a full fire on every observed target must not re-arm schedule.
+    // is armed, the unchanged final size must not re-arm schedule.
     card._applyGridDisclosureSafety();
-    const before = scheduleCount;
     observer.fire();
-    expect(scheduleCount).toBe(before);
+    expect(scheduleCount).toBe(0);
+
+    // A real width change can land in the same suppression window. ResizeObserver has
+    // delivered it already and will not repeat it after suppression clears, so dropping
+    // this notification leaves the old clip state standing indefinitely.
+    observer.fire(120);
+    expect(scheduleCount).toBe(1);
 
     card.remove();
     FiringResizeObserver.instances = [];

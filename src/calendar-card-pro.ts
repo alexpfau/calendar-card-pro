@@ -402,12 +402,21 @@ class CalendarCardPro extends LitElement {
   private _gridDisclosureObserver: ResizeObserver | null = null;
   private _gridDisclosureRaf: number | null = null;
   /**
-   * When true, ResizeObserver callbacks for grid disclosure are ignored.
+   * Last size delivered for each disclosure target.
+   *
+   * Apply temporarily changes layout while suppression is armed. An unchanged notification
+   * is therefore self-generated and safe to ignore, but a real resize during those two
+   * frames must still schedule another fit pass or the old withdrawal becomes permanent.
+   */
+  private _gridDisclosureObservedSizes = new WeakMap<Element, { width: number; height: number }>();
+  /**
+   * When true, unchanged ResizeObserver callbacks for grid disclosure are ignored.
    *
    * `_applyGridDisclosureSafety` always restores then may re-hide detail rows, which
    * reflows observed title/block nodes and would otherwise re-schedule apply from its
-   * own layout. Generation bumps invalidate pending double-rAF clears after stop or a
-   * newer apply.
+   * own layout. A notification carrying a genuinely new target size still gets through,
+   * because ResizeObserver will not repeat it after suppression clears. Generation bumps
+   * invalidate pending double-rAF clears after stop or a newer apply.
    */
   private _gridDisclosureSuppressRo = false;
   private _gridDisclosureSuppressGeneration = 0;
@@ -1031,8 +1040,22 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
-    this._gridDisclosureObserver = new ResizeObserver(() => {
-      if (this._gridDisclosureSuppressRo) {
+    this._gridDisclosureObserver = new ResizeObserver((entries) => {
+      let targetChangedSize = false;
+      for (const entry of entries) {
+        const previous = this._gridDisclosureObservedSizes.get(entry.target);
+        const next = {
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        };
+        this._gridDisclosureObservedSizes.set(entry.target, next);
+        targetChangedSize ||=
+          previous === undefined ||
+          previous.width !== next.width ||
+          previous.height !== next.height;
+      }
+
+      if (this._gridDisclosureSuppressRo && !targetChangedSize) {
         return;
       }
       this._scheduleGridDisclosureSafety();
