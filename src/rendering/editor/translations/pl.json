@@ -274,6 +274,8 @@
   "show_month": "Pokaż miesiąc",
   "month_font_size": "Rozmiar czcionki miesiąca",
   "month_color": "Kolor miesiąca",
+  "accent_event_text": "Kolory kalendarza w tekście wydarzenia",
+  "accent_event_text.helper": "Rysuje tytuł, godzinę, miejsce, opis i pasek postępu wydarzenia w kolorze kalendarza, z którego pochodzi, zamiast w jednym kolorze dla całej karty. W siatce czasu jest to ustawienie domyślne. Każda z pięciu opcji przyjmuje wartość accent także osobno, więc jedno pole może podążać za kalendarzem, a pozostałe nie — a wyłączenie przywraca wszystkim pięciu kolory standardowe, a nie ustawione wcześniej.",
   "weekend_colors": "Kolory weekendu",
   "weekend_colors.helper": "Każdy z nich, pozostawiony pusty, przyjmuje wartość odpowiednika dla dnia tygodnia. To, które dni liczą się jako weekend, zależy od języka Home Assistanta.",
   "weekend_weekday_color": "Kolor dnia tygodnia w weekend",

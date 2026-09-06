@@ -353,7 +353,7 @@ column is what grid view uses; **Instead of** is the top-level default it replac
 | `show_past_events`         | boolean | `true`                 | `false`                       |
 | `day_separator_width`      | string  | `1px`                  | `0px`                         |
 | `day_separator_color`      | string  | `var(--divider-color)` | `var(--secondary-text-color)` |
-| `day_spacing`              | string  | `2px`                  | `10px`                        |
+| `day_spacing`              | string  | `1px`                  | `10px`                        |
 | `event_font_size`          | string  | `12px`                 | `14px`                        |
 | `event_color`              | string  | `accent`               | `--primary-text-color`        |
 | `time_color`               | string  | `accent`               | `--secondary-text-color`      |
@@ -374,9 +374,12 @@ edge, and a bar stopping short of that edge reads as unfinished rather than as r
 `day_spacing` is the gutter between day columns here rather than vertical space between
 days, and the list value of `10px` left every block visibly floating inside its column
 instead of sitting in the grid — a block already clears its own column, so 10px of gutter
-put 12px between two neighbors. `2px` is the tightest gutter that still holds the whole
-day rule inside it: the rule is centered in the gap, so at `0px` it would straddle the
-column boundary and paint over anything flush against a column edge. `event_font_size`
+put 12px between two neighbors. At `1px` the day rule exactly fills the gutter: the rule
+is centered on the column boundary, so a 1px rule in a 1px gap has its trailing edge on
+that boundary and its leading edge where the previous column ended. A block still keeps
+its own pixel of clear space on each side, so two neighbors read as 3px apart with the
+rule in the middle of it. Only `0px` straddles, because there the rule is wider than the
+gutter holding it. `event_font_size`
 drops to `12px` for the same reason the gutter tightened: a block is one column wide with a
 lane split still possible inside it, and every line the title takes at the list layout's
 `14px` is a line the time or the location does not get. Set your own inside `time_grid:`

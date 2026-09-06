@@ -233,6 +233,12 @@ const eventsSchema = Helpers.memoizeLast(
     badgePosition: Helpers.AlldayBadgePosition | null,
     badgeColorMode: string,
   ): HaFormSchema[] => [
+    // First, ahead of every color control it governs. The panel is ordered coarse to fine
+    // by scope, and this is the only control that changes what five of the others mean —
+    // a reader who meets it after picking a color has already picked one that is being
+    // overridden. It forward-references the accent, which the control two rows down
+    // decides; the helper names that explicitly, which is the cheaper of the two costs.
+    bool('accent_event_text'),
     row(text('event_font_size'), color('event_color')),
     // The mode and the colour it governs are one control, so they share a row. A grid
     // collapses to a single column on a narrow viewport, so a conditional field placed

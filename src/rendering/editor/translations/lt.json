@@ -274,6 +274,8 @@
   "show_month": "Rodyti mėnesį",
   "month_font_size": "Mėnesio šrifto dydis",
   "month_color": "Mėnesio spalva",
+  "accent_event_text": "Kalendoriaus spalvos įvykio tekste",
+  "accent_event_text.helper": "Piešia įvykio pavadinimą, laiką, vietą, aprašymą ir eigos juostą kalendoriaus, iš kurio įvykis atkeliavo, spalva, o ne viena spalva visai kortelei. Laiko tinklelyje tai įjungta pagal numatytuosius nustatymus. Kiekviena iš penkių parinkčių atskirai priima reikšmę accent, todėl vienas laukas gali sekti kalendorių, o kiti ne — o išjungus visos penkios grįžta į įprastas spalvas, ne į anksčiau nustatytas.",
   "weekend_colors": "Savaitgalio spalvos",
   "weekend_colors.helper": "Kiekviena jų, palikta tuščia, perima atitinkamą savaitės dienos reikšmę. Kurios dienos laikomos savaitgaliu, priklauso nuo Home Assistant kalbos.",
   "weekend_weekday_color": "Savaitgalio savaitės dienos spalva",

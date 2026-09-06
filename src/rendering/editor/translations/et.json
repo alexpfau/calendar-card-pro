@@ -274,6 +274,8 @@
   "show_month": "Näita kuud",
   "month_font_size": "Kuu fondi suurus",
   "month_color": "Kuu värv",
+  "accent_event_text": "Kalendri värvid sündmuse tekstis",
+  "accent_event_text.helper": "Joonistab sündmuse pealkirja, kellaaja, asukoha, kirjelduse ja edenemisriba selle kalendri värviga, kust sündmus pärineb, mitte ühe värviga kogu kaardil. Ajaruudustikus on see vaikimisi sees. Kõik viis valikut võtavad väärtuse accent ka eraldi, nii et üks väli võib kalendrit järgida ja ülejäänud mitte — ja väljalülitamine taastab kõigi viie tavavärvid, mitte varem seatud väärtused.",
   "weekend_colors": "Nädalavahetuse värvid",
   "weekend_colors.helper": "Iga neist taandub tühjaks jättes vastavale nädalapäeva seadele. Millised päevad loevad nädalavahetuseks, sõltub Home Assistanti keelest.",
   "weekend_weekday_color": "Nädalavahetuse nädalapäeva värv",

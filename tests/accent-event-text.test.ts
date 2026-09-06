@@ -21,14 +21,15 @@ import { EVENTS, FROZEN_NOW, buildConfig } from './fixtures';
 import { DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
+import { ACCENT_TEXT_OPTIONS, accentTextProperties } from '../src/rendering/accent-text';
 import * as Column from '../src/rendering/column';
+import { walkSchema } from '../src/rendering/editor/panels';
+import { buildEventsSchema } from '../src/rendering/editor/schemas/events';
+import * as Synthetic from '../src/rendering/editor/synthetic';
+import { applyFormChange } from '../src/rendering/editor/value';
 import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
-import {
-  ACCENT_TEXT_OPTIONS,
-  accentTextProperties,
-  generateCustomPropertiesObject,
-} from '../src/rendering/styles';
+import { generateCustomPropertiesObject } from '../src/rendering/styles';
 import { ACCENT_TEXT_SENTINEL } from '../src/utils/entity-colors';
 import * as EventUtils from '../src/utils/events';
 
@@ -299,6 +300,141 @@ describe('accent event text, view by view', () => {
         `${key} must not default to the sentinel in column view`,
       ).toBeUndefined();
       expect(DEFAULT_CONFIG[key as keyof Types.Config]).not.toBe(ACCENT_TEXT_SENTINEL);
+    }
+  });
+});
+
+/**
+ * The editor's one switch for the whole feature.
+ *
+ * Its state is **computed** from the five options, never stored, which is what makes
+ * "user edits one field and the switch silently disagrees" impossible rather than merely
+ * unlikely: there is no second value to fall out of step. Everything below is about that
+ * property and about the one thing it forces — a view that substitutes its own default
+ * for these keys has to be written in its own block, or the switch springs back.
+ */
+describe('the editor toggle', () => {
+  const governed = ACCENT_TEXT_OPTIONS.map(([key]) => key);
+
+  function form(config: Types.Config): boolean {
+    return Synthetic.deriveSyntheticData(config).accent_event_text as boolean;
+  }
+
+  function toggle(config: Types.Config, value: boolean): Types.Config {
+    const before = { ...config, ...Synthetic.deriveSyntheticData(config) } as Record<
+      string,
+      unknown
+    >;
+    return applyFormChange(config, before, { ...before, accent_event_text: value }, {}).config;
+  }
+
+  it('reads on for a default grid card and off for a default list card', () => {
+    // The half a card-level read gets wrong. Grid defaults all five to the sentinel, so a
+    // grid card that has never been edited stores none of them — reading the card level
+    // would report the switch off on exactly the card the feature is on for.
+    expect(form(buildConfig({ view: 'grid' }))).toBe(true);
+    expect(form(buildConfig({ view: 'list' }))).toBe(false);
+    expect(form(buildConfig({ view: 'column' }))).toBe(false);
+  });
+
+  it('reads off the moment one governed field stops being the sentinel', () => {
+    for (const key of governed) {
+      const config = buildConfig({ view: 'grid' });
+      config.time_grid = { [key]: 'rgb(1, 2, 3)' } as Types.TimeGridOverrides;
+
+      expect(form(config), `${key} alone must turn the switch off`).toBe(false);
+    }
+
+    // ...and the same from the other direction on a list card: four of five is still off.
+    const partial = buildConfig({ view: 'list' });
+    for (const key of governed.slice(0, 4)) {
+      (partial as unknown as Record<string, unknown>)[key] = ACCENT_TEXT_SENTINEL;
+    }
+
+    expect(form(partial)).toBe(false);
+  });
+
+  it('turns the whole set on and off in list view', () => {
+    const on = toggle(buildConfig({ view: 'list' }), true);
+
+    for (const key of governed) {
+      expect((on as unknown as Record<string, unknown>)[key]).toBe(ACCENT_TEXT_SENTINEL);
+    }
+    expect(form(on)).toBe(true);
+
+    const off = toggle(on, false);
+
+    for (const key of governed) {
+      expect((off as unknown as Record<string, unknown>)[key]).toBe(
+        DEFAULT_CONFIG[key as keyof Types.Config],
+      );
+    }
+    expect(form(off)).toBe(false);
+  });
+
+  it('writes into the grid block, where a card-level write would be ignored', () => {
+    // Grid substitutes its own default for these keys, so switching off at the card level
+    // alone leaves the grid still drawing accents — and the switch, reading what the card
+    // draws, springs straight back on. This is the round trip that proves it does not.
+    const off = toggle(buildConfig({ view: 'grid' }), false);
+    const block = off.time_grid as Record<string, unknown>;
+
+    expect(block, 'nothing was written into time_grid:').toBeDefined();
+    for (const key of governed) {
+      expect(block[key], `${key} must be written into the block`).toBe(
+        DEFAULT_CONFIG[key as keyof Types.Config],
+      );
+    }
+    expect(form(off), 'the switch sprang back on').toBe(false);
+
+    expect(form(toggle(off, true))).toBe(true);
+  });
+
+  it('leaves a column card at the card level, having no divergent default to beat', () => {
+    const on = toggle(buildConfig({ view: 'column' }), true);
+
+    expect(on.column).toBeUndefined();
+    expect(on.event_color).toBe(ACCENT_TEXT_SENTINEL);
+    expect(form(on)).toBe(true);
+  });
+
+  it('keeps whatever else the view block already held', () => {
+    const config = buildConfig({ view: 'grid' });
+    config.time_grid = { hour_height: '64px' } as Types.TimeGridOverrides;
+
+    const block = toggle(config, false).time_grid as Record<string, unknown>;
+
+    expect(block.hour_height).toBe('64px');
+  });
+});
+
+describe('where the toggle sits', () => {
+  it('is the first control in the Event Content panel', () => {
+    // Placement is a claim, not an accident: the panel is ordered coarse to fine by scope,
+    // and this is the only control that changes what five of the others mean. A reader who
+    // meets it *after* picking a color has already picked one that is being overridden —
+    // so it has to precede every field it governs, and `event_color` is the first of them.
+    // Every governed field is behind its own `show_*` gate, so all four are opened here:
+    // a panel that renders only three of them cannot state where the fifth sits.
+    const schema = buildEventsSchema({
+      config: buildConfig({
+        show_time: true,
+        show_location: true,
+        show_description: true,
+        show_progress_bar: true,
+      }),
+      language: 'en',
+      view: 'list',
+    });
+
+    expect(schema.length, 'panel rendered nothing').toBeGreaterThan(5);
+    expect((schema[0] as { name?: string }).name).toBe('accent_event_text');
+
+    const names = [...walkSchema(schema)].map(({ node }) => node.name);
+    for (const [key] of ACCENT_TEXT_OPTIONS) {
+      expect(names.indexOf('accent_event_text'), `${key} must come after the toggle`).toBeLessThan(
+        names.indexOf(key),
+      );
     }
   });
 });

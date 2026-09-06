@@ -496,6 +496,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   month_font_size: 'Month Font Size',
   month_color: 'Month Color',
 
+  accent_event_text: 'Use Calendar Colors For Event Text',
+  'accent_event_text.helper':
+    'Draws each event\u2019s title, time, location, description and progress bar in the ' +
+    'color of the calendar it came from, rather than in one color for the whole card. ' +
+    'Time Grid does this by default. Each of those five options also takes the value ' +
+    'accent on its own, so one field can follow the calendar while the rest do not \u2014 ' +
+    'and switching this off returns all five to their standard colors rather than to ' +
+    'anything set before.',
+
   weekend_colors: 'Weekend Colors',
   // 🚨 Deliberately free of the word this file spells Color, which is what
   // `generate-en-gb.mjs` substitutes on. `editor-translations.test.ts` uses this exact

@@ -780,6 +780,7 @@ describe('editor: change detection', () => {
   it('holds the exact set of synthetic keys', () => {
     expect(Object.keys(SYNTHETIC_FIELDS).sort()).toEqual([
       'accent_color_mode',
+      'accent_event_text',
       'allday_badge_color_mode',
       'allday_badge_position',
       'calendars',

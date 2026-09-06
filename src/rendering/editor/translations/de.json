@@ -274,6 +274,8 @@
   "show_month": "Monat anzeigen",
   "month_font_size": "Monats-Schriftgröße",
   "month_color": "Monatsfarbe",
+  "accent_event_text": "Kalenderfarben für Termintexte",
+  "accent_event_text.helper": "Zeichnet Titel, Zeit, Ort, Beschreibung und Fortschrittsbalken eines Termins in der Farbe des Kalenders, aus dem er stammt, statt in einer Farbe für die ganze Karte. Im Zeitraster ist das die Voreinstellung. Jede dieser fünf Optionen nimmt den Wert accent auch einzeln an, sodass ein Feld dem Kalender folgen kann und die übrigen nicht — und das Ausschalten setzt alle fünf auf ihre Standardfarben zurück, nicht auf etwas zuvor Eingestelltes.",
   "weekend_colors": "Wochenendfarben",
   "weekend_colors.helper": "Bleibt eine davon leer, gilt der Wert des entsprechenden Wochentags. Welche Tage als Wochenende gelten, richtet sich nach der Home-Assistant-Sprache.",
   "weekend_weekday_color": "Wochentagsfarbe am Wochenende",

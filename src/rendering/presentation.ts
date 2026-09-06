@@ -4,8 +4,8 @@
  * Both list and column views use these derived values so event content cannot drift.
  */
 
+import * as AccentText from './accent-text';
 import type { EventContentParts } from './leaves';
-import * as Styles from './styles';
 import * as Types from '../config/types';
 import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
@@ -265,7 +265,7 @@ export function buildEventPresentation(
     isPastEvent,
     entityAccentColor,
     entityAccentBackgroundColor,
-    accentTextProperties: Styles.accentTextProperties(config, entityAccentColor, isEmptyDay),
+    accentTextProperties: AccentText.accentTextProperties(config, entityAccentColor, isEmptyDay),
     contentParts,
   };
 }

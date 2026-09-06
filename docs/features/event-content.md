@@ -483,6 +483,13 @@ entities:
 time_color: accent
 ```
 
+::: tip Visual Editor
+The **Event Content** section opens with **Use Calendar Colors For Event Text**, which sets
+all five at once. Its state is read back from the five options rather than stored, so
+editing one of them by hand can never leave the switch claiming something else. Switching
+it off returns all five to their standard colors rather than to anything set before.
+:::
+
 `accent` is a value, not a mode, so the five options it is accepted by stay real and stay
 independent. Setting it on one of them tints one thing and leaves the rest alone, which is
 what the example above does — only the time follows the calendar; the title keeps

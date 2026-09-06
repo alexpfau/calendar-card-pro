@@ -274,6 +274,8 @@
   "show_month": "Vis måned",
   "month_font_size": "Månedsskriftstørrelse",
   "month_color": "Månedsfarge",
+  "accent_event_text": "Kalenderfarger i hendelsestekst",
+  "accent_event_text.helper": "Tegner hendelsens tittel, tid, sted, beskrivelse og fremdriftslinje i fargen til kalenderen den kom fra, i stedet for én farge for hele kortet. I tidsrutenettet er dette standard. Hver av de fem innstillingene tar verdien accent også alene, så ett felt kan følge kalenderen mens de andre ikke gjør det — og slår du det av, går alle fem tilbake til standardfargene, ikke til noe som var satt før.",
   "weekend_colors": "Helgefarger",
   "weekend_colors.helper": "Hver av disse faller tilbake på motstykket for ukedager når den står tom. Hvilke dager som regnes som helg følger språket i Home Assistant.",
   "weekend_weekday_color": "Ukedagsfarge i helg",

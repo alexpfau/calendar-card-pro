@@ -274,6 +274,8 @@
   "show_month": "Mostra mese",
   "month_font_size": "Dimensione font mese",
   "month_color": "Colore mese",
+  "accent_event_text": "Colori del calendario nel testo degli eventi",
+  "accent_event_text.helper": "Disegna titolo, orario, luogo, descrizione e barra di avanzamento di un evento nel colore del calendario da cui proviene, invece che in un unico colore per tutta la scheda. Nella griglia oraria è l’impostazione predefinita. Ognuna delle cinque opzioni accetta il valore accent anche da sola, così un campo può seguire il calendario e gli altri no — e disattivandolo tutti e cinque tornano ai colori standard, non a quanto impostato prima.",
   "weekend_colors": "Colori weekend",
   "weekend_colors.helper": "Se lasciati vuoti, questi colori ricadono su quelli corrispondenti dei giorni della settimana. Quali giorni contano come fine settimana dipende dalla lingua di Home Assistant.",
   "weekend_weekday_color": "Colore giorno settimana weekend",

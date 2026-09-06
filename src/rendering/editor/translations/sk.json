@@ -274,6 +274,8 @@
   "show_month": "Zobraziť mesiac",
   "month_font_size": "Veľkosť písma mesiaca",
   "month_color": "Farba mesiaca",
+  "accent_event_text": "Farby kalendára v texte udalosti",
+  "accent_event_text.helper": "Kreslí názov, čas, miesto, popis a ukazovateľ priebehu udalosti vo farbe kalendára, z ktorého pochádza, namiesto jednej farby pre celú kartu. V časovej mriežke je to predvolené. Každá z piatich možností prijíma hodnotu accent aj samostatne, takže jedno pole môže sledovať kalendár a ostatné nie — a vypnutím sa všetkých päť vráti k štandardným farbám, nie k tomu, čo bolo nastavené predtým.",
   "weekend_colors": "Farby víkendu",
   "weekend_colors.helper": "Ak zostanú prázdne, každá z nich sa vráti k svojmu náprotivku pre dni v týždni. Ktoré dni sa počítajú ako víkend, závisí od jazyka Home Assistanta.",
   "weekend_weekday_color": "Farba dňa v týždni cez víkend",

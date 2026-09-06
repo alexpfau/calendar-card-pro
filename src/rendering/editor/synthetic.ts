@@ -5,9 +5,11 @@
 
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
+import * as ViewConfig from '../../config/view';
 import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as StartDate from '../../utils/start-date';
+import * as AccentText from '../accent-text';
 
 /**
  * Uncommitted text, keyed by synthetic field name.
@@ -202,6 +204,48 @@ export function entityIdOf(entry: string | Types.EntityConfig): string {
 export function alldayBadgeColorMode(value: unknown): string {
   const resolved = Helpers.resolveAlldayBadgeColor(value);
   return resolved.source;
+}
+
+/**
+ * The view a configuration renders in, as far as the editor can know it.
+ *
+ * Width fallback can substitute a narrower view at runtime, which nothing here can see —
+ * and should not, because the editor describes the configuration rather than one browser
+ * window's rendering of it. Same rule as `value.ts`, spelled out again rather than
+ * imported to keep this module free of the editor's write path.
+ *
+ * @param config - Current configuration
+ * @returns The configured view, or list when it names none the card knows
+ */
+function configuredView(config: Readonly<Types.Config>): Types.EffectiveView {
+  return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
+}
+
+/**
+ * Whether every governed color option resolves to the accent sentinel.
+ *
+ * 🚨 Resolved through the view, not read off the card level, and that is the whole design.
+ * Grid view defaults all five to the sentinel, so a grid card that has never been edited
+ * stores none of them — a card-level read would report the toggle *off* on exactly the
+ * card the feature is on for. Reading what the card will actually draw is also what makes
+ * this safe to leave underived: there is no stored boolean to fall out of step with the
+ * fields, because the answer is recomputed from the fields every time.
+ *
+ * @param config - Current configuration
+ * @returns `true` when every governed option is the sentinel
+ */
+export function accentEventText(config: Readonly<Types.Config>): boolean {
+  const view = configuredView(config);
+
+  return AccentText.ACCENT_TEXT_KEYS.every((key) =>
+    EntityColors.isAccentTextSentinel(
+      ViewConfig.resolveViewOption(
+        config,
+        key as keyof Types.ColumnOverrides & keyof Types.Config,
+        view,
+      ),
+    ),
+  );
 }
 
 export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
@@ -422,6 +466,53 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
       const carried = current.source === 'custom' ? current.color : '';
 
       return { changes: { allday_badge_color: carried || INITIAL_ACCENT_COLOR } };
+    },
+  },
+
+  /**
+   * One switch for "draw event text in each calendar's own color".
+   *
+   * Sugar over the five governed options, and deliberately **not** a stored boolean: its
+   * state is recomputed from those options every time, so a user who edits one of them by
+   * hand cannot leave a switch claiming otherwise. There is no second source of truth to
+   * drift.
+   *
+   * Writing is view-aware for the same reason reading is. Where the view substitutes its
+   * own default for these keys — grid does — a card-level write would be ignored and the
+   * switch would spring straight back on, so the values go into that view's block as well.
+   * Derived from {@link ViewConfig.hasDivergentDefault} rather than a test for grid, so a
+   * second view adopting the default needs no edit here.
+   *
+   * Switching it off restores the shipped defaults rather than whatever was there before.
+   * Carrying the old values would mean storing them, which is the second source of truth
+   * this field exists to avoid; the helper text says so.
+   */
+  accent_event_text: {
+    derive: (config) => accentEventText(config),
+    apply: (value, config) => {
+      const on = value === true;
+      const changes: Record<string, unknown> = {};
+
+      for (const key of AccentText.ACCENT_TEXT_KEYS) {
+        changes[key] = on
+          ? EntityColors.ACCENT_TEXT_SENTINEL
+          : Config.DEFAULT_CONFIG[key as keyof Types.Config];
+      }
+
+      const view = configuredView(config);
+      const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
+      const governedHere =
+        blockKey !== undefined &&
+        AccentText.ACCENT_TEXT_KEYS.some((key) => ViewConfig.hasDivergentDefault(key, view));
+
+      if (governedHere) {
+        const block = Helpers.isConfigBlock(config[blockKey])
+          ? (config[blockKey] as Record<string, unknown>)
+          : {};
+        changes[blockKey] = { ...block, ...changes };
+      }
+
+      return { changes };
     },
   },
 

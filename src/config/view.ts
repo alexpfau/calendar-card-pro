@@ -696,11 +696,26 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * the list default of `10px` made every block look inset from the paper it sits on: a
  * block already clears its own column by `--calendar-card-grid-event-gap` on each side,
  * so 10px of gutter put 12px between two neighboring blocks. macOS Calendar has them
- * meet their day rule. `2px` is the smallest value at which the rule stays wholly inside
- * the gutter — it is drawn at `calc(-0.5 * (gap + width))`, i.e. centered, so at `0px` a
- * `0.5px` rule straddles the column boundary and paints (with its `z-index: 1`) over
- * whatever is flush against a column edge. At `2px` the boundary is rule plus 0.75px of
- * clear space on each side, and the visible gap between two blocks falls from 12px to 4px.
+ * meet their day rule.
+ *
+ * `1px`, matching both the rule that sits in it and the gap a block already keeps from
+ * its own column edge — one value for every piece of clear space in the grid. A rule is
+ * drawn at `calc(-0.5 * (gap + width))`, i.e. centered on the column boundary, so a 1px
+ * rule in a 1px gutter *exactly fills* it: the rule's trailing edge is the boundary and
+ * its leading edge is where the previous column ended. That is the intended state and not
+ * a near miss, and it is worth saying because it looks like one — the earlier `2px` was
+ * chosen so a `0.5px` rule kept 0.75px of clear space on each side, and read literally
+ * that argument now says the gutter should be 2px again.
+ *
+ * It does not, because what the clear space was protecting against was the rule painting
+ * (at its `z-index: 1`) over something flush against a column edge, and nothing is flush:
+ * `--calendar-card-grid-event-gap` insets every block 1px inside its own column, so the
+ * nearest ink is a pixel away on each side whatever the gutter does. Straddling would
+ * need the rule to be *wider* than the gutter, which is what `0px` did. Measured painted
+ * geometry at the default: a rule at x 505.9 to 506.9 in a gutter of 505.9 to 506.9,
+ * against block edges at 504.8 and 507.9 — no overlap on either side. The visible gap
+ * between two neighboring blocks falls from 12px at the list default, through 4px at
+ * `2px`, to 3px.
  *
  * `event_font_size` drops from the card-wide `14px`. A list row is the width of the card
  * and a block is one seventh of it with a lane split still possible inside that, so the
@@ -726,7 +741,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
 } = {
   day_separator_width: '1px',
   day_separator_color: 'var(--divider-color)',
-  day_spacing: '2px',
+  day_spacing: '1px',
   description_color: EntityColors.ACCENT_TEXT_SENTINEL,
   event_background_opacity: 20,
   event_color: EntityColors.ACCENT_TEXT_SENTINEL,

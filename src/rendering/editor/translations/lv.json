@@ -274,6 +274,8 @@
   "show_month": "Rādīt mēnesi",
   "month_font_size": "Mēneša fonta izmērs",
   "month_color": "Mēneša krāsa",
+  "accent_event_text": "Kalendāra krāsas notikuma tekstā",
+  "accent_event_text.helper": "Zīmē notikuma virsrakstu, laiku, vietu, aprakstu un progresa joslu tā kalendāra krāsā, no kura notikums nāk, nevis vienā krāsā visai kartei. Laika režģī tas ir ieslēgts pēc noklusējuma. Katra no piecām opcijām pieņem vērtību accent arī atsevišķi, tāpēc viens lauks var sekot kalendāram, bet pārējie ne — un izslēdzot visas piecas atgriežas pie parastajām krāsām, nevis pie iepriekš iestatītajām.",
   "weekend_colors": "Nedēļas nogales krāsas",
   "weekend_colors.helper": "Katra no tām, atstāta tukša, pārņem attiecīgo nedēļas dienas vērtību. Kuras dienas skaitās nedēļas nogale, nosaka Home Assistant valoda.",
   "weekend_weekday_color": "Nedēļas nogales dienas krāsa",
