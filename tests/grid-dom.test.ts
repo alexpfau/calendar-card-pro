@@ -304,7 +304,29 @@ describe('a fixed card height compresses the band, a max height does not', () =>
 
     expect(bodyHeightVar(container)).toBe('minmax(50%, 1fr)');
     expect(container.querySelectorAll('.grid-banner')).toHaveLength(6);
-    expect(requireElement<HTMLElement>(container, '.grid-allday-band').tabIndex).toBe(0);
+
+    const band = requireElement<HTMLElement>(container, '.grid-allday-band');
+    expect(band.tabIndex).toBe(0);
+    // A tab stop with no accessible name is announced as nothing useful, so the band is
+    // named wherever it is focusable. `group`, not `region`: the latter is a landmark and
+    // would list a card-internal strip of banners beside the page's own navigation.
+    expect(band.getAttribute('role')).toBe('group');
+    expect(band.getAttribute('aria-label')).toBe('All day');
+  });
+
+  it('leaves the band unfocusable and unlabelled when it cannot scroll', () => {
+    // The control for the case above. The name is tied to the tab stop, not to the band:
+    // an unfocusable band is read through its banners and needs no group of its own, so a
+    // role and label that appeared unconditionally would be noise on every default card.
+    const container = renderGrid(
+      [allDay('2026-06-17', '2026-06-19', 'Workshop')],
+      buildConfig({ view: 'grid' }),
+    );
+
+    const band = requireElement<HTMLElement>(container, '.grid-allday-band');
+    expect(band.hasAttribute('tabindex')).toBe(false);
+    expect(band.hasAttribute('role')).toBe(false);
+    expect(band.hasAttribute('aria-label')).toBe(false);
   });
 
   it('leaves a max height on the pixel scale so it caps and scrolls rather than compresses', () => {

@@ -63,8 +63,13 @@ A fixed `height` here compresses the time axis rather than scrolling. Hours, eve
 the now line are all positioned as a share of the band, so they squeeze into whatever
 room the card has left after the day headers and the all-day band. `hour_height` stops
 applying. Reach for this when the dashboard has already decided the card's size.
-The time body retains at least half the configured content height. If the all-day band
-needs more than the remaining space beneath the headers, that band scrolls independently.
+
+The time body retains at least half the configured content height, and a tall all-day band
+scrolls in whatever the day headers leave above it. That remainder shrinks as the card
+does: around `180px` the band is down to a row or two, and below about twice the header
+height it is a sliver — its events are still scrollable rather than dropped, but only a
+scroll gesture or the keyboard will reach them, and the time axis starts to be clipped by
+the bottom of the card.
 
 `max_height` still caps and scrolls, the same as in the other views.
 

@@ -51,7 +51,9 @@ the event rather than when it starts.
 ::: warning A Bad Time Resets Both Bounds
 If either value cannot be read as `HH:mm`, the card falls back to `07:00`–`22:00` for
 both. Honoring one half of a pair would produce a band you never asked for and could not
-recognize as a fallback.
+recognize as a fallback. The same reset applies when `end_time` is not after `start_time`,
+so a band that wraps past midnight — `20:00` to `08:00` — is a fallback rather than an
+overnight view.
 :::
 
 ## 📏 How Tall an Hour Is
@@ -69,8 +71,13 @@ It is a CSS length, so `4em` works too and tracks your font size.
 Set a fixed `height` and `hour_height` stops mattering: the axis compresses to whatever
 room the card has. Everything on it is positioned as a share of the band rather than in
 pixels, so nothing needs recalculating and nothing drifts out of alignment.
-At least half the configured content height stays available to the time axis; a tall
-all-day band scrolls in the space above it instead of squeezing the axis away.
+At least half the configured content height stays available to the time axis, and a tall
+all-day band scrolls in whatever is left above it instead of squeezing the axis away.
+What is left is that half minus the day headers, so it shrinks as the card does: around
+`180px` the band is down to a row or two, and below about twice the header height it is a
+sliver. Its events are still there and still scrollable — nothing is dropped — but at that
+size only a scroll gesture or the keyboard will reach them, and the time axis itself starts
+to be clipped by the bottom of the card. Give a fixed-height grid enough room for both.
 
 ```yaml
 view: grid

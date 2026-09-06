@@ -1002,8 +1002,22 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Handle keyboard navigation for accessibility
+   *
+   * The listener is bound on `<ha-card>` and keydown bubbles, so it sees keystrokes aimed
+   * at every focusable descendant too. That was harmless while the card had none; the
+   * grid's scroll regions carry `tabindex="0"` precisely so a keyboard user can scroll
+   * them, and Space is a scroll container's own page-down key. Without the guard, focusing
+   * one and pressing Space runs the card's tap action instead of scrolling — so the
+   * affordance the tab stop exists to provide is the one thing it cannot do.
+   *
+   * Every focusable element here lives in this shadow root, so the event is not
+   * retargeted and comparing target with currentTarget is exact. A synthetic event with
+   * neither set — how the direct-call tests drive this — compares equal and still runs,
+   * which is why the pin below dispatches a real bubbling event instead.
    */
   private _handleKeyDown(ev: KeyboardEvent) {
+    if (ev.currentTarget != null && ev.target !== ev.currentTarget) return;
+
     if (ev.key === 'Enter' || ev.key === ' ') {
       ev.preventDefault();
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
@@ -1279,8 +1293,9 @@ class CalendarCardPro extends LitElement {
     } else {
       // No separate empty-events branch: `groupedEvents` groups `this.events`, which is
       // already the empty array in that case, with exactly the arguments a dedicated
-      // branch would pass. Column view's `show_empty_days` default still fills the card
-      // with empty day columns from here.
+      // branch would pass. Column and grid views both default `show_empty_days` on, so
+      // an eventless card still fills from here — with empty day columns in column view
+      // and a full empty time axis in grid.
       content = renderDays(this.groupedEvents);
     }
 

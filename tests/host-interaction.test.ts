@@ -158,6 +158,49 @@ describe('host keyboard handling', () => {
 
     expect(handleAction).not.toHaveBeenCalled();
   });
+
+  // The three cases below dispatch a real bubbling event rather than calling the handler,
+  // because the thing under test is which element the keystroke started from — and the
+  // direct-call cases above pass a synthetic object with neither target nor currentTarget,
+  // so they are blind to it by construction.
+  it('leaves Space to the grid scroll region it was aimed at', async () => {
+    // The listener sits on <ha-card> and keydown bubbles, so before the guard this ran the
+    // card's tap action instead of paging the scroller — the one affordance the tab stop
+    // exists to provide.
+    const card = await mount({
+      view: 'grid',
+      days_to_show: 7,
+      tap_action: { action: 'expand' },
+      time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp' },
+    });
+
+    const region = card.shadowRoot?.querySelector<HTMLElement>('.grid-container');
+    expect(region).toBeTruthy();
+    expect(region?.tabIndex).toBe(0);
+
+    region?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('still activates on Space aimed at the card itself', async () => {
+    // The positive control for the case above: a guard that swallowed everything would
+    // pass it while breaking the card's own keyboard activation.
+    const card = await mount({
+      view: 'grid',
+      days_to_show: 7,
+      tap_action: { action: 'expand' },
+      time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp' },
+    });
+
+    const haCard = card.shadowRoot?.querySelector<HTMLElement>('ha-card');
+    expect(haCard).toBeTruthy();
+
+    haCard?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
 });
 
 describe('host handleAction labelling', () => {

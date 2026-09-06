@@ -1815,7 +1815,13 @@ export const cardStyles = css`
      The body row takes its height from a custom property rather than from content,
      because a time axis has a height whether or not anything is scheduled. Under a
      fixed card height the property is overridden with a share of the card instead, and
-     nothing needs recomputing: every block inside is positioned as a percentage. */
+     nothing needs recomputing: every block inside is positioned as a percentage.
+
+     The all-day row is a custom property for the opposite reason. Its default of auto
+     sizes it to its banners, which is what an unconstrained card wants -- but an auto
+     track also takes min-content as its minimum, so it cannot give height back once
+     the card is too short for both. Under a fixed height the renderer overrides it
+     with minmax(0, auto), which sizes the same way and is allowed to shrink. */
   .grid-container {
     display: grid;
     grid-template-rows:
@@ -1912,6 +1918,12 @@ export const cardStyles = css`
     display: grid;
     row-gap: 2px;
     padding-block-end: 4px;
+    /* The three below only matter when the band's track is shorter than its banners,
+       which a fixed card height can force. A grid item defaults to min-height: auto and
+       would refuse to shrink below its content, so the band has to opt out before its
+       own overflow can do anything; auto then scrolls rather than clipping, keeping
+       every banner reachable; and start stops the rows sharing out surplus height back
+       when the track is the taller of the two. */
     min-height: 0;
     overflow-y: auto;
     align-content: start;
