@@ -664,7 +664,7 @@ describe('editor: the grid block as the form shows it', () => {
       min_days_fallback: 'list',
       start_time: '07:00',
       end_time: '22:00',
-      slot_minutes: 30,
+      slot_minutes: 60,
       hour_height: '48px',
       show_now_line: true,
       now_line_color: 'var(--error-color)',
@@ -699,11 +699,13 @@ describe('editor: the grid block as the form shows it', () => {
   });
 
   it('stores legacy string grid slots as the numeric type the card declares', () => {
+    // Deliberately not `'60'`: that is the shipped default, so the projection strips it
+    // and the test would pass on a code path that never coerced anything.
     const stored = toStoredConfig(
-      gridConfig({ time_grid: { slot_minutes: '60' as unknown as Types.TimeGridSlotMinutes } }),
+      gridConfig({ time_grid: { slot_minutes: '30' as unknown as Types.TimeGridSlotMinutes } }),
     );
 
-    expect(stored.time_grid).toEqual({ slot_minutes: 60 });
+    expect(stored.time_grid).toEqual({ slot_minutes: 30 });
   });
 });
 
@@ -1168,7 +1170,7 @@ describe('editor: the Layout panel', () => {
         ?.select?.options ?? [];
 
     // The editor seeds this control from the resolved grid default, which is the number
-    // 30. String option values cannot match that selection and then write `"60"` back into
+    // 60. String option values cannot match that selection and then write `"60"` back into
     // a field whose config type is the numeric `Types.TimeGridSlotMinutes` union.
     expect(options.map((option) => option.value)).toEqual([15, 20, 30, 60]);
   });

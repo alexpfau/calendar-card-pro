@@ -340,7 +340,15 @@ export const COLUMN_DEFAULTS = {
  *
  * `hour_height` is a CSS length rather than a number so it can be given in `em` and
  * track the font, and so `calc()` works. It sets the intrinsic height only — under
- * a fixed `height` the axis compresses to the card instead.
+ * a fixed `height` the axis compresses to the card instead. `48px` is what macOS
+ * Calendar gives an hour, and it is enough to seat two stacked lines of event text.
+ *
+ * `slot_minutes: 60` rules once an hour, so the ruling and the labels say the same thing.
+ * A half-hour default drew a second, unlabelled rule between every pair of hours, which
+ * doubles the horizontal lines on the card without adding a single readable landmark —
+ * the eye then has to count rules to find an hour. A finer setting is still there for
+ * anyone scheduling in fifteen-minute blocks, and the hour rule is drawn over the slot
+ * rule so it stays findable when they do.
  *
  * `max_simultaneous_events: 3` is where blocks stop carrying readable text at a typical
  * card width. `axis_width` sizes to its own labels by default, so the gutter follows
@@ -366,7 +374,7 @@ export const TIME_GRID_DEFAULTS = {
 
   start_time: '07:00',
   end_time: '22:00',
-  slot_minutes: 30,
+  slot_minutes: 60,
   hour_height: '48px',
   show_now_line: true,
   now_line_color: 'var(--error-color)',

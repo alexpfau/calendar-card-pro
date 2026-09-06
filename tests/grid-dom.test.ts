@@ -1190,6 +1190,39 @@ describe('the axis', () => {
     ).toBeCloseTo(Number.parseFloat(block.style.top), 6);
   });
 
+  it('rules once an hour by default, so every rule on the card carries a label', () => {
+    const hourly = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({ view: 'grid', days_to_show: 3 }),
+    );
+    const rules = hourly.querySelector<HTMLElement>('.grid-rules')!;
+    const slotPct = rules.style.getPropertyValue('--calendar-card-grid-slot-pct');
+    const hourPct = rules.style.getPropertyValue('--calendar-card-grid-hour-pct');
+
+    // Two gradients are always painted. At the default they coincide exactly, which is
+    // what "one rule per hour" means in the rendered output — the slot gradient adds no
+    // rule of its own between two hours.
+    expect(slotPct).toBe(hourPct);
+    expect(rules.style.getPropertyValue('--calendar-card-grid-slot-offset')).toBe(
+      rules.style.getPropertyValue('--calendar-card-grid-hour-offset'),
+    );
+
+    // The arm that must differ, so the equality above is a property of the default and
+    // not of the arithmetic: half-hourly rules put a second rule between every pair.
+    const halfHourly = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({ view: 'grid', days_to_show: 3, time_grid: { slot_minutes: 30 } }),
+    );
+    const denser = halfHourly.querySelector<HTMLElement>('.grid-rules')!;
+
+    expect(denser.style.getPropertyValue('--calendar-card-grid-slot-pct')).not.toBe(
+      denser.style.getPropertyValue('--calendar-card-grid-hour-pct'),
+    );
+    expect(Number.parseFloat(denser.style.getPropertyValue('--calendar-card-grid-slot-pct'))).toBe(
+      Number.parseFloat(slotPct) / 2,
+    );
+  });
+
   it('aligns slot and hour rules to clock boundaries in a half-past band', () => {
     const container = renderGrid(
       [timed(17, '07:00', '08:00', 'Standup')],

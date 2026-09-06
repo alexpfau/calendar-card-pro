@@ -99,8 +99,10 @@ time_grid:
   slot_minutes: 15
 ```
 
-The hour rules are drawn more strongly than the ones between them, so the eye still finds
-the hour at a fine setting.
+The default is `60`, one rule per hour, so every horizontal line on the card is a line
+the axis has labelled. Choose a finer setting when you schedule in quarter hours; the
+hour rules are drawn more strongly than the ones between them, so the eye still finds
+the hour.
 
 `axis_width` sets the label gutter. It defaults to `max-content`, so the gutter sizes to
 the widest visible hour label with fixed padding on both sides. Set a CSS length when you

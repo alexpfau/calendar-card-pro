@@ -1538,19 +1538,28 @@ describe('resolveColumnFit — grid reduction', () => {
     expect(TIME_GRID_DEFAULTS.axis_width).toBe('max-content');
   });
 
+  // Both values are Apple's, and both are load-bearing for how the grid reads: one rule
+  // per hour means every rule on the card is a labelled one, and 48px is enough for two
+  // stacked lines of event text. Pinned by value because nothing else would notice either
+  // of them moving — a finer ruling and a shorter hour both still render.
+  it('rules the axis once an hour, at an hour height that seats two lines of text', () => {
+    expect(TIME_GRID_DEFAULTS.slot_minutes).toBe(60);
+    expect(TIME_GRID_DEFAULTS.hour_height).toBe('48px');
+  });
+
   it('normalizes grid slot density to the declared numeric union', () => {
     expect(
       resolveTimeGridOption(
-        build({ slot_minutes: '60' as unknown as Types.TimeGridSlotMinutes }),
+        build({ slot_minutes: '20' as unknown as Types.TimeGridSlotMinutes }),
         'slot_minutes',
       ),
-    ).toBe(60);
+    ).toBe(20);
     expect(
       resolveTimeGridOption(
         build({ slot_minutes: 45 as Types.TimeGridSlotMinutes }),
         'slot_minutes',
       ),
-    ).toBe(30);
+    ).toBe(60);
   });
 
   it('coerces bare grid length values without discarding non-pixel units', () => {
