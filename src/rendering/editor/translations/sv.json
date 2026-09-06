@@ -322,6 +322,8 @@
   "event_background_opacity.helper": "Tonar varje händelse med sin accentfärg. Noll lämnar den otonad.",
   "title_max_lines": "Radgräns för titel",
   "title_max_lines.helper": "Noll betyder ingen gräns. En avkortad titel slutar med uteslutningstecken.",
+  "scroll_long_titles": "Rulla långa titlar",
+  "scroll_long_titles.helper": "Titlar som är för långa rullar i sidled i stället för att brytas över flera rader. Tvingar en enda rad och åsidosätter radgränsen för titel; animeras aldrig vid reducerad rörelse.",
   "allday_badge_position": "Heldagsmärke",
   "allday_badge_position.helper": "Markerar heldagshändelser med ett rundat märke i kalenderns accentfärg. På tidsraden ersätter det heldagsetiketten; på titeln omsluter det händelsens namn. Ett titelmärke hålls till en rad och kortas av med uteslutningstecken.",
   "allday_badge_position.option.off.label": "Av",

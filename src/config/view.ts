@@ -68,6 +68,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'show_description',
   'show_description_allday',
   'title_max_lines',
+  'scroll_long_titles',
   'description_max_lines',
   'description_font_size',
   'description_icon_size',

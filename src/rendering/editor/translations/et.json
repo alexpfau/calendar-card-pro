@@ -322,6 +322,8 @@
   "event_background_opacity.helper": "Toonib iga sündmuse selle esiletõstevärviga. Null jätab toonimata.",
   "title_max_lines": "Pealkirja reapiirang",
   "title_max_lines.helper": "Null tähendab piiranguta. Kärbitud pealkiri lõpeb kolme punktiga.",
+  "scroll_long_titles": "Keri pikad pealkirjad",
+  "scroll_long_titles.helper": "Liiga pikad pealkirjad kerivad külgsuunas, selle asemel et murduda mitmele reale. Sunnib ühe rea ja alistab pealkirja reapiirangu; vähendatud liikumise korral ei animeerita kunagi.",
   "allday_badge_position": "Terve päeva märk",
   "allday_badge_position.helper": "Tõstab terve päeva sündmused esile ümardatud märgiga kalendri esiletõstevärvis. Ajareal asendab see terve päeva sildi, pealkirja juures ümbritseb sündmuse nime. Pealkirjamärk jääb ühele reale ja lühendatakse kolme punktiga.",
   "allday_badge_position.option.off.label": "Väljas",

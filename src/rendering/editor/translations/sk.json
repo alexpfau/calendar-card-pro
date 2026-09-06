@@ -322,6 +322,8 @@
   "event_background_opacity.helper": "Podfarbí každú udalosť jej farbou zvýraznenia. Nula ju nechá bez podfarbenia.",
   "title_max_lines": "Limit riadkov názvu",
   "title_max_lines.helper": "Nula znamená bez limitu. Skrátený názov sa končí tromi bodkami.",
+  "scroll_long_titles": "Posúvať dlhé názvy",
+  "scroll_long_titles.helper": "Príliš dlhé názvy sa posúvajú do strán namiesto zalamovania na viac riadkov. Vynúti jeden riadok a prepíše limit riadkov názvu; pri obmedzenom pohybe sa nikdy neanimuje.",
   "allday_badge_position": "Celodenný odznak",
   "allday_badge_position.helper": "Zvýrazní celodenné udalosti zaobleným odznakom vo farbe zvýraznenia kalendára. V riadku s časom nahradí celodenný štítok, pri názve obklopí názov udalosti. Odznak pri názve zostáva jednoriadkový a skráti sa tromi bodkami.",
   "allday_badge_position.option.off.label": "Vypnuté",

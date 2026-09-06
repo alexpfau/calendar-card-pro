@@ -411,6 +411,19 @@ class CalendarCardPro extends LitElement {
    */
   private _widthSettleTimerId: number | null = null;
 
+  /**
+   * Observers and pending work for `scroll_long_titles`.
+   *
+   * Kept apart from the grid disclosure observer above, which reshapes layout by hiding
+   * detail rows and so has to suppress its own re-entrancy. Title scrolling only ever adds
+   * a transform animation and two inline custom properties, and neither resizes the box the
+   * observer measures, so it needs no such guard.
+   */
+  private _titleScrollObserver: ResizeObserver | null = null;
+  private _titleScrollIntersectionObserver: IntersectionObserver | null = null;
+  private _titleScrollRaf: number | null = null;
+  private _titleScrollFontsCleanup: (() => void) | null = null;
+
   //-----------------------------------------------------------------------------
   // COMPUTED GETTERS
   //-----------------------------------------------------------------------------
@@ -588,6 +601,7 @@ class CalendarCardPro extends LitElement {
 
     this._stopWidthObserver();
     this._stopGridDisclosureObserver();
+    this._stopTitleScrollObserver();
 
     this._weatherSetupVersion++;
     this._weatherSetupPending = false;
@@ -1120,6 +1134,7 @@ class CalendarCardPro extends LitElement {
     }
 
     this._applyVisibility();
+    this._syncTitleScroll();
   }
 
   //-----------------------------------------------------------------------------
@@ -1198,6 +1213,142 @@ class CalendarCardPro extends LitElement {
         composed: true,
       }),
     );
+  }
+
+  //-----------------------------------------------------------------------------
+  // TITLE SCROLL (scroll_long_titles)
+  //-----------------------------------------------------------------------------
+
+  /**
+   * Reconciles horizontal title scrolling after every render.
+   *
+   * Rebuilt from scratch each time rather than diffed: the set of `.event-title` nodes
+   * changes with the events, and re-observing is cheaper than tracking which moved. A card
+   * that never enables the option pays only one boolean read and returns.
+   *
+   * Shares the detached-card guard the other reconcilers use, and re-measures on the three
+   * things that change the answer: the card's own resize (a column re-fits, the section
+   * relayouts), a late font load that changes text width, and this `updated()` pass as the
+   * backstop after a config or data change. A separate IntersectionObserver pauses the
+   * animation while the card is off-screen — these live on 24/7 wall panels.
+   */
+  private _syncTitleScroll(): void {
+    this._stopTitleScrollObserver();
+
+    if (!this.isConnected || !this.effectiveConfig.scroll_long_titles) {
+      return;
+    }
+
+    const titles = this.renderRoot.querySelectorAll<HTMLElement>('.event-title.title-scrollable');
+    if (!titles.length) {
+      return;
+    }
+
+    if (typeof ResizeObserver !== 'undefined') {
+      this._titleScrollObserver = new ResizeObserver(() => this._scheduleTitleScrollMeasure());
+      // The card catches a width change that reflows every title at once; each title catches
+      // its own. A transform animation resizes neither, so this cannot re-arm itself.
+      this._titleScrollObserver.observe(this);
+      titles.forEach((title) => this._titleScrollObserver?.observe(title));
+    }
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      this._titleScrollIntersectionObserver = new IntersectionObserver((entries) => {
+        const offscreen = entries.every((entry) => !entry.isIntersecting);
+        this.classList.toggle('calendar-card-title-scroll-paused', offscreen);
+      });
+      this._titleScrollIntersectionObserver.observe(this);
+    }
+
+    const fonts = document.fonts;
+    if (fonts) {
+      // fonts.ready is a Promise removeEventListener cannot cancel, so flag the callback
+      // dead in cleanup — the same pattern the disclosure observer uses.
+      let active = true;
+      const onFonts = (): void => {
+        if (active) this._scheduleTitleScrollMeasure();
+      };
+      void fonts.ready.then(onFonts);
+      if (typeof fonts.addEventListener === 'function') {
+        fonts.addEventListener('loadingdone', onFonts);
+      }
+      this._titleScrollFontsCleanup = () => {
+        active = false;
+        if (typeof fonts.removeEventListener === 'function') {
+          fonts.removeEventListener('loadingdone', onFonts);
+        }
+      };
+    }
+
+    this._scheduleTitleScrollMeasure();
+  }
+
+  /**
+   * Measures on the next frame, so layout has settled and reads are batched.
+   */
+  private _scheduleTitleScrollMeasure(): void {
+    if (this._titleScrollRaf !== null) {
+      cancelAnimationFrame(this._titleScrollRaf);
+    }
+    this._titleScrollRaf = requestAnimationFrame(() => {
+      this._titleScrollRaf = null;
+      if (!this.isConnected || !this.effectiveConfig.scroll_long_titles) {
+        return;
+      }
+      this._measureTitleScroll();
+    });
+  }
+
+  /**
+   * Toggles the scrolling class per title and publishes the overflow distance and duration.
+   *
+   * A title scrolls only when it genuinely overflows — `scrollWidth` past `clientWidth` — so
+   * a title that fits never moves and an unconditional marquee is avoided. The duration is
+   * derived from the distance (a constant px/s over the moving part of the cycle, floored so
+   * a tiny overflow does not snap) so every title travels at the same perceived speed. The
+   * class this sets is what the stylesheet keys the animation, the reduced-motion fallback
+   * and the off-screen pause on.
+   */
+  private _measureTitleScroll(): void {
+    const titles = this.renderRoot.querySelectorAll<HTMLElement>('.event-title.title-scrollable');
+    titles.forEach((title) => {
+      const distance = title.scrollWidth - title.clientWidth;
+      if (distance > Constants.TITLE_SCROLL.MIN_OVERFLOW_PX) {
+        const seconds = Math.max(
+          Constants.TITLE_SCROLL.MIN_DURATION_S,
+          (2 * distance) /
+            (Constants.TITLE_SCROLL.SPEED_PX_PER_S * Constants.TITLE_SCROLL.TRAVEL_FRACTION),
+        );
+        title.style.setProperty('--calendar-card-title-scroll-distance', `${distance}px`);
+        title.style.setProperty('--calendar-card-title-scroll-duration', `${seconds.toFixed(2)}s`);
+        title.classList.add('title-overflowing');
+      } else {
+        title.classList.remove('title-overflowing');
+        title.style.removeProperty('--calendar-card-title-scroll-distance');
+        title.style.removeProperty('--calendar-card-title-scroll-duration');
+      }
+    });
+  }
+
+  /**
+   * Tears down the title-scroll observers, cancels pending work, and clears the pause class.
+   */
+  private _stopTitleScrollObserver(): void {
+    this._titleScrollObserver?.disconnect();
+    this._titleScrollObserver = null;
+
+    this._titleScrollIntersectionObserver?.disconnect();
+    this._titleScrollIntersectionObserver = null;
+
+    this._titleScrollFontsCleanup?.();
+    this._titleScrollFontsCleanup = null;
+
+    if (this._titleScrollRaf !== null) {
+      cancelAnimationFrame(this._titleScrollRaf);
+      this._titleScrollRaf = null;
+    }
+
+    this.classList.remove('calendar-card-title-scroll-paused');
   }
 
   /**
@@ -1445,11 +1596,12 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle pointer down events for hold detection
    *
-   * Only the primary button starts a card gesture. A right-click still
-   * delivers `pointerdown` with `button === 2`; without this guard the card
-   * armed hold, captured the pointer, and could fire `hold_action` when the
-   * context menu was what the user asked for. Touch and pen primary contacts
-   * report `button === 0`; unit stubs may omit the field entirely.
+   * Only the primary button and primary contact can start a card gesture, and
+   * one already-active pointer keeps ownership until up/cancel. A right-click
+   * still delivers `pointerdown` with `button === 2`; a second touch arrives
+   * with `isPrimary === false`. Accepting either armed or transferred the hold
+   * to an input that was not the gesture the user began. Touch and pen primary
+   * contacts report `button === 0`; unit stubs may omit either field.
    */
   private _handlePointerDown(ev: PointerEvent) {
     if (typeof ev.button === 'number' && ev.button !== 0) {
@@ -1465,10 +1617,9 @@ class CalendarCardPro extends LitElement {
     this._holdTriggered = false;
     this._captureActivePointer(ev);
 
-    // A second finger can land after the first hold already painted its indicator. The
-    // previous gesture's timer is replaced below, but the body-level disc is not unless
-    // we clear it here — createHoldIndicator always appends a fresh node, so leaving the
-    // old reference in place orphans the first disc on document.body forever.
+    // Defensive cleanup for an indicator left by an externally interrupted prior
+    // gesture. Ordinary multi-touch never reaches here: the active/primary guard above
+    // keeps the first contact's indicator and ownership intact.
     if (this._holdIndicator) {
       Feedback.removeHoldIndicator(this._holdIndicator);
       this._holdIndicator = null;

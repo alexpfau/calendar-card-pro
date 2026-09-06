@@ -322,6 +322,8 @@
   "event_background_opacity.helper": "Barwi każde wydarzenie jego kolorem akcentu. Zero pozostawia je niezabarwione.",
   "title_max_lines": "Limit wierszy tytułu",
   "title_max_lines.helper": "Zero oznacza brak limitu. Skrócony tytuł kończy się wielokropkiem.",
+  "scroll_long_titles": "Przewijaj długie tytuły",
+  "scroll_long_titles.helper": "Zbyt długie tytuły przewijają się w poziomie zamiast zawijać do kilku wierszy. Wymusza jeden wiersz i zastępuje limit wierszy tytułu; przy ograniczonym ruchu nigdy nie jest animowany.",
   "allday_badge_position": "Odznaka całodniowa",
   "allday_badge_position.helper": "Wyróżnia wydarzenia całodniowe zaokrągloną odznaką w kolorze akcentu kalendarza. W wierszu godziny zastępuje etykietę całodniową, a przy tytule otacza nazwę wydarzenia. Odznaka przy tytule pozostaje jednowierszowa i jest skracana wielokropkiem.",
   "allday_badge_position.option.off.label": "Wyłączona",

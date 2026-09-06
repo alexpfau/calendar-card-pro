@@ -555,6 +555,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Tints each event with its accent color. Zero leaves it untinted.',
   title_max_lines: 'Title Line Limit',
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
+  scroll_long_titles: 'Scroll Long Titles',
+  'scroll_long_titles.helper':
+    'Titles too long to fit scroll sideways instead of wrapping to more lines. Forces a ' +
+    'single line and overrides the title line limit; never animates under reduced motion.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
     'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +

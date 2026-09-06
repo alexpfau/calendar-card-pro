@@ -322,6 +322,8 @@
   "event_background_opacity.helper": "Colora ogni evento con il suo colore accento. Zero lo lascia senza tinta.",
   "title_max_lines": "Limite righe titolo",
   "title_max_lines.helper": "Zero significa nessun limite. Un titolo troncato termina con i puntini di sospensione.",
+  "scroll_long_titles": "Scorri i titoli lunghi",
+  "scroll_long_titles.helper": "I titoli troppo lunghi scorrono lateralmente invece di andare a capo su più righe. Forza una riga singola e ignora il limite di righe del titolo; con il movimento ridotto non viene mai animato.",
   "allday_badge_position": "Badge tutto il giorno",
   "allday_badge_position.helper": "Evidenzia gli eventi di tutto il giorno con un badge arrotondato nel colore accento del calendario. Nella riga dell'ora sostituisce l'etichetta di tutto il giorno; sul titolo avvolge il nome dell'evento. Un badge sul titolo resta su una riga e viene abbreviato con i puntini di sospensione.",
   "allday_badge_position.option.off.label": "Disattivato",

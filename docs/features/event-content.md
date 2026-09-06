@@ -414,6 +414,28 @@ column:
   title_max_lines: 1 # But single-line in the denser column view
 ```
 
+## ↔️ Scrolling Long Titles
+
+A long event title normally wraps onto a second line and makes the row taller. Turn on `scroll_long_titles` and a title too wide for the space is kept to one line and scrolls sideways instead, so the whole of it can still be read on a narrow card:
+
+```yaml
+scroll_long_titles: true
+```
+
+Off by default, because it changes titles from wrapping to a single line and because motion on an always-on dashboard is a matter of taste. When it is on, only titles that genuinely overflow move — one that already fits stays perfectly still. The scroll speed is derived from how far each title has to travel, so a slightly-too-long title and a very long one drift at the same pace rather than one crawling while the other races, and each pauses at the start and the end so both ends are readable.
+
+Scrolling replaces `title_max_lines` for as long as it is on: you cannot scroll a single line sideways and clamp it to several lines at once, so scrolling wins and the title is always one line. It is a card-wide motion option rather than a per-calendar one — mixing scrolling and static titles in the same list would look chaotic — but it can be set per view, which is where it earns its keep. The card is at its narrowest in the [grid layout](/features/grid-view), where titles wrap the most, so a common setup is to scroll only there and leave the wider list wrapping:
+
+```yaml
+scroll_long_titles: false # Wrap in the roomy list view
+time_grid:
+  scroll_long_titles: true # Scroll in the narrow grid columns
+```
+
+The animation is considerate of the places these cards live. It respects the operating system's **reduce motion** setting — when that is on the title never animates and falls back to a static, truncated line — and it pauses whenever the card is scrolled out of view, so a wall panel left on all day does not animate a title nobody is looking at.
+
+This is the sideways counterpart to [Limiting Lines Per Field](#limiting-lines-per-field): reach for `title_max_lines` when you would rather a long title wrap to a fixed number of lines and truncate, and `scroll_long_titles` when you would rather keep one line and scroll it. See [`scroll_long_titles`](/reference/configuration#event-column) in the configuration reference.
+
 ## ⏳ Countdown Display
 
 Show how much time remains until an event starts with the countdown display feature:

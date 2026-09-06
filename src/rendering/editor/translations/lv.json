@@ -322,6 +322,8 @@
   "event_background_opacity.helper": "Tonē katru notikumu tā akcenta krāsā. Nulle atstāj to netonētu.",
   "title_max_lines": "Virsraksta rindu ierobežojums",
   "title_max_lines.helper": "Nulle nozīmē, ka ierobežojuma nav. Saīsināts virsraksts beidzas ar daudzpunkti.",
+  "scroll_long_titles": "Ritināt garus virsrakstus",
+  "scroll_long_titles.helper": "Pārāk gari virsraksti ritinās sāniski, nevis pārnesas uz vairākām rindām. Piespiež vienu rindu un ignorē virsraksta rindu ierobežojumu; ar samazinātu kustību nekad netiek animēts.",
   "allday_badge_position": "Visas dienas nozīmīte",
   "allday_badge_position.helper": "Izceļ visas dienas notikumus ar noapaļotu nozīmīti kalendāra akcenta krāsā. Laika rindā tā aizstāj visas dienas etiķeti, bet pie virsraksta ietver notikuma nosaukumu. Virsraksta nozīmīte paliek vienā rindā un tiek saīsināta ar daudzpunkti.",
   "allday_badge_position.option.off.label": "Izslēgts",

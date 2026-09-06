@@ -398,15 +398,33 @@ function renderEventTitle(
       ? renderLabel(entityLabel, labelIconColor, labelType)
       : nothing;
 
+  // `scroll_long_titles` forces the title onto a single line so it can scroll horizontally
+  // when it overflows. That mode and `title_max_lines` are mutually exclusive by nature —
+  // you cannot scroll one line horizontally and wrap it to N lines at once — so scrolling
+  // wins: the extra classes here switch `.event-title` from the wrapping/-webkit-box clamp
+  // (see the note on --calendar-card-title-display in styles.ts) to a single-line clip, and
+  // whatever `title_max_lines` is set to is ignored for that event. When the option is off,
+  // both branches below are byte-identical to the historical markup so no snapshot moves.
+  //
+  // The text is wrapped in `.event-title-scroll` only in the scroll branch: `.event-title`
+  // is the fixed-width clip viewport and the inner span is the full-width element the
+  // measurement step (in calendar-card-pro.ts) animates once it confirms real overflow.
+  const scrollTitles = config.scroll_long_titles;
+  const titleInner = scrollTitles
+    ? html`<span class="event-title-scroll">${titleContent}</span>`
+    : titleContent;
+
   return html`
     <div class="summary-row">
-      <div class="summary">
+      <div class="summary${scrollTitles ? ' summary-scroll' : ''}">
         ${labels}
         <span
-          class="event-title ${isEmptyDay ? 'empty-day-title' : ''}"
+          class="event-title ${isEmptyDay ? 'empty-day-title' : ''}${scrollTitles
+            ? ' title-scrollable'
+            : ''}"
           style="color: ${entityColor}"
         >
-          ${titleContent}
+          ${titleInner}
         </span>
       </div>
       ${renderEventWeather(event, config, weatherForecasts)}

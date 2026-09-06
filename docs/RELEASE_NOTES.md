@@ -22,6 +22,10 @@ Set `view: grid` and the card stops being a list. Days become columns against a 
 
 Every option grid view adds lives under `time_grid:`, and that block is also where you override any presentation option for grid alone. See [Grid View](https://calendar-card-pro.alexpfau.com/features/grid-view).
 
+### ↔️ Scrolling Long Titles
+
+**Long titles finally have somewhere to go.** Turn on `scroll_long_titles` and a title too wide for its space is kept to one line and scrolls sideways — when, and only when, it actually overflows — so the end of a long meeting subject can still be read instead of wrapping the row taller or being lost. A title that already fits never moves. The scroll speed is derived from how far each title has to travel, so a slightly-too-long one and a very long one drift at the same pace rather than one crawling while the other races, and each pauses at both ends so the start and the finish are readable. It respects the system **reduce motion** setting and stops while the card is scrolled off-screen, and because it forces a single line it takes the place of `title_max_lines` for as long as it is on. Off by default, and settable per view — a natural pairing is to scroll only in the narrow grid columns and leave the roomier list wrapping. See [Scrolling Long Titles](https://calendar-card-pro.alexpfau.com/features/event-content#scrolling-long-titles). (#374)
+
 ## 🐛 Bug Fixes
 
 Building grid view meant going over the card's shared machinery closely, and that turned up defects in code every view has been running since v4. They are fixed here even though they have nothing to do with the time axis.
@@ -30,7 +34,7 @@ Building grid view meant going over the card's shared machinery closely, and tha
 
 - **Every default card fired an action on every tap** - `tap_action` and `hold_action` both default to `none`, but the card dispatched the action to Home Assistant anyway, on every tap, Enter and Space, in every view. Harmless in effect, since `none` asks Home Assistant to do nothing, but it should never have been sent
 - **A card with no actions still looked and focused like a button** - The default card showed a hand cursor and ripple, accepted keyboard focus, and captured every pointer even though neither tap nor hold could do anything. Those affordances now appear only when an action is configured
-- **A second finger stranded a grey disc on the dashboard** - The hold indicator is drawn on the page rather than inside the card, so starting a second touch while one was already held orphaned the first disc permanently. It stayed until the page was reloaded
+- **A second finger could steal a press and strand its gray hold disc** - Adding another touch transferred the active gesture to that finger, so releasing it could trigger an action the user started with the first. If the indicator was already drawn, the first disc could also stay on the dashboard until the page was reloaded
 - **The hold indicator appeared away from your finger on a scrolled dashboard** - It was positioned without accounting for the page's scroll offset, so the further you had scrolled, the further off it was drawn
 - **The smallest movement cancelled a hold** - Once the indicator had appeared, a slight finger slip ended the gesture, so lifting did nothing. A hold now survives movement after it is established
 - **Sliding off the card cancelled a hold you were still making** - The press continued, but the gesture ended the moment the pointer crossed the card's edge
@@ -54,6 +58,7 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 - [#206](https://github.com/alexpfau/calendar-card-pro/issues/206) - Size an event by its duration — answered by the block geometry
 - [#325](https://github.com/alexpfau/calendar-card-pro/issues/325) - A "now" line on a time-axis day view — answered by `show_now_line`
 - [#339](https://github.com/alexpfau/calendar-card-pro/pull/339) - The original grid-view proposal by @lenaxia, whose design and config surface shaped this one. Its paging controls and event-detail popup are deliberately not here: both are view-independent and belong to [#185](https://github.com/alexpfau/calendar-card-pro/issues/185) and [#241](https://github.com/alexpfau/calendar-card-pro/issues/241) rather than inside the grid renderer
+- [#374](https://github.com/alexpfau/calendar-card-pro/issues/374) - Optional horizontal auto-scroll for long event titles — answered in full by `scroll_long_titles`, scoped to the title as the issue proposed
 
 # Calendar Card Pro v4.2.0
 

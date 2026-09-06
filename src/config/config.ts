@@ -111,6 +111,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   show_description: false,
   show_description_allday: true,
   title_max_lines: 0,
+  scroll_long_titles: false,
   description_max_lines: 0,
   description_font_size: '12px',
   description_color: 'var(--secondary-text-color)',

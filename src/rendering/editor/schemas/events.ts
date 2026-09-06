@@ -245,6 +245,7 @@ const eventsSchema = Helpers.memoizeLast(
     text('vertical_line_width'),
     number('event_background_opacity', 0, 100, '%'),
     number('title_max_lines', 0),
+    bool('scroll_long_titles'),
     select(language, 'event_icon_vertical_alignment', ['top', 'middle', 'bottom']),
 
     // Not inside the time group, and not gated on show_time. The badge marks an event as

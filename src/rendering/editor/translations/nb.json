@@ -322,6 +322,8 @@
   "event_background_opacity.helper": "Toner hver hendelse med aksentfargen sin. Null lar den være utonet.",
   "title_max_lines": "Linjegrense for tittel",
   "title_max_lines.helper": "Null betyr ingen grense. En avkortet tittel ender med tre prikker.",
+  "scroll_long_titles": "Rull lange titler",
+  "scroll_long_titles.helper": "Titler som er for lange, ruller sidelengs i stedet for å brytes over flere linjer. Tvinger én linje og overstyrer linjegrensen for tittel; animeres aldri ved redusert bevegelse.",
   "allday_badge_position": "Heldagsmerke",
   "allday_badge_position.helper": "Markerer heldagshendelser med et avrundet merke i kalenderens aksentfarge. På tidsraden erstatter det heldagsetiketten; på tittelen omslutter det hendelsens navn. Et tittelmerke holdes til én linje og forkortes med ellipse.",
   "allday_badge_position.option.off.label": "Av",

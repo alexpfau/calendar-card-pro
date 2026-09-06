@@ -600,6 +600,93 @@ export const cardStyles = css`
     padding-inline-start: calc(var(--calendar-card-font-size-event) * 1.25 + 4px);
   }
 
+  /* scroll_long_titles -------------------------------------------------------
+   *
+   * Off by default, so none of these selectors match a normal card and the
+   * wrapping title above is untouched. When on, the leaf adds summary-scroll and
+   * title-scrollable and wraps the text in event-title-scroll.
+   *
+   * .summary becomes a flex row so a per-calendar label keeps its place while
+   * only the title scrolls. That is the one place .summary is allowed to be flex:
+   * the wrapping-mode traps that forbid it (the hanging indent, the -webkit-box
+   * clamp) do not apply on a single non-wrapping line, and title_max_lines is
+   * deliberately overridden here because you cannot scroll one line and clamp it
+   * to several at the same time.
+   *
+   * .event-title is the fixed-width clip viewport. .event-title-scroll is the
+   * full-width inner element. It stays inline so the parent's text-overflow
+   * ellipsis is the static fallback (reduced motion, or motion allowed but no
+   * overflow). The measurement step in calendar-card-pro.ts promotes it to
+   * inline-block and animates it only once it has confirmed scrollWidth exceeds
+   * clientWidth. */
+  .summary-scroll {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  /* The label hanging indent above is for wrapped lines and does nothing useful on
+     a flex row; neutralise the padding it adds so the scrolling title keeps its
+     full width. Matched at the same specificity as the :has rules it overrides, and
+     placed after them, so it wins the cascade. */
+  .summary.summary-scroll:has(> .label-icon),
+  .summary.summary-scroll:has(> .label-image),
+  .summary.summary-scroll:has(> .label-emoji) {
+    text-indent: 0;
+    padding-inline-start: 0;
+  }
+
+  .summary-scroll > .event-title.title-scrollable {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .event-title.title-scrollable .event-title-scroll {
+    display: inline;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .event-title.title-scrollable.title-overflowing {
+      text-overflow: clip;
+    }
+
+    .event-title.title-scrollable.title-overflowing .event-title-scroll {
+      display: inline-block;
+      animation: calendar-card-title-scroll var(--calendar-card-title-scroll-duration, 8s) linear
+        infinite;
+      will-change: transform;
+    }
+  }
+
+  /* distance is scrollWidth minus clientWidth, set inline per title. The travel
+     phases (10% to 45% and 55% to 90%) hold constant velocity for equal perceived
+     speed across titles; the pauses at 0-10%, 45-55% and 90-100% keep the start and
+     end readable. */
+  @keyframes calendar-card-title-scroll {
+    0%,
+    10% {
+      transform: translateX(0);
+    }
+    45%,
+    55% {
+      transform: translateX(calc(-1 * var(--calendar-card-title-scroll-distance, 0px)));
+    }
+    90%,
+    100% {
+      transform: translateX(0);
+    }
+  }
+
+  /* A card scrolled off a 24/7 wall panel should not keep animating. The
+     measurement step toggles this host class from an IntersectionObserver. */
+  :host(.calendar-card-title-scroll-paused) .event-title-scroll {
+    animation-play-state: paused;
+  }
+
   .calendar-label {
     display: inline;
     margin-right: 4px;

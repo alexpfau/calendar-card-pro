@@ -128,6 +128,7 @@ export interface Config {
   show_description: boolean;
   show_description_allday: boolean;
   title_max_lines: number;
+  scroll_long_titles: boolean;
   description_max_lines: number;
   description_font_size: string;
   description_color: string;
@@ -304,6 +305,7 @@ export interface SharedViewOverrides {
   show_description?: boolean;
   show_description_allday?: boolean;
   title_max_lines?: number;
+  scroll_long_titles?: boolean;
   description_max_lines?: number;
   description_font_size?: string;
   description_icon_size?: string;

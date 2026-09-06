@@ -92,6 +92,34 @@ export const UI = {
 };
 
 /**
+ * Tuning for `scroll_long_titles` — the opt-in horizontal auto-scroll of overflowing
+ * event titles. Read by the measurement step in calendar-card-pro.ts; the keyframes and
+ * the pause/reduced-motion behaviour live in the stylesheet.
+ */
+export const TITLE_SCROLL = {
+  /** Overflow past which a title scrolls, in CSS pixels. Below it the title never moves. */
+  MIN_OVERFLOW_PX: 1,
+
+  /**
+   * Perceived travel speed, in CSS pixels per second, over the part of the cycle actually
+   * moving. Duration is derived from the overflow distance and this constant so every title
+   * scrolls at the same speed rather than the same duration — a short overflow does not crawl
+   * while a long one sprints.
+   */
+  SPEED_PX_PER_S: 45,
+
+  /**
+   * Fraction of the cycle spent moving rather than paused. Must match the
+   * calendar-card-title-scroll keyframes in styles.ts: 10%->45% out and 55%->90% back is
+   * 70% travel, the remaining 30% held as pauses at both ends.
+   */
+  TRAVEL_FRACTION: 0.7,
+
+  /** Shortest scroll, in seconds, so a small overflow eases rather than snaps. */
+  MIN_DURATION_S: 4,
+};
+
+/**
  * Common country names removed when `remove_location_country` is true.
  */
 export const COUNTRY_NAMES: string[] = [
