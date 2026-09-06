@@ -535,10 +535,16 @@ export const cardStyles = css`
   /* The 12px trailing gutter belongs on .summary. Putting it on the inline
    * title makes the hidden overflow box wider than the painted text and can
    * trigger false ellipses. Real title limits come from the title clamp;
-   * overflow hidden remains only as a backstop for unbreakable content. */
+   * overflow hidden remains only as a backstop for unbreakable content.
+   *
+   * It is conditional because it exists to separate the title from whatever shares its
+   * row — the weather chip in title placement, and nothing else. When the title is alone
+   * the gutter separates it from the edge of its own box, which in a grid block reads as
+   * the text starting hard against the left inset and stopping 12px short on the right.
+   * Keyed on having a sibling rather than on the view: this is a property of the row's
+   * contents, and a view-scoped margin would tie a shared leaf's styling to one renderer. */
   .summary {
     flex: 1;
-    margin-right: 12px;
     overflow: hidden;
     overflow-wrap: break-word;
     /* The title is inline, so each line box is max(this block's strut, the
@@ -559,6 +565,12 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-event);
     line-height: 1.2;
     padding-block: 0.2em;
+  }
+
+  /* The gutter itself. Separated from the rule above so the box model stays in one place
+     and only the separation is conditional. */
+  .summary:not(:only-child) {
+    margin-right: 12px;
   }
 
   .event-title {

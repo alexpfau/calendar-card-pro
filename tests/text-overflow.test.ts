@@ -35,11 +35,21 @@ function ruleBody(selector: string): string {
 }
 
 describe('title overflow', () => {
-  it('gives .summary the 12px trailing gutter', () => {
+  it('gives .summary the 12px trailing gutter, and only when it shares its row', () => {
     // Moved off .event-title, where it counted as clipped content. .summary is a block
     // box, so here the margin narrows the box instead of overflowing it -- which is how
-    // the .time/.location/.description gutter has always behaved.
-    expect(ruleBody('.summary')).toMatch(/margin-right:\s*12px/);
+    // the .time/.location/.description gutter has always behaved. That is the invariant:
+    // the gutter lives on .summary, never on the inline title.
+    //
+    // It is conditional because a trailing gutter separates the title from whatever else
+    // is on the row, and nothing else is on the row unless weather is in title placement.
+    // Unconditional, it read in a narrow grid block as text held 12px off the right edge
+    // while sitting hard against the left.
+    expect(ruleBody('.summary:not(:only-child)')).toMatch(/margin-right:\s*12px/);
+    expect(
+      ruleBody('.summary'),
+      'the unconditional rule carries the box model, not the separation',
+    ).not.toMatch(/margin-right/);
   });
 
   it('leaves no horizontal margin on .event-title', () => {
