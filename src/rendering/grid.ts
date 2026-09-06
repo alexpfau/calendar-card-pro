@@ -237,6 +237,23 @@ function renderGridSeparator(
   `;
 }
 
+/**
+ * Whether a resolved color value would paint anything at all.
+ *
+ * `transparent` and `none` are what a user writes to switch an optional fill off, and an
+ * empty string is what an editor text field hands back when it is cleared. None of them
+ * needs a custom property emitted for it, and leaving the property unset lets the
+ * stylesheet's own fallback stand rather than overriding it with a no-op.
+ *
+ * @param value - A resolved CSS color
+ * @returns `true` when the value is worth writing to the DOM
+ */
+function paintsSomething(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+
+  return normalized !== '' && normalized !== 'transparent' && normalized !== 'none';
+}
+
 //-----------------------------------------------------------------------------
 // TIME AXIS
 //-----------------------------------------------------------------------------
@@ -663,6 +680,7 @@ export function renderGridGroupedEvents(
   const showAxisLabels = ViewConfig.resolveTimeGridOption(config, 'show_axis_labels');
   const maxRows = ViewConfig.resolveTimeGridOption(config, 'allday_band_max_rows');
   const headerGap = ViewConfig.resolveTimeGridOption(config, 'day_header_gap');
+  const weekendTint = ViewConfig.resolveTimeGridOption(config, 'weekend_background_color');
 
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
@@ -755,6 +773,10 @@ export function renderGridGroupedEvents(
           : {}),
         '--calendar-card-grid-now-color': nowLineColor,
         '--calendar-card-column-header-gap': headerGap,
+        // Written only when it paints something, so the stylesheet's transparent fallback
+        // is the off state rather than a placeholder. `transparent` and `none` are how a
+        // user turns the shading off, and both are cheaper to drop here than to paint.
+        ...(paintsSomething(weekendTint) ? { '--calendar-card-grid-weekend': weekendTint } : {}),
       })}
     >
       ${renderWeekNumbers(gridDays, config)}

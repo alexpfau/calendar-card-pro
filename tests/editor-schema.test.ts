@@ -665,6 +665,7 @@ describe('editor: the grid block as the form shows it', () => {
       start_time: '07:00',
       end_time: '22:00',
       slot_minutes: 60,
+      weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
       hour_height: '48px',
       show_now_line: true,
       now_line_color: 'var(--error-color)',

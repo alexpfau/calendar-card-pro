@@ -170,6 +170,11 @@ function timeAxisGroup(blockKey: string, language: string): HaFormSchema {
       'M12 20a8 8 0 1 1 0-16 8 8 0 0 1 0 16m0-18a10 10 0 1 0 0 20 10 10 0 0 0 0-20m.5 5H11v6l5.25 3.15.75-1.23-4.5-2.67z',
     schema: [
       row(text('start_time'), text('end_time')),
+      // Between the ruling and the gutter that labels it, because it belongs to the same
+      // question those answer: how the paper under the events is drawn. The group runs
+      // from which slice of the day is shown, through how that slice is drawn, to what is
+      // laid on top of it — so the shading sits with the rules and ahead of the now line
+      // and the all-day band, which are content rather than paper.
       row(
         {
           name: 'slot_minutes',
@@ -187,6 +192,7 @@ function timeAxisGroup(blockKey: string, language: string): HaFormSchema {
         },
         text('hour_height'),
       ),
+      color('weekend_background_color'),
       row(text('axis_width'), bool('show_axis_labels')),
       row(bool('show_now_line'), color('now_line_color')),
       {

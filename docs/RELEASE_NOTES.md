@@ -24,7 +24,7 @@ Every option grid view adds lives under `time_grid:`, and that block is also whe
 
 ### 🌗 Weekend Shading
 
-**A week you can read without reading it.** `weekend_background_color` tints the whole of a weekend day, so the shape of a week — five days of work and two of rest — is visible before you read a single date. Grid view turns it on by default, because its columns all stand the same height and a tinted one reads as a clean stripe; list and column view leave it off and take any CSS color you give them. Set a mix of a theme color rather than a fixed gray and it darkens a light theme and lightens a dark one. See [Shading a Weekend Day](https://calendar-card-pro.alexpfau.com/features/layout-appearance#shading-a-weekend-day).
+**A week you can read without reading it.** Grid view tints its weekend columns, so the shape of a week — five days of work and two of rest — is visible before you read a single date. `time_grid: { weekend_background_color: … }` takes any CSS color and `transparent` turns it off; the default is a mix of the theme's own text color, which darkens a light theme and lightens a dark one. Grid only, because a grid column stands the same height whatever is in it and a column-view column does not. See [Shading the Weekend](https://calendar-card-pro.alexpfau.com/features/grid-view#shading-the-weekend).
 
 ### 🌍 The Weekend Is Not Always Saturday and Sunday
 

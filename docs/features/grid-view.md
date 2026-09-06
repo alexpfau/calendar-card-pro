@@ -171,6 +171,30 @@ A window that straddles two ISO weeks labels both the first visible week and the
 boundary it crosses. `show_current_week_number: false` hides only the first visible week,
 so an upcoming week boundary can still be labeled.
 
+## 🌗 Shading the Weekend
+
+`weekend_background_color` tints a weekend day column, so the shape of a week is visible
+before you read a date. It is on by default, in a mix of the theme's own text color that
+darkens a light theme and lightens a dark one:
+
+```yaml
+time_grid:
+  weekend_background_color: 'rgba(230, 124, 115, 0.12)'
+```
+
+Keep it faint — event text sits on top of it. `transparent` turns it off.
+
+This is a grid-only option and lives in `time_grid:` alongside the axis, rather than
+beside the `weekend_*` text colors at the card level. A grid column stands the full height
+of the band whatever is in it, so the tint is one clean stripe down the week; a
+column-view column is only as tall as that day's events, so the same tint would end at a
+different height on each day and read as a rendering fault rather than as shading.
+
+Which days are shaded comes from your Home Assistant language, so this is Friday and
+Saturday in an Arabic or Hebrew household and Sunday alone in an Indian one — the same
+definition the [`weekend_*` date colors](/features/layout-appearance#date-column-customization)
+and [`days_of_week`](/features/core-settings#showing-a-calendar-on-weekdays-only) use.
+
 ## 📅 All-Day Events
 
 All-day events do not belong anywhere on an hour axis, so they get a band of their own
@@ -300,19 +324,18 @@ Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Eight shared options do not inherit their top-level value in grid view. The **Default**
+Seven shared options do not inherit their top-level value in grid view. The **Default**
 column is what grid view uses; **Instead of** is the top-level default it replaces:
 
-| Option                     | Type    | Default                                                         | Instead of                    |
-| -------------------------- | ------- | --------------------------------------------------------------- | ----------------------------- |
-| `event_background_opacity` | number  | `20`                                                            | `0`                           |
-| `show_empty_days`          | boolean | `true`                                                          | `false`                       |
-| `show_past_events`         | boolean | `true`                                                          | `false`                       |
-| `day_separator_width`      | string  | `0.5px`                                                         | `0px`                         |
-| `day_separator_color`      | string  | `var(--divider-color)`                                          | `var(--secondary-text-color)` |
-| `day_spacing`              | string  | `2px`                                                           | `10px`                        |
-| `weekend_background_color` | string  | `color-mix(in srgb, var(--primary-text-color) 4%, transparent)` | `-`                           |
-| `progress_bar_width`       | string  | `100%`                                                          | _per placement_               |
+| Option                     | Type    | Default                | Instead of                    |
+| -------------------------- | ------- | ---------------------- | ----------------------------- |
+| `event_background_opacity` | number  | `20`                   | `0`                           |
+| `show_empty_days`          | boolean | `true`                 | `false`                       |
+| `show_past_events`         | boolean | `true`                 | `false`                       |
+| `day_separator_width`      | string  | `0.5px`                | `0px`                         |
+| `day_separator_color`      | string  | `var(--divider-color)` | `var(--secondary-text-color)` |
+| `day_spacing`              | string  | `2px`                  | `10px`                        |
+| `progress_bar_width`       | string  | `100%`                 | _per placement_               |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
@@ -328,13 +351,7 @@ days, and the list value of `10px` left every block visibly floating inside its 
 instead of sitting in the grid — a block already clears its own column, so 10px of gutter
 put 12px between two neighbors. `2px` is the tightest gutter that still holds the whole
 day rule inside it: the rule is centered in the gap, so at `0px` it would straddle the
-column boundary and paint over anything flush against a column edge. And the weekend
-columns are tinted, which is what makes a week scannable rather than readable one header
-at a time — every grid column stands the same height, so the shading is a clean stripe
-down the week rather than the ragged tab it would be in a column-view layout.
-
-**→ [Shading a Weekend Day](/features/layout-appearance#shading-a-weekend-day)** — the
-option itself, and how it decides which days are the weekend.
+column boundary and paint over anything flush against a column edge.
 
 Set any of them inside `time_grid:` to change it back.
 

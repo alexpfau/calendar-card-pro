@@ -1098,6 +1098,44 @@ describe('separators between grid days', () => {
     expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 0.5px))');
   });
 
+  it('tints the weekend columns by default, and paints nothing when switched off', () => {
+    const container = requireElement<HTMLElement>(
+      renderGrid(EVENTS, spanConfig()),
+      '.grid-container',
+    );
+
+    expect(container.style.getPropertyValue('--calendar-card-grid-weekend')).toBe(
+      'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
+    );
+
+    // Two off spellings, both of which a user reaches for, and neither of which should
+    // write a property: an unset property lets the stylesheet's own `transparent`
+    // fallback stand, where writing `transparent` would override it with a no-op.
+    for (const off of ['transparent', 'none', '  ']) {
+      const config = spanConfig();
+      config.time_grid = { weekend_background_color: off };
+
+      expect(
+        requireElement<HTMLElement>(
+          renderGrid(EVENTS, config),
+          '.grid-container',
+        ).style.getPropertyValue('--calendar-card-grid-weekend'),
+        `"${off}" must paint nothing`,
+      ).toBe('');
+    }
+
+    // ...and a value that does paint is written through unchanged.
+    const custom = spanConfig();
+    custom.time_grid = { weekend_background_color: 'rgb(1, 2, 3)' };
+
+    expect(
+      requireElement<HTMLElement>(
+        renderGrid(EVENTS, custom),
+        '.grid-container',
+      ).style.getPropertyValue('--calendar-card-grid-weekend'),
+    ).toBe('rgb(1, 2, 3)');
+  });
+
   it('starts from a gutter that lets a block meet its day rule', () => {
     // The whole rule sits inside the gutter at the default: centered at 1px from the
     // boundary with a 0.5px width, so it spans 0.75px to 1.25px and touches neither

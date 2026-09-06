@@ -345,6 +345,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.slot_minutes.option.20.label': '20 minutes',
   'time_grid.slot_minutes.option.30.label': '30 minutes',
   'time_grid.slot_minutes.option.60.label': '1 hour',
+  'time_grid.weekend_background_color': 'Weekend Shading',
+  'time_grid.weekend_background_color.helper':
+    'Tints a weekend day column from the date row down, so a week reads at a glance. Any ' +
+    'CSS color — keep it faint, since event text sits on top of it. Which days count as ' +
+    'the weekend follows the Home Assistant language.',
   'time_grid.hour_height': 'Height Per Hour',
   'time_grid.hour_height.helper':
     "The calendar content area's natural height, one hour at a time. Ignored when a fixed height is set: " +
@@ -498,14 +503,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // carries the word and is always overridden, the helper does not and never is. Put it
   // back in and that test fails, on a claim about the generator rather than about wording.
   'weekend_colors.helper':
-    'Which days count as the weekend follows the Home Assistant language. Each of the ' +
-    'three text options falls back to its weekday equivalent when left empty; the ' +
-    'shading is off when left empty, except in Time Grid, which tints its weekend ' +
-    'columns by default.',
-  weekend_background_color: 'Weekend Shading',
-  'weekend_background_color.helper':
-    'Tints the whole of a weekend day, so a week reads at a glance. Any CSS color — keep ' +
-    'it faint, since event text sits on top of it.',
+    'Which days count as the weekend follows the Home Assistant language. Each of these ' +
+    'falls back to its weekday equivalent when left empty.',
   weekend_weekday_color: 'Weekend Weekday Color',
   weekend_day_color: 'Weekend Day Number Color',
   weekend_month_color: 'Weekend Month Color',

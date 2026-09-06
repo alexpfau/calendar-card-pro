@@ -226,11 +226,6 @@ const VERIFIED_RUNTIME_FALLBACKS = new Map([
   ['language', '`System`, fallback `en`'],
   // Absent renders no title at all; there is nothing to fall back to.
   ['title', '-'],
-  // rendering/styles.ts — `--calendar-card-weekend-background` is written only when the
-  // option is set, and the stylesheet's own fallback is `transparent`, so absence paints
-  // nothing. Grid view substitutes a tint through TIME_GRID_DEFAULT_OVERRIDES; that is a
-  // per-view default rather than the shipped one, and the row says so in its description.
-  ['weekend_background_color', '`-`'],
   // rendering/styles.ts — the custom property is only written when the option is set, so
   // absence leaves the stylesheet's own value in place. The documented default is that
   // variable because that is literally what applies.

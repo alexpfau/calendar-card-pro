@@ -1641,24 +1641,30 @@ describe('card stylesheet', () => {
       expect(declared('.grid-banner', 'box-sizing')).toBe('border-box');
     });
 
-    it('shades a weekend day the same way in every view', () => {
-      // One property, three day containers, because the class is already on all three and
-      // the question is the same in every layout. Reconciled as a whole selector set
-      // rather than one assertion per view: a `toContain` per selector cannot notice one
-      // leaving, which would silently drop the shading from that layout only.
+    it('shades a weekend day in grid view and in no other', () => {
+      // Reconciled as a whole selector set rather than one assertion per rule: a
+      // `toContain` cannot notice a selector *arriving*, and the failure this guards is
+      // the shading being offered back to the list or column day containers, which have
+      // no fixed height for a stripe to run down.
       const shading = RULES.filter((rule) =>
-        rule.body.includes('var(--calendar-card-weekend-background'),
+        rule.body.includes('var(--calendar-card-grid-weekend'),
       );
 
       expect(shading).toHaveLength(1);
-      expect(new Set(shading[0].selectors)).toEqual(
-        new Set(['.day-table.weekend', '.day-column.weekend', '.grid-day-body.weekend']),
-      );
-      // Transparent, not a color: nothing is painted unless the option is set, and the
-      // property is emitted only then.
+      expect(new Set(shading[0].selectors)).toEqual(new Set(['.grid-day-body.weekend']));
+      // Transparent, not a color: nothing is painted unless the option resolves to
+      // something, and the renderer writes the property only then.
       expect(shading[0].body).toContain(
-        'background-color: var(--calendar-card-weekend-background, transparent)',
+        'background-color: var(--calendar-card-grid-weekend, transparent)',
       );
+      // The other two views' day containers must carry no weekend rule at all.
+      expect(
+        RULES.filter((rule) =>
+          rule.selectors.some(
+            (selector) => selector === '.day-table.weekend' || selector === '.day-column.weekend',
+          ),
+        ),
+      ).toEqual([]);
     });
 
     it('rounds a banner end only where the event genuinely starts or ends', () => {

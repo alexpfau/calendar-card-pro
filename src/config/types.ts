@@ -85,7 +85,6 @@ export interface Config {
   show_month: boolean;
   month_font_size: string;
   month_color: string;
-  weekend_background_color?: string;
   weekend_weekday_color?: string;
   weekend_day_color?: string;
   weekend_month_color?: string;
@@ -272,7 +271,6 @@ export interface SharedViewOverrides {
   today_indicator_color?: string;
 
   // Date column
-  weekend_background_color?: string;
   weekday_font_size?: string;
   day_font_size?: string;
   show_month?: boolean;
@@ -399,6 +397,23 @@ export interface TimeGridOverrides extends SharedViewOverrides {
 
   /** Spacing of the axis rules. Density only — it does not change the scale. */
   slot_minutes?: TimeGridSlotMinutes;
+
+  /**
+   * Background tint for a weekend day column, as a CSS color.
+   *
+   * Grid-only, and deliberately not a shared option with a per-view default. Every grid
+   * column stands the full height of the band and the axis, so the tint is one clean
+   * stripe down the week; a column-view column is only as tall as that day's events, so
+   * the same tint ends at a different height on every day and reads as a rendering fault
+   * rather than as shading. An option that is inert in two of three views is the shape
+   * `view.ts` warns about — accepted, validated, stored, and then ignored — so this lives
+   * in the block that owns it, where writing it at the top level earns a warning naming
+   * where it belongs.
+   *
+   * Which days count as the weekend comes from Home Assistant's language; see
+   * {@link FormatUtils.isWeekendDate}.
+   */
+  weekend_background_color?: string;
 
   /**
    * Height of one hour of the axis, as a CSS length.

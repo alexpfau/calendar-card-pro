@@ -36,7 +36,6 @@ export const COLUMN_OVERRIDE_KEYS = [
   'today_indicator',
   'today_indicator_size',
   'today_indicator_color',
-  'weekend_background_color',
   'weekday_font_size',
   'day_font_size',
   'show_month',
@@ -130,6 +129,7 @@ export const TIME_GRID_ONLY_KEYS = [
   'start_time',
   'end_time',
   'slot_minutes',
+  'weekend_background_color',
   'hour_height',
   'show_now_line',
   'now_line_color',
@@ -351,6 +351,15 @@ export const COLUMN_DEFAULTS = {
  * anyone scheduling in fifteen-minute blocks, and the hour rule is drawn over the slot
  * rule so it stays findable when they do.
  *
+ * `weekend_background_color` tints the weekend columns, which is what makes a week
+ * scannable at a glance rather than readable one header at a time. It is grid-only rather
+ * than a shared option with a per-view default, for the reason its declaration in
+ * `types.ts` gives: a grid column is the same height whatever is in it, and a column-view
+ * column is not. The value is a mix rather than a fixed gray so that it darkens a light
+ * theme and lightens a dark one; `color-mix` is Chrome 111, well under the Chrome 117
+ * floor grid view already sets with `subgrid`. Which days are shaded comes from Home
+ * Assistant's language, so this is Friday and Saturday in an Israeli household.
+ *
  * `max_simultaneous_events: 3` is where blocks stop carrying readable text at a typical
  * card width. `axis_width` sizes to its own labels by default, so the gutter follows
  * whichever visible label is widest while keeping fixed inline padding around it.
@@ -376,6 +385,7 @@ export const TIME_GRID_DEFAULTS = {
   start_time: '07:00',
   end_time: '22:00',
   slot_minutes: 60,
+  weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
   hour_height: '48px',
   show_now_line: true,
   now_line_color: 'var(--error-color)',
@@ -515,6 +525,15 @@ export function normalizeTimeGridValue(
 
   // Times are validated as a pair, not individually — see the docblock.
   if (key === 'start_time' || key === 'end_time') {
+    return typeof value === 'string' ? value : fallback;
+  }
+
+  // A color, not a length. The pixel coercion below infers length-ness from the shipped
+  // default, and this one is a `color-mix()` rather than a `px` string, so it would in
+  // fact fall through unchanged — but only by accident of the default's spelling. Stated
+  // here so that changing the default to a plain `#eee` cannot silently turn a bare `0`
+  // into `0px`.
+  if (key === 'weekend_background_color') {
     return typeof value === 'string' ? value : fallback;
   }
 
@@ -665,15 +684,6 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * whatever is flush against a column edge. At `2px` the boundary is rule plus 0.75px of
  * clear space on each side, and the visible gap between two blocks falls from 12px to 4px.
  *
- * `weekend_background_color` tints the weekend columns, which is what makes a week
- * scannable at a glance rather than readable one header at a time. Off everywhere else
- * and on here for a reason of geometry rather than taste — see the stylesheet comment
- * beside the rule, which is where the three views' day containers are compared. The value
- * is a mix rather than a fixed gray so that it darkens a light theme and lightens a dark
- * one; `color-mix` is Chrome 111, well under the Chrome 117 floor grid view already sets
- * with `subgrid`. Which days are shaded comes from Home Assistant's language, so this is
- * Friday and Saturday in an Israeli household.
- *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
  * from the view's own block, so `time_grid: { split_multiday_events: true }` would imply the
@@ -686,7 +696,6 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   day_separator_width: '0.5px',
   day_separator_color: 'var(--divider-color)',
   day_spacing: '2px',
-  weekend_background_color: 'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
   event_background_opacity: 20,
   progress_bar_width: '100%',
   show_empty_days: true,

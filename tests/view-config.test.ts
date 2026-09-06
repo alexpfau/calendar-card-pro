@@ -11,6 +11,7 @@ import {
   FETCH_TIME_KEYS,
   TIME_GRID_DEFAULTS,
   TIME_GRID_DEFAULT_OVERRIDES,
+  TIME_GRID_ONLY_KEYS,
   VIEW_SWITCH_HYSTERESIS_PX,
   computeColumnThresholdPx,
   computeColumnThresholdPxFor,
@@ -1497,33 +1498,32 @@ describe('resolveColumnFit — grid reduction', () => {
     expect(resolveColumnFit('grid', config, 426, null)).toEqual({ view: 'grid', columns: 3 });
   });
 
-  it('shades the weekend in grid view and nowhere else, unless asked', () => {
-    // The value is only reachable through the theming pipeline, so this asserts the
-    // resolved config rather than any markup: the property is emitted from it, and
-    // `tests/custom-property-mapping.test.ts` pins that step.
-    const plain = buildConfig();
-
-    expect(resolveEffectiveConfig(plain, 'grid').weekend_background_color).toBe(
+  it('owns weekend shading as a grid-only option, not a shared one', () => {
+    // Grid-only, so it resolves through the block and has no top-level counterpart at
+    // all. That is the half a rendering test cannot state: a shared key with a divergent
+    // default would satisfy every assertion about grid and still be writable — and
+    // silently inert — on a list or column card.
+    expect(resolveTimeGridOption(build(), 'weekend_background_color')).toBe(
       'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
     );
-    // The two arms that must differ, or "on by default in grid" is not a claim about the
-    // view at all — a constant in the stylesheet would satisfy the line above.
-    expect(resolveEffectiveConfig(plain, 'list').weekend_background_color).toBeUndefined();
-    expect(resolveEffectiveConfig(plain, 'column').weekend_background_color).toBeUndefined();
+    expect(
+      resolveTimeGridOption(
+        build({ weekend_background_color: 'transparent' }),
+        'weekend_background_color',
+      ),
+    ).toBe('transparent');
+    expect(TIME_GRID_ONLY_KEYS).toContain('weekend_background_color');
+    expect(Object.keys(DEFAULT_CONFIG)).not.toContain('weekend_background_color');
+    expect(COLUMN_OVERRIDE_KEYS as ReadonlyArray<string>).not.toContain('weekend_background_color');
 
-    // One option, both directions: a user turns it off in grid and on anywhere else.
-    const off = buildConfig();
-    off.time_grid = { weekend_background_color: 'transparent' };
-    expect(resolveEffectiveConfig(off, 'grid').weekend_background_color).toBe('transparent');
-
-    const onInColumn = buildConfig({ weekend_background_color: 'rgb(1, 2, 3)' });
-    expect(resolveEffectiveConfig(onInColumn, 'column').weekend_background_color).toBe(
-      'rgb(1, 2, 3)',
-    );
-    // ...and a card-level value does not reach grid, which is what a divergent default is.
-    expect(resolveEffectiveConfig(onInColumn, 'grid').weekend_background_color).toBe(
-      'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
-    );
+    // A non-string is refused rather than coerced, so a YAML `weekend_background_color: 0`
+    // cannot reach the style attribute as a bare number.
+    expect(
+      resolveTimeGridOption(
+        build({ weekend_background_color: 0 as unknown as string }),
+        'weekend_background_color',
+      ),
+    ).toBe('color-mix(in srgb, var(--primary-text-color) 4%, transparent)');
   });
 
   it('reserves the grid gutter the grid renderer draws, not the card-level one', () => {
