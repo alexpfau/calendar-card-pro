@@ -819,6 +819,15 @@ const SUGGESTION_GRID_OPTIONS = {
 const SUGGESTION_COLUMN_LABEL = 'Columns';
 
 /**
+ * The label distinguishing the time-grid suggestion.
+ *
+ * Named for the `time_grid:` block a user will meet in YAML rather than for the
+ * `view: grid` value, because the block is what they will edit. Untranslated for
+ * the same reason as the column label above.
+ */
+const SUGGESTION_TIME_GRID_LABEL = 'Time Grid';
+
+/**
  * Build the opinionated starting configuration for a set of calendar entities.
  *
  * Shared by the card picker preview (`getStubConfig`) and the entity suggestion so
@@ -865,17 +874,21 @@ export function getStubConfig(hass: Record<string, { state: string }>): Record<s
  * `supported_features`, and its state only reports whether an event is currently
  * running, which says nothing about whether this card suits it.
  *
- * The two configs differ only by `view`, so they share the same event-cache key.
- * Changing fetch-affecting options in the column suggestion would make each picker
- * preview issue its own calendar request.
+ * The three configs differ only by `view` and, for the grid, `show_location` — none of
+ * which is fetch-affecting, so they share one event-cache key. Changing a member of
+ * `FETCH_TIME_KEYS` in any of them would make each picker preview issue its own calendar
+ * request.
  *
- * The column preview renders as columns rather than falling back to a list,
+ * The column and grid previews render as themselves rather than falling back to a list,
  * because `hui-card` sets `preview` on the element it mounts and `effectiveView`
  * returns the requested view whenever that flag is set.
  *
+ * Note `grid_options` here is Home Assistant's own sections-layout sizing key and has
+ * nothing to do with `view: 'grid'`; all three suggestions carry it.
+ *
  * @param hass - Home Assistant instance, treated as possibly absent or malformed
  * @param entityId - Entity ID selected in the card picker
- * @returns A two-entry suggestion list, or `null` when nothing should be offered
+ * @returns A three-entry suggestion list, or `null` when nothing should be offered
  */
 export function getEntitySuggestion(
   hass: Types.Hass | null | undefined,
@@ -906,6 +919,20 @@ export function getEntitySuggestion(
       config: {
         ...buildDefaultCardConfig([entityId]),
         view: 'column',
+        grid_options: { ...SUGGESTION_GRID_OPTIONS },
+      },
+    },
+    {
+      label: SUGGESTION_TIME_GRID_LABEL,
+      config: {
+        ...buildDefaultCardConfig([entityId]),
+        view: 'grid',
+        // The one deliberate divergence between the three previews. A time-grid block is
+        // read by its position and height, and a full postal address is several lines that
+        // push everything else out of a lunchtime meeting — so the grid preview shows the
+        // title and the clock and stops there. `show_location` is render-time, so this
+        // costs nothing: all three still resolve to one cache key and one calendar request.
+        show_location: false,
         grid_options: { ...SUGGESTION_GRID_OPTIONS },
       },
     },

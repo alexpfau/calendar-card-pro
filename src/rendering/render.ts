@@ -35,6 +35,8 @@ export { renderGridGroupedEvents } from './grid';
  * @param isLoading Flag to mark the card as busy while events load
  * @param titlePending True while a templated title awaits its first value
  * @param effectiveView The view actually being rendered, after any width fallback
+ * @param hasTapAction Whether the card has a keyboard-accessible tap action
+ * @param hasHoldAction Whether the card has a pointer hold action
  * @returns TemplateResult for the complete card
  */
 export function renderMainCardStructure(
@@ -53,10 +55,17 @@ export function renderMainCardStructure(
   isLoading: boolean = false,
   titlePending: boolean = false,
   effectiveView: Types.EffectiveView = 'list',
+  hasTapAction: boolean = false,
+  hasHoldAction: boolean = false,
 ): TemplateResult {
+  const isPointerInteractive = hasTapAction || hasHoldAction;
   // `viewCssClass` returns '' for list view, so the filter is what keeps a stray
   // separator out of the class attribute.
-  const cardClasses = ['calendar-card-pro', ViewConfig.viewCssClass(effectiveView)]
+  const cardClasses = [
+    'calendar-card-pro',
+    ViewConfig.viewCssClass(effectiveView),
+    isPointerInteractive ? 'card-interactive' : '',
+  ]
     .filter((cls) => cls !== '')
     .join(' ');
 
@@ -64,7 +73,8 @@ export function renderMainCardStructure(
     <ha-card
       class=${cardClasses}
       style=${styleMap(customStyles)}
-      tabindex="0"
+      tabindex=${hasTapAction ? '0' : nothing}
+      role=${hasTapAction ? 'button' : nothing}
       aria-busy=${isLoading ? 'true' : 'false'}
       @keydown=${handlers.keyDown}
       @pointerdown=${handlers.pointerDown}
@@ -74,8 +84,7 @@ export function renderMainCardStructure(
       @pointerleave=${handlers.pointerLeave}
       @lostpointercapture=${handlers.lostPointerCapture}
     >
-      <ha-ripple></ha-ripple>
-
+      ${isPointerInteractive ? html`<ha-ripple></ha-ripple>` : nothing}
       ${isLoading
         ? html`
             <div class="loading-indicator" role="status" aria-live="polite" title="Loading">

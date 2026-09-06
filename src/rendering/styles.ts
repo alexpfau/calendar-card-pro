@@ -169,6 +169,10 @@ export const cardStyles = css`
       calc(var(--calendar-card-spacing-additional) + 16px) 8px;
 
     background: var(--calendar-card-background-color, var(--card-background-color));
+    cursor: default;
+  }
+
+  ha-card.card-interactive {
     cursor: pointer;
   }
 
@@ -2100,12 +2104,8 @@ export const cardStyles = css`
   /* Container-query rungs are calibrated for the default typography. A theme or an explicit
      event_font_size can make a disclosed row taller than the rung that revealed it; the host
      measures that actual overflow and adds this class so no detail row is shown half-clipped. */
-  .grid-event.grid-event-content-clipped .time,
-  .grid-event.grid-event-content-clipped .location,
-  .grid-event.grid-event-content-clipped .description,
-  .grid-event.grid-event-content-clipped .event-weather,
-  .grid-event.grid-event-content-clipped .progress-bar-row {
-    display: none;
+  .grid-event-disclosure .grid-event-detail-clipped {
+    display: none !important;
   }
 
   @container calendar-card-grid-event (min-height: 19px) {

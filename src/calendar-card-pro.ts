@@ -269,6 +269,27 @@ class CalendarCardPro extends LitElement {
   private _releasingPointerCapture = false;
 
   /**
+   * Whether the card has a tap action to advertise to pointer and keyboard users.
+   */
+  private get _hasTapAction(): boolean {
+    return Boolean(this.config.tap_action && this.config.tap_action.action !== 'none');
+  }
+
+  /**
+   * Whether the card has a hold action to advertise to pointer users.
+   */
+  private get _hasHoldAction(): boolean {
+    return Boolean(this.config.hold_action && this.config.hold_action.action !== 'none');
+  }
+
+  /**
+   * Whether the card has any pointer-level action to advertise or track.
+   */
+  private get _hasCardAction(): boolean {
+    return this._hasTapAction || this._hasHoldAction;
+  }
+
+  /**
    * Card width in CSS pixels, as most recently measured.
    */
   private _measuredWidthPx: number | null = null;
@@ -699,11 +720,13 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Hides optional grid details when their disclosed rows cannot fit.
+   * Hides only the trailing optional grid details that cannot fit.
    *
    * Container queries make the usual case cheap, but their fixed pixel rungs cannot account
-   * for a theme or configuration that enlarges text. Keep the title visible and withdraw the
-   * optional rows rather than clipping part of one.
+   * for a theme or configuration that enlarges text. Keep the title visible and withdraw
+   * optional rows from the bottom until the remaining disclosed content fits. Removing every
+   * optional row at the first overflow hid time and progress that still fitted above one tall
+   * description.
    *
    * Measuring requires dropping `grid-event-content-clipped` first, so every apply can
    * reflow observed title/block nodes even when the final class is unchanged. Suppress
@@ -718,15 +741,55 @@ class CalendarCardPro extends LitElement {
       for (const block of this.renderRoot.querySelectorAll<HTMLElement>(
         '.grid-event:not(.grid-event-overflow)',
       )) {
-        block.classList.remove('grid-event-content-clipped');
         const content = block.querySelector<HTMLElement>('.grid-event-disclosure .event-content');
 
-        if (
-          content &&
-          gridContentOverflows(content) &&
-          content.querySelector('.time, .location, .description, .event-weather, .progress-bar-row')
-        ) {
-          block.classList.add('grid-event-content-clipped');
+        if (!content) {
+          continue;
+        }
+
+        const detailRows = [
+          content.querySelector<HTMLElement>('.description'),
+          content.querySelector<HTMLElement>('.location'),
+          content.querySelector<HTMLElement>('.event-weather'),
+          content.querySelector<HTMLElement>('.progress-bar-row'),
+          content.querySelector<HTMLElement>('.time'),
+        ].filter((row): row is HTMLElement => row !== null);
+        detailRows.forEach((row) => row.classList.remove('grid-event-detail-clipped'));
+
+        // Withdrawing a row is only worth doing if it resolves the overflow, so the pass is
+        // transactional: remember what it gave up, and put it all back if the block still
+        // overflows once there is nothing left to give.
+        //
+        // The case that forces this is a title too tall for its own block — three wrapped
+        // lines in a narrow column. No detail row is responsible for that overflow and
+        // hiding one cannot fix it, but the loop happily hid every one of them on the way
+        // to discovering so, and a 2.5-hour event rendered with neither its time nor its
+        // location while a taller neighbour showed both. The block clips at the bottom in
+        // that case, which is the documented behaviour and the better answer than silently
+        // dropping the rows the user asked for.
+        const withdrawn: HTMLElement[] = [];
+
+        while (gridContentOverflows(content)) {
+          let lastVisibleDetail: HTMLElement | undefined;
+          for (let index = 0; index < detailRows.length; index++) {
+            const row = detailRows[index];
+            if (
+              !row.classList.contains('grid-event-detail-clipped') &&
+              row.getClientRects().length > 0
+            ) {
+              lastVisibleDetail = row;
+              break;
+            }
+          }
+          if (!lastVisibleDetail) {
+            break;
+          }
+          lastVisibleDetail.classList.add('grid-event-detail-clipped');
+          withdrawn.push(lastVisibleDetail);
+        }
+
+        if (gridContentOverflows(content)) {
+          withdrawn.forEach((row) => row.classList.remove('grid-event-detail-clipped'));
         }
       }
     } finally {
@@ -1258,6 +1321,9 @@ class CalendarCardPro extends LitElement {
     if (typeof ev.button === 'number' && ev.button !== 0) {
       return;
     }
+    if (!this._hasCardAction) {
+      return;
+    }
 
     this._activePointerId = ev.pointerId;
     this._pointerStart = { x: ev.clientX, y: ev.clientY };
@@ -1783,6 +1849,8 @@ class CalendarCardPro extends LitElement {
       this.isLoading,
       this.isTitlePending,
       this.effectiveView,
+      this._hasTapAction,
+      this._hasHoldAction,
     );
   }
 }

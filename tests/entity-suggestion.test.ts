@@ -51,10 +51,11 @@ describe('getEntitySuggestion', () => {
   describe('for a calendar entity', () => {
     const suggestions = getEntitySuggestion(hass('calendar.family'), 'calendar.family');
 
-    it('offers the list layout and then the column layout', () => {
-      expect(suggestions).toHaveLength(2);
+    it('offers the list layout, then the column layout, then the time grid', () => {
+      expect(suggestions).toHaveLength(3);
       expect(suggestions?.[0].config.view).toBeUndefined();
       expect(suggestions?.[1].config.view).toBe('column');
+      expect(suggestions?.[2].config.view).toBe('grid');
     });
 
     it('leaves the first entry unlabelled and labels only the variant', () => {
@@ -62,34 +63,46 @@ describe('getEntitySuggestion', () => {
       // carries no label and reads as the card's own name.
       expect(suggestions?.[0].label).toBeUndefined();
       expect(suggestions?.[1].label).toBe('Columns');
+      expect(suggestions?.[2].label).toBe('Time Grid');
     });
 
-    it('pre-fills the picked entity in both', () => {
+    it('pre-fills the picked entity in all of them', () => {
       for (const suggestion of suggestions ?? []) {
         expect(suggestion.config.entities).toEqual(['calendar.family']);
       }
     });
 
-    it('asks for full width in both, because a column card needs the room', () => {
+    it('asks for full width in all of them, because a column or grid card needs the room', () => {
       for (const suggestion of suggestions ?? []) {
         expect(suggestion.config.grid_options).toEqual({ columns: 'full', rows: 'auto' });
       }
     });
 
-    it('does not share a mutable grid_options object between the two entries', () => {
+    it('does not share a mutable grid_options object between the entries', () => {
       expect(suggestions?.[0].config.grid_options).not.toBe(suggestions?.[1].config.grid_options);
+      expect(suggestions?.[1].config.grid_options).not.toBe(suggestions?.[2].config.grid_options);
+      expect(suggestions?.[0].config.grid_options).not.toBe(suggestions?.[2].config.grid_options);
+    });
+
+    it('shows the clock but not the address in the time grid', () => {
+      // The one deliberate divergence between the three. A postal address is several lines
+      // in a block read by its position and height, so the grid preview stops at the clock.
+      expect(suggestions?.[0].config.show_location).toBe(true);
+      expect(suggestions?.[1].config.show_location).toBe(true);
+      expect(suggestions?.[2].config.show_location).toBe(false);
     });
   });
 
   /**
    * The load-bearing one.
    *
-   * Both suggestions are mounted as live cards at once, and each fetches on
+   * All three suggestions are mounted as live cards at once, and each fetches on
    * setup. They are affordable together only because the event cache keys on
    * `generateDeterministicId`, which hashes entities, `days_to_show`,
    * `start_date` and `first_day_of_week` — and on none of those do the recipes
-   * differ. Give the column variant its own `days_to_show` and every pick
-   * silently becomes two real calendar API requests instead of one.
+   * differ. Give one variant its own `days_to_show` and every pick silently
+   * becomes three real calendar API requests instead of one. The grid recipe's
+   * `show_location: false` is safe precisely because it is not among them.
    *
    * Pass every current input. `show_past_events` was dropped from the key in
    * #461 and `first_day_of_week` added; a call that still names the first and
@@ -97,7 +110,7 @@ describe('getEntitySuggestion', () => {
    * hashed — adding `first_day_of_week` to one recipe alone typechecked and
    * left this test green.
    */
-  it('keeps both recipes on one event-cache key', () => {
+  it('keeps every recipe on one event-cache key', () => {
     const suggestions = getEntitySuggestion(hass('calendar.family'), 'calendar.family');
     const ids = (suggestions ?? []).map((suggestion) => {
       const config = suggestion.config as {
@@ -114,7 +127,10 @@ describe('getEntitySuggestion', () => {
       );
     });
 
-    expect(ids[0]).toBe(ids[1]);
+    // Compared as a set rather than pairwise, so a fourth recipe cannot be added
+    // without this noticing.
+    expect(ids).toHaveLength(3);
+    expect(new Set(ids).size, 'every suggestion must hash to the same cache key').toBe(1);
   });
 
   it('never throws, whatever it is handed', () => {

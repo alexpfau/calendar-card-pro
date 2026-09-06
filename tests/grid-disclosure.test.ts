@@ -9,7 +9,7 @@ describe('grid disclosure safety', () => {
     expect(gridContentOverflows({ clientHeight: 60, scrollHeight: 62 })).toBe(true);
   });
 
-  it('marks an overflowing timed block so CSS withdraws its optional detail rows', () => {
+  it('withdraws only the trailing detail rows needed to make the content fit', () => {
     const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
       _applyGridDisclosureSafety(): void;
     };
@@ -18,19 +18,131 @@ describe('grid disclosure safety', () => {
     root.innerHTML = `
       <div class="grid-event">
         <div class="grid-event-disclosure">
-          <div class="event-content"><div class="time">10:00</div></div>
+          <div class="event-content">
+            <div class="time">10:00</div>
+            <div class="location">Office</div>
+            <div class="description">Notes</div>
+          </div>
         </div>
       </div>
     `;
     const content = root.querySelector<HTMLElement>('.event-content')!;
+    const rows = Array.from(content.children) as HTMLElement[];
+    rows.forEach((row) => {
+      row.getClientRects = () =>
+        row.classList.contains('grid-event-detail-clipped')
+          ? ({} as DOMRectList)
+          : ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList);
+    });
     Object.defineProperties(content, {
       clientHeight: { value: 60 },
-      scrollHeight: { value: 66 },
+      scrollHeight: {
+        get: () =>
+          90 -
+          rows.filter((row) => row.classList.contains('grid-event-detail-clipped')).length * 20,
+      },
     });
 
     card._applyGridDisclosureSafety();
 
-    expect(root.querySelector('.grid-event')?.classList).toContain('grid-event-content-clipped');
+    expect(rows.map((row) => row.classList.contains('grid-event-detail-clipped'))).toEqual([
+      false,
+      true,
+      true,
+    ]);
+  });
+
+  it('keeps every detail row when the title alone is what overflows', () => {
+    // The maintainer's report: a 2.5-hour event whose title wrapped to three lines in a
+    // narrow column rendered with neither its time nor its location, while a taller
+    // neighbour with a two-line title showed both. No detail row was responsible for the
+    // overflow, so withdrawing them could never resolve it — but the loop hid every one of
+    // them on the way to discovering that, and left the block overflowing anyway.
+    //
+    // The fixture is the title-too-tall case in the abstract: scrollHeight stays above
+    // clientHeight no matter how many rows are withdrawn.
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="time">11:30 - 14:00</div>
+            <div class="location">Corner Cafe</div>
+          </div>
+        </div>
+      </div>
+    `;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    const rows = Array.from(content.children) as HTMLElement[];
+    rows.forEach((row) => {
+      row.getClientRects = () =>
+        row.classList.contains('grid-event-detail-clipped')
+          ? ({} as DOMRectList)
+          : ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList);
+    });
+    Object.defineProperties(content, {
+      clientHeight: { value: 50 },
+      // A three-line title owns 100px of a 50px block on its own, so withdrawing both 20px
+      // rows still leaves 60px in a 50px box — the overflow was never theirs to fix.
+      scrollHeight: {
+        get: () =>
+          100 -
+          rows.filter((row) => row.classList.contains('grid-event-detail-clipped')).length * 20,
+      },
+    });
+
+    card._applyGridDisclosureSafety();
+
+    expect(
+      rows.map((row) => row.classList.contains('grid-event-detail-clipped')),
+      'a row may only be withdrawn when withdrawing it resolves the overflow',
+    ).toEqual([false, false]);
+  });
+
+  it('restores a previously hidden detail row once it fits', () => {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="time">10:00</div>
+            <div class="description">Notes</div>
+          </div>
+        </div>
+      </div>
+    `;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    const rows = Array.from(content.children) as HTMLElement[];
+    let expandedHeight = 80;
+    rows.forEach((row) => {
+      row.getClientRects = () =>
+        row.classList.contains('grid-event-detail-clipped')
+          ? ({} as DOMRectList)
+          : ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList);
+    });
+    Object.defineProperties(content, {
+      clientHeight: { value: 60 },
+      scrollHeight: {
+        get: () =>
+          expandedHeight -
+          rows.filter((row) => row.classList.contains('grid-event-detail-clipped')).length * 20,
+      },
+    });
+
+    card._applyGridDisclosureSafety();
+    expect(rows[1].classList).toContain('grid-event-detail-clipped');
+
+    expandedHeight = 60;
+    card._applyGridDisclosureSafety();
+    expect(rows.every((row) => !row.classList.contains('grid-event-detail-clipped'))).toBe(true);
   });
 
   it('does not apply the fallback to an overflow-count placeholder', () => {
@@ -49,9 +161,7 @@ describe('grid disclosure safety', () => {
 
     card._applyGridDisclosureSafety();
 
-    expect(root.querySelector('.grid-event')?.classList).not.toContain(
-      'grid-event-content-clipped',
-    );
+    expect(root.querySelector('.grid-event-detail-clipped')).toBeNull();
   });
 });
 

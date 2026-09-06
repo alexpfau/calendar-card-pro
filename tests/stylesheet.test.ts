@@ -169,12 +169,9 @@ describe('card stylesheet', () => {
       expect(declared('.summary', 'display')).not.toMatch(/flex|grid/);
     });
 
-    it('withdraws optional grid details when host measurement finds a clipped disclosure', () => {
-      const selector = '.grid-event.grid-event-content-clipped .time';
-      expect(declared(selector, 'display')).toBe('none');
-      expect(cardStyles.cssText).toContain(
-        '.grid-event.grid-event-content-clipped .progress-bar-row',
-      );
+    it('withdraws only the grid detail row the host marks as clipped', () => {
+      const selector = '.grid-event-disclosure .grid-event-detail-clipped';
+      expect(declared(selector, 'display')).toBe('none !important');
     });
 
     it('.event-title does not hardcode a display value', () => {

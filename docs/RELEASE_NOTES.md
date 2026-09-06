@@ -29,6 +29,7 @@ Building grid view meant going over the card's shared machinery closely, and tha
 ### Tap & Hold
 
 - **Every default card fired an action on every tap** - `tap_action` and `hold_action` both default to `none`, but the card dispatched the action to Home Assistant anyway, on every tap, Enter and Space, in every view. Harmless in effect, since `none` asks Home Assistant to do nothing, but it should never have been sent
+- **A card with no actions still looked and focused like a button** - The default card showed a hand cursor and ripple, accepted keyboard focus, and captured every pointer even though neither tap nor hold could do anything. Those affordances now appear only when an action is configured
 - **A second finger stranded a grey disc on the dashboard** - The hold indicator is drawn on the page rather than inside the card, so starting a second touch while one was already held orphaned the first disc permanently. It stayed until the page was reloaded
 - **The hold indicator appeared away from your finger on a scrolled dashboard** - It was positioned without accounting for the page's scroll offset, so the further you had scrolled, the further off it was drawn
 - **The smallest movement cancelled a hold** - Once the indicator had appeared, a slight finger slip ended the gesture, so lifting did nothing. A hold now survives movement after it is established

@@ -294,6 +294,23 @@ describe('host pointer handling', () => {
     expect(handleAction).not.toHaveBeenCalled();
   });
 
+  it('does not capture or track a pointer when both actions are none', async () => {
+    const card = await mount({
+      tap_action: { action: 'none' },
+      hold_action: { action: 'none' },
+    });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+    };
+    const capture = vi.fn();
+    haCard.setPointerCapture = capture;
+
+    dispatchPointer(haCard, 'pointerdown', 41, 20, 20);
+
+    expect(capture).not.toHaveBeenCalled();
+    expect(card._activePointerId).toBeNull();
+  });
+
   it('keeps a small pointer wobble as a tap', async () => {
     const card = await mount({ tap_action: { action: 'expand' } });
 
