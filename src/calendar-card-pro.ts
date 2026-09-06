@@ -284,7 +284,10 @@ class CalendarCardPro extends LitElement {
   private _gridDisclosureObserver: ResizeObserver | null = null;
   private _gridDisclosureRaf: number | null = null;
   /**
-   * Tears down the `document.fonts` listener armed while grid disclosure is active.
+   * Cancels `document.fonts` work armed while grid disclosure is active.
+   *
+   * Drops the `loadingdone` listener and marks the `fonts.ready` callback inactive so a
+   * late promise resolve cannot schedule disclosure after stop.
    */
   private _gridDisclosureFontsCleanup: (() => void) | null = null;
 
