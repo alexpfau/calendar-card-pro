@@ -1067,9 +1067,19 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Cancel a pending card gesture once it becomes a scroll or drag.
+   *
+   * Movement after the hold threshold has already fired does not cancel the
+   * hold: the indicator is the user's confirmation that the long-press landed,
+   * and a few pixels of slip while lifting is normal on touch. Only motion
+   * before that threshold turns the gesture into a drag.
    */
   private _handlePointerMove(ev: PointerEvent) {
-    if (ev.pointerId !== this._activePointerId || this._pointerMoved || !this._pointerStart) {
+    if (
+      ev.pointerId !== this._activePointerId ||
+      this._pointerMoved ||
+      this._holdTriggered ||
+      !this._pointerStart
+    ) {
       return;
     }
 
@@ -1086,7 +1096,6 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = null;
     }
 
-    this._holdTriggered = false;
     if (this._holdIndicator) {
       Feedback.removeHoldIndicator(this._holdIndicator);
       this._holdIndicator = null;

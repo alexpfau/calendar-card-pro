@@ -239,6 +239,25 @@ describe('host pointer handling', () => {
     expect(card._holdTriggered).toBe(false);
     expect(handleAction).not.toHaveBeenCalled();
   });
+
+  it('keeps a hold that already fired when the finger slips on release', async () => {
+    // Hold runs on pointerup, not at the threshold. Movement after the
+    // indicator appears used to set _pointerMoved and clear _holdTriggered,
+    // so a normal touch lift after a successful long-press ran neither hold
+    // nor tap — the user saw the disc and got nothing.
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(9, 100, 100));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+    expect(card._holdIndicator).toBeTruthy();
+
+    card._handlePointerMove(pointer(9, 100, 120));
+    card._handlePointerUp(pointer(9, 100, 120));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
 });
 
 describe('host keyboard handling', () => {
