@@ -1641,6 +1641,37 @@ describe('card stylesheet', () => {
       expect(declared('.grid-banner', 'box-sizing')).toBe('border-box');
     });
 
+    it('rounds a banner end only where the event genuinely starts or ends', () => {
+      // The shape is the claim: a fully rounded end says the event begins or ends inside
+      // the window, and a squared one says it carries on past the edge. The renderer
+      // already emits `continues-before` / `continues-after`; these three rules are what
+      // makes them visible without reading a glyph.
+      expect(declared('.grid-banner', 'border-radius')).toBe('999px');
+      expect(declared('.grid-banner.continues-before', 'border-start-start-radius')).toBe('4px');
+      expect(declared('.grid-banner.continues-before', 'border-end-start-radius')).toBe('4px');
+      expect(declared('.grid-banner.continues-after', 'border-start-end-radius')).toBe('4px');
+      expect(declared('.grid-banner.continues-after', 'border-end-end-radius')).toBe('4px');
+
+      // The half that matters and that four positive assertions cannot state: neither
+      // continuation rule may touch the *other* end. One that squared both would leave the
+      // banner saying nothing — the same shape whichever edge it ran past, and the same
+      // shape as an event that stayed inside the window on that side.
+      const cornersOf = (selector: string) =>
+        new Set(
+          rulesFor(selector)
+            .flatMap((rule) => rule.body.split(';'))
+            .map((decl) => decl.slice(0, decl.indexOf(':')).trim())
+            .filter((prop) => prop.startsWith('border-') && prop.endsWith('-radius')),
+        );
+
+      expect(cornersOf('.grid-banner.continues-before')).toEqual(
+        new Set(['border-start-start-radius', 'border-end-start-radius']),
+      );
+      expect(cornersOf('.grid-banner.continues-after')).toEqual(
+        new Set(['border-start-end-radius', 'border-end-end-radius']),
+      );
+    });
+
     it('uses height container queries for grid event disclosure', () => {
       // This is a stylesheet gate because happy-dom does not evaluate container queries.
       // It does not prove the browser's layout result; paired with `grid-dom.test.ts`, it

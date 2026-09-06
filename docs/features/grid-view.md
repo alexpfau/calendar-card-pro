@@ -184,7 +184,9 @@ time_grid:
 
 A banner for an event that starts before the first column or ends after the last one
 carries a small arrow on that side, so a week-long holiday reads as continuing rather
-than as ending exactly at the card's edge.
+than as ending exactly at the card's edge. The shape says the same thing before you look
+for the arrow: an end where the event genuinely starts or finishes is rounded into a
+full pill, and an end that runs past the card's edge is squared back off.
 
 All-day banners are title-only. They still use the calendar accent, background opacity and
 past-event dimming, but they do not draw event detail rows: time badges, location,

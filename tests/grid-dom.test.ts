@@ -819,6 +819,29 @@ describe('all-day events go in the band, not the body', () => {
     const banner = container.querySelector('.grid-banner')!;
 
     expect(banner.classList.contains('continues-after')).toBe(true);
+    // The other end terminates inside the window, so it must not be marked. The stylesheet
+    // rounds an unmarked end fully and squares a marked one, so a banner carrying both
+    // classes says nothing about where it starts or ends.
+    expect(banner.classList.contains('continues-before')).toBe(false);
+  });
+
+  it('marks a banner that began before the first column, and only that end', () => {
+    // The default window opens on the frozen today, so an event starting three days
+    // earlier is clipped at the leading edge and terminates inside it.
+    const container = renderGrid([allDay('2026-06-14', '2026-06-19', 'Long trip')]);
+    const banner = container.querySelector('.grid-banner')!;
+
+    expect(banner.classList.contains('continues-before')).toBe(true);
+    expect(banner.classList.contains('continues-after')).toBe(false);
+  });
+
+  it('marks neither end of a banner that starts and ends on screen', () => {
+    const banner = renderGrid([allDay('2026-06-18', '2026-06-20', 'Workshop')]).querySelector(
+      '.grid-banner',
+    )!;
+
+    expect(banner.classList.contains('continues-before')).toBe(false);
+    expect(banner.classList.contains('continues-after')).toBe(false);
   });
 
   it('stacks two overlapping banners onto separate rows', () => {

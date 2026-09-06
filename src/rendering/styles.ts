@@ -2055,9 +2055,31 @@ export const cardStyles = css`
     box-sizing: border-box;
     min-width: 0;
     padding: 1px 6px;
-    border-radius: 4px;
+    /* A pill, and the ends are load-bearing rather than decoration: a fully rounded end
+       is what says the event genuinely starts or ends there. The two continuation rules
+       below square an end back off to the block radius wherever it does not, so the
+       shape carries the same claim the arrow marks do — readable at a glance, before
+       anyone looks for a glyph. Clamped to half the height by the browser, so the value
+       only has to be larger than any banner can be tall.
+
+       The leading accent edge follows the curve into a crescent at a rounded start. That
+       is the coherent reading: the edge belongs to the banner, so it ends where the
+       banner does, and a straight bar against a round cap would look like two shapes. */
+    border-radius: 999px;
     border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
     font-size: var(--calendar-card-font-size-event);
+  }
+
+  /* Squared back off where the event carries on past the window edge. Logical corners,
+     so the squared end follows the text direction the same way the marks below do. */
+  .grid-banner.continues-before {
+    border-start-start-radius: 4px;
+    border-end-start-radius: 4px;
+  }
+
+  .grid-banner.continues-after {
+    border-start-end-radius: 4px;
+    border-end-end-radius: 4px;
   }
 
   .grid-banner-title {
