@@ -930,12 +930,14 @@ the second and leave every later one blank. So `compact_events_to_show`,
 `compact_days_to_show` and `compact_events_complete_days` — including the per-calendar
 `compact_events_to_show` below — are read in list view and ignored in column and grid view.
 
-They are not errors and they need not be removed: a card set to `view: column` renders as a
-list whenever it is too narrow for columns, and they all apply again the moment it does. To
-control how much a column view shows, use
+They are not errors and they need not be removed: a card set to `view: column` or
+`view: grid` renders as a list whenever it is too narrow for even `min_days_to_show` under
+the default `min_days_fallback: list`, and they all apply again the moment it does. To
+control how much a side-by-side view shows while it stays side-by-side, use
 [`min_days_to_show` and `min_days_fallback`](/features/column-view#showing-fewer-columns-instead)
-instead. Grid view never falls back to list on a narrow screen; use its
-[`time_grid` day-width and height options](/features/grid-view) rather than compact caps.
+for column view, or the matching
+[`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) for grid, rather
+than compact caps.
 :::
 
 ### Entity-Level vs. Global Event Limits

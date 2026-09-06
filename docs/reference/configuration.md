@@ -96,8 +96,9 @@ narrow dashboard, so they are annotated rather than removed.
 
 Compact caps empty later day columns rather than shortening the card, and the grid already
 segments multi-day events itself — all-day as one spanning banner, timed as one block per
-day — so the list splitter is not used. Unlike column view, grid does not fall back to list
-on a narrow dashboard; these keys stay inert while `view: grid`.
+day — so the list splitter is not used. These keys stay inert while the card is rendering as
+a grid; when the default `min_days_fallback: list` drops it to the list layout below
+`min_days_to_show`, they apply again just as they do for column view.
 
 **→ [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view)** — why each one.
 

@@ -22,7 +22,7 @@ The whole compact family is inert in column and grid view — `compact_events_to
 
 This is deliberate rather than an omission. Compact mode caps events **across the card**, not per day, so a limit of three would fill the first day columns and leave every later one empty — the layout would stop corresponding to consecutive days, which is the one thing a side-by-side view has to get right.
 
-Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events. Grid density is controlled by `time_grid` day-width and height options rather than by compact caps.
+Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events. Grid density is controlled by [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) the same way — including the default `min_days_fallback: list`, which does switch a too-narrow grid card to the list layout, where compact caps apply again.
 :::
 
 When using expansion with both global and per-calendar limits:
