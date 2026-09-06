@@ -97,6 +97,22 @@ describe('the timer is released', () => {
     expect(element._nowLineTimerId).toBeNull();
   });
 
+  // Lit does not cancel an update scheduled before the element left the document, so
+  // `updated()` can still call `_syncNowLineTimer` after `disconnectedCallback` stopped
+  // the interval. Without an `isConnected` guard that path re-opens the timer on a
+  // detached card — the same leak shape `_syncEntityColors` already guards against.
+  it('does not restart the timer when sync runs after disconnect', async () => {
+    const element = await mounted({ view: 'grid' });
+    expect(element._nowLineTimerId).not.toBeNull();
+
+    element.remove();
+    expect(element._nowLineTimerId).toBeNull();
+
+    element._syncNowLineTimer();
+
+    expect(element._nowLineTimerId, 'updated() after detach must not re-arm the line').toBeNull();
+  });
+
   it('stops while the tab is hidden and restarts when it returns', async () => {
     const element = await mounted({ view: 'grid' });
     const visibility = vi.spyOn(document, 'visibilityState', 'get');

@@ -571,9 +571,14 @@ class CalendarCardPro extends LitElement {
    * Called from `updated()` rather than `connectedCallback`, because the view can change
    * after connection — a width fallback or an edit to `view` both flip it — and a timer
    * acquired once at connection would either never start or never stop.
+   *
+   * 🚨 The `isConnected` guard matches `_syncEntityColors`: Lit can still run `updated()`
+   * after `disconnectedCallback` stopped the interval, and re-arming here would leave a
+   * detached card ticking `requestUpdate` / `updateEvents` with nothing to tear it down
+   * again until the element is reattached.
    */
   private _syncNowLineTimer(): void {
-    if (!this._wantsNowLine || document.visibilityState === 'hidden') {
+    if (!this.isConnected || !this._wantsNowLine || document.visibilityState === 'hidden') {
       this._stopNowLineTimer();
       return;
     }
