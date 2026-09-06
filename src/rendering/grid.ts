@@ -265,6 +265,14 @@ function renderGridSeparator(
  * deriving it keeps that proportion at any width the user picks instead of stranding a
  * second length beside the first.
  *
+ * The multiple is **two**, and it dropped from three when the base width doubled. Three
+ * was chosen against a `0.5px` base, where it bought a 1.5px rule; against `1px` it buys
+ * 3px, which stops reading as a heavier line and starts reading as a bar — and it grows
+ * badly, since a user picking `2px` would get 6px. Two is the smallest multiple that
+ * still reads as heavier at every base: it lands on 2px here, and an integer multiple of
+ * a whole-pixel base is itself a whole pixel, where 1.5 would have put the emphasis rule
+ * back on the half-pixel raster the rest of this change is getting off.
+ *
  * `align-self: start` and an explicit height keep them on the boundary and out of the row
  * sizing, so turning them on cannot change how tall the band or the axis is.
  *
@@ -814,7 +822,7 @@ export function renderGridGroupedEvents(
   const bandBoundaries = framed
     ? [
         ...(bandRows > 0 ? [renderGridBoundary('band-top', ruleWidth, ruleColor)] : []),
-        renderGridBoundary('band-bottom', ViewConfig.scaleLength(ruleWidth, 3), ruleColor),
+        renderGridBoundary('band-bottom', ViewConfig.scaleLength(ruleWidth, 2), ruleColor),
       ]
     : [];
 

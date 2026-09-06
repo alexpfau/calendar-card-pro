@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { TIME_GRID_DEFAULT_OVERRIDES } from '../src/config/view';
 import { cardStyles } from '../src/rendering/styles';
 import * as Helpers from '../src/utils/helpers';
 
@@ -1670,6 +1671,29 @@ describe('card stylesheet', () => {
       // ...and the tint and the hour lines sit below everything by carrying neither.
       expect(declared('.grid-weekend', 'z-index')).toBe('');
       expect(declared('.grid-rules', 'z-index')).toBe('');
+    });
+
+    it('draws the hour rules at the same ink as the day rules, not half of it', () => {
+      // The two families are one system in the reader's eye, so they have to match, and
+      // matching them is a claim about two files: the width and colour of a vertical rule
+      // come from TIME_GRID_DEFAULT_OVERRIDES and the horizontal ones are painted here.
+      //
+      // They were matched from the other end until v5.2 — 1px at half strength against a
+      // 0.5px rule at full — which is an equality that survives only while the vertical is
+      // a sub-pixel. Widening it to 1px and leaving this alone leaves every day rule twice
+      // the ink of every hour rule.
+      //
+      // Positive first, so the absence below is evidence: the gradients have to name the
+      // divider token at all, and both rules have to be one pixel of it.
+      const rules = RULES.find((rule) => rule.selectors.includes('.grid-rules'));
+
+      expect(rules).toBeDefined();
+      expect(rules?.body.match(/var\(--divider-color\)/g)).toHaveLength(2);
+      expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_color).toBe('var(--divider-color)');
+      expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_width).toBe('1px');
+
+      // ...and only then: nothing may dim one side of the pair.
+      expect(declared('.grid-rules', 'opacity')).toBe('');
     });
 
     it('clears the rule above the all-day band so a banner does not sit on it', () => {

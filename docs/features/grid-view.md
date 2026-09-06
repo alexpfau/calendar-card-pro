@@ -128,9 +128,11 @@ time_grid:
 
 Grid view turns day separators on by default, because a shared time axis needs visible day
 columns to read clearly. Both halves of that rule start from a grid default rather than
-from the card-level value: a `0.5px` hairline in `var(--divider-color)`, the same gray the
-horizontal hour rules are drawn in, so the paper reads as one grid rather than as a table
-of boxes. Set either inside `time_grid:` to change it — a card-level `day_separator_color`
+from the card-level value: `1px` in `var(--divider-color)`, the same gray and the same
+width the horizontal hour rules are drawn in, so the paper reads as one grid rather than
+as a table of boxes. Every rule in a grid is one pixel — the vertical ones between day
+columns, the hour rules, and the line under the date row — and only the line under the
+all-day band is heavier. Set either inside `time_grid:` to change it — a card-level `day_separator_color`
 belongs to the list and column layouts and is left there.
 
 `day_separator_width` and `day_separator_color` draw the grid's whole frame, not only its
@@ -141,7 +143,7 @@ vertical rules:
   reads as one thing.
 - **Under the date row**, as one unbroken line across the full width of the card, the hour
   gutter included.
-- **Under the all-day band**, at three times the width, because that boundary separates two
+- **Under the all-day band**, at twice the width, because that boundary separates two
   different kinds of row rather than two days. It is derived from `day_separator_width`
   rather than configured on its own, so the proportion holds at whatever width you set.
 
@@ -349,7 +351,7 @@ column is what grid view uses; **Instead of** is the top-level default it replac
 | `event_background_opacity` | number  | `20`                   | `0`                           |
 | `show_empty_days`          | boolean | `true`                 | `false`                       |
 | `show_past_events`         | boolean | `true`                 | `false`                       |
-| `day_separator_width`      | string  | `0.5px`                | `0px`                         |
+| `day_separator_width`      | string  | `1px`                  | `0px`                         |
 | `day_separator_color`      | string  | `var(--divider-color)` | `var(--secondary-text-color)` |
 | `day_spacing`              | string  | `2px`                  | `10px`                        |
 | `event_font_size`          | string  | `12px`                 | `14px`                        |

@@ -988,9 +988,9 @@ describe('separators between grid days', () => {
   }
 
   it.each([
-    ['defaults', {}, 29, 0, 0, '0.5px'],
-    ['card-level day width 3px', { day_separator_width: '3px' }, 29, 0, 0, '0.5px'],
-    ['card-level day width 0px', { day_separator_width: '0px' }, 29, 0, 0, '0.5px'],
+    ['defaults', {}, 29, 0, 0, '1px'],
+    ['card-level day width 3px', { day_separator_width: '3px' }, 29, 0, 0, '1px'],
+    ['card-level day width 0px', { day_separator_width: '0px' }, 29, 0, 0, '1px'],
     ['week width 4px', { week_separator_width: '4px' }, 25, 4, 0, '4px'],
     ['month width 5px', { month_separator_width: '5px' }, 28, 0, 1, '5px'],
   ] as const)(
@@ -1014,12 +1014,14 @@ describe('separators between grid days', () => {
     const container = renderGrid(EVENTS, spanConfig());
     const rules = separators(container);
 
-    // Grid view overrides `day_separator_width` to a 0.5px hairline, unlike list and
-    // column view, because a time grid with no vertical rulings leaves the shared axis
-    // visually detached from its day columns.
+    // Grid view overrides `day_separator_width` to 1px, unlike list and column view,
+    // because a time grid with no vertical rulings leaves the shared axis visually
+    // detached from its day columns. One pixel rather than the 0.5px hairline it shipped
+    // as: a sub-pixel rule lands differently on every device ratio, and the whole grid is
+    // now one width so the frame reads as one system rather than as three weights.
     expect(rules).toHaveLength(14);
     expect(rules.every((rule) => rule.classList.contains('grid-separator-day'))).toBe(true);
-    expect(new Set(rules.map((rule) => rule.style.width))).toEqual(new Set(['0.5px']));
+    expect(new Set(rules.map((rule) => rule.style.width))).toEqual(new Set(['1px']));
   });
 
   it('uses the existing day separator options for grid rules', () => {
@@ -1095,7 +1097,7 @@ describe('separators between grid days', () => {
     expect(rules.length).toBeGreaterThan(0);
     expect(rules[0].style.gridColumn).toBe('3');
     expect(rules[0].style.gridRow).toBe('3 / span 2');
-    expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 0.5px))');
+    expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 1px))');
   });
 
   it('runs the weekend tint from under the date row through the band and the grid', () => {
@@ -1164,13 +1166,13 @@ describe('separators between grid days', () => {
   });
 
   it('starts from a gutter that lets a block meet its day rule', () => {
-    // The whole rule sits inside the gutter at the default: centered at 1px from the
-    // boundary with a 0.5px width, so it spans 0.75px to 1.25px and touches neither
-    // column. At `0px` it would straddle the boundary instead, and it paints above the
-    // day bodies.
+    // The whole rule sits inside the gutter at the default: centered on the boundary
+    // with a 1px width in a 2px gap, so it spans 0.5px to 1.5px of that gap and touches
+    // neither column. At `0px` it would straddle the boundary instead, and it paints
+    // above the day bodies.
     const rule = separators(renderGrid(EVENTS, spanConfig()))[0];
 
-    expect(rule.style.marginInlineStart).toBe('calc(-0.5 * (2px + 0.5px))');
+    expect(rule.style.marginInlineStart).toBe('calc(-0.5 * (2px + 1px))');
     expect(
       requireElement<HTMLElement>(renderGrid(EVENTS, spanConfig()), '.grid-container').style
         .columnGap,
@@ -1235,9 +1237,11 @@ describe('separators between grid days', () => {
     expect(bottom.style.gridRow).toBe('4');
 
     // Same option as the vertical rules, and the lower one derived from it rather than
-    // configured separately, so one width governs the whole frame.
-    expect(top.style.height).toBe('0.5px');
-    expect(bottom.style.height).toBe('1.5px');
+    // configured separately, so one width governs the whole frame. Twice, not three
+    // times: the multiple dropped when the base doubled to 1px, where 3x reads as a bar
+    // rather than as a heavier line and scales to 6px the moment a user asks for 2px.
+    expect(top.style.height).toBe('1px');
+    expect(bottom.style.height).toBe('2px');
     expect(top.style.backgroundColor).toBe('var(--divider-color)');
     expect(bottom.style.backgroundColor).toBe('var(--divider-color)');
   });
@@ -1249,7 +1253,7 @@ describe('separators between grid days', () => {
 
     expect(requireElement<HTMLElement>(framed, '.grid-boundary-band-top').style.height).toBe('2px');
     expect(requireElement<HTMLElement>(framed, '.grid-boundary-band-bottom').style.height).toBe(
-      '6px',
+      '4px',
     );
     expect(
       requireElement<HTMLElement>(framed, '.grid-boundary-band-top').style.backgroundColor,

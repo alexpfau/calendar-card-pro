@@ -677,11 +677,16 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * them to the same token the horizontal rules already use. Ruled paper wants one gray,
  * and the top-level `var(--secondary-text-color)` is a text hue: it drew the verticals
  * far heavier than the horizontals, which read as a table of boxes rather than as a
- * grid. The two now carry identical ink — `.grid-rules` paints 1px of
- * `var(--divider-color)` at `opacity: 0.5`, and a rule paints 0.5px of it at full
- * strength. Note this is a divergent default, so a top-level color no longer reaches
- * grid; that is already true of the width beside it, and the pair now behaves alike
- * rather than applying a card-wide color to a width the card level never asked for.
+ * grid. The two now carry identical ink at identical width — both are `1px` of
+ * `var(--divider-color)` at full strength, which is what `.grid-rules` dropping its
+ * `opacity: 0.5` bought. The pair was matched before at `0.5px` against `1px` of the same
+ * colour at half strength, and that equality only survived while the vertical stayed a
+ * sub-pixel: widening it to `1px` without also lifting the horizontals would have made
+ * every day rule twice the ink of every hour rule, which is the table-of-boxes fault
+ * above arriving from the other direction. Note this is a divergent default, so a
+ * top-level color no longer reaches grid; that is already true of the width beside it,
+ * and the pair now behaves alike rather than applying a card-wide color to a width the
+ * card level never asked for.
  * `progress_bar_width` fills the block:
  * column view draws the bar at 80% of a row that has no boundary of its own, where a full
  * width would read as an underline, while a grid block is a tinted box with an edge — so
@@ -719,7 +724,7 @@ export const COLUMN_DEFAULT_OVERRIDES: {
 export const TIME_GRID_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.TimeGridOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
-  day_separator_width: '0.5px',
+  day_separator_width: '1px',
   day_separator_color: 'var(--divider-color)',
   day_spacing: '2px',
   description_color: EntityColors.ACCENT_TEXT_SENTINEL,

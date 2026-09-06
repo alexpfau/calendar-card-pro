@@ -397,7 +397,7 @@ describe('resolveEffectiveConfig', () => {
       // point. `docs/features/grid-view.md` carries the same set as a table a reader can
       // see, and `check:docs` reconciles the count of it against this one.
       expect({ ...TIME_GRID_DEFAULT_OVERRIDES }).toEqual({
-        day_separator_width: '0.5px',
+        day_separator_width: '1px',
         day_separator_color: 'var(--divider-color)',
         day_spacing: '2px',
         description_color: 'accent',

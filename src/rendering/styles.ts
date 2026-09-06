@@ -2083,7 +2083,16 @@ export const cardStyles = css`
      resolution would otherwise cost several hundred empty divs. Each pattern starts at
      the next clock boundary rather than at the configured band edge, so a 06:30 band
      still rules whole hours at 07:00, 08:00 and onward. The hour rule is drawn second so
-     it wins where the two coincide. */
+     it wins where the two coincide.
+
+     🚨 No opacity here, and its absence is load-bearing. These lines and the vertical day
+     rules are one system in the reader's eye, so they have to carry the same ink, and the
+     day rule is a user-facing color option that cannot be quietly halved. It used to be
+     matched from the other end — this painted 1px at half strength against a 0.5px rule at
+     full — and that equality held only while the vertical was a sub-pixel. Both are 1px of
+     var(--divider-color) at full strength now. Putting the opacity back leaves the day
+     rules twice the ink of the hour rules, which is the exact table-of-boxes reading the
+     divergent day_separator_color default was introduced to remove. */
   .grid-rules {
     background-image:
       repeating-linear-gradient(
@@ -2100,7 +2109,6 @@ export const cardStyles = css`
         transparent calc(var(--calendar-card-grid-hour-offset) + 1px)
           calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-hour-pct))
       );
-    opacity: 0.5;
     pointer-events: none;
   }
 
