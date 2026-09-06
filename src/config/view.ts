@@ -332,8 +332,10 @@ export const COLUMN_DEFAULTS = {
  * Defaults for grid-only options.
  *
  * `07:00`–`22:00` covers a domestic day without wasting a third of the axis on hours
- * nothing is scheduled in; the band is scrollable, so the bound is about where the card
- * *opens*, not what it can reach.
+ * nothing is scheduled in. Those times are hard draw bounds for the timed axis:
+ * events entirely outside are not drawn, partial overlaps are clipped, and a fixed
+ * `height` compresses this same band rather than scrolling hours past the bounds
+ * (the all-day band is what scrolls under a fixed height).
  *
  * `hour_height` is a CSS length rather than a number so it can be given in `em` and
  * track the font, and so `calc()` works. It sets the intrinsic height only — under
