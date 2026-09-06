@@ -46,6 +46,7 @@ interface CardUnderTest extends HTMLElement {
   _handlePointerCancel(ev: PointerEvent): void;
   _handleKeyDown(ev: KeyboardEvent): void;
   _holdTriggered: boolean;
+  _holdIndicator: HTMLElement | null;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -128,6 +129,35 @@ describe('host pointer handling', () => {
     handleAction.mockClear();
     card._handlePointerUp(pointer(1));
     expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('does not leave a hold indicator behind when a second finger takes over after hold', async () => {
+    // createHoldIndicator appends straight to document.body. A second pointerdown after
+    // the first hold has already drawn its disc used to overwrite the card's reference
+    // without removing the first node, so the disc stayed on the page forever.
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(11));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    const first = card._holdIndicator;
+    expect(first).toBeTruthy();
+    expect(first!.parentNode).toBe(document.body);
+
+    card._handlePointerDown(pointer(12));
+    // The card drops the reference immediately; the fadeout then unmounts the node.
+    expect(card._holdIndicator).toBeNull();
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_INDICATOR_FADEOUT + 10);
+    expect(first!.parentNode).toBeNull();
+
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    const second = card._holdIndicator;
+    expect(second).toBeTruthy();
+    expect(second).not.toBe(first);
+    expect(first!.parentNode).toBeNull();
+
+    card._handlePointerUp(pointer(12));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_INDICATOR_FADEOUT + 10);
+    expect(second!.parentNode).toBeNull();
   });
 
   it('does not cancel the active pointer when a different finger is canceled', async () => {

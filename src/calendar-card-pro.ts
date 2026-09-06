@@ -1030,6 +1030,15 @@ class CalendarCardPro extends LitElement {
     this._pointerMoved = false;
     this._holdTriggered = false;
 
+    // A second finger can land after the first hold already painted its indicator. The
+    // previous gesture's timer is replaced below, but the body-level disc is not unless
+    // we clear it here — createHoldIndicator always appends a fresh node, so leaving the
+    // old reference in place orphans the first disc on document.body forever.
+    if (this._holdIndicator) {
+      Feedback.removeHoldIndicator(this._holdIndicator);
+      this._holdIndicator = null;
+    }
+
     // Both operands are load-bearing, and the second alone was the defect: optional
     // chaining makes `null?.action !== 'none'` true, so a bare `hold_action:` in YAML —
     // which the user wrote to mean "nothing on hold" — armed the timer and drew a hold
@@ -1044,6 +1053,11 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = window.setTimeout(() => {
         if (this._activePointerId === ev.pointerId) {
           this._holdTriggered = true;
+
+          if (this._holdIndicator) {
+            Feedback.removeHoldIndicator(this._holdIndicator);
+            this._holdIndicator = null;
+          }
 
           this._holdIndicator = Feedback.createHoldIndicator(ev, this.config);
         }
