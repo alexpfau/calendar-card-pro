@@ -208,8 +208,10 @@ narrow; lower it to keep blocks readable.
 
 Short blocks use progressive disclosure so clipped text does not look broken. A title shows
 once a full text row fits, time appears once the block can hold a full title row plus a full
-time row, and location waits until there is room for another detail line. With the default
-unlimited title lines, long titles wrap until the block clips at the bottom. Set
+time row, and location waits until there is room for another detail line. If your theme or
+`event_font_size` makes a disclosed detail row taller than its block, the card hides the
+optional detail rows rather than showing one partly clipped. With the default unlimited title
+lines, long titles wrap until the block clips at the bottom. Set
 `title_max_lines` above `0` when you want the title itself to stop after a fixed number of
 lines.
 
@@ -220,8 +222,7 @@ its own row under the title, while countdowns trail the time text.
 
 ::: tip Keep Detail Rows Short
 Grid blocks have less room than list rows. If you show time, location and description in
-the grid, cap the optional detail rows to one or two lines so the title stays readable and
-overflow falls off the bottom of the block:
+the grid, cap the optional detail rows to one or two lines so the title stays readable:
 
 ```yaml
 show_location: true

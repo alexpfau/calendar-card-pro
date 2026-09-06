@@ -28,6 +28,7 @@ import * as Render from '../src/rendering/render';
 const noopHandlers = {
   keyDown: () => {},
   pointerDown: () => {},
+  pointerMove: () => {},
   pointerUp: () => {},
   pointerCancel: () => {},
   pointerLeave: () => {},

@@ -2092,6 +2092,17 @@ export const cardStyles = css`
     display: none;
   }
 
+  /* Container-query rungs are calibrated for the default typography. A theme or an explicit
+     event_font_size can make a disclosed row taller than the rung that revealed it; the host
+     measures that actual overflow and adds this class so no detail row is shown half-clipped. */
+  .grid-event.grid-event-content-clipped .time,
+  .grid-event.grid-event-content-clipped .location,
+  .grid-event.grid-event-content-clipped .description,
+  .grid-event.grid-event-content-clipped .event-weather,
+  .grid-event.grid-event-content-clipped .progress-bar-row {
+    display: none;
+  }
+
   @container calendar-card-grid-event (min-height: 19px) {
     .grid-event-disclosure .summary-row {
       display: flex;

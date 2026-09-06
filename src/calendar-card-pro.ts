@@ -105,6 +105,18 @@ export function adoptEditorComponent(module: unknown, tagName: string): void {
   }
 }
 
+/**
+ * Whether rendered event content exceeds its available height by more than rounding noise.
+ *
+ * @param content - The event content whose rendered dimensions to compare
+ * @returns Whether a disclosed detail row is clipped
+ */
+export function gridContentOverflows(
+  content: Pick<HTMLElement, 'clientHeight' | 'scrollHeight'>,
+): boolean {
+  return content.scrollHeight > content.clientHeight + 1;
+}
+
 //-----------------------------------------------------------------------------
 // MAIN COMPONENT CLASS
 //-----------------------------------------------------------------------------
@@ -235,6 +247,8 @@ class CalendarCardPro extends LitElement {
   };
 
   private _activePointerId: number | null = null;
+  private _pointerStart: { x: number; y: number } | null = null;
+  private _pointerMoved = false;
   private _holdTriggered = false;
   private _holdTimer: number | null = null;
   private _holdIndicator: HTMLElement | null = null;
@@ -252,6 +266,8 @@ class CalendarCardPro extends LitElement {
   private _columnCount = 0;
 
   private _resizeObserver: ResizeObserver | null = null;
+  private _gridDisclosureObserver: ResizeObserver | null = null;
+  private _gridDisclosureRaf: number | null = null;
 
   /**
    * Repaint timer for the grid's now line, and the local day it last painted.
@@ -444,6 +460,7 @@ class CalendarCardPro extends LitElement {
     super.disconnectedCallback();
 
     this._stopWidthObserver();
+    this._stopGridDisclosureObserver();
 
     this._weatherSetupVersion++;
     this._weatherSetupPending = false;
@@ -606,6 +623,83 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Stops observing the dimensions of rendered grid event blocks.
+   */
+  private _stopGridDisclosureObserver(): void {
+    this._gridDisclosureObserver?.disconnect();
+    this._gridDisclosureObserver = null;
+
+    if (this._gridDisclosureRaf !== null) {
+      cancelAnimationFrame(this._gridDisclosureRaf);
+      this._gridDisclosureRaf = null;
+    }
+  }
+
+  /**
+   * Hides optional grid details when their disclosed rows cannot fit.
+   *
+   * Container queries make the usual case cheap, but their fixed pixel rungs cannot account
+   * for a theme or configuration that enlarges text. Keep the title visible and withdraw the
+   * optional rows rather than clipping part of one.
+   */
+  private _applyGridDisclosureSafety(): void {
+    for (const block of this.renderRoot.querySelectorAll<HTMLElement>(
+      '.grid-event:not(.grid-event-overflow)',
+    )) {
+      block.classList.remove('grid-event-content-clipped');
+      const content = block.querySelector<HTMLElement>('.grid-event-disclosure .event-content');
+
+      if (
+        content &&
+        gridContentOverflows(content) &&
+        content.querySelector('.time, .location, .description, .event-weather, .progress-bar-row')
+      ) {
+        block.classList.add('grid-event-content-clipped');
+      }
+    }
+  }
+
+  /**
+   * Reconciles the disclosure safety fallback after layout has settled.
+   */
+  private _scheduleGridDisclosureSafety(): void {
+    if (this._gridDisclosureRaf !== null) {
+      cancelAnimationFrame(this._gridDisclosureRaf);
+    }
+
+    this._gridDisclosureRaf = requestAnimationFrame(() => {
+      this._gridDisclosureRaf = null;
+      this._applyGridDisclosureSafety();
+    });
+  }
+
+  /**
+   * Observes timed grid blocks because their height changes independently of the card width.
+   */
+  private _syncGridDisclosureSafety(): void {
+    this._stopGridDisclosureObserver();
+
+    if (
+      !this.isConnected ||
+      this.effectiveView !== 'grid' ||
+      typeof ResizeObserver === 'undefined'
+    ) {
+      return;
+    }
+
+    const blocks = this.renderRoot.querySelectorAll<HTMLElement>(
+      '.grid-event:not(.grid-event-overflow)',
+    );
+    if (!blocks.length) {
+      return;
+    }
+
+    this._gridDisclosureObserver = new ResizeObserver(() => this._scheduleGridDisclosureSafety());
+    blocks.forEach((block) => this._gridDisclosureObserver?.observe(block));
+    this._scheduleGridDisclosureSafety();
+  }
+
+  /**
    * Records a new width and re-renders if it changes the layout.
    *
    * @param widthPx - Measured content width in CSS pixels
@@ -640,6 +734,7 @@ class CalendarCardPro extends LitElement {
     // connection — a width fallback or an edit to `view` both flip it — so a timer taken
     // in `connectedCallback` would either never start or never stop.
     this._syncNowLineTimer();
+    this._syncGridDisclosureSafety();
 
     if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
       this.updateEvents(true);
@@ -931,6 +1026,8 @@ class CalendarCardPro extends LitElement {
    */
   private _handlePointerDown(ev: PointerEvent) {
     this._activePointerId = ev.pointerId;
+    this._pointerStart = { x: ev.clientX, y: ev.clientY };
+    this._pointerMoved = false;
     this._holdTriggered = false;
 
     // Both operands are load-bearing, and the second alone was the defect: optional
@@ -955,6 +1052,34 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
+   * Cancel a pending card gesture once it becomes a scroll or drag.
+   */
+  private _handlePointerMove(ev: PointerEvent) {
+    if (ev.pointerId !== this._activePointerId || this._pointerMoved || !this._pointerStart) {
+      return;
+    }
+
+    const deltaX = ev.clientX - this._pointerStart.x;
+    const deltaY = ev.clientY - this._pointerStart.y;
+    if (Math.hypot(deltaX, deltaY) <= Constants.UI.POINTER_MOVE_TOLERANCE) {
+      return;
+    }
+
+    this._pointerMoved = true;
+
+    if (this._holdTimer) {
+      clearTimeout(this._holdTimer);
+      this._holdTimer = null;
+    }
+
+    this._holdTriggered = false;
+    if (this._holdIndicator) {
+      Feedback.removeHoldIndicator(this._holdIndicator);
+      this._holdIndicator = null;
+    }
+  }
+
+  /**
    * Handle pointer up events to execute actions
    */
   private _handlePointerUp(ev: PointerEvent) {
@@ -965,15 +1090,17 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = null;
     }
 
-    if (this._holdTriggered && this.config.hold_action) {
+    if (!this._pointerMoved && this._holdTriggered && this.config.hold_action) {
       Logger.debug('Executing hold action');
       Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
-    } else if (!this._holdTriggered && this.config.tap_action) {
+    } else if (!this._pointerMoved && !this._holdTriggered && this.config.tap_action) {
       Logger.debug('Executing tap action');
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
 
     this._activePointerId = null;
+    this._pointerStart = null;
+    this._pointerMoved = false;
     this._holdTriggered = false;
 
     if (this._holdIndicator) {
@@ -985,13 +1112,19 @@ class CalendarCardPro extends LitElement {
   /**
    * Handle pointer cancel/leave events to clean up
    */
-  private _handlePointerCancel() {
+  private _handlePointerCancel(ev: PointerEvent) {
+    if (ev.pointerId !== this._activePointerId) {
+      return;
+    }
+
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);
       this._holdTimer = null;
     }
 
     this._activePointerId = null;
+    this._pointerStart = null;
+    this._pointerMoved = false;
     this._holdTriggered = false;
 
     if (this._holdIndicator) {
@@ -1245,9 +1378,10 @@ class CalendarCardPro extends LitElement {
     const handlers = {
       keyDown: (ev: KeyboardEvent) => this._handleKeyDown(ev),
       pointerDown: (ev: PointerEvent) => this._handlePointerDown(ev),
+      pointerMove: (ev: PointerEvent) => this._handlePointerMove(ev),
       pointerUp: (ev: PointerEvent) => this._handlePointerUp(ev),
-      pointerCancel: () => this._handlePointerCancel(),
-      pointerLeave: () => this._handlePointerCancel(),
+      pointerCancel: (ev: PointerEvent) => this._handlePointerCancel(ev),
+      pointerLeave: (ev: PointerEvent) => this._handlePointerCancel(ev),
     };
 
     let content: TemplateResult;

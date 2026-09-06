@@ -41,15 +41,34 @@ interface CardUnderTest extends HTMLElement {
   isInitialLoad: boolean;
   handleAction(actionConfig: unknown): void;
   _handlePointerDown(ev: PointerEvent): void;
+  _handlePointerMove(ev: PointerEvent): void;
   _handlePointerUp(ev: PointerEvent): void;
+  _handlePointerCancel(ev: PointerEvent): void;
   _handleKeyDown(ev: KeyboardEvent): void;
   _holdTriggered: boolean;
   readonly updateComplete: Promise<boolean>;
 }
 
 /** A minimal stand-in for a real PointerEvent, which happy-dom does not construct. */
-function pointer(pointerId: number): PointerEvent {
-  return { pointerId, clientX: 0, clientY: 0 } as PointerEvent;
+function pointer(pointerId: number, clientX = 0, clientY = 0): PointerEvent {
+  return { pointerId, clientX, clientY } as PointerEvent;
+}
+
+/** Dispatch a bubbling pointer event with the fields the host reads. */
+function dispatchPointer(
+  target: EventTarget,
+  type: string,
+  pointerId: number,
+  clientX: number,
+  clientY: number,
+): void {
+  const event = new Event(type, { bubbles: true });
+  Object.defineProperties(event, {
+    pointerId: { value: pointerId },
+    clientX: { value: clientX },
+    clientY: { value: clientY },
+  });
+  target.dispatchEvent(event);
 }
 
 async function mount(overrides: Record<string, unknown> = {}): Promise<CardUnderTest> {
@@ -111,6 +130,19 @@ describe('host pointer handling', () => {
     expect(handleAction).not.toHaveBeenCalled();
   });
 
+  it('does not cancel the active pointer when a different finger is canceled', async () => {
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(1));
+    card._handlePointerDown(pointer(2));
+    card._handlePointerCancel(pointer(1));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    card._handlePointerUp(pointer(2));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
   it('runs the hold action when the active pointer is released after a hold', async () => {
     const card = await mount({ hold_action: { action: 'expand' } });
 
@@ -131,6 +163,51 @@ describe('host pointer handling', () => {
 
     expect(handleAction).toHaveBeenCalledTimes(1);
     expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
+
+  it('keeps a small pointer wobble as a tap', async () => {
+    const card = await mount({ tap_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(5, 100, 100));
+    card._handlePointerMove(pointer(5, 104, 103));
+    card._handlePointerUp(pointer(5, 104, 103));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
+
+  it('does not turn a scroll or drag into a tap action', async () => {
+    const card = await mount({ tap_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(6, 100, 100));
+    card._handlePointerMove(pointer(6, 109, 100));
+    card._handlePointerUp(pointer(6, 109, 100));
+
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('listens for pointer movement on the rendered card host', async () => {
+    const card = await mount({ tap_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card');
+    expect(haCard).toBeTruthy();
+
+    dispatchPointer(haCard!, 'pointerdown', 7, 100, 100);
+    dispatchPointer(haCard!, 'pointermove', 7, 109, 100);
+    dispatchPointer(haCard!, 'pointerup', 7, 109, 100);
+
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('does not turn a moved long press into a hold action', async () => {
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(8, 100, 100));
+    card._handlePointerMove(pointer(8, 100, 109));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    card._handlePointerUp(pointer(8, 100, 109));
+
+    expect(card._holdTriggered).toBe(false);
+    expect(handleAction).not.toHaveBeenCalled();
   });
 });
 

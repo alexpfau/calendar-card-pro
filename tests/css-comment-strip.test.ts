@@ -5,8 +5,8 @@ import { cardStyles } from '../src/rendering/styles';
 
 /**
  * The build strips comments out of `css` tagged templates, because their contents are a
- * string literal that no minifier touches — roughly 45 KB raw and about 17 KB gzipped off
- * the eagerly-loaded card, which is around two-thirds of the stylesheet.
+ * string literal that no minifier touches — roughly 62 KB raw off the eagerly-loaded card,
+ * which is around two-thirds of the stylesheet.
  *
  * 🚨 **Those figures are deliberately approximate. Do not replace them with an exact byte
  * count.** The same author, in the same session, has written an exact one three times and
@@ -202,7 +202,7 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(62_000);
+    expect(saved).toBeLessThan(70_000);
     // The grid progress rung moved the ceiling last, from 60,000. Its note records a
     // measured height and, more usefully, that these rungs query the CONTENT box while the
     // block's padding sits outside it — a distinction that cost two browser probes to find

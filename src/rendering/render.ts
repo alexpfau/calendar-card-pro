@@ -44,9 +44,10 @@ export function renderMainCardStructure(
   handlers: {
     keyDown: (ev: KeyboardEvent) => void;
     pointerDown: (ev: PointerEvent) => void;
+    pointerMove: (ev: PointerEvent) => void;
     pointerUp: (ev: PointerEvent) => void;
-    pointerCancel: (ev: Event) => void;
-    pointerLeave: (ev: Event) => void;
+    pointerCancel: (ev: PointerEvent) => void;
+    pointerLeave: (ev: PointerEvent) => void;
   },
   isLoading: boolean = false,
   titlePending: boolean = false,
@@ -66,6 +67,7 @@ export function renderMainCardStructure(
       aria-busy=${isLoading ? 'true' : 'false'}
       @keydown=${handlers.keyDown}
       @pointerdown=${handlers.pointerDown}
+      @pointermove=${handlers.pointerMove}
       @pointerup=${handlers.pointerUp}
       @pointercancel=${handlers.pointerCancel}
       @pointerleave=${handlers.pointerLeave}

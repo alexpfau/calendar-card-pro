@@ -169,6 +169,14 @@ describe('card stylesheet', () => {
       expect(declared('.summary', 'display')).not.toMatch(/flex|grid/);
     });
 
+    it('withdraws optional grid details when host measurement finds a clipped disclosure', () => {
+      const selector = '.grid-event.grid-event-content-clipped .time';
+      expect(declared(selector, 'display')).toBe('none');
+      expect(cardStyles.cssText).toContain(
+        '.grid-event.grid-event-content-clipped .progress-bar-row',
+      );
+    });
+
     it('.event-title does not hardcode a display value', () => {
       // It must stay driven by --calendar-card-title-display, which resolves to
       // `inline` when title_max_lines is 0 so the clamp costs no layout change.

@@ -73,6 +73,11 @@ export const TIMING = {
 };
 
 export const UI = {
+  /**
+   * Pointer travel that still counts as a tap rather than a scroll or drag.
+   */
+  POINTER_MOVE_TOLERANCE: 8,
+
   SEPARATOR_SPACING: {
     WEEK: 1,
     MONTH: 1.5,
