@@ -729,12 +729,15 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Observes timed grid blocks and their content-sized rows.
+   * Observes timed grid blocks and title metrics that stay visible under the clip fallback.
    *
    * Block height is absolute time geometry, so a late font load or a theme that only
-   * enlarges text can overflow `.event-content` without resizing `.grid-event`. Observing
-   * the title and optional rows catches that; `document.fonts` covers the same case when
-   * the browser reports font loads. A later `updated()` still re-applies as a backstop.
+   * enlarges the title can overflow `.event-content` without resizing `.grid-event`.
+   * Observing `.summary` / `.event-title` catches that without watching optional detail
+   * rows: those rows are `display: none` while `grid-event-content-clipped` is on, so
+   * observing them re-fires ResizeObserver from the apply pass that just hid them and
+   * schedules apply forever. `document.fonts` covers detail-row font loads; `updated()`
+   * re-applies after config/theme edits as a backstop.
    */
   private _syncGridDisclosureSafety(): void {
     this._stopGridDisclosureObserver();
@@ -755,10 +758,8 @@ class CalendarCardPro extends LitElement {
     }
 
     this._gridDisclosureObserver = new ResizeObserver(() => this._scheduleGridDisclosureSafety());
-    // Content-box descendants whose metrics move with font/theme changes. The block itself
-    // still needs observing for hour-height and window edits.
-    const contentTargets =
-      '.summary, .event-title, .time, .location, .description, .event-weather, .progress-bar-row';
+    // Title stays visible under the clip class; detail rows do not — see the method doc.
+    const contentTargets = '.summary, .event-title';
     blocks.forEach((block) => {
       this._gridDisclosureObserver?.observe(block);
       block

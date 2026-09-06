@@ -115,7 +115,7 @@ describe('grid disclosure observer lifecycle', () => {
     expect(RecordingResizeObserver.instances).toHaveLength(2);
   });
 
-  it('observes content-sized rows so a font load is not missed when the block height is fixed', async () => {
+  it('observes title metrics that stay visible under the clip fallback, not optional detail rows', async () => {
     globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
     const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
       setConfig(config: unknown): void;
@@ -136,6 +136,9 @@ describe('grid disclosure observer lifecycle', () => {
             <div class="summary"><span class="event-title">Meeting</span></div>
             <div class="time">10:00</div>
             <div class="location">Office</div>
+            <div class="description">Notes</div>
+            <div class="event-weather"></div>
+            <div class="progress-bar-row"></div>
           </div>
         </div>
       </div>
@@ -147,11 +150,115 @@ describe('grid disclosure observer lifecycle', () => {
     expect(labels).toContain('grid-event');
     expect(labels).toContain('summary');
     expect(labels).toContain('event-title');
-    expect(labels).toContain('time');
-    expect(labels).toContain('location');
+    // Optional rows go display:none under grid-event-content-clipped. Observing them
+    // re-fires the observer from the apply pass that hid them and reschedules forever.
+    expect(labels).not.toContain('time');
+    expect(labels).not.toContain('location');
+    expect(labels).not.toContain('description');
+    expect(labels).not.toContain('event-weather');
+    expect(labels).not.toContain('progress-bar-row');
 
     card.remove();
     expect(gridObserver.disconnected).toBe(true);
+  });
+
+  it('does not re-arm disclosure from a ResizeObserver notification caused by its own clip toggle', async () => {
+    class FiringResizeObserver {
+      static instances: FiringResizeObserver[] = [];
+      readonly observed = new Set<Element>();
+      disconnected = false;
+
+      constructor(readonly callback: ResizeObserverCallback) {
+        FiringResizeObserver.instances.push(this);
+      }
+
+      observe(target: Element): void {
+        this.observed.add(target);
+      }
+
+      unobserve(target: Element): void {
+        this.observed.delete(target);
+      }
+
+      disconnect(): void {
+        this.disconnected = true;
+        this.observed.clear();
+      }
+
+      /** Deliver a notification as if every currently observed target resized. */
+      fire(): void {
+        if (this.disconnected || !this.observed.size) return;
+        const entries = [...this.observed].map(
+          (target) => ({ target }) as unknown as ResizeObserverEntry,
+        );
+        this.callback(entries, this as unknown as ResizeObserver);
+      }
+    }
+
+    globalThis.ResizeObserver = FiringResizeObserver as unknown as typeof ResizeObserver;
+
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      setConfig(config: unknown): void;
+      preview: boolean;
+      updated(changedProps: Map<unknown, unknown>): void;
+      readonly updateComplete: Promise<boolean>;
+      _applyGridDisclosureSafety(): void;
+      _scheduleGridDisclosureSafety(): void;
+    };
+    card.setConfig({ entities: [], view: 'grid' });
+    card.preview = true;
+    document.body.appendChild(card);
+    await card.updateComplete;
+
+    const root = card.shadowRoot!;
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="summary"><span class="event-title">Meeting</span></div>
+            <div class="time">10:00</div>
+          </div>
+        </div>
+      </div>
+    `;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    Object.defineProperties(content, {
+      clientHeight: { configurable: true, value: 60 },
+      scrollHeight: { configurable: true, value: 90 },
+    });
+
+    card.updated(new Map());
+    const observer = FiringResizeObserver.instances.at(-1)!;
+
+    let scheduleCount = 0;
+    const originalSchedule = card._scheduleGridDisclosureSafety.bind(card);
+    card._scheduleGridDisclosureSafety = () => {
+      scheduleCount += 1;
+      originalSchedule();
+    };
+
+    // Simulate the browser reporting that optional detail rows changed size because
+    // apply just toggled grid-event-content-clipped (display:none on .time, etc.).
+    const time = root.querySelector('.time')!;
+    if (observer.observed.has(time)) {
+      observer.fire();
+    }
+
+    // Title-only observation: toggling clip changes .time but not observed targets, so
+    // a synthetic "detail resized" notification is not even delivered. Force a fire on
+    // whatever is observed after apply would have run — still must not cascade forever.
+    card._applyGridDisclosureSafety();
+    const before = scheduleCount;
+    // If any observed node is still a detail row, firing after clip would schedule again.
+    for (const el of observer.observed) {
+      if (el.classList.contains('time') || el.classList.contains('location')) {
+        observer.fire();
+      }
+    }
+    expect(scheduleCount).toBe(before);
+
+    card.remove();
+    FiringResizeObserver.instances = [];
   });
 
   it('drops the document.fonts listener when the observer stops', async () => {
