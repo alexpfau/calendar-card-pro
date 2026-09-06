@@ -154,6 +154,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🕒 **A Line Across Today**: [`show_now_line`](https://calendar-card-pro.alexpfau.com/features/grid-view) marks the current time on today's column only, and only while it falls inside the hours you draw
 - 🏷️ **An All-Day Band**: all-day and multi-day events get their own rows above the axis, spanning the days they cover, so they never compete with the hour grid for space
 - ⚙️ **An Axis You Set**: `start_time`, `end_time`, `hour_height`, `slot_minutes` and `axis_width` decide which hours are drawn and how they are ruled, and the grid sheds columns or falls back to the list when it runs out of width
+- 🐛 **Tap, Hold and Background Work**: a run over the card's shared machinery fixed defects every view has carried since v4 — a stray action sent on every tap of a default card, a hold indicator left stranded on the dashboard by a second finger or drawn away from your finger on a scrolled page, holds cancelled by the slightest movement, and cards that kept fetching after you switched dashboard tabs
 
 ### v4.2
 

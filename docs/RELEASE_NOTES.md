@@ -22,6 +22,31 @@ Set `view: grid` and the card stops being a list. Days become columns against a 
 
 Every option grid view adds lives under `time_grid:`, and that block is also where you override any presentation option for grid alone. See [Grid View](https://calendar-card-pro.alexpfau.com/features/grid-view).
 
+## 🐛 Bug Fixes
+
+Building grid view meant going over the card's shared machinery closely, and that turned up defects in code every view has been running since v4. They are fixed here even though they have nothing to do with the time axis.
+
+### Tap & Hold
+
+- **Every default card fired an action on every tap** - `tap_action` and `hold_action` both default to `none`, but the card dispatched the action to Home Assistant anyway, on every tap, Enter and Space, in every view. Harmless in effect, since `none` asks Home Assistant to do nothing, but it should never have been sent
+- **A second finger stranded a grey disc on the dashboard** - The hold indicator is drawn on the page rather than inside the card, so starting a second touch while one was already held orphaned the first disc permanently. It stayed until the page was reloaded
+- **The hold indicator appeared away from your finger on a scrolled dashboard** - It was positioned without accounting for the page's scroll offset, so the further you had scrolled, the further off it was drawn
+- **The smallest movement cancelled a hold** - Once the indicator had appeared, a slight finger slip ended the gesture, so lifting did nothing. A hold now survives movement after it is established
+- **Sliding off the card cancelled a hold you were still making** - The press continued, but the gesture ended the moment the pointer crossed the card's edge
+- **Right and middle mouse buttons could start a hold** - Only the primary button should, and releasing a secondary button during a primary gesture could end it early
+- **A hold could stick if the browser took pointer capture away** - The indicator stayed on screen and the gesture never resolved until the next press
+
+### Cards That Leave The Screen
+
+Switching dashboard tabs disconnects a card without destroying it, and several things kept running afterwards:
+
+- **A card kept working after you navigated away** - Its refresh timer, in-flight event fetch, weather subscription and title template could all continue, and could write their results back into a card no longer on screen
+- **Old weather could reappear after changing the weather entity** - A forecast from the previous subscription could arrive late and replace the new one, or return after the card had deliberately blanked it
+
+### Layout
+
+- **Expanding a compact card, then switching layouts, filled the window** - After expanding, a card switched to column view could ignore `show_empty_days: false` and render every empty day in the window
+
 ## Related Issues
 
 - [#300](https://github.com/alexpfau/calendar-card-pro/issues/300) - Time grid, place events on an hour axis at their real start time — the core of this release. Note it also asked for a time grid _and_ a month view; only the first shipped, **do not close**

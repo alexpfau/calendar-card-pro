@@ -14,6 +14,7 @@ public release in January 2025 to today.
 - ⚙️ **An Axis You Set**: `start_time`, `end_time`, `hour_height`, `slot_minutes` and `axis_width` decide which hours are drawn and how they are ruled
 - 📐 **It Gives Way Gracefully**: `min_day_width`, `min_days_to_show` and `min_days_fallback` decide how narrow the grid may get before it sheds a column, and what happens when even that will not fit
 - 🎚️ **Different Defaults Where a Time Axis Needs Them**: filled event blocks, empty days kept, past events kept, a hairline between columns and a full-width progress bar — each written into `time_grid:` as a visible exception when you switch a card to grid, rather than hidden in resolution
+- 🐛 **Tap, Hold and Background Work**: a run over the card's shared machinery fixed defects every view has carried since v4 — a stray action sent on every tap of a default card, a hold indicator left stranded on the dashboard by a second finger or drawn away from your finger on a scrolled page, holds cancelled by the slightest movement, and cards that kept fetching, subscribing and writing back after you switched dashboard tabs
 
 ## v4.2
 
