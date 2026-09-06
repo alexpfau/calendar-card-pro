@@ -464,7 +464,13 @@ export function groupEventsByDay(
 
   const showEmptyDays = config.show_empty_days;
 
-  const compactLimitsApply = !isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
+  // Expand only shapes list view. compactLimitsApply already required that, but the
+  // empty-day filter and the empty-day synthesis arm keyed on bare `isExpanded`, so a
+  // leftover true after list → column/grid still widened an empty calendar from one day
+  // to the full window when `show_empty_days` was false — the same layout change A3-D
+  // forbade from the expand gesture itself. Scope every expand branch the same way.
+  const expandApplies = isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
+  const compactLimitsApply = !expandApplies && ViewConfig.viewAppliesCompactLimits(effectiveView);
 
   // Always run the splitter and let `shouldSplitEvent` decide per event, rather
   // than gating the call on the card-level value. A per-entity
@@ -844,7 +850,7 @@ export function groupEventsByDay(
     }
   }
 
-  if (!isExpanded && !showEmptyDays) {
+  if (!expandApplies && !showEmptyDays) {
     days = days.filter(
       (day) => day.events.length > 0 && !(day.events.length === 1 && day.events[0]._isEmptyDay),
     );
@@ -952,7 +958,7 @@ export function groupEventsByDay(
 
     let endDateForEmptyDays: Date;
 
-    if (isExpanded) {
+    if (expandApplies) {
       endDateForEmptyDays = new Date(referenceDate);
       endDateForEmptyDays.setDate(endDateForEmptyDays.getDate() + effectiveDaysToShow - 1);
     } else if (days.length === 0) {
