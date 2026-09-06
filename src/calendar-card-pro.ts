@@ -1426,6 +1426,13 @@ class CalendarCardPro extends LitElement {
   async updateEvents(force = false): Promise<void> {
     Logger.debug(`Updating events (force=${force})`);
 
+    // Detached setConfig still reaches here (and the no-hass branch arms a 1.5s
+    // retry). connectedCallback re-runs updateEvents on attach; cache hits still
+    // reprocess with the current config, so skipping while detached is safe.
+    if (!this.isConnected) {
+      return;
+    }
+
     // Take a ticket before anything can await. Any call that starts after this one
     // supersedes it, and a superseded response must not touch card state — committing
     // it would both show the previous calendar's events and stamp them with the current

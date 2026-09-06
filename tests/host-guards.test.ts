@@ -36,9 +36,11 @@ interface CardUnderTest extends HTMLElement {
   isInitialLoad: boolean;
   events: Types.CalendarEventData[];
   updateComplete: Promise<boolean>;
+  updateEvents(force?: boolean): Promise<void>;
   _setupWeatherSubscriptions(): Promise<void>;
   _weatherUnsubscribers: Array<() => void>;
   _refreshTimerId?: number;
+  _initialLoadRetryId?: number;
   startRefreshTimer(): void;
   renderedTitle?: string;
   readonly shadowRoot: ShadowRoot | null;
@@ -125,6 +127,43 @@ describe('the refresh timer honours the configured interval', () => {
     // Positive control: reconnecting still schedules.
     document.body.appendChild(element);
     expect(element._refreshTimerId).toBeTruthy();
+  });
+});
+
+describe('updateEvents refuses work after disconnect', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    document.body.innerHTML = '';
+  });
+
+  it('does not re-arm the no-hass retry after disconnect', async () => {
+    const element = card();
+    document.body.appendChild(element);
+    // No hass: the first load arms the 1.5s retry.
+    await element.updateEvents();
+    expect(element._initialLoadRetryId).toBeTruthy();
+
+    element.remove();
+    expect(element._initialLoadRetryId).toBeUndefined();
+
+    // Detached setConfig only reaches updateEvents when entities/processing change.
+    // An identical config is a silent no-op and cannot pin this guard — call the
+    // method, and also drive setConfig with a real entity change.
+    await element.updateEvents();
+    expect(element._initialLoadRetryId).toBeUndefined();
+
+    element.setConfig(buildConfig({ entities: ['calendar.work'] }));
+    expect(element._initialLoadRetryId).toBeUndefined();
+
+    // Positive control: reconnecting with still-missing hass arms it again.
+    document.body.appendChild(element);
+    await element.updateEvents();
+    expect(element._initialLoadRetryId).toBeTruthy();
   });
 });
 
