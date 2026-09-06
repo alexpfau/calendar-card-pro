@@ -202,8 +202,17 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(70_000);
-    // The grid progress rung moved the ceiling last, from 60,000. Its note records a
+    expect(saved).toBeLessThan(76_000);
+    // The v5.2 grid refinements moved the ceiling last, from 70,000. Five of them, and four
+    // carry a note that costs more than the declaration it sits on: why `grid-column: 1 / -1`
+    // is only half of "full width" and what the negative margins have to cancel; why a rule
+    // exactly filling its gutter is the intended state rather than a near miss; why the
+    // heavier band rule is twice the base and not three times it; and why a block's vertical
+    // clearance is skipped at a clipped end. Every one of those was measured in a browser and
+    // is invisible from the CSS — a later reader looking only at the declarations would undo
+    // the first as redundant and the fourth as an inconsistency.
+    //
+    // The grid progress rung moved it before that, from 60,000. Its note records a
     // measured height and, more usefully, that these rungs query the CONTENT box while the
     // block's padding sits outside it — a distinction that cost two browser probes to find
     // and that the declaration itself cannot show, since `48px` looks like it should match

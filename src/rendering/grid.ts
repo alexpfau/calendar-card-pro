@@ -251,6 +251,13 @@ function renderGridSeparator(
  * was supposed to close read as a row of ticks. One element spanning `1 / -1` covers the
  * gutters and the hour axis too, so the band sits in a frame rather than beside one.
  *
+ * 🚨 `1 / -1` is not the whole of "full width", and believing it was left both rules
+ * 16px short at each end. A grid area stops at the container's content box, so the card's
+ * own `padding-inline` was still outside it — the rules ran the axis and the gutters and
+ * then stopped inboard of the card's edges. `.grid-boundary` cancels that inset in the
+ * stylesheet; measure the painted box rather than reading this row span if it is ever in
+ * doubt again.
+ *
  * Both rules are drawn from `day_separator_width` and `day_separator_color`, the same
  * options as the vertical rules, so the grid's frame is one system a user changes in one
  * place. The lower rule is a multiple of that width rather than an option of its own:
@@ -493,6 +500,7 @@ function renderTimedEvent(
         width: `calc(${laneWidth}% - var(--calendar-card-grid-event-gap) * 2)`,
         borderInlineStartColor: presentation.entityAccentColor,
         backgroundColor: presentation.entityAccentBackgroundColor,
+        ...presentation.accentTextProperties,
       })}
     >
       <div class="grid-event-disclosure">
@@ -633,6 +641,7 @@ function renderBanner(
         gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
         gridRow: String(row),
         backgroundColor: presentation.entityAccentBackgroundColor,
+        ...presentation.accentTextProperties,
       })}
     >
       <span class="grid-banner-title">${event.summary ?? ''}</span>

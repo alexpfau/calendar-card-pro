@@ -5,6 +5,7 @@ import { css } from 'lit';
 import * as Config from '../config/config';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
+import * as EntityColors from '../utils/entity-colors';
 
 /**
  * The grid disclosure ladder can reveal one, two, or three title lines as the block grows.
@@ -17,6 +18,75 @@ import * as ViewConfig from '../config/view';
  */
 function gridTitleLineRung(configured: number, ladderMaximum: number): string {
   return configured > 0 ? String(Math.min(configured, ladderMaximum)) : 'none';
+}
+
+/**
+ * The color options inside the event box that the `accent` sentinel governs, each paired
+ * with the custom property the card renders it through.
+ *
+ * One table, read from both ends: {@link generateCustomPropertiesObject} substitutes the
+ * shipped default at card level for any of them holding the sentinel, and
+ * {@link accentTextProperties} writes the event's own accent over the same property on the
+ * event element. Keeping the pairing here rather than beside either caller is what stops
+ * the two disagreeing about which property carries which option —
+ * `tests/accent-event-text.test.ts` reconciles every row against the mapping below.
+ *
+ * The list is the text inside the event box and nothing else. Excluded on purpose:
+ * `allday_badge_color`, which has answered `accent` on its own since v4 and needs no help;
+ * `empty_day_color`, whose row belongs to no calendar; and the date column, separators and
+ * card title, which are the card's furniture rather than an event's.
+ *
+ * 🚨 The event weather badge is also excluded, and that one is a judgement call rather than
+ * an obvious exclusion — see `docs/features/event-content.md`. Its color lives at
+ * `weather.event.color`, nested, where a per-view default cannot reach it; including it
+ * would make the editor's derived toggle read *off* on a default grid card, because one of
+ * its governed fields could never be defaulted to the sentinel.
+ */
+export const ACCENT_TEXT_OPTIONS = [
+  ['event_color', '--calendar-card-color-event'],
+  ['time_color', '--calendar-card-color-time'],
+  ['location_color', '--calendar-card-color-location'],
+  ['description_color', '--calendar-card-color-description'],
+  ['progress_bar_color', '--calendar-card-progress-bar-color'],
+] as const;
+
+/** The governed option keys alone, for callers that only need to ask "is this one". */
+export const ACCENT_TEXT_KEYS: ReadonlyArray<string> = ACCENT_TEXT_OPTIONS.map(([key]) => key);
+
+/**
+ * The custom properties an event element must set so its own subtree reads the accent.
+ *
+ * Written on the event element rather than resolved per field, because the cascade is
+ * already how every one of these colors reaches its text: the properties are read from an
+ * ancestor, so setting them one level down overrides them for that event and nothing else.
+ * `leaves.ts` has done exactly this for the title since v3.
+ *
+ * @param config - Configuration, already resolved for the view being rendered
+ * @param accent - The event's own resolved accent color
+ * @param isEmptyDay - Whether this is an empty-day placeholder rather than an event
+ * @returns Properties to set on the event element, empty when nothing is governed
+ */
+export function accentTextProperties(
+  config: Types.Config,
+  accent: string,
+  isEmptyDay = false,
+): Record<string, string> {
+  const properties: Record<string, string> = {};
+
+  // An empty day belongs to no calendar, so there is no accent to take: `_entityId` is the
+  // first configured calendar's, which would paint "No upcoming events" in whatever color
+  // that one happens to use and say something false about the day.
+  if (isEmptyDay || !accent) {
+    return properties;
+  }
+
+  for (const [key, property] of ACCENT_TEXT_OPTIONS) {
+    if (EntityColors.isAccentTextSentinel(config[key])) {
+      properties[property] = accent;
+    }
+  }
+
+  return properties;
 }
 
 /**
@@ -124,6 +194,17 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-weather-event-condition-display':
       (config.weather?.event?.max_lines ?? 0) > 0 ? '-webkit-inline-box' : 'inline',
   };
+
+  // The sentinel is not a color, so writing it here would make every rule that substitutes
+  // one of these properties invalid at computed-value time — and those rules are read by
+  // more than events: an empty-day row and the grid's `+N` block draw from the same
+  // properties and belong to no calendar. The shipped default stands in at card level, and
+  // the event element writes the accent over it for its own subtree.
+  for (const [key, property] of ACCENT_TEXT_OPTIONS) {
+    if (EntityColors.isAccentTextSentinel(config[key])) {
+      props[property] = String(Config.DEFAULT_CONFIG[key]);
+    }
+  }
 
   // Emit optional properties only when the user set them, so placement-specific
   // stylesheet fallbacks remain distinguishable from explicit choices.
@@ -1910,9 +1991,13 @@ export const cardStyles = css`
 
   /* Same 16px inset as column view, and for the same reason: the axis gutter is the
      first track, so the card must supply the whole horizontal inset itself or the
-     hour labels sit inboard of the title. */
+     hour labels sit inboard of the title.
+
+     Named rather than written twice, because the band rules below have to cancel it
+     exactly. A literal repeated in three rules is a literal that drifts in two of them. */
   .calendar-card-pro.grid-view {
-    padding-inline: 16px;
+    --calendar-card-grid-inset: 16px;
+    padding-inline: var(--calendar-card-grid-inset);
   }
 
   .calendar-card-pro.grid-view .card-header {
@@ -1941,6 +2026,15 @@ export const cardStyles = css`
       auto auto var(--calendar-card-grid-allday-height, auto)
       var(--calendar-card-grid-body-height, 720px);
     width: 100%;
+    /* Out to the card's edges and back in again, which nets to no change in where a
+       track starts: width is 100% of the padded card, the padding restores the inset,
+       and the border box lands exactly on the card's own edges. It exists so the band
+       rules below have something to reach. They cancel the inset with a negative margin,
+       and a negative margin only stays inside the scrollable area while the box it
+       escapes into is this element's own padding — do it against the card instead and
+       the cramp fallback's overflow-x: auto gains 16px of scroll nobody asked for. */
+    margin-inline: calc(-1 * var(--calendar-card-grid-inset));
+    padding-inline: var(--calendar-card-grid-inset);
     --calendar-card-grid-event-gap: 1px;
   }
 
@@ -2033,6 +2127,12 @@ export const cardStyles = css`
     align-self: start;
     pointer-events: none;
     z-index: 3;
+    /* Edge to edge across the card, the way macOS Calendar draws the line under its
+       all-day area. Spanning 1 / -1 already carries a rule across the hour axis and the
+       gutters — that part was never the gap — but a grid area stops at the container's
+       content box, so both rules stopped 16px short of the card at each end and read as
+       a framed inset rather than as the card's own furniture. */
+    margin-inline: calc(-1 * var(--calendar-card-grid-inset));
   }
 
   /* ----- Day headers ----- */

@@ -1686,6 +1686,38 @@ describe('card stylesheet', () => {
       expect(declared('.grid-boundary', 'pointer-events')).toBe('none');
     });
 
+    it('runs the band rules out to the card edges, not just across the tracks', () => {
+      // `grid-column: 1 / -1` is only half of "full width" and reads like all of it: a
+      // grid area stops at the container's CONTENT box, so the card's own padding-inline
+      // stayed outside both rules and they finished 16px short at each end. Measured on
+      // the deployed build before this change — the rules did cross the hour axis, and
+      // did stop inboard of the card.
+      //
+      // Reconciled as a triple rather than asserted one rule at a time. The three
+      // declarations have to cancel exactly, and each is wrong on its own: the inset
+      // without the container's own margin/padding pair puts the negative margin outside
+      // a scroll container, where the cramp fallback turns it into 16px of phantom
+      // horizontal scroll.
+      const inset = 'var(--calendar-card-grid-inset)';
+      const bleed = `calc(-1 * ${inset})`;
+
+      expect({
+        cardInset: declared('.calendar-card-pro.grid-view', 'padding-inline'),
+        containerBleed: declared('.grid-container', 'margin-inline'),
+        containerInset: declared('.grid-container', 'padding-inline'),
+        boundaryBleed: declared('.grid-boundary', 'margin-inline'),
+      }).toEqual({
+        cardInset: inset,
+        containerBleed: bleed,
+        containerInset: inset,
+        boundaryBleed: bleed,
+      });
+
+      // And the property has to be defined, or every one of the four resolves to nothing
+      // and the whole grid loses its inset while this assertion stays green.
+      expect(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')).toBe('16px');
+    });
+
     it('shades a weekend day in grid view and in no other', () => {
       // Reconciled as a whole selector set rather than one assertion per rule: a
       // `toContain` cannot notice a selector *arriving*, and the failure this guards is
