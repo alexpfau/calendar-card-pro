@@ -200,10 +200,11 @@ describe('compact-mode limits are inert in column view', () => {
   });
 
   it('still honours show_empty_days: false inside the column block', () => {
-    // The regression guard for how the gate is implemented. The empty-day filter used to
-    // sit inside the same `if (!isExpanded)` block as the per-entity cap, so gating that
+    // The regression guard for how the gate is implemented. The empty-day filter once
+    // sat inside the same bare-`isExpanded` block as the per-entity cap, so gating that
     // block wholesale — or the tempting shortcut of treating column view as always
-    // expanded — would make this config unreachable.
+    // expanded — would make this config unreachable. expandApplies keeps the filter
+    // list-scoped without folding it into the compact-cap block.
     const days = group(
       FIRST_DAY_ONLY,
       {
@@ -218,18 +219,13 @@ describe('compact-mode limits are inert in column view', () => {
   });
 
   it('makes the expand gesture a flat no-op, even with show_empty_days: false', () => {
-    // Reading `events.ts` alone predicts the opposite. The empty-day filter at :497-505
-    // is guarded by `!isExpanded && !showEmptyDays`, so with `show_empty_days: false`
-    // inside the column block the gesture *looks* live — expanding should reveal the
-    // trailing empty columns. Measured against the running card it does not: a column
-    // card held at its column count across a real click while a list control on the
-    // identical mechanism moved. The likely reason is that with `show_empty_days: false`
-    // the empty days are never generated, so the filter runs over a list that never held
-    // them — mechanism unconfirmed, behaviour unambiguous.
+    // expandApplies is false off list, so bare isExpanded no longer widens empty-day
+    // range on column. Reading the filter/synthesis arms alone used to look live when
+    // they keyed on bare isExpanded; with show_empty_days: false the trailing empties
+    // still must not appear. List control below proves isExpanded is still load-bearing.
     //
-    // This test exists so that reasoning is never re-derived from source and re-opened.
-    // If it fails, the gesture has become live and the editor annotation ruling for
-    // `action: 'expand'` (D8) needs revisiting — do not simply update the expectation.
+    // If this fails, expand has become live on column and the editor annotation for
+    // `action: 'expand'` needs revisiting — do not simply update the expectation.
     const overrides = {
       days_to_show: 5,
       compact_events_to_show: 2,
@@ -246,7 +242,7 @@ describe('compact-mode limits are inert in column view', () => {
     const expanded = group(THREE_DAYS, overrides, 'column', true);
 
     // Concrete anchors, not just equality: if both sides drifted to 5 together the
-    // relative assertion below would still pass while the behaviour had changed.
+    // relative assertion below would still pass while the behavior had changed.
     expect(collapsed).toHaveLength(3);
     expect(expanded).toHaveLength(3);
     expect(realEventCount(expanded)).toBe(realEventCount(collapsed));

@@ -1,15 +1,15 @@
 /**
  * Leftover isExpanded after list → column/grid must not change empty-day range.
  *
- * Expanding on list is legal. setConfig does not clear isExpanded. The empty-day
- * synthesis branch keys on bare isExpanded, so a card that was expanded as a list
- * and then switched to column/grid can still pad the full window when
- * show_empty_days is false and the calendar is empty — the same layout change
- * A3-D forbade from the expand gesture itself.
+ * Expanding on list is legal, and setConfig does not clear isExpanded. Before
+ * expandApplies, the empty-day filter and synthesis arms keyed on bare
+ * isExpanded, so a card expanded as a list then switched to column/grid still
+ * padded the full window when show_empty_days was false and the calendar was
+ * empty — the same layout change the expand gesture gate was meant to prevent.
  *
- * compactLimitsApply already ANDs with viewAppliesCompactLimits, so compact caps
- * stay off. The empty-day filter and the isExpanded synthesis arm do not, so
- * leftover expand state still reaches layout.
+ * compactLimitsApply already ANDs with viewAppliesCompactLimits. Those empty-day
+ * arms now go through expandApplies (list-only) as well. This file pins that
+ * leftover flag must not widen column/grid empty range, while list still widens.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
