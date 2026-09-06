@@ -617,6 +617,11 @@ class CalendarCardPro extends LitElement {
     this._syncEntityColors();
 
     this._startWidthObserver();
+
+    // Disconnect tears title-scrolling observers down, and reconnect does not
+    // necessarily schedule a Lit update. Reacquire from the existing shadow DOM
+    // immediately; the first connection still gets its normal post-render sync.
+    this._syncTitleScroll();
   }
 
   disconnectedCallback() {
@@ -1331,6 +1336,12 @@ class CalendarCardPro extends LitElement {
    * a tiny overflow does not snap) so every title travels at the same perceived speed. The
    * class this sets is what the stylesheet keys the animation, the reduced-motion fallback
    * and the off-screen pause on.
+   *
+   * The cycle covers the distance once and then restarts, so the distance is divided through
+   * as it stands. It was doubled while the animation ran out and back, and leaving that in
+   * place after the marquee replaced the ping-pong would have halved every title's speed
+   * while every test still passed — the duration would have stayed proportional to distance,
+   * which is all the scaling test can see.
    */
   private _measureTitleScroll(): void {
     const titles = this.renderRoot.querySelectorAll<HTMLElement>('.event-title.title-scrollable');
@@ -1339,7 +1350,7 @@ class CalendarCardPro extends LitElement {
       if (distance > Constants.TITLE_SCROLL.MIN_OVERFLOW_PX) {
         const seconds = Math.max(
           Constants.TITLE_SCROLL.MIN_DURATION_S,
-          (2 * distance) /
+          distance /
             (Constants.TITLE_SCROLL.SPEED_PX_PER_S * Constants.TITLE_SCROLL.TRAVEL_FRACTION),
         );
         title.style.setProperty('--calendar-card-title-scroll-distance', `${distance}px`);

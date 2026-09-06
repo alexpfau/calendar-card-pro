@@ -118,15 +118,47 @@ describe('scroll_long_titles stylesheet contract', () => {
     );
   });
 
-  it('drives distance and duration from custom properties and pauses at both ends', () => {
+  it('travels in one direction and restarts, rather than alternating', () => {
     expect(CSS).toMatch(/@keyframes\s+calendar-card-title-scroll/);
     expect(CSS).toContain('var(--calendar-card-title-scroll-distance, 0px)');
     expect(CSS).toContain('var(--calendar-card-title-scroll-duration, 8s)');
-    // Three translateX stops: start pause, end pause, return — both ends held.
+
     const kfIdx = CSS.indexOf('@keyframes calendar-card-title-scroll');
     expect(kfIdx).toBeGreaterThan(-1);
-    const kfSlice = CSS.slice(kfIdx, kfIdx + 400);
-    expect(kfSlice.match(/translateX/g)?.length).toBe(3);
+    const kfSlice = CSS.slice(kfIdx, kfIdx + CSS.slice(kfIdx).indexOf('\n  }\n') + 5);
+
+    // Two stops, not three. A third one returning to translateX(0) is what made the title
+    // run backwards through words the reader had just read; the marquee ends at the far end
+    // and the wrap back to 0% does the return instantly.
+    expect(kfSlice.match(/translateX/g)?.length).toBe(2);
+    expect(kfSlice).toMatch(/0%,\s*15%\s*\{\s*transform:\s*translateX\(0\)/);
+    expect(kfSlice).toMatch(/85%,\s*100%\s*\{\s*transform:\s*translateX\(calc\(-1 \*/);
+
+    // The last stop must be the far end. If the cycle ended back at zero it would be a
+    // ping-pong again whatever the percentages said.
+    const stops = [...kfSlice.matchAll(/transform:\s*translateX\(([^;]*)\);/g)].map((m) => m[1]);
+    expect(stops).toHaveLength(2);
+    expect(stops[0]).toBe('0');
+    expect(stops[1]).toContain('--calendar-card-title-scroll-distance');
+
+    // Both ends still held: the first stop spans 0% to 15%, the second 85% to 100%.
+    expect(kfSlice).not.toMatch(/\n\s*0%\s*\{/);
+  });
+
+  it('holds at both ends for the fraction the duration is derived through', () => {
+    // The keyframes and TRAVEL_FRACTION are two halves of one number. If the travel span
+    // here stops matching the constant, every title silently changes speed -- the duration
+    // stays proportional to distance, so nothing else notices.
+    const kfIdx = CSS.indexOf('@keyframes calendar-card-title-scroll');
+    const kfSlice = CSS.slice(kfIdx, kfIdx + CSS.slice(kfIdx).indexOf('\n  }\n') + 5);
+    const percents = [...kfSlice.matchAll(/(\d+)%/g)].map((m) => Number(m[1]));
+    expect(percents).toEqual([0, 15, 85, 100]);
+
+    const travelStart = percents[1];
+    const travelEnd = percents[2];
+    expect((travelEnd - travelStart) / 100).toBeCloseTo(Constants.TITLE_SCROLL.TRAVEL_FRACTION, 10);
+    // Split evenly, so neither end is held longer than the other.
+    expect(travelStart).toBe(100 - travelEnd);
   });
 
   it('pauses the animation while the card is off-screen', () => {
@@ -184,13 +216,17 @@ describe('scroll_long_titles measurement', () => {
   });
 
   it('scales duration with distance so every title scrolls at one speed', () => {
-    const short = cardWithTitle(220, 100); // distance 120
+    // Both distances must clear the floor, or the comparison silently becomes
+    // `MIN_DURATION_S` against itself and proves nothing about the speed. At 45 px/s over
+    // a 0.7 travel fraction the floor is reached at 126px, so 240 and 480 sit clearly
+    // above it and remain exactly double.
+    const short = cardWithTitle(340, 100); // distance 240
     short.card._measureTitleScroll();
     const shortSeconds = parseFloat(
       short.title.style.getPropertyValue('--calendar-card-title-scroll-duration'),
     );
 
-    const long = cardWithTitle(340, 100); // distance 240, exactly twice as far
+    const long = cardWithTitle(580, 100); // distance 480, exactly twice as far
     long.card._measureTitleScroll();
     const longSeconds = parseFloat(
       long.title.style.getPropertyValue('--calendar-card-title-scroll-duration'),
@@ -219,5 +255,103 @@ describe('scroll_long_titles measurement', () => {
     card._measureTitleScroll();
     expect(title.classList.contains('title-overflowing')).toBe(false);
     expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('');
+  });
+});
+
+describe('scroll_long_titles lifecycle', () => {
+  class RecordingResizeObserver {
+    static instances: RecordingResizeObserver[] = [];
+
+    readonly observed: Element[] = [];
+    disconnected = false;
+
+    constructor(_callback: ResizeObserverCallback) {
+      RecordingResizeObserver.instances.push(this);
+    }
+
+    observe(target: Element): void {
+      this.observed.push(target);
+    }
+
+    unobserve(): void {}
+
+    disconnect(): void {
+      this.disconnected = true;
+    }
+  }
+
+  class RecordingIntersectionObserver {
+    static instances: RecordingIntersectionObserver[] = [];
+
+    disconnected = false;
+
+    constructor(_callback: IntersectionObserverCallback) {
+      RecordingIntersectionObserver.instances.push(this);
+    }
+
+    observe(): void {}
+
+    unobserve(): void {}
+
+    disconnect(): void {
+      this.disconnected = true;
+    }
+
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+
+    readonly root = null;
+    readonly rootMargin = '0px';
+    readonly thresholds = [0];
+  }
+
+  const originalResizeObserver = globalThis.ResizeObserver;
+  const originalIntersectionObserver = globalThis.IntersectionObserver;
+
+  beforeEach(() => {
+    RecordingResizeObserver.instances = [];
+    RecordingIntersectionObserver.instances = [];
+    globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
+    globalThis.IntersectionObserver =
+      RecordingIntersectionObserver as unknown as typeof IntersectionObserver;
+  });
+
+  afterEach(() => {
+    globalThis.ResizeObserver = originalResizeObserver;
+    globalThis.IntersectionObserver = originalIntersectionObserver;
+    document.body.innerHTML = '';
+  });
+
+  it('reacquires observers when a disconnected card is reconnected', async () => {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      setConfig(config: Types.Config): void;
+      _syncTitleScroll(): void;
+      readonly updateComplete: Promise<boolean>;
+    };
+    card.setConfig(buildConfig({ entities: [], scroll_long_titles: true }));
+    document.body.appendChild(card);
+    await card.updateComplete;
+
+    const title = document.createElement('span');
+    title.className = 'event-title title-scrollable';
+    card.shadowRoot?.appendChild(title);
+    card._syncTitleScroll();
+
+    const firstResize = RecordingResizeObserver.instances.at(-1)!;
+    const firstIntersection = RecordingIntersectionObserver.instances.at(-1)!;
+    expect(firstResize.observed).toContain(card);
+
+    card.remove();
+    expect(firstResize.disconnected).toBe(true);
+    expect(firstIntersection.disconnected).toBe(true);
+
+    const resizeCount = RecordingResizeObserver.instances.length;
+    const intersectionCount = RecordingIntersectionObserver.instances.length;
+    document.body.appendChild(card);
+
+    const reconnectObservers = RecordingResizeObserver.instances.slice(resizeCount);
+    expect(reconnectObservers.some((observer) => observer.observed.includes(title))).toBe(true);
+    expect(RecordingIntersectionObserver.instances).toHaveLength(intersectionCount + 1);
   });
 });

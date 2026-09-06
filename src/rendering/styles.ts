@@ -662,22 +662,31 @@ export const cardStyles = css`
     }
   }
 
-  /* distance is scrollWidth minus clientWidth, set inline per title. The travel
-     phases (10% to 45% and 55% to 90%) hold constant velocity for equal perceived
-     speed across titles; the pauses at 0-10%, 45-55% and 90-100% keep the start and
-     end readable. */
+  /* distance is scrollWidth minus clientWidth, set inline per title. A marquee rather than
+     a ping-pong: hold at the start, travel once to the end at constant velocity, hold there,
+     then restart from the beginning. Reading a title backwards is the thing the alternating
+     form got wrong -- the eye follows the text out and is then dragged back through words it
+     has already read, at reading speed, which is why it reads as odd rather than as motion.
+
+     The return is an instant reset at the end of the trailing hold, which is the ordinary
+     marquee convention and is deliberate. A fade across the seam was the alternative and was
+     rejected: the two holds exist so the start and the end stay legible, and dimming the text
+     during either of them spends the very thing the holds were added to buy. An instant reset
+     also keeps the whole animation on transform, so it stays on the compositor for a card
+     that may run for weeks on a wall panel.
+
+     Travel occupies 15% to 85%, so 70% of the cycle moves and the remaining 30% is split
+     evenly between the two holds. That fraction is mirrored by TRAVEL_FRACTION in
+     constants.ts, which the duration is derived through; the two must move together or every
+     title changes speed. */
   @keyframes calendar-card-title-scroll {
     0%,
-    10% {
+    15% {
       transform: translateX(0);
     }
-    45%,
-    55% {
-      transform: translateX(calc(-1 * var(--calendar-card-title-scroll-distance, 0px)));
-    }
-    90%,
+    85%,
     100% {
-      transform: translateX(0);
+      transform: translateX(calc(-1 * var(--calendar-card-title-scroll-distance, 0px)));
     }
   }
 

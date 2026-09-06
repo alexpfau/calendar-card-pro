@@ -110,12 +110,18 @@ export const TITLE_SCROLL = {
 
   /**
    * Fraction of the cycle spent moving rather than paused. Must match the
-   * calendar-card-title-scroll keyframes in styles.ts: 10%->45% out and 55%->90% back is
-   * 70% travel, the remaining 30% held as pauses at both ends.
+   * calendar-card-title-scroll keyframes in styles.ts: 15%->85% is 70% travel, the
+   * remaining 30% split evenly as holds at the start and the end.
    */
   TRAVEL_FRACTION: 0.7,
 
-  /** Shortest scroll, in seconds, so a small overflow eases rather than snaps. */
+  /**
+   * Shortest scroll, in seconds, so a small overflow eases rather than snaps.
+   *
+   * It also bounds how often the marquee's reset is seen. The cycle travels the overflow
+   * once and then restarts, so the floor is what stops a title that overflows by a few
+   * pixels from snapping back several times a second.
+   */
   MIN_DURATION_S: 4,
 };
 

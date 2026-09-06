@@ -60,7 +60,7 @@ question. HACS does all of this for you, which is why it is the recommended rout
 ::: tip Optional: Compress The Files Yourself
 Home Assistant serves a pre-compressed `.gz` beside a file when it finds one, and does not
 compress on the fly. Neither install route ships one, so the card transfers at its full
-242 KB and the editor at 442 KB — once per version, then the browser caches both.
+241 KB and the editor at 442 KB — once per version, then the browser caches both.
 
 If you want the smaller transfer, create the companions yourself and keep them beside the
 originals:
