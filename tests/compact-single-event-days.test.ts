@@ -107,4 +107,30 @@ describe('compact_events_to_show counts single-event days', () => {
 
     expect(real).toHaveLength(3);
   });
+
+  it('drops per-entity compact_events_to_show once expanded too', () => {
+    // Entity caps live in the same `compactLimitsApply` gate as the card-wide budget
+    // (`!isExpanded && viewAppliesCompactLimits`). Expanding used to be documented as
+    // keeping them while only lifting the global limit; both halves must clear together.
+    const config = buildConfig({
+      days_to_show: 7,
+      start_date: '2026-06-17',
+      entities: [{ entity: 'calendar.personal', compact_events_to_show: 1 }],
+    });
+    const matched = config.entities[0];
+    const tagged = ONE_PER_DAY.map((event) => ({
+      ...event,
+      _matchedConfig: typeof matched === 'object' ? matched : undefined,
+    }));
+
+    const collapsed = EventUtils.groupEventsByDay(tagged, config, false, 'en', 'list')
+      .flatMap((day) => day.events.filter((event) => !event._isEmptyDay))
+      .map((event) => event.summary);
+    const expanded = EventUtils.groupEventsByDay(tagged, config, true, 'en', 'list')
+      .flatMap((day) => day.events.filter((event) => !event._isEmptyDay))
+      .map((event) => event.summary);
+
+    expect(collapsed).toEqual(['day-18']);
+    expect(expanded).toEqual(['day-18', 'day-19', 'day-20']);
+  });
 });

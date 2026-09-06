@@ -28,8 +28,7 @@ Column density is controlled by [showing fewer columns instead](/features/column
 When using expansion with both global and per-calendar limits:
 
 - In compact mode: Both global and per-calendar limits are enforced
-- In expanded mode: Only per-calendar limits remain active, while the global limit is removed
-- Entity-specific limits are always respected in both modes
+- In expanded mode: **every** compact limit is removed — the card-wide caps **and** each calendar's own `compact_events_to_show`. What remains is the ordinary `days_to_show` window
 - The expand/collapse state persists until manually toggled or the page is reloaded
 
 **Example scenario**: If you have a configuration like this:
@@ -40,10 +39,10 @@ entities:
     # No limit for family calendar
   - entity: calendar.work
     compact_events_to_show: 2
-    # Never show more than 2 work events
+    # At most 2 work events while compact
   - entity: calendar.holidays
     compact_events_to_show: 1
-    # Only show 1 holiday event
+    # At most 1 holiday event while compact
 compact_events_to_show: 4
 # Show at most 4 events total in compact mode
 
@@ -52,7 +51,7 @@ tap_action:
 ```
 
 In compact mode, you'll see at most 4 events total, with work showing at most 2 and holidays showing at most 1.
-In expanded mode after tapping, the global limit of 4 is removed, but you'll still only see 2 work events and 1 holiday event, while all family events within your configured `days_to_show` range will be visible.
+In expanded mode after tapping, those caps are all gone: every family, work and holiday event inside `days_to_show` is visible.
 
 ## 👆 Custom Tap & Hold Actions
 
