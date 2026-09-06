@@ -11,7 +11,12 @@ import * as Logger from '../utils/logger';
 //-----------------------------------------------------------------------------
 
 /**
- * Create a visual hold indicator at pointer position
+ * Create a visual hold indicator at pointer position.
+ *
+ * Positioned `fixed` with `clientX`/`clientY`, not `absolute` with page
+ * coordinates. Page coordinates already include the window scroll; absolute
+ * placement against the initial containing block does not, so a scrolled
+ * dashboard drew the disc hundreds of pixels away from the finger.
  *
  * @param event - Pointer event that triggered the hold
  * @param config - Card configuration to use for styling
@@ -20,7 +25,7 @@ import * as Logger from '../utils/logger';
 export function createHoldIndicator(event: PointerEvent, config: Types.Config): HTMLElement {
   const holdIndicator = document.createElement('div');
 
-  holdIndicator.style.position = 'absolute';
+  holdIndicator.style.position = 'fixed';
   holdIndicator.style.pointerEvents = 'none';
   holdIndicator.style.borderRadius = '50%';
   holdIndicator.style.backgroundColor = config.accent_color;
@@ -28,8 +33,8 @@ export function createHoldIndicator(event: PointerEvent, config: Types.Config): 
   holdIndicator.style.transform = 'translate(-50%, -50%) scale(0)';
   holdIndicator.style.transition = `transform ${Constants.TIMING.HOLD_INDICATOR_TRANSITION}ms ease-out`;
 
-  holdIndicator.style.left = event.pageX + 'px';
-  holdIndicator.style.top = event.pageY + 'px';
+  holdIndicator.style.left = event.clientX + 'px';
+  holdIndicator.style.top = event.clientY + 'px';
 
   const isTouchEvent = event.pointerType === 'touch';
   const size = isTouchEvent

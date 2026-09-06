@@ -399,7 +399,7 @@ export interface TimeGridOverrides extends SharedViewOverrides {
   /**
    * Height of one hour of the axis, as a CSS length.
    *
-   * Sets the grid's *intrinsic* height only. Under `height_mode: fixed` the card's own
+   * Sets the grid's *intrinsic* height only. Under a fixed `height` the card's own
    * height wins and the axis compresses to fit, which costs no arithmetic because every
    * event is positioned as a percentage of the band rather than in pixels.
    */

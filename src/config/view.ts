@@ -337,7 +337,7 @@ export const COLUMN_DEFAULTS = {
  *
  * `hour_height` is a CSS length rather than a number so it can be given in `em` and
  * track the font, and so `calc()` works. It sets the intrinsic height only — under
- * `height_mode: fixed` the axis compresses to the card instead.
+ * a fixed `height` the axis compresses to the card instead.
  *
  * `max_simultaneous_events: 3` is where blocks stop carrying readable text at a typical
  * card width. `axis_width` sizes to its own labels by default, so the gutter follows
