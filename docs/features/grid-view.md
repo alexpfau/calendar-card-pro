@@ -174,8 +174,10 @@ so an upcoming week boundary can still be labeled.
 ## 🌗 Shading the Weekend
 
 `weekend_background_color` tints a weekend day column, so the shape of a week is visible
-before you read a date. It is on by default, in a mix of the theme's own text color that
-darkens a light theme and lightens a dark one:
+before you read a date. The tint runs from just under the date row, through the all-day
+band and down the time grid, so a weekend reads as one continuous column. The date row
+itself stays clear — it labels the day rather than belonging to it. It is on by default,
+in a mix of the theme's own text color that darkens a light theme and lightens a dark one:
 
 ```yaml
 time_grid:

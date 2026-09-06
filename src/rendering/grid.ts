@@ -238,6 +238,43 @@ function renderGridSeparator(
 }
 
 /**
+ * Render the weekend tint, one element per weekend day.
+ *
+ * A stripe of its own rather than a background on `.grid-day-body`, because the tint has
+ * to run further than the body does: from immediately under the date row, through the
+ * all-day band, and down the time grid, so a weekend reads as one continuous column
+ * rather than as a tinted rectangle with the band floating above it. Spanning rows 3 and
+ * 4 is what buys that, and it costs nothing when the band is empty — row 3 is an `auto`
+ * track and an empty stripe gives it no height to take.
+ *
+ * The date row is deliberately outside the span. It is a label, not part of the day's
+ * field, and macOS Calendar leaves it clear too.
+ *
+ * Painted behind everything by being a plain grid item: banners, blocks and rules are
+ * either positioned or carry a `z-index`, so they all paint later whatever the DOM order.
+ *
+ * @param days - Days on screen, in order
+ * @param hass - Home Assistant instance, whose locale decides which days are the weekend
+ * @returns One stripe per weekend day, and `nothing` for every other day
+ */
+function renderWeekendStripes(
+  days: Types.EventsByDay[],
+  hass?: Types.Hass | null,
+): Array<TemplateResult | typeof nothing> {
+  return days.map((day, index) =>
+    FormatUtils.isWeekendDate(new Date(day.timestamp), hass?.locale)
+      ? html`
+          <div
+            class="grid-weekend"
+            aria-hidden="true"
+            style=${styleMap({ gridColumn: String(index + 2), gridRow: '3 / span 2' })}
+          ></div>
+        `
+      : nothing,
+  );
+}
+
+/**
  * Whether a resolved color value would paint anything at all.
  *
  * `transparent` and `none` are what a user writes to switch an optional fill off, and an
@@ -779,6 +816,7 @@ export function renderGridGroupedEvents(
         ...(paintsSomething(weekendTint) ? { '--calendar-card-grid-weekend': weekendTint } : {}),
       })}
     >
+      ${paintsSomething(weekendTint) ? renderWeekendStripes(gridDays, hass) : nothing}
       ${renderWeekNumbers(gridDays, config)}
       ${gridDays.map((day, index) =>
         renderDayHeader(day, config, language, index, weatherForecasts, hass),

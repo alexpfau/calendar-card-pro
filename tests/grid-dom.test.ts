@@ -1098,6 +1098,27 @@ describe('separators between grid days', () => {
     expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 0.5px))');
   });
 
+  it('runs the weekend tint from under the date row through the band and the grid', () => {
+    const rendered = renderGrid(EVENTS, spanConfig());
+    const stripes = Array.from(rendered.querySelectorAll<HTMLElement>('.grid-weekend'));
+    const bodies = Array.from(rendered.querySelectorAll<HTMLElement>('.grid-day-body'));
+    const weekendColumns = bodies
+      .map((body, index) => ({ body, index }))
+      .filter(({ body }) => body.classList.contains('weekend'))
+      .map(({ body }) => body.style.gridColumn);
+
+    // A denominator, because the fixture decides how many weekend days are on screen and
+    // an empty selector would otherwise read as a passing "no stripes needed".
+    expect(bodies.length, 'no day columns rendered').toBeGreaterThan(0);
+    expect(weekendColumns.length, 'fixture spans no weekend').toBeGreaterThan(0);
+
+    // One stripe per weekend day, on that day's own track.
+    expect(stripes.map((stripe) => stripe.style.gridColumn)).toEqual(weekendColumns);
+    // Rows 3 and 4 — the all-day band and the time body. Row 2 is the date row and stays
+    // clear; a stripe on row 4 alone is the shading stopping at the top of the grid.
+    expect(new Set(stripes.map((stripe) => stripe.style.gridRow))).toEqual(new Set(['3 / span 2']));
+  });
+
   it('tints the weekend columns by default, and paints nothing when switched off', () => {
     const container = requireElement<HTMLElement>(
       renderGrid(EVENTS, spanConfig()),
@@ -1107,6 +1128,9 @@ describe('separators between grid days', () => {
     expect(container.style.getPropertyValue('--calendar-card-grid-weekend')).toBe(
       'color-mix(in srgb, var(--primary-text-color) 4%, transparent)',
     );
+    expect(
+      renderGrid(EVENTS, spanConfig()).querySelectorAll('.grid-weekend').length,
+    ).toBeGreaterThan(0);
 
     // Two off spellings, both of which a user reaches for, and neither of which should
     // write a property: an unset property lets the stylesheet's own `transparent`
@@ -1115,13 +1139,16 @@ describe('separators between grid days', () => {
       const config = spanConfig();
       config.time_grid = { weekend_background_color: off };
 
+      const rendered = renderGrid(EVENTS, config);
+
       expect(
-        requireElement<HTMLElement>(
-          renderGrid(EVENTS, config),
-          '.grid-container',
-        ).style.getPropertyValue('--calendar-card-grid-weekend'),
+        requireElement<HTMLElement>(rendered, '.grid-container').style.getPropertyValue(
+          '--calendar-card-grid-weekend',
+        ),
         `"${off}" must paint nothing`,
       ).toBe('');
+      // ...and no stripe elements either, rather than a page of transparent divs.
+      expect(rendered.querySelectorAll('.grid-weekend')).toHaveLength(0);
     }
 
     // ...and a value that does paint is written through unchanged.

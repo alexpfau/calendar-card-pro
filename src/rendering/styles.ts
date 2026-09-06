@@ -2117,14 +2117,19 @@ export const cardStyles = css`
      column is only as tall as that day's events, so the same tint would end at a different
      height on every day and read as a rendering fault.
 
+     Its own element rather than a background on the day body, because it spans the all-day
+     band as well: see renderWeekendStripes. The weekend class stays on the header and the
+     body regardless, since a card-mod rule targeting either predates this and still works.
+
      The fallback is transparent rather than a color: the renderer writes the property only
      when the resolved value paints something, so absence is the off state.
 
      The color itself is deliberately not a fixed gray. A theme token mixed down to a few
      percent darkens a light theme and lightens a dark one, which is what a weekend tint
      has to do to survive both. */
-  .grid-day-body.weekend {
+  .grid-weekend {
     background-color: var(--calendar-card-grid-weekend, transparent);
+    pointer-events: none;
   }
 
   /* Absolute, because a block's position is its start time. min-height is what keeps a

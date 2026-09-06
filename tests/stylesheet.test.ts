@@ -1651,17 +1651,23 @@ describe('card stylesheet', () => {
       );
 
       expect(shading).toHaveLength(1);
-      expect(new Set(shading[0].selectors)).toEqual(new Set(['.grid-day-body.weekend']));
+      // The stripe, not the day body: the tint spans the all-day band as well, which a
+      // background on the body cannot reach.
+      expect(new Set(shading[0].selectors)).toEqual(new Set(['.grid-weekend']));
       // Transparent, not a color: nothing is painted unless the option resolves to
       // something, and the renderer writes the property only then.
       expect(shading[0].body).toContain(
         'background-color: var(--calendar-card-grid-weekend, transparent)',
       );
-      // The other two views' day containers must carry no weekend rule at all.
+      // No view's day container may carry a weekend rule — not the other two, which have
+      // no fixed height for a stripe to run down, and not grid's own body, which would
+      // stop the tint at the top of the time grid.
       expect(
         RULES.filter((rule) =>
-          rule.selectors.some(
-            (selector) => selector === '.day-table.weekend' || selector === '.day-column.weekend',
+          rule.selectors.some((selector) =>
+            ['.day-table.weekend', '.day-column.weekend', '.grid-day-body.weekend'].includes(
+              selector,
+            ),
           ),
         ),
       ).toEqual([]);
