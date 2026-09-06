@@ -711,11 +711,14 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * (at its `z-index: 1`) over something flush against a column edge, and nothing is flush:
  * `--calendar-card-grid-event-gap` insets every block 1px inside its own column, so the
  * nearest ink is a pixel away on each side whatever the gutter does. Straddling would
- * need the rule to be *wider* than the gutter, which is what `0px` did. Measured painted
- * geometry at the default: a rule at x 505.9 to 506.9 in a gutter of 505.9 to 506.9,
- * against block edges at 504.8 and 507.9 — no overlap on either side. The visible gap
- * between two neighboring blocks falls from 12px at the list default, through 4px at
- * `2px`, to 3px.
+ * need the rule to be *wider* than the gutter, which is what `0px` did.
+ *
+ * Measured painted geometry, seven columns at 1600px, deviceScaleFactor 2: the first day
+ * body ends at x 504.844 and the second begins at 505.844, and the rule between them
+ * occupies 504.844 to 505.844 — the gutter, exactly, overhanging neither track. The
+ * nearest block ink is that column's first event at 506.844, a pixel further in. So the
+ * visible gap between two neighboring blocks falls from 12px at the list default, through
+ * 4px at `2px`, to 3px, with the rule filling the middle pixel of it.
  *
  * `event_font_size` drops from the card-wide `14px`. A list row is the width of the card
  * and a block is one seventh of it with a lane split still possible inside that, so the
