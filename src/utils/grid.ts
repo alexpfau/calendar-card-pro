@@ -9,11 +9,11 @@
  * alternative is wrong in a way that no default-config test can see.
  *
  * **Vertical geometry is expressed in percent, not pixels.** Nothing in this module
- * knows how tall the band is on screen. A fixed card height therefore compresses the
- * grid with no arithmetic anywhere, and there is no pixel scale for a renderer, a host
- * and a now-line to disagree about — a class of bug that only appears once someone
- * overrides the scale with card-mod. It also keeps configured lengths as CSS strings,
- * which `src/rendering/` is forbidden from turning into numbers.
+ * knows how tall the band is on screen. A fixed calendar content height therefore
+ * compresses the grid with no arithmetic anywhere, and there is no pixel scale for a
+ * renderer, a host and a now-line to disagree about — a class of bug that only appears
+ * once someone overrides the scale with card-mod. It also keeps configured lengths as
+ * CSS strings, which `src/rendering/` is forbidden from turning into numbers.
  *
  * **Clock positions come from the local wall clock, never from elapsed milliseconds.**
  * `date.getHours() * 60 + date.getMinutes()` and `(date - midnight) / 60000` agree on

@@ -1741,6 +1741,10 @@ describe('card stylesheet', () => {
       // width for everything else; it was dropped, so the hours decide it again.
       expect(declared('.grid-axis', 'box-sizing')).toBe('border-box');
       expect(declared('.grid-axis', 'padding-inline')).toBe('4px 8px');
+      expect(declared('.grid-axis', 'overflow')).toBe('hidden');
+      expect(declared('.grid-axis-label', 'top').replace(/\s+/g, ' ')).toBe(
+        'clamp(0px, calc(var(--calendar-card-grid-axis-label-top) - 0.5em), calc(100% - 1em))',
+      );
       expect(declared('.grid-axis-sizer', 'visibility')).toBe('hidden');
       expect(declared('.grid-axis-sizer span', 'display')).toBe('block');
     });

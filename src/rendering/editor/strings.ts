@@ -69,10 +69,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'height_mode.option.maximum.label': 'Maximum height',
   card_height: 'Height',
   'card_height.helper':
-    'The card is always this tall. List and column views scroll if the events do not fit; ' +
+    'The calendar content area is always this tall. List and column views scroll if the events do not fit; ' +
     'grid view compresses the time axis.',
   card_max_height: 'Maximum Height',
-  'card_max_height.helper': 'The card grows with its content up to this height, then scrolls.',
+  'card_max_height.helper':
+    'The calendar content area grows with its content up to this height, then scrolls.',
 
   // --- Column density -------------------------------------------------------
   'column.density': 'Column Density',
@@ -325,7 +326,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.axis': 'Time Axis',
   'time_grid.axis.helper':
     'Which hours the card draws, and how they are ruled. Everything on the axis is ' +
-    'positioned as a share of this band, so a fixed card height simply compresses it.',
+    'positioned as a share of this band, so a fixed calendar content height simply compresses it.',
   'time_grid.start_time': 'First Hour',
   'time_grid.start_time.helper':
     'As HH:mm. Events entirely before this are not drawn at all, so this decides what ' +
@@ -344,7 +345,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.slot_minutes.option.60.label': '1 hour',
   'time_grid.hour_height': 'Height Per Hour',
   'time_grid.hour_height.helper':
-    "The card's natural height, one hour at a time. Ignored when a fixed height is set: " +
+    "The calendar content area's natural height, one hour at a time. Ignored when a fixed height is set: " +
     'the axis compresses to fit instead.',
   'time_grid.axis_width': 'Hour Label Width',
   'time_grid.show_axis_labels': 'Show Hour Labels',

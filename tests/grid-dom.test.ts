@@ -250,7 +250,7 @@ describe('the grid shares one column template', () => {
   });
 });
 
-describe('a fixed card height compresses the band, a max height does not', () => {
+describe('a fixed content height compresses the band, a max height does not', () => {
   // The event blocks are already percentages (see "uses percentages, never pixels"), but a
   // percentage of what? The body row is `hour_height * bandHours` pixels by default, a fixed
   // scale that cannot shrink, so a `height` smaller than the content scrolled instead of
@@ -476,6 +476,25 @@ describe('the grid hour axis follows the same clock convention as event times', 
 
     expect(axisLabels(container)).toEqual(expected);
   });
+
+  it('keeps axis labels inside a compressed body while preserving their clock position', () => {
+    const container = renderGrid(
+      [timed(17, '21:00', '22:00', 'Late review')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        height: '100px',
+        time_grid: { start_time: '07:00', end_time: '22:00' },
+      }),
+    );
+    const labels = Array.from(container.querySelectorAll<HTMLElement>('.grid-axis-label'));
+
+    expect(labels).toHaveLength(15);
+    expect(labels[0].style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe('0%');
+    expect(labels.at(-1)?.style.getPropertyValue('--calendar-card-grid-axis-label-top')).toBe(
+      '93.33333333333333%',
+    );
+  });
 });
 
 describe('events sit at their clock time (#300)', () => {
@@ -491,7 +510,7 @@ describe('events sit at their clock time (#300)', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
     const style = container.querySelector<HTMLElement>('.grid-event')!.style;
 
-    // The whole point of percentage geometry: a fixed card height compresses the grid
+    // The whole point of percentage geometry: a fixed content height compresses the grid
     // with no re-math, and nothing can disagree with the now line about a pixel scale.
     expect(style.top).toMatch(/%$/);
     expect(style.height).toMatch(/%$/);
@@ -1166,10 +1185,9 @@ describe('the axis', () => {
 
     // A label laid out by one rule and a block by another is exactly how an axis ends up
     // measuring nothing.
-    expect(Number.parseFloat(nineOClock!.style.top)).toBeCloseTo(
-      Number.parseFloat(block.style.top),
-      6,
-    );
+    expect(
+      Number.parseFloat(nineOClock!.style.getPropertyValue('--calendar-card-grid-axis-label-top')),
+    ).toBeCloseTo(Number.parseFloat(block.style.top), 6);
   });
 
   it('aligns slot and hour rules to clock boundaries in a half-past band', () => {

@@ -58,8 +58,8 @@ overnight view.
 
 ## 📏 How Tall an Hour Is
 
-`hour_height` sets the card's natural height — one hour of axis, multiplied by the hours
-in the band:
+`hour_height` sets the calendar content area's natural height — one hour of axis,
+multiplied by the hours in the band:
 
 ```yaml
 time_grid:
@@ -69,8 +69,8 @@ time_grid:
 It is a CSS length, so `4em` works too and tracks your font size.
 
 Set a fixed `height` and `hour_height` stops mattering: the axis compresses to whatever
-room the card has. Everything on it is positioned as a share of the band rather than in
-pixels, so nothing needs recalculating and nothing drifts out of alignment.
+room the calendar content area has. Everything on it is positioned as a share of the band
+rather than in pixels, so nothing needs recalculating and nothing drifts out of alignment.
 At least half the configured content height stays available to the time axis, and a tall
 all-day band scrolls in whatever is left above it instead of squeezing the axis away.
 What is left is that half minus the day headers, so it shrinks as the card does: around
@@ -84,8 +84,8 @@ view: grid
 height: 400px
 ```
 
-That is the setting to reach for on a dashboard where the card has to be a particular
-size.
+Use it to fix the calendar content area's size. The outer card is taller when it also has
+a header or card padding.
 
 **→ [Height in Grid View](/features/layout-appearance#height-in-grid-view)** — how this interacts with `max_height` and the other views.
 

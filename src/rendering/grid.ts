@@ -248,8 +248,8 @@ function renderGridSeparator(
  * cannot drift apart — the misalignment that appears the moment a label is laid out by
  * one rule and a block by another.
  *
- * Labels are nudged up by half their own line height so the text centres on its rule
- * rather than hanging below it.
+ * Labels are centred on their rule where their line box fits, then clamped inside the
+ * axis so a short fixed-height grid cannot create scrollable overflow.
  *
  * @param band - The visible band
  * @param config - Card configuration
@@ -274,7 +274,12 @@ function renderAxis(
       ${hours.map((hour, index) => {
         const topPct = ((hour * 60 - band.startMin) / bandLength) * 100;
 
-        return html`<div class="grid-axis-label" style=${styleMap({ top: `${topPct}%` })}>
+        return html`<div
+          class="grid-axis-label"
+          style=${styleMap({
+            '--calendar-card-grid-axis-label-top': `${topPct}%`,
+          })}
+        >
           ${labels[index]}
         </div>`;
       })}
@@ -352,7 +357,7 @@ function renderRules(
  * Lane geometry is expressed with `calc()` against a percentage width so a block keeps
  * a real gutter beside its neighbour at any column width. Vertical geometry is pure
  * percentage: nothing here knows the band's pixel height, which is what lets a fixed
- * card height compress the whole grid with no arithmetic.
+ * content height compress the whole grid with no arithmetic.
  *
  * @param event - Event to render, carrying its lane assignment
  * @param placement - Where it sits in the band
@@ -686,8 +691,9 @@ export function renderGridGroupedEvents(
     .filter(({ separator, index }) => separator !== null && index > 0)
     .map(({ separator, index }) => renderGridSeparator(separator as GridSeparator, index, gutter));
 
-  // A configured `height` turns the axis from a fixed scale into a share of the card, as
-  // both `docs/features/grid-view.md` and the `.grid-container` stylesheet comment promise.
+  // A configured `height` turns the axis from a fixed scale into a share of the content
+  // area, as both `docs/features/grid-view.md` and the `.grid-container` stylesheet
+  // comment promise.
   // Reserve at least half the content height for time, letting the all-day band scroll
   // in the remaining space rather than starving the body. That remainder is what the day
   // headers leave behind, and they do not compress -- so the band's share is roughly
@@ -738,7 +744,7 @@ export function renderGridGroupedEvents(
         columnGap: gutter,
         // The time band's height is the one place a configured length becomes the scale.
         // It is handed to CSS as a calc() rather than multiplied here, so `4em` and
-        // `calc(3vh + 2px)` survive intact. Under a fixed card height it is a track
+        // `calc(3vh + 2px)` survive intact. Under a fixed content height it is a track
         // function instead of a length, and the block above stretches the container so the
         // `1fr` has room to fill.
         '--calendar-card-grid-body-height': fixedHeight

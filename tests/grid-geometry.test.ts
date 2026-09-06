@@ -223,7 +223,7 @@ describe('computeEventPlacement', () => {
   });
 
   // A percentage scale is only self-consistent if it never leaves the box, whatever
-  // the band. This is what lets a fixed card height compress the grid with no re-math.
+  // the band. This is what lets a fixed content height compress the grid with no re-math.
   it('never places a block outside 0-100% for any in-band interval', () => {
     for (const [start, end] of [
       ['00:00', '24:00'],

@@ -1814,13 +1814,14 @@ export const cardStyles = css`
 
      The body row takes its height from a custom property rather than from content,
      because a time axis has a height whether or not anything is scheduled. Under a
-     fixed card height the property is overridden with a share of the card instead, and
-     nothing needs recomputing: every block inside is positioned as a percentage.
+     fixed content height the property is overridden with a share of the content area
+     instead, and nothing needs recomputing: every block inside is positioned as a
+     percentage.
 
      The all-day row is a custom property for the opposite reason. Its default of auto
      sizes it to its banners, which is what an unconstrained card wants -- but an auto
      track also takes min-content as its minimum, so it cannot give height back once
-     the card is too short for both. Under a fixed height the renderer overrides it
+     the content area is too short for both. Under a fixed height the renderer overrides it
      with minmax(0, auto), which sizes the same way and is allowed to shrink. */
   .grid-container {
     display: grid;
@@ -1837,6 +1838,10 @@ export const cardStyles = css`
     position: relative;
     box-sizing: border-box;
     padding-inline: 4px 8px;
+    /* Labels are clamped to their half-line inset below. This is still needed when a
+       user makes the content area shorter than one line: the axis owns the clipping
+       instead of extending the calendar beyond its configured height. */
+    overflow: hidden;
   }
 
   .grid-axis-sizer {
@@ -1855,13 +1860,13 @@ export const cardStyles = css`
     white-space: nowrap;
   }
 
-  /* Nudged up by half a line so the text centres on its rule rather than hanging
-     below it. Right-aligned against the gutter's inner edge, which is where the eye
-     looks for a scale. */
+  /* The renderer clamps top between half-line insets, so this centres on its rule while
+     it fits and remains inside a compressed axis. Right-aligned against the gutter's
+     inner edge, which is where the eye looks for a scale. */
   .grid-axis-label {
     position: absolute;
+    top: clamp(0px, calc(var(--calendar-card-grid-axis-label-top) - 0.5em), calc(100% - 1em));
     inset-inline-end: 8px;
-    transform: translateY(-50%);
     font-size: var(--calendar-card-font-size-time);
     line-height: 1;
     color: var(--secondary-text-color);
@@ -1919,9 +1924,9 @@ export const cardStyles = css`
     row-gap: 2px;
     padding-block-end: 4px;
     /* The three below only matter when the band's track is shorter than its banners,
-       which a fixed card height can force. A grid item defaults to min-height: auto and
-       would refuse to shrink below its content, so the band has to opt out before its
-       own overflow can do anything; auto then scrolls rather than clipping, keeping
+       which a fixed content height can force. A grid item defaults to min-height: auto
+       and would refuse to shrink below its content, so the band has to opt out before
+       its own overflow can do anything; auto then scrolls rather than clipping, keeping
        every banner reachable; and start stops the rows sharing out surplus height back
        when the track is the taller of the two. */
     min-height: 0;

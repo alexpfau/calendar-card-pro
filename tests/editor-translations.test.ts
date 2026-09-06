@@ -103,16 +103,18 @@ describe('editor strings resolve in the requested language', () => {
   });
 
   it('tells a grid user that a fixed height compresses the axis instead of scrolling', () => {
-    // The layout-panel helper described a fixed height as scrolling. Grid
-    // compresses the axis instead, and that helper is shown in every view, so it
-    // has to name the split. The grid exception helper only has to say what the
-    // axis does. Stale translations of the scroll-only sentence were deleted so
-    // they fall back here — a translator is free to translate the replacement.
+    // `height` applies to `.content-container`; the header and card padding sit outside it.
+    // Grid compresses that content area's axis while the other views scroll it.
     expect(EDITOR_STRINGS['card_height.helper']).toContain('grid view compresses the time axis');
+    expect(EDITOR_STRINGS['card_height.helper']).toContain('calendar content area');
     expect(EDITOR_STRINGS['card_height.helper']).not.toContain(
       'scrolling if the events do not fit',
     );
     expect(EDITOR_STRINGS['time_grid.height.helper']).toContain('time axis compresses to fit');
+    expect(EDITOR_STRINGS['time_grid.axis.helper']).toContain('calendar content height');
+    expect(EDITOR_STRINGS['time_grid.hour_height.helper']).toContain(
+      "calendar content area's natural height",
+    );
   });
 
   it('falls back to English for a language with no file at all', () => {

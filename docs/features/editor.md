@@ -59,7 +59,7 @@ Three things follow their own rule under it, for reasons worth knowing:
 - **Exceptions** are always shown, since an option you asked to differ in one layout is a customization by definition — even before you change its value.
 
 ::: tip Not Everything Is There To Be Found
-The editor only offers the settings your current configuration calls for: a fixed card height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
+The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
 :::
 
 ## 📋 Per-Calendar Panels & Actions

@@ -19,9 +19,9 @@ additional_card_spacing: '10px'
 
 The card offers two distinct height control mechanisms:
 
-- **Fixed Height (`height`)**: Creates a card with exactly the specified height regardless of content amount. This is ideal when you need a card that perfectly fits a specific dashboard layout.
+- **Fixed Height (`height`)**: Creates a calendar content area with exactly the specified height regardless of content amount. The full card also includes its header and card padding, so use the dashboard's layout controls when its outer height must fit a specific space.
 
-- **Maximum Height (`max_height`)**: Allows the card to grow naturally up to the specified limit. This provides flexibility while still ensuring the card doesn't become too large.
+- **Maximum Height (`max_height`)**: Allows the calendar content area to grow naturally up to the specified limit. This provides flexibility while still ensuring its event content does not become too large.
 
 In list and column views, both options scroll when content exceeds the available space.
 In grid view a fixed `height` compresses the time axis instead — see
@@ -61,8 +61,9 @@ reach for `max_height` when you want an exact pixel value, or a different limit 
 
 A fixed `height` here compresses the time axis rather than scrolling. Hours, events, and
 the now line are all positioned as a share of the band, so they squeeze into whatever
-room the card has left after the day headers and the all-day band. `hour_height` stops
-applying. Reach for this when the dashboard has already decided the card's size.
+room the calendar content area has left after the day headers and the all-day band.
+`hour_height` stops applying. The header and card padding sit outside that area, so use
+the dashboard's layout controls when the outer card needs a particular size.
 
 The time body retains at least half the configured content height, and a tall all-day band
 scrolls in whatever the day headers leave above it. That remainder shrinks as the card
