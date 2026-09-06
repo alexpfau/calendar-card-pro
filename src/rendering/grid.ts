@@ -597,6 +597,11 @@ function renderOverflow(
  * carries on outside the window, which a clamped banner otherwise misreports as ending
  * exactly at the card's edge.
  *
+ * The calendar's color arrives as the fill and nothing else. A banner has no accent edge,
+ * where a timed block does — see the stylesheet comment on `.grid-banner` for why the two
+ * differ, and note that removing the edge is what lets the pill ends read as ends rather
+ * than as a shape with something stuck to one side of it.
+ *
  * @param event - All-day event to render
  * @param placement - Columns it spans
  * @param row - Band row it occupies, 1-based
@@ -627,7 +632,6 @@ function renderBanner(
       style=${styleMap({
         gridColumn: `${placement.columnIndex + 2} / span ${placement.span}`,
         gridRow: String(row),
-        borderInlineStartColor: presentation.entityAccentColor,
         backgroundColor: presentation.entityAccentBackgroundColor,
       })}
     >

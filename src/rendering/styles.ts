@@ -2088,11 +2088,13 @@ export const cardStyles = css`
        anyone looks for a glyph. Clamped to half the height by the browser, so the value
        only has to be larger than any banner can be tall.
 
-       The leading accent edge follows the curve into a crescent at a rounded start. That
-       is the coherent reading: the edge belongs to the banner, so it ends where the
-       banner does, and a straight bar against a round cap would look like two shapes. */
+       🚨 No leading accent edge, unlike every other event surface in the card. A banner
+       already carries its calendar's color as its whole fill, so a bar on top of that
+       said nothing a reader could not see — and against a rounded cap it curved into a
+       crescent, which read as a second shape stuck to the pill rather than as an edge.
+       macOS Calendar draws none either. The timed blocks keep theirs: they are tinted at
+       20% and need an edge to name the calendar. */
     border-radius: 999px;
-    border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
     font-size: var(--calendar-card-font-size-event);
   }
 

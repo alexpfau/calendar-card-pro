@@ -39,6 +39,7 @@ A pass over grid view against the week view of macOS Calendar, which is the layo
 - **A frame around the all-day band** - `day_separator_width` and `day_separator_color` now draw the grid's whole frame rather than only its vertical rules: the day rules run from under the date row to the foot of the axis and through the all-day band, there is one unbroken line under the date row where the old per-day rule was cut into a dash per column, and the boundary under the all-day band is drawn at three times the width because it separates two kinds of row rather than two days
 - **Blocks sit in the grid rather than floating in it** - The gutter between day columns was the list view's 10px, which left 12px between two neighboring blocks. Grid starts from 2px, so a block very nearly meets its day rule
 - **A banner's ends say where its event ends** - An all-day banner is now a full pill where the event genuinely starts or finishes, and squared off where it runs past the edge of the card. The small arrow is still there; the shape says the same thing before you look for it
+- **All-day banners lost their accent bar** - A banner is already filled with its calendar's color, so the leading bar named nothing you could not see, and against a rounded end it curved into a shape of its own. Timed blocks keep theirs, since they are only lightly tinted
 
 ### ↔️ Scrolling Long Titles
 

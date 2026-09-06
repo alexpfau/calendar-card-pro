@@ -1718,6 +1718,17 @@ describe('card stylesheet', () => {
       ).toEqual([]);
     });
 
+    it('reserves the accent edge for timed blocks, not for all-day banners', () => {
+      // The transparent placeholder edge is what the renderer colors in. A banner has
+      // none at all now: its whole fill is the calendar's color, so an edge added
+      // nothing, and at a pill end it curved into a crescent. Asserted as a pair so the
+      // rule cannot pass by the accent disappearing from the grid altogether.
+      expect(declared('.grid-event', 'border-inline-start')).toBe(
+        'var(--calendar-card-line-width-vertical) solid transparent',
+      );
+      expect(declared('.grid-banner', 'border-inline-start')).toBe('');
+    });
+
     it('rounds a banner end only where the event genuinely starts or ends', () => {
       // The shape is the claim: a fully rounded end says the event begins or ends inside
       // the window, and a squared one says it carries on past the edge. The renderer

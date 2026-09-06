@@ -226,7 +226,10 @@ than as ending exactly at the card's edge. The shape says the same thing before 
 for the arrow: an end where the event genuinely starts or finishes is rounded into a
 full pill, and an end that runs past the card's edge is squared back off.
 
-All-day banners are title-only. They still use the calendar accent, background opacity and
+All-day banners are title-only. They carry the calendar's color as their whole fill, with
+no accent edge — a bar on top of a fill that is already that color names nothing, and
+against a rounded end it curves into a shape of its own. Timed blocks keep their edge,
+because they are only lightly tinted. Banners still follow background opacity and
 past-event dimming, but they do not draw event detail rows: time badges, location,
 description, event weather, countdowns, progress bars and label icons stay out of the band.
 Those rows would make one all-day item taller than its neighbors and break the band into a

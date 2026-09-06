@@ -1669,6 +1669,25 @@ describe('the grid reuses the shared leaves', () => {
     expect(separator.style.borderTopColor).toBe('rgb(1, 2, 3)');
   });
 
+  it('gives a block an accent edge and a banner none', () => {
+    // One test, both arms, because either alone is satisfiable by an accident: a banner
+    // assertion on its own would pass if the accent stopped reaching the grid at all, and
+    // a block assertion on its own says nothing about the banner. A banner is already
+    // filled with its calendar's color, so an edge on top of it named nothing — and
+    // against the rounded cap it curved into a crescent that read as a separate shape.
+    const container = renderGrid([
+      timed(17, '09:00', '10:00', 'Standup'),
+      allDay('2026-06-17', '2026-06-18', 'Holiday'),
+    ]);
+    const block = requireElement(container, '.grid-event').getAttribute('style') ?? '';
+    const banner = requireElement(container, '.grid-banner').getAttribute('style') ?? '';
+
+    expect(block).toContain('border-inline-start-color');
+    expect(banner).not.toContain('border-inline-start');
+    // ...and the fill is still there, so "no edge" is not "no accent".
+    expect(banner).toMatch(/background-color:\s*\S/);
+  });
+
   it('carries the entity accent onto a block, as the other views do', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
     const style = container.querySelector('.grid-event')!.getAttribute('style') ?? '';
