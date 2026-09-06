@@ -1,15 +1,12 @@
 /**
- * A forecast emission from a torn-down subscription must not rewrite `weatherForecasts`.
- *
- * Callbacks close over the `_weatherSetupVersion` ticket from the setup that
- * registered them and no-op when it no longer matches. The fake connection here
- * still delivers after "unsubscribe" — the same race a late websocket message
- * can hit after the client asked to leave the stream. Combined with the
- * entity-switch blank (which also advances the ticket; see
- * `weather-blank-before-setup.test.ts`), that would otherwise put the previous
- * entity's forecast back on screen under the new configuration.
+ * Entity-switch blanks forecasts immediately, but setup only runs on a microtask
+ * (and can lag further while a previous subscribe await is open). Without bumping
+ * `_weatherSetupVersion` and tearing down the old stream at the blank, a late
+ * emit still carries the previous ticket and rewrites the old entity's forecast
+ * under the new configuration — the same race the post-setup callback guard
+ * cannot see, because setup has not advanced the ticket yet.
  */
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import { buildConfig } from './fixtures';
@@ -28,10 +25,9 @@ interface CardElement extends HTMLElement {
   weatherForecasts: Types.WeatherForecasts;
   updateComplete: Promise<boolean>;
   setConfig(config: Types.Config): void;
-  _scheduleWeatherSetup(): void;
+  _setupWeatherSubscriptions(): Promise<void>;
+  _weatherSetupVersion: number;
 }
-
-const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function makeConnection() {
   const subs: SubRecord[] = [];
@@ -69,12 +65,14 @@ function makeHass(conn: Conn): Types.Hass {
   } as unknown as Types.Hass;
 }
 
-describe('weather stale callback after supersession', () => {
+const SAMPLE = [{ datetime: '2026-06-17T00:00:00.000Z', condition: 'sunny', temperature: 21 }];
+
+describe('weather blank before setup version bump', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
   });
 
-  it('does not restore the previous entity forecast after an entity switch blank', async () => {
+  it('keeps the entity-switch blank when a late emit arrives before the next setup', async () => {
     const conn = makeConnection();
     const card = document.createElement('calendar-card-pro-dev') as unknown as CardElement;
     card.setConfig(
@@ -84,32 +82,40 @@ describe('weather stale callback after supersession', () => {
     card.isInitialLoad = false;
     document.body.appendChild(card);
     await card.updateComplete;
-    await flush();
+    await new Promise((r) => setTimeout(r, 0));
 
     const homeSub = conn.subs.find((s) => s.entityId === 'weather.home');
     expect(homeSub).toBeDefined();
-
-    homeSub!.emit([{ datetime: '2026-06-17T00:00:00.000Z', condition: 'sunny', temperature: 21 }]);
+    homeSub!.emit(SAMPLE);
     await card.updateComplete;
     expect(Object.keys(card.weatherForecasts.daily ?? {}).length).toBeGreaterThan(0);
+
+    const versionAtHome = card._weatherSetupVersion;
+    // Hold the next setup so the blank is exposed without that path advancing the ticket.
+    const setupSpy = vi
+      .spyOn(card, '_setupWeatherSubscriptions')
+      .mockImplementation(async () => undefined);
 
     card.setConfig(
       buildConfig({ weather: { entity: 'weather.cabin', position: 'date' } }) as Types.Config,
     );
     await card.updateComplete;
-    await flush();
+    await new Promise((r) => setTimeout(r, 0));
 
+    expect(setupSpy).toHaveBeenCalled();
+    // Entity-switch blank must have moved the ticket even though setup was held.
+    expect(card._weatherSetupVersion).toBeGreaterThan(versionAtHome);
     expect(Object.keys(card.weatherForecasts.daily ?? {}).length).toBe(0);
-    expect(homeSub!.unsubscribed).toBe(1);
+    expect(homeSub!.unsubscribed).toBeGreaterThanOrEqual(1);
 
-    // Late delivery from the torn-down home subscription.
-    homeSub!.emit([{ datetime: '2026-06-17T00:00:00.000Z', condition: 'sunny', temperature: 21 }]);
+    homeSub!.emit(SAMPLE);
     await card.updateComplete;
 
     expect(Object.keys(card.weatherForecasts.daily ?? {}).length).toBe(0);
+    setupSpy.mockRestore();
   });
 
-  it('control: the live subscription still updates forecasts', async () => {
+  it('control: same-entity weather edits still keep the live forecast path', async () => {
     const conn = makeConnection();
     const card = document.createElement('calendar-card-pro-dev') as unknown as CardElement;
     card.setConfig(
@@ -119,12 +125,20 @@ describe('weather stale callback after supersession', () => {
     card.isInitialLoad = false;
     document.body.appendChild(card);
     await card.updateComplete;
-    await flush();
+    await new Promise((r) => setTimeout(r, 0));
 
     const live = conn.subs[conn.subs.length - 1];
-    live.emit([{ datetime: '2026-06-17T00:00:00.000Z', condition: 'cloudy', temperature: 18 }]);
+    live.emit(SAMPLE);
     await card.updateComplete;
+    expect(Object.keys(card.weatherForecasts.daily ?? {}).length).toBeGreaterThan(0);
 
+    card.setConfig(
+      buildConfig({ weather: { entity: 'weather.home', position: 'event' } }) as Types.Config,
+    );
+    await card.updateComplete;
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Position-only edit must not blank; live stream may still update after re-setup.
     expect(Object.keys(card.weatherForecasts.daily ?? {}).length).toBeGreaterThan(0);
   });
 });

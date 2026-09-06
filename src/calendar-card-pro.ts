@@ -218,6 +218,16 @@ class CalendarCardPro extends LitElement {
   private _lastUpdateTime = 0;
   private _initialLoadRetryId?: number;
   private _weatherUnsubscribers: Array<() => void> = [];
+  /**
+   * Monotonic ticket for weather forecast setup and callbacks.
+   *
+   * Bumped by `_setupWeatherSubscriptions`, by `disconnectedCallback`, and by
+   * an entity switch that blanks `weatherForecasts` before the next setup
+   * microtask runs. Callbacks close over the ticket they were registered with
+   * and no-op when it no longer matches — otherwise a late emit after blank
+   * (or after unsubscribe) rewrites the previous entity's forecast onto the
+   * card under the new configuration.
+   */
   private _weatherSetupVersion = 0;
   private _weatherSetupPending = false;
   /**
@@ -787,8 +797,15 @@ class CalendarCardPro extends LitElement {
     // the new entity never supplies that forecast type, indefinitely. Deliberately not
     // done for other weather edits: the entity is unchanged there, so blanking the
     // forecast would only produce a flicker.
+    //
+    // Setup only runs on a microtask (and can be delayed further while a previous
+    // subscribe await is still open), so blanking alone is not enough: the still-live
+    // callback still holds the previous setup ticket and will write the old forecast
+    // back until that ticket moves. Bump and unsubscribe here so the blank sticks.
     if (weatherEntityChanged) {
       this.weatherForecasts = { daily: {}, hourly: {} };
+      this._weatherSetupVersion++;
+      this._cleanupWeatherSubscriptions();
     }
 
     if (hassJustAvailable || weatherConfigChanged) {
