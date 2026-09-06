@@ -662,7 +662,11 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Stops observing grid disclosure targets and any document.fonts listener.
+   * Stops observing grid disclosure targets and cancels any document.fonts work.
+   *
+   * Clears the ResizeObserver, the pending rAF, the loadingdone listener, and the
+   * active flag on the fonts.ready callback so a late promise resolve cannot schedule
+   * apply after this returns.
    */
   private _stopGridDisclosureObserver(): void {
     this._gridDisclosureObserver?.disconnect();
@@ -711,6 +715,12 @@ class CalendarCardPro extends LitElement {
 
     this._gridDisclosureRaf = requestAnimationFrame(() => {
       this._gridDisclosureRaf = null;
+      // A deferred fonts.ready can resolve after stop/disconnect. Match the weather
+      // and entity-color guards: never apply disclosure safety on a detached card or
+      // after the view has left the grid.
+      if (!this.isConnected || this.effectiveView !== 'grid') {
+        return;
+      }
       this._applyGridDisclosureSafety();
     });
   }
@@ -755,14 +765,24 @@ class CalendarCardPro extends LitElement {
 
     const fonts = document.fonts;
     if (fonts) {
-      const onFonts = (): void => this._scheduleGridDisclosureSafety();
+      // fonts.ready is a Promise: removeEventListener cannot cancel it. Flag the
+      // callback dead in cleanup so a late resolve after stop/disconnect cannot
+      // re-arm a disclosure rAF the way a leaked weather subscription does.
+      let active = true;
+      const onFonts = (): void => {
+        if (!active) return;
+        this._scheduleGridDisclosureSafety();
+      };
       void fonts.ready.then(onFonts);
       if (typeof fonts.addEventListener === 'function') {
         fonts.addEventListener('loadingdone', onFonts);
-        this._gridDisclosureFontsCleanup = () => {
-          fonts.removeEventListener('loadingdone', onFonts);
-        };
       }
+      this._gridDisclosureFontsCleanup = () => {
+        active = false;
+        if (typeof fonts.removeEventListener === 'function') {
+          fonts.removeEventListener('loadingdone', onFonts);
+        }
+      };
     }
 
     this._scheduleGridDisclosureSafety();

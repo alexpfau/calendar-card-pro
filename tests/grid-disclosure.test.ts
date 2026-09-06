@@ -201,4 +201,77 @@ describe('grid disclosure observer lifecycle', () => {
       }
     }
   });
+
+  it('does not re-arm disclosure after stop when a pending fonts.ready resolves', async () => {
+    globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
+
+    let resolveReady!: () => void;
+    const ready = new Promise<void>((resolve) => {
+      resolveReady = resolve;
+    });
+    const listeners: Array<{ type: string; fn: EventListener }> = [];
+    const fakeFonts = {
+      ready,
+      addEventListener(type: string, fn: EventListener) {
+        listeners.push({ type, fn });
+      },
+      removeEventListener(type: string, fn: EventListener) {
+        const idx = listeners.findIndex((l) => l.type === type && l.fn === fn);
+        if (idx >= 0) listeners.splice(idx, 1);
+      },
+    };
+    const originalFonts = Object.getOwnPropertyDescriptor(Document.prototype, 'fonts');
+    Object.defineProperty(document, 'fonts', {
+      configurable: true,
+      get: () => fakeFonts,
+    });
+
+    try {
+      const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+        setConfig(config: unknown): void;
+        preview: boolean;
+        updated(changedProps: Map<unknown, unknown>): void;
+        readonly updateComplete: Promise<boolean>;
+        _scheduleGridDisclosureSafety(): void;
+        _applyGridDisclosureSafety(): void;
+      };
+      card.setConfig({ entities: [], view: 'grid' });
+      card.preview = true;
+      document.body.appendChild(card);
+      await card.updateComplete;
+      card.shadowRoot!.innerHTML = '<div class="grid-event"><div class="time">1</div></div>';
+      card.updated(new Map());
+
+      expect(listeners.some((l) => l.type === 'loadingdone')).toBe(true);
+
+      let scheduleCount = 0;
+      let applyCount = 0;
+      card._scheduleGridDisclosureSafety = () => {
+        scheduleCount += 1;
+      };
+      card._applyGridDisclosureSafety = () => {
+        applyCount += 1;
+      };
+
+      card.remove();
+      expect(listeners).toHaveLength(0);
+
+      resolveReady();
+      await ready;
+      await Promise.resolve();
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      });
+
+      expect(scheduleCount).toBe(0);
+      expect(applyCount).toBe(0);
+    } finally {
+      if (originalFonts) {
+        Object.defineProperty(Document.prototype, 'fonts', originalFonts);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (document as any).fonts;
+      }
+    }
+  });
 });
