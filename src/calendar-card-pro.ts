@@ -1077,8 +1077,18 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Handle pointer down events for hold detection
+   *
+   * Only the primary button starts a card gesture. A right-click still
+   * delivers `pointerdown` with `button === 2`; without this guard the card
+   * armed hold, captured the pointer, and could fire `hold_action` when the
+   * context menu was what the user asked for. Touch and pen primary contacts
+   * report `button === 0`; unit stubs may omit the field entirely.
    */
   private _handlePointerDown(ev: PointerEvent) {
+    if (typeof ev.button === 'number' && ev.button !== 0) {
+      return;
+    }
+
     this._activePointerId = ev.pointerId;
     this._pointerStart = { x: ev.clientX, y: ev.clientY };
     this._pointerMoved = false;

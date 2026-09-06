@@ -52,8 +52,13 @@ interface CardUnderTest extends HTMLElement {
 }
 
 /** A minimal stand-in for a real PointerEvent, which happy-dom does not construct. */
-function pointer(pointerId: number, clientX = 0, clientY = 0): PointerEvent {
-  return { pointerId, clientX, clientY } as PointerEvent;
+function pointer(
+  pointerId: number,
+  clientX = 0,
+  clientY = 0,
+  extras: { button?: number } = {},
+): PointerEvent {
+  return { pointerId, clientX, clientY, ...extras } as PointerEvent;
 }
 
 /** Dispatch a bubbling pointer event with the fields the host reads. */
@@ -112,6 +117,45 @@ describe('host pointer handling', () => {
     vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
 
     expect(card._holdTriggered).toBe(true);
+  });
+
+  it('ignores a non-primary mouse button so right-click does not arm hold', async () => {
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(1, 0, 0, { button: 2 }));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+
+    expect(card._holdTriggered).toBe(false);
+    card._handlePointerUp(pointer(1, 0, 0, { button: 2 }));
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('still arms hold for an explicit primary button 0', async () => {
+    // Without this, a handler that rejected every numeric `button` would pass the
+    // right-click case while breaking every real mouse and touch contact.
+    const card = await mount({ hold_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(1, 0, 0, { button: 0 }));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+
+    expect(card._holdTriggered).toBe(true);
+  });
+
+  it('does not let a right-click interrupt an in-flight primary gesture', async () => {
+    // Before the button guard, a context-menu click restarted the hold timer mid-press.
+    // Advance just shy of the threshold, inject a right-click, then finish the remainder:
+    // if the timer was reset the remaining window is too short and hold never fires.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const threshold = Constants.TIMING.HOLD_THRESHOLD;
+
+    card._handlePointerDown(pointer(7, 0, 0, { button: 0 }));
+    vi.advanceTimersByTime(threshold - 50);
+    card._handlePointerDown(pointer(8, 0, 0, { button: 2 }));
+    vi.advanceTimersByTime(100);
+    card._handlePointerUp(pointer(7, 0, 0, { button: 0 }));
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
   });
 
   it('ignores a hold timer belonging to a pointer that is no longer active', async () => {
