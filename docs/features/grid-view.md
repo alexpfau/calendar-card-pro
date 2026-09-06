@@ -38,9 +38,15 @@ time_grid:
 `end_time` also accepts `24:00`, which means midnight at the end of the day rather than
 the start of it.
 
+A block sits just under the rule it starts on rather than exactly on it, and stops just
+short of the rule it ends at — the same pixel of clear space it already keeps from its
+column edges, so a block clears its neighbors by one value on all four sides.
+
 An event partly outside the band is drawn clipped, with a subtle dashed mark on the side it
-runs past. An event entirely outside it is not drawn at all — so a band is a decision about
-what the card shows, not only about how it looks.
+runs past. That edge gets no clear space: the block is cut off there rather than ending
+there, and a gap would say the event stops at the window. An event entirely outside the
+band is not drawn at all — so a band is a decision about what the card shows, not only
+about how it looks.
 
 Timed events that run across more than one day are split into one block per day column. The
 block's position and height show that day's span, so the text stays short: the first block

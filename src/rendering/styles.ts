@@ -2217,6 +2217,29 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-event);
     line-height: 1.25;
     container: calendar-card-grid-event / size;
+    /* The block's clearance from the hour rule it starts on and the one it ends at. The
+       same gap it already keeps from its column edges, so a block clears its neighbours by
+       one value on all four sides -- an event at 13:00 sits UNDER the 13:00 rule instead of
+       hanging off it, the way macOS Calendar draws it.
+
+       The renderer writes the two percentages and, for a clipped edge only, a 0px override
+       of the gap on that side; an edge the event genuinely owns says nothing and inherits
+       the default here. The composition lives in the stylesheet rather than in the
+       renderer because the geometry module knows minutes and percentages and deliberately
+       not pixels -- a percentage of a band whose height is still a custom property cannot
+       express one pixel, so the two have to meet at the browser.
+
+       A block shorter than both gaps computes a negative height, which resolves to zero,
+       and min-height above floors it -- the same floor that already carries a ten-minute
+       event. */
+    --calendar-card-grid-block-gap-above: var(--calendar-card-grid-event-gap);
+    --calendar-card-grid-block-gap-below: var(--calendar-card-grid-event-gap);
+    top: calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above));
+    height: calc(
+      var(--calendar-card-grid-block-height) - var(--calendar-card-grid-block-gap-above) - var(
+          --calendar-card-grid-block-gap-below
+        )
+    );
   }
 
   .grid-event-disclosure,

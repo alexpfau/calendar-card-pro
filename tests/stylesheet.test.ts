@@ -1628,6 +1628,45 @@ describe('card stylesheet', () => {
   });
 
   describe('the grid view box model', () => {
+    it('composes a block from its placement and its per-edge clearance', () => {
+      // The half `grid-dom.test.ts` structurally cannot see. The renderer writes four
+      // custom properties at most and never `top` or `height`, so what a browser resolves
+      // exists only here — and it exists only if all four names agree across two files.
+      //
+      // Compared as one map rather than four assertions, because the failure this guards
+      // is a name drifting on one side: an unknown custom property resolves to nothing,
+      // the whole `calc()` becomes invalid at computed-value time, and every block in the
+      // grid collapses to `top: auto` — which reads as a broken renderer rather than as a
+      // typo in a stylesheet.
+      const gap = 'var(--calendar-card-grid-event-gap)';
+      // Prettier wraps a long `calc()` and pads inside the brackets when it does — a
+      // three-term height comes back as `var( --name )` and a two-term one does not — so
+      // bracket padding is normalised away. Runs of whitespace collapse to ONE space
+      // rather than to nothing, deliberately: `calc(a -b)` is invalid CSS and stripping
+      // every space would make this assertion blind to exactly that.
+      const spacing = (value: string) =>
+        value.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
+
+      expect({
+        above: declared('.grid-event', '--calendar-card-grid-block-gap-above'),
+        below: declared('.grid-event', '--calendar-card-grid-block-gap-below'),
+        top: spacing(declared('.grid-event', 'top')),
+        height: spacing(declared('.grid-event', 'height')),
+      }).toEqual({
+        // The default IS the clearance, so an edge the event owns says nothing and a
+        // clipped one writes `0px` over this.
+        above: gap,
+        below: gap,
+        top: 'calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above))',
+        height:
+          'calc(var(--calendar-card-grid-block-height) - var(--calendar-card-grid-block-gap-above) - var(--calendar-card-grid-block-gap-below))',
+      });
+
+      // The floor that catches a block shorter than its own two gaps: the height resolves
+      // negative, CSS clamps it to zero, and this is what is left.
+      expect(declared('.grid-event', 'min-height')).toBe('14px');
+    });
+
     it('keeps positioned event boxes inside their percentage geometry', () => {
       // happy-dom cannot prove the 17:00 pixel edge is aligned with the 17:00 rule; it
       // does not do layout. What this stylesheet gate can prove is the declaration that

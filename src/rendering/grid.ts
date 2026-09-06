@@ -465,6 +465,45 @@ function renderRules(
 //-----------------------------------------------------------------------------
 
 /**
+ * Compose a block's vertical geometry from its placement.
+ *
+ * The percentages arrive from `computeEventPlacement`, which knows minutes and nothing
+ * else — deliberately, so a fixed content height can compress the whole grid with no
+ * arithmetic. The pixel of clearance is composed onto them in the stylesheet rather than
+ * folded in here, because a percentage of a band whose height this card does not yet know
+ * cannot express "one pixel". So this returns custom properties and `.grid-event` does the
+ * `calc()`; `top` and `height` are never written from here.
+ *
+ * The gap the stylesheet reaches for is `--calendar-card-grid-event-gap`, the same
+ * property that already holds a block a pixel clear of its column edges, so all four
+ * sides of a block clear their neighbours by one value. A block starting at 13:00 used to
+ * draw its top edge exactly on the 13:00 rule, which reads as the block hanging off the
+ * line rather than sitting under it; macOS Calendar leaves the same small gap it leaves
+ * between columns.
+ *
+ * 🚨 Per edge, not per block, and the clipped ends are why. A block running past the band
+ * edge is cut off there rather than ending there, so a gap at that edge would draw the one
+ * thing the clipping marks exist to deny — it would say the event stops at the top of the
+ * window. Only an edge the event genuinely owns gets the clearance, so an owned edge says
+ * nothing and inherits the stylesheet's default while a clipped one writes `0px` over it.
+ *
+ * A block shorter than the two gaps computes a negative height, which CSS resolves to
+ * zero, and `min-height` on `.grid-event` then floors it exactly as it already floors a
+ * ten-minute event. Nothing here needs to clamp.
+ *
+ * @param placement - Where the block sits in the band
+ * @returns Custom properties for the block's inline style
+ */
+function verticalGeometry(placement: Grid.EventPlacement): Record<string, string> {
+  return {
+    '--calendar-card-grid-block-top': `${placement.topPct}%`,
+    '--calendar-card-grid-block-height': `${placement.heightPct}%`,
+    ...(placement.clippedTop ? { '--calendar-card-grid-block-gap-above': '0px' } : {}),
+    ...(placement.clippedBottom ? { '--calendar-card-grid-block-gap-below': '0px' } : {}),
+  };
+}
+
+/**
  * Render one timed event as a block positioned by its clock time.
  *
  * Lane geometry is expressed with `calc()` against a percentage width so a block keeps
@@ -502,8 +541,7 @@ function renderTimedEvent(
         'clipped-bottom': placement.clippedBottom,
       })}
       style=${styleMap({
-        top: `${placement.topPct}%`,
-        height: `${placement.heightPct}%`,
+        ...verticalGeometry(placement),
         insetInlineStart: `calc(${event.laneIndex * laneWidth}% + var(--calendar-card-grid-event-gap))`,
         width: `calc(${laneWidth}% - var(--calendar-card-grid-event-gap) * 2)`,
         borderInlineStartColor: presentation.entityAccentColor,
@@ -590,8 +628,7 @@ function renderOverflow(
       class="event grid-event grid-event-overflow"
       title=${overflow.hidden.map((event) => event.summary ?? '').join('\n')}
       style=${styleMap({
-        top: `${placement.topPct}%`,
-        height: `${placement.heightPct}%`,
+        ...verticalGeometry(placement),
         insetInlineStart: `calc(${overflow.laneIndex * laneWidth}% + var(--calendar-card-grid-event-gap))`,
         width: `calc(${laneWidth}% - var(--calendar-card-grid-event-gap) * 2)`,
       })}

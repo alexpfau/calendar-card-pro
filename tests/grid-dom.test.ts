@@ -119,10 +119,43 @@ function gridDay(day: number, events: Types.CalendarEventData[] = []): Types.Eve
   };
 }
 
-/** The `top`/`height` a block was given, as numbers. */
+/**
+ * The placement percentages a block was given, as numbers.
+ *
+ * A block's `top` and `height` are composed in the stylesheet now, from two custom
+ * properties the renderer writes plus the clearance gap — so the declaration a browser
+ * resolves is not on the element and reading `style.top` here returns `''`. These are the
+ * numbers `computeEventPlacement` produced; `blockClearance` below asserts the other half.
+ */
 function geometry(element: Element): { top: number; height: number } {
   const style = (element as HTMLElement).style;
-  return { top: Number.parseFloat(style.top), height: Number.parseFloat(style.height) };
+  const percentage = (property: string) => {
+    const value = style.getPropertyValue(property);
+    expect(value, `expected ${property} to be set`).not.toBe('');
+    return Number.parseFloat(value);
+  };
+
+  return {
+    top: percentage('--calendar-card-grid-block-top'),
+    height: percentage('--calendar-card-grid-block-height'),
+  };
+}
+
+/**
+ * What a block overrode the per-edge clearance with, or `'inherit'` where it left the
+ * stylesheet's default standing.
+ *
+ * The default IS the clearance, so an edge the event owns is the one that says nothing.
+ * Reported rather than asserted here so a caller states which edges it expects.
+ */
+function blockClearance(element: Element): { above: string; below: string } {
+  const style = (element as HTMLElement).style;
+  const edge = (property: string) => style.getPropertyValue(property) || 'inherit';
+
+  return {
+    above: edge('--calendar-card-grid-block-gap-above'),
+    below: edge('--calendar-card-grid-block-gap-below'),
+  };
 }
 
 function requireElement<T extends Element = Element>(root: ParentNode, selector: string): T {
@@ -506,14 +539,51 @@ describe('events sit at their clock time (#300)', () => {
     expect(top).toBeCloseTo((120 / 900) * 100, 6);
   });
 
-  it('uses percentages, never pixels', () => {
+  it('places blocks in percentages and clears the hour rule at both owned edges', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
     const style = container.querySelector<HTMLElement>('.grid-event')!.style;
 
     // The whole point of percentage geometry: a fixed content height compresses the grid
-    // with no re-math, and nothing can disagree with the now line about a pixel scale.
-    expect(style.top).toMatch(/%$/);
-    expect(style.height).toMatch(/%$/);
+    // with no re-math, and nothing can disagree with the now line about a pixel scale. The
+    // pixel of clearance is composed onto that in the STYLESHEET rather than folded into
+    // the percentage, which is what keeps `src/utils/grid.ts` knowing only minutes.
+    expect(style.getPropertyValue('--calendar-card-grid-block-top')).toBe('13.333333333333334%');
+    expect(style.getPropertyValue('--calendar-card-grid-block-height')).toBe('6.666666666666667%');
+    expect(style.top).toBe('');
+    expect(style.height).toBe('');
+
+    // Both edges are the event's own, so neither overrides the gap — saying nothing IS
+    // asking for the clearance. `tests/stylesheet.test.ts` pins what the default resolves
+    // to and how the two are composed.
+    expect(blockClearance(container.querySelector('.grid-event')!)).toEqual({
+      above: 'inherit',
+      below: 'inherit',
+    });
+  });
+
+  it('skips the clearance at an edge the block is cut off at, and only there', () => {
+    // A block running past the band edge is cut off there rather than ending there, so a
+    // gap at that edge would say the event stops at the window — the exact claim the
+    // dashed clipping marks exist to deny. Every combination, because the three cases are
+    // the whole of what this branch can get wrong and a representative one would not
+    // notice an edge being skipped on the wrong side.
+    const band = () =>
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_grid: { start_time: '07:00', end_time: '19:00' },
+      });
+    const cases = [
+      ['clipped top', timed(18, '06:00', '08:00', 'Early'), { above: '0px', below: 'inherit' }],
+      ['clipped bottom', timed(18, '18:00', '21:00', 'Late'), { above: 'inherit', below: '0px' }],
+      ['clipped both', timed(18, '06:00', '21:00', 'All day-ish'), { above: '0px', below: '0px' }],
+    ] as const;
+
+    for (const [label, event, expected] of cases) {
+      const block = requireElement(renderGrid([event], band()), '.grid-event');
+
+      expect(blockClearance(block), label).toEqual(expected);
+    }
   });
 
   it('marks a block that starts before the band', () => {
@@ -1401,7 +1471,7 @@ describe('the axis', () => {
     // measuring nothing.
     expect(
       Number.parseFloat(nineOClock!.style.getPropertyValue('--calendar-card-grid-axis-label-top')),
-    ).toBeCloseTo(Number.parseFloat(block.style.top), 6);
+    ).toBeCloseTo(geometry(block).top, 6);
   });
 
   it('rules once an hour by default, so every rule on the card carries a label', () => {
