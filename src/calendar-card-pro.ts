@@ -1169,9 +1169,17 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Handle pointer up events to execute actions
+   *
+   * Only the primary button ends a card gesture. Mice share one `pointerId`
+   * across buttons, so a right-button release arrives with the same id as the
+   * left-button press that armed the hold. Without this guard that release
+   * fired `hold_action`/`tap_action` and cleared state while the primary
+   * button was still down. Touch and pen primary contacts report `button === 0`;
+   * unit stubs may omit the field entirely.
    */
   private _handlePointerUp(ev: PointerEvent) {
     if (ev.pointerId !== this._activePointerId) return;
+    if (typeof ev.button === 'number' && ev.button !== 0) return;
 
     if (this._holdTimer) {
       clearTimeout(this._holdTimer);

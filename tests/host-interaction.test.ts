@@ -158,6 +158,41 @@ describe('host pointer handling', () => {
     expect(handleAction.mock.calls[0][2]).toBe('hold');
   });
 
+  it('does not end a primary hold when a secondary button releases on the same pointerId', async () => {
+    // Mice reuse one pointerId across buttons. Left-down arms the gesture; a
+    // right-button pointerup with the same id used to run hold/tap and clear
+    // state while the left button was still down.
+    const card = await mount({
+      hold_action: { action: 'expand' },
+      tap_action: { action: 'none' },
+    });
+
+    card._handlePointerDown(pointer(1, 0, 0, { button: 0 }));
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+
+    card._handlePointerUp(pointer(1, 0, 0, { button: 2 }));
+    expect(handleAction).not.toHaveBeenCalled();
+    expect(card._holdTriggered).toBe(true);
+
+    card._handlePointerUp(pointer(1, 0, 0, { button: 0 }));
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+  });
+
+  it('does not fire a tap when a secondary button releases before the hold threshold', async () => {
+    const card = await mount({ tap_action: { action: 'expand' } });
+
+    card._handlePointerDown(pointer(1, 0, 0, { button: 0 }));
+    vi.advanceTimersByTime(50);
+    card._handlePointerUp(pointer(1, 0, 0, { button: 2 }));
+    expect(handleAction).not.toHaveBeenCalled();
+
+    card._handlePointerUp(pointer(1, 0, 0, { button: 0 }));
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
+
   it('ignores a hold timer belonging to a pointer that is no longer active', async () => {
     const card = await mount({ hold_action: { action: 'expand' } });
 
