@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import '../src/calendar-card-pro';
 import {
@@ -199,6 +199,124 @@ describe('grid disclosure safety', () => {
     expect(rows.every((row) => !row.classList.contains('grid-event-detail-clipped'))).toBe(true);
   });
 
+  it('charges a row only for the overflow the fit test does not already forgive', () => {
+    // `gridContentOverflows` calls a block fitting at one pixel over, so a row only ever has
+    // to give back `overflow - 1`. Charging it the untolerated overflow costs a whole extra
+    // line whenever the overflow lands just past a multiple of the line height, because
+    // `Math.ceil` rounds that single pixel up to a line of its own.
+    const lineHeight = 14.4;
+
+    // 15px of overflow is one pixel past one line box. Only one line has to go.
+    expect(fittedGridDetailLines(15, 2 * lineHeight, lineHeight)).toBe(1);
+    expect(fittedGridDetailLines(15, 5 * lineHeight, lineHeight)).toBe(4);
+    // 29px is one pixel past two line boxes.
+    expect(fittedGridDetailLines(29, 3 * lineHeight, lineHeight)).toBe(1);
+
+    // Away from that boundary the count is unchanged, so the correction is confined to it.
+    expect(fittedGridDetailLines(16, 2 * lineHeight, lineHeight)).toBe(0);
+    expect(fittedGridDetailLines(20, 5 * lineHeight, lineHeight)).toBe(3);
+    expect(fittedGridDetailLines(2, 5 * lineHeight, lineHeight)).toBe(4);
+  });
+
+  it('agrees with the fit test about what fits, at every overflow it can be asked about', () => {
+    // Reconciles the two functions against each other rather than restating either, so a
+    // change to the tolerance in one of them fails here instead of silently costing a line.
+    const lineHeight = 14.4;
+    const clientHeight = 100;
+
+    for (const currentLines of [2, 3, 5, 8]) {
+      const renderedHeight = currentLines * lineHeight;
+      for (let overflow = 2; overflow <= 40; overflow += 1) {
+        const scrollHeight = clientHeight + overflow;
+
+        // The largest clamp that genuinely makes the block fit, by measurement not algebra.
+        let truth = 0;
+        for (let lines = 1; lines <= currentLines; lines += 1) {
+          const clamped = scrollHeight - (currentLines - lines) * lineHeight;
+          if (!gridContentOverflows({ clientHeight, scrollHeight: clamped })) {
+            truth = Math.max(truth, lines);
+          }
+        }
+
+        const fitted = fittedGridDetailLines(overflow, renderedHeight, lineHeight);
+        // Below one line both answers mean the same thing -- the row cannot be kept -- so
+        // only the counts a caller acts on are compared.
+        expect(
+          Math.max(fitted, 0),
+          `overflow ${overflow}px over ${currentLines} lines of ${lineHeight}px`,
+        ).toBe(truth);
+      }
+    }
+  });
+
+  it('clamps a two-line row to one line rather than withdrawing it for a single pixel', () => {
+    // The maintainer's report: a block showing its title and its time, then no location at
+    // all, with a line of empty space below where the address should have been. Widening the
+    // window brought the address back, correctly ellipsised.
+    //
+    // The block overflows by 15px with a two-line address of 14.4px lines. One line has to
+    // go, and one line then fits -- but the old count charged the row `ceil(15 / 14.4)`, two
+    // lines, for an overflow the fit test already forgives a pixel of. That came out at zero
+    // lines, the clamp was refused as impossible, and the caller withdrew the whole row.
+    // Withdrawing it did resolve the overflow, so nothing put it back: the address vanished
+    // and its second line's worth of space stayed empty.
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      _applyGridDisclosureSafety(): void;
+    };
+    const root = card.attachShadow({ mode: 'open' });
+    Object.defineProperty(card, 'renderRoot', { value: root });
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="time">11:30 - 14:00</div>
+            <div class="location"><span>12 Rosemary Lane, Northbrook</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+    const content = root.querySelector<HTMLElement>('.event-content')!;
+    const location = root.querySelector<HTMLElement>('.location')!;
+    const span = location.querySelector<HTMLElement>('span')!;
+    const lineHeight = 14.4;
+
+    Array.from(content.children).forEach((row) => {
+      (row as HTMLElement).getClientRects = () =>
+        row.classList.contains('grid-event-detail-clipped')
+          ? ({} as DOMRectList)
+          : ({ 0: {} as DOMRect, length: 1, item: () => null } as unknown as DOMRectList);
+    });
+
+    // The address draws two lines unless clamped, and nothing at all once withdrawn.
+    const locationLines = (): number => {
+      if (location.classList.contains('grid-event-detail-clipped')) return 0;
+      const clamp = location.style.getPropertyValue('--calendar-card-location-max-lines');
+      return clamp ? Number(clamp) : 2;
+    };
+    span.getBoundingClientRect = () =>
+      ({ height: locationLines() * lineHeight }) as unknown as DOMRect;
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      lineHeight: `${lineHeight}px`,
+      fontSize: '12px',
+    } as unknown as CSSStyleDeclaration);
+
+    Object.defineProperties(content, {
+      clientHeight: { value: 100 },
+      // Title and time own 86.2px; two lines of address take it 15px past the box.
+      scrollHeight: { get: () => 86.2 + locationLines() * lineHeight },
+    });
+
+    card._applyGridDisclosureSafety();
+
+    expect(
+      location.classList.contains('grid-event-detail-clipped'),
+      'the address had room for one line and must not be withdrawn whole',
+    ).toBe(false);
+    expect(location.style.getPropertyValue('--calendar-card-location-max-lines')).toBe('1');
+    expect(gridContentOverflows(content)).toBe(false);
+    vi.restoreAllMocks();
+  });
+
   it('does not apply the fallback to an overflow-count placeholder', () => {
     const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
       _applyGridDisclosureSafety(): void;
@@ -356,15 +474,24 @@ describe('grid disclosure line fitting', () => {
 
   it('removes only the number of lines needed to pay for the overflow', () => {
     expect(fittedGridDetailLines(15, 60, 20)).toBe(2);
-    expect(fittedGridDetailLines(21, 60, 20)).toBe(1);
+    // 21px over three 20px lines. Dropping one line recovers 20 and leaves a single pixel
+    // over, which `gridContentOverflows` forgives -- so two lines survive, not one.
+    expect(fittedGridDetailLines(21, 60, 20)).toBe(2);
     expect(fittedGridDetailLines(10, 60, 0)).toBe(0);
     // Two lines rendered at 14.4px, overflowing by 20px: 20px is two line boxes rounded up,
     // so nothing survives and the caller must withdraw rather than clamp.
     expect(fittedGridDetailLines(20, 28.8, 14.4)).toBe(0);
     // The maintainer's arithmetic: five rendered lines, 26.4px over, two lines to give back.
     expect(fittedGridDetailLines(26.4, 72, 14.4)).toBe(3);
-    // A single pixel short of a whole line box still costs a whole line.
-    expect(fittedGridDetailLines(1, 72, 14.4)).toBe(4);
+    // A single pixel of overflow is the whole of the tolerance, so no line has to go. The
+    // pass never asks -- `gridContentOverflows` calls that block fitting and never enters
+    // the loop -- but the two must not disagree about it.
+    expect(fittedGridDetailLines(1, 72, 14.4)).toBe(5);
+    // Never more lines than the row already draws. Forgiving a pixel means the recovery can
+    // go negative, and a line box smaller than that pixel would otherwise turn the shortfall
+    // into extra lines -- handing back lines the configured clamp had already taken away.
+    expect(fittedGridDetailLines(0, 60, 0.5)).toBe(120);
+    expect(fittedGridDetailLines(1, 60, 0.5)).toBe(120);
   });
 
   it('uses an explicit pixel line height when the browser resolves one', () => {

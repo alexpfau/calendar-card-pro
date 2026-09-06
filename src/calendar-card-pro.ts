@@ -106,6 +106,17 @@ export function adoptEditorComponent(module: unknown, tagName: string): void {
 }
 
 /**
+ * How far content may exceed its box before the grid calls it clipped.
+ *
+ * Sub-pixel layout puts `scrollHeight` a pixel over `clientHeight` on content that visibly
+ * fits, so both the overflow test and the line-fitting arithmetic forgive that pixel. They
+ * share the constant because they have to agree: a row is asked to give back only the
+ * overflow this does not already absolve, and charging it the raw difference costs it a
+ * whole extra line every time the overflow lands just past a line box.
+ */
+const GRID_FIT_TOLERANCE_PX = 1;
+
+/**
  * Whether rendered event content exceeds its available height by more than rounding noise.
  *
  * @param content - The event content whose rendered dimensions to compare
@@ -114,7 +125,7 @@ export function adoptEditorComponent(module: unknown, tagName: string): void {
 export function gridContentOverflows(
   content: Pick<HTMLElement, 'clientHeight' | 'scrollHeight'>,
 ): boolean {
-  return content.scrollHeight > content.clientHeight + 1;
+  return content.scrollHeight > content.clientHeight + GRID_FIT_TOLERANCE_PX;
 }
 
 /**
@@ -152,6 +163,17 @@ export function resolveLineHeightPx(
  * applied — so this pass can only ever reduce what is shown, never restore a line the
  * configuration had already taken away.
  *
+ * The row is charged for the overflow `gridContentOverflows` does not already forgive, not
+ * for the raw difference. The two must agree about what fits, and a pixel is not free here:
+ * `Math.ceil` rounds it up to a whole line box, so an address overflowing by one line plus
+ * one pixel used to be told two lines had to go. At two rendered lines that came out at
+ * zero, the clamp was refused as impossible, and the caller withdrew the address entirely —
+ * leaving a line of empty space in the block where one ellipsised line belonged.
+ *
+ * Erring towards more lines is the safe direction: the caller re-measures after applying a
+ * clamp and withdraws the row anyway if the clamp did not resolve the overflow. A count that
+ * is too generous is corrected; a count that is too stingy is never revisited.
+ *
  * @param overflowPx - How far the block's content exceeds its box
  * @param renderedHeightPx - The row text's current rendered height
  * @param lineHeightPx - One line box, from `resolveLineHeightPx`
@@ -167,7 +189,8 @@ export function fittedGridDetailLines(
   }
 
   const currentLines = Math.max(1, Math.round(renderedHeightPx / lineHeightPx));
-  return currentLines - Math.ceil(overflowPx / lineHeightPx);
+  const mustRecoverPx = overflowPx - GRID_FIT_TOLERANCE_PX;
+  return currentLines - Math.max(0, Math.ceil(mustRecoverPx / lineHeightPx));
 }
 
 /**
