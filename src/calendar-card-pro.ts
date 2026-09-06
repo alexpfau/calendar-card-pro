@@ -284,6 +284,16 @@ class CalendarCardPro extends LitElement {
   private _gridDisclosureObserver: ResizeObserver | null = null;
   private _gridDisclosureRaf: number | null = null;
   /**
+   * When true, ResizeObserver callbacks for grid disclosure are ignored.
+   *
+   * `_applyGridDisclosureSafety` always removes then may re-add
+   * `grid-event-content-clipped`, which reflows observed title/block nodes and would
+   * otherwise re-schedule apply from its own layout. Generation bumps invalidate
+   * pending double-rAF clears after stop or a newer apply.
+   */
+  private _gridDisclosureSuppressRo = false;
+  private _gridDisclosureSuppressGeneration = 0;
+  /**
    * Cancels `document.fonts` work armed while grid disclosure is active.
    *
    * Drops the `loadingdone` listener and marks the `fonts.ready` callback inactive so a
@@ -682,6 +692,10 @@ class CalendarCardPro extends LitElement {
       cancelAnimationFrame(this._gridDisclosureRaf);
       this._gridDisclosureRaf = null;
     }
+
+    // Invalidate any pending double-rAF that would clear RO suppress after apply.
+    this._gridDisclosureSuppressGeneration += 1;
+    this._gridDisclosureSuppressRo = false;
   }
 
   /**
@@ -690,21 +704,40 @@ class CalendarCardPro extends LitElement {
    * Container queries make the usual case cheap, but their fixed pixel rungs cannot account
    * for a theme or configuration that enlarges text. Keep the title visible and withdraw the
    * optional rows rather than clipping part of one.
+   *
+   * Measuring requires dropping `grid-event-content-clipped` first, so every apply can
+   * reflow observed title/block nodes even when the final class is unchanged. Suppress
+   * ResizeObserver until two animation frames later so that reflow cannot re-arm schedule.
    */
   private _applyGridDisclosureSafety(): void {
-    for (const block of this.renderRoot.querySelectorAll<HTMLElement>(
-      '.grid-event:not(.grid-event-overflow)',
-    )) {
-      block.classList.remove('grid-event-content-clipped');
-      const content = block.querySelector<HTMLElement>('.grid-event-disclosure .event-content');
+    this._gridDisclosureSuppressGeneration += 1;
+    const generation = this._gridDisclosureSuppressGeneration;
+    this._gridDisclosureSuppressRo = true;
 
-      if (
-        content &&
-        gridContentOverflows(content) &&
-        content.querySelector('.time, .location, .description, .event-weather, .progress-bar-row')
-      ) {
-        block.classList.add('grid-event-content-clipped');
+    try {
+      for (const block of this.renderRoot.querySelectorAll<HTMLElement>(
+        '.grid-event:not(.grid-event-overflow)',
+      )) {
+        block.classList.remove('grid-event-content-clipped');
+        const content = block.querySelector<HTMLElement>('.grid-event-disclosure .event-content');
+
+        if (
+          content &&
+          gridContentOverflows(content) &&
+          content.querySelector('.time, .location, .description, .event-weather, .progress-bar-row')
+        ) {
+          block.classList.add('grid-event-content-clipped');
+        }
       }
+    } finally {
+      // Two frames: layout from the class toggle, then the RO notifications that follow it.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (generation === this._gridDisclosureSuppressGeneration) {
+            this._gridDisclosureSuppressRo = false;
+          }
+        });
+      });
     }
   }
 
@@ -735,9 +768,11 @@ class CalendarCardPro extends LitElement {
    * enlarges the title can overflow `.event-content` without resizing `.grid-event`.
    * Observing `.summary` / `.event-title` catches that without watching optional detail
    * rows: those rows are `display: none` while `grid-event-content-clipped` is on, so
-   * observing them re-fires ResizeObserver from the apply pass that just hid them and
-   * schedules apply forever. `document.fonts` covers detail-row font loads; `updated()`
-   * re-applies after config/theme edits as a backstop.
+   * observing them re-fires ResizeObserver from the apply pass that just hid them.
+   * Apply also suppresses RO for two frames after every measure, because unclip→reclip
+   * reflows the title/block nodes we *do* observe even when the final clip state matches.
+   * `document.fonts` covers detail-row font loads; `updated()` re-applies after
+   * config/theme edits as a backstop.
    */
   private _syncGridDisclosureSafety(): void {
     this._stopGridDisclosureObserver();
@@ -757,7 +792,12 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
-    this._gridDisclosureObserver = new ResizeObserver(() => this._scheduleGridDisclosureSafety());
+    this._gridDisclosureObserver = new ResizeObserver(() => {
+      if (this._gridDisclosureSuppressRo) {
+        return;
+      }
+      this._scheduleGridDisclosureSafety();
+    });
     // Title stays visible under the clip class; detail rows do not — see the method doc.
     const contentTargets = '.summary, .event-title';
     blocks.forEach((block) => {

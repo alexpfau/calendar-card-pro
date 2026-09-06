@@ -237,24 +237,15 @@ describe('grid disclosure observer lifecycle', () => {
       originalSchedule();
     };
 
-    // Simulate the browser reporting that optional detail rows changed size because
-    // apply just toggled grid-event-content-clipped (display:none on .time, etc.).
+    // Detail rows must not be observed: a clip toggle would notify them every apply.
     const time = root.querySelector('.time')!;
-    if (observer.observed.has(time)) {
-      observer.fire();
-    }
+    expect(observer.observed.has(time)).toBe(false);
 
-    // Title-only observation: toggling clip changes .time but not observed targets, so
-    // a synthetic "detail resized" notification is not even delivered. Force a fire on
-    // whatever is observed after apply would have run — still must not cascade forever.
+    // Apply always unclips then may reclip, which reflows title/block. While suppress
+    // is armed, even a full fire on every observed target must not re-arm schedule.
     card._applyGridDisclosureSafety();
     const before = scheduleCount;
-    // If any observed node is still a detail row, firing after clip would schedule again.
-    for (const el of observer.observed) {
-      if (el.classList.contains('time') || el.classList.contains('location')) {
-        observer.fire();
-      }
-    }
+    observer.fire();
     expect(scheduleCount).toBe(before);
 
     card.remove();
