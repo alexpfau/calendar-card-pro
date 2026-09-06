@@ -1356,10 +1356,20 @@ class CalendarCardPro extends LitElement {
       this._holdTimer = null;
     }
 
-    if (!this._pointerMoved && this._holdTriggered && this.config.hold_action) {
+    if (
+      !this._pointerMoved &&
+      this._holdTriggered &&
+      this.config.hold_action &&
+      this.config.hold_action.action !== 'none'
+    ) {
       Logger.debug('Executing hold action');
       Actions.handleAction(this, this.config, 'hold', () => this.toggleExpanded());
-    } else if (!this._pointerMoved && !this._holdTriggered && this.config.tap_action) {
+    } else if (
+      !this._pointerMoved &&
+      !this._holdTriggered &&
+      this.config.tap_action &&
+      this.config.tap_action.action !== 'none'
+    ) {
       Logger.debug('Executing tap action');
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }
@@ -1472,6 +1482,10 @@ class CalendarCardPro extends LitElement {
     if (ev.currentTarget != null && ev.target !== ev.currentTarget) return;
 
     if (ev.key === 'Enter' || ev.key === ' ') {
+      // Match pointer-up: default and explicit `tap_action: none` must not activate.
+      if (!this.config.tap_action || this.config.tap_action.action === 'none') {
+        return;
+      }
       ev.preventDefault();
       Actions.handleAction(this, this.config, 'tap', () => this.toggleExpanded());
     }

@@ -278,6 +278,22 @@ describe('host pointer handling', () => {
     expect(handleAction.mock.calls[0][2]).toBe('tap');
   });
 
+  it('does not fire a tap when tap_action is none', async () => {
+    // Defaults and the documented disable form. Host must not call into handleAction at
+    // all for a no-op tap — the interaction module also guards, but this path is what
+    // pointerup owns before that.
+    const card = await mount({
+      tap_action: { action: 'none' },
+      hold_action: { action: 'none' },
+    });
+
+    card._handlePointerDown(pointer(4));
+    vi.advanceTimersByTime(50);
+    card._handlePointerUp(pointer(4));
+
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
   it('keeps a small pointer wobble as a tap', async () => {
     const card = await mount({ tap_action: { action: 'expand' } });
 
@@ -525,6 +541,16 @@ describe('host keyboard handling', () => {
 
     expect(handleAction).toHaveBeenCalledTimes(1);
     expect(handleAction.mock.calls[0][2]).toBe('tap');
+  });
+
+  it.each(['Enter', ' '])('does not activate on %j when tap_action is none', async (key) => {
+    const card = await mount({ tap_action: { action: 'none' } });
+    const preventDefault = vi.fn();
+
+    card._handleKeyDown({ key, preventDefault } as unknown as KeyboardEvent);
+
+    expect(handleAction).not.toHaveBeenCalled();
+    expect(preventDefault).not.toHaveBeenCalled();
   });
 
   it('ignores other keys', async () => {

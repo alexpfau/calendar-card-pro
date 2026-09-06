@@ -40,7 +40,9 @@ export function handleAction(
   expandCallback?: () => void,
 ): void {
   const actionConfig = action === 'hold' ? config.hold_action : config.tap_action;
-  if (!actionConfig) return;
+  // Defaults and the documented disable form are both `{ action: 'none' }`. Without this
+  // guard every default-config tap still dispatched `hass-action` to Home Assistant.
+  if (!actionConfig || actionConfig.action === 'none') return;
 
   if (actionConfig.action === 'expand') {
     if (expandCallback) expandCallback();

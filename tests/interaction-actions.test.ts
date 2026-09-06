@@ -215,6 +215,19 @@ describe('handleAction with nothing configured', () => {
     expect(expand).not.toHaveBeenCalled();
   });
 
+  it('does nothing when the action is explicitly none', () => {
+    // Card defaults and the documented disable form are both `{ action: 'none' }`. Without
+    // this guard, every default-config tap still dispatched `hass-action`.
+    const { node, events } = listeningNode();
+    const expand = vi.fn();
+
+    handleAction(node, config({ tap_action: { action: 'none' } }), 'tap', expand);
+    handleAction(node, config({ hold_action: { action: 'none' } }), 'hold', expand);
+
+    expect(events).toHaveLength(0);
+    expect(expand).not.toHaveBeenCalled();
+  });
+
   it('still acts on the label that is present', () => {
     // The control: the early return must be selected by the missing half, not by the
     // config being unusual.
