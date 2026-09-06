@@ -925,16 +925,17 @@ compact_events_complete_days: true # Never cut off a day's events mid-day
 
 ::: warning Compact Mode Applies to List View Only
 All three options on this page cap the card as a whole, which a stack of days can express
-and a row of columns cannot: a limit of three events would fill the first column, spill into
+and a row of days cannot: a limit of three events would fill the first column, spill into
 the second and leave every later one blank. So `compact_events_to_show`,
 `compact_days_to_show` and `compact_events_complete_days` — including the per-calendar
-`compact_events_to_show` below — are read in list view and ignored in column view.
+`compact_events_to_show` below — are read in list view and ignored in column and grid view.
 
 They are not errors and they need not be removed: a card set to `view: column` renders as a
 list whenever it is too narrow for columns, and they all apply again the moment it does. To
 control how much a column view shows, use
 [`min_days_to_show` and `min_days_fallback`](/features/column-view#showing-fewer-columns-instead)
-instead.
+instead. Grid view never falls back to list on a narrow screen; use its
+[`time_grid` day-width and height options](/features/grid-view) rather than compact caps.
 :::
 
 ### Entity-Level vs. Global Event Limits

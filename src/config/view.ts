@@ -772,9 +772,9 @@ export function hasDivergentDefault(key: string, view: Types.EffectiveView): boo
 /**
  * Whether compact-mode limits apply in the given view.
  *
- * Compact limits trim the tail of a vertical list. Column view instead uses its column
- * density options, because deleting rightmost columns would hide days without changing
- * the card's height.
+ * Compact limits trim the tail of a vertical list. Column and grid views instead keep
+ * every day present: deleting rightmost columns would hide days without changing the
+ * card's height, and capping events across a time grid would empty later day columns.
  *
  * @param view - View currently being rendered
  * @returns `true` when `compact_*` keys should be honoured

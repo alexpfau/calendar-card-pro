@@ -89,6 +89,18 @@ narrow dashboard, so they are annotated rather than removed.
 
 **→ [Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view)** — why each one, and what to use instead.
 
+### Options With No Effect in Grid View
+
+`compact_events_to_show` · `compact_days_to_show` · `compact_events_complete_days` ·
+`split_multiday_events` (card-wide and per-entity)
+
+Compact caps empty later day columns rather than shortening the card, and the grid already
+segments multi-day events itself — all-day as one spanning banner, timed as one block per
+day — so the list splitter is not used. Unlike column view, grid does not fall back to list
+on a narrow dashboard; these keys stay inert while `view: grid`.
+
+**→ [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view)** — why each one.
+
 ### Per-Entity Options
 
 Each item in `entities` may be a plain entity ID string, or an object that overrides
