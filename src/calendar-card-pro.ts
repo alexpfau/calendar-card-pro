@@ -474,6 +474,14 @@ class CalendarCardPro extends LitElement {
     this._titleSubscription?.destroy();
     this._titleSubscription = undefined;
 
+    // Supersede any in-flight updateEvents. Detached setConfig can rewrite
+    // `_instanceId` while a pre-disconnect fetch is still open; without this
+    // bump the late response is not superseded, commits the old calendar's
+    // events, and stamps them with the *new* identity so
+    // `eventsMatchCurrentQuery` treats the mismatch as current.
+    this._eventRequestGeneration++;
+    this.isLoading = false;
+
     if (this._refreshTimerId) {
       clearTimeout(this._refreshTimerId);
       this._refreshTimerId = undefined;

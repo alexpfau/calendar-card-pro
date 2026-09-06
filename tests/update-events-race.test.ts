@@ -139,4 +139,39 @@ describe('a slow response must not overwrite a newer configuration', () => {
     // problem rather than solved it.
     expect(await race(['old', 'new'])).toEqual(['Newer response']);
   });
+
+  it('discards an in-flight response after disconnect even when setConfig rewrote the instance', async () => {
+    // Disconnect used to leave `_eventRequestGeneration` alone. A fetch started while
+    // connected could then settle after a detached setConfig had already rotated
+    // `_instanceId`, commit the previous calendar's events, and stamp them as matching
+    // the new query — the same unrecoverable state the header describes, reached through
+    // the lifecycle rather than through a second concurrent updateEvents.
+    const { hass, pending } = deferredHass();
+    const card = document.createElement('calendar-card-pro-dev') as unknown as CardUnderTest;
+    card.hass = hass;
+
+    card.setConfig({ entities: [{ entity: 'calendar.old' }], days_to_show: 3 });
+    document.body.appendChild(card);
+    await flush();
+
+    expect(
+      pending.some((p) => p.path.includes('calendar.old')),
+      'old request must be open',
+    ).toBe(true);
+
+    card.remove();
+    card.setConfig({ entities: [{ entity: 'calendar.new' }], days_to_show: 3 });
+
+    settle(pending, 'calendar.old', 'Stale after disconnect');
+    await flush();
+
+    expect(card.events.map((e) => e.summary)).not.toContain('Stale after disconnect');
+
+    // Positive control: reconnect still loads the calendar the config now names.
+    document.body.appendChild(card);
+    await flush();
+    settle(pending, 'calendar.new', 'Fresh after reconnect');
+    await flush();
+    expect(card.events.map((e) => e.summary)).toEqual(['Fresh after reconnect']);
+  });
 });

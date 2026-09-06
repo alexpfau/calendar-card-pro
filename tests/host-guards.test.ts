@@ -2,14 +2,19 @@
  * Guards in the card host that a mutation sweep left standing, and what each turned out
  * to be.
  *
- * Two were real gaps and are closed here: a refresh interval that silently reverted to
- * the built-in default, and the error state for a card with no calendars configured.
+ * Behaviour pins closed here:
+ * - a refresh interval that silently reverted to the built-in default;
+ * - the error state for a card with no calendars configured;
+ * - `startRefreshTimer` / `updateEvents` refusing to re-arm work after disconnect
+ *   (detached `setConfig` still reaches both).
  *
  * The rest were **equivalent mutants**, and are recorded rather than tested, because a
  * test that appeared to pin one would be pinning the mutation's own absorption:
  *
- * - the retry-cleanup guard in `updateEvents` is followed by a branch that clears and
- *   re-arms the timer either way;
+ * - the retry-cleanup guard in `updateEvents` (clearing an existing no-hass timer once
+ *   `hass` is present) is followed by a branch that clears and re-arms either way when
+ *   `hass` is still missing — that pair is not the disconnect early-return, which *is*
+ *   pinned below;
  * - `hasCompactModeLimits`'s `Number.isFinite` check sits behind `toValidNumber`, which
  *   has already reduced every limit — card-level and per-entity — to `number | undefined`;
  * - the weather-setup early return is masked **three** times over. Its entity half is
@@ -22,6 +27,9 @@
  * The weather cases below therefore pin the *contract* rather than any mutant: a card
  * configured for weather but not yet given `hass` — the ordinary first-paint ordering —
  * subscribes to nothing and does not reject.
+ *
+ * In-flight `updateEvents` discarded on disconnect (generation bump) lives in
+ * `update-events-race.test.ts` — same supersede mechanism, lifecycle entry point.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
