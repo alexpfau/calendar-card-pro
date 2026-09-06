@@ -48,6 +48,7 @@ export function renderMainCardStructure(
     pointerUp: (ev: PointerEvent) => void;
     pointerCancel: (ev: PointerEvent) => void;
     pointerLeave: (ev: PointerEvent) => void;
+    lostPointerCapture: (ev: PointerEvent) => void;
   },
   isLoading: boolean = false,
   titlePending: boolean = false,
@@ -71,6 +72,7 @@ export function renderMainCardStructure(
       @pointerup=${handlers.pointerUp}
       @pointercancel=${handlers.pointerCancel}
       @pointerleave=${handlers.pointerLeave}
+      @lostpointercapture=${handlers.lostPointerCapture}
     >
       <ha-ripple></ha-ripple>
 

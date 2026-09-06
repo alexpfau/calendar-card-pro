@@ -255,6 +255,7 @@ class CalendarCardPro extends LitElement {
   /** Element that currently holds pointer capture for the active card gesture, if any. */
   private _pointerCaptureTarget: Element | null = null;
   private _capturedPointerId: number | null = null;
+  private _releasingPointerCapture = false;
 
   /**
    * Card width in CSS pixels, as most recently measured.
@@ -1032,22 +1033,33 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Release any pointer capture taken for the active card gesture.
+   *
+   * `releasePointerCapture` fires `lostpointercapture` synchronously. The
+   * matching handler must not treat that as an external abort, or it would
+   * re-enter cancel in the middle of pointerup after the action has already
+   * run (or while the rest of up is still clearing state). The flag below is
+   * only set for the duration of our own release call.
    */
   private _releaseActivePointerCapture(): void {
-    if (
-      this._pointerCaptureTarget &&
-      this._capturedPointerId !== null &&
-      this._pointerCaptureTarget.hasPointerCapture?.(this._capturedPointerId)
-    ) {
-      try {
-        this._pointerCaptureTarget.releasePointerCapture(this._capturedPointerId);
-      } catch {
-        // Already released or the pointer ended — nothing left to clean up.
+    this._releasingPointerCapture = true;
+    try {
+      if (
+        this._pointerCaptureTarget &&
+        this._capturedPointerId !== null &&
+        this._pointerCaptureTarget.hasPointerCapture?.(this._capturedPointerId)
+      ) {
+        try {
+          this._pointerCaptureTarget.releasePointerCapture(this._capturedPointerId);
+        } catch {
+          // Already released or the pointer ended — nothing left to clean up.
+        }
       }
-    }
 
-    this._pointerCaptureTarget = null;
-    this._capturedPointerId = null;
+      this._pointerCaptureTarget = null;
+      this._capturedPointerId = null;
+    } finally {
+      this._releasingPointerCapture = false;
+    }
   }
 
   /**
@@ -1252,6 +1264,31 @@ class CalendarCardPro extends LitElement {
       this._capturedPointerId === ev.pointerId &&
       target.hasPointerCapture?.(ev.pointerId)
     ) {
+      return;
+    }
+
+    this._handlePointerCancel(ev);
+  }
+
+  /**
+   * Capture is what keeps leave from aborting a gesture still in progress. When the
+   * browser or another element forcibly releases that capture — OS gesture, scroll
+   * takeover, a second setPointerCapture — leave has often already been ignored under
+   * the capture assumption, and the matching up may never reach the card. Treat the
+   * loss like cancel so the hold indicator and active-pointer bookkeeping cannot stick
+   * until the next unrelated down.
+   *
+   * Our own `releasePointerCapture` on up/cancel also fires this synchronously. That
+   * path sets `_releasingPointerCapture` so this handler stays out of the way: the
+   * action decision has already run (or cancel already cleaned up), and re-entering
+   * cancel mid-up would only thrash state the rest of up is about to clear.
+   */
+  private _handleLostPointerCapture(ev: PointerEvent) {
+    if (this._releasingPointerCapture) {
+      return;
+    }
+
+    if (ev.pointerId !== this._activePointerId && ev.pointerId !== this._capturedPointerId) {
       return;
     }
 
@@ -1507,6 +1544,7 @@ class CalendarCardPro extends LitElement {
       pointerUp: (ev: PointerEvent) => this._handlePointerUp(ev),
       pointerCancel: (ev: PointerEvent) => this._handlePointerCancel(ev),
       pointerLeave: (ev: PointerEvent) => this._handlePointerLeave(ev),
+      lostPointerCapture: (ev: PointerEvent) => this._handleLostPointerCapture(ev),
     };
 
     let content: TemplateResult;

@@ -32,6 +32,7 @@ const noopHandlers = {
   pointerUp: () => {},
   pointerCancel: () => {},
   pointerLeave: () => {},
+  lostPointerCapture: () => {},
 };
 
 /** Renders the wrapper and returns its `ha-card` element. */

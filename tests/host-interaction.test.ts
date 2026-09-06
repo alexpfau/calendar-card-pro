@@ -45,9 +45,12 @@ interface CardUnderTest extends HTMLElement {
   _handlePointerUp(ev: PointerEvent): void;
   _handlePointerCancel(ev: PointerEvent): void;
   _handlePointerLeave(ev: PointerEvent): void;
+  _handleLostPointerCapture(ev: PointerEvent): void;
   _handleKeyDown(ev: KeyboardEvent): void;
   _holdTriggered: boolean;
   _holdIndicator: HTMLElement | null;
+  _activePointerId: number | null;
+  _releasingPointerCapture: boolean;
   readonly updateComplete: Promise<boolean>;
 }
 
@@ -389,6 +392,123 @@ describe('host pointer handling', () => {
 
     card._handlePointerUp(pointer(13, 100, 100));
     expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('cancels a gesture when pointer capture is lost externally', async () => {
+    // Leave under capture is ignored so a hold can finish outside the box. That
+    // only works while capture lasts. If the browser or another element strips
+    // capture without up/cancel — and leave already fired while capture held —
+    // nothing else cleaned the gesture: the hold disc stuck on document.body and
+    // _activePointerId stayed set until an unrelated later down.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+      hasPointerCapture(id: number): boolean;
+      releasePointerCapture(id: number): void;
+    };
+    expect(haCard).toBeTruthy();
+
+    const captured = new Set<number>();
+    haCard.setPointerCapture = (id: number) => {
+      captured.add(id);
+    };
+    haCard.hasPointerCapture = (id: number) => captured.has(id);
+    haCard.releasePointerCapture = (id: number) => {
+      captured.delete(id);
+    };
+
+    dispatchPointer(haCard, 'pointerdown', 14, 100, 100);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+    expect(card._holdIndicator).toBeTruthy();
+    expect(captured.has(14)).toBe(true);
+
+    // Geometric leave while capture still holds must not abort (covered above).
+    dispatchPointer(haCard, 'pointerleave', 14, 100, 140);
+    expect(card._holdTriggered).toBe(true);
+
+    // Capture is stripped without a matching up — the stuck-state defect.
+    captured.delete(14);
+    dispatchPointer(haCard, 'lostpointercapture', 14, 100, 140);
+
+    expect(card._holdTriggered).toBe(false);
+    expect(card._holdIndicator).toBeNull();
+    expect(card._activePointerId).toBeNull();
+
+    dispatchPointer(haCard, 'pointerup', 14, 100, 140);
+    expect(handleAction).not.toHaveBeenCalled();
+  });
+
+  it('still runs hold when our own release fires lostpointercapture on up', async () => {
+    // releasePointerCapture fires lostpointercapture synchronously mid-up. The
+    // action currently runs before release, so a blind cancel-on-lost would not
+    // eat the hold today — but the path must stay green as a regression control
+    // for the external-loss case above. The next test pins the self-release guard.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+      hasPointerCapture(id: number): boolean;
+      releasePointerCapture(id: number): void;
+    };
+    expect(haCard).toBeTruthy();
+
+    const captured = new Set<number>();
+    haCard.setPointerCapture = (id: number) => {
+      captured.add(id);
+    };
+    haCard.hasPointerCapture = (id: number) => captured.has(id);
+    haCard.releasePointerCapture = (id: number) => {
+      captured.delete(id);
+      // Mirror the browser: lost fires from release, while up is still running.
+      dispatchPointer(haCard, 'lostpointercapture', id, 100, 100);
+    };
+
+    dispatchPointer(haCard, 'pointerdown', 15, 100, 100);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+
+    dispatchPointer(haCard, 'pointerup', 15, 100, 100);
+
+    expect(handleAction).toHaveBeenCalledTimes(1);
+    expect(handleAction.mock.calls[0][2]).toBe('hold');
+    expect(card._activePointerId).toBeNull();
+  });
+
+  it('ignores lostpointercapture while releasing our own capture', async () => {
+    // Without _releasingPointerCapture, the browser's synchronous lost event from
+    // our releasePointerCapture is indistinguishable from an external strip and
+    // would cancel mid-cleanup. Pin the flag window directly: external lost is
+    // the sibling case above.
+    const card = await mount({ hold_action: { action: 'expand' } });
+    const haCard = card.shadowRoot?.querySelector('ha-card') as HTMLElement & {
+      setPointerCapture(id: number): void;
+      hasPointerCapture(id: number): boolean;
+      releasePointerCapture(id: number): void;
+    };
+    expect(haCard).toBeTruthy();
+
+    const captured = new Set<number>();
+    haCard.setPointerCapture = (id: number) => {
+      captured.add(id);
+    };
+    haCard.hasPointerCapture = (id: number) => captured.has(id);
+    haCard.releasePointerCapture = (id: number) => {
+      captured.delete(id);
+    };
+
+    dispatchPointer(haCard, 'pointerdown', 16, 100, 100);
+    vi.advanceTimersByTime(Constants.TIMING.HOLD_THRESHOLD + 50);
+    expect(card._holdTriggered).toBe(true);
+    expect(card._holdIndicator).toBeTruthy();
+
+    card._releasingPointerCapture = true;
+    dispatchPointer(haCard, 'lostpointercapture', 16, 100, 100);
+
+    expect(card._holdTriggered).toBe(true);
+    expect(card._holdIndicator).toBeTruthy();
+    expect(card._activePointerId).toBe(16);
+
+    card._releasingPointerCapture = false;
   });
 });
 
