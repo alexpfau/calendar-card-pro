@@ -476,6 +476,7 @@ class CalendarCardPro extends LitElement {
 
     if (this._refreshTimerId) {
       clearTimeout(this._refreshTimerId);
+      this._refreshTimerId = undefined;
     }
 
     if (this._initialLoadRetryId) {
@@ -950,9 +951,22 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Start the refresh timer
+   * Start the refresh timer.
+   *
+   * 🚨 Guarded on `isConnected` for the same reason as `_syncNowLineTimer`:
+   * `setConfig` always ends here, and a config edit (or a late `setConfig` after
+   * the card left the DOM) must not re-arm a periodic `updateEvents` loop on a
+   * detached element. `connectedCallback` starts the timer once the card is live.
    */
   private startRefreshTimer() {
+    if (!this.isConnected) {
+      if (this._refreshTimerId) {
+        clearTimeout(this._refreshTimerId);
+        this._refreshTimerId = undefined;
+      }
+      return;
+    }
+
     if (this._refreshTimerId) {
       clearTimeout(this._refreshTimerId);
     }

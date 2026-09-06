@@ -38,6 +38,8 @@ interface CardUnderTest extends HTMLElement {
   updateComplete: Promise<boolean>;
   _setupWeatherSubscriptions(): Promise<void>;
   _weatherUnsubscribers: Array<() => void>;
+  _refreshTimerId?: number;
+  startRefreshTimer(): void;
   renderedTitle?: string;
   readonly shadowRoot: ShadowRoot | null;
 }
@@ -102,6 +104,27 @@ describe('the refresh timer honours the configured interval', () => {
     expect(delays).not.toContain(30 * 60 * 1000);
 
     timeout.mockRestore();
+  });
+
+  it('does not re-arm the refresh timer after disconnect', async () => {
+    const element = card({ refresh_interval: 5 });
+    document.body.appendChild(element);
+    element.hass = { states: {}, callService: () => {}, locale: { language: 'en' } };
+    await element.updateComplete;
+    // Fake timers return a handle object rather than a bare number — presence is the pin.
+    expect(element._refreshTimerId).toBeTruthy();
+
+    element.remove();
+    expect(element._refreshTimerId).toBeUndefined();
+
+    // setConfig always ends in startRefreshTimer — without the isConnected guard
+    // that re-arms a detached card's updateEvents loop indefinitely.
+    element.setConfig(buildConfig({ entities: ['calendar.personal'], refresh_interval: 5 }));
+    expect(element._refreshTimerId).toBeUndefined();
+
+    // Positive control: reconnecting still schedules.
+    document.body.appendChild(element);
+    expect(element._refreshTimerId).toBeTruthy();
   });
 });
 
