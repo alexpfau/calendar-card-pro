@@ -1488,35 +1488,49 @@ describe('resolveColumnFit — grid reduction', () => {
     const config = build();
     config.column = { min_day_width: 300, min_days_to_show: 5, min_days_fallback: 'cramp' };
 
+    // 3 x 100 + 32 of card padding + 3 gutters (two between days, one before the axis)
+    // + a 48px max-content axis. The gutter is grid's own 2px, not the card-level 10px:
+    // the threshold has to reserve the space the grid renderer actually draws, or it
+    // sheds a column the card had room for.
     expect(resolveMinDaysToShow(config, 'grid')).toBe(1);
-    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(410);
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(386);
     expect(resolveColumnFit('grid', config, 426, null)).toEqual({ view: 'grid', columns: 3 });
+  });
+
+  it('reserves the grid gutter the grid renderer draws, not the card-level one', () => {
+    // The falsifier for the paragraph above, and the one thing a threshold figure alone
+    // cannot show: a card-level `day_spacing` is invisible to grid, and a block one is not.
+    const cardLevel = build();
+    cardLevel.day_spacing = '40px';
+
+    expect(computeColumnThresholdPxFor(cardLevel, 3, 'grid')).toBe(386);
+    expect(computeColumnThresholdPxFor(build({ day_spacing: '40px' }), 3, 'grid')).toBe(500);
   });
 
   it('lets grid override its own minimum day width', () => {
     const config = build({ min_day_width: 120 });
 
-    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(470);
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(446);
   });
 
   it('reserves a fixed time axis and every gap before accepting day tracks', () => {
     const config = build({ axis_width: '48px' });
 
-    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(410);
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(386);
     expect(resolveColumnFit('grid', config, 368, null)).toEqual({ view: 'grid', columns: 2 });
   });
 
   it('keeps the axis-to-day gap when hidden max-content labels collapse the axis', () => {
     const config = build({ axis_width: 'max-content', show_axis_labels: false });
 
-    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(362);
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(338);
   });
 
   it('falls back to list below one grid day by default', () => {
     const config = build();
 
-    expect(resolveColumnFit('grid', config, 205, null)).toEqual({ view: 'list', columns: 0 });
-    expect(resolveColumnFit('grid', config, 206, null)).toEqual({ view: 'grid', columns: 1 });
+    expect(resolveColumnFit('grid', config, 197, null)).toEqual({ view: 'list', columns: 0 });
+    expect(resolveColumnFit('grid', config, 198, null)).toEqual({ view: 'grid', columns: 1 });
   });
 
   it('holds a one-day grid when asked to cramp', () => {

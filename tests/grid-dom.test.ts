@@ -1023,7 +1023,7 @@ describe('separators between grid days', () => {
 
     expect(plain.style.backgroundColor).toBe('var(--divider-color)');
 
-    // The divergent-default half: a card-level colour is for the list and column layouts
+    // The divergent-default half: a card-level color is for the list and column layouts
     // and does not reach grid, exactly as the card-level width does not.
     const cardLevel = requireElement<HTMLElement>(
       renderGrid(EVENTS, spanConfig({ day_separator_color: 'rgb(1, 2, 3)' })),
@@ -1061,13 +1061,37 @@ describe('separators between grid days', () => {
   });
 
   it('places separators explicitly without displacing grid rows', () => {
-    const container = renderGrid(EVENTS, spanConfig({ day_spacing: '20px' }));
+    // `day_spacing` is a grid-divergent default, so the gutter is set in the block. A
+    // card-level value would leave the rule centered on grid's own 2px and the assertion
+    // would be about a gutter the card never asked for.
+    const config = spanConfig();
+    config.time_grid = { day_spacing: '20px' };
+    const container = renderGrid(EVENTS, config);
     const rules = separators(container);
 
     expect(rules.length).toBeGreaterThan(0);
     expect(rules[0].style.gridColumn).toBe('3');
     expect(rules[0].style.gridRow).toBe('4');
     expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 0.5px))');
+  });
+
+  it('starts from a gutter that lets a block meet its day rule', () => {
+    // The whole rule sits inside the gutter at the default: centered at 1px from the
+    // boundary with a 0.5px width, so it spans 0.75px to 1.25px and touches neither
+    // column. At `0px` it would straddle the boundary instead, and it paints above the
+    // day bodies.
+    const rule = separators(renderGrid(EVENTS, spanConfig()))[0];
+
+    expect(rule.style.marginInlineStart).toBe('calc(-0.5 * (2px + 0.5px))');
+    expect(
+      requireElement<HTMLElement>(renderGrid(EVENTS, spanConfig()), '.grid-container').style
+        .columnGap,
+    ).toBe('2px');
+
+    // Card-level spacing belongs to the list and column layouts and does not reach grid.
+    const cardLevel = renderGrid(EVENTS, spanConfig({ day_spacing: '40px' }));
+
+    expect(requireElement<HTMLElement>(cardLevel, '.grid-container').style.columnGap).toBe('2px');
   });
 
   it('keeps every separator family inside the time body', () => {

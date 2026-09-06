@@ -298,8 +298,8 @@ Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Six shared options do not inherit their top-level value in grid view. The **Default** column
-is what grid view uses; **Instead of** is the top-level default it replaces:
+Seven shared options do not inherit their top-level value in grid view. The **Default**
+column is what grid view uses; **Instead of** is the top-level default it replaces:
 
 | Option                     | Type    | Default                | Instead of                    |
 | -------------------------- | ------- | ---------------------- | ----------------------------- |
@@ -308,6 +308,7 @@ is what grid view uses; **Instead of** is the top-level default it replaces:
 | `show_past_events`         | boolean | `true`                 | `false`                       |
 | `day_separator_width`      | string  | `0.5px`                | `0px`                         |
 | `day_separator_color`      | string  | `var(--divider-color)` | `var(--secondary-text-color)` |
+| `day_spacing`              | string  | `2px`                  | `10px`                        |
 | `progress_bar_width`       | string  | `100%`                 | _per placement_               |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
@@ -319,6 +320,12 @@ lines carry the same weight and the shared axis reads as one grid. The progress 
 the block's full width: column view draws it at 80% of a row with no boundary of its own,
 where a full width would read as an underline, but a grid block is a tinted box with an
 edge, and a bar stopping short of that edge reads as unfinished rather than as restraint.
+`day_spacing` is the gutter between day columns here rather than vertical space between
+days, and the list value of `10px` left every block visibly floating inside its column
+instead of sitting in the grid — a block already clears its own column, so 10px of gutter
+put 12px between two neighbours. `2px` is the tightest gutter that still holds the whole
+day rule inside it: the rule is centered in the gap, so at `0px` it would straddle the
+column boundary and paint over anything flush against a column edge.
 
 Set any of them inside `time_grid:` to change it back.
 

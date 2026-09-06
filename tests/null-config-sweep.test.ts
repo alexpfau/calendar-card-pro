@@ -141,11 +141,20 @@ describe('null-valued config options', () => {
     ViewConfig.TIME_GRID_DEFAULTS,
   ) as (keyof typeof ViewConfig.TIME_GRID_DEFAULTS)[];
 
+  // Grid-only keys plus every key the block may override. The two halves resolve through
+  // different functions — `resolveTimeGridOption` and `resolveEffectiveConfig` — and only
+  // the first was swept. That was survivable while no override key had a divergent grid
+  // default, because a card-level null was then the same null the renderer read and the
+  // card-level sweep covered it. `day_spacing` broke that: grid substitutes its own value,
+  // so the block is now the *only* place a null for it can reach the renderer.
+  const gridBlockKeys = [...new Set<string>([...gridKeys, ...ViewConfig.TIME_GRID_OVERRIDE_KEYS])];
+
   it('sweeps a non-trivial number of grid-only keys', () => {
     expect(gridKeys.length).toBeGreaterThan(10);
+    expect(gridBlockKeys.length).toBeGreaterThan(gridKeys.length);
   });
 
-  it.each(gridKeys)('survives time_grid.%s: null in the grid view', (key) => {
+  it.each(gridBlockKeys)('survives time_grid.%s: null in the grid view', (key) => {
     const config = realSetConfigPipeline({
       entities: ['calendar.test'],
       view: 'grid',
@@ -231,24 +240,37 @@ describe('null-valued config options', () => {
     // Grid has its own consumers: `day_spacing` reaches the timed-event gutter, while
     // `week_separator_width` reaches the day-header separator. Pin the exact non-empty
     // result so this control cannot pass merely because an unrelated key started throwing.
-    const crashed = keys.filter((k) => {
-      const config = {
-        ...Config.DEFAULT_CONFIG,
-        entities: ['calendar.test'],
-        view: 'grid',
-        [k]: null,
-      } as unknown as Types.Config;
-      config.entities = Config.normalizeEntities(config.entities);
-      Config.normalizeNumericOptions(config);
-      // normalizeLengthOptions deliberately omitted.
-      try {
-        renderGrid(config);
-        return false;
-      } catch {
-        return true;
-      }
-    });
+    //
+    // 🚨 `day_spacing` is absent from the card-level set and its absence is the finding,
+    // not a gap: grid substitutes its own `2px` default for that key, so a card-level
+    // value — null included — never reaches the renderer at all. The block sweep above is
+    // where a null for it can still arrive, and it is guarded there by a different
+    // mechanism; see the second assertion.
+    const crashIn = (place: 'card' | 'block') =>
+      keys.filter((k) => {
+        const config = {
+          ...Config.DEFAULT_CONFIG,
+          entities: ['calendar.test'],
+          view: 'grid',
+          ...(place === 'card' ? { [k]: null } : { time_grid: { [k]: null } }),
+        } as unknown as Types.Config;
+        config.entities = Config.normalizeEntities(config.entities);
+        Config.normalizeNumericOptions(config);
+        // normalizeLengthOptions deliberately omitted.
+        try {
+          renderGrid(config);
+          return false;
+        } catch {
+          return true;
+        }
+      });
 
-    expect(crashed).toEqual(['day_spacing', 'week_separator_width']);
+    expect(crashIn('card')).toEqual(['week_separator_width']);
+    // `[]`, and the line above is what makes that readable rather than vacuous: the same
+    // probe returns a key on the card-level arm in the same run. The block arm is empty
+    // because `resolveEffectiveConfig` coerces every block value on its way onto the
+    // config, so the block never depends on `normalizeLengthOptions` the way the card
+    // level does. The `time_grid.*` sweep above is what covers that path.
+    expect(crashIn('block')).toEqual([]);
   });
 });

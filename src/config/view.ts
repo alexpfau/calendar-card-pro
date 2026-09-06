@@ -646,13 +646,23 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * far heavier than the horizontals, which read as a table of boxes rather than as a
  * grid. The two now carry identical ink — `.grid-rules` paints 1px of
  * `var(--divider-color)` at `opacity: 0.5`, and a rule paints 0.5px of it at full
- * strength. Note this is a divergent default, so a top-level colour no longer reaches
+ * strength. Note this is a divergent default, so a top-level color no longer reaches
  * grid; that is already true of the width beside it, and the pair now behaves alike
- * rather than applying a card-wide colour to a width the card level never asked for.
+ * rather than applying a card-wide color to a width the card level never asked for.
  * `progress_bar_width` fills the block:
  * column view draws the bar at 80% of a row that has no boundary of its own, where a full
  * width would read as an underline, while a grid block is a tinted box with an edge — so
  * a bar short of that edge reads as unfinished rather than as restraint.
+ *
+ * `day_spacing` is the column gutter here rather than vertical space between days, and
+ * the list default of `10px` made every block look inset from the paper it sits on: a
+ * block already clears its own column by `--calendar-card-grid-event-gap` on each side,
+ * so 10px of gutter put 12px between two neighboring blocks. macOS Calendar has them
+ * meet their day rule. `2px` is the smallest value at which the rule stays wholly inside
+ * the gutter — it is drawn at `calc(-0.5 * (gap + width))`, i.e. centered, so at `0px` a
+ * `0.5px` rule straddles the column boundary and paints (with its `z-index: 1`) over
+ * whatever is flush against a column edge. At `2px` the boundary is rule plus 0.75px of
+ * clear space on each side, and the visible gap between two blocks falls from 12px to 4px.
  *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
@@ -665,6 +675,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
 } = {
   day_separator_width: '0.5px',
   day_separator_color: 'var(--divider-color)',
+  day_spacing: '2px',
   event_background_opacity: 20,
   progress_bar_width: '100%',
   show_empty_days: true,
@@ -1214,15 +1225,15 @@ function dayColumnViewOverheadPx(
   return axis + gutter;
 }
 
-// Read by hand because width arithmetic runs before the effective view is known.
+// Resolved through `resolveViewOption` rather than by hand, so this cannot disagree with
+// the gutter the renderer draws. It read the block override and then fell straight back to
+// the top-level value, skipping the view's divergent default — correct only while no view
+// had one for `day_spacing`. Grid now does, and a hand-rolled copy of two thirds of the
+// resolver would have had the threshold reserving 10px per gap for a layout drawing 2px:
+// every arithmetic-driven decision (how many columns fit, and whether the grid falls back
+// to a list at all) would have been made against a card that is not the one on screen.
 function dayColumnGutterPx(config: Types.Config, view: Types.EffectiveView): number {
-  const overrides = blockValues(config, view);
-  const configuredGap =
-    overrides && hasOverride(overrides, 'day_spacing')
-      ? coercePixelLength('day_spacing', overrides.day_spacing)
-      : config.day_spacing;
-
-  return parsePx(String(configuredGap), DEFAULT_DAY_GAP_PX);
+  return parsePx(String(resolveViewOption(config, 'day_spacing', view)), DEFAULT_DAY_GAP_PX);
 }
 
 // Normalizes `days_to_show` to a usable column count.
