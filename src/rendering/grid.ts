@@ -207,11 +207,17 @@ function resolveSeparator(boundary: DayBoundary, config: Types.Config): GridSepa
  * The rule overlays the outer grid and is pulled into the gap with a negative margin,
  * so enabling it paints the boundary without changing day-column widths.
  *
- * Grid has four rows: week numbers, day headers, all-day banners and the time body. All
- * separator families are confined to the time body. A day rule crossing a spanning
- * all-day banner makes one event read as chopped into days, and a week/month rule would
- * do the same at a larger boundary; headers and week numbers are labels, not ruled
- * paper. The boundary is still visible where it matters: against the hour axis.
+ * Grid has four rows: week numbers, day headers, all-day banners and the time body. The
+ * rules run the last two, so a day column is ruled from under its date down to the foot
+ * of the axis, as macOS Calendar draws it. Week numbers and dates stay clear — they are
+ * labels, not ruled paper.
+ *
+ * 🚨 They used to stop at the band, on the reasoning that a rule crossing a spanning
+ * all-day banner would make one event read as chopped into days. That reasoning was
+ * sound and the remedy was wrong: the band now carries a `z-index` above the rules, so a
+ * banner paints **over** them and reads as continuous, while the empty part of the band
+ * shows the day columns it belongs to. Removing that `z-index` brings the original defect
+ * straight back, which is why it is a declaration with a comment rather than a default.
  *
  * @param separator - The resolved rule for this gutter
  * @param columnIndex - Zero-based day column the rule precedes
@@ -228,10 +234,48 @@ function renderGridSeparator(
       class="grid-separator grid-separator-${separator.kind}"
       style=${styleMap({
         gridColumn: String(columnIndex + 2),
-        gridRow: '4',
+        gridRow: '3 / span 2',
         width: separator.width,
         backgroundColor: separator.color,
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
+      })}
+    ></div>
+  `;
+}
+
+/**
+ * Render one horizontal rule across the whole card at an all-day band boundary.
+ *
+ * Unbroken, which is the whole point: the per-day header rule these replace was drawn
+ * inside each day header, so `day_spacing` cut it into one dash per column and the row it
+ * was supposed to close read as a row of ticks. One element spanning `1 / -1` covers the
+ * gutters and the hour axis too, so the band sits in a frame rather than beside one.
+ *
+ * Both rules are drawn from `day_separator_width` and `day_separator_color`, the same
+ * options as the vertical rules, so the grid's frame is one system a user changes in one
+ * place. The lower rule is a multiple of that width rather than an option of its own:
+ * macOS Calendar draws the line under the all-day area heavier than the hour rules, and
+ * deriving it keeps that proportion at any width the user picks instead of stranding a
+ * second length beside the first.
+ *
+ * `align-self: start` and an explicit height keep them on the boundary and out of the row
+ * sizing, so turning them on cannot change how tall the band or the axis is.
+ *
+ * @param kind - Which boundary this is, used for the class and the row
+ * @param width - Resolved CSS length for the rule
+ * @param color - Resolved CSS color for the rule
+ * @returns The rendered rule
+ */
+function renderGridBoundary(kind: 'band-top' | 'band-bottom', width: string, color: string) {
+  return html`
+    <div
+      class="grid-boundary grid-boundary-${kind}"
+      aria-hidden="true"
+      style=${styleMap({
+        gridColumn: '1 / -1',
+        gridRow: kind === 'band-top' ? '3' : '4',
+        height: width,
+        backgroundColor: color,
       })}
     ></div>
   `;
@@ -746,6 +790,21 @@ export function renderGridGroupedEvents(
     .filter(({ separator, index }) => separator !== null && index > 0)
     .map(({ separator, index }) => renderGridSeparator(separator as GridSeparator, index, gutter));
 
+  // The two horizontal rules that frame the all-day band, drawn from the same option as
+  // the vertical ones so `day_separator_width: 0` turns the whole frame off together.
+  // The upper rule is only drawn when there is a band to close: with no all-day events
+  // row 3 collapses to nothing and the two rules would land on the same line, a hairline
+  // stacked under a heavier one. The lower rule is the boundary either way.
+  const ruleWidth = config.day_separator_width;
+  const ruleColor = config.day_separator_color;
+  const framed = !ViewConfig.isZeroLength(ruleWidth);
+  const bandBoundaries = framed
+    ? [
+        ...(bandRows > 0 ? [renderGridBoundary('band-top', ruleWidth, ruleColor)] : []),
+        renderGridBoundary('band-bottom', ViewConfig.scaleLength(ruleWidth, 3), ruleColor),
+      ]
+    : [];
+
   // A configured `height` turns the axis from a fixed scale into a share of the content
   // area, as both `docs/features/grid-view.md` and the `.grid-container` stylesheet
   // comment promise.
@@ -859,7 +918,7 @@ export function renderGridGroupedEvents(
           hass,
         ),
       )}
-      ${separators}
+      ${separators} ${bandBoundaries}
     </div>
   `;
 }

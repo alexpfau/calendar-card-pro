@@ -133,9 +133,21 @@ horizontal hour rules are drawn in, so the paper reads as one grid rather than a
 of boxes. Set either inside `time_grid:` to change it — a card-level `day_separator_color`
 belongs to the list and column layouts and is left there.
 
-Month rules win over week rules, and week rules win over day
-rules. All of them stay inside the time body, so date headers remain clean and a multi-day
-all-day banner stays visually continuous across day boundaries.
+`day_separator_width` and `day_separator_color` draw the grid's whole frame, not only its
+vertical rules:
+
+- **Down the columns**, from just under the date row to the foot of the axis. The rules
+  cross the all-day band, and a banner spanning several days paints over them, so it still
+  reads as one thing.
+- **Under the date row**, as one unbroken line across the full width of the card, the hour
+  gutter included.
+- **Under the all-day band**, at three times the width, because that boundary separates two
+  different kinds of row rather than two days. It is derived from `day_separator_width`
+  rather than configured on its own, so the proportion holds at whatever width you set.
+
+Setting `day_separator_width: 0` removes the frame entirely. Month rules win over week
+rules, and week rules win over day rules. The date row and the week numbers above it stay
+clear of all of them — they label the grid rather than belonging to it.
 
 When you choose **Time Grid** in the visual editor, it adds the grid defaults that differ
 from the shared card defaults into `time_grid:` for you. That makes the default day rule,

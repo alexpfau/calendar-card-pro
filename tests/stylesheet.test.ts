@@ -1641,6 +1641,51 @@ describe('card stylesheet', () => {
       expect(declared('.grid-banner', 'box-sizing')).toBe('border-box');
     });
 
+    it('paints the grid in the one order its rules depend on', () => {
+      // A ladder, not five independent numbers, and the rung that matters is the band's:
+      // the vertical day rules run through the all-day row, so a spanning banner has to
+      // paint over them or it reads as chopped into days. That was previously prevented
+      // by keeping the rules out of the band entirely, and `grid-dom.test.ts` now asserts
+      // they cross it — so this is the other half of that claim.
+      //
+      // Compared as a whole map so a rung leaving fails as loudly as one changing: a
+      // per-selector assertion cannot notice a `z-index` being deleted from a rule that
+      // still exists.
+      const ladder = Object.fromEntries(
+        ['.grid-separator', '.grid-allday-band', '.grid-boundary'].map((selector) => [
+          selector,
+          declared(selector, 'z-index'),
+        ]),
+      );
+
+      expect(ladder).toEqual({
+        '.grid-separator': '1',
+        '.grid-allday-band': '2',
+        '.grid-boundary': '3',
+      });
+
+      // The blocks sit below the rules by being positioned rather than by a z-index, so
+      // the ladder above is only meaningful while this stays a positioned element.
+      expect(declared('.grid-day-body', 'position')).toBe('relative');
+      // ...and the tint and the hour lines sit below everything by carrying neither.
+      expect(declared('.grid-weekend', 'z-index')).toBe('');
+      expect(declared('.grid-rules', 'z-index')).toBe('');
+    });
+
+    it('clears the rule above the all-day band so a banner does not sit on it', () => {
+      // The upper band rule is drawn at the top of row 3, which is exactly where the
+      // first banner starts. Without this padding the rule cuts across that banner.
+      expect(declared('.grid-allday-band', 'padding-block-start')).toBe('3px');
+    });
+
+    it('keeps the band rules unbroken and out of the row sizing', () => {
+      // `align-self: start` is what stops a rule stretching to fill its row, and it is
+      // also what keeps its height out of the track sizing — so turning the frame on
+      // cannot change how tall the band or the axis is.
+      expect(declared('.grid-boundary', 'align-self')).toBe('start');
+      expect(declared('.grid-boundary', 'pointer-events')).toBe('none');
+    });
+
     it('shades a weekend day in grid view and in no other', () => {
       // Reconciled as a whole selector set rather than one assertion per rule: a
       // `toContain` cannot notice a selector *arriving*, and the failure this guards is

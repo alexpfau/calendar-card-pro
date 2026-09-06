@@ -2010,9 +2010,29 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
+  /* ----- The grid's own rules -----
+
+     One painting ladder, and every rung is load-bearing:
+
+       .grid-weekend    plain grid item   the tint, behind everything
+       .grid-rules      plain grid item   the hour lines
+       .grid-day-body   position relative the blocks, above both
+       .grid-separator  z-index 1         the vertical day rules, above the blocks
+       .grid-allday-band z-index 2        banners paint over the rules crossing the band
+       .grid-boundary   z-index 3         the band's own rules, never covered by a banner
+
+     The band's rung is what lets the day rules run through it: without it a spanning
+     banner would be crossed by them and read as chopped into days, which is why they used
+     to stop at the band instead. */
   .grid-separator {
     pointer-events: none;
     z-index: 1;
+  }
+
+  .grid-boundary {
+    align-self: start;
+    pointer-events: none;
+    z-index: 3;
   }
 
   /* ----- Day headers ----- */
@@ -2034,7 +2054,13 @@ export const cardStyles = css`
   .grid-allday-band {
     display: grid;
     row-gap: 2px;
+    /* Clears the rule above the band, so the first banner does not sit on it. The rule is
+       drawn at z-index 3 and would otherwise cut across the top of that banner. */
+    padding-block-start: 3px;
     padding-block-end: 4px;
+    /* Above the vertical day rules, which now run through this row: a spanning banner has
+       to paint over them or it reads as chopped into days. See the ladder above. */
+    z-index: 2;
     /* The three below only matter when the band's track is shorter than its banners,
        which a fixed content height can force. A grid item defaults to min-height: auto
        and would refuse to shrink below its content, so the band has to opt out before

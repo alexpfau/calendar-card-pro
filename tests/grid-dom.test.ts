@@ -1094,7 +1094,7 @@ describe('separators between grid days', () => {
 
     expect(rules.length).toBeGreaterThan(0);
     expect(rules[0].style.gridColumn).toBe('3');
-    expect(rules[0].style.gridRow).toBe('4');
+    expect(rules[0].style.gridRow).toBe('3 / span 2');
     expect(rules[0].style.marginInlineStart).toBe('calc(-0.5 * (20px + 0.5px))');
   });
 
@@ -1182,31 +1182,95 @@ describe('separators between grid days', () => {
     expect(requireElement<HTMLElement>(cardLevel, '.grid-container').style.columnGap).toBe('2px');
   });
 
-  it('keeps every separator family inside the time body', () => {
+  it('runs every separator family through the band and the time body', () => {
     const container = renderGrid(
       EVENTS,
       spanConfig({ week_separator_width: '3px', month_separator_width: '5px' }),
     );
 
-    // The row-span decision is view-specific. In grid view even week/month rules stay out
-    // of the label rows and the all-day band, because a larger boundary still cuts a
-    // spanning banner visually.
-    expect(requireElement<HTMLElement>(container, '.grid-separator-day').style.gridRow).toBe('4');
-    expect(requireElement<HTMLElement>(container, '.grid-separator-week').style.gridRow).toBe('4');
-    expect(requireElement<HTMLElement>(container, '.grid-separator-month').style.gridRow).toBe('4');
+    // Rows 3 and 4, so a day column is ruled from under its date to the foot of the axis.
+    // The label rows above stay clear. All three families move together: a week boundary
+    // that stopped at the band while a day boundary crossed it would draw the *larger*
+    // boundary as the shorter line.
+    for (const kind of ['day', 'week', 'month'] as const) {
+      expect(
+        requireElement<HTMLElement>(container, `.grid-separator-${kind}`).style.gridRow,
+        `${kind} rule`,
+      ).toBe('3 / span 2');
+    }
   });
 
-  it('does not cross a genuinely multi-day all-day banner', () => {
+  it('lets the day rules cross a spanning banner, which paints over them', () => {
+    // The inverse of what this asserted before v5.1. The rules now run through the band,
+    // and what keeps a multi-day banner from reading as chopped into days is the painting
+    // order rather than the row span — `tests/stylesheet.test.ts` pins that ladder, since
+    // happy-dom applies no stylesheet here. Both halves are needed: this proves they
+    // overlap, that one proves the overlap is safe.
     const container = renderGrid(
       [allDay('2026-06-17', '2026-06-20', 'Conference')],
       spanConfig({ days_to_show: 3 }),
     );
     const banner = requireElement<HTMLElement>(container, '.grid-banner');
+    const rules = separators(container);
 
     expect(banner.style.gridColumn).toBe('2 / span 3');
-    for (const rule of separators(container)) {
-      expect(rule.style.gridRow).toBe('4');
+    expect(banner.style.gridRow).toBe('1');
+    expect(rules.length, 'no rules to cross the banner').toBeGreaterThan(0);
+    for (const rule of rules) {
+      expect(rule.style.gridRow).toBe('3 / span 2');
     }
+  });
+
+  it('frames the all-day band with one unbroken rule above and a heavier one below', () => {
+    const container = renderGrid(EVENTS, spanConfig());
+    const top = requireElement<HTMLElement>(container, '.grid-boundary-band-top');
+    const bottom = requireElement<HTMLElement>(container, '.grid-boundary-band-bottom');
+
+    // `1 / -1` is what makes them unbroken: a spanning grid item covers the gutters and
+    // the hour axis, where the per-day header rule they replace was cut into one dash per
+    // column by `day_spacing`.
+    expect(top.style.gridColumn).toBe('1 / -1');
+    expect(bottom.style.gridColumn).toBe('1 / -1');
+    expect(top.style.gridRow).toBe('3');
+    expect(bottom.style.gridRow).toBe('4');
+
+    // Same option as the vertical rules, and the lower one derived from it rather than
+    // configured separately, so one width governs the whole frame.
+    expect(top.style.height).toBe('0.5px');
+    expect(bottom.style.height).toBe('1.5px');
+    expect(top.style.backgroundColor).toBe('var(--divider-color)');
+    expect(bottom.style.backgroundColor).toBe('var(--divider-color)');
+  });
+
+  it('keeps the frame proportional at a width the user chose, and drops it at zero', () => {
+    const wide = spanConfig();
+    wide.time_grid = { day_separator_width: '2px', day_separator_color: 'rgb(1, 2, 3)' };
+    const framed = renderGrid(EVENTS, wide);
+
+    expect(requireElement<HTMLElement>(framed, '.grid-boundary-band-top').style.height).toBe('2px');
+    expect(requireElement<HTMLElement>(framed, '.grid-boundary-band-bottom').style.height).toBe(
+      '6px',
+    );
+    expect(
+      requireElement<HTMLElement>(framed, '.grid-boundary-band-top').style.backgroundColor,
+    ).toBe('rgb(1, 2, 3)');
+
+    // Turning the day separator off turns the whole frame off with it, rather than
+    // leaving two rules a user has no way to reach.
+    const off = spanConfig();
+    off.time_grid = { day_separator_width: '0px' };
+
+    expect(renderGrid(EVENTS, off).querySelectorAll('.grid-boundary')).toHaveLength(0);
+  });
+
+  it('draws only the heavier rule when there is no all-day band to close', () => {
+    // Row 3 collapses to nothing without banners, so both rules would land on the same
+    // line — a hairline stacked under a heavier one, which reads as a smudge.
+    const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')], spanConfig());
+
+    expect(container.querySelectorAll('.grid-banner')).toHaveLength(0);
+    expect(container.querySelectorAll('.grid-boundary-band-top')).toHaveLength(0);
+    expect(container.querySelectorAll('.grid-boundary-band-bottom')).toHaveLength(1);
   });
 });
 
