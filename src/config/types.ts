@@ -278,10 +278,12 @@ export interface SharedViewOverrides {
 
   // Event column
   event_background_opacity?: number;
+  event_color?: string;
   event_font_size?: string;
   show_countdown?: boolean;
   show_countdown_allday?: boolean;
   show_progress_bar?: boolean;
+  progress_bar_color?: string;
   progress_bar_height?: string;
   progress_bar_width?: string;
   event_icon_vertical_alignment?: string;
@@ -293,12 +295,14 @@ export interface SharedViewOverrides {
   allday_badge_color?: string;
   time_two_digit_hours?: boolean;
   show_end_time?: boolean;
+  time_color?: string;
   time_font_size?: string;
   time_icon_size?: string;
   time_max_lines?: number;
   show_location?: boolean;
   show_location_allday?: boolean;
   remove_location_country?: boolean | string;
+  location_color?: string;
   location_font_size?: string;
   location_icon_size?: string;
   location_max_lines?: number;
@@ -307,6 +311,7 @@ export interface SharedViewOverrides {
   title_max_lines?: number;
   scroll_long_titles?: boolean;
   description_max_lines?: number;
+  description_color?: string;
   description_font_size?: string;
   description_icon_size?: string;
   show_week_numbers?: null | 'iso' | 'simple';

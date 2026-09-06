@@ -14,6 +14,7 @@ import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as Localize from '../translations/localize';
 import * as FormatUtils from '../utils/format';
+import * as Helpers from '../utils/helpers';
 
 /**
  * Re-exported so the card can dispatch between views through a single import namespace. Keeping every renderer reachable as `Render.*` means the call sites in the card's view dispatch read as a set rather than pulling from different modules.
@@ -533,7 +534,9 @@ function renderEvent(
         : ''}
       <td
         class=${classMap(eventClasses)}
-        style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};"
+        style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
+          presentation.accentTextProperties,
+        )}"
       >
         ${Leaves.renderEventContent(event, config, presentation.contentParts, {
           weatherForecasts,

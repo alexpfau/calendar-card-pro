@@ -17,6 +17,7 @@ import * as Presentation from './presentation';
 import * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
 import * as FormatUtils from '../utils/format';
+import * as Helpers from '../utils/helpers';
 
 //-----------------------------------------------------------------------------
 // DAY BOUNDARIES
@@ -178,7 +179,9 @@ function renderColumnEvent(
   return html`
     <div
       class=${classMap(eventClasses)}
-      style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};"
+      style="border-inline-start: var(--calendar-card-line-width-vertical) solid ${presentation.entityAccentColor}; background-color: ${presentation.entityAccentBackgroundColor};${Helpers.styleDeclarations(
+        presentation.accentTextProperties,
+      )}"
     >
       ${Leaves.renderEventContent(event, config, presentation.contentParts, {
         weatherForecasts,

@@ -34,6 +34,37 @@ export function isEntityColorSentinel(value: unknown): boolean {
 }
 
 /**
+ * The text-color value meaning "this event's own calendar accent".
+ *
+ * A sentinel rather than a mode flag, for the same reason as the one above: the fields it
+ * governs stay real and independently settable, so `time_color: accent` alone is a
+ * meaningful thing to write. A literal color could not express it at all — one literal is
+ * one color, and this needs one per calendar — and a flag that greyed the fields out would
+ * leave five controls looking editable and doing nothing.
+ *
+ * The spelling is not new vocabulary. `allday_badge_color` has shipped accepting `accent`
+ * in exactly this sense since v4 — "each calendar's own, rather than a color you pick" —
+ * so this reuses a word the config already means that by.
+ *
+ * 🚨 `accent` is also a member of {@link THEME_COLOR_TOKENS}, where it names Home
+ * Assistant's own theme accent. The two never meet: that set is only ever consulted by
+ * {@link resolveRegistryColor}, which by its own docblock runs on values read from the
+ * entity registry and never on the card's configured colors. A governed option's value is
+ * read here and nowhere near there.
+ */
+export const ACCENT_TEXT_SENTINEL = 'accent';
+
+/**
+ * Whether a configured color defers to the event's own calendar accent.
+ *
+ * @param value - Configured value of a governed color option
+ * @returns `true` when the value is the sentinel
+ */
+export function isAccentTextSentinel(value: unknown): boolean {
+  return value === ACCENT_TEXT_SENTINEL;
+}
+
+/**
  * Whether any part of a configuration asks for Home Assistant's colors.
  *
  * Everything else in this module is gated on this. Nothing is fetched, subscribed or

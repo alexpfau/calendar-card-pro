@@ -6,6 +6,7 @@
 
 import { DEFAULT_CONFIG, coercePixelLength, coercePixelLengthAgainst } from './config';
 import * as Types from './types';
+import * as EntityColors from '../utils/entity-colors';
 import * as Logger from '../utils/logger';
 
 //-----------------------------------------------------------------------------
@@ -41,10 +42,12 @@ export const COLUMN_OVERRIDE_KEYS = [
   'show_month',
   'month_font_size',
   'event_background_opacity',
+  'event_color',
   'event_font_size',
   'show_countdown',
   'show_countdown_allday',
   'show_progress_bar',
+  'progress_bar_color',
   'progress_bar_height',
   'progress_bar_width',
   'event_icon_vertical_alignment',
@@ -56,12 +59,14 @@ export const COLUMN_OVERRIDE_KEYS = [
   'allday_badge_color',
   'time_two_digit_hours',
   'show_end_time',
+  'time_color',
   'time_font_size',
   'time_icon_size',
   'time_max_lines',
   'show_location',
   'show_location_allday',
   'remove_location_country',
+  'location_color',
   'location_font_size',
   'location_icon_size',
   'location_max_lines',
@@ -70,6 +75,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'title_max_lines',
   'scroll_long_titles',
   'description_max_lines',
+  'description_color',
   'description_font_size',
   'description_icon_size',
   'show_week_numbers',
@@ -359,6 +365,13 @@ export const COLUMN_DEFAULTS = {
  * theme and lightens a dark one; `color-mix` is Chrome 111, well under the Chrome 117
  * floor grid view already sets with `subgrid`. Which days are shaded comes from Home
  * Assistant's language, so this is Friday and Saturday in an Israeli household.
+ *
+ * The five text colors start at `accent`, so a grid block's text is its own calendar's
+ * color the way macOS Calendar draws it. Grid only, and for the same reason as the weekend
+ * tint: the tinted block behind the text is what makes colored text cohere, and a list row
+ * has no such ground — colored text on the card background reads as a fault rather than as
+ * a grouping. All five stay independently settable, here and at the card level, because
+ * the sentinel is a value rather than a mode.
  *
  * `max_simultaneous_events: 3` is where blocks stop carrying readable text at a typical
  * card width. `axis_width` sizes to its own labels by default, so the gutter follows
@@ -696,7 +709,12 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   day_separator_width: '0.5px',
   day_separator_color: 'var(--divider-color)',
   day_spacing: '2px',
+  description_color: EntityColors.ACCENT_TEXT_SENTINEL,
   event_background_opacity: 20,
+  event_color: EntityColors.ACCENT_TEXT_SENTINEL,
+  location_color: EntityColors.ACCENT_TEXT_SENTINEL,
+  progress_bar_color: EntityColors.ACCENT_TEXT_SENTINEL,
+  time_color: EntityColors.ACCENT_TEXT_SENTINEL,
   progress_bar_width: '100%',
   show_empty_days: true,
   show_past_events: true,

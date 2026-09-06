@@ -341,7 +341,7 @@ Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Seven shared options do not inherit their top-level value in grid view. The **Default**
+Twelve shared options do not inherit their top-level value in grid view. The **Default**
 column is what grid view uses; **Instead of** is the top-level default it replaces:
 
 | Option                     | Type    | Default                | Instead of                    |
@@ -352,6 +352,11 @@ column is what grid view uses; **Instead of** is the top-level default it replac
 | `day_separator_width`      | string  | `0.5px`                | `0px`                         |
 | `day_separator_color`      | string  | `var(--divider-color)` | `var(--secondary-text-color)` |
 | `day_spacing`              | string  | `2px`                  | `10px`                        |
+| `event_color`              | string  | `accent`               | `--primary-text-color`        |
+| `time_color`               | string  | `accent`               | `--secondary-text-color`      |
+| `location_color`           | string  | `accent`               | `--secondary-text-color`      |
+| `description_color`        | string  | `accent`               | `--secondary-text-color`      |
+| `progress_bar_color`       | string  | `accent`               | `--secondary-text-color`      |
 | `progress_bar_width`       | string  | `100%`                 | _per placement_               |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
@@ -368,7 +373,12 @@ days, and the list value of `10px` left every block visibly floating inside its 
 instead of sitting in the grid — a block already clears its own column, so 10px of gutter
 put 12px between two neighbors. `2px` is the tightest gutter that still holds the whole
 day rule inside it: the rule is centered in the gap, so at `0px` it would straddle the
-column boundary and paint over anything flush against a column edge.
+column boundary and paint over anything flush against a column edge. And the five event
+text colors start at `accent`, so a block's text is drawn in its own calendar's color: the
+block is already a tinted box, and text in the same color on that ground reads as one
+thing rather than as two.
+
+**→ [Event Text in Calendar Colors](/features/event-content#event-text-in-calendar-colors)** — the option values, and what is deliberately left out of them.
 
 Set any of them inside `time_grid:` to change it back.
 

@@ -466,6 +466,62 @@ show_past_events: true # Show events that have already ended
 
 When enabled, past events appear with reduced opacity (60%) to visually distinguish them from upcoming events.
 
+## 🎨 Event Text in Calendar Colors
+
+Write `accent` into any of the card's event-text color options and that text is drawn in
+**each event's own calendar color** rather than in one color for the whole card — the way
+macOS Calendar tints a block's text to match its calendar:
+
+```yaml
+type: custom:calendar-card-pro
+view: grid
+entities:
+  - entity: calendar.work
+    accent_color: '#E8A33D'
+  - entity: calendar.personal
+    accent_color: '#7B1FA2'
+time_color: accent
+```
+
+`accent` is a value, not a mode, so the five options it is accepted by stay real and stay
+independent. Setting it on one of them tints one thing and leaves the rest alone, which is
+what the example above does — only the time follows the calendar; the title keeps
+`event_color`.
+
+The five it is accepted by are `event_color` (the title), `time_color`, `location_color`,
+`description_color`, and `progress_bar_color` (the bar and its track) — everything inside
+the event box.
+
+::: tip Grid View Starts All Five at `accent`
+Grid view is the only view that defaults them on, for the same reason it is the only one
+that shades weekends: a grid block is a tinted box, and colored text on a tinted ground of
+the same color reads as one thing. A list row has no such ground, so the same text reads as
+a fault rather than as a grouping. Both other views accept `accent` — set it yourself if you
+want it.
+
+**→ [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default)**
+:::
+
+Nothing else changes about the text. The secondary rows are drawn at full opacity, exactly
+as before — the title is what carries the weight, at `font-weight: 500` against normal, and
+that hierarchy survives the recoloring without dimming anything.
+
+Two things are deliberately left out. An **empty day** belongs to no calendar, so its _No
+upcoming events_ notice keeps `empty_day_color`; so does the grid's **`+N` overflow block**,
+which stands for several events at once. And the **event weather badge** keeps its own
+color: it describes the weather rather than the event, so tinting it with one calendar's
+accent would claim a relationship that is not there. Set `weather.event.color` yourself if
+you disagree.
+
+::: warning Check It Against Your Theme
+The accent is whatever you or Home Assistant chose for the calendar, and it is now carrying
+text rather than a 2px bar. A dark accent on a dark theme, or a pale one on a light theme,
+can be hard to read — and the card cannot compensate without overriding the color you asked
+for. Look at it in the theme you actually use before leaving it on.
+:::
+
+**→ [Event Column](/reference/configuration#event-column)** — every option named above.
+
 ## 🌈 Weekend Day Styling
 
 Weekend days can be styled differently from the rest of the week to make them stand out in your calendar. Which days those are follows your Home Assistant language — Saturday and Sunday in most regions, Friday and Saturday in others. You can customize:

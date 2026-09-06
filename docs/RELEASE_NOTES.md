@@ -30,6 +30,10 @@ Every option grid view adds lives under `time_grid:`, and that block is also whe
 
 **The card now asks Home Assistant which days you rest.** It used to answer Saturday and Sunday for everybody — wrong in every Arabic- and Hebrew-speaking region, where the weekend is Friday and Saturday, wrong in Persian, where it is Friday alone, and wrong across much of India, where it is Sunday alone. Your Home Assistant language decides it now, which reaches everything that asks: the weekend shading above, the `weekend_*` date colors, and the per-calendar `days_of_week` filter, so all three agree about a Friday instead of contradicting each other on the same row. Nothing changes for a Saturday–Sunday household. See [Showing a Calendar on Weekdays Only](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-on-weekdays-only).
 
+### 🎨 Event Text in Calendar Colors
+
+**Each event's text is drawn in its own calendar's color.** Write `accent` into `event_color`, `time_color`, `location_color`, `description_color` or `progress_bar_color` and that field follows the calendar the event came from, the way macOS Calendar tints a block's text to match its calendar — so a glance at a busy day tells you whose it is before you read a word. It is a value rather than a mode, so the five stay independent: `time_color: accent` tints only the time. Grid view starts all five at `accent`, because a block is a tinted box and colored text on that ground reads as one thing; list and column view accept it but leave it off. An empty day, the `+N` overflow block and the event weather badge are deliberately untouched, none of them belonging to a single calendar. See [Event Text in Calendar Colors](https://calendar-card-pro.alexpfau.com/features/event-content#event-text-in-calendar-colors).
+
 ### ✨ Grid View, Closer to a Calendar App
 
 A pass over grid view against the week view of macOS Calendar, which is the layout most people already have in their heads:

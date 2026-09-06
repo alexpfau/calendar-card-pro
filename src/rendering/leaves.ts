@@ -11,6 +11,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 
 import * as Types from '../config/types';
 import * as Localize from '../translations/localize';
+import * as EntityColors from '../utils/entity-colors';
 import * as FormatUtils from '../utils/format';
 import * as Helpers from '../utils/helpers';
 import * as Weather from '../utils/weather';
@@ -342,9 +343,18 @@ function renderEventTitle(
 ): TemplateResult {
   const isEmptyDay = !!event._isEmptyDay;
   const showEmptyDayCheckmark = isEmptyDay && !event._isCustomEmptyText;
+  // The title is the one governed field the card colors inline rather than through its
+  // custom property, so the sentinel has to be resolved here as well. Resolving it to
+  // `undefined` drops the attribute, which hands the question back to `.event-title`'s own
+  // `var(--calendar-card-color-event)` — and that is the property the event element has
+  // just set to this calendar's accent. Emitting the literal string would work only by
+  // accident, through the browser discarding an invalid declaration.
+  const configuredTitleColor = event._matchedConfig?.color || config.event_color;
   const entityColor = isEmptyDay
     ? 'var(--calendar-card-empty-day-color)'
-    : event._matchedConfig?.color || config.event_color;
+    : EntityColors.isAccentTextSentinel(configuredTitleColor)
+      ? undefined
+      : configuredTitleColor;
 
   const labelIconColor = event._matchedConfig?.label_icon_color;
   const labelType = event._matchedConfig?.label_type;
@@ -427,7 +437,7 @@ function renderEventTitle(
           class="event-title ${isEmptyDay ? 'empty-day-title' : ''}${scrollTitles
             ? ' title-scrollable'
             : ''}"
-          style="color: ${entityColor}"
+          style=${entityColor === undefined ? nothing : `color: ${entityColor}`}
         >
           ${titleInner}
         </span>

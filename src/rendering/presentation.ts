@@ -5,6 +5,7 @@
  */
 
 import type { EventContentParts } from './leaves';
+import * as Styles from './styles';
 import * as Types from '../config/types';
 import * as EntityColors from '../utils/entity-colors';
 import * as EventUtils from '../utils/events';
@@ -22,6 +23,14 @@ interface EventPresentation {
   entityAccentColor: string;
 
   entityAccentBackgroundColor: string;
+
+  /**
+   * Custom properties the event element sets so its own text reads the calendar accent.
+   *
+   * Empty unless a governed color option holds the `accent` sentinel, and empty for an
+   * empty-day row whatever the config says.
+   */
+  accentTextProperties: Readonly<Record<string, string>>;
 
   contentParts: EventContentParts;
 }
@@ -256,6 +265,7 @@ export function buildEventPresentation(
     isPastEvent,
     entityAccentColor,
     entityAccentBackgroundColor,
+    accentTextProperties: Styles.accentTextProperties(config, entityAccentColor, isEmptyDay),
     contentParts,
   };
 }

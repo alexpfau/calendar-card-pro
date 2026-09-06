@@ -1983,6 +1983,21 @@ const SENTINEL_OPTIONS = [
     file: 'src/utils/entity-icons.ts',
     constant: 'ENTITY_ICON_SENTINEL',
   },
+  {
+    // The five governed by `accent`. Listed field by field rather than derived from
+    // ACCENT_TEXT_OPTIONS, because this file parses source text and cannot import: the
+    // pairing of option to property is reconciled in `tests/accent-event-text.test.ts`,
+    // and what is reconciled here is that every one of them tells the reader the word.
+    fields: [
+      'event_color',
+      'time_color',
+      'location_color',
+      'description_color',
+      'progress_bar_color',
+    ],
+    file: 'src/utils/entity-colors.ts',
+    constant: 'ACCENT_TEXT_SENTINEL',
+  },
 ];
 
 /**
