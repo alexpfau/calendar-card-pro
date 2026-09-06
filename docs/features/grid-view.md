@@ -119,7 +119,6 @@ narrow card where the ruling alone is enough.
 The existing separator options draw vertical rules between day columns in grid view:
 
 ```yaml
-day_separator_color: var(--secondary-text-color)
 time_grid:
   day_separator_width: '1px'
   day_separator_color: var(--secondary-text-color)
@@ -128,7 +127,13 @@ time_grid:
 ```
 
 Grid view turns day separators on by default, because a shared time axis needs visible day
-columns to read clearly. Month rules win over week rules, and week rules win over day
+columns to read clearly. Both halves of that rule start from a grid default rather than
+from the card-level value: a `0.5px` hairline in `var(--divider-color)`, the same grey the
+horizontal hour rules are drawn in, so the paper reads as one grid rather than as a table
+of boxes. Set either inside `time_grid:` to change it — a card-level `day_separator_color`
+belongs to the list and column layouts and is left there.
+
+Month rules win over week rules, and week rules win over day
 rules. All of them stay inside the time body, so date headers remain clean and a multi-day
 all-day banner stays visually continuous across day boundaries.
 
@@ -293,22 +298,24 @@ Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Five shared options do not inherit their top-level value in grid view. The **Default** column
+Six shared options do not inherit their top-level value in grid view. The **Default** column
 is what grid view uses; **Instead of** is the top-level default it replaces:
 
-| Option                     | Type    | Default | Instead of      |
-| -------------------------- | ------- | ------- | --------------- |
-| `event_background_opacity` | number  | `20`    | `0`             |
-| `show_empty_days`          | boolean | `true`  | `false`         |
-| `show_past_events`         | boolean | `true`  | `false`         |
-| `day_separator_width`      | string  | `0.5px` | `0px`           |
-| `progress_bar_width`       | string  | `100%`  | _per placement_ |
+| Option                     | Type    | Default                | Instead of                    |
+| -------------------------- | ------- | ---------------------- | ----------------------------- |
+| `event_background_opacity` | number  | `20`                   | `0`                           |
+| `show_empty_days`          | boolean | `true`                 | `false`                       |
+| `show_past_events`         | boolean | `true`                 | `false`                       |
+| `day_separator_width`      | string  | `0.5px`                | `0px`                         |
+| `day_separator_color`      | string  | `var(--divider-color)` | `var(--secondary-text-color)` |
+| `progress_bar_width`       | string  | `100%`                 | _per placement_               |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
 a day of axis, so empty days are shown. A finished meeting earlier today is still part of
 today's hour-by-hour shape, so past events stay visible. Day separators are also on by
-default, so the shared axis still reads as separate day columns. The progress bar fills
+default, and in the same divider grey the hour rules use, so the vertical and horizontal
+lines carry the same weight and the shared axis reads as one grid. The progress bar fills
 the block's full width: column view draws it at 80% of a row with no boundary of its own,
 where a full width would read as an underline, but a grid block is a tinted box with an
 edge, and a bar stopping short of that edge reads as unfinished rather than as restraint.

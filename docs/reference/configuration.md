@@ -154,20 +154,20 @@ fixed `height` compresses the time axis rather than scrolling.
 
 ## 📐 Week Numbers & Horizontal Separators
 
-| Option                         | Type    | Default                       | Description                                                                                  |
-| ------------------------------ | ------- | ----------------------------- | -------------------------------------------------------------------------------------------- |
-| `show_week_numbers`            | string  | `null`                        | Week number display method ('iso', 'simple', or null to disable)                             |
-| `show_current_week_number`     | boolean | `true`                        | Whether to show week number for the first/current week in view                               |
-| `week_number_font_size`        | string  | `12px`                        | Font size for week number pills                                                              |
-| `week_number_color`            | string  | `var(--primary-text-color)`   | Text color for week number pills                                                             |
-| `week_number_background_color` | string  | `#03a9f450`                   | Background color for week number pills                                                       |
-| `first_day_of_week`            | string  | `system`                      | First day of week ('monday', 'sunday', or 'system' to follow Home Assistant)                 |
-| `day_separator_width`          | string  | `0px`                         | Width of separator line between days. Grid view defaults this to `0.5px` inside `time_grid:` |
-| `day_separator_color`          | string  | `var(--secondary-text-color)` | Color of separator line between days                                                         |
-| `week_separator_width`         | string  | `0px`                         | Width of separator line between weeks                                                        |
-| `week_separator_color`         | string  | `#03a9f450`                   | Color of separator line between weeks                                                        |
-| `month_separator_width`        | string  | `0px`                         | Width of separator line between months                                                       |
-| `month_separator_color`        | string  | `var(--primary-text-color)`   | Color of separator line between months                                                       |
+| Option                         | Type    | Default                       | Description                                                                                                                                |
+| ------------------------------ | ------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `show_week_numbers`            | string  | `null`                        | Week number display method ('iso', 'simple', or null to disable)                                                                           |
+| `show_current_week_number`     | boolean | `true`                        | Whether to show week number for the first/current week in view                                                                             |
+| `week_number_font_size`        | string  | `12px`                        | Font size for week number pills                                                                                                            |
+| `week_number_color`            | string  | `var(--primary-text-color)`   | Text color for week number pills                                                                                                           |
+| `week_number_background_color` | string  | `#03a9f450`                   | Background color for week number pills                                                                                                     |
+| `first_day_of_week`            | string  | `system`                      | First day of week ('monday', 'sunday', or 'system' to follow Home Assistant)                                                               |
+| `day_separator_width`          | string  | `0px`                         | Width of separator line between days. Grid view defaults this to `0.5px` inside `time_grid:`                                               |
+| `day_separator_color`          | string  | `var(--secondary-text-color)` | Color of separator line between days. Grid view defaults this to `var(--divider-color)` inside `time_grid:`, matching its horizontal rules |
+| `week_separator_width`         | string  | `0px`                         | Width of separator line between weeks                                                                                                      |
+| `week_separator_color`         | string  | `#03a9f450`                   | Color of separator line between weeks                                                                                                      |
+| `month_separator_width`        | string  | `0px`                         | Width of separator line between months                                                                                                     |
+| `month_separator_color`        | string  | `var(--primary-text-color)`   | Color of separator line between months                                                                                                     |
 
 **→ [Week numbers and visual separators](/features/layout-appearance#week-numbers-visual-separators)**
 

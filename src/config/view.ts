@@ -640,7 +640,16 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * contiguous unless a user explicitly hides empty columns in `time_grid:`.
  * `show_past_events` keeps today's finished blocks on the axis instead of emptying the
  * morning as the day passes. `day_separator_width` turns on vertical rules so a shared
- * axis reads as belonging to separate day columns. `progress_bar_width` fills the block:
+ * axis reads as belonging to separate day columns, and `day_separator_color` lightens
+ * them to the same token the horizontal rules already use. Ruled paper wants one grey,
+ * and the top-level `var(--secondary-text-color)` is a text hue: it drew the verticals
+ * far heavier than the horizontals, which read as a table of boxes rather than as a
+ * grid. The two now carry identical ink — `.grid-rules` paints 1px of
+ * `var(--divider-color)` at `opacity: 0.5`, and a rule paints 0.5px of it at full
+ * strength. Note this is a divergent default, so a top-level colour no longer reaches
+ * grid; that is already true of the width beside it, and the pair now behaves alike
+ * rather than applying a card-wide colour to a width the card level never asked for.
+ * `progress_bar_width` fills the block:
  * column view draws the bar at 80% of a row that has no boundary of its own, where a full
  * width would read as an underline, while a grid block is a tinted box with an edge — so
  * a bar short of that edge reads as unfinished rather than as restraint.
@@ -655,6 +664,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.TimeGridOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
   day_separator_width: '0.5px',
+  day_separator_color: 'var(--divider-color)',
   event_background_opacity: 20,
   progress_bar_width: '100%',
   show_empty_days: true,

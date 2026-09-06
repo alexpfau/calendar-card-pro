@@ -1001,13 +1001,36 @@ describe('separators between grid days', () => {
 
   it('uses the existing day separator options for grid rules', () => {
     const config = spanConfig({ day_separator_width: '0px', day_separator_color: 'rgb(1, 2, 3)' });
-    config.time_grid = { day_separator_width: '2px' };
+    // Both halves of the rule are grid-divergent defaults, so both are set in the block.
+    // A top-level value reaches neither, which is what the assertions below also prove.
+    config.time_grid = { day_separator_width: '2px', day_separator_color: 'rgb(4, 5, 6)' };
 
     const container = renderGrid(EVENTS, config);
     const rule = requireElement<HTMLElement>(container, '.grid-separator-day');
 
     expect(rule.style.width).toBe('2px');
-    expect(rule.style.backgroundColor).toBe('rgb(1, 2, 3)');
+    expect(rule.style.backgroundColor).toBe('rgb(4, 5, 6)');
+  });
+
+  it('rules the grid in the divider grey the horizontal rules use', () => {
+    // `.grid-rules` paints `var(--divider-color)`, so the verticals carry the same token
+    // rather than the card-level `var(--secondary-text-color)`, which is a text hue and
+    // drew them several times heavier than the lines they cross.
+    const plain = requireElement<HTMLElement>(
+      renderGrid(EVENTS, spanConfig()),
+      '.grid-separator-day',
+    );
+
+    expect(plain.style.backgroundColor).toBe('var(--divider-color)');
+
+    // The divergent-default half: a card-level colour is for the list and column layouts
+    // and does not reach grid, exactly as the card-level width does not.
+    const cardLevel = requireElement<HTMLElement>(
+      renderGrid(EVENTS, spanConfig({ day_separator_color: 'rgb(1, 2, 3)' })),
+      '.grid-separator-day',
+    );
+
+    expect(cardLevel.style.backgroundColor).toBe('var(--divider-color)');
   });
 
   it('lets week and month separators win over day separators', () => {
