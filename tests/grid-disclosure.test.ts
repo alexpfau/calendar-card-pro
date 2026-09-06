@@ -114,4 +114,91 @@ describe('grid disclosure observer lifecycle', () => {
 
     expect(RecordingResizeObserver.instances).toHaveLength(2);
   });
+
+  it('observes content-sized rows so a font load is not missed when the block height is fixed', async () => {
+    globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      setConfig(config: unknown): void;
+      preview: boolean;
+      updated(changedProps: Map<unknown, unknown>): void;
+      readonly updateComplete: Promise<boolean>;
+    };
+    card.setConfig({ entities: [], view: 'grid' });
+    card.preview = true;
+
+    document.body.appendChild(card);
+    await card.updateComplete;
+    const root = card.shadowRoot!;
+    root.innerHTML = `
+      <div class="grid-event">
+        <div class="grid-event-disclosure">
+          <div class="event-content">
+            <div class="summary"><span class="event-title">Meeting</span></div>
+            <div class="time">10:00</div>
+            <div class="location">Office</div>
+          </div>
+        </div>
+      </div>
+    `;
+    card.updated(new Map());
+
+    const gridObserver = RecordingResizeObserver.instances.at(-1)!;
+    const labels = gridObserver.observed.map((el) => el.className);
+    expect(labels).toContain('grid-event');
+    expect(labels).toContain('summary');
+    expect(labels).toContain('event-title');
+    expect(labels).toContain('time');
+    expect(labels).toContain('location');
+
+    card.remove();
+    expect(gridObserver.disconnected).toBe(true);
+  });
+
+  it('drops the document.fonts listener when the observer stops', async () => {
+    globalThis.ResizeObserver = RecordingResizeObserver as unknown as typeof ResizeObserver;
+
+    const listeners: Array<{ type: string; fn: EventListener }> = [];
+    const fakeFonts = {
+      ready: Promise.resolve(),
+      addEventListener(type: string, fn: EventListener) {
+        listeners.push({ type, fn });
+      },
+      removeEventListener(type: string, fn: EventListener) {
+        const idx = listeners.findIndex((l) => l.type === type && l.fn === fn);
+        if (idx >= 0) listeners.splice(idx, 1);
+      },
+    };
+    const originalFonts = Object.getOwnPropertyDescriptor(Document.prototype, 'fonts');
+    Object.defineProperty(document, 'fonts', {
+      configurable: true,
+      get: () => fakeFonts,
+    });
+
+    try {
+      const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+        setConfig(config: unknown): void;
+        preview: boolean;
+        updated(changedProps: Map<unknown, unknown>): void;
+        readonly updateComplete: Promise<boolean>;
+      };
+      card.setConfig({ entities: [], view: 'grid' });
+      card.preview = true;
+      document.body.appendChild(card);
+      await card.updateComplete;
+      card.shadowRoot!.innerHTML = '<div class="grid-event"><div class="time">1</div></div>';
+      card.updated(new Map());
+
+      expect(listeners.some((l) => l.type === 'loadingdone')).toBe(true);
+
+      card.remove();
+      expect(listeners).toHaveLength(0);
+    } finally {
+      if (originalFonts) {
+        Object.defineProperty(Document.prototype, 'fonts', originalFonts);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delete (document as any).fonts;
+      }
+    }
+  });
 });

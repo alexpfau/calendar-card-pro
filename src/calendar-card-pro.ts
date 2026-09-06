@@ -283,6 +283,10 @@ class CalendarCardPro extends LitElement {
   private _resizeObserver: ResizeObserver | null = null;
   private _gridDisclosureObserver: ResizeObserver | null = null;
   private _gridDisclosureRaf: number | null = null;
+  /**
+   * Tears down the `document.fonts` listener armed while grid disclosure is active.
+   */
+  private _gridDisclosureFontsCleanup: (() => void) | null = null;
 
   /**
    * Repaint timer for the grid's now line, and the local day it last painted.
@@ -658,11 +662,14 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Stops observing the dimensions of rendered grid event blocks.
+   * Stops observing grid disclosure targets and any document.fonts listener.
    */
   private _stopGridDisclosureObserver(): void {
     this._gridDisclosureObserver?.disconnect();
     this._gridDisclosureObserver = null;
+
+    this._gridDisclosureFontsCleanup?.();
+    this._gridDisclosureFontsCleanup = null;
 
     if (this._gridDisclosureRaf !== null) {
       cancelAnimationFrame(this._gridDisclosureRaf);
@@ -709,7 +716,12 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Observes timed grid blocks because their height changes independently of the card width.
+   * Observes timed grid blocks and their content-sized rows.
+   *
+   * Block height is absolute time geometry, so a late font load or a theme that only
+   * enlarges text can overflow `.event-content` without resizing `.grid-event`. Observing
+   * the title and optional rows catches that; `document.fonts` covers the same case when
+   * the browser reports font loads. A later `updated()` still re-applies as a backstop.
    */
   private _syncGridDisclosureSafety(): void {
     this._stopGridDisclosureObserver();
@@ -730,7 +742,29 @@ class CalendarCardPro extends LitElement {
     }
 
     this._gridDisclosureObserver = new ResizeObserver(() => this._scheduleGridDisclosureSafety());
-    blocks.forEach((block) => this._gridDisclosureObserver?.observe(block));
+    // Content-box descendants whose metrics move with font/theme changes. The block itself
+    // still needs observing for hour-height and window edits.
+    const contentTargets =
+      '.summary, .event-title, .time, .location, .description, .event-weather, .progress-bar-row';
+    blocks.forEach((block) => {
+      this._gridDisclosureObserver?.observe(block);
+      block
+        .querySelectorAll(contentTargets)
+        .forEach((target) => this._gridDisclosureObserver?.observe(target));
+    });
+
+    const fonts = document.fonts;
+    if (fonts) {
+      const onFonts = (): void => this._scheduleGridDisclosureSafety();
+      void fonts.ready.then(onFonts);
+      if (typeof fonts.addEventListener === 'function') {
+        fonts.addEventListener('loadingdone', onFonts);
+        this._gridDisclosureFontsCleanup = () => {
+          fonts.removeEventListener('loadingdone', onFonts);
+        };
+      }
+    }
+
     this._scheduleGridDisclosureSafety();
   }
 
