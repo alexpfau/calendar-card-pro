@@ -697,6 +697,19 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * whatever is flush against a column edge. At `2px` the boundary is rule plus 0.75px of
  * clear space on each side, and the visible gap between two blocks falls from 12px to 4px.
  *
+ * `event_font_size` drops from the card-wide `14px`. A list row is the width of the card
+ * and a block is one seventh of it with a lane split still possible inside that, so the
+ * size that reads as comfortable in a row reads as shouting in a block — and it is the
+ * clamp ladder that pays for it, since every 14px line the title takes is a line the time
+ * or the location does not get. It belongs here rather than in the stylesheet precisely
+ * because a user who sets their own must still win, which a hardcoded `.grid-event`
+ * font-size would quietly take away from them.
+ *
+ * The size is not read anywhere as a number. `--calendar-card-font-size-event` carries it,
+ * `.summary` and the badge scale off it in `em`, and the container rungs that reveal the
+ * time and location rows are measured in pixels of BLOCK height rather than of type — so a
+ * smaller title does not move a rung, it just leaves more room inside the one it is in.
+ *
  * 🚨 `split_multiday_events` is deliberately **not** here. Grid ignores it entirely, via
  * `VIEW_SCOPE`, rather than defaulting it off — a default in this table is overridable
  * from the view's own block, so `time_grid: { split_multiday_events: true }` would imply the
@@ -712,6 +725,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   description_color: EntityColors.ACCENT_TEXT_SENTINEL,
   event_background_opacity: 20,
   event_color: EntityColors.ACCENT_TEXT_SENTINEL,
+  event_font_size: '12px',
   location_color: EntityColors.ACCENT_TEXT_SENTINEL,
   progress_bar_color: EntityColors.ACCENT_TEXT_SENTINEL,
   time_color: EntityColors.ACCENT_TEXT_SENTINEL,

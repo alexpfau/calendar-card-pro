@@ -382,6 +382,69 @@ describe('resolveEffectiveConfig', () => {
         expect(COLUMN_OVERRIDE_KEYS).toContain(key);
       });
     });
+
+    it('pins every grid divergent default by value, in both directions', () => {
+      // 🚨 A test that walks this table cannot notice a row leaving it — the loop above
+      // runs one fewer time and stays green — and it turns out it cannot notice one
+      // ARRIVING either. Five colour rows were added here in the same afternoon as this
+      // pin, with every gate passing and nothing in the suite recording that grid now
+      // resolves five options the card level never asked it to. Both directions are
+      // silent, because this table changes what the card *tells* the user rather than
+      // what it draws.
+      //
+      // So it is compared whole, against a literal. Adding a row here means adding it
+      // below on purpose and saying why in the docblock; that is the cost, and it is the
+      // point. `docs/features/grid-view.md` carries the same set as a table a reader can
+      // see, and `check:docs` reconciles the count of it against this one.
+      expect({ ...TIME_GRID_DEFAULT_OVERRIDES }).toEqual({
+        day_separator_width: '0.5px',
+        day_separator_color: 'var(--divider-color)',
+        day_spacing: '2px',
+        description_color: 'accent',
+        event_background_opacity: 20,
+        event_color: 'accent',
+        event_font_size: '12px',
+        location_color: 'accent',
+        progress_bar_color: 'accent',
+        time_color: 'accent',
+        progress_bar_width: '100%',
+        show_empty_days: true,
+        show_past_events: true,
+      });
+    });
+
+    it('shrinks the event title in grid view and leaves the other layouts alone', () => {
+      // The whole path, not the table entry: a key can sit in the overrides and still be
+      // inert, because `resolveEffectiveConfig` only hoists what is also an override key
+      // and the property the stylesheet reads is written from the resolved config rather
+      // than from the raw one. Asserting the table alone would pass with either half
+      // missing.
+      const config = buildConfig({ view: 'grid' });
+
+      expect(resolveEffectiveConfig(config, 'grid').event_font_size).toBe('12px');
+      expect(resolveEffectiveConfig(config, 'list').event_font_size).toBe('14px');
+      expect(resolveEffectiveConfig(config, 'column').event_font_size).toBe('14px');
+      expect(
+        generateCustomPropertiesObject(resolveEffectiveConfig(config, 'grid'))[
+          '--calendar-card-font-size-event'
+        ],
+      ).toBe('12px');
+    });
+
+    it("lets a user's own event font size win over the grid default", () => {
+      // The reason this is a divergent default rather than a `.grid-event` font-size:
+      // a hardcoded stylesheet value would beat the user, and both routes to setting one
+      // have to survive — the block, and the top level with no block written.
+      const inBlock = buildConfig({ view: 'grid', time_grid: { event_font_size: '18px' } });
+      const topLevel = buildConfig({ view: 'grid', event_font_size: '18px' });
+
+      expect(resolveEffectiveConfig(inBlock, 'grid').event_font_size).toBe('18px');
+      // A top-level value does NOT reach grid, which is what "divergent default" means —
+      // pinned so the difference between the two routes is a decision rather than a
+      // surprise.
+      expect(resolveEffectiveConfig(topLevel, 'grid').event_font_size).toBe('12px');
+      expect(resolveEffectiveConfig(topLevel, 'list').event_font_size).toBe('18px');
+    });
   });
 
   /**

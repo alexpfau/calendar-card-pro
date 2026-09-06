@@ -334,14 +334,14 @@ view: grid
 show_location: true
 time_grid:
   show_location: false
-  event_font_size: 12px
+  title_max_lines: 2
 ```
 
 Anything the block does not mention keeps its top-level value.
 
 ## 🔀 Options That Start From a Different Default
 
-Twelve shared options do not inherit their top-level value in grid view. The **Default**
+Thirteen shared options do not inherit their top-level value in grid view. The **Default**
 column is what grid view uses; **Instead of** is the top-level default it replaces:
 
 | Option                     | Type    | Default                | Instead of                    |
@@ -352,6 +352,7 @@ column is what grid view uses; **Instead of** is the top-level default it replac
 | `day_separator_width`      | string  | `0.5px`                | `0px`                         |
 | `day_separator_color`      | string  | `var(--divider-color)` | `var(--secondary-text-color)` |
 | `day_spacing`              | string  | `2px`                  | `10px`                        |
+| `event_font_size`          | string  | `12px`                 | `14px`                        |
 | `event_color`              | string  | `accent`               | `--primary-text-color`        |
 | `time_color`               | string  | `accent`               | `--secondary-text-color`      |
 | `location_color`           | string  | `accent`               | `--secondary-text-color`      |
@@ -373,8 +374,12 @@ days, and the list value of `10px` left every block visibly floating inside its 
 instead of sitting in the grid — a block already clears its own column, so 10px of gutter
 put 12px between two neighbors. `2px` is the tightest gutter that still holds the whole
 day rule inside it: the rule is centered in the gap, so at `0px` it would straddle the
-column boundary and paint over anything flush against a column edge. And the five event
-text colors start at `accent`, so a block's text is drawn in its own calendar's color: the
+column boundary and paint over anything flush against a column edge. `event_font_size`
+drops to `12px` for the same reason the gutter tightened: a block is one column wide with a
+lane split still possible inside it, and every line the title takes at the list layout's
+`14px` is a line the time or the location does not get. Set your own inside `time_grid:`
+and it wins — the size is a default here, never a fixed value in the stylesheet. And the
+five event text colors start at `accent`, so a block's text is drawn in its own calendar's color: the
 block is already a tinted box, and text in the same color on that ground reads as one
 thing rather than as two.
 
