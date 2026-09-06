@@ -759,7 +759,7 @@ export function renderGridGroupedEvents(
     >
       ${renderWeekNumbers(gridDays, config)}
       ${gridDays.map((day, index) =>
-        renderDayHeader(day, config, language, index, weatherForecasts),
+        renderDayHeader(day, config, language, index, weatherForecasts, hass),
       )}
       ${bandRows > 0
         ? html`
@@ -846,6 +846,7 @@ function renderWeekNumbers(
  * @param language - Language code for translations
  * @param columnIndex - Zero-based day track
  * @param weatherForecasts - Fetched forecasts, if any
+ * @param hass - Home Assistant instance, whose locale decides which days are the weekend
  * @returns Rendered header
  */
 function renderDayHeader(
@@ -854,6 +855,7 @@ function renderDayHeader(
   language: string,
   columnIndex: number,
   weatherForecasts?: Types.WeatherForecasts,
+  hass?: Types.Hass | null,
 ): TemplateResult {
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
@@ -871,7 +873,7 @@ function renderDayHeader(
         today: isToday,
         tomorrow: isTomorrow,
         'future-day': !isToday,
-        weekend: FormatUtils.isWeekendDate(dayDate),
+        weekend: FormatUtils.isWeekendDate(dayDate, hass?.locale),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '2' })}
     >
@@ -882,6 +884,7 @@ function renderDayHeader(
         isToday,
         weatherContent,
         headerSeparator,
+        hass,
       )}
     </div>
   `;
@@ -936,7 +939,7 @@ function renderDayBody(
       class=${classMap({
         'grid-day-body': true,
         today: isToday,
-        weekend: FormatUtils.isWeekendDate(dayDate),
+        weekend: FormatUtils.isWeekendDate(dayDate, hass?.locale),
       })}
       style=${styleMap({ gridColumn: String(columnIndex + 2), gridRow: '4' })}
     >

@@ -115,6 +115,7 @@ export function classifyDay(timestamp: number): { isToday: boolean; isTomorrow: 
  * @param isToday Whether the date is today
  * @param weatherContent Already-rendered weather badge, or `nothing`
  * @param separator Optional rule under the header
+ * @param hass Home Assistant instance, whose locale decides which days are the weekend
  * @returns Rendered shared day header
  */
 export function renderSharedDayHeader(
@@ -124,6 +125,7 @@ export function renderSharedDayHeader(
   isToday: boolean,
   weatherContent: TemplateResult | typeof nothing = nothing,
   separator?: { width: string; color: string } | null,
+  hass?: Types.Hass | null,
 ): TemplateResult {
   const todayIndicator = renderTodayIndicator(config, isToday, 'inline');
   const hasInlineIndicator = todayIndicator !== nothing;
@@ -146,7 +148,8 @@ export function renderSharedDayHeader(
           'with-today-indicator': hasInlineIndicator,
         })}
       >
-        ${todayIndicator} ${renderDateContent(date, config, language, isToday, weatherContent)}
+        ${todayIndicator}
+        ${renderDateContent(date, config, language, isToday, weatherContent, hass)}
       </div>
     </div>
     ${headerSeparator}
@@ -191,6 +194,7 @@ export function renderDayWeekNumber(
  * @param language Language code for translations
  * @param isToday Whether the date is today
  * @param weatherContent Already-rendered weather badge, or `nothing`
+ * @param hass Home Assistant instance, whose locale decides which days are the weekend
  * @returns Rendered date block contents
  */
 export function renderDateContent(
@@ -199,8 +203,9 @@ export function renderDateContent(
   language: string,
   isToday: boolean,
   weatherContent: TemplateResult | typeof nothing = nothing,
+  hass?: Types.Hass | null,
 ): TemplateResult {
-  const isWeekendDay = FormatUtils.isWeekendDate(date);
+  const isWeekendDay = FormatUtils.isWeekendDate(date, hass?.locale);
 
   let weekdayColor = config.weekday_color;
   let dayColor = config.day_color;

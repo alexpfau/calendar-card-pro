@@ -42,7 +42,7 @@ entities:
 | `split_multiday_events`  | boolean | `split_multiday_events`  | Whether multi-day events from this calendar span each day they cover (overrides global `split_multiday_events`)                                                                                                                                                                                                                                                          |
 | `event_type`             | string  | `event_type`             | Which class of this calendar's events to keep — `all`, `timed` for events with a clock time, or `all_day` for all-day ones (overrides global `event_type`)                                                                                                                                                                                                               |
 | `allday_expires_at`      | string  | midnight                 | Time of day, as `HH:MM`, at which this calendar's all-day events start counting as past, read against the last day each one covers. Unset, they last until midnight. Only applies while `show_past_events` is `false`                                                                                                                                                    |
-| `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (Monday to Friday) or `weekends` (Saturday and Sunday), judged on the day each row lands on. Unset, every day qualifies                                                                                                                                                                                                            |
+| `days_of_week`           | string  | `-`                      | Restricts this calendar to `weekdays` (every day except the weekend) or `weekends` (the weekend days alone), judged on the day each row lands on. Which days are the weekend follows your Home Assistant language. Unset, every day qualifies                                                                                                                            |
 
 This structure gives you granular control over how information from different calendars is displayed.
 
@@ -554,8 +554,8 @@ within the refresh interval of the time you set, not exactly on it.
 ### Showing a Calendar on Weekdays Only
 
 `days_of_week` restricts one calendar to weekdays or to weekends. It takes `weekdays` for
-Monday to Friday and `weekends` for Saturday and Sunday; leave it out and every day
-qualifies, which is the default.
+every day except the weekend and `weekends` for the weekend days alone; leave it out and
+every day qualifies, which is the default.
 
 ```yaml
 entities:
@@ -596,9 +596,13 @@ calendar supplied becomes an empty day like any other. With
 view defaults to, the day still appears carrying the usual _No upcoming events_ notice.
 :::
 
-Weekend means Saturday and Sunday. That is the same definition the
-[weekend colors](/features/layout-appearance#date-column-customization) use, so a day
-this option treats as a weekend is a day the card already colors as one.
+Which days are the weekend comes from your Home Assistant language, not from the card's
+own `language` option: Saturday and Sunday in most regions, Friday and Saturday in the
+Arabic- and Hebrew-speaking ones, Friday alone in Persian, and Sunday alone in Hindi,
+Malayalam, Tamil and Telugu. That is the same definition the
+[weekend colors](/features/layout-appearance#date-column-customization) and the weekend
+shading use, so a day this option treats as a weekend is a day the card already draws as
+one.
 
 ### Filtering Duplicate Events
 

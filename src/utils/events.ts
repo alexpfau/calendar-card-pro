@@ -419,12 +419,21 @@ function resolveDaysOfWeek(
 /**
  * Whether a day satisfies one calendar's `days_of_week`.
  *
+ * Which days are the weekend is resolved from Home Assistant's language, not fixed at
+ * Saturday and Sunday — see {@link FormatUtils.isWeekendDate}, which the weekend colors
+ * and shading read too so the filter and the styling cannot disagree about a Friday.
+ *
  * @param displayDate The day the row would land on
  * @param filter The calendar's resolved filter
+ * @param hassLocale Home Assistant locale, deciding which days are the weekend
  * @returns True when the row may stay
  */
-function dayPassesWeekFilter(displayDate: Date, filter: Types.DaysOfWeekFilter): boolean {
-  return FormatUtils.isWeekendDate(displayDate) === (filter === 'weekends');
+function dayPassesWeekFilter(
+  displayDate: Date,
+  filter: Types.DaysOfWeekFilter,
+  hassLocale?: { language?: string },
+): boolean {
+  return FormatUtils.isWeekendDate(displayDate, hassLocale) === (filter === 'weekends');
 }
 
 /**
@@ -436,6 +445,7 @@ function dayPassesWeekFilter(displayDate: Date, filter: Types.DaysOfWeekFilter):
  * @param language Language code for date calculations
  * @param effectiveView View currently being rendered
  * @param hassLocale Home Assistant locale, so `first_day_of_week: system` can follow it
+ *   and so `days_of_week` knows which days are the weekend where the user lives
  * @returns Day buckets containing the matching events
  */
 export function groupEventsByDay(
@@ -588,7 +598,11 @@ export function groupEventsByDay(
 
     if (
       daysOfWeek &&
-      !dayPassesWeekFilter(resolveDisplayDate(startDate, endDate, referenceStart), daysOfWeek)
+      !dayPassesWeekFilter(
+        resolveDisplayDate(startDate, endDate, referenceStart),
+        daysOfWeek,
+        hassLocale,
+      )
     ) {
       return false;
     }

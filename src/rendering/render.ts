@@ -325,6 +325,8 @@ function renderWeekRow(
  * @param config Card configuration
  * @param language - Language code for translations
  * @param isToday Whether the date is today
+ * @param weatherForecasts Fetched forecasts, if any
+ * @param hass Home Assistant instance, whose locale decides which days are the weekend
  * @returns Rendered date column
  */
 function renderDateColumn(
@@ -333,10 +335,11 @@ function renderDateColumn(
   language: string,
   isToday: boolean,
   weatherForecasts?: Types.WeatherForecasts,
+  hass?: Types.Hass | null,
 ): TemplateResult {
   const weatherContent = Leaves.renderDateWeather(date, config, weatherForecasts);
 
-  return Leaves.renderDateContent(date, config, language, isToday, weatherContent);
+  return Leaves.renderDateContent(date, config, language, isToday, weatherContent, hass);
 }
 
 /**
@@ -362,7 +365,7 @@ export function renderDay(
   // Column view carries `weekend` on its day container, so list view does too — a card-mod
   // rule targeting weekends should not need to know which view is active. List view also
   // keeps it on `.date-column`, where it drives the built-in date-cell styling.
-  const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp));
+  const isWeekendDay = FormatUtils.isWeekendDate(new Date(day.timestamp), hass?.locale);
 
   let daySeparator: TemplateResult | typeof nothing = nothing;
 
@@ -500,7 +503,7 @@ function renderEvent(
   const presentation = Presentation.buildEventPresentation(event, config, language, hass);
 
   const dayDate = new Date(day.timestamp);
-  const isWeekendDay = FormatUtils.isWeekendDate(dayDate);
+  const isWeekendDay = FormatUtils.isWeekendDate(dayDate, hass?.locale);
 
   const isFirst = index === 0;
   const isLast = index === day.events.length - 1;
@@ -523,7 +526,7 @@ function renderEvent(
               rowspan="${day.events.length}"
               style="position: relative;"
             >
-              ${renderDateColumn(dayDate, config, language, isToday, weatherForecasts)}
+              ${renderDateColumn(dayDate, config, language, isToday, weatherForecasts, hass)}
               ${Leaves.renderTodayIndicator(config, isToday)}
             </td>
           `

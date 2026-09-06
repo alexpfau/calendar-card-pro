@@ -117,12 +117,14 @@ function dateKeyOf(timestamp: number): string {
  * @param events Events to group
  * @param entity The calendar's own settings
  * @param overrides Card configuration beyond the defaults
+ * @param hassLocale Home Assistant locale, which decides which days are the weekend
  * @returns Each rendered day's date key mapped to the real summaries on it
  */
 function render(
   events: Types.CalendarEventData[],
   entity: Partial<Types.EntityConfig>,
   overrides: Partial<Types.Config> = {},
+  hassLocale?: { language?: string },
 ): Record<string, string[]> {
   const config = buildConfig({
     entities: [{ entity: 'calendar.holidays', ...entity }],
@@ -130,7 +132,7 @@ function render(
     ...overrides,
   } as Partial<Types.Config>);
 
-  const days = groupEventsByDay(stamped(events, entity), config, true, 'en');
+  const days = groupEventsByDay(stamped(events, entity), config, true, 'en', 'list', hassLocale);
 
   const result: Record<string, string[]> = {};
   for (const day of days) {
@@ -446,5 +448,52 @@ describe('days_of_week: a value the union does not name', () => {
       'Saturday',
       'Monday',
     ]);
+  });
+});
+
+/**
+ * Which days the filter calls the weekend.
+ *
+ * The option's two values name a partition of the week, and where the cut falls is not a
+ * constant: CLDR puts it after Thursday in the Friday–Saturday regions and before Sunday
+ * alone in India. Until v5 the card cut it after Friday for everybody, so an Israeli
+ * household asking for weekends got the two days it works, and asking for weekdays got
+ * the two it rests.
+ *
+ * The card reads Home Assistant's language for this, not its own `language` option — the
+ * card option picks a translation and doubles as a fallback for the Home Assistant
+ * languages the card cannot translate, so it says nothing about where the user lives.
+ */
+describe('days_of_week: where the weekend falls', () => {
+  const week = [
+    timed('Thursday', DATES.thursday),
+    timed('Friday', DATES.friday),
+    timed('Saturday', DATES.saturday),
+    timed('Sunday', DATES.sunday),
+  ];
+
+  it.each([
+    { name: 'no locale, as before hass arrives', locale: undefined, kept: ['Saturday', 'Sunday'] },
+    { name: 'de', locale: { language: 'de' }, kept: ['Saturday', 'Sunday'] },
+    { name: 'he (Friday and Saturday)', locale: { language: 'he' }, kept: ['Friday', 'Saturday'] },
+    { name: 'fa (Friday alone)', locale: { language: 'fa' }, kept: ['Friday'] },
+    { name: 'hi (Sunday alone)', locale: { language: 'hi' }, kept: ['Sunday'] },
+  ])('keeps $kept for weekends under $name', ({ locale, kept }) => {
+    expect(summaries(render(week, { days_of_week: 'weekends' }, {}, locale))).toEqual(kept);
+  });
+
+  it.each([
+    {
+      name: 'no locale',
+      locale: undefined,
+      kept: ['Thursday', 'Friday'],
+    },
+    { name: 'he', locale: { language: 'he' }, kept: ['Thursday', 'Sunday'] },
+    { name: 'hi', locale: { language: 'hi' }, kept: ['Thursday', 'Friday', 'Saturday'] },
+  ])('keeps $kept for weekdays under $name', ({ locale, kept }) => {
+    // The complement of the rows above on the same four-day fixture. Both halves are
+    // asserted because a filter that answered the same set for either value would satisfy
+    // one of them and is the failure this option cannot afford.
+    expect(summaries(render(week, { days_of_week: 'weekdays' }, {}, locale))).toEqual(kept);
   });
 });

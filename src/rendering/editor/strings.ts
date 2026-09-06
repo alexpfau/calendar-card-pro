@@ -248,11 +248,13 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'the minute.',
   'entity.days_of_week': 'Days of the Week',
   'entity.days_of_week.option.inherit.label': 'Every day',
-  'entity.days_of_week.option.weekdays.label': 'Monday to Friday only',
-  'entity.days_of_week.option.weekends.label': 'Saturday and Sunday only',
+  'entity.days_of_week.option.weekdays.label': 'Every day except the weekend',
+  'entity.days_of_week.option.weekends.label': 'Weekend days only',
   'entity.days_of_week.helper':
-    'Which days this calendar may put events on. A multi-day event keeps only the days ' +
-    'that qualify, so a holiday running through a weekend still shows on the weekdays ' +
+    'Which days this calendar may put events on. Which days count as the weekend ' +
+    'follows the Home Assistant language — Saturday and Sunday in most regions, Friday ' +
+    'and Saturday in some, Sunday alone in others. A multi-day event keeps only the ' +
+    'days that qualify, so a holiday running through a weekend still shows on the days ' +
     'around it.',
 
   // --- Text replacement -----------------------------------------------------

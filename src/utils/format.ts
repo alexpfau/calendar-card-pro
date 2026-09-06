@@ -467,25 +467,89 @@ export function getLocalDateKey(date: Date): string {
 }
 
 /**
+ * CLDR weekend days for every Home Assistant frontend language whose weekend is not
+ * Saturday and Sunday. Day numbers are this module's own, where 0 is Sunday.
+ *
+ * Saturday and Sunday is the CLDR majority, so only exceptions are listed. Lookup is
+ * full tag first, then base language, then the default — the same three steps, and for
+ * the same reason, as the `FIRST_DAY_BY_LOCALE` table further down this file. No language
+ * currently needs a regional entry the way `en-gb` does there: every listed language is
+ * shipped without a regional variant, and every variant Home Assistant does ship
+ * (`en-GB`, `es-419`, `pt-BR`, `sr-Latn`, `zh-Hans`, `zh-Hant`) inherits a base whose
+ * weekend is already the default.
+ *
+ * A table rather than `Intl.Locale.prototype.getWeekInfo` for the three reasons given on
+ * that table: the API is ES2020+ against an ES2017 target, its spelling varies
+ * by engine — Node 22 exposes only the older `weekInfo` getter where Node 25 also has the
+ * method, and browsers differ the same way — and the input domain is closed, because the
+ * value reaching it is always a language Home Assistant ships.
+ * `tests/weekend-locale.test.ts` pins every entry against the runtime's own CLDR, so the
+ * table cannot silently drift.
+ */
+const WEEKEND_BY_LOCALE: Record<string, readonly number[]> = {
+  ar: [5, 6],
+  fa: [5],
+  he: [5, 6],
+  hi: [0],
+  ml: [0],
+  ta: [0],
+  te: [0],
+};
+
+/** Saturday and Sunday, which is what CLDR says for all but a handful of languages. */
+const DEFAULT_WEEKEND_DAYS: readonly number[] = [0, 6];
+
+/**
+ * Which days of the week count as the weekend for a Home Assistant language.
+ *
+ * The card's own `language` option is deliberately not consulted, for exactly the reason
+ * {@link getFirstDayOfWeek} gives: that option picks a translation, and it doubles as the
+ * fallback for the Home Assistant languages the card has no translation for, so it says
+ * nothing reliable about the user's region. A German household running the card in
+ * English still has a Saturday–Sunday weekend, and an Israeli one running it in German
+ * still has a Friday–Saturday one.
+ *
+ * @param hassLocale Home Assistant locale, the authoritative source
+ * @returns Day numbers (0 = Sunday), Saturday and Sunday for an unlisted language
+ */
+export function getWeekendDays(hassLocale?: { language?: string }): readonly number[] {
+  const tag = hassLocale?.language;
+
+  if (!tag) {
+    return DEFAULT_WEEKEND_DAYS;
+  }
+
+  const key = tag.toLowerCase();
+
+  return WEEKEND_BY_LOCALE[key] ?? WEEKEND_BY_LOCALE[key.split('-')[0]] ?? DEFAULT_WEEKEND_DAYS;
+}
+
+/**
  * Check whether a date falls on a weekend.
  *
- * Saturday and Sunday, deliberately fixed rather than derived from the locale or from
- * `first_day_of_week`. This is the card's **one** answer to the question, and it is read
- * by two features that have to agree: the weekend day-header colors, and the per-calendar
- * `days_of_week` filter. Were the filter locale-aware while the colors were not, a Friday
- * in a Friday–Saturday weekend would be filtered as a weekend day and colored as a
- * weekday — two visible answers to one question on the same row.
+ * Resolved from the Home Assistant language rather than fixed at Saturday and Sunday,
+ * which was wrong for every Friday–Saturday and Sunday-only region. This is still the
+ * card's **one** answer to the question, and it is read by two features that have to
+ * agree: the weekend day-header colors and shading, and the per-calendar `days_of_week`
+ * filter. Were the filter locale-aware while the colors were not, a Friday in a
+ * Friday–Saturday weekend would be filtered as a weekend day and colored as a weekday —
+ * two visible answers to one question on the same row.
  *
  * Lives here rather than beside its first caller in `rendering/leaves.ts` for that reason:
  * `leaves.ts` imports `utils/events.ts`, so the filter could not have reached it without
  * a cycle, and a second copy is what this comment exists to prevent.
  *
+ * The locale is optional, and omitting it answers for Saturday and Sunday. That is the
+ * fallback rather than a second definition: every production caller threads Home
+ * Assistant's own locale through, and the default is what a card renders with before
+ * `hass` has been set.
+ *
  * @param date Date to check
- * @returns True when the date is a Saturday or Sunday
+ * @param hassLocale Home Assistant locale, deciding which days count
+ * @returns True when the date falls on a weekend day for that locale
  */
-export function isWeekendDate(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
+export function isWeekendDate(date: Date, hassLocale?: { language?: string }): boolean {
+  return getWeekendDays(hassLocale).includes(date.getDay());
 }
 
 /**

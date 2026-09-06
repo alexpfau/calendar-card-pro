@@ -468,7 +468,7 @@ When enabled, past events appear with reduced opacity (60%) to visually distingu
 
 ## 🌈 Weekend Day Styling
 
-Weekend days (Saturday and Sunday) can be styled differently from weekdays to make them stand out in your calendar. You can customize:
+Weekend days can be styled differently from the rest of the week to make them stand out in your calendar. Which days those are follows your Home Assistant language — Saturday and Sunday in most regions, Friday and Saturday in others. You can customize:
 
 - `weekend_weekday_color`: Sets the text color for weekday names (e.g., "Sat", "Sun")
 - `weekend_day_color`: Sets the text color for the day number

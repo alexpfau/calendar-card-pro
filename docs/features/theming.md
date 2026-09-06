@@ -52,12 +52,12 @@ nothing in the other unless both are named:
 Both carry the same four state classes, so the state half of a selector is portable even
 though the container name is not:
 
-| Class        | Applied when                    |
-| ------------ | ------------------------------- |
-| `today`      | the day is today                |
-| `tomorrow`   | the day is tomorrow             |
-| `future-day` | the day is not today            |
-| `weekend`    | the day is a Saturday or Sunday |
+| Class        | Applied when             |
+| ------------ | ------------------------ |
+| `today`      | the day is today         |
+| `tomorrow`   | the day is tomorrow      |
+| `future-day` | the day is not today     |
+| `weekend`    | the day is a weekend day |
 
 In list view, `weekend` is additionally on the date cell (`.date-column.weekend`), which
 is what the built-in `weekend_day_color` and `weekend_weekday_color` options style.
@@ -172,8 +172,9 @@ card_mod:
 
 ### Shade weekend days
 
-`weekend` is on the day container in both views, so one rule covers Saturday and Sunday
-whichever layout is active:
+`weekend` is on the day container in every view, so one rule covers the weekend whichever
+layout is active. Which days carry it follows your Home Assistant language, so this rule
+shades Friday and Saturday in an Arabic or Hebrew household without being rewritten:
 
 ```yaml
 type: custom:calendar-card-pro
