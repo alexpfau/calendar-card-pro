@@ -18,11 +18,17 @@ tap_action:
 When a `compact_events_to_show` limit is set, the card displays that number of events initially, adding a subtle indicator when more events are available. The `expand` action then allows users to toggle between this compact mode and the full set of events.
 
 ::: warning List View Only
-The whole compact family is inert in column and grid view — `compact_events_to_show`, its per-calendar form, `compact_days_to_show`, `compact_events_complete_days`, and the `expand` action that drives them. A column or grid card with `tap_action: expand` does nothing when tapped.
+The whole compact family is inert while the card is rendering as column or grid —
+`compact_events_to_show`, its per-calendar form, `compact_days_to_show`,
+`compact_events_complete_days`, and the `expand` action that drives them. A side-by-side
+card with `tap_action: expand` has nothing visible to change until the layout is a list.
 
-This is deliberate rather than an omission. Compact mode caps events **across the card**, not per day, so a limit of three would fill the first day columns and leave every later one empty — the layout would stop corresponding to consecutive days, which is the one thing a side-by-side view has to get right.
+This is deliberate rather than an omission. Compact mode caps events **across the card**,
+not per day, so a limit of three would fill the first day columns and leave every later one
+empty — the layout would stop corresponding to consecutive days, which is the one thing a
+side-by-side view has to get right.
 
-Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events. Grid density is controlled by [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) the same way — including the default `min_days_fallback: list`, which does switch a too-narrow grid card to the list layout, where compact caps apply again.
+Column density is controlled by [showing fewer columns instead](/features/column-view#showing-fewer-columns-instead), which trades columns for fit without dropping events. Grid density is controlled by [`time_grid` day-width options](/features/grid-view#fitting-narrow-cards) the same way — including the default `min_days_fallback: list`, which does switch a too-narrow grid card to the list layout, where compact caps and `expand` apply again.
 :::
 
 When using expansion with both global and per-calendar limits:

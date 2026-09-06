@@ -334,8 +334,9 @@ by the grid renderer into one timed block for each day they touch. The list spli
 used, because it would turn the middle day of a timed event into an all-day banner.
 
 The compact options — `compact_events_to_show`, `compact_days_to_show` and
-`compact_events_complete_days` — are list-only and do nothing here either, as they do
-nothing in column view.
+`compact_events_complete_days` — are list-only and do nothing while the card is rendering
+as a grid, as they do nothing while it is rendering as columns. They apply again if
+`min_days_fallback: list` drops the card to the list layout.
 
 The detail-row options also do nothing on all-day banners: `show_time`,
 `show_single_allday_time`, `show_multiday_allday_time`, `allday_badge`,
