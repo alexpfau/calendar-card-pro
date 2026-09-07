@@ -903,6 +903,46 @@ export const OVERRIDE_BLOCK_BY_VIEW: Readonly<
 ) as Readonly<Partial<Record<Types.EffectiveView, keyof Types.Config>>>;
 
 /**
+ * Where an edit to an option belongs when the editor is configuring a given view.
+ *
+ * `block` means the value is written into that view's own block (`column:` or
+ * `time_grid:`); `top-level` means it is written at the card level, where every view
+ * that does not override it will read it.
+ */
+export type ConfigRoute = 'block' | 'top-level';
+
+/**
+ * Which route an option takes when edited while configuring a view.
+ *
+ * The editor was built with list view as the default and the other views expressed as
+ * deltas, so an edit has always gone to the top level unless the user first found the
+ * exception picker. Routing by the view being configured is what lets that picker stop
+ * being a user-facing concept, and this is the single place that decides it.
+ *
+ * 🚨 **Derived from {@link VIEW_BLOCKS}, never from a second list.** The obvious
+ * shortcut — routing anything in `TIME_GRID_OVERRIDE_KEYS` — is wrong twice over: that
+ * array is an alias of `COLUMN_OVERRIDE_KEYS`, so it says nothing about grid in
+ * particular, and it holds keys grid accepts but cannot act on. Reading the registry
+ * means a view that gains or loses a block needs no edit here.
+ *
+ * List has no block and is not an omission: list *is* the top level, so every route
+ * from it is `top-level` by construction.
+ *
+ * @param key - Config key being edited
+ * @param view - View the editor is currently configuring
+ * @returns Where the write belongs
+ */
+export function routeForKey(key: string, view: Types.EffectiveView): ConfigRoute {
+  const block = VIEW_BLOCKS[view];
+
+  if (!block) {
+    return 'top-level';
+  }
+
+  return block.overrideKeys.includes(key) || block.onlyKeys.includes(key) ? 'block' : 'top-level';
+}
+
+/**
  * The raw, unvalidated contents of a view's block on a given config.
  *
  * @param config - Merged configuration

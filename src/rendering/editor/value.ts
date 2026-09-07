@@ -9,7 +9,13 @@ import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Helpers from '../../utils/helpers';
 
-const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
+/**
+ * Options stored as whole objects rather than option by option.
+ *
+ * Exported so a reconciliation can name them without re-listing them. A second copy is
+ * one more thing to forget, and forgetting is the failure mode these tables have.
+ */
+export const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
 
 /** The nested groups of a `weather:` block, each defaulted option by option. */
 const WEATHER_GROUPS = ['date', 'event'] as const;
