@@ -778,7 +778,17 @@ class CalendarCardPro extends LitElement {
       this._tickNowLine();
     }, Constants.TIMING.NOW_LINE_INTERVAL);
 
-    this._nowLineDayKey = FormatUtils.getLocalDateKey(new Date());
+    // Keep the key across stops so a hidden or disconnected card can detect that midnight
+    // passed before the timer was reacquired.
+    const dayKey = FormatUtils.getLocalDateKey(new Date());
+    if (this._nowLineDayKey !== null && dayKey !== this._nowLineDayKey) {
+      this._nowLineDayKey = dayKey;
+      Logger.debug('Local day rolled over while the now-line timer was stopped, refreshing events');
+      this.updateEvents(true);
+      return;
+    }
+
+    this._nowLineDayKey = dayKey;
   }
 
   private _stopNowLineTimer(): void {

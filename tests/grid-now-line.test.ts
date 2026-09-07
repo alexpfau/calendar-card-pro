@@ -25,6 +25,7 @@ interface CardUnderTest extends HTMLElement {
   requestUpdate(): void;
   _nowLineTimerId: number | null;
   _nowLineDayKey: string | null;
+  _lastUpdateTime: number;
   _wantsNowLine: boolean;
   _syncNowLineTimer(): void;
   _tickNowLine(): void;
@@ -191,6 +192,26 @@ describe('midnight', () => {
 
     expect(update).toHaveBeenCalledTimes(1);
 
+    update.mockRestore();
+  });
+
+  it('refetches when a hidden tab returns just after midnight', async () => {
+    vi.setSystemTime(new Date(2026, 5, 17, 23, 59, 30));
+    const element = await mounted({ view: 'grid' });
+    const update = vi.spyOn(element, 'updateEvents').mockResolvedValue();
+    const visibility = vi.spyOn(document, 'visibilityState', 'get');
+
+    element._lastUpdateTime = Date.now();
+    visibility.mockReturnValue('hidden');
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    vi.setSystemTime(new Date(2026, 5, 18, 0, 0, 10));
+    visibility.mockReturnValue('visible');
+    document.dispatchEvent(new Event('visibilitychange'));
+
+    expect(update, 'returning on a new local day must refetch').toHaveBeenCalledWith(true);
+
+    visibility.mockRestore();
     update.mockRestore();
   });
 });
