@@ -677,16 +677,26 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * them to the same token the horizontal rules already use. Ruled paper wants one gray,
  * and the top-level `var(--secondary-text-color)` is a text hue: it drew the verticals
  * far heavier than the horizontals, which read as a table of boxes rather than as a
- * grid. The two now carry identical ink at identical width — both are `1px` of
- * `var(--divider-color)` at full strength, which is what `.grid-rules` dropping its
- * `opacity: 0.5` bought. The pair was matched before at `0.5px` against `1px` of the same
- * colour at half strength, and that equality only survived while the vertical stayed a
- * sub-pixel: widening it to `1px` without also lifting the horizontals would have made
- * every day rule twice the ink of every hour rule, which is the table-of-boxes fault
- * above arriving from the other direction. Note this is a divergent default, so a
- * top-level color no longer reaches grid; that is already true of the width beside it,
- * and the pair now behaves alike rather than applying a card-wide color to a width the
- * card level never asked for.
+ * grid. Note this is a divergent default, so a top-level color no longer reaches grid;
+ * that is already true of the width beside it, and the pair now behaves alike rather than
+ * applying a card-wide color to a width the card level never asked for.
+ *
+ * 🚨 It is `var(--divider-color)` at **half** strength, and the halving lives here — in
+ * the option's own default — rather than as an `opacity` on `.grid-rules`, which is where
+ * it used to be. An element opacity dims one of the two rule families and not the other,
+ * and it dims a colour the user supplied as well as the one the card shipped. As a default
+ * it does neither: `renderRules` now takes this resolved value and paints the hour rules
+ * with it, so both families carry the same ink by construction, and a user writing
+ * `day_separator_color: red` gets red at full strength in both directions.
+ *
+ * The claim this replaces — that the two families already carried identical ink — was
+ * false when it was written, and measuring is what found it. On the deployed build an hour
+ * rule came back `rgb(197, 197, 197)` against `rgb(224, 224, 224)` for a vertical day rule
+ * of the same colour and width: 0.226 alpha against 0.12, because the slot gradient and
+ * the hour gradient coincide at the shipped `slot_minutes: 60` and translucent ink
+ * composites rather than merging. That doubling is fixed in `renderRules`; this halving is
+ * the separate question of how heavy one rule should be, and the answer is macOS
+ * Calendar's, which is lighter than a full-strength divider.
  * `progress_bar_width` fills the block:
  * column view draws the bar at 80% of a row that has no boundary of its own, where a full
  * width would read as an underline, while a grid block is a tinted box with an edge — so
@@ -743,7 +753,7 @@ export const TIME_GRID_DEFAULT_OVERRIDES: {
   readonly [K in keyof Types.TimeGridOverrides & keyof Types.Config]?: Types.Config[K];
 } = {
   day_separator_width: '1px',
-  day_separator_color: 'var(--divider-color)',
+  day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
   day_spacing: '1px',
   description_color: EntityColors.ACCENT_TEXT_SENTINEL,
   event_background_opacity: 20,

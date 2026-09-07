@@ -236,7 +236,7 @@ function renderGridSeparator(
         gridColumn: String(columnIndex + 2),
         gridRow: '3 / span 2',
         width: separator.width,
-        backgroundColor: separator.color,
+        '--calendar-card-grid-rule-paint': separator.color,
         marginInlineStart: `calc(-0.5 * (${gap} + ${separator.width}))`,
       })}
     ></div>
@@ -316,7 +316,7 @@ function renderGridBoundary(
         gridRow: String(row),
         alignSelf,
         height: width,
-        backgroundColor: color,
+        '--calendar-card-grid-rule-paint': color,
       })}
     ></div>
   `;
@@ -469,15 +469,29 @@ function formatHour(hour: number, use24h: boolean): string {
  * insetting the layer instead would leave every rule up to half a pixel out from the blocks
  * it is supposed to align with, because the percentages would resolve against a shorter box.
  *
+ * 🚨 The slot gradient is painted in `transparent` when the slot IS the hour, and that is
+ * not a tidy-up. Translucent ink composites rather than merging, so two identical patterns
+ * are not one pattern drawn twice — they are one pattern drawn at nearly twice the ink.
+ * Measured on the deployed build at the shipped `slot_minutes: 60`: an hour rule came back
+ * `rgb(197, 197, 197)` where a vertical day rule of the same colour and width came back
+ * `rgb(224, 224, 224)`, which is 0.226 alpha against 0.12. The stylesheet claimed the two
+ * families carried identical ink and they had not since the slot gradient arrived.
+ *
+ * Below the hour the doubling is left alone, because there it says something: a rule that
+ * is both a slot boundary and an hour boundary paints darker than one that is only a slot
+ * boundary, which is the hierarchy macOS Calendar draws by hand.
+ *
  * @param band - The visible band
  * @param slotMinutes - Configured rule spacing
  * @param columnCount - Day columns to span
+ * @param ruleColor - Resolved colour for one rule, the same option the day rules use
  * @returns The ruled backdrop
  */
 function renderRules(
   band: Grid.GridBand,
   slotMinutes: number,
   columnCount: number,
+  ruleColor: string,
 ): TemplateResult {
   const bandLength = band.endMin - band.startMin;
   const slotPct = (slotMinutes / bandLength) * 100;
@@ -493,6 +507,8 @@ function renderRules(
       style=${styleMap({
         gridColumn: `2 / span ${columnCount}`,
         gridRow: '4',
+        '--calendar-card-grid-rule-color': ruleColor,
+        '--calendar-card-grid-slot-color': slotMinutes < 60 ? ruleColor : 'transparent',
         '--calendar-card-grid-slot-pct': `${slotPct}%`,
         '--calendar-card-grid-hour-pct': `${hourPct}%`,
         '--calendar-card-grid-slot-offset': `${slotOffsetPct}%`,
@@ -1024,7 +1040,7 @@ export function renderGridGroupedEvents(
           `
         : nothing}
       ${showAxisLabels ? renderAxis(band, config, hass) : nothing}
-      ${renderRules(band, slotMinutes, gridDays.length)}
+      ${renderRules(band, slotMinutes, gridDays.length, ruleColor)}
       ${gridDays.map((day, index) =>
         renderDayBody(
           day,

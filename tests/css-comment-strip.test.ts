@@ -202,7 +202,7 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(76_000);
+    expect(saved).toBeLessThan(79_000);
     // The v5.2 grid refinements moved the ceiling last, from 70,000. Five of them, and four
     // carry a note that costs more than the declaration it sits on: why `grid-column: 1 / -1`
     // is only half of "full width" and what the negative margins have to cancel; why a rule
@@ -211,6 +211,17 @@ describe('stripComments', () => {
     // clearance is skipped at a clipped end. Every one of those was measured in a browser and
     // is invisible from the CSS — a later reader looking only at the declarations would undo
     // the first as redundant and the fourth as an inconsistency.
+    //
+    // The v5 grid rule work moved it here, from 76,000, and the ceiling is again buying
+    // explanations that no declaration can carry. Three of them: that an hour rule paints
+    // DOWNWARD from its boundary, which is why a block's clearance above it has to cover
+    // the rule's own width and the one below it must not; that a repeating gradient tiles
+    // in BOTH directions from its first stop, so the mask on `.grid-rules` is not the
+    // offset it looks like it could have been; and that translucent ink composites rather
+    // than merging, which is why two coincident gradients are one pattern at nearly twice
+    // the ink and why the rule colours travel as custom properties rather than as inline
+    // `background-color` values happy-dom silently drops. Each was found by reading painted
+    // pixels off a deployed build, and each reads as redundant from the CSS alone.
     //
     // The grid progress rung moved it before that, from 60,000. Its note records a
     // measured height and, more usefully, that these rungs query the CONTENT box while the

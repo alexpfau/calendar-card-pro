@@ -134,12 +134,19 @@ time_grid:
 
 Grid view turns day separators on by default, because a shared time axis needs visible day
 columns to read clearly. Both halves of that rule start from a grid default rather than
-from the card-level value: `1px` in `var(--divider-color)`, the same gray and the same
-width the horizontal hour rules are drawn in, so the paper reads as one grid rather than
-as a table of boxes. Every rule in a grid is one pixel — the vertical ones between day
-columns, the hour rules, and the line under the date row — and only the line under the
-all-day band is heavier. Set either inside `time_grid:` to change it — a card-level `day_separator_color`
-belongs to the list and column layouts and is left there.
+from the card-level value: `1px` in half-strength `var(--divider-color)`, the same gray and
+the same width the horizontal hour rules are drawn in, so the paper reads as one grid
+rather than as a table of boxes. Every rule in a grid is one pixel — the vertical ones
+between day columns, the hour rules, and the line under the date row — and only the line
+under the all-day band is heavier. Set either inside `time_grid:` to change it — a
+card-level `day_separator_color` belongs to the list and column layouts and is left there.
+
+::: tip Half Strength Is The Default, Not The Drawing
+The dilution is in the shipped default value, so a color you set yourself is drawn exactly
+as you wrote it — in both directions. `day_separator_color` is the one value the vertical
+day rules, the hour rules and the band's frame are all painted with, so changing it changes
+the whole grid at once.
+:::
 
 `day_separator_width` and `day_separator_color` draw the grid's whole frame, not only its
 vertical rules:
@@ -352,21 +359,21 @@ Anything the block does not mention keeps its top-level value.
 Thirteen shared options do not inherit their top-level value in grid view. The **Default**
 column is what grid view uses; **Instead of** is the top-level default it replaces:
 
-| Option                     | Type    | Default                | Instead of                    |
-| -------------------------- | ------- | ---------------------- | ----------------------------- |
-| `event_background_opacity` | number  | `20`                   | `0`                           |
-| `show_empty_days`          | boolean | `true`                 | `false`                       |
-| `show_past_events`         | boolean | `true`                 | `false`                       |
-| `day_separator_width`      | string  | `1px`                  | `0px`                         |
-| `day_separator_color`      | string  | `var(--divider-color)` | `var(--secondary-text-color)` |
-| `day_spacing`              | string  | `1px`                  | `10px`                        |
-| `event_font_size`          | string  | `12px`                 | `14px`                        |
-| `event_color`              | string  | `accent`               | `--primary-text-color`        |
-| `time_color`               | string  | `accent`               | `--secondary-text-color`      |
-| `location_color`           | string  | `accent`               | `--secondary-text-color`      |
-| `description_color`        | string  | `accent`               | `--secondary-text-color`      |
-| `progress_bar_color`       | string  | `accent`               | `--secondary-text-color`      |
-| `progress_bar_width`       | string  | `100%`                 | _per placement_               |
+| Option                     | Type    | Default                              | Instead of                    |
+| -------------------------- | ------- | ------------------------------------ | ----------------------------- |
+| `event_background_opacity` | number  | `20`                                 | `0`                           |
+| `show_empty_days`          | boolean | `true`                               | `false`                       |
+| `show_past_events`         | boolean | `true`                               | `false`                       |
+| `day_separator_width`      | string  | `1px`                                | `0px`                         |
+| `day_separator_color`      | string  | Half-strength `var(--divider-color)` | `var(--secondary-text-color)` |
+| `day_spacing`              | string  | `1px`                                | `10px`                        |
+| `event_font_size`          | string  | `12px`                               | `14px`                        |
+| `event_color`              | string  | `accent`                             | `--primary-text-color`        |
+| `time_color`               | string  | `accent`                             | `--secondary-text-color`      |
+| `location_color`           | string  | `accent`                             | `--secondary-text-color`      |
+| `description_color`        | string  | `accent`                             | `--secondary-text-color`      |
+| `progress_bar_color`       | string  | `accent`                             | `--secondary-text-color`      |
+| `progress_bar_width`       | string  | `100%`                               | _per placement_               |
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still

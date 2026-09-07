@@ -398,7 +398,7 @@ describe('resolveEffectiveConfig', () => {
       // see, and `check:docs` reconciles the count of it against this one.
       expect({ ...TIME_GRID_DEFAULT_OVERRIDES }).toEqual({
         day_separator_width: '1px',
-        day_separator_color: 'var(--divider-color)',
+        day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
         day_spacing: '1px',
         description_color: 'accent',
         event_background_opacity: 20,

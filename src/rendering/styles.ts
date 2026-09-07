@@ -2023,22 +2023,27 @@ export const cardStyles = css`
   /* Two repeating gradients rather than an element per slot: a week at a 15-minute
      resolution would otherwise cost several hundred empty divs. Each pattern starts at
      the next clock boundary rather than at the configured band edge, so a 06:30 band
-     still rules whole hours at 07:00, 08:00 and onward. The hour rule is drawn second so
-     it wins where the two coincide.
+     still rules whole hours at 07:00, 08:00 and onward.
 
      🚨 No opacity here, and its absence is load-bearing. These lines and the vertical day
-     rules are one system in the reader's eye, so they have to carry the same ink, and the
-     day rule is a user-facing color option that cannot be quietly halved. It used to be
-     matched from the other end — this painted 1px at half strength against a 0.5px rule at
-     full — and that equality held only while the vertical was a sub-pixel. Both are 1px of
-     var(--divider-color) at full strength now. Putting the opacity back leaves the day
-     rules twice the ink of the hour rules, which is the exact table-of-boxes reading the
-     divergent day_separator_color default was introduced to remove. */
+     rules are one system in the reader's eye, so they have to carry the same ink, and an
+     element opacity dims only one of the two. They now do carry the same ink, and by
+     construction rather than by coincidence: both read the resolved day_separator_color,
+     which the renderer hands over as --calendar-card-grid-rule-color. Dimming belongs in
+     that colour's own default, where a user who supplies one still gets exactly what they
+     asked for -- an opacity here would halve theirs too.
+
+     The two patterns coincide exactly at the shipped slot_minutes: 60, and painting one
+     pattern twice is NOT a no-op, because translucent ink composites. That is why the
+     renderer sends --calendar-card-grid-slot-color as transparent whenever the slot is the
+     hour; see renderRules for the measurement. Below the hour it sends the real colour and
+     the overlap is kept, so a rule that is both a slot boundary and an hour boundary reads
+     heavier than one that is only a slot boundary. */
   .grid-rules {
     background-image:
       repeating-linear-gradient(
         to bottom,
-        var(--divider-color) var(--calendar-card-grid-slot-offset)
+        var(--calendar-card-grid-slot-color) var(--calendar-card-grid-slot-offset)
           calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width)),
         transparent
           calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width))
@@ -2046,7 +2051,7 @@ export const cardStyles = css`
       ),
       repeating-linear-gradient(
         to bottom,
-        var(--divider-color) var(--calendar-card-grid-hour-offset)
+        var(--calendar-card-grid-rule-color) var(--calendar-card-grid-hour-offset)
           calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width)),
         transparent
           calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width))
@@ -2084,6 +2089,15 @@ export const cardStyles = css`
 
   /* ----- The grid's own rules -----
 
+     🚨 Both families take their colour from --calendar-card-grid-rule-paint, written
+     inline by the renderer, rather than from an inline background-color. That is not
+     indirection for its own sake: happy-dom's CSS value parser drops any declaration it
+     cannot parse, and the shipped grid default is a color-mix(), so an inline
+     background-color is stored as the empty string and every DOM assertion about a rule's
+     colour silently stops measuring anything. Custom properties are stored verbatim. The
+     same trap is recorded on .grid-event for calc() containing var().
+
+
      One painting ladder, and every rung is load-bearing:
 
        .grid-weekend    plain grid item   the tint, behind everything
@@ -2097,11 +2111,13 @@ export const cardStyles = css`
      banner would be crossed by them and read as chopped into days, which is why they used
      to stop at the band instead. */
   .grid-separator {
+    background-color: var(--calendar-card-grid-rule-paint);
     pointer-events: none;
     z-index: 1;
   }
 
   .grid-boundary {
+    background-color: var(--calendar-card-grid-rule-paint);
     pointer-events: none;
     z-index: 3;
     /* No align-self and no inline margin, and both absences are deliberate. Which edge of

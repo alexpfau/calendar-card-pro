@@ -1735,25 +1735,36 @@ describe('card stylesheet', () => {
 
     it('draws the hour rules at the same ink as the day rules, not half of it', () => {
       // The two families are one system in the reader's eye, so they have to match, and
-      // matching them is a claim about two files: the width and colour of a vertical rule
-      // come from TIME_GRID_DEFAULT_OVERRIDES and the horizontal ones are painted here.
+      // matching them is a claim about two files: the colour of a vertical rule comes from
+      // TIME_GRID_DEFAULT_OVERRIDES and the horizontal ones are painted here.
       //
-      // They were matched from the other end until v5.2 — 1px at half strength against a
-      // 0.5px rule at full — which is an equality that survives only while the vertical is
-      // a sub-pixel. Widening it to 1px and leaving this alone leaves every day rule twice
-      // the ink of every hour rule.
-      //
-      // Positive first, so the absence below is evidence: the gradients have to name the
-      // divider token at all, and both rules have to be one pixel of it.
-      const rules = RULES.find((rule) => rule.selectors.includes('.grid-rules'));
+      // The claim used to be that both were `var(--divider-color)` at full strength, and it
+      // was false: the two gradients coincide at the shipped `slot_minutes: 60` and
+      // translucent ink composites, so an hour rule measured rgb(197, 197, 197) on the
+      // deployed build against rgb(224, 224, 224) for a day rule of the same colour and
+      // width. Neither side names a colour any more — both take the renderer's resolved
+      // value, which is what makes them equal by construction rather than by agreement
+      // between two literals.
+      const painted = declared('.grid-rules', 'background-image');
 
-      expect(rules).toBeDefined();
-      expect(rules?.body.match(/var\(--divider-color\)/g)).toHaveLength(2);
-      expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_color).toBe('var(--divider-color)');
+      expect(painted, 'no background-image on .grid-rules').not.toBe('');
+      expect(painted).not.toContain('var(--divider-color)');
+      expect(painted).toContain('var(--calendar-card-grid-rule-color)');
+      expect(painted).toContain('var(--calendar-card-grid-slot-color)');
       expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_width).toBe('1px');
 
-      // ...and only then: nothing may dim one side of the pair.
+      // The dilution lives in the option's own default, so a user's colour is never
+      // quietly halved. Half of the divider token, spelled as a mix rather than as an
+      // alpha, so it follows a theme that redefines the token.
+      expect(TIME_GRID_DEFAULT_OVERRIDES.day_separator_color).toBe(
+        'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      );
+
+      // ...and only then: nothing may dim one side of the pair. An element opacity is
+      // exactly the thing that cannot tell a shipped default from a colour a user chose.
       expect(declared('.grid-rules', 'opacity')).toBe('');
+      expect(declared('.grid-separator', 'opacity')).toBe('');
+      expect(declared('.grid-boundary', 'opacity')).toBe('');
     });
 
     it('lets the frame draw the topmost body line, and the gradient not draw it again', () => {

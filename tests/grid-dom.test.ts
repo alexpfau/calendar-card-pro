@@ -1104,19 +1104,46 @@ describe('separators between grid days', () => {
     const rule = requireElement<HTMLElement>(container, '.grid-separator-day');
 
     expect(rule.style.width).toBe('2px');
-    expect(rule.style.backgroundColor).toBe('rgb(4, 5, 6)');
+    expect(rule.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe('rgb(4, 5, 6)');
   });
 
-  it('rules the grid in the divider gray the horizontal rules use', () => {
-    // `.grid-rules` paints `var(--divider-color)`, so the verticals carry the same token
-    // rather than the card-level `var(--secondary-text-color)`, which is a text hue and
-    // drew them several times heavier than the lines they cross.
-    const plain = requireElement<HTMLElement>(
-      renderGrid(EVENTS, spanConfig()),
-      '.grid-separator-day',
+  it('rules the grid and the hour lines from one value, at one strength', () => {
+    // The two families are one system in the reader's eye, so a vertical day rule and a
+    // horizontal hour rule have to carry the same ink. They did not: the slot gradient and
+    // the hour gradient coincide at the shipped `slot_minutes: 60` and translucent ink
+    // composites, so an hour rule measured rgb(197, 197, 197) on the deployed build where
+    // a day rule of the same colour and width measured rgb(224, 224, 224).
+    //
+    // Reconciled rather than asserted twice: the value the vertical is painted with has to
+    // be the value the gradients are handed, so both are read here from one render.
+    const container = renderGrid(EVENTS, spanConfig());
+    const plain = requireElement<HTMLElement>(container, '.grid-separator-day');
+    const hourly = requireElement<HTMLElement>(container, '.grid-rules');
+    const shipped = ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_color;
+
+    expect(plain.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(shipped);
+    expect(hourly.style.getPropertyValue('--calendar-card-grid-rule-color')).toBe(shipped);
+    // ...and the slot pattern is switched off where it would only double the hour rule,
+    // which is what makes "the same ink" true of the painted result and not just of the
+    // value handed over.
+    expect(hourly.style.getPropertyValue('--calendar-card-grid-slot-color')).toBe('transparent');
+
+    // The arm that must differ, so the transparency above is a property of the default
+    // rather than of the code path: below the hour the slot rules are real, and the
+    // doubling where they meet an hour is the hierarchy macOS Calendar draws by hand.
+    const denser = requireElement<HTMLElement>(
+      renderGrid(
+        EVENTS,
+        (() => {
+          const config = spanConfig();
+          config.time_grid = { slot_minutes: 30 };
+          return config;
+        })(),
+      ),
+      '.grid-rules',
     );
 
-    expect(plain.style.backgroundColor).toBe('var(--divider-color)');
+    expect(denser.style.getPropertyValue('--calendar-card-grid-slot-color')).toBe(shipped);
 
     // The divergent-default half: a card-level color is for the list and column layouts
     // and does not reach grid, exactly as the card-level width does not.
@@ -1125,7 +1152,32 @@ describe('separators between grid days', () => {
       '.grid-separator-day',
     );
 
-    expect(cardLevel.style.backgroundColor).toBe('var(--divider-color)');
+    expect(cardLevel.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(shipped);
+  });
+
+  it('hands a color the user chose to both rule families, undiluted', () => {
+    // The dilution is in the shipped DEFAULT, not in the drawing, which is the whole
+    // reason it moved out of `.grid-rules` as an `opacity`. An opacity would have halved
+    // this value too, and silently.
+    const config = spanConfig();
+    config.time_grid = { day_separator_color: 'rgb(9, 8, 7)', slot_minutes: 15 };
+    const container = renderGrid(EVENTS, config);
+
+    expect(
+      requireElement<HTMLElement>(container, '.grid-separator-day').style.getPropertyValue(
+        '--calendar-card-grid-rule-paint',
+      ),
+    ).toBe('rgb(9, 8, 7)');
+    expect(
+      requireElement<HTMLElement>(container, '.grid-rules').style.getPropertyValue(
+        '--calendar-card-grid-rule-color',
+      ),
+    ).toBe('rgb(9, 8, 7)');
+    expect(
+      requireElement<HTMLElement>(container, '.grid-boundary-band-bottom').style.getPropertyValue(
+        '--calendar-card-grid-rule-paint',
+      ),
+    ).toBe('rgb(9, 8, 7)');
   });
 
   it('lets week and month separators win over day separators', () => {
@@ -1145,13 +1197,14 @@ describe('separators between grid days', () => {
 
     expect(weekRules.map((rule) => rule.style.gridColumn)).toEqual(['7', '14']);
     expect(weekRules.map((rule) => rule.style.width)).toEqual(['3px', '3px']);
-    expect(weekRules.map((rule) => rule.style.backgroundColor)).toEqual([
-      'rgb(4, 5, 6)',
-      'rgb(4, 5, 6)',
-    ]);
+    expect(
+      weekRules.map((rule) => rule.style.getPropertyValue('--calendar-card-grid-rule-paint')),
+    ).toEqual(['rgb(4, 5, 6)', 'rgb(4, 5, 6)']);
     expect(monthRules.map((rule) => rule.style.gridColumn)).toEqual(['16']);
     expect(monthRules[0].style.width).toBe('5px');
-    expect(monthRules[0].style.backgroundColor).toBe('rgb(7, 8, 9)');
+    expect(monthRules[0].style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(
+      'rgb(7, 8, 9)',
+    );
     expect(container.querySelectorAll('.grid-separator-day')).toHaveLength(11);
   });
 
@@ -1346,8 +1399,12 @@ describe('separators between grid days', () => {
     // rather than as a heavier line and scales to 6px the moment a user asks for 2px.
     expect(top.style.height).toBe('1px');
     expect(bottom.style.height).toBe('2px');
-    expect(top.style.backgroundColor).toBe('var(--divider-color)');
-    expect(bottom.style.backgroundColor).toBe('var(--divider-color)');
+    expect(top.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(
+      ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_color,
+    );
+    expect(bottom.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(
+      ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_color,
+    );
   });
 
   it('keeps the frame proportional at a width the user chose, and drops it at zero', () => {
@@ -1360,7 +1417,9 @@ describe('separators between grid days', () => {
       '4px',
     );
     expect(
-      requireElement<HTMLElement>(framed, '.grid-boundary-band-top').style.backgroundColor,
+      requireElement<HTMLElement>(framed, '.grid-boundary-band-top').style.getPropertyValue(
+        '--calendar-card-grid-rule-paint',
+      ),
     ).toBe('rgb(1, 2, 3)');
 
     // Turning the day separator off turns the whole frame off with it, rather than
