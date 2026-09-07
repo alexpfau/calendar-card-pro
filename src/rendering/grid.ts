@@ -323,6 +323,45 @@ function renderGridBoundary(
 }
 
 /**
+ * Render the rule that closes the body at the band's configured end.
+ *
+ * The hour rules stop one hour short of the bottom edge, because a
+ * `repeating-linear-gradient` paints each rule *downward* from its boundary and the
+ * boundary at 100% is outside the box. So the body trailed off into the card's padding
+ * with nothing under it, which reads worst where a block runs to the edge — a block
+ * carrying the clipped-end marking said "this continues past the window" and then had
+ * nothing to continue past.
+ *
+ * Drawn as an element rather than as a third gradient stop for the same reason the band's
+ * own rules are: it has to sit at the END of its row, and a gradient cannot be told to.
+ * `alignSelf: 'end'` puts its lower edge on the band's lower edge, so it grows *upward*
+ * into the last pixel of the body rather than downward into the card's padding — the same
+ * direction the band's heavier rule grows, and the reason a block ending at `end_time`
+ * terminates against a line instead of under one.
+ *
+ * It takes its width from `--calendar-card-grid-rule-width` in the stylesheet rather than
+ * from an inline height, so "matching the hour rules that precede it" is one value read
+ * twice rather than a literal repeated in two files.
+ *
+ * @param color - Resolved colour for one hour rule
+ * @returns The closing rule
+ */
+function renderGridEndRule(color: string): TemplateResult {
+  return html`
+    <div
+      class="grid-boundary grid-boundary-body-end"
+      aria-hidden="true"
+      style=${styleMap({
+        gridColumn: '2 / -1',
+        gridRow: '4',
+        alignSelf: 'end',
+        '--calendar-card-grid-rule-paint': color,
+      })}
+    ></div>
+  `;
+}
+
+/**
  * Render the weekend tint, one element per run of adjacent weekend days.
  *
  * A stripe of its own rather than a background on `.grid-day-body`, because the tint has
@@ -428,6 +467,18 @@ function paintsSomething(value: string): boolean {
  * Labels are centred on their rule where their line box fits, then clamped inside the
  * axis so a short fixed-height grid cannot create scrollable overflow.
  *
+ * 🚨 The band's own end gets a label too, and it is the clamp — not a second rule here —
+ * that decides how it sits. The first label resolves to `clamp(0px, -0.5em, …)` and lands
+ * flush at the top, entirely BELOW its rule, so it cannot bleed up into the all-day band.
+ * The end label resolves to `clamp(0px, 100% - 0.5em, 100% - 1em)`, which the upper bound
+ * wins, so it lands flush at the bottom, entirely ABOVE the closing rule. The treatment is
+ * symmetric with the first by construction rather than by a second declaration, and it is
+ * why the label cannot influence the card's height: it is absolutely positioned inside an
+ * `overflow: hidden` axis whose height is the body row's, so there is no box for it to
+ * grow. Centring it on the rule instead would need `overflow: visible` here, which is the
+ * one declaration keeping a compressed axis from extending the card past its configured
+ * `height`.
+ *
  * @param band - The visible band
  * @param config - Card configuration
  * @param hass - Home Assistant instance, for locale-aware hour formatting
@@ -441,25 +492,31 @@ function renderAxis(
   const hours = Grid.axisHours(band);
   const bandLength = band.endMin - band.startMin;
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const labels = hours.map((hour) => formatHour(hour, use24h));
+  const labels = [
+    ...hours.map((hour) => ({
+      text: formatHour(hour, use24h),
+      topPct: ((hour * 60 - band.startMin) / bandLength) * 100,
+      end: false,
+    })),
+    { text: formatBandEnd(band.endMin, use24h), topPct: 100, end: true },
+  ];
 
   return html`
     <div class="grid-axis" style=${styleMap({ gridColumn: '1', gridRow: '4' })}>
       <div class="grid-axis-sizer" aria-hidden="true">
-        ${labels.map((label) => html`<span>${label}</span>`)}
+        ${labels.map(({ text }) => html`<span>${text}</span>`)}
       </div>
-      ${hours.map((hour, index) => {
-        const topPct = ((hour * 60 - band.startMin) / bandLength) * 100;
-
-        return html`<div
-          class="grid-axis-label"
-          style=${styleMap({
-            '--calendar-card-grid-axis-label-top': `${topPct}%`,
-          })}
-        >
-          ${labels[index]}
-        </div>`;
-      })}
+      ${labels.map(
+        ({ text, topPct, end }) =>
+          html`<div
+            class=${classMap({ 'grid-axis-label': true, 'grid-axis-label-end': end })}
+            style=${styleMap({
+              '--calendar-card-grid-axis-label-top': `${topPct}%`,
+            })}
+          >
+            ${text}
+          </div>`,
+      )}
     </div>
   `;
 }
@@ -483,6 +540,40 @@ function formatHour(hour: number, use24h: boolean): string {
   const twelve = hour % 12 === 0 ? 12 : hour % 12;
 
   return `${twelve} ${suffix}`;
+}
+
+/**
+ * Format the label for the band's own end.
+ *
+ * Not `formatHour`, and the two cases it adds are both reachable from the editor.
+ * `end_time` need not be a whole hour, so `21:30` has to name its minutes or the closing
+ * rule is labelled with a time it is not drawn at; and `end_time: 24:00` is the one bound
+ * that is a minute count rather than a clock reading, so hour 24 is wrapped to 0 and reads
+ * as the midnight it is. Whole hours still go through `formatHour`, so the end label and
+ * the hour labels above it cannot disagree about how an hour is spelled.
+ *
+ * @param endMin - The band's exclusive upper bound, in minutes from midnight
+ * @param use24h - Whether to use 24-hour time
+ * @returns The label
+ */
+function formatBandEnd(endMin: number, use24h: boolean): string {
+  const hour = Math.floor(endMin / 60) % 24;
+  const minute = endMin % 60;
+
+  if (minute === 0) {
+    return formatHour(hour, use24h);
+  }
+
+  const padded = String(minute).padStart(2, '0');
+
+  if (use24h) {
+    return `${hour}:${padded}`;
+  }
+
+  const suffix = hour < 12 ? 'AM' : 'PM';
+  const twelve = hour % 12 === 0 ? 12 : hour % 12;
+
+  return `${twelve}:${padded} ${suffix}`;
 }
 
 /**
@@ -1078,7 +1169,7 @@ export function renderGridGroupedEvents(
           `
         : nothing}
       ${showAxisLabels ? renderAxis(band, config, hass) : nothing}
-      ${renderRules(band, slotMinutes, gridDays.length, ruleColor)}
+      ${renderRules(band, slotMinutes, gridDays.length, ruleColor)} ${renderGridEndRule(ruleColor)}
       ${gridDays.map((day, index) =>
         renderDayBody(
           day,

@@ -2150,6 +2150,14 @@ export const cardStyles = css`
        to escape. */
   }
 
+  /* The rule closing the body at the configured end time. Its height is here rather than
+     inline because it has to match the hour rules exactly, and the hour rules take their
+     thickness from this same property — one value read twice, rather than a literal
+     repeated in a file the stylesheet cannot see. */
+  .grid-boundary-body-end {
+    height: var(--calendar-card-grid-rule-width);
+  }
+
   /* ----- Day headers ----- */
 
   .grid-day-header {

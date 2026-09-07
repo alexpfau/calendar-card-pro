@@ -122,6 +122,14 @@ time_grid:
 `show_axis_labels: false` removes the hour labels while keeping the scale — useful on a
 narrow card where the ruling alone is enough.
 
+The axis is closed at the bottom by a rule at `end_time`, drawn in the same gray and at
+the same width as the hour rules above it, so a block running to the foot of the window
+ends against a line rather than trailing off the paper. The label beside it names the
+configured end, minutes included when you set one — `21:30` gets `21:30`, and `24:00`
+reads as midnight rather than as an hour 24. It sits just above the closing rule, the
+mirror of the first label sitting just below its own, and it never changes the card's
+height: the gutter clips at the foot of the time body whatever the labels do.
+
 The existing separator options draw vertical rules between day columns in grid view:
 
 ```yaml
