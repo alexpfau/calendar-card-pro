@@ -1979,7 +1979,15 @@ export const cardStyles = css`
        inside the scrollable area or a cramped grid scrolls within a 16px frame instead of
        edge to edge. Cancelling the inset against the card rather than against this
        element's own padding is what would put it outside, which is 16px of phantom scroll
-       nobody asked for. */
+       nobody asked for.
+
+       🚨 That is measured rather than reasoned, and the falsifier is cheap: deploy, open a
+       card with more day columns than fit at min_days_fallback: cramp, narrow the window
+       to a phone width, and read this element's clientWidth and its box against the card's.
+       With the pair it spans the card; with both declarations zeroed it is inset 16px at
+       each end and the scrolling strip is 32px narrower, while the columns and every track
+       position stay exactly where they were. A run in which the two arms agree has not
+       cramped -- check the scroll overflow is non-zero before believing either. */
     margin-inline: calc(-1 * var(--calendar-card-grid-inset));
     padding-inline: var(--calendar-card-grid-inset);
     --calendar-card-grid-event-gap: 1px;
