@@ -415,8 +415,9 @@ A block on a time axis is read by its **area** — an untinted one is an outline
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
 a day of axis, so empty days are shown. A finished meeting earlier today is still part of
 today's hour-by-hour shape, so past events stay visible. Day separators are also on by
-default, and in the same divider gray the hour rules use, so the vertical and horizontal
-lines carry the same weight and the shared axis reads as one grid. The progress bar fills
+default, and ship the same divider gray the hour rules ship, so the vertical and horizontal
+lines carry the same weight and the shared axis reads as one grid — they are separate
+options, so that agreement is a default rather than a mechanism. The progress bar fills
 the block's full width: column view draws it at 80% of a row with no boundary of its own,
 where a full width would read as an underline, but a grid block is a tinted box with an
 edge, and a bar stopping short of that edge reads as unfinished rather than as restraint.
@@ -441,17 +442,16 @@ thing rather than as two.
 
 Set any of them inside `time_grid:` to change it back.
 
-Grid also accepts the same day-header spacing options as column view:
+Grid also accepts the same day-header spacing option as column view:
 
 ```yaml
 time_grid:
   day_header_gap: 12px
-  day_header_separator_width: 2px
-  day_header_separator_color: var(--primary-color)
 ```
 
-The rule sits inside the header cell, above the all-day band, so it never slices through a
-banner that spans several days.
+`day_header_separator_width` and `day_header_separator_color` are accepted here too, but
+they draw a different rule than they do in column view — see
+[Ruling the Axis](#ruling-the-axis) above.
 
 ## 🚫 Options That Do Nothing in Grid View
 
