@@ -2052,6 +2052,33 @@ export const cardStyles = css`
           calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width))
           calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-hour-pct))
       );
+    /* The topmost line of the body belongs to the band's lower frame rule, and this is
+       what stops the gradient drawing it a second time. A band opening on the hour puts a
+       gradient rule at 0%, exactly where that frame rule is, and translucent ink does not
+       merge -- it composites, so the overlap paints darker than either and reads as a thin
+       rule stacked on a thicker one.
+
+       Masking rather than offsetting, and rather than insetting. A repeating gradient
+       tiles in BOTH directions from its first stop, so an offset of one whole period is
+       the same phase as none at all -- measured on the deployed build, an hour offset of
+       6.666667% against a 6.666667% period still painted a rule at the top. Insetting the
+       layer would work and would cost alignment: the percentages resolve against the
+       painting box, so a box one pixel shorter puts every rule up to half a pixel out from
+       the blocks it exists to align with. A mask changes no geometry at all.
+
+       The prefixed form is for Chrome 117 to 119, which is inside grid view's floor -- the
+       view already requires subgrid, which is Chrome 117, and unprefixed mask-image is
+       Chrome 120. */
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0 var(--calendar-card-grid-rule-width),
+      #000 var(--calendar-card-grid-rule-width)
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0 var(--calendar-card-grid-rule-width),
+      #000 var(--calendar-card-grid-rule-width)
+    );
     pointer-events: none;
   }
 
@@ -2075,16 +2102,17 @@ export const cardStyles = css`
   }
 
   .grid-boundary {
-    align-self: start;
     pointer-events: none;
     z-index: 3;
-    /* No inline margin, and its absence is deliberate. The rules used to span 1 / -1 and
-       then cancel the card's own inset with calc(-1 * var(--calendar-card-grid-inset)),
-       which ran them out to the card's edges — past the hour axis, which macOS Calendar
-       leaves clear, and out over the padding, which made the grid read as framed by the
-       card rather than ruled inside it. They span the day tracks only now, which is the
-       range renderRules already uses, so every horizontal rule in the grid starts and
-       stops on the same two lines and there is no inset left to escape. */
+    /* No align-self and no inline margin, and both absences are deliberate. Which edge of
+       its row a rule sits on depends on whether there is an all-day band to grow up into,
+       so the renderer writes it rather than the stylesheet. The negative margin existed
+       only to cancel the card's own inset and reach the card's edges — past the hour axis,
+       which macOS Calendar leaves clear, and out over the padding, which made the grid
+       read as framed by the card rather than ruled inside it. The rules span the day
+       tracks only now, which is the range renderRules already uses, so every horizontal
+       rule in the grid starts and stops on the same two lines and there is no inset left
+       to escape. */
   }
 
   /* ----- Day headers ----- */
@@ -2106,10 +2134,17 @@ export const cardStyles = css`
   .grid-allday-band {
     display: grid;
     row-gap: 2px;
-    /* Clears the rule above the band, so the first banner does not sit on it. The rule is
-       drawn at z-index 3 and would otherwise cut across the top of that banner. */
-    padding-block-start: 3px;
-    padding-block-end: 4px;
+    /* Clear space for the frame plus the same 2px of breathing room at each end, so the
+       banners sit evenly between the two rules whatever width the user gave them. The
+       rules are drawn at z-index 3 and would otherwise cut across the first and last
+       banner; the lower one is twice the base, hence the doubling here.
+
+       The fallback is 0px rather than 1px on purpose: the property is written on every
+       grid, so reaching the fallback means the whole custom-property chain is broken, and
+       2px of plain inset is a better thing to fail to than a frame's worth of padding
+       around rules that are not there. */
+    padding-block-start: calc(var(--calendar-card-grid-frame-width, 0px) + 2px);
+    padding-block-end: calc(var(--calendar-card-grid-frame-width, 0px) * 2 + 2px);
     /* Above the vertical day rules, which now run through this row: a spanning banner has
        to paint over them or it reads as chopped into days. See the ladder above. */
     z-index: 2;

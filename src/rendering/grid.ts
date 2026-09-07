@@ -279,23 +279,42 @@ function renderGridSeparator(
  * a whole-pixel base is itself a whole pixel, where 1.5 would have put the emphasis rule
  * back on the half-pixel raster the rest of this change is getting off.
  *
- * An explicit height keeps a rule out of the row sizing, and `align-self: start` in the
- * stylesheet holds it at the top of its row, so turning the frame on cannot change how
- * tall the band or the axis is.
+ * An explicit height keeps a rule out of the row sizing, and `alignSelf` decides which
+ * edge of its row it sits on, so turning the frame on cannot change how tall the band or
+ * the axis is.
  *
- * @param kind - Which boundary this is, used for the class and the row
+ * 🚨 The lower rule grows **upward, into the band**, rather than downward into the time
+ * body. Drawn at the top of row 4 it bled into the first events of the day and sat on the
+ * body's own first hour rule; drawn at the end of row 3 it lands inside the band's bottom
+ * padding, where it is the band's floor rather than the body's ceiling — and the padding
+ * is sized from the rule so the banners above it keep the same clear space they keep under
+ * the upper rule.
+ *
+ * With no banners there is no band to grow into: row 3 collapses, so the rule stays at the
+ * top of row 4 and the caller says so by passing the row.
+ *
+ * @param kind - Which boundary this is, used for the class
  * @param width - Resolved CSS length for the rule
  * @param color - Resolved CSS color for the rule
+ * @param row - Grid row the rule is placed in
+ * @param alignSelf - Which edge of that row it sits on
  * @returns The rendered rule
  */
-function renderGridBoundary(kind: 'band-top' | 'band-bottom', width: string, color: string) {
+function renderGridBoundary(
+  kind: 'band-top' | 'band-bottom',
+  width: string,
+  color: string,
+  row: number,
+  alignSelf: 'start' | 'end',
+) {
   return html`
     <div
       class="grid-boundary grid-boundary-${kind}"
       aria-hidden="true"
       style=${styleMap({
         gridColumn: '2 / -1',
-        gridRow: kind === 'band-top' ? '3' : '4',
+        gridRow: String(row),
+        alignSelf,
         height: width,
         backgroundColor: color,
       })}
@@ -433,6 +452,22 @@ function formatHour(hour: number, use24h: boolean): string {
  *
  * Drawn as a repeating gradient rather than as one element per slot, so a day at a
  * 15-minute resolution costs one painted layer instead of sixty elements per column.
+ *
+ * 🚨 The topmost line of the body is drawn once, by the band's own lower frame rule, and
+ * this layer is masked so it cannot draw it a second time. A band opening on the hour puts
+ * a gradient rule at 0% — exactly where that frame rule sits — and the two do not merge,
+ * they composite: `var(--divider-color)` is translucent, so the overlap paints darker than
+ * either. Measured on the deployed build at the band boundary: one row at
+ * `rgb(173, 173, 173)` above a row at `rgb(224, 224, 224)`, which is three translucent
+ * layers against one and reads as a thin rule stacked on a thicker one.
+ *
+ * Shifting the offset does NOT fix it, and that was measured too rather than reasoned
+ * about. A `repeating-linear-gradient` tiles in **both** directions from its first stop, so
+ * an offset of one whole period is the same phase as an offset of none: the deployed build
+ * reported `hour-offset: 6.666667%` against a `6.666667%` period and still painted a rule
+ * at the top of the body. The mask on `.grid-rules` is what removes it, and it is exact —
+ * insetting the layer instead would leave every rule up to half a pixel out from the blocks
+ * it is supposed to align with, because the percentages would resolve against a shorter box.
  *
  * @param band - The visible band
  * @param slotMinutes - Configured rule spacing
@@ -865,13 +900,24 @@ export function renderGridGroupedEvents(
   // The upper rule is only drawn when there is a band to close: with no all-day events
   // row 3 collapses to nothing and the two rules would land on the same line, a hairline
   // stacked under a heavier one. The lower rule is the boundary either way.
+  //
+  // Which row the lower rule sits in is the band's presence, not a constant. With a band
+  // it belongs at the END of row 3, growing up into the band's bottom padding rather than
+  // down into the first events of the day; with no band there is no row 3 to grow into and
+  // it stays at the top of row 4.
   const ruleWidth = config.day_separator_width;
   const ruleColor = config.day_separator_color;
   const framed = !ViewConfig.isZeroLength(ruleWidth);
   const bandBoundaries = framed
     ? [
-        ...(bandRows > 0 ? [renderGridBoundary('band-top', ruleWidth, ruleColor)] : []),
-        renderGridBoundary('band-bottom', ViewConfig.scaleLength(ruleWidth, 2), ruleColor),
+        ...(bandRows > 0 ? [renderGridBoundary('band-top', ruleWidth, ruleColor, 3, 'start')] : []),
+        renderGridBoundary(
+          'band-bottom',
+          ViewConfig.scaleLength(ruleWidth, 2),
+          ruleColor,
+          bandRows > 0 ? 3 : 4,
+          bandRows > 0 ? 'end' : 'start',
+        ),
       ]
     : [];
 
@@ -939,6 +985,11 @@ export function renderGridGroupedEvents(
           : {}),
         '--calendar-card-grid-now-color': nowLineColor,
         '--calendar-card-column-header-gap': headerGap,
+        // The band's padding is sized from the frame it has to clear, so the banners keep
+        // the same clear space under the upper rule as above the lower one at any width a
+        // user picks. Written unconditionally, `0px` included: with the frame off there is
+        // nothing to clear and the padding falls back to the bare inset.
+        '--calendar-card-grid-frame-width': ruleWidth,
         // Written only when it paints something, so the stylesheet's transparent fallback
         // is the off state rather than a placeholder. `transparent` and `none` are how a
         // user turns the shading off, and both are cheaper to drop here than to paint.

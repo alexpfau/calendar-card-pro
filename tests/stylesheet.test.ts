@@ -1673,13 +1673,15 @@ describe('card stylesheet', () => {
       // Reconciled rather than restated. The width a block clears above has to be the
       // width the gradients actually paint, so both ends are read here: a literal `1px`
       // returning to either one would leave them free to drift while a declaration-only
-      // assertion stayed green. Four occurrences — a start and a stop position in each of
-      // the two gradients.
-      const painted = RULES.find((rule) => rule.selectors.includes('.grid-rules'));
+      // assertion stayed green. Four occurrences within `background-image` alone — a start
+      // and a stop position in each of the two gradients — so the mask below, which names
+      // the same property for its own reason, cannot pad the count.
+      const painted = declared('.grid-rules', 'background-image');
 
+      expect(painted, 'no background-image on .grid-rules').not.toBe('');
       expect(declared('.grid-container', '--calendar-card-grid-rule-width')).toBe('1px');
-      expect(painted?.body.match(/var\(--calendar-card-grid-rule-width\)/g)).toHaveLength(4);
-      expect(painted?.body).not.toContain('+ 1px');
+      expect(painted.match(/var\(--calendar-card-grid-rule-width\)/g)).toHaveLength(4);
+      expect(painted).not.toContain('+ 1px');
 
       // The floor that catches a block shorter than its own two gaps: the height resolves
       // negative, CSS clamps it to zero, and this is what is left.
@@ -1754,17 +1756,55 @@ describe('card stylesheet', () => {
       expect(declared('.grid-rules', 'opacity')).toBe('');
     });
 
-    it('clears the rule above the all-day band so a banner does not sit on it', () => {
-      // The upper band rule is drawn at the top of row 3, which is exactly where the
-      // first banner starts. Without this padding the rule cuts across that banner.
-      expect(declared('.grid-allday-band', 'padding-block-start')).toBe('3px');
+    it('lets the frame draw the topmost body line, and the gradient not draw it again', () => {
+      // A band opening on the hour puts a gradient rule at 0%, exactly where the band's
+      // lower frame rule sits, and translucent ink composites rather than merging — the
+      // overlap paints darker than either and reads as a thin rule stacked on a thicker
+      // one. Measured on the deployed build at that boundary: rgb(173, 173, 173) above
+      // rgb(224, 224, 224), three translucent layers against one.
+      //
+      // Offsetting the gradient does not fix it and was tried: a repeating gradient tiles
+      // in both directions from its first stop, so one whole period of offset is the same
+      // phase as none. The mask is the fix, so what this pins is that it exists, that it
+      // erases exactly the rule's own width, and that the prefixed form is there for the
+      // Chrome versions inside grid view's floor.
+      const body = RULES.find((rule) => rule.selectors.includes('.grid-rules'))?.body ?? '';
+      const erased = `transparent 0 var(--calendar-card-grid-rule-width)`;
+
+      expect(body).toContain(`mask-image: linear-gradient(`);
+      expect(
+        body.match(/-webkit-mask-image:/g),
+        'the prefixed form is load-bearing on Chrome 117',
+      ).toHaveLength(1);
+      expect(body.match(new RegExp(erased.replace(/[()-]/g, '\\$&'), 'g'))).toHaveLength(2);
+    });
+
+    it('clears both band rules by the same margin, at any width the user picks', () => {
+      // The upper rule is drawn at the top of row 3 and the lower one at its end, which is
+      // exactly where the first and last banner would otherwise be — so the band's padding
+      // has to be the frame plus the breathing room, not a pair of literals that happen to
+      // suit a 1px default. The lower rule is twice the base, hence the doubling.
+      //
+      // Read as a pair, because the evenness is the claim: two assertions on two literals
+      // cannot notice one of them being right for the wrong reason.
+      const frame = 'var(--calendar-card-grid-frame-width, 0px)';
+
+      expect({
+        start: declared('.grid-allday-band', 'padding-block-start'),
+        end: declared('.grid-allday-band', 'padding-block-end'),
+      }).toEqual({
+        start: `calc(${frame} + 2px)`,
+        end: `calc(${frame} * 2 + 2px)`,
+      });
     });
 
     it('keeps the band rules unbroken and out of the row sizing', () => {
-      // `align-self: start` is what stops a rule stretching to fill its row, and it is
-      // also what keeps its height out of the track sizing — so turning the frame on
-      // cannot change how tall the band or the axis is.
-      expect(declared('.grid-boundary', 'align-self')).toBe('start');
+      // An explicit height is what stops a rule stretching to fill its row, and it is also
+      // what keeps its height out of the track sizing — so turning the frame on cannot
+      // change how tall the band or the axis is. Which EDGE of its row a rule sits on is
+      // the renderer's call rather than the stylesheet's, because it depends on whether
+      // there is a band to grow into; `grid-dom.test.ts` pins both answers.
+      expect(declared('.grid-boundary', 'align-self')).toBe('');
       expect(declared('.grid-boundary', 'pointer-events')).toBe('none');
     });
 

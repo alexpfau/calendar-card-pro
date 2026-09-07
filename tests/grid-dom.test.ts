@@ -1332,7 +1332,13 @@ describe('separators between grid days', () => {
     const bottom = requireElement<HTMLElement>(container, '.grid-boundary-band-bottom');
 
     expect(top.style.gridRow).toBe('3');
-    expect(bottom.style.gridRow).toBe('4');
+    // The lower rule grows UP into the band rather than down into the time body, where
+    // it bled into the first events of the day and sat on the body's own first hour
+    // rule. The end of row 3 puts it inside the band's bottom padding, which is sized
+    // from the frame so the banners clear it by the same 2px they clear the upper rule.
+    expect(bottom.style.gridRow).toBe('3');
+    expect(top.style.alignSelf).toBe('start');
+    expect(bottom.style.alignSelf).toBe('end');
 
     // Same option as the vertical rules, and the lower one derived from it rather than
     // configured separately, so one width governs the whole frame. Twice, not three
@@ -1365,6 +1371,41 @@ describe('separators between grid days', () => {
     expect(renderGrid(EVENTS, off).querySelectorAll('.grid-boundary')).toHaveLength(0);
   });
 
+  it('sizes the band padding from the frame the banners have to clear', () => {
+    // The band's padding is composed in the stylesheet from a custom property, so the
+    // write and the read are in different files and nothing else reconciles them:
+    // deleting this write left the whole suite green while the padding silently fell back
+    // to a bare 2px and the frame started cutting across the first and last banner.
+    //
+    // Read against the width the rules are actually drawn at rather than against a
+    // literal, and at three widths, because the whole point of deriving it is that the
+    // evenness survives a width the user picked.
+    for (const width of ['1px', '3px', '0px']) {
+      const config = spanConfig();
+      config.time_grid = { day_separator_width: width };
+      const container = requireElement<HTMLElement>(renderGrid(EVENTS, config), '.grid-container');
+
+      expect(
+        container.style.getPropertyValue('--calendar-card-grid-frame-width'),
+        `the band must be padded for a ${width} frame`,
+      ).toBe(width);
+    }
+
+    // The default arm, taken from the override table rather than restated, so a change to
+    // the shipped width cannot leave this asserting a number the card no longer draws.
+    const plain = requireElement<HTMLElement>(renderGrid(EVENTS, spanConfig()), '.grid-container');
+
+    expect(plain.style.getPropertyValue('--calendar-card-grid-frame-width')).toBe(
+      ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_width,
+    );
+    // ...and the upper rule is drawn at that width, which is what makes the padding above
+    // the right amount of clearance rather than a coincidence.
+    expect(
+      requireElement<HTMLElement>(renderGrid(EVENTS, spanConfig()), '.grid-boundary-band-top').style
+        .height,
+    ).toBe(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_width);
+  });
+
   it('draws only the heavier rule when there is no all-day band to close', () => {
     // Row 3 collapses to nothing without banners, so both rules would land on the same
     // line — a hairline stacked under a heavier one, which reads as a smudge.
@@ -1373,6 +1414,15 @@ describe('separators between grid days', () => {
     expect(container.querySelectorAll('.grid-banner')).toHaveLength(0);
     expect(container.querySelectorAll('.grid-boundary-band-top')).toHaveLength(0);
     expect(container.querySelectorAll('.grid-boundary-band-bottom')).toHaveLength(1);
+
+    // ...and with no band there is nothing to grow up into, so the rule stays at the top
+    // of the time body rather than overflowing into the day headers. The row is the
+    // band's presence, not a constant — which is the half a single-fixture test cannot
+    // see, so the framed card above asserts the other value.
+    const alone = requireElement<HTMLElement>(container, '.grid-boundary-band-bottom');
+
+    expect(alone.style.gridRow).toBe('4');
+    expect(alone.style.alignSelf).toBe('start');
   });
 });
 
