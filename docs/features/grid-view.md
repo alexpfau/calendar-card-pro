@@ -123,12 +123,42 @@ time_grid:
 `show_axis_labels: false` removes the hour labels while keeping the scale — useful on a
 narrow card where the ruling alone is enough.
 
+### How Often the Axis Is Labeled
+
+`axis_label_minutes` sets how often the gutter names a time — `30`, `60`, `120` or `180`
+minutes. The default is `60`, one label per hour. At a small `hour_height` sixteen hour
+labels crowd each other, and a coarser cadence is the way out:
+
+```yaml
+time_grid:
+  hour_height: 24px
+  axis_label_minutes: 120
+```
+
+Labels are independent of the ruling. `slot_minutes` decides how often a line is drawn and
+this decides how often one is named, so a half-hourly cadence against hourly rules draws a
+`12:30` with no line beside it. That is deliberate — the label lives in the gutter, not on
+the paper.
+
+Below the hour every label carries minutes, so a half-hourly axis reads `12:00`, `12:30`,
+`13:00` rather than mixing bare hours with half hours. In 12-hour format that is
+`12:00 PM`, `12:30 PM`, which is wider — the default `max-content` gutter grows to fit it,
+and that is expected.
+
+Labels are counted from midnight rather than from the top of your band, so the times they
+name are the ones a clock would name. A band starting at `06:30` is labeled `7`, `8`, `9`
+at the hourly cadence and `6:30`, `7:00`, `7:30` at the half-hourly one; a band starting at
+`07:00` is labeled `8`, `10`, `12` at the two-hourly one. This is also what keeps a label
+on a line the ruling actually draws, since the rules are counted from midnight too.
+
 The band's own end is treated as any other boundary on the axis, not as a frame. It is
-labeled when it falls on a whole hour, and ruled when the ruling cadence would have put a
-line there anyway — so `end_time: 21:00` on hourly rules gets both, `21:30` on hourly rules
-gets neither, and `21:30` at `slot_minutes: 30` gets the rule without a label, because there
-are no labels beyond the full-hour ones. A band ending at `24:00` is labeled as midnight
-rather than as an hour 24. Where the closing rule is drawn it is the same gray and width as
+labeled when it falls on the label cadence, and ruled when the ruling cadence would have put
+a line there anyway — so `end_time: 21:00` on hourly rules and hourly labels gets both,
+`21:30` gets neither, `21:30` at `slot_minutes: 30` gets the rule without a label, and
+`21:30` at `axis_label_minutes: 30` gets the label. A boundary earns each of the two on its
+own terms, exactly as an interior one would. A band ending at `24:00` is labeled as midnight
+rather than as an hour 24, at every cadence. Where the closing rule is drawn it is the same
+gray and width as
 the hour rules above it, so a block running to the foot of the window ends against a line
 rather than trailing off the paper. The last label sits just above the foot of the body, the
 mirror of the first sitting just below the top, and it never changes the card's height: the

@@ -138,31 +138,43 @@ export function resolveBand(startTime: string, endTime: string): GridBand {
 }
 
 /**
- * Hours that get an axis label, one per whole hour on or inside the band's bounds.
+ * Minutes from midnight that get an axis label, one per cadence boundary on or inside
+ * the band's bounds.
  *
- * 🚨 The band's end is included, and on exactly the terms every other boundary is: it
- * earns a label when it falls on a whole hour and gets none when it does not. A band
- * ending at `21:30` therefore labels `21` and stops, rather than naming a half hour no
- * other label names — there are no labels beyond the full-hour ones. `24:00` is a whole
- * hour like any other and is labelled; `formatHour` wraps it to midnight, which is the
- * only place hour 24 needs handling at all.
+ * 🚨 The predicate is "falls on the label cadence", and the band's end earns a label on
+ * exactly those terms — it is not a rule of its own. `end_time: 21:30` is labelled at
+ * `axis_label_minutes: 30` and unlabelled at `60` or coarser, the same answer an interior
+ * `21:30` would get. `24:00` is `1440`, which every offered cadence divides, so a band
+ * ending at midnight is always labelled; `formatAxisLabel` wraps it, which is the only
+ * place the hour past 23 needs handling at all.
+ *
+ * 🚨 The phase is **midnight**, not the band's start, and the case that decided it is a
+ * band opening at `06:30` at the shipped hourly cadence: phasing on the band would write
+ * `6:30, 7:30, 8:30` into a gutter that reads `7, 8, 9` today, so the default would stop
+ * being the default. It also keeps the labels in phase with the ruling — both rule
+ * gradients tile from midnight, so a midnight-phased label always names a line the body
+ * draws, where a band-phased one at a two-hourly cadence would not. The case *for* the
+ * band's start does not survive either: a band phased on `07:00` at two-hourly runs
+ * `7, 9, … 21` and leaves the shipped `22:00` end bare, so it buys the first boundary by
+ * selling the last.
  *
  * An earlier version stopped one hour short and let `renderAxis` append a label at the
  * band end unconditionally, which is what put `21:30` in the gutter.
  *
  * @param band - Resolved band
- * @returns Ascending whole hours, each of which falls on or inside the band's bounds
+ * @param cadenceMinutes - Configured `axis_label_minutes`
+ * @returns Ascending minutes from midnight, each on or inside the band's bounds
  */
-export function axisHours(band: GridBand): number[] {
-  const first = Math.ceil(band.startMin / 60);
-  const last = Math.floor(band.endMin / 60);
-  const hours: number[] = [];
+export function axisLabelMinutes(band: GridBand, cadenceMinutes: number): number[] {
+  const cadence = Number.isFinite(cadenceMinutes) && cadenceMinutes > 0 ? cadenceMinutes : 60;
+  const first = Math.ceil(band.startMin / cadence) * cadence;
+  const minutes: number[] = [];
 
-  for (let hour = first; hour <= last; hour++) {
-    hours.push(hour);
+  for (let minute = first; minute <= band.endMin; minute += cadence) {
+    minutes.push(minute);
   }
 
-  return hours;
+  return minutes;
 }
 
 /**

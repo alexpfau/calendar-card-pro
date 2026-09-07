@@ -360,6 +360,15 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.allday_band_line_color': 'All-Day Band Rule Color',
   'time_grid.axis_width': 'Hour Label Width',
   'time_grid.show_axis_labels': 'Show Hour Labels',
+  'time_grid.axis_label_minutes': 'Axis Labels Every',
+  'time_grid.axis_label_minutes.helper':
+    'How often the gutter names a time. Independent of the grid lines, so a label can ' +
+    'sit where no rule is drawn. Below an hour every label carries minutes — 12:00, ' +
+    '12:30 — which widens the gutter.',
+  'time_grid.axis_label_minutes.option.30.label': '30 minutes',
+  'time_grid.axis_label_minutes.option.60.label': '1 hour',
+  'time_grid.axis_label_minutes.option.120.label': '2 hours',
+  'time_grid.axis_label_minutes.option.180.label': '3 hours',
   'time_grid.show_now_line': 'Now Line',
   'time_grid.show_now_line.helper':
     "Marks the current time on today's column. Hidden when now falls outside the hours " +

@@ -202,7 +202,25 @@ function timeAxisGroup(blockKey: string, language: string): HaFormSchema {
       row(text('hour_line_width'), color('hour_line_color')),
       row(text('allday_band_line_width'), color('allday_band_line_color')),
       color('weekend_background_color'),
-      row(text('axis_width'), bool('show_axis_labels')),
+      // The gutter, and the two options qualifying it. `axis_label_minutes` follows
+      // `show_axis_labels` because it is moot without it — a cadence read before the
+      // switch that turns labelling off is half an answer — and it sits with `axis_width`
+      // because the two move together: below the hour every label carries minutes, which
+      // is what makes a content-sized gutter wider.
+      row(text('axis_width'), bool('show_axis_labels'), {
+        name: 'axis_label_minutes',
+        selector: {
+          select: {
+            mode: 'dropdown',
+            options: ([30, 60, 120, 180] as const).map((value) => ({
+              value,
+              label:
+                lookup(language, `${blockKey}.axis_label_minutes.option.${value}.label`) ??
+                String(value),
+            })),
+          },
+        },
+      }),
       row(bool('show_now_line'), color('now_line_color')),
       {
         name: 'allday_band_max_rows',

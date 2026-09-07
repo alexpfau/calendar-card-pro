@@ -6,7 +6,7 @@ import {
   DEFAULT_BAND_START,
   MINUTES_PER_DAY,
   addDays,
-  axisHours,
+  axisLabelMinutes,
   bandEndHasRule,
   computeBannerPlacement,
   computeEventPlacement,
@@ -134,33 +134,72 @@ describe('resolveBand', () => {
   });
 });
 
-describe('axisHours', () => {
-  it('labels every whole hour in the band, the closing one included', () => {
-    expect(axisHours(band('07:00', '11:00'))).toEqual([7, 8, 9, 10, 11]);
+describe('axisLabelMinutes', () => {
+  it('labels every whole hour in the band at the shipped cadence, the closing one included', () => {
+    expect(axisLabelMinutes(band('07:00', '11:00'), 60)).toEqual([420, 480, 540, 600, 660]);
   });
 
-  // The end boundary is treated exactly as an interior one: a whole hour earns a label,
-  // anything else earns none. `21:30` therefore stops at 21 rather than naming a half
-  // hour no other label names.
-  it('omits a closing boundary that is not a whole hour', () => {
-    const hours = axisHours(band('07:00', '11:30'));
+  // The end boundary is treated exactly as an interior one: a boundary on the cadence
+  // earns a label, anything else earns none. `21:30` therefore stops at 21 at the hourly
+  // cadence, and is itself labelled at the half-hourly one.
+  it('omits a closing boundary that is off the cadence', () => {
+    const minutes = axisLabelMinutes(band('07:00', '11:30'), 60);
 
-    expect(hours).toEqual([7, 8, 9, 10, 11]);
-    expect(hours.at(-1)).toBe(11);
+    expect(minutes).toEqual([420, 480, 540, 600, 660]);
+    expect(minutes.at(-1)).toBe(660);
   });
 
-  // Hour 24 is a whole hour and gets a position like any other; `formatHour` is the one
-  // place that has to know it spells as midnight rather than as an hour 24.
-  it('emits hour 24 for a band ending at midnight', () => {
-    expect(axisHours(band('22:00', '24:00'))).toEqual([22, 23, 24]);
+  it('labels a closing half hour once the cadence reaches it', () => {
+    expect(axisLabelMinutes(band('07:00', '11:30'), 30).at(-1)).toBe(690);
   });
 
-  it('starts at the first whole hour inside a half-past band', () => {
-    expect(axisHours(band('06:30', '09:00'))).toEqual([7, 8, 9]);
+  // Hour 24 is 1440, which every offered cadence divides, so a band ending at midnight is
+  // always labelled; `formatAxisLabel` is the one place that has to know it spells as
+  // midnight rather than as an hour 24.
+  it('emits the closing minute for a band ending at midnight, at every cadence', () => {
+    for (const cadence of [30, 60, 120, 180]) {
+      expect(axisLabelMinutes(band('21:00', '24:00'), cadence).at(-1), `cadence ${cadence}`).toBe(
+        1440,
+      );
+    }
   });
 
-  it('drops both ends of a band that starts and ends off the hour', () => {
-    expect(axisHours(band('06:30', '09:30'))).toEqual([7, 8, 9]);
+  it('starts at the first whole hour inside a half-past band at the hourly cadence', () => {
+    expect(axisLabelMinutes(band('06:30', '09:00'), 60)).toEqual([420, 480, 540]);
+  });
+
+  it('drops both ends of a band that starts and ends off the cadence', () => {
+    expect(axisLabelMinutes(band('06:30', '09:30'), 60)).toEqual([420, 480, 540]);
+  });
+
+  // 🚨 The case that decided the phase. Anchoring on the band's own start would emit
+  // 06:30, 07:30, 08:30 here — half-hour labels in a gutter that reads 7, 8, 9 today, at
+  // the cadence every existing card is on. Midnight phasing is what keeps the default the
+  // default, and it is why this is a `% cadence` predicate rather than an offset one.
+  it('phases labels on midnight rather than on the band start', () => {
+    expect(axisLabelMinutes(band('06:30', '09:00'), 60)).not.toContain(390);
+    expect(axisLabelMinutes(band('07:00', '22:00'), 120)).toEqual([
+      480, 600, 720, 840, 960, 1080, 1200, 1320,
+    ]);
+  });
+
+  // The counter-case, and the reason the maintainer's lean does not survive testing: a
+  // band phased on its own 07:00 start runs 7, 9 … 21 at the two-hourly cadence and
+  // leaves the shipped 22:00 end bare, so it buys the first boundary by selling the last —
+  // the very boundary the end-boundary sweep exists to serve.
+  it('labels the shipped band end at the two-hourly cadence, which band phasing would not', () => {
+    expect(axisLabelMinutes(band('07:00', '22:00'), 120).at(-1)).toBe(1320);
+  });
+
+  it('thins to the coarsest cadence without dropping the boundaries that fall on it', () => {
+    expect(axisLabelMinutes(band('07:00', '22:00'), 180)).toEqual([540, 720, 900, 1080, 1260]);
+  });
+
+  // A cadence that never reached normalization — a hand-written YAML `0`, say — must not
+  // spin here. The renderer resolves through `normalizeTimeGridValue`, so this is a guard
+  // rather than a live path.
+  it('falls back to hourly on a cadence that cannot step', () => {
+    expect(axisLabelMinutes(band('07:00', '10:00'), 0)).toEqual([420, 480, 540, 600]);
   });
 });
 

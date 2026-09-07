@@ -1829,15 +1829,17 @@ describe('the axis', () => {
       element.textContent?.trim(),
     );
 
-    // 11:00 is labelled because it is a whole hour, not because it is the end — the end
-    // boundary is treated exactly as an interior one. `axisHours` emits it, so there is
-    // one label list rather than an hour list with a special case appended to it.
+    // 11:00 is labelled because it falls on the cadence, not because it is the end — the
+    // end boundary is treated exactly as an interior one. `axisLabelMinutes` emits it, so
+    // there is one label list rather than a label list with a special case appended to it.
     expect(labels).toEqual(['8', '9', '10', '11']);
   });
 
-  it('leaves a band end that is not a whole hour unlabelled', () => {
-    // The maintainer's rule: no labels beyond the full-hour ones. A closing label at
-    // `21:30` names a time no other label names, half an hour below the `21` that does.
+  it('leaves a band end that is off the cadence unlabelled', () => {
+    // The maintainer's rule at the shipped hourly cadence: no labels beyond the full-hour
+    // ones. A closing label at `10:30` names a time no other label names, half an hour
+    // below the `10` that does. The half-hourly cadence is the case below, where every
+    // label names a half hour and this one is no longer the odd one out.
     const container = renderGrid(
       [timed(17, '09:00', '10:00', 'Standup')],
       buildConfig({
@@ -2112,6 +2114,25 @@ describe('the axis', () => {
     expect(container.querySelector('.grid-rules')).not.toBeNull();
   });
 
+  it('draws nothing at all when the labels are off, whatever the cadence asks for', () => {
+    // The cadence is moot without the labels, and must not cost anything: no sizer, no
+    // spans, no phantom width for a `max-content` gutter to size itself from. The
+    // half-hourly cadence is the one that would show it, because it is the one whose
+    // sizer is wider than the hourly one.
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_grid: { show_axis_labels: false, axis_label_minutes: 30 },
+      }),
+    );
+
+    expect(container.querySelectorAll('.grid-axis-label')).toHaveLength(0);
+    expect(container.querySelector('.grid-axis-sizer')).toBeNull();
+    expect(container.querySelectorAll('.grid-axis')).toHaveLength(0);
+  });
+
   it('keeps the labels off when an all-day event is also on screen', () => {
     // The fixture above has no all-day event, and for one build that was the difference
     // between a passing test and a true one. The axis was rendered whenever a band
@@ -2160,6 +2181,223 @@ describe('the axis', () => {
     // 07:00-22:00, so 09:00 is 120 minutes into a 900-minute band. A half-honoured band
     // would put it somewhere else entirely.
     expect(geometry(container.querySelector('.grid-event')!).top).toBeCloseTo((120 / 900) * 100, 6);
+  });
+});
+
+describe('how often the axis is labelled', () => {
+  function labelsAt(
+    cadence: Types.TimeGridAxisLabelMinutes | undefined,
+    use24h: boolean,
+    startTime: string,
+    endTime: string,
+  ): string[] {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_24h: use24h,
+        time_grid: {
+          start_time: startTime,
+          end_time: endTime,
+          ...(cadence === undefined ? {} : { axis_label_minutes: cadence }),
+        },
+      }),
+    );
+
+    return Array.from(container.querySelectorAll('.grid-axis-label')).map(
+      (element) => element.textContent?.trim() ?? '',
+    );
+  }
+
+  // 🚨 The default has to be pinned against a cadence that is NOT the default, or this
+  // whole family is invisible to a suite built from default config — the option would
+  // render today's gutter whatever it was set to and every assertion below would still
+  // pass. Both halves are asserted here: leaving the key out is the same as writing 60,
+  // and writing 30 is demonstrably not.
+  it('labels every hour when nothing asks otherwise, and only then', () => {
+    const shipped = labelsAt(undefined, true, '07:00', '11:00');
+
+    expect(shipped).toEqual(['7', '8', '9', '10', '11']);
+    expect(labelsAt(60, true, '07:00', '11:00')).toEqual(shipped);
+    expect(labelsAt(30, true, '07:00', '11:00')).not.toEqual(shipped);
+  });
+
+  // The four cadences on a band that opens on an even hour, so the phase question does
+  // not confound the format question.
+  it.each([
+    [30, ['8:00', '8:30', '9:00', '9:30', '10:00', '10:30', '11:00', '11:30', '12:00']],
+    [60, ['8', '9', '10', '11', '12']],
+    [120, ['8', '10', '12']],
+    [180, ['9', '12']],
+  ] as const)('draws a %i-minute cadence in 24-hour format as %j', (cadence, expected) => {
+    expect(labelsAt(cadence, true, '08:00', '12:00')).toEqual(expected);
+  });
+
+  // Same band in 12-hour format. `12:30 PM` is the widest label the card can draw, which
+  // is what `GRID_MAX_CONTENT_AXIS_MINUTES_PX` in `view.ts` reserves for.
+  it.each([
+    [
+      30,
+      [
+        '8:00 AM',
+        '8:30 AM',
+        '9:00 AM',
+        '9:30 AM',
+        '10:00 AM',
+        '10:30 AM',
+        '11:00 AM',
+        '11:30 AM',
+        '12:00 PM',
+      ],
+    ],
+    [60, ['8 AM', '9 AM', '10 AM', '11 AM', '12 PM']],
+    [120, ['8 AM', '10 AM', '12 PM']],
+    [180, ['9 AM', '12 PM']],
+  ] as const)('draws a %i-minute cadence in 12-hour format as %j', (cadence, expected) => {
+    expect(labelsAt(cadence, false, '08:00', '12:00')).toEqual(expected);
+  });
+
+  // 🚨 The phase, on a band that does NOT open on an even hour. Labels are phased from
+  // midnight, so the set is the one a clock would name whatever the band opens on. Phasing
+  // on the band's own start would read `6:30, 7:30, 8:30` at the shipped hourly cadence —
+  // half-hour labels in a gutter that reads `7, 8, 9` today, on the cadence every existing
+  // card is on. That is the case that decided it.
+  it.each([
+    [30, ['6:30', '7:00', '7:30', '8:00', '8:30', '9:00']],
+    [60, ['7', '8', '9']],
+    [120, ['8']],
+    [180, ['9']],
+  ] as const)(
+    'phases a %i-minute cadence on midnight, not on a 06:30 band start',
+    (cadence, expected) => {
+      expect(labelsAt(cadence, true, '06:30', '09:00')).toEqual(expected);
+    },
+  );
+
+  // The maintainer's own case, both ways round: at the half-hourly cadence the closing
+  // `21:30` earns a label on exactly the terms an interior `21:30` would, and at the
+  // hourly one it earns none on exactly those same terms.
+  it('labels a 21:30 band end at the half-hourly cadence and not at the hourly one', () => {
+    const half = labelsAt(30, true, '20:00', '21:30');
+    const hourly = labelsAt(60, true, '20:00', '21:30');
+
+    expect(half).toEqual(['20:00', '20:30', '21:00', '21:30']);
+    expect(half.at(-1)).toBe('21:30');
+    expect(hourly).toEqual(['20', '21']);
+    expect(hourly).not.toContain('21:30');
+  });
+
+  // A label the ruling does not draw is expected rather than a fault: labels live in the
+  // gutter and the rules live under the events, so the two are independent by design.
+  it('draws a half-hour label against hourly ruling without adding a rule for it', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_24h: true,
+        time_grid: {
+          start_time: '08:00',
+          end_time: '10:00',
+          axis_label_minutes: 30,
+          slot_minutes: 60,
+        },
+      }),
+    );
+    const rules = requireElement<HTMLElement>(container, '.grid-rules');
+
+    expect(
+      Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
+        element.textContent?.trim(),
+      ),
+    ).toEqual(['8:00', '8:30', '9:00', '9:30', '10:00']);
+    // The slot gradient is `transparent` at `slot_minutes: 60`, so the body draws one
+    // rule an hour and the 8:30 label stands alone in the gutter.
+    expect(rules.style.getPropertyValue('--calendar-card-grid-slot-color')).toBe('transparent');
+    expect(
+      Number.parseFloat(rules.style.getPropertyValue('--calendar-card-grid-hour-pct')),
+    ).toBeCloseTo((60 / 120) * 100, 6);
+  });
+
+  it('sizes the gutter from the minute labels it actually draws', () => {
+    // `max-content` reads the hidden sizer, so a wider label family has to reach it or the
+    // axis clips its own labels under `overflow: hidden`. Reconciled against the drawn
+    // labels rather than a literal, so the two cannot drift.
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_24h: false,
+        time_grid: { start_time: '10:00', end_time: '11:00', axis_label_minutes: 30 },
+      }),
+    );
+    const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
+      element.textContent?.trim(),
+    );
+
+    expect(labels, 'no labels rendered').toEqual(['10:00 AM', '10:30 AM', '11:00 AM']);
+    expect(
+      Array.from(
+        requireElement<HTMLElement>(container, '.grid-axis-sizer').querySelectorAll('span'),
+      ).map((span) => span.textContent?.trim()),
+    ).toEqual(labels);
+  });
+
+  it('still spells a 24:00 band end as midnight at every cadence', () => {
+    for (const [cadence, expected] of [
+      [30, '0:00'],
+      [60, '0'],
+      [120, '0'],
+      [180, '0'],
+    ] as const) {
+      expect(labelsAt(cadence, true, '21:00', '24:00').at(-1), `cadence ${cadence}`).toBe(expected);
+    }
+  });
+
+  it('falls back to the hourly cadence on a value outside the offered set', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_24h: true,
+        time_grid: {
+          start_time: '08:00',
+          end_time: '10:00',
+          axis_label_minutes: 45 as Types.TimeGridAxisLabelMinutes,
+        },
+      }),
+    );
+
+    expect(
+      Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
+        element.textContent?.trim(),
+      ),
+    ).toEqual(['8', '9', '10']);
+  });
+
+  it('reads a legacy string cadence as the numeric type the card declares', () => {
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_24h: true,
+        time_grid: {
+          start_time: '08:00',
+          end_time: '09:00',
+          axis_label_minutes: '30' as unknown as Types.TimeGridAxisLabelMinutes,
+        },
+      }),
+    );
+
+    expect(
+      Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
+        element.textContent?.trim(),
+      ),
+    ).toEqual(['8:00', '8:30', '9:00']);
   });
 });
 

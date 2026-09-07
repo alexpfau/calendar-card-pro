@@ -673,6 +673,7 @@ describe('editor: the grid block as the form shows it', () => {
       allday_band_max_rows: 3,
       axis_width: 'max-content',
       show_axis_labels: true,
+      axis_label_minutes: 60,
       day_header_gap: '8px',
       // `1px` here against column's `0px` above, because the option draws a different
       // thing in each view: an optional per-day rule inside a column header, and the one
@@ -1183,6 +1184,33 @@ describe('editor: the Layout panel', () => {
     // 60. String option values cannot match that selection and then write `"60"` back into
     // a field whose config type is the numeric `Types.TimeGridSlotMinutes` union.
     expect(options.map((option) => option.value)).toEqual([15, 20, 30, 60]);
+  });
+
+  it('offers numeric grid label cadences beside the gutter they widen', () => {
+    const nodes = [...walkSchema(buildLayoutSchema(ctx(buildConfig({ view: 'grid' }))))];
+    const cadence = nodes.find(({ node }) => node.name === 'axis_label_minutes')?.node;
+    const options =
+      (cadence as { selector?: { select?: { options?: ReadonlyArray<SelectOption> } } })?.selector
+        ?.select?.options ?? [];
+
+    // Numeric for the same reason `slot_minutes` is: the control is seeded from the
+    // resolved default, which is the number 60.
+    expect(options.map((option) => option.value)).toEqual([30, 60, 120, 180]);
+
+    // 🚨 And the order of the three gutter controls is pinned, because it is a decision
+    // rather than an accident. `axis_label_minutes` qualifies `show_axis_labels` and is
+    // moot without it, so it must follow the switch — a cadence read before the control
+    // that turns labelling off is half an answer. Nothing else notices this: reordering
+    // the row leaves the whole suite and every gate green, which is exactly why it is
+    // asserted here rather than left to a comment.
+    const gutter = nodes
+      .map(({ node }) => node.name)
+      .filter(
+        (name) =>
+          name === 'axis_width' || name === 'show_axis_labels' || name === 'axis_label_minutes',
+      );
+
+    expect(gutter).toEqual(['axis_width', 'show_axis_labels', 'axis_label_minutes']);
   });
 
   it('renders the view selector as illustrated boxes', () => {

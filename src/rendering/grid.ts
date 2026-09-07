@@ -474,9 +474,10 @@ function paintsSomething(value: string): boolean {
  * axis so a short fixed-height grid cannot create scrollable overflow.
  *
  * 🚨 There is nothing special about the band's own end here, and there used to be. Every
- * label comes from `axisHours`, which includes the closing boundary only when it is a
- * whole hour like any other; a band ending at `21:30` gets no label there, because no
- * interior half hour gets one either. The label list is therefore one list, and the
+ * label comes from `axisLabelMinutes`, which includes the closing boundary only when it
+ * falls on the label cadence like any other; a band ending at `21:30` gets a label there
+ * at a half-hourly cadence and none at an hourly one, because no interior `21:30` would
+ * get one either. The label list is therefore one list, and the
  * clamp — not a second rule here — is what places its ends. The first label resolves to
  * `clamp(0px, -0.5em, …)` and lands flush at the top, entirely BELOW its rule, so it
  * cannot bleed up into the all-day band. A label at 100% resolves to
@@ -487,6 +488,10 @@ function paintsSomething(value: string): boolean {
  * axis whose height is the body row's, so there is no box for it to grow. Centring it on
  * the rule instead would need `overflow: visible` here, which is the one declaration
  * keeping a compressed axis from extending the card past its configured `height`.
+ *
+ * Labels and rules are deliberately independent: a half-hourly cadence against hourly
+ * ruling draws `12:30` with no line beside it, which reads as a landmark in the gutter
+ * rather than as a missing rule.
  *
  * @param band - The visible band
  * @param config - Card configuration
@@ -500,9 +505,11 @@ function renderAxis(
 ): TemplateResult {
   const bandLength = band.endMin - band.startMin;
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const labels = Grid.axisHours(band).map((hour) => ({
-    text: formatHour(hour, use24h),
-    topPct: ((hour * 60 - band.startMin) / bandLength) * 100,
+  const cadence = Number(ViewConfig.resolveTimeGridOption(config, 'axis_label_minutes'));
+  const withMinutes = cadence % 60 !== 0;
+  const labels = Grid.axisLabelMinutes(band, cadence).map((minute) => ({
+    text: formatAxisLabel(minute, use24h, withMinutes),
+    topPct: ((minute - band.startMin) / bandLength) * 100,
   }));
 
   return html`
@@ -526,32 +533,43 @@ function renderAxis(
 }
 
 /**
- * Format one axis hour.
+ * Format one axis label.
  *
- * Hour-only, deliberately: `FormatUtils.formatTime` always emits minutes, and `06:00`
- * down the whole gutter spends width on three characters that never change.
+ * Hour-only at an hourly cadence or coarser, deliberately: `FormatUtils.formatTime`
+ * always emits minutes, and `06:00` down the whole gutter spends width on three
+ * characters that never change. Below the hour every label carries minutes instead —
+ * `12:00, 12:30, 13:00`, not a bare `12` beside a `12:30` — because a gutter that mixes
+ * the two reads as two different kinds of landmark. The decision is the cadence's, not
+ * the individual label's, which is why `withMinutes` is passed in rather than derived
+ * from `minutes % 60`.
+ *
+ * The 12-hour form is the wide one: `12:30 PM` against `12 AM`. `axis_width` defaults to
+ * `max-content`, so the gutter absorbs that on its own — and the column-fit arithmetic in
+ * `view.ts` reserves for it separately, since that runs before any gutter exists.
  *
  * 🚨 Hour 24 is wrapped to 0, and it is reachable straight from the editor: `end_time`
  * accepts `24:00`, the one bound that is a minute count rather than a clock reading, and
- * `axisHours` now emits it as a whole hour like any other. Unwrapped it would label `24`
- * in 24-hour mode and — worse, because it looks like a real time — `12 PM` in 12-hour
- * mode, since 24 is not less than 12 and 24 % 12 is 0.
+ * `axisLabelMinutes` emits it as a cadence boundary like any other. Unwrapped it would
+ * label `24` in 24-hour mode and — worse, because it looks like a real time — `12 PM` in
+ * 12-hour mode, since 24 is not less than 12 and 24 % 12 is 0.
  *
- * @param hour - Hour of the day, 0-24, where 24 is midnight at the end of the day
+ * @param minutes - Minutes from midnight, 0-1440, where 1440 is midnight at the end
  * @param use24h - Whether to use 24-hour time
+ * @param withMinutes - Whether the cadence puts minutes on every label
  * @returns The label
  */
-function formatHour(hour: number, use24h: boolean): string {
-  const wrapped = hour % 24;
+function formatAxisLabel(minutes: number, use24h: boolean, withMinutes: boolean): string {
+  const wrapped = Math.floor(minutes / 60) % 24;
+  const minute = String(minutes % 60).padStart(2, '0');
 
   if (use24h) {
-    return String(wrapped);
+    return withMinutes ? `${wrapped}:${minute}` : String(wrapped);
   }
 
   const suffix = wrapped < 12 ? 'AM' : 'PM';
   const twelve = wrapped % 12 === 0 ? 12 : wrapped % 12;
 
-  return `${twelve} ${suffix}`;
+  return withMinutes ? `${twelve}:${minute} ${suffix}` : `${twelve} ${suffix}`;
 }
 
 /**

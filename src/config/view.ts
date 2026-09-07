@@ -143,6 +143,7 @@ export const TIME_GRID_ONLY_KEYS = [
   'allday_band_max_rows',
   'axis_width',
   'show_axis_labels',
+  'axis_label_minutes',
   'hour_line_width',
   'hour_line_color',
   'allday_band_line_width',
@@ -439,6 +440,7 @@ export const TIME_GRID_DEFAULTS = {
   allday_band_max_rows: 3,
   axis_width: 'max-content',
   show_axis_labels: true,
+  axis_label_minutes: 60,
   hour_line_width: '1px',
   hour_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
   allday_band_line_width: '2px',
@@ -569,6 +571,9 @@ export function normalizeTimeGridValue(
     const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value));
     if (key === 'slot_minutes') {
       return [15, 20, 30, 60].includes(parsed) ? parsed : fallback;
+    }
+    if (key === 'axis_label_minutes') {
+      return [30, 60, 120, 180].includes(parsed) ? parsed : fallback;
     }
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }
@@ -1215,14 +1220,40 @@ function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void
 const COLUMN_CARD_PADDING_PX = 32;
 
 /**
- * Conservative pixel reservation for a content-sized grid axis.
+ * Conservative pixel reservation for a content-sized grid axis labelled on the hour.
  *
  * The actual track is measured by CSS from the widest hour label. Width fitting runs
  * before that grid exists, so it cannot read the track. Forty-eight pixels covers the
  * shipped 12px labels in both 24-hour and 12-hour formats, including the axis's 12px
  * inline padding. An explicit pixel `axis_width` is accounted for exactly.
+ *
+ * Measured on the deployed build (`?v=585`, 1920px viewport) at the shipped
+ * `axis_label_minutes: 60`: the painted `.grid-axis` track is 46.77px in 12-hour format
+ * (`12 PM`) and 25.48px in 24-hour format (`12`), so 48 covers the wider of the two. The
+ * margin is only 1.23px, which is the shipped constant's own tightness and not something
+ * this change moved — the coarser cadences draw a strict subset of the same labels and
+ * cannot widen it.
  */
 const GRID_MAX_CONTENT_AXIS_PX = 48;
+
+/**
+ * The same reservation for an axis labelled below the hour.
+ *
+ * 🚨 This second constant is the whole reason `axis_label_minutes` is more than a
+ * formatting change. A cadence under an hour puts minutes on every label, so `12 AM`
+ * becomes `12:30 PM` and the `max-content` gutter widens itself for free — while this
+ * arithmetic, which decides how many day columns fit and whether the grid falls back to
+ * another view at all, would carry on reserving the hour-label width. The card renders
+ * plausibly and simply fits one column too many.
+ *
+ * Measured the same way, at `axis_label_minutes: 30`: 63.14px in 12-hour format
+ * (`12:30 PM`) and 41.86px in 24-hour format (`12:30`). The reservation cannot read
+ * `time_24h` — it runs before the view is resolved and `time_format: language` is not
+ * decided until a `hass` is in hand — so it reserves the wider of the two. 72 rather
+ * than 64 because over-reserving sheds a column marginally early and under-reserving
+ * overflows the card, and only one of those is recoverable by widening the browser.
+ */
+const GRID_MAX_CONTENT_AXIS_MINUTES_PX = 72;
 
 /**
  * Width band, in pixels, by which the column-to-list threshold is lowered once
@@ -1352,9 +1383,27 @@ function dayColumnViewOverheadPx(
       ? Number.parseFloat(match[1])
       : axisWidth === 'max-content' && !resolveTimeGridOption(config, 'show_axis_labels')
         ? 0
-        : GRID_MAX_CONTENT_AXIS_PX;
+        : maxContentAxisPx(config);
 
   return axis + gutter;
+}
+
+/**
+ * Reservation for a `max-content` axis, chosen by what the labels will say.
+ *
+ * The cadence decides the format — below the hour every label carries minutes — so it
+ * decides the width, and this is the only place the arithmetic can learn that. The
+ * `show_axis_labels: false` branch above is deliberately tested first, so switching the
+ * labels off still reserves nothing whatever the cadence says; the cadence is moot then
+ * and must not cost anything.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns Pixels to reserve for the axis track
+ */
+function maxContentAxisPx(config: Types.Config): number {
+  const cadence = Number(resolveTimeGridOption(config, 'axis_label_minutes'));
+
+  return cadence % 60 === 0 ? GRID_MAX_CONTENT_AXIS_PX : GRID_MAX_CONTENT_AXIS_MINUTES_PX;
 }
 
 // Resolved through `resolveViewOption` rather than by hand, so this cannot disagree with

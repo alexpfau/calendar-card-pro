@@ -158,6 +158,9 @@ export type EffectiveView = 'list' | 'column' | 'grid';
 /** How finely the grid rules its time axis. */
 export type TimeGridSlotMinutes = 15 | 20 | 30 | 60;
 
+/** How often the grid labels its time axis, in minutes. */
+export type TimeGridAxisLabelMinutes = 30 | 60 | 120 | 180;
+
 /**
  * Which class of event a calendar contributes.
  *
@@ -408,6 +411,22 @@ export interface TimeGridOverrides extends SharedViewOverrides {
 
   /** Spacing of the axis rules. Density only — it does not change the scale. */
   slot_minutes?: TimeGridSlotMinutes;
+
+  /**
+   * Spacing of the axis labels, in minutes. Independent of `slot_minutes`.
+   *
+   * Labels are phased from midnight rather than from the band's start, so the set is the
+   * one a clock would name — `8, 10, 12` at two-hourly, whatever hour the band opens on.
+   * Anchoring on the band instead would relabel today's cards: a band opening at `06:30`
+   * would read `6:30, 7:30, 8:30` at the shipped hourly cadence, and every label would
+   * name a position the ruling does not draw, because both rule gradients tile from
+   * midnight too.
+   *
+   * Below the hour every label carries minutes, so a half-hourly axis reads
+   * `12:00, 12:30, 13:00` rather than mixing bare hours with half hours. That widens the
+   * `max-content` gutter, which is expected.
+   */
+  axis_label_minutes?: TimeGridAxisLabelMinutes;
 
   /**
    * Background tint for a weekend day column, as a CSS color.

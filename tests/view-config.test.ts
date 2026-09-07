@@ -1628,6 +1628,62 @@ describe('resolveColumnFit — grid reduction', () => {
     expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(335);
   });
 
+  // 🚨 The trap `axis_label_minutes` sets, and the reason it is more than a formatting
+  // change. `max-content` sizes the drawn gutter from its own labels, so a cadence below
+  // the hour widens it for free — and this arithmetic, which decides how many day columns
+  // fit and whether the grid falls back to another view at all, would carry on reserving
+  // the hour-label width. The card renders plausibly and fits one column too many.
+  it('reserves a wider axis once the cadence puts minutes on every label', () => {
+    const hourly = computeColumnThresholdPxFor(build({ axis_label_minutes: 60 }), 3, 'grid');
+
+    expect(hourly).toBe(383);
+    // 72 rather than 48: measured at 63.14px painted in 12-hour format, and the
+    // reservation cannot read the clock convention because it runs before a `hass` is in
+    // hand.
+    expect(computeColumnThresholdPxFor(build({ axis_label_minutes: 30 }), 3, 'grid')).toBe(
+      hourly + 24,
+    );
+  });
+
+  it('reserves the hour-label width at every cadence that stays on the hour', () => {
+    // The coarser cadences draw a SUBSET of today's labels, so they cannot need more room
+    // than today — and reserving less would be an over-fit rather than an under-fit, which
+    // is the direction that overflows. Same figure, deliberately.
+    for (const cadence of [60, 120, 180] as const) {
+      expect(
+        computeColumnThresholdPxFor(build({ axis_label_minutes: cadence }), 3, 'grid'),
+        `cadence ${cadence}`,
+      ).toBe(383);
+    }
+  });
+
+  it('reserves nothing for a cadence whose labels are switched off', () => {
+    // The cadence is moot without `show_axis_labels`, and must not cost a pixel: the
+    // hidden branch is tested first, so the wider reservation cannot leak into a card
+    // drawing no gutter at all.
+    const config = build({
+      axis_width: 'max-content',
+      show_axis_labels: false,
+      axis_label_minutes: 30,
+    });
+
+    expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(335);
+  });
+
+  it('accounts an explicit pixel axis exactly, whatever the cadence says', () => {
+    // An explicit width is the user's own measurement, so the cadence must not add to it.
+    for (const cadence of [30, 60, 120, 180] as const) {
+      expect(
+        computeColumnThresholdPxFor(
+          build({ axis_width: '48px', axis_label_minutes: cadence }),
+          3,
+          'grid',
+        ),
+        `cadence ${cadence}`,
+      ).toBe(383);
+    }
+  });
+
   it('falls back to list below one grid day by default', () => {
     const config = build();
 
@@ -1676,6 +1732,35 @@ describe('resolveColumnFit — grid reduction', () => {
         'slot_minutes',
       ),
     ).toBe(60);
+  });
+
+  // The label cadence is a second numeric union beside `slot_minutes`, and a separate
+  // one: 15 and 20 are legitimate ruling densities and useless label densities, and 120
+  // and 180 are the reverse. Sharing a validator would accept every value in both.
+  it('normalizes the axis label cadence to its own declared union', () => {
+    expect(TIME_GRID_DEFAULTS.axis_label_minutes).toBe(60);
+    for (const value of [30, 60, 120, 180] as const) {
+      expect(
+        resolveTimeGridOption(build({ axis_label_minutes: value }), 'axis_label_minutes'),
+        `cadence ${value}`,
+      ).toBe(value);
+    }
+    expect(
+      resolveTimeGridOption(
+        build({ axis_label_minutes: '120' as unknown as Types.TimeGridAxisLabelMinutes }),
+        'axis_label_minutes',
+      ),
+    ).toBe(120);
+    // Both are ruling densities the ruling accepts, and neither is offered here.
+    for (const value of [15, 20] as const) {
+      expect(
+        resolveTimeGridOption(
+          build({ axis_label_minutes: value as unknown as Types.TimeGridAxisLabelMinutes }),
+          'axis_label_minutes',
+        ),
+        `rejected ${value}`,
+      ).toBe(60);
+    }
   });
 
   it('coerces bare grid length values without discarding non-pixel units', () => {
