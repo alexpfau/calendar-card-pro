@@ -330,7 +330,26 @@ These filters use regular expressions, allowing for flexible pattern matching:
 
 - **Blocklist**: Hide events that match specified patterns
 - **Allowlist**: Only show events that match specified patterns
-- **Priority**: When both are specified, allowlist takes precedence
+- **Together**: Both apply, so an event has to match the allowlist _and_ escape the
+  blocklist to be shown
+
+Naming both is how you say "these, except those" — an allowlist narrows the calendar down
+to what you care about, and the blocklist then removes the exceptions from that shorter
+list:
+
+```yaml
+entities:
+  - entity: calendar.energy
+    allowlist: 'Cheap' # only the cheap-rate events
+    blocklist: 'quarter' # but not the quarter-hourly ones
+```
+
+::: warning Changed in v4.2
+Before v4.2 an allowlist silently retired the blocklist beside it, so only the allowlist
+was applied. Both now apply. If a calendar of yours carries both and its blocklist overlaps
+what the allowlist admits, that calendar will show fewer events than it used to — which is
+what the blocklist was asking for. Clear the blocklist to get the old result back.
+:::
 
 ### Matching the Location or Description Instead
 
