@@ -1352,6 +1352,16 @@ function filterEventsForEntity(
 
   const field = entityConfig.filter_field;
 
+  // Both run, in this order, and the blocklist judges what the allowlist left. Until v4.2
+  // the second test was an `else if`, so naming an allowlist silently retired the
+  // blocklist — the combination a user reaches for to say "these, except those" quietly
+  // dropped the "except". Two independent passes also stop a half-typed allowlist from
+  // disabling a working blocklist, since a pattern that will not compile no longer skips
+  // the other list on its way out.
+  //
+  // Order is immaterial to the result — both are pure predicates over the same set, so
+  // `allow AND NOT block` commutes — but it is worth keeping the allowlist first because
+  // that is the way the pair reads.
   if (entityConfig.allowlist) {
     try {
       const allowPattern = new RegExp(entityConfig.allowlist, 'i');
@@ -1362,7 +1372,9 @@ function filterEventsForEntity(
     } catch (error) {
       Logger.warn(`Invalid allowlist pattern: ${entityConfig.allowlist}`, error);
     }
-  } else if (entityConfig.blocklist) {
+  }
+
+  if (entityConfig.blocklist) {
     try {
       const blockPattern = new RegExp(entityConfig.blocklist, 'i');
       matchedEvents = matchedEvents.filter((event) => {
