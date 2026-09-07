@@ -475,11 +475,16 @@ function renderRules(
  * `calc()`; `top` and `height` are never written from here.
  *
  * The gap the stylesheet reaches for is `--calendar-card-grid-event-gap`, the same
- * property that already holds a block a pixel clear of its column edges, so all four
- * sides of a block clear their neighbours by one value. A block starting at 13:00 used to
- * draw its top edge exactly on the 13:00 rule, which reads as the block hanging off the
- * line rather than sitting under it; macOS Calendar leaves the same small gap it leaves
- * between columns.
+ * property that already holds a block a pixel clear of its column edges, so a block clears
+ * its neighbours by one value on every side. A block starting at 13:00 used to draw its
+ * top edge exactly on the 13:00 rule, which reads as the block hanging off the line rather
+ * than sitting under it; macOS Calendar leaves the same small gap it leaves between
+ * columns.
+ *
+ * 🚨 The upper edge additionally clears `--calendar-card-grid-rule-width`, and the lower
+ * one must not. An hour rule paints downward from its boundary, so the gap alone puts a
+ * block's top edge on the rule's underside with nothing between them — see the composition
+ * comment on `.grid-event`, which carries the measurement.
  *
  * 🚨 Per edge, not per block, and the clipped ends are why. A block running past the band
  * edge is cut off there rather than ending there, so a gap at that edge would draw the one

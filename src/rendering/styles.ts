@@ -1968,6 +1968,11 @@ export const cardStyles = css`
     margin-inline: calc(-1 * var(--calendar-card-grid-inset));
     padding-inline: var(--calendar-card-grid-inset);
     --calendar-card-grid-event-gap: 1px;
+    /* The thickness of one hour rule, named here because two rules a long way apart have
+       to agree on it: the gradients below paint it, and a block's clearance above has to
+       clear it. It is deliberately NOT day_separator_width -- a user widening the day
+       rules is asking for a heavier frame, not for twenty-four heavier hour lines. */
+    --calendar-card-grid-rule-width: 1px;
   }
 
   /* ----- Time axis ----- */
@@ -2030,15 +2035,17 @@ export const cardStyles = css`
       repeating-linear-gradient(
         to bottom,
         var(--divider-color) var(--calendar-card-grid-slot-offset)
-          calc(var(--calendar-card-grid-slot-offset) + 1px),
-        transparent calc(var(--calendar-card-grid-slot-offset) + 1px)
+          calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width)),
+        transparent
+          calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-rule-width))
           calc(var(--calendar-card-grid-slot-offset) + var(--calendar-card-grid-slot-pct))
       ),
       repeating-linear-gradient(
         to bottom,
         var(--divider-color) var(--calendar-card-grid-hour-offset)
-          calc(var(--calendar-card-grid-hour-offset) + 1px),
-        transparent calc(var(--calendar-card-grid-hour-offset) + 1px)
+          calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width)),
+        transparent
+          calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-rule-width))
           calc(var(--calendar-card-grid-hour-offset) + var(--calendar-card-grid-hour-pct))
       );
     pointer-events: none;
@@ -2222,6 +2229,19 @@ export const cardStyles = css`
        one value on all four sides -- an event at 13:00 sits UNDER the 13:00 rule instead of
        hanging off it, the way macOS Calendar draws it.
 
+       🚨 The two edges are NOT symmetric, and reading them as symmetric is what left a
+       block flush against the rule above it for three releases. An hour rule is painted
+       DOWNWARD from its boundary, occupying the first pixel of the hour it opens -- so a
+       block placed one pixel past its own boundary lands on the rule's lower edge with no
+       background between the two, while at the other end the next rule starts a pixel
+       after the block stops and that gap is visible. Measured on the deployed build at
+       one device pixel per CSS pixel: the rule painted at row 711 and the block's first
+       row was 712, against a clear row 758 below a block ending at 757.
+
+       So the upper clearance has to cover the rule's own thickness as well as the gap,
+       and the lower one must not: adding it there would push the block a pixel clear of a
+       rule it is already a pixel clear of.
+
        The renderer writes the two percentages and, for a clipped edge only, a 0px override
        of the gap on that side; an edge the event genuinely owns says nothing and inherits
        the default here. The composition lives in the stylesheet rather than in the
@@ -2232,7 +2252,9 @@ export const cardStyles = css`
        A block shorter than both gaps computes a negative height, which resolves to zero,
        and min-height above floors it -- the same floor that already carries a ten-minute
        event. */
-    --calendar-card-grid-block-gap-above: var(--calendar-card-grid-event-gap);
+    --calendar-card-grid-block-gap-above: calc(
+      var(--calendar-card-grid-event-gap) + var(--calendar-card-grid-rule-width)
+    );
     --calendar-card-grid-block-gap-below: var(--calendar-card-grid-event-gap);
     top: calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above));
     height: calc(

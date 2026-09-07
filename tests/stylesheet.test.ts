@@ -1639,6 +1639,7 @@ describe('card stylesheet', () => {
       // grid collapses to `top: auto` — which reads as a broken renderer rather than as a
       // typo in a stylesheet.
       const gap = 'var(--calendar-card-grid-event-gap)';
+      const ruleWidth = 'var(--calendar-card-grid-rule-width)';
       // Prettier wraps a long `calc()` and pads inside the brackets when it does — a
       // three-term height comes back as `var( --name )` and a two-term one does not — so
       // bracket padding is normalised away. Runs of whitespace collapse to ONE space
@@ -1648,19 +1649,37 @@ describe('card stylesheet', () => {
         value.replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')');
 
       expect({
-        above: declared('.grid-event', '--calendar-card-grid-block-gap-above'),
+        above: spacing(declared('.grid-event', '--calendar-card-grid-block-gap-above')),
         below: declared('.grid-event', '--calendar-card-grid-block-gap-below'),
         top: spacing(declared('.grid-event', 'top')),
         height: spacing(declared('.grid-event', 'height')),
       }).toEqual({
+        // Asymmetric on purpose, and the asymmetry is the fix rather than an oversight: an
+        // hour rule is painted DOWNWARD from its boundary, so a block one gap past that
+        // boundary lands on the rule's underside with no background between them, while
+        // the next rule starts a gap after the block ends and that side already reads.
+        // Measured on the deployed build at one device pixel per CSS pixel — the rule
+        // painted at row 711 and the block's first row was 712, against a clear row 758
+        // under a block ending at 757.
+        above: `calc(${gap} + ${ruleWidth})`,
         // The default IS the clearance, so an edge the event owns says nothing and a
         // clipped one writes `0px` over this.
-        above: gap,
         below: gap,
         top: 'calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above))',
         height:
           'calc(var(--calendar-card-grid-block-height) - var(--calendar-card-grid-block-gap-above) - var(--calendar-card-grid-block-gap-below))',
       });
+
+      // Reconciled rather than restated. The width a block clears above has to be the
+      // width the gradients actually paint, so both ends are read here: a literal `1px`
+      // returning to either one would leave them free to drift while a declaration-only
+      // assertion stayed green. Four occurrences — a start and a stop position in each of
+      // the two gradients.
+      const painted = RULES.find((rule) => rule.selectors.includes('.grid-rules'));
+
+      expect(declared('.grid-container', '--calendar-card-grid-rule-width')).toBe('1px');
+      expect(painted?.body.match(/var\(--calendar-card-grid-rule-width\)/g)).toHaveLength(4);
+      expect(painted?.body).not.toContain('+ 1px');
 
       // The floor that catches a block shorter than its own two gaps: the height resolves
       // negative, CSS clamps it to zero, and this is what is left.
