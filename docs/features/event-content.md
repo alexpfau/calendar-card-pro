@@ -497,7 +497,11 @@ what the example above does — only the time follows the calendar; the title ke
 
 The five it is accepted by are `event_color` (the title), `time_color`, `location_color`,
 `description_color`, and `progress_bar_color` (the bar and its track) — everything inside
-the event box.
+the event box. The **event weather badge** follows too, and it works a little differently
+because it has no color of its own to replace: `weather.event.color` ships unset, so an
+unset badge on an event whose title is already taking the accent takes it as well. Give
+`weather.event.color` a color and that color wins; write `accent` into it and the badge
+opts in from any view, on its own.
 
 ::: tip Grid View Starts All Five at `accent`
 Grid view is the only view that defaults them on, for the same reason it is the only one
@@ -515,10 +519,9 @@ that hierarchy survives the recoloring without dimming anything.
 
 Two things are deliberately left out. An **empty day** belongs to no calendar, so its _No
 upcoming events_ notice keeps `empty_day_color`; so does the grid's **`+N` overflow block**,
-which stands for several events at once. And the **event weather badge** keeps its own
-color: it describes the weather rather than the event, so tinting it with one calendar's
-accent would claim a relationship that is not there. Set `weather.event.color` yourself if
-you disagree.
+which stands for several events at once. The badge in the **day header** is left out for the
+same reason — it belongs to the day rather than to any calendar on it, and it is unaffected
+by all of this.
 
 ::: warning Check It Against Your Theme
 The accent is whatever you or Home Assistant chose for the calendar, and it is now carrying

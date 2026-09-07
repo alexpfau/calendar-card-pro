@@ -154,13 +154,20 @@ vertical rules:
 - **Down the columns**, from just under the date row to the foot of the axis. The rules
   cross the all-day band, and a banner spanning several days paints over them, so it still
   reads as one thing.
-- **Under the date row**, as one unbroken line across the full width of the card, the hour
-  gutter included.
+- **Under the date row**, as one unbroken line, running from the left edge of the first day
+  column to the right edge of the last. It crosses the gutters but not the hour gutter,
+  which macOS Calendar leaves clear too, and it begins and ends exactly where the hour
+  rules do.
 - **Under the all-day band**, at twice the width, because that boundary separates two
   different kinds of row rather than two days. It is derived from `day_separator_width`
   rather than configured on its own, so the proportion holds at whatever width you set.
+  It is drawn inside the band, growing upward, so it never bleeds into the first events of
+  the day, and the band's padding grows with it so the banners keep an even margin above
+  and below.
 
-Setting `day_separator_width: 0` removes the frame entirely. Month rules win over week
+Setting `day_separator_width: 0` removes the frame entirely — including the line at the
+very top of the time body, which is the frame's rather than the hour ruling's. The hour
+rules and the weekend tint stay. Month rules win over week
 rules, and week rules win over day rules. The date row and the week numbers above it stay
 clear of all of them — they label the grid rather than belonging to it.
 
@@ -202,7 +209,11 @@ so an upcoming week boundary can still be labeled.
 
 `weekend_background_color` tints a weekend day column, so the shape of a week is visible
 before you read a date. The tint runs from just under the date row, through the all-day
-band and down the time grid, so a weekend reads as one continuous column. The date row
+band and down the time grid, so a weekend reads as one continuous column — and where two
+weekend days sit next to each other it runs through the gutter between them as well, so a
+Saturday and Sunday read as one block rather than as two stripes. It never spills into the
+gutter beside a weekday, and a window that shows only one half of a weekend tints only that
+column. The date row
 itself stays clear — it labels the day rather than belonging to it. It is on by default,
 in a mix of the theme's own text color that darkens a light theme and lightens a dark one:
 
