@@ -2450,12 +2450,30 @@ export const cardStyles = css`
     pointer-events: none;
   }
 
+  /* The continuation dashes sit ON the block's own edge, not inside it. Both offsets are
+     0 and both marks are drawn with border-block-start, which is what makes the pair
+     symmetric in painted rows despite reading asymmetrically: the pseudo-element's height
+     is its border and nothing else, so top: 0 paints the block's FIRST row and bottom: 0
+     paints its LAST — the border sits at the top of a one-pixel box whose bottom is on the
+     block's bottom edge.
+
+     🚨 The pixel they used to be inset by is the whole defect. Measured on the deployed
+     build at one device pixel per CSS pixel, on a clipped block in a 07:00-21:00 band: at
+     bottom: 1px the dash row was 1 above the closing rule with a row of block background
+     between them, so a mark meaning "this event continues" read as a second, fainter line
+     beside the grid line. At bottom: 0 the dash row IS the rule row.
+
+     Which is only legible because the rules are translucent. The closing rule and the
+     band's lower rule are both z-index 3 and paint over the blocks, so an opaque rule
+     would hide the mark rather than carry it; the shipped grays are a color-mix at half
+     strength, so the dashes composite through. Where the cadence draws no closing rule the
+     dashes stand alone on the block's last row, which is the honest answer there. */
   .grid-event.clipped-top::before {
-    top: 1px;
+    top: 0;
   }
 
   .grid-event.clipped-bottom::after {
-    bottom: 1px;
+    bottom: 0;
   }
 
   .grid-event-disclosure .time,

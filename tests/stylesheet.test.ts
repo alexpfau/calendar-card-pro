@@ -2085,7 +2085,7 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event-disclosure .event-title', 'hyphens')).toBe('manual');
     });
 
-    it('draws clipped grid events with a subtle inset continuation mark', () => {
+    it('draws clipped grid events with a subtle continuation mark on the block edge', () => {
       expect(declared('.grid-event.clipped-top', 'border-block-start')).toBe('');
       expect(declared('.grid-event.clipped-bottom', 'border-block-end')).toBe('');
       expect(declared('.grid-event.clipped-top::before', 'border-block-start')).toBe(
@@ -2095,6 +2095,26 @@ describe('card stylesheet', () => {
         '1px dashed currentColor',
       );
       expect(declared('.grid-event.clipped-top::before', 'opacity')).toBe('0.45');
+
+      // Both marks sit ON the block's own edge, and this is a declaration check standing
+      // in for a paint one — happy-dom lays nothing out, so the pixel rows were measured
+      // on the deployed build at one device pixel per CSS pixel, on a block clipped at
+      // both ends of an 09:00–12:00 band whose closing rule painted row 1905:
+      //
+      //   edge     1px (before)                  0 (after)
+      //   top      dashes row 1763, one row of   dashes row 1762, flush under the band's
+      //            block background below the    lower rule, which ends at 1761.56
+      //            rule that ends at 1761.56
+      //   bottom   dashes row 1904, the row      dashes row 1905, the rule's own row —
+      //            ABOVE the closing rule        the translucent rule composites over
+      //                                          them at (113,130,137) against the
+      //                                          (121,139,147) they paint alone
+      //
+      // The pair reads asymmetrically and paints symmetrically: the mark is the
+      // pseudo-element's only box, a border-block-start on a zero-height box, so top: 0
+      // lands on the block's first row and bottom: 0 on its last.
+      expect(declared('.grid-event.clipped-top::before', 'top')).toBe('0');
+      expect(declared('.grid-event.clipped-bottom::after', 'bottom')).toBe('0');
     });
   });
 });

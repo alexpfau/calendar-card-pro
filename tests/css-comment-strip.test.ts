@@ -202,8 +202,16 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(79_000);
-    // The v5.2 grid refinements moved the ceiling last, from 70,000. Five of them, and four
+    expect(saved).toBeLessThan(82_000);
+    // The clipped-edge continuation marks moved the ceiling last, from 79,000, and the note
+    // they bought is a table of painted pixel rows. Where a dashed mark lands relative to the
+    // rule beside it cannot be read off `top: 0` — the mark is a border-block-start on a
+    // zero-height box, so the same value paints the block's first row at one edge and its
+    // last row at the other, and whether the result reads as one line or as two depends on
+    // the rule being translucent enough to composite. Both facts came off a deployed build
+    // at one device pixel per CSS pixel; neither is visible from the three declarations.
+    //
+    // The v5.2 grid refinements moved the ceiling before that, from 70,000. Five of them, and four
     // carry a note that costs more than the declaration it sits on: why `grid-column: 1 / -1`
     // is only half of "full width" and what the negative margins have to cancel; why a rule
     // exactly filling its gutter is the intended state rather than a near miss; why the

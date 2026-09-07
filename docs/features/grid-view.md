@@ -43,10 +43,11 @@ short of the rule it ends at — the same pixel of clear space it already keeps 
 column edges, so a block clears its neighbors by one value on all four sides.
 
 An event partly outside the band is drawn clipped, with a subtle dashed mark on the side it
-runs past. That edge gets no clear space: the block is cut off there rather than ending
-there, and a gap would say the event stops at the window. An event entirely outside the
-band is not drawn at all — so a band is a decision about what the card shows, not only
-about how it looks.
+runs past. The mark sits on the block's own edge, so where a rule is drawn there it lands on
+the line rather than beside it. That edge gets no clear space either: the block is cut off
+there rather than ending there, and a gap would say the event stops at the window. An event
+entirely outside the band is not drawn at all — so a band is a decision about what the card
+shows, not only about how it looks.
 
 Timed events that run across more than one day are split into one block per day column. The
 block's position and height show that day's span, so the text stays short: the first block
