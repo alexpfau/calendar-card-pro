@@ -13,7 +13,7 @@
  *
  * Every case here is the only thing standing between some specific regression and a green
  * run; cases that duplicated another's coverage were folded into the first test rather
- * than kept. Two behaviours were deliberately left unpinned. Whether a permissive pattern
+ * than kept. Two behaviors were deliberately left unpinned. Whether a permissive pattern
  * such as `.*` should also admit an event with no title is undocumented either way, so a
  * test would freeze an accident rather than a decision. And the `typeof entityConfig ===
  * 'string'` branch of the filter cannot be reached from a card at all, because config
@@ -128,7 +128,7 @@ describe('per-calendar allowlist and blocklist', () => {
     // alone would keep Private appointment, and only evaluating both leaves one title. An
     // overlapping pair emptying the block is the same rule applied literally rather than a
     // case needing its own handling, so the second arm pins that too — it is what someone
-    // typing the same word into both fields should expect, and the old behaviour could not
+    // typing the same word into both fields should expect, and the old behavior could not
     // express it at all.
     return expect(
       Promise.all([
