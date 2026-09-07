@@ -27,11 +27,8 @@ import * as EntityColors from '../utils/entity-colors';
  * `empty_day_color`, whose row belongs to no calendar; and the date column, separators and
  * card title, which are the card's furniture rather than an event's.
  *
- * 🚨 The event weather badge is also excluded, and that one is a judgement call rather than
- * an obvious exclusion — see `docs/features/event-content.md`. Its color lives at
- * `weather.event.color`, nested, where a per-view default cannot reach it; including it
- * would make the editor's derived toggle read *off* on a default grid card, because one of
- * its governed fields could never be defaulted to the sentinel.
+ * 🚨 The event weather badge is governed too, and it is deliberately **not** a row here.
+ * See {@link WEATHER_EVENT_PROPERTY}.
  */
 export const ACCENT_TEXT_OPTIONS = [
   ['event_color', '--calendar-card-color-event'],
@@ -43,6 +40,43 @@ export const ACCENT_TEXT_OPTIONS = [
 
 /** The governed option keys alone, for callers that only need to ask "is this one". */
 export const ACCENT_TEXT_KEYS: ReadonlyArray<string> = ACCENT_TEXT_OPTIONS.map(([key]) => key);
+
+/**
+ * The property the event weather badge is colored through.
+ *
+ * 🚨 The badge is governed by the accent and is still not a row in the table above, and
+ * the reason is that it has no stored value for a row to be about. Every option up there
+ * ships a default, so `accent` is a value a view or a user writes *instead of* one;
+ * `weather.event.color` deliberately ships **no** default at all — `DEFAULT_CONFIG.weather`
+ * says so in as many words, because a default written there would be echoed back into the
+ * user's YAML by the editor and stop being distinguishable from a choice. So the badge has
+ * three states where the others have two, and absence is already "defer to whatever this
+ * surface colors its text with".
+ *
+ * That is also why the flat override table could not reach it. `TIME_GRID_DEFAULT_OVERRIDES`
+ * is keyed by top-level config keys, and this one is nested two deep; and adding it to the
+ * table above would make the editor's derived toggle read *off* on a default grid card,
+ * because one of its governed fields could never be defaulted to the sentinel.
+ *
+ * So it is resolved here, from the two states that mean "take the accent":
+ *
+ * - the sentinel written at `weather.event.color`, which opts in from any view; or
+ * - no color at all, on an event whose own text is already taking the accent.
+ *
+ * The second is what makes it on by default in grid and off everywhere else, with no view
+ * check to keep in step — grid defaults `event_color` to the sentinel and no other view
+ * does. And an explicitly configured color wins in both directions by construction: it is
+ * not the sentinel, so the first arm cannot fire, and it is set, so the second cannot
+ * either.
+ *
+ * The day-header badge is untouched. It is colored through
+ * `--calendar-card-weather-date-color`, a different property on a different element, and
+ * nothing here is written above an event box.
+ */
+export const WEATHER_EVENT_PROPERTY = '--calendar-card-weather-event-color';
+
+/** The property `event_color` is rendered through, read back rather than repeated. */
+const EVENT_COLOR_PROPERTY = ACCENT_TEXT_OPTIONS.find(([key]) => key === 'event_color')![1];
 
 /**
  * The custom properties an event element must set so its own subtree reads the accent.
@@ -75,6 +109,16 @@ export function accentTextProperties(
     if (EntityColors.isAccentTextSentinel(config[key])) {
       properties[property] = accent;
     }
+  }
+
+  // The event weather badge, resolved from its own three states rather than from a row in
+  // the table — see WEATHER_EVENT_PROPERTY for why it cannot be one. The falsy test is the
+  // exact complement of the guard `generateCustomPropertiesObject` writes the option under,
+  // so the two can never both fire on one card.
+  const badge = config.weather?.event?.color;
+
+  if (EntityColors.isAccentTextSentinel(badge) || (!badge && properties[EVENT_COLOR_PROPERTY])) {
+    properties[WEATHER_EVENT_PROPERTY] = accent;
   }
 
   return properties;

@@ -154,7 +154,18 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
 
   // Weather event color has no default. If absent, both placements use their
   // stylesheet fallback, matching the existing per-event badge color.
-  if (config.weather?.event?.color) {
+  //
+  // 🚨 The sentinel is excluded here for the reason the loop above exists: it is not a
+  // color, so writing it would make every rule substituting this property invalid at
+  // computed-value time — and the badge in the day-header position reads a different
+  // property but a card can carry both. Absence IS this option's shipped default, so
+  // leaving it unwritten is the same substitution the five governed options get, and the
+  // stylesheet's own fallback stands. The event element then writes the accent over it for
+  // its own subtree.
+  if (
+    config.weather?.event?.color &&
+    !EntityColors.isAccentTextSentinel(config.weather.event.color)
+  ) {
     props['--calendar-card-weather-event-color'] = config.weather.event.color;
   }
 

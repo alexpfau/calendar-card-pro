@@ -304,6 +304,140 @@ describe('accent event text, view by view', () => {
   });
 });
 
+describe('the event weather badge', () => {
+  // The sixth governed field, and the one that is not a row in the table. Its color lives
+  // at `weather.event.color`, nested where no per-view default can reach it, and it ships
+  // no default at all — absence is already "defer to this surface", so it has three states
+  // where the other five have two. What that buys is tested here rather than assumed.
+  const WEATHER_PROPERTY = '--calendar-card-weather-event-color';
+
+  // The rendering case below places events against the frozen window, exactly as the
+  // view-by-view block above does.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** The badge property an event element carries, or `undefined`. */
+  function badgeOn(config: Types.Config, accent = WORK): string | undefined {
+    return accentTextProperties(config, accent, false)[WEATHER_PROPERTY];
+  }
+
+  it('takes the accent on a grid block, where the block text already does', () => {
+    // The default grid card, which is the whole point: nothing is configured, the view
+    // defaults `event_color` to the sentinel, and the badge follows the text around it.
+    const grid = ViewConfig.resolveEffectiveConfig(twoCalendars(), 'grid');
+
+    expect(badgeOn(grid)).toBe(WORK);
+
+    // The arms that must differ, or the assertion above is about a helper that always
+    // answers. A list card leaves the badge alone, and so does a grid card whose block
+    // text has been given a color of its own.
+    expect(badgeOn(ViewConfig.resolveEffectiveConfig(twoCalendars(), 'list'))).toBeUndefined();
+
+    const opted = twoCalendars();
+    opted.time_grid = { event_color: 'rgb(1, 2, 3)' } as Types.TimeGridOverrides;
+
+    expect(badgeOn(ViewConfig.resolveEffectiveConfig(opted, 'grid'))).toBeUndefined();
+  });
+
+  it('keeps an explicitly configured weather.event.color ahead of the accent', () => {
+    // The claim the whole design has to keep. A color written at `weather.event.color` is
+    // not the sentinel and is not absent, so neither arm can fire — and the card level
+    // still emits it, so it is what the badge is actually painted in.
+    const config = twoCalendars();
+    config.weather = {
+      entity: 'weather.home',
+      event: { color: 'rgb(9, 8, 7)' },
+    } as Types.Config['weather'];
+    const grid = ViewConfig.resolveEffectiveConfig(config, 'grid');
+
+    expect(badgeOn(grid)).toBeUndefined();
+    expect(generateCustomPropertiesObject(grid)[WEATHER_PROPERTY]).toBe('rgb(9, 8, 7)');
+  });
+
+  it('opts in from any view when the sentinel is written at the nested key', () => {
+    // The third state, and the one that makes this a value rather than a grid special
+    // case: a list card can ask for it explicitly, exactly as the other five can.
+    const config = twoCalendars();
+    config.weather = {
+      entity: 'weather.home',
+      event: { color: ACCENT_TEXT_SENTINEL },
+    } as Types.Config['weather'];
+
+    expect(badgeOn(ViewConfig.resolveEffectiveConfig(config, 'list'))).toBe(WORK);
+  });
+
+  it('never writes the sentinel to the card element, where it is not a color', () => {
+    // `accent` is not a color, so a rule substituting this property would be invalid at
+    // computed-value time and the badge would lose its color entirely — including on the
+    // rows that take no accent at all. Absence is this option's shipped default, so the
+    // substitution is to write nothing and let the stylesheet's fallback stand.
+    const config = twoCalendars();
+    config.weather = {
+      entity: 'weather.home',
+      event: { color: ACCENT_TEXT_SENTINEL },
+    } as Types.Config['weather'];
+
+    expect(generateCustomPropertiesObject(config)[WEATHER_PROPERTY]).toBeUndefined();
+  });
+
+  it('leaves the day-header badge alone in every one of those cases', () => {
+    // A different property on a different element, and nothing accent-related is ever
+    // written above a day header. Read as a set so an arriving property fails too.
+    const grid = ViewConfig.resolveEffectiveConfig(twoCalendars(), 'grid');
+    const sentinel = twoCalendars();
+    sentinel.weather = {
+      entity: 'weather.home',
+      event: { color: ACCENT_TEXT_SENTINEL },
+      date: { color: 'rgb(4, 4, 4)' },
+    } as Types.Config['weather'];
+
+    for (const config of [grid, ViewConfig.resolveEffectiveConfig(sentinel, 'grid')]) {
+      expect(
+        Object.keys(accentTextProperties(config, WORK, false)).filter((key) =>
+          key.includes('weather-date'),
+        ),
+      ).toEqual([]);
+    }
+
+    expect(generateCustomPropertiesObject(sentinel)['--calendar-card-weather-date-color']).toBe(
+      'rgb(4, 4, 4)',
+    );
+  });
+
+  it('paints the badge in the event\u2019s own calendar color, block by block', () => {
+    // The end-to-end half, and the one that would catch the property being written to an
+    // element the badge does not descend from. Two blocks, two calendars, two colors.
+    const container = renderView('grid', twoCalendars(), PAIR());
+    const blocks = [...container.querySelectorAll('.grid-event:not(.grid-event-overflow)')];
+
+    expect(blocks.length, 'no blocks rendered').toBe(2);
+    expect(
+      blocks.map((block) => (block as HTMLElement).style.getPropertyValue(WEATHER_PROPERTY)),
+    ).toEqual([WORK, HOME]);
+
+    // ...and the two places that belong to no calendar still take nothing.
+    const crowded = renderView(
+      'grid',
+      twoCalendars({ time_grid: { max_simultaneous_events: 1 } } as Partial<Types.Config>),
+      [
+        timed(17, '09:00', '11:00', 'Standup', 'calendar.work'),
+        timed(17, '09:30', '10:30', 'Dentist', 'calendar.home'),
+      ],
+    );
+    const overflow = crowded.querySelector<HTMLElement>('.grid-event-overflow')!;
+
+    expect(overflow, 'fixture produced no overflow block').not.toBeNull();
+    expect(overflow.style.getPropertyValue(WEATHER_PROPERTY)).toBe('');
+    expect(accentTextProperties(twoCalendars(), WORK, true)[WEATHER_PROPERTY]).toBeUndefined();
+  });
+});
+
 /**
  * The editor's one switch for the whole feature.
  *
