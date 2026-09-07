@@ -323,7 +323,7 @@ function renderGridBoundary(
 }
 
 /**
- * Render the weekend tint, one element per weekend day.
+ * Render the weekend tint, one element per run of adjacent weekend days.
  *
  * A stripe of its own rather than a background on `.grid-day-body`, because the tint has
  * to run further than the body does: from immediately under the date row, through the
@@ -331,6 +331,24 @@ function renderGridBoundary(
  * rather than as a tinted rectangle with the band floating above it. Spanning rows 3 and
  * 4 is what buys that, and it costs nothing when the band is empty — row 3 is an `auto`
  * track and an empty stripe gives it no height to take.
+ *
+ * 🚨 A **run**, not a day, and that is what closes the gutter. One element per weekend day
+ * left the `day_spacing` gutter between Saturday and Sunday untinted, so the weekend read
+ * as two stripes where macOS Calendar has one block; a grid area spanning two tracks covers
+ * the gutter between them, so the tint is continuous for free and cannot spill past the
+ * ends of the run. That last part is the reason for spanning rather than for a negative
+ * margin, which would have needed a rule about which side to bleed on and would have got
+ * the outer edges wrong at some window.
+ *
+ * A run is grown from **adjacency**, never from a hardcoded Saturday and Sunday.
+ * `WEEKEND_BY_LOCALE` gives `ar` and `he` a Friday–Saturday weekend, whose interior
+ * boundary is somewhere else entirely, and `fa`, `hi`, `ml`, `ta` and `te` a single weekend
+ * day, which has no interior boundary at all and must stay one column wide.
+ *
+ * Both halves of adjacency are required, and the second is not redundant. Two weekend days
+ * can be neighbouring **columns** without being neighbouring **dates** — a card with
+ * `show_empty_days: false` can drop every weekday between a Sunday and the next Saturday,
+ * which would otherwise bleed a tint across a gutter six days wide.
  *
  * The date row is deliberately outside the span. It is a label, not part of the day's
  * field, and macOS Calendar leaves it clear too.
@@ -340,22 +358,42 @@ function renderGridBoundary(
  *
  * @param days - Days on screen, in order
  * @param hass - Home Assistant instance, whose locale decides which days are the weekend
- * @returns One stripe per weekend day, and `nothing` for every other day
+ * @returns One stripe per run of adjacent weekend days
  */
 function renderWeekendStripes(
   days: Types.EventsByDay[],
   hass?: Types.Hass | null,
-): Array<TemplateResult | typeof nothing> {
-  return days.map((day, index) =>
-    FormatUtils.isWeekendDate(new Date(day.timestamp), hass?.locale)
-      ? html`
-          <div
-            class="grid-weekend"
-            aria-hidden="true"
-            style=${styleMap({ gridColumn: String(index + 2), gridRow: '3 / span 2' })}
-          ></div>
-        `
-      : nothing,
+): TemplateResult[] {
+  const runs: Array<{ start: number; span: number }> = [];
+
+  days.forEach((day, index) => {
+    const date = new Date(day.timestamp);
+
+    if (!FormatUtils.isWeekendDate(date, hass?.locale)) {
+      return;
+    }
+
+    const open = runs[runs.length - 1];
+    const joins =
+      open !== undefined &&
+      open.start + open.span === index &&
+      FormatUtils.getCalendarDayDiff(new Date(days[index - 1].timestamp), date) === 1;
+
+    if (joins) {
+      open.span += 1;
+    } else {
+      runs.push({ start: index, span: 1 });
+    }
+  });
+
+  return runs.map(
+    ({ start, span }) => html`
+      <div
+        class="grid-weekend"
+        aria-hidden="true"
+        style=${styleMap({ gridColumn: `${start + 2} / span ${span}`, gridRow: '3 / span 2' })}
+      ></div>
+    `,
   );
 }
 

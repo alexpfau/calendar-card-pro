@@ -1237,11 +1237,121 @@ describe('separators between grid days', () => {
     expect(bodies.length, 'no day columns rendered').toBeGreaterThan(0);
     expect(weekendColumns.length, 'fixture spans no weekend').toBeGreaterThan(0);
 
-    // One stripe per weekend day, on that day's own track.
-    expect(stripes.map((stripe) => stripe.style.gridColumn)).toEqual(weekendColumns);
+    // One stripe per RUN of adjacent weekend days, spanning them and the gutter between —
+    // a grid area covers the gaps between the tracks it spans, which is what makes the
+    // tint continuous instead of two stripes with untinted paper between them.
+    //
+    // Reconciled against the day bodies that carry the weekend class rather than against a
+    // literal, so the fixture decides the answer and the two cannot disagree.
+    expect(stripes.map((stripe) => stripe.style.gridColumn)).toEqual([
+      `${weekendColumns[0]} / span 2`,
+      `${weekendColumns[2]} / span 2`,
+    ]);
+    expect(weekendColumns).toHaveLength(4);
     // Rows 3 and 4 — the all-day band and the time body. Row 2 is the date row and stays
     // clear; a stripe on row 4 alone is the shading stopping at the top of the grid.
     expect(new Set(stripes.map((stripe) => stripe.style.gridRow))).toEqual(new Set(['3 / span 2']));
+  });
+
+  it('bleeds the tint across the gutter only BETWEEN two weekend days', () => {
+    // Solved from adjacency rather than from Saturday and Sunday, so every weekend locale
+    // has to come out right — and two of the three cases below cannot be produced by the
+    // default at all. `WEEKEND_BY_LOCALE` gives `ar` and `he` a Friday-Saturday weekend,
+    // whose interior boundary is a day earlier, and `hi`, `fa`, `ml`, `ta` and `te` a
+    // single weekend day, which has no interior boundary and must stay one column wide.
+    //
+    // Read as the whole stripe list per locale, not as a spot check: the failure this
+    // guards against is a stripe ARRIVING at the wrong boundary as much as one going
+    // missing, and a `toContain` cannot see the first.
+    const stripesFor = (language?: string) => {
+      const hass = language ? ({ locale: { language } } as unknown as Types.Hass) : null;
+      const container = renderGrid(EVENTS, spanConfig({ days_to_show: 8 }), hass);
+      const weekendDays = Array.from(container.querySelectorAll<HTMLElement>('.grid-day-body'))
+        .filter((body) => body.classList.contains('weekend'))
+        .map((body) => body.style.gridColumn);
+
+      return {
+        weekendDays,
+        stripes: Array.from(container.querySelectorAll<HTMLElement>('.grid-weekend')).map(
+          (stripe) => stripe.style.gridColumn,
+        ),
+      };
+    };
+
+    // The window opens Wed 17 June 2026 and runs eight days to Wed 24, so the hour axis
+    // aside, Fri 19 is column 4, Sat 20 is column 5 and Sun 21 is column 6.
+    const sunday = stripesFor('en');
+
+    expect(sunday.weekendDays, 'fixture spans no weekend').toEqual(['5', '6']);
+    expect(sunday.stripes).toEqual(['5 / span 2']);
+
+    // Friday and Saturday, so the pair is one column earlier and Sunday is a weekday. A
+    // stripe at the Saturday-Sunday boundary here would be the hardcoded answer showing
+    // through, and a two-column span starting at 5 would be the run built from the wrong
+    // pair.
+    const friday = stripesFor('ar');
+
+    expect(friday.weekendDays).toEqual(['4', '5']);
+    expect(friday.stripes).toEqual(['4 / span 2']);
+
+    // A single weekend day has no interior boundary, so nothing may span. This is the case
+    // a Saturday-and-Sunday assumption gets wrong most loudly, by tinting a Monday.
+    const single = stripesFor('hi');
+
+    expect(single.weekendDays).toEqual(['6']);
+    expect(single.stripes).toEqual(['6 / span 1']);
+  });
+
+  it('does not bleed off the end of a window that splits the weekend', () => {
+    // A card ending on Saturday has no Sunday to bleed into. Spanning is what makes this
+    // safe by construction rather than by a rule about which side to bleed on — a grid
+    // area cannot extend past the tracks it names — so what this pins is that the run
+    // stops at one column rather than reaching for a track that is not there.
+    const container = renderGrid(EVENTS, spanConfig({ start_date: '2026-06-15', days_to_show: 6 }));
+    const bodies = Array.from(container.querySelectorAll<HTMLElement>('.grid-day-body'));
+    const stripes = Array.from(container.querySelectorAll<HTMLElement>('.grid-weekend'));
+
+    // Mon 15 to Sat 20: the last column is the Saturday and the Sunday is outside.
+    expect(bodies).toHaveLength(6);
+    expect(bodies[5].classList.contains('weekend'), 'fixture does not end on a weekend').toBe(true);
+    expect(stripes.map((stripe) => stripe.style.gridColumn)).toEqual(['7 / span 1']);
+
+    // ...and the opposite split, so the claim is about runs and not about the right edge:
+    // a window OPENING on a Sunday must not reach back for the Saturday before it.
+    const opens = renderGrid(EVENTS, spanConfig({ start_date: '2026-06-21', days_to_show: 4 }));
+    const opening = Array.from(opens.querySelectorAll<HTMLElement>('.grid-day-body'));
+
+    expect(opening[0].classList.contains('weekend'), 'fixture does not open on a weekend').toBe(
+      true,
+    );
+    expect(
+      Array.from(opens.querySelectorAll<HTMLElement>('.grid-weekend')).map(
+        (stripe) => stripe.style.gridColumn,
+      ),
+    ).toEqual(['2 / span 1']);
+  });
+
+  it('joins two weekend days only when they are adjacent DATES, not just columns', () => {
+    // Column adjacency is not date adjacency, and treating it as such would bleed a tint
+    // across a gutter six days wide. `show_empty_days: false` drops every event-free day,
+    // so a Sunday and the following Saturday can end up as neighbouring columns.
+    const config = spanConfig({ days_to_show: 9 });
+    config.time_grid = { show_empty_days: false } as Types.TimeGridOverrides;
+
+    const container = renderGrid(
+      [
+        allDay('2026-06-21', '2026-06-22', 'Sunday thing'),
+        allDay('2026-06-27', '2026-06-28', 'Saturday thing'),
+      ],
+      config,
+    );
+    const bodies = Array.from(container.querySelectorAll<HTMLElement>('.grid-day-body'));
+    const stripes = Array.from(container.querySelectorAll<HTMLElement>('.grid-weekend'));
+
+    // Two columns, both weekend days, adjacent as columns and six days apart as dates.
+    expect(bodies, 'the fixture did not collapse to two columns').toHaveLength(2);
+    expect(bodies.every((body) => body.classList.contains('weekend'))).toBe(true);
+    expect(stripes.map((stripe) => stripe.style.gridColumn)).toEqual(['2 / span 1', '3 / span 1']);
   });
 
   it('tints the weekend columns by default, and paints nothing when switched off', () => {
