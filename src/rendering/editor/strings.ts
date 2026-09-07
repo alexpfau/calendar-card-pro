@@ -151,7 +151,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.label_image_source.option.person.label': "A person's picture",
   'entity.label': 'Label',
   'entity.color': 'Event Color',
-  'entity.color.helper': 'Event titles from this calendar. Overrides the card colour.',
+  'entity.color.helper': 'Event titles from this calendar. Overrides the card color.',
   'entity.accent_color': 'Accent Color',
   'entity.accent_color.helper':
     'The vertical line beside each event, and its background where the background ' +
@@ -164,7 +164,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.accent_color_mode.option.home_assistant.label': 'Follow Home Assistant',
   'entity.accent_color_mode.option.custom.label': 'Custom color',
   'entity.label_icon_color': 'Label Icon Color',
-  'entity.label_icon_color.helper': 'Left empty, the icon takes the text colour around it.',
+  'entity.label_icon_color.helper': 'Left empty, the icon takes the text color around it.',
 
   'entity.show_time': 'Event Times',
   'entity.show_time.option.inherit.label': 'Follow the card',
