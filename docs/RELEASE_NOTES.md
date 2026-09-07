@@ -22,6 +22,12 @@ Set `view: grid` and the card stops being a list. Days become columns against a 
 
 Every option grid view adds lives under `time_grid:`, and that block is also where you override any presentation option for grid alone. See [Grid View](https://calendar-card-pro.alexpfau.com/features/grid-view).
 
+### 🔭 What Comes After This
+
+Grid view draws a block as tall as its event lasts, so a half-hour meeting gets a small box — and no amount of layout work makes a small box hold a description. This release answers that by revealing detail as a block grows: title first, then time, then location, description and weather. That is the right answer for reading a day at a glance, and deliberately not a way to read everything.
+
+The next feature release takes the other half. Tapping an event will open its details, and from there you will be able to add an event, change one, or remove it where the calendar supports it. It is tracked as [Event details & editing](https://github.com/alexpfau/calendar-card-pro/issues/604), and it is the reason grid view does not try to cram everything into a block.
+
 ### 🌗 Weekend Shading
 
 **A week you can read without reading it.** Grid view tints its weekend columns, so the shape of a week — five days of work and two of rest — is visible before you read a single date. `time_grid: { weekend_background_color: … }` takes any CSS color and `transparent` turns it off; the default is a mix of the theme's own text color, which darkens a light theme and lightens a dark one. Grid only, because a grid column stands the same height whatever is in it and a column-view column does not. See [Shading the Weekend](https://calendar-card-pro.alexpfau.com/features/grid-view#shading-the-weekend).
