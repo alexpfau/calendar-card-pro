@@ -1814,7 +1814,7 @@ describe('the axis', () => {
     expect(geometry(container.querySelector('.grid-event')!).top).toBeCloseTo((120 / 900) * 100, 6);
   });
 
-  it('labels each whole hour in the band and closes with the band end', () => {
+  it('labels each whole hour in the band, the closing one included', () => {
     const container = renderGrid(
       [timed(17, '09:00', '10:00', 'Standup')],
       buildConfig({
@@ -1829,21 +1829,15 @@ describe('the axis', () => {
       element.textContent?.trim(),
     );
 
+    // 11:00 is labelled because it is a whole hour, not because it is the end — the end
+    // boundary is treated exactly as an interior one. `axisHours` emits it, so there is
+    // one label list rather than an hour list with a special case appended to it.
     expect(labels).toEqual(['8', '9', '10', '11']);
-    // The closing label is the band's own end, not a fourth hour drawn by `axisHours` —
-    // which still stops one short, so a rule at the bottom edge with no slot beneath it
-    // stays out of the hour list. Asserting the class as well as the text is what keeps
-    // this from passing if `axisHours` ever grew the extra hour instead.
-    expect(requireElement<HTMLElement>(container, '.grid-axis-label-end').textContent?.trim()).toBe(
-      '11',
-    );
-    expect(container.querySelectorAll('.grid-axis-label-end')).toHaveLength(1);
   });
 
-  it('names the minutes when the band does not end on a clock hour', () => {
-    // `end_time` need not be a whole hour, and `formatHour` cannot spell one that is not.
-    // Left to it, the closing rule at 21:30 would be labelled `21` — a time it is not
-    // drawn at, sitting half an hour below the 21 label that is.
+  it('leaves a band end that is not a whole hour unlabelled', () => {
+    // The maintainer's rule: no labels beyond the full-hour ones. A closing label at
+    // `21:30` names a time no other label names, half an hour below the `21` that does.
     const container = renderGrid(
       [timed(17, '09:00', '10:00', 'Standup')],
       buildConfig({
@@ -1854,18 +1848,19 @@ describe('the axis', () => {
       }),
     );
 
-    expect(
-      Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
-        element.textContent?.trim(),
-      ),
-    ).toEqual(['8', '9', '10', '10:30']);
+    const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
+      element.textContent?.trim(),
+    );
+
+    expect(labels).toEqual(['8', '9', '10']);
+    expect(labels).not.toContain('10:30');
   });
 
   it('reads a 24:00 band end as midnight rather than as hour 24', () => {
     // `24:00` is the one bound that is a minute count rather than a clock reading, and it
-    // is reachable straight from the editor. Unwrapped it labels `24` in 24-hour mode and
-    // — worse, because it looks like a real time — `12 PM` in 12-hour mode, since 24 is
-    // not less than 12 and 24 % 12 is 0.
+    // is reachable straight from the editor. It IS a whole hour, so it is labelled — and
+    // unwrapped it labels `24` in 24-hour mode and — worse, because it looks like a real
+    // time — `12 PM` in 12-hour mode, since 24 is not less than 12 and 24 % 12 is 0.
     for (const [use24h, expected] of [
       [true, '0'],
       [false, '12 AM'],
@@ -1880,9 +1875,11 @@ describe('the axis', () => {
         }),
       );
 
-      expect(
-        requireElement<HTMLElement>(container, '.grid-axis-label-end').textContent?.trim(),
-      ).toBe(expected);
+      const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
+        element.textContent?.trim(),
+      );
+
+      expect(labels.at(-1)).toBe(expected);
     }
   });
 
@@ -1910,26 +1907,32 @@ describe('the axis', () => {
     );
   });
 
-  it('sizes the axis gutter from the closing label too', () => {
-    // The gutter is `max-content` by default, so its width comes from the hidden sizer.
-    // A closing label left out of it is the one label that can be wider than every hour
-    // above it — `10:30` against `10` — and it would be clipped by the axis's own
-    // `overflow: hidden` rather than widening the track it sits in.
+  it('sizes the axis gutter from every label it draws', () => {
+    // The gutter is `max-content` by default, so its width comes from the hidden sizer. A
+    // label left out of it would be clipped by the axis's own `overflow: hidden` rather
+    // than widening the track it sits in — and the widest label is not always the first.
+    // Reconciled against the labels actually drawn rather than against a literal list, so
+    // the two cannot drift apart the next time the label rule changes.
     const container = renderGrid(
-      [timed(17, '09:00', '10:00', 'Standup')],
+      [timed(17, '23:00', '23:30', 'Late')],
       buildConfig({
         view: 'grid',
         days_to_show: 3,
-        time_24h: true,
-        time_grid: { start_time: '08:00', end_time: '10:30' },
+        time_24h: false,
+        time_grid: { start_time: '22:00', end_time: '24:00' },
       }),
     );
 
+    const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
+      element.textContent?.trim(),
+    );
+
+    expect(labels, 'no labels rendered').toEqual(['10 PM', '11 PM', '12 AM']);
     expect(
       Array.from(
         requireElement<HTMLElement>(container, '.grid-axis-sizer').querySelectorAll('span'),
       ).map((span) => span.textContent?.trim()),
-    ).toEqual(['8', '9', '10', '10:30']);
+    ).toEqual(labels);
   });
 
   it('closes the body with a rule at the band end, spanning the day tracks only', () => {
@@ -1961,6 +1964,66 @@ describe('the axis', () => {
     expect(end.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(
       hourly.style.getPropertyValue('--calendar-card-grid-rule-color'),
     );
+  });
+
+  it('draws the closing rule only where the ruling cadence would have drawn one', () => {
+    // The maintainer's three cases. The closing element is the gradients' missing last
+    // rule — a gradient paints downward from each boundary and the one at 100% falls
+    // outside the box — so it exists exactly where an interior boundary at the same time
+    // would have been ruled, and nowhere else. Drawn unconditionally, `21:30` on hourly
+    // rules got a line at a time the cadence never rules.
+    const cases = [
+      { end_time: '21:00', slot_minutes: 60, ruled: true },
+      { end_time: '21:30', slot_minutes: 60, ruled: false },
+      { end_time: '21:30', slot_minutes: 30, ruled: true },
+      { end_time: '24:00', slot_minutes: 60, ruled: true },
+    ] as const;
+
+    for (const { end_time, slot_minutes, ruled } of cases) {
+      const container = renderGrid(
+        [timed(17, '09:00', '10:00', 'Standup')],
+        buildConfig({
+          view: 'grid',
+          days_to_show: 3,
+          time_grid: { start_time: '07:00', end_time, slot_minutes },
+        }),
+      );
+
+      // The ruled backdrop is always there; only the closing rule is conditional. Reading
+      // both is what keeps a render that produced no grid at all from passing as "no
+      // closing rule".
+      expect(
+        container.querySelectorAll('.grid-rules'),
+        `${end_time} at ${slot_minutes}min rendered no ruling`,
+      ).toHaveLength(1);
+      expect(
+        container.querySelectorAll('.grid-boundary-body-end'),
+        `${end_time} at ${slot_minutes}min: closing rule`,
+      ).toHaveLength(ruled ? 1 : 0);
+    }
+  });
+
+  it('labels the closing boundary only where it is a whole hour', () => {
+    // The other half of the same rule, and the half that differs from it: `21:30` at
+    // 30-minute slots IS ruled and is still not labelled, because there are no labels
+    // beyond the full-hour ones. Both are asserted from one render so the pair cannot be
+    // read as agreeing when it does not.
+    const container = renderGrid(
+      [timed(17, '09:00', '10:00', 'Standup')],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 3,
+        time_24h: true,
+        time_grid: { start_time: '07:00', end_time: '21:30', slot_minutes: 30 },
+      }),
+    );
+    const labels = Array.from(container.querySelectorAll('.grid-axis-label')).map((element) =>
+      element.textContent?.trim(),
+    );
+
+    expect(container.querySelectorAll('.grid-boundary-body-end')).toHaveLength(1);
+    expect(labels.at(-1)).toBe('21');
+    expect(labels).toHaveLength(15);
   });
 
   it('positions labels by the same percentages as the events', () => {

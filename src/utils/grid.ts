@@ -138,18 +138,24 @@ export function resolveBand(startTime: string, endTime: string): GridBand {
 }
 
 /**
- * Hours that get an axis label, one per whole hour inside the band.
+ * Hours that get an axis label, one per whole hour on or inside the band's bounds.
  *
- * The label at the band's own end is deliberately omitted: it would sit on the bottom
- * edge with no slot beneath it, and for a band ending at `24:00` it would have to name
- * hour 24, which is not a clock reading.
+ * 🚨 The band's end is included, and on exactly the terms every other boundary is: it
+ * earns a label when it falls on a whole hour and gets none when it does not. A band
+ * ending at `21:30` therefore labels `21` and stops, rather than naming a half hour no
+ * other label names — there are no labels beyond the full-hour ones. `24:00` is a whole
+ * hour like any other and is labelled; `formatHour` wraps it to midnight, which is the
+ * only place hour 24 needs handling at all.
+ *
+ * An earlier version stopped one hour short and let `renderAxis` append a label at the
+ * band end unconditionally, which is what put `21:30` in the gutter.
  *
  * @param band - Resolved band
- * @returns Ascending whole hours, each of which falls inside the band
+ * @returns Ascending whole hours, each of which falls on or inside the band's bounds
  */
 export function axisHours(band: GridBand): number[] {
   const first = Math.ceil(band.startMin / 60);
-  const last = Math.ceil(band.endMin / 60) - 1;
+  const last = Math.floor(band.endMin / 60);
   const hours: number[] = [];
 
   for (let hour = first; hour <= last; hour++) {
@@ -157,6 +163,33 @@ export function axisHours(band: GridBand): number[] {
   }
 
   return hours;
+}
+
+/**
+ * Whether the ruling already draws a line at the band's own end.
+ *
+ * The body's rules are two repeating gradients rather than one, so "the cadence puts a
+ * rule here" has to be asked of both — and each tiles from midnight, not from the band's
+ * start, which is what makes a plain modulo the right question. The hour gradient always
+ * paints, so any whole hour closes the body. The slot gradient is painted in
+ * `transparent` at `slot_minutes: 60`, precisely so it cannot double the hour rules, so it
+ * only contributes a boundary of its own below the hour.
+ *
+ * The closing rule itself is a separate element because a gradient cannot paint a rule at
+ * 100% — it paints downward from each boundary and that one falls outside the box — but
+ * the element exists only where the gradients would have drawn one. A band ending at
+ * `21:30` on hourly rules gets no line, because no interior 21:30 would have had one
+ * either.
+ *
+ * @param band - Resolved band
+ * @param slotMinutes - Configured rule spacing
+ * @returns `true` when the band's end falls on a ruled boundary
+ */
+export function bandEndHasRule(band: GridBand, slotMinutes: number): boolean {
+  const onHour = band.endMin % 60 === 0;
+  const onSlot = slotMinutes < 60 && slotMinutes > 0 && band.endMin % slotMinutes === 0;
+
+  return onHour || onSlot;
 }
 
 //-----------------------------------------------------------------------------

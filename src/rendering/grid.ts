@@ -332,6 +332,12 @@ function renderGridBoundary(
  * carrying the clipped-end marking said "this continues past the window" and then had
  * nothing to continue past.
  *
+ * 🚨 It is drawn only where the ruling would have drawn one, which the caller decides
+ * with `Grid.bandEndHasRule`. This element is the gradients' missing last rule, not a
+ * frame around the body: `end_time: 21:30` on hourly rules gets no line, because no
+ * interior 21:30 gets one either. Drawing it unconditionally put a rule at a time the
+ * cadence never rules, which is a line the user cannot account for from their own config.
+ *
  * Drawn as an element rather than as a third gradient stop for the same reason the band's
  * own rules are: it has to sit at the END of its row, and a gradient cannot be told to.
  * `alignSelf: 'end'` puts its lower edge on the band's lower edge, so it grows *upward*
@@ -467,17 +473,20 @@ function paintsSomething(value: string): boolean {
  * Labels are centred on their rule where their line box fits, then clamped inside the
  * axis so a short fixed-height grid cannot create scrollable overflow.
  *
- * 🚨 The band's own end gets a label too, and it is the clamp — not a second rule here —
- * that decides how it sits. The first label resolves to `clamp(0px, -0.5em, …)` and lands
- * flush at the top, entirely BELOW its rule, so it cannot bleed up into the all-day band.
- * The end label resolves to `clamp(0px, 100% - 0.5em, 100% - 1em)`, which the upper bound
- * wins, so it lands flush at the bottom, entirely ABOVE the closing rule. The treatment is
- * symmetric with the first by construction rather than by a second declaration, and it is
- * why the label cannot influence the card's height: it is absolutely positioned inside an
- * `overflow: hidden` axis whose height is the body row's, so there is no box for it to
- * grow. Centring it on the rule instead would need `overflow: visible` here, which is the
- * one declaration keeping a compressed axis from extending the card past its configured
- * `height`.
+ * 🚨 There is nothing special about the band's own end here, and there used to be. Every
+ * label comes from `axisHours`, which includes the closing boundary only when it is a
+ * whole hour like any other; a band ending at `21:30` gets no label there, because no
+ * interior half hour gets one either. The label list is therefore one list, and the
+ * clamp — not a second rule here — is what places its ends. The first label resolves to
+ * `clamp(0px, -0.5em, …)` and lands flush at the top, entirely BELOW its rule, so it
+ * cannot bleed up into the all-day band. A label at 100% resolves to
+ * `clamp(0px, 100% - 0.5em, 100% - 1em)`, which the upper bound wins, so it lands flush at
+ * the bottom, entirely ABOVE the closing rule. The treatment is symmetric with the first
+ * by construction rather than by a second declaration, and it is why the label cannot
+ * influence the card's height: it is absolutely positioned inside an `overflow: hidden`
+ * axis whose height is the body row's, so there is no box for it to grow. Centring it on
+ * the rule instead would need `overflow: visible` here, which is the one declaration
+ * keeping a compressed axis from extending the card past its configured `height`.
  *
  * @param band - The visible band
  * @param config - Card configuration
@@ -489,17 +498,12 @@ function renderAxis(
   config: Types.Config,
   hass?: Types.Hass | null,
 ): TemplateResult {
-  const hours = Grid.axisHours(band);
   const bandLength = band.endMin - band.startMin;
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const labels = [
-    ...hours.map((hour) => ({
-      text: formatHour(hour, use24h),
-      topPct: ((hour * 60 - band.startMin) / bandLength) * 100,
-      end: false,
-    })),
-    { text: formatBandEnd(band.endMin, use24h), topPct: 100, end: true },
-  ];
+  const labels = Grid.axisHours(band).map((hour) => ({
+    text: formatHour(hour, use24h),
+    topPct: ((hour * 60 - band.startMin) / bandLength) * 100,
+  }));
 
   return html`
     <div class="grid-axis" style=${styleMap({ gridColumn: '1', gridRow: '4' })}>
@@ -507,9 +511,9 @@ function renderAxis(
         ${labels.map(({ text }) => html`<span>${text}</span>`)}
       </div>
       ${labels.map(
-        ({ text, topPct, end }) =>
+        ({ text, topPct }) =>
           html`<div
-            class=${classMap({ 'grid-axis-label': true, 'grid-axis-label-end': end })}
+            class="grid-axis-label"
             style=${styleMap({
               '--calendar-card-grid-axis-label-top': `${topPct}%`,
             })}
@@ -527,53 +531,27 @@ function renderAxis(
  * Hour-only, deliberately: `FormatUtils.formatTime` always emits minutes, and `06:00`
  * down the whole gutter spends width on three characters that never change.
  *
- * @param hour - Hour of the day, 0-23
+ * 🚨 Hour 24 is wrapped to 0, and it is reachable straight from the editor: `end_time`
+ * accepts `24:00`, the one bound that is a minute count rather than a clock reading, and
+ * `axisHours` now emits it as a whole hour like any other. Unwrapped it would label `24`
+ * in 24-hour mode and — worse, because it looks like a real time — `12 PM` in 12-hour
+ * mode, since 24 is not less than 12 and 24 % 12 is 0.
+ *
+ * @param hour - Hour of the day, 0-24, where 24 is midnight at the end of the day
  * @param use24h - Whether to use 24-hour time
  * @returns The label
  */
 function formatHour(hour: number, use24h: boolean): string {
+  const wrapped = hour % 24;
+
   if (use24h) {
-    return String(hour);
+    return String(wrapped);
   }
 
-  const suffix = hour < 12 ? 'AM' : 'PM';
-  const twelve = hour % 12 === 0 ? 12 : hour % 12;
+  const suffix = wrapped < 12 ? 'AM' : 'PM';
+  const twelve = wrapped % 12 === 0 ? 12 : wrapped % 12;
 
   return `${twelve} ${suffix}`;
-}
-
-/**
- * Format the label for the band's own end.
- *
- * Not `formatHour`, and the two cases it adds are both reachable from the editor.
- * `end_time` need not be a whole hour, so `21:30` has to name its minutes or the closing
- * rule is labelled with a time it is not drawn at; and `end_time: 24:00` is the one bound
- * that is a minute count rather than a clock reading, so hour 24 is wrapped to 0 and reads
- * as the midnight it is. Whole hours still go through `formatHour`, so the end label and
- * the hour labels above it cannot disagree about how an hour is spelled.
- *
- * @param endMin - The band's exclusive upper bound, in minutes from midnight
- * @param use24h - Whether to use 24-hour time
- * @returns The label
- */
-function formatBandEnd(endMin: number, use24h: boolean): string {
-  const hour = Math.floor(endMin / 60) % 24;
-  const minute = endMin % 60;
-
-  if (minute === 0) {
-    return formatHour(hour, use24h);
-  }
-
-  const padded = String(minute).padStart(2, '0');
-
-  if (use24h) {
-    return `${hour}:${padded}`;
-  }
-
-  const suffix = hour < 12 ? 'AM' : 'PM';
-  const twelve = hour % 12 === 0 ? 12 : hour % 12;
-
-  return `${twelve}:${padded} ${suffix}`;
 }
 
 /**
@@ -1200,7 +1178,7 @@ export function renderGridGroupedEvents(
         : nothing}
       ${showAxisLabels ? renderAxis(band, config, hass) : nothing}
       ${renderRules(band, slotMinutes, gridDays.length, hourLineColor)}
-      ${renderGridEndRule(hourLineColor)}
+      ${Grid.bandEndHasRule(band, slotMinutes) ? renderGridEndRule(hourLineColor) : nothing}
       ${gridDays.map((day, index) =>
         renderDayBody(
           day,

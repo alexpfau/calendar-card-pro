@@ -122,13 +122,16 @@ time_grid:
 `show_axis_labels: false` removes the hour labels while keeping the scale — useful on a
 narrow card where the ruling alone is enough.
 
-The axis is closed at the bottom by a rule at `end_time`, drawn in the same gray and at
-the same width as the hour rules above it, so a block running to the foot of the window
-ends against a line rather than trailing off the paper. The label beside it names the
-configured end, minutes included when you set one — `21:30` gets `21:30`, and `24:00`
-reads as midnight rather than as an hour 24. It sits just above the closing rule, the
-mirror of the first label sitting just below its own, and it never changes the card's
-height: the gutter clips at the foot of the time body whatever the labels do.
+The band's own end is treated as any other boundary on the axis, not as a frame. It is
+labeled when it falls on a whole hour, and ruled when the ruling cadence would have put a
+line there anyway — so `end_time: 21:00` on hourly rules gets both, `21:30` on hourly rules
+gets neither, and `21:30` at `slot_minutes: 30` gets the rule without a label, because there
+are no labels beyond the full-hour ones. A band ending at `24:00` is labeled as midnight
+rather than as an hour 24. Where the closing rule is drawn it is the same gray and width as
+the hour rules above it, so a block running to the foot of the window ends against a line
+rather than trailing off the paper. The last label sits just above the foot of the body, the
+mirror of the first sitting just below the top, and it never changes the card's height: the
+gutter clips at the foot of the time body whatever the labels do.
 
 A grid draws four families of rule, and each has its own option. They ship the same gray —
 `var(--divider-color)` at half strength — so the paper reads as one grid rather than as a
@@ -184,8 +187,10 @@ an even margin above and below.
 **Across the time body**, `hour_line_*` rules every hour, and every `slot_minutes` boundary
 in between at the same width. Where a slot boundary is also an hour, the two coincide and
 read a shade heavier — the hierarchy that lets the eye find the hour on a quarter-hour grid.
-The rule closing the body at `end_time` belongs to this family too, so `hour_line_width: 0`
-removes the ruling and its closing line together.
+The rule closing the body at `end_time` belongs to this family too — it is the one the
+cadence could not paint, since a gradient rules downward from each boundary and the boundary
+at the foot falls outside the body — so it is drawn only where the cadence would have drawn
+it, and `hour_line_width: 0` removes the ruling and its closing line together.
 
 ::: tip Half Strength Is The Default, Not The Drawing
 The dilution is in each option's shipped default, so a color you set yourself is drawn

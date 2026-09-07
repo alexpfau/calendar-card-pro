@@ -7,6 +7,7 @@ import {
   MINUTES_PER_DAY,
   addDays,
   axisHours,
+  bandEndHasRule,
   computeBannerPlacement,
   computeEventPlacement,
   computeNowLinePct,
@@ -134,26 +135,61 @@ describe('resolveBand', () => {
 });
 
 describe('axisHours', () => {
-  it('labels every whole hour inside the band', () => {
-    expect(axisHours(band('07:00', '11:00'))).toEqual([7, 8, 9, 10]);
+  it('labels every whole hour in the band, the closing one included', () => {
+    expect(axisHours(band('07:00', '11:00'))).toEqual([7, 8, 9, 10, 11]);
   });
 
-  // The band's own end gets no label: it sits on the bottom edge with no slot under it.
-  it('omits the closing hour', () => {
-    expect(axisHours(band('07:00', '11:00'))).not.toContain(11);
+  // The end boundary is treated exactly as an interior one: a whole hour earns a label,
+  // anything else earns none. `21:30` therefore stops at 21 rather than naming a half
+  // hour no other label names.
+  it('omits a closing boundary that is not a whole hour', () => {
+    const hours = axisHours(band('07:00', '11:30'));
+
+    expect(hours).toEqual([7, 8, 9, 10, 11]);
+    expect(hours.at(-1)).toBe(11);
   });
 
-  // The reason the closing label is omitted at all — a band ending at 24:00 would
-  // otherwise have to name hour 24, which is not a clock reading.
-  it('never emits hour 24 for a band ending at midnight', () => {
-    const hours = axisHours(band('22:00', '24:00'));
-
-    expect(hours).toEqual([22, 23]);
-    expect(hours).not.toContain(24);
+  // Hour 24 is a whole hour and gets a position like any other; `formatHour` is the one
+  // place that has to know it spells as midnight rather than as an hour 24.
+  it('emits hour 24 for a band ending at midnight', () => {
+    expect(axisHours(band('22:00', '24:00'))).toEqual([22, 23, 24]);
   });
 
   it('starts at the first whole hour inside a half-past band', () => {
-    expect(axisHours(band('06:30', '09:00'))).toEqual([7, 8]);
+    expect(axisHours(band('06:30', '09:00'))).toEqual([7, 8, 9]);
+  });
+
+  it('drops both ends of a band that starts and ends off the hour', () => {
+    expect(axisHours(band('06:30', '09:30'))).toEqual([7, 8, 9]);
+  });
+});
+
+describe('bandEndHasRule', () => {
+  // The three cases the maintainer specified, plus the midnight bound.
+  it.each([
+    ['21:00', 60, true],
+    ['21:30', 60, false],
+    ['21:30', 30, true],
+    ['24:00', 60, true],
+  ] as const)(
+    '%s at %i-minute slots draws a closing rule: %s',
+    (endTime, slotMinutes, expected) => {
+      expect(bandEndHasRule(band('07:00', endTime), slotMinutes)).toBe(expected);
+    },
+  );
+
+  // The slot gradient is painted transparent at 60, so only the hour family can close a
+  // band there — the reason the predicate asks two questions rather than one.
+  it('does not credit the slot gradient with a rule it paints in transparent', () => {
+    expect(bandEndHasRule(band('07:00', '21:20'), 20)).toBe(true);
+    expect(bandEndHasRule(band('07:00', '21:20'), 60)).toBe(false);
+  });
+
+  // The gradients tile from midnight, not from the band's start, so the predicate is a
+  // modulo on the end alone. A band starting off the hour cannot shift the cadence.
+  it('reads the cadence from midnight rather than from the band start', () => {
+    expect(bandEndHasRule(band('06:30', '21:00'), 60)).toBe(true);
+    expect(bandEndHasRule(band('06:30', '21:30'), 60)).toBe(false);
   });
 });
 
