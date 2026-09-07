@@ -394,8 +394,18 @@ describe('resolveEffectiveConfig', () => {
       //
       // So it is compared whole, against a literal. Adding a row here means adding it
       // below on purpose and saying why in the docblock; that is the cost, and it is the
-      // point. `docs/features/grid-view.md` carries the same set as a table a reader can
-      // see, and `check:docs` reconciles the count of it against this one.
+      // point.
+      //
+      // 🚨 This comment used to end by saying `check:docs` reconciled the grid-view table
+      // and its count against this one, and it did not — measured with a control, a grep
+      // of `check-docs.mjs` for `TIME_GRID`, `grid-view` or `divergent` returned zero
+      // against four hits for `COLUMN_DEFAULT_OVERRIDES` and two for `column-view`, so the
+      // search worked and the gate was absent. The thirteen entries agreed with the docs
+      // by luck. A comment claiming a reconciliation that does not exist is worse than no
+      // comment, because it is exactly what stops the next person adding one.
+      //
+      // Check 17b now does it, on the KEY SET and the spelled-out count, both directions —
+      // so this pin owns the VALUES and that gate owns which options are in the table.
       expect({ ...TIME_GRID_DEFAULT_OVERRIDES }).toEqual({
         day_separator_width: '1px',
         day_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',

@@ -1633,6 +1633,7 @@ function report(counts) {
       `${counts.gates} CI gates checked, ` +
       `${counts.enums} enumerated options checked, ` +
       `${counts.sentinels} sentinel rows checked, ` +
+      `${counts.gridDefaults} grid divergent defaults reconciled, ` +
       `${counts.runtimeEnums} runtime enum surfaces checked, ` +
       `${counts.removed} removed options checked, ` +
       `${counts.reachable} pages reachable from the navigation, ` +
@@ -1673,13 +1674,11 @@ function report(counts) {
 /**
  * Shared options with column-view default overrides must say so in the reference table.
  */
-function readColumnDefaultOverrides() {
+function readDefaultOverrides(table) {
   const src = readFileSync(VIEW_TS, 'utf8');
-  const block = src.match(/COLUMN_DEFAULT_OVERRIDES[^=]*=\s*\{([\s\S]*?)\n\}/);
+  const block = src.match(new RegExp(`${table}[^=]*=\\s*\\{([\\s\\S]*?)\\n\\}`));
   if (!block) {
-    console.error(
-      `\n✗ FATAL: could not locate COLUMN_DEFAULT_OVERRIDES in ${relative(ROOT, VIEW_TS)}.\n`,
-    );
+    console.error(`\n✗ FATAL: could not locate ${table} in ${relative(ROOT, VIEW_TS)}.\n`);
     process.exit(2);
   }
 
@@ -1688,8 +1687,13 @@ function readColumnDefaultOverrides() {
     const m = line.match(/^ {2}([a-z0-9_]+):\s*(.+?),?\s*$/);
     if (m) out.set(m[1], m[2].replace(/,\s*$/, '').trim());
   }
-  assertFound(out, 'COLUMN_DEFAULT_OVERRIDES keys', VIEW_TS);
+  assertFound(out, `${table} keys`, VIEW_TS);
   return out;
+}
+
+/** The column table, named so the call sites read as two instances of one check. */
+function readColumnDefaultOverrides() {
+  return readDefaultOverrides('COLUMN_DEFAULT_OVERRIDES');
 }
 
 function checkColumnDefaultOverrides(overrides) {
@@ -1716,6 +1720,103 @@ function checkColumnDefaultOverrides(overrides) {
       );
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Check 17b — the grid divergent-default table says what the code actually does
+// ---------------------------------------------------------------------------
+
+/**
+ * `TIME_GRID_DEFAULT_OVERRIDES` and the table on `docs/features/grid-view.md` list the
+ * same options, and the prose count above it agrees with both.
+ *
+ * 🚨 This gate was **documented before it existed**. `tests/view-config.test.ts` said the
+ * count was reconciled here, and a grep for `TIME_GRID`, `grid-view` or `divergent` in
+ * this file returned zero — against four hits for `COLUMN_DEFAULT_OVERRIDES` and two for
+ * `column-view`, so the search was working and the check was simply absent. The thirteen
+ * entries agreed with the docs by luck. That is worse than no gate: a comment saying the
+ * reconciliation exists is exactly what stops the next person adding it.
+ *
+ * Reconciled on the KEY SET rather than on the values, and the asymmetry with the column
+ * check beside it is deliberate. Column view's reference rows quote their divergent value
+ * verbatim; grid's table renders some of them for a reader instead — `day_separator_color`
+ * reads "Half-strength `var(--divider-color)`" where the code holds a `color-mix()`. A
+ * value comparison would therefore have to be loosened to the point of proving nothing,
+ * while the key set is exact and catches the failure that actually happens: a row arriving
+ * or leaving on one side only.
+ *
+ * @param {Map<string, string>} overrides parsed from `view.ts`
+ * @returns {number} rows reconciled
+ */
+function checkGridDefaultOverrides(overrides) {
+  const file = join(DOCS_DIR, 'features', 'grid-view.md');
+  const text = readFileSync(file, 'utf8');
+  // Matched on the heading TEXT, not on its emoji: h2 emoji are a docs-style convention
+  // that may be restyled, and a gate that stops finding its own section over one would be
+  // reporting a missing table rather than a changed heading.
+  const section = text.split(/^##\s+\S*\s*Options That Start From a Different Default\s*$/m)[1];
+
+  if (section === undefined) {
+    error(
+      'docs/features/grid-view.md: no "Options That Start From a Different Default" section, ' +
+        'so the grid divergent defaults are documented nowhere a reader can find them',
+    );
+    return 0;
+  }
+
+  const table = section.split(/\n## /)[0];
+  const documented = new Set();
+  for (const line of table.split('\n')) {
+    const m = line.match(/^\|\s*`([a-z0-9_]+)`\s*\|/);
+    if (m) documented.add(m[1]);
+  }
+
+  // A denominator beside the verdict: an empty table would otherwise report as two clean
+  // set differences.
+  if (documented.size === 0) {
+    error('docs/features/grid-view.md: the divergent-default table has no option rows');
+    return 0;
+  }
+
+  for (const key of overrides.keys()) {
+    if (!documented.has(key)) {
+      error(
+        `${key}: in TIME_GRID_DEFAULT_OVERRIDES but has no row in the grid-view table, so ` +
+          'grid silently resolves an option the page does not say it changes',
+      );
+    }
+  }
+  for (const key of documented) {
+    if (!overrides.has(key)) {
+      error(
+        `${key}: has a row in the grid-view divergent-default table but is not in ` +
+          'TIME_GRID_DEFAULT_OVERRIDES, so the page describes a default the card does not use',
+      );
+    }
+  }
+
+  const word = NUMBER_WORDS[overrides.size];
+  const claim = table.match(
+    new RegExp(`\\b(${NUMBER_WORDS.join('|')})\\s+shared options do not inherit`, 'i'),
+  );
+  if (!claim) {
+    error(
+      'docs/features/grid-view.md: the divergent-default section no longer opens with a ' +
+        'spelled-out count of the options, which is the sentence this gate reconciles',
+    );
+  } else if (word === undefined) {
+    error(
+      `TIME_GRID_DEFAULT_OVERRIDES has ${overrides.size} entries, past the end of ` +
+        'NUMBER_WORDS — append the missing words rather than dropping the prose count',
+    );
+  } else if (claim[1].toLowerCase() !== word.toLowerCase()) {
+    error(
+      `docs/features/grid-view.md: says "${claim[0]}", but TIME_GRID_DEFAULT_OVERRIDES has ` +
+        `${overrides.size}. Write "${word} shared options do not inherit".`,
+    );
+  }
+
+  return documented.size;
 }
 
 // ---------------------------------------------------------------------------
@@ -2305,7 +2406,31 @@ function checkRuntimeEnumUsages(enums, docs) {
 // Check 22 — the migration table lists exactly the options the card still reports
 // ---------------------------------------------------------------------------
 
-const NUMBER_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight'];
+// Indexed by the count they spell, so entries may only ever be appended — a word
+// inserted anywhere but the end silently renumbers every check that reads this.
+const NUMBER_WORDS = [
+  'Zero',
+  'One',
+  'Two',
+  'Three',
+  'Four',
+  'Five',
+  'Six',
+  'Seven',
+  'Eight',
+  'Nine',
+  'Ten',
+  'Eleven',
+  'Twelve',
+  'Thirteen',
+  'Fourteen',
+  'Fifteen',
+  'Sixteen',
+  'Seventeen',
+  'Eighteen',
+  'Nineteen',
+  'Twenty',
+];
 
 /**
  * The removed-key maps in config.ts, keyed by the option a user may still have.
@@ -2838,6 +2963,9 @@ function main() {
   checkDefaults(defaults, rows, buildConstantResolver());
   checkColumnDefaults(readColumnDefaults(), readColumnRows());
   checkColumnDefaultOverrides(readColumnDefaultOverrides());
+  const gridDefaults = checkGridDefaultOverrides(
+    readDefaultOverrides('TIME_GRID_DEFAULT_OVERRIDES'),
+  );
   checkWeatherScopes(readWeatherScopeDefaults(), readWeatherScopeRows(), fields);
   checkCoverage(fields, docs);
   checkFences(docs);
@@ -2885,6 +3013,7 @@ function main() {
       gates,
       enums,
       sentinels,
+      gridDefaults,
       runtimeEnums,
       removed,
       reachable,
