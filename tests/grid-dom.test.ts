@@ -1304,16 +1304,33 @@ describe('separators between grid days', () => {
     }
   });
 
+  it('starts the band rules where the hour rules start, not at the card edge', () => {
+    // Two earlier answers were wrong in opposite directions. `1 / -1` carries a rule
+    // across the hour axis, where macOS Calendar has none; cancelling the card's inset
+    // on top of that ran both rules out to the card's own edges and made the grid read
+    // as framed by the card rather than ruled inside it.
+    //
+    // Reconciled against `renderRules` rather than asserted alone, because "where the
+    // hour rules start" is the claim and a literal repeated in two files is a literal
+    // that drifts in one of them. `.grid-rules` spans `2 / span columnCount`, which
+    // ends on the same line as `-1`, so both must begin at track 2.
+    const container = renderGrid(EVENTS, spanConfig());
+    const top = requireElement<HTMLElement>(container, '.grid-boundary-band-top');
+    const bottom = requireElement<HTMLElement>(container, '.grid-boundary-band-bottom');
+    const hourly = requireElement<HTMLElement>(container, '.grid-rules');
+    const days = container.querySelectorAll('.grid-day-body').length;
+
+    expect(days, 'no day columns rendered').toBeGreaterThan(0);
+    expect(hourly.style.gridColumn).toBe(`2 / span ${days}`);
+    expect(top.style.gridColumn).toBe('2 / -1');
+    expect(bottom.style.gridColumn).toBe('2 / -1');
+  });
+
   it('frames the all-day band with one unbroken rule above and a heavier one below', () => {
     const container = renderGrid(EVENTS, spanConfig());
     const top = requireElement<HTMLElement>(container, '.grid-boundary-band-top');
     const bottom = requireElement<HTMLElement>(container, '.grid-boundary-band-bottom');
 
-    // `1 / -1` is what makes them unbroken: a spanning grid item covers the gutters and
-    // the hour axis, where the per-day header rule they replace was cut into one dash per
-    // column by `day_spacing`.
-    expect(top.style.gridColumn).toBe('1 / -1');
-    expect(bottom.style.gridColumn).toBe('1 / -1');
     expect(top.style.gridRow).toBe('3');
     expect(bottom.style.gridRow).toBe('4');
 

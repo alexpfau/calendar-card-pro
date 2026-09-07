@@ -1768,18 +1768,16 @@ describe('card stylesheet', () => {
       expect(declared('.grid-boundary', 'pointer-events')).toBe('none');
     });
 
-    it('runs the band rules out to the card edges, not just across the tracks', () => {
-      // `grid-column: 1 / -1` is only half of "full width" and reads like all of it: a
-      // grid area stops at the container's CONTENT box, so the card's own padding-inline
-      // stayed outside both rules and they finished 16px short at each end. Measured on
-      // the deployed build before this change — the rules did cross the hour axis, and
-      // did stop inboard of the card.
+    it('leaves the band rules inside the grid rather than out to the card edges', () => {
+      // `.grid-boundary` used to cancel the card's inset with a negative inline margin so
+      // the rules reached the card's own edges. They span the day tracks now, which is
+      // where the hourly rules already stop, so there is no inset left to escape and the
+      // margin is gone.
       //
-      // Reconciled as a triple rather than asserted one rule at a time. The three
-      // declarations have to cancel exactly, and each is wrong on its own: the inset
-      // without the container's own margin/padding pair puts the negative margin outside
-      // a scroll container, where the cramp fallback turns it into 16px of phantom
-      // horizontal scroll.
+      // Reconciled as a set rather than asserted one rule at a time, because the three
+      // container declarations still have to cancel exactly: the cramp fallback scrolls
+      // `.grid-container`, so the inset has to stay inside the scrollable area or a
+      // cramped grid gains 16px of phantom horizontal scroll.
       const inset = 'var(--calendar-card-grid-inset)';
       const bleed = `calc(-1 * ${inset})`;
 
@@ -1792,10 +1790,10 @@ describe('card stylesheet', () => {
         cardInset: inset,
         containerBleed: bleed,
         containerInset: inset,
-        boundaryBleed: bleed,
+        boundaryBleed: '',
       });
 
-      // And the property has to be defined, or every one of the four resolves to nothing
+      // And the property has to be defined, or the three that remain resolve to nothing
       // and the whole grid loses its inset while this assertion stays green.
       expect(declared('.calendar-card-pro.grid-view', '--calendar-card-grid-inset')).toBe('16px');
     });

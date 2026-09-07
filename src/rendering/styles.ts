@@ -1960,11 +1960,15 @@ export const cardStyles = css`
     width: 100%;
     /* Out to the card's edges and back in again, which nets to no change in where a
        track starts: width is 100% of the padded card, the padding restores the inset,
-       and the border box lands exactly on the card's own edges. It exists so the band
-       rules below have something to reach. They cancel the inset with a negative margin,
-       and a negative margin only stays inside the scrollable area while the box it
-       escapes into is this element's own padding — do it against the card instead and
-       the cramp fallback's overflow-x: auto gains 16px of scroll nobody asked for. */
+       and the border box lands exactly on the card's own edges.
+
+       It was introduced so the band rules could reach the card's edges and they no longer
+       do — they stop at the day tracks, where the hour rules stop. What it still buys is
+       the cramp fallback: overflow-x: auto scrolls this element, so the inset has to be
+       inside the scrollable area or a cramped grid scrolls within a 16px frame instead of
+       edge to edge. Cancelling the inset against the card rather than against this
+       element's own padding is what would put it outside, which is 16px of phantom scroll
+       nobody asked for. */
     margin-inline: calc(-1 * var(--calendar-card-grid-inset));
     padding-inline: var(--calendar-card-grid-inset);
     --calendar-card-grid-event-gap: 1px;
@@ -2074,12 +2078,13 @@ export const cardStyles = css`
     align-self: start;
     pointer-events: none;
     z-index: 3;
-    /* Edge to edge across the card, the way macOS Calendar draws the line under its
-       all-day area. Spanning 1 / -1 already carries a rule across the hour axis and the
-       gutters — that part was never the gap — but a grid area stops at the container's
-       content box, so both rules stopped 16px short of the card at each end and read as
-       a framed inset rather than as the card's own furniture. */
-    margin-inline: calc(-1 * var(--calendar-card-grid-inset));
+    /* No inline margin, and its absence is deliberate. The rules used to span 1 / -1 and
+       then cancel the card's own inset with calc(-1 * var(--calendar-card-grid-inset)),
+       which ran them out to the card's edges — past the hour axis, which macOS Calendar
+       leaves clear, and out over the padding, which made the grid read as framed by the
+       card rather than ruled inside it. They span the day tracks only now, which is the
+       range renderRules already uses, so every horizontal rule in the grid starts and
+       stops on the same two lines and there is no inset left to escape. */
   }
 
   /* ----- Day headers ----- */

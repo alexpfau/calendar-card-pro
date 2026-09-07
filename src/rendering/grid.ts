@@ -244,19 +244,25 @@ function renderGridSeparator(
 }
 
 /**
- * Render one horizontal rule across the whole card at an all-day band boundary.
+ * Render one horizontal rule across the day columns at an all-day band boundary.
  *
  * Unbroken, which is the whole point: the per-day header rule these replace was drawn
  * inside each day header, so `day_spacing` cut it into one dash per column and the row it
- * was supposed to close read as a row of ticks. One element spanning `1 / -1` covers the
- * gutters and the hour axis too, so the band sits in a frame rather than beside one.
+ * was supposed to close read as a row of ticks. One element spanning every day track
+ * covers the gutters too, so the band sits in a frame rather than beside one.
  *
- * 🚨 `1 / -1` is not the whole of "full width", and believing it was left both rules
- * 16px short at each end. A grid area stops at the container's content box, so the card's
- * own `padding-inline` was still outside it — the rules ran the axis and the gutters and
- * then stopped inboard of the card's edges. `.grid-boundary` cancels that inset in the
- * stylesheet; measure the painted box rather than reading this row span if it is ever in
- * doubt again.
+ * 🚨 It starts at the first day column, not at the card's edge, and both earlier answers
+ * were wrong in opposite directions. `1 / -1` runs the rule across the hour axis as well,
+ * which puts a horizontal line beside the hour labels where macOS Calendar has none;
+ * cancelling the card's inset on top of that ran it out to the card's own edges and made
+ * the grid look framed by the card rather than ruled inside it. `2 / -1` is the range the
+ * hourly rules already use — `renderRules` spans `2 / span columnCount`, which ends on the
+ * same line — so the horizontal rules of the grid now all begin and end together, at the
+ * left edge of the first day column and the right edge of the last.
+ *
+ * That also means `.grid-boundary` carries no inline margin. The negative one it used to
+ * have existed only to escape the container's padding, and there is nothing left to
+ * escape.
  *
  * Both rules are drawn from `day_separator_width` and `day_separator_color`, the same
  * options as the vertical rules, so the grid's frame is one system a user changes in one
@@ -273,8 +279,9 @@ function renderGridSeparator(
  * a whole-pixel base is itself a whole pixel, where 1.5 would have put the emphasis rule
  * back on the half-pixel raster the rest of this change is getting off.
  *
- * `align-self: start` and an explicit height keep them on the boundary and out of the row
- * sizing, so turning them on cannot change how tall the band or the axis is.
+ * An explicit height keeps a rule out of the row sizing, and `align-self: start` in the
+ * stylesheet holds it at the top of its row, so turning the frame on cannot change how
+ * tall the band or the axis is.
  *
  * @param kind - Which boundary this is, used for the class and the row
  * @param width - Resolved CSS length for the rule
@@ -287,7 +294,7 @@ function renderGridBoundary(kind: 'band-top' | 'band-bottom', width: string, col
       class="grid-boundary grid-boundary-${kind}"
       aria-hidden="true"
       style=${styleMap({
-        gridColumn: '1 / -1',
+        gridColumn: '2 / -1',
         gridRow: kind === 'band-top' ? '3' : '4',
         height: width,
         backgroundColor: color,
