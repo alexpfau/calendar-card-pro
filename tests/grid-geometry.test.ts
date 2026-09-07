@@ -225,6 +225,8 @@ describe('computeEventPlacement', () => {
   // A percentage scale is only self-consistent if it never leaves the box, whatever
   // the band. This is what lets a fixed content height compress the grid with no re-math.
   it('never places a block outside 0-100% for any in-band interval', () => {
+    let checked = 0;
+
     for (const [start, end] of [
       ['00:00', '24:00'],
       ['06:00', '18:00'],
@@ -235,13 +237,17 @@ describe('computeEventPlacement', () => {
       for (let startMin = b.startMin; startMin < b.endMin; startMin += 7) {
         const placement = computeEventPlacement(startMin, startMin + 5, b);
 
-        if (placement === null) continue;
+        expect(placement, `five-minute event at ${startMin} in ${start}-${end}`).not.toBeNull();
+        if (placement === null) throw new Error('placement assertion did not narrow');
 
         expect(placement.topPct).toBeGreaterThanOrEqual(0);
         expect(placement.heightPct).toBeGreaterThan(0);
         expect(placement.topPct + placement.heightPct).toBeLessThanOrEqual(100.0000001);
+        checked += 1;
       }
     }
+
+    expect(checked).toBeGreaterThan(0);
   });
 });
 
