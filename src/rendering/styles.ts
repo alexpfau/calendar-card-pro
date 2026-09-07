@@ -514,6 +514,59 @@ export const cardStyles = css`
     border-radius: 0;
   }
 
+  /* ===== The ink an accent-colored event writes its text in =====
+   *
+   * The raw accent is not a text color. macOS Calendar spends an event's color three ways
+   * and only one of them is undiluted: the stripe is the accent at full strength, the block
+   * is the accent at low opacity, and the text is a third colour derived from both. Painting
+   * text in the accent itself measured 2.16:1 for a blue calendar and 2.32:1 for a coral one
+   * against their own blocks in the light theme, where normal text wants 4.5:1 -- and the
+   * failures invert in the dark theme, where a purple calendar read 1.89:1.
+   *
+   * Mixing toward --primary-text-color is what makes one declaration answer both themes. The
+   * token is near-black in a light theme and near-white in a dark one, so the same mix
+   * darkens the accent on one and lightens it on the other, with no media query and no
+   * second code path -- and no dependency on the operating system, which is the fault the
+   * badge block further down records light-dark() having.
+   *
+   * The renderer writes the accent to --calendar-card-accent-ink-source on the event element
+   * and points each governed text property at this one, so the three tiers below are the
+   * only place the mix is stated. accent-text.ts carries the other half of the reasoning,
+   * including why the progress bar is NOT painted from here.
+   *
+   * The weights are --badge-ink's, deliberately, and the tiers are the same three: an sRGB
+   * floor, an OKLCH mix that keeps the hue, and a relative-colour tier that puts the chroma
+   * back. An event's title and the badge sitting inside it are two inks derived from one
+   * accent; deriving them by two different rules is a difference a user can see and cannot
+   * explain. */
+  .event {
+    --calendar-card-accent-ink: color-mix(
+      in srgb,
+      var(--calendar-card-accent-ink-source) 30%,
+      var(--primary-text-color)
+    );
+  }
+
+  @supports (color: color-mix(in oklch, red, blue)) {
+    .event {
+      --calendar-card-accent-ink: color-mix(
+        in oklch,
+        var(--calendar-card-accent-ink-source) 45%,
+        var(--primary-text-color)
+      );
+    }
+  }
+
+  @supports (color: oklch(from red l c h)) {
+    .event {
+      --calendar-card-accent-ink: oklch(
+        from
+          color-mix(in oklch, var(--calendar-card-accent-ink-source) 45%, var(--primary-text-color))
+          l calc(c * 2.2) h
+      );
+    }
+  }
+
   .event-first.event-last {
     border-start-start-radius: 0;
     border-start-end-radius: var(--calendar-card-event-border-radius);

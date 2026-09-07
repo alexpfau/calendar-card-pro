@@ -13,7 +13,8 @@ import * as EntityColors from '../utils/entity-colors';
 
 /**
  * The color options inside the event box that the `accent` sentinel governs, each paired
- * with the custom property the card renders it through.
+ * with the custom property the card renders it through and with how the accent is spent
+ * on it.
  *
  * One table, read from both ends: `generateCustomPropertiesObject` in `styles.ts` substitutes the
  * shipped default at card level for any of them holding the sentinel, and
@@ -21,6 +22,13 @@ import * as EntityColors from '../utils/entity-colors';
  * event element. Keeping the pairing here rather than beside either caller is what stops
  * the two disagreeing about which property carries which option —
  * `tests/accent-event-text.test.ts` reconciles every row against the mapping below.
+ *
+ * 🚨 The third column is the paint, and only one row differs. `ink` rows are text and take
+ * the mixed, theme-aware color described on {@link ACCENT_INK_PROPERTY}; the progress bar
+ * takes the accent **raw**, because it is a filled bar rather than something to read. It
+ * belongs with the block's own accent stripe, which is also drawn at full strength: a bar
+ * mixed toward the theme's text color would be a quieter accent for no legibility gained,
+ * since nothing is written on it.
  *
  * The list is the text inside the event box and nothing else. Excluded on purpose:
  * `allday_badge_color`, which has answered `accent` on its own since v4 and needs no help;
@@ -31,15 +39,44 @@ import * as EntityColors from '../utils/entity-colors';
  * See {@link WEATHER_EVENT_PROPERTY}.
  */
 export const ACCENT_TEXT_OPTIONS = [
-  ['event_color', '--calendar-card-color-event'],
-  ['time_color', '--calendar-card-color-time'],
-  ['location_color', '--calendar-card-color-location'],
-  ['description_color', '--calendar-card-color-description'],
-  ['progress_bar_color', '--calendar-card-progress-bar-color'],
+  ['event_color', '--calendar-card-color-event', 'ink'],
+  ['time_color', '--calendar-card-color-time', 'ink'],
+  ['location_color', '--calendar-card-color-location', 'ink'],
+  ['description_color', '--calendar-card-color-description', 'ink'],
+  ['progress_bar_color', '--calendar-card-progress-bar-color', 'raw'],
 ] as const;
 
 /** The governed option keys alone, for callers that only need to ask "is this one". */
 export const ACCENT_TEXT_KEYS: ReadonlyArray<string> = ACCENT_TEXT_OPTIONS.map(([key]) => key);
+
+/**
+ * The property every accent-colored **text** surface is actually painted from.
+ *
+ * 🚨 The raw accent is not a text color, and painting text in it was the defect this
+ * property exists to fix. Measured on the deployed card against the block's own 20% tint:
+ * a blue calendar's text came out at 2.16:1 and a coral one at 2.32:1 in the light theme,
+ * against 4.5:1 for normal text; in the dark theme the failures invert and a purple
+ * calendar reads 1.89:1. macOS Calendar does not paint text in the accent either — the
+ * stripe is the accent at full strength, the block is the accent at low opacity, and the
+ * text is a third, more legible color derived from it.
+ *
+ * The derivation lives in the stylesheet rather than here, because it is three tiers deep
+ * behind `@supports` and only the browser can resolve it: an sRGB floor, an OKLCH mix that
+ * keeps the hue, and a relative-color tier that puts the chroma back. That is the same
+ * ladder `--badge-ink` already climbs for the all-day badge, and reusing it is the point —
+ * two inks derived from one accent by two different rules is a difference a user would see
+ * and could not explain.
+ *
+ * So this module writes the accent to {@link ACCENT_INK_SOURCE_PROPERTY} and points every
+ * ink row at this property. Mixing toward `var(--primary-text-color)` is what makes it
+ * theme-aware with no media query and no second code path: that token is near-black in a
+ * light theme and near-white in a dark one, so the same declaration darkens the accent on
+ * one and lightens it on the other.
+ */
+export const ACCENT_INK_PROPERTY = '--calendar-card-accent-ink';
+
+/** The accent the stylesheet derives {@link ACCENT_INK_PROPERTY} from. */
+export const ACCENT_INK_SOURCE_PROPERTY = '--calendar-card-accent-ink-source';
 
 /**
  * The property the event weather badge is colored through.
@@ -105,20 +142,28 @@ export function accentTextProperties(
     return properties;
   }
 
-  for (const [key, property] of ACCENT_TEXT_OPTIONS) {
+  for (const [key, property, paint] of ACCENT_TEXT_OPTIONS) {
     if (EntityColors.isAccentTextSentinel(config[key])) {
-      properties[property] = accent;
+      properties[property] = paint === 'ink' ? `var(${ACCENT_INK_PROPERTY})` : accent;
     }
   }
 
   // The event weather badge, resolved from its own three states rather than from a row in
   // the table — see WEATHER_EVENT_PROPERTY for why it cannot be one. The falsy test is the
   // exact complement of the guard `generateCustomPropertiesObject` writes the option under,
-  // so the two can never both fire on one card.
+  // so the two can never both fire on one card. It is text and an icon, so it takes the ink
+  // rather than the raw accent, which is the whole reason the badge is worth naming twice.
   const badge = config.weather?.event?.color;
 
   if (EntityColors.isAccentTextSentinel(badge) || (!badge && properties[EVENT_COLOR_PROPERTY])) {
-    properties[WEATHER_EVENT_PROPERTY] = accent;
+    properties[WEATHER_EVENT_PROPERTY] = `var(${ACCENT_INK_PROPERTY})`;
+  }
+
+  // The accent itself, written last and only when something above referred to the ink. The
+  // stylesheet derives the ink from it on this element, so a block whose only governed
+  // field is the progress bar carries no source it would never read.
+  if (Object.values(properties).some((value) => value.includes(ACCENT_INK_PROPERTY))) {
+    properties[ACCENT_INK_SOURCE_PROPERTY] = accent;
   }
 
   return properties;

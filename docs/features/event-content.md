@@ -497,7 +497,9 @@ what the example above does — only the time follows the calendar; the title ke
 
 The five it is accepted by are `event_color` (the title), `time_color`, `location_color`,
 `description_color`, and `progress_bar_color` (the bar and its track) — everything inside
-the event box. The **event weather badge** follows too, and it works a little differently
+the event box. Four of them are text and take the mixed color described below;
+`progress_bar_color` is the exception and takes the accent at full strength, because a
+filled bar has nothing written on it and belongs with the block's own accent stripe. The **event weather badge** follows too, and it works a little differently
 because it has no color of its own to replace: `weather.event.color` ships unset, so an
 unset badge on an event whose title is already taking the accent takes it as well. Give
 `weather.event.color` a color and that color wins; write `accent` into it and the badge
@@ -523,11 +525,18 @@ which stands for several events at once. The badge in the **day header** is left
 same reason — it belongs to the day rather than to any calendar on it, and it is unaffected
 by all of this.
 
-::: warning Check It Against Your Theme
-The accent is whatever you or Home Assistant chose for the calendar, and it is now carrying
-text rather than a 2px bar. A dark accent on a dark theme, or a pale one on a light theme,
-can be hard to read — and the card cannot compensate without overriding the color you asked
-for. Look at it in the theme you actually use before leaving it on.
+::: tip The Text Is a Mix, Not the Raw Accent
+macOS Calendar spends a calendar's color three ways and only one of them is undiluted: the
+bar is the accent at full strength, the block is the accent at low opacity, and the text is
+a third, more legible color derived from it. The card does the same. Text takes the accent
+mixed toward `--primary-text-color`, which is near-black in a light theme and near-white in
+a dark one — so one rule darkens a pale accent on a light theme and lightens a dark one on a
+dark theme, and the hue you chose survives either way.
+
+The effect is stronger in light themes than in dark ones, which is the same asymmetry Apple
+shows. Measured against a grid block's own tint, a coral calendar went from 2.3:1 to 7.4:1 in
+the light theme and a purple one from 1.9:1 to 5.5:1 in the dark theme, where normal text
+wants 4.5:1.
 :::
 
 **→ [Event Column](/reference/configuration#event-column)** — every option named above.

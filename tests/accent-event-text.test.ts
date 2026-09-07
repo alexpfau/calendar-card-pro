@@ -21,7 +21,12 @@ import { EVENTS, FROZEN_NOW, buildConfig } from './fixtures';
 import { DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
-import { ACCENT_TEXT_OPTIONS, accentTextProperties } from '../src/rendering/accent-text';
+import {
+  ACCENT_INK_PROPERTY,
+  ACCENT_INK_SOURCE_PROPERTY,
+  ACCENT_TEXT_OPTIONS,
+  accentTextProperties,
+} from '../src/rendering/accent-text';
 import * as Column from '../src/rendering/column';
 import { walkSchema } from '../src/rendering/editor/panels';
 import { buildEventsSchema } from '../src/rendering/editor/schemas/events';
@@ -29,7 +34,7 @@ import * as Synthetic from '../src/rendering/editor/synthetic';
 import { applyFormChange } from '../src/rendering/editor/value';
 import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
-import { generateCustomPropertiesObject } from '../src/rendering/styles';
+import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
 import { ACCENT_TEXT_SENTINEL } from '../src/utils/entity-colors';
 import * as EventUtils from '../src/utils/events';
 
@@ -97,11 +102,29 @@ function renderView(view: Types.EffectiveView, config: Types.Config, events = EV
 function accentPropertiesOf(element: Element): Record<string, string> {
   const style = element.getAttribute('style') ?? '';
   const found: Record<string, string> = {};
-  for (const [, property] of ACCENT_TEXT_OPTIONS) {
+  for (const property of [...ACCENT_TEXT_OPTIONS.map(([, p]) => p), ACCENT_INK_SOURCE_PROPERTY]) {
     const match = new RegExp(`${property}:\\s*([^;]+)`).exec(style);
     if (match) found[property] = match[1].trim();
   }
   return found;
+}
+
+/**
+ * What a fully-governed event element must carry for one accent.
+ *
+ * Built from the table's own paint column rather than from a literal map, so a row moving
+ * between `ink` and `raw` is a decision this file reports rather than one it agrees with
+ * silently. The per-calendar difference lives in the SOURCE now: every ink row is the same
+ * `var()` on every block, and it is the source the stylesheet mixes that differs.
+ */
+function fullyGoverned(accent: string): Record<string, string> {
+  return Object.fromEntries([
+    ...ACCENT_TEXT_OPTIONS.map(([, property, paint]) => [
+      property,
+      paint === 'ink' ? `var(${ACCENT_INK_PROPERTY})` : accent,
+    ]),
+    [ACCENT_INK_SOURCE_PROPERTY, accent],
+  ]);
 }
 
 describe('the governed option table', () => {
@@ -160,6 +183,98 @@ describe('the governed option table', () => {
   });
 });
 
+describe('the ink an accent-colored surface is painted in', () => {
+  const config = () =>
+    ViewConfig.resolveEffectiveConfig(
+      twoCalendars({ weather: { entity: 'weather.home' } } as Partial<Types.Config>),
+      'grid',
+    );
+
+  it('paints no text surface in the raw accent', () => {
+    // The defect this replaced. Measured on the deployed card against the block's own 20%
+    // tint, text in the raw accent read 2.16:1 for a blue calendar and 2.32:1 for a coral
+    // one in the light theme, and 1.89:1 for a purple one in the dark theme, against 4.5:1
+    // for normal text. Every text surface therefore takes the ink; the accent reaches the
+    // element only as the source the stylesheet mixes.
+    const written = accentTextProperties(config(), WORK, false);
+    const text = ACCENT_TEXT_OPTIONS.filter(([, , paint]) => paint === 'ink').map(([, p]) => p);
+
+    expect(text.length, 'no text rows in the table').toBeGreaterThan(0);
+    for (const property of [...text, '--calendar-card-weather-event-color']) {
+      expect(written[property], `${property} still carries the raw accent`).toBe(
+        `var(${ACCENT_INK_PROPERTY})`,
+      );
+    }
+    expect(written[ACCENT_INK_SOURCE_PROPERTY]).toBe(WORK);
+  });
+
+  it('keeps the progress bar on the raw accent, because it is a bar and not text', () => {
+    // Decided rather than inherited: nothing is written on the bar, so mixing it toward the
+    // theme's text color would spend the accent for no legibility. It belongs with the
+    // block's own stripe, which is drawn at full strength too. The arms differ by
+    // construction here — one row of the table answers differently from the other four.
+    const written = accentTextProperties(config(), WORK, false);
+    const fill = ACCENT_TEXT_OPTIONS.filter(([, , paint]) => paint === 'raw').map(([, p]) => p);
+
+    expect(fill).toEqual(['--calendar-card-progress-bar-color']);
+    for (const property of fill) {
+      expect(written[property]).toBe(WORK);
+    }
+  });
+
+  it('leaves an explicitly configured color alone, ink and source alike', () => {
+    // The claim the sentinel design rests on, restated for the mix: a color the user wrote
+    // is not the sentinel, so no property is written over it and the card level emits it
+    // exactly as given. Read from both ends — nothing on the event element, and the
+    // configured value on the card.
+    const explicit = ViewConfig.resolveEffectiveConfig(
+      twoCalendars({
+        time_grid: { time_color: 'rgb(9, 8, 7)' },
+      } as unknown as Partial<Types.Config>),
+      'grid',
+    );
+    const written = accentTextProperties(explicit, WORK, false);
+
+    expect(written['--calendar-card-color-time']).toBeUndefined();
+    expect(generateCustomPropertiesObject(explicit)['--calendar-card-color-time']).toBe(
+      'rgb(9, 8, 7)',
+    );
+    // ...while its neighbours, still on the sentinel, take the ink from the same render.
+    expect(written['--calendar-card-color-event']).toBe(`var(${ACCENT_INK_PROPERTY})`);
+  });
+
+  it('derives the ink in the stylesheet, from the property this module writes', () => {
+    // The two files have to agree on two property names, and neither can see the other, so
+    // this reconciles them rather than restating them. The mix is toward
+    // `--primary-text-color` on purpose: that token is near-black in a light theme and
+    // near-white in a dark one, so one declaration darkens the accent on one and lightens
+    // it on the other — no media query, and nothing that can read the operating system.
+    const css = cardStyles.cssText;
+    const declarations = [...css.matchAll(new RegExp(`${ACCENT_INK_PROPERTY}:([^;]+);`, 'g'))].map(
+      (match) => match[1].replace(/\s+/g, ' ').trim(),
+    );
+
+    // Three tiers: the sRGB floor, the OKLCH mix, and the relative-color chroma recovery.
+    expect(declarations).toHaveLength(3);
+    for (const declaration of declarations) {
+      expect(declaration).toContain(`var(${ACCENT_INK_SOURCE_PROPERTY})`);
+      expect(declaration).toContain('var(--primary-text-color)');
+    }
+    expect(declarations[0]).toContain('in srgb');
+    expect(declarations[1]).toContain('in oklch');
+    expect(declarations[2]).toContain('calc(c * 2.2)');
+    expect(css).toContain('@supports (color: color-mix(in oklch, red, blue))');
+    expect(css).toContain('@supports (color: oklch(from red l c h))');
+
+    // ...and every tier is hung on the event element, which is the only place the source
+    // is written. Reading the declarations alone cannot see a tier whose selector stopped
+    // matching, and a dead upper tier is silent: the floor below it still paints.
+    const flat = css.replace(/\s+/g, '');
+
+    expect(flat.split(`.event{${ACCENT_INK_PROPERTY}:`).length - 1).toBe(3);
+  });
+});
+
 describe('accent event text, view by view', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -190,14 +305,10 @@ describe('accent event text, view by view', () => {
     // Every governed property, on every event box, holding that event's own accent — and
     // the two blocks must differ, which is the whole claim. One color for all of them
     // would satisfy a per-field assertion and be the feature not working.
-    const all = Object.fromEntries(ACCENT_TEXT_OPTIONS.map(([, p]) => [p, WORK]));
-    expect(accentPropertiesOf(blocks[0])).toEqual(all);
-    expect(accentPropertiesOf(blocks[1])).toEqual(
-      Object.fromEntries(ACCENT_TEXT_OPTIONS.map(([, p]) => [p, HOME])),
-    );
-    expect(accentPropertiesOf(banner)).toEqual(
-      Object.fromEntries(ACCENT_TEXT_OPTIONS.map(([, p]) => [p, HOME])),
-    );
+    expect(accentPropertiesOf(blocks[0])).toEqual(fullyGoverned(WORK));
+    expect(accentPropertiesOf(blocks[1])).toEqual(fullyGoverned(HOME));
+    expect(accentPropertiesOf(banner)).toEqual(fullyGoverned(HOME));
+    expect(fullyGoverned(WORK)).not.toEqual(fullyGoverned(HOME));
   });
 
   it.each(['list' as const, 'column' as const])('leaves %s view untinted by default', (view) => {
@@ -222,7 +333,10 @@ describe('accent event text, view by view', () => {
       );
       const cell = container.querySelector('td.event, .column-events > .event')!;
 
-      expect(accentPropertiesOf(cell)).toEqual({ '--calendar-card-color-time': WORK });
+      expect(accentPropertiesOf(cell)).toEqual({
+        '--calendar-card-color-time': `var(${ACCENT_INK_PROPERTY})`,
+        [ACCENT_INK_SOURCE_PROPERTY]: WORK,
+      });
     },
   );
 
@@ -332,7 +446,11 @@ describe('the event weather badge', () => {
     // defaults `event_color` to the sentinel, and the badge follows the text around it.
     const grid = ViewConfig.resolveEffectiveConfig(twoCalendars(), 'grid');
 
-    expect(badgeOn(grid)).toBe(WORK);
+    // The ink, not the raw accent: the badge is text and an icon, so it is painted from
+    // the same mixed color the block's own text is, and the accent reaches it through the
+    // source property beside it.
+    expect(badgeOn(grid)).toBe(`var(${ACCENT_INK_PROPERTY})`);
+    expect(accentTextProperties(grid, WORK, false)[ACCENT_INK_SOURCE_PROPERTY]).toBe(WORK);
 
     // The arms that must differ, or the assertion above is about a helper that always
     // answers. A list card leaves the badge alone, and so does a grid card whose block
@@ -369,7 +487,12 @@ describe('the event weather badge', () => {
       event: { color: ACCENT_TEXT_SENTINEL },
     } as Types.Config['weather'];
 
-    expect(badgeOn(ViewConfig.resolveEffectiveConfig(config, 'list'))).toBe(WORK);
+    const list = ViewConfig.resolveEffectiveConfig(config, 'list');
+
+    expect(badgeOn(list)).toBe(`var(${ACCENT_INK_PROPERTY})`);
+    // ...and the accent still arrives, on the source the stylesheet mixes. A list card
+    // opting in through the nested key alone has no other governed field to carry it.
+    expect(accentTextProperties(list, WORK, false)[ACCENT_INK_SOURCE_PROPERTY]).toBe(WORK);
   });
 
   it('never writes the sentinel to the card element, where it is not a color', () => {
@@ -417,8 +540,16 @@ describe('the event weather badge', () => {
     const blocks = [...container.querySelectorAll('.grid-event:not(.grid-event-overflow)')];
 
     expect(blocks.length, 'no blocks rendered').toBe(2);
+    // Both badges read the same ink property, and the two blocks still differ — the color
+    // travels on the source. Asserting only the ink would pass on a build that had stopped
+    // writing the accent at all, so both are read from the same two elements.
     expect(
       blocks.map((block) => (block as HTMLElement).style.getPropertyValue(WEATHER_PROPERTY)),
+    ).toEqual([`var(${ACCENT_INK_PROPERTY})`, `var(${ACCENT_INK_PROPERTY})`]);
+    expect(
+      blocks.map((block) =>
+        (block as HTMLElement).style.getPropertyValue(ACCENT_INK_SOURCE_PROPERTY),
+      ),
     ).toEqual([WORK, HOME]);
 
     // ...and the two places that belong to no calendar still take nothing.
@@ -434,6 +565,7 @@ describe('the event weather badge', () => {
 
     expect(overflow, 'fixture produced no overflow block').not.toBeNull();
     expect(overflow.style.getPropertyValue(WEATHER_PROPERTY)).toBe('');
+    expect(overflow.style.getPropertyValue(ACCENT_INK_SOURCE_PROPERTY)).toBe('');
     expect(accentTextProperties(twoCalendars(), WORK, true)[WEATHER_PROPERTY]).toBeUndefined();
   });
 });
