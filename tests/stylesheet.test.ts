@@ -1679,9 +1679,17 @@ describe('card stylesheet', () => {
       const painted = declared('.grid-rules', 'background-image');
 
       expect(painted, 'no background-image on .grid-rules').not.toBe('');
-      expect(declared('.grid-container', '--calendar-card-grid-rule-width')).toBe('1px');
+      // The width itself is NOT declared here any more: it is `hour_line_width`, written
+      // on `.grid-container` by the renderer, so a declaration in the stylesheet would be
+      // a fourth opinion and would win over nothing. `grid-dom.test.ts` pins the write.
+      expect(declared('.grid-container', '--calendar-card-grid-rule-width')).toBe('');
       expect(painted.match(/var\(--calendar-card-grid-rule-width\)/g)).toHaveLength(4);
       expect(painted).not.toContain('+ 1px');
+      // ...and the rule closing the body at `end_time` reads the same property, so
+      // "matching the hour rules" is one value read twice rather than a literal.
+      expect(declared('.grid-boundary-body-end', 'height')).toBe(
+        'var(--calendar-card-grid-rule-width)',
+      );
 
       // The floor that catches a block shorter than its own two gaps: the height resolves
       // negative, CSS clamps it to zero, and this is what is left.
@@ -1790,22 +1798,25 @@ describe('card stylesheet', () => {
       expect(body.match(new RegExp(erased.replace(/[()-]/g, '\\$&'), 'g'))).toHaveLength(2);
     });
 
-    it('clears both band rules by the same margin, at any width the user picks', () => {
+    it('clears each band rule by its own width, at any width the user picks', () => {
       // The upper rule is drawn at the top of row 3 and the lower one at its end, which is
       // exactly where the first and last banner would otherwise be — so the band's padding
-      // has to be the frame plus the breathing room, not a pair of literals that happen to
-      // suit a 1px default. The lower rule is twice the base, hence the doubling.
+      // has to be the rule plus the breathing room, not a pair of literals that happen to
+      // suit today's defaults.
+      //
+      // One property per edge, and that is the half a single-property version got wrong.
+      // `frame-width * 2` for the lower edge was only ever right while the lower rule was
+      // a fixed multiple of the upper one; the two are separate options now, so a doubling
+      // would mis-pad the band the moment either moved.
       //
       // Read as a pair, because the evenness is the claim: two assertions on two literals
       // cannot notice one of them being right for the wrong reason.
-      const frame = 'var(--calendar-card-grid-frame-width, 0px)';
-
       expect({
         start: declared('.grid-allday-band', 'padding-block-start'),
         end: declared('.grid-allday-band', 'padding-block-end'),
       }).toEqual({
-        start: `calc(${frame} + 2px)`,
-        end: `calc(${frame} * 2 + 2px)`,
+        start: 'calc(var(--calendar-card-grid-band-top-width, 0px) + 2px)',
+        end: 'calc(var(--calendar-card-grid-band-bottom-width, 0px) + 2px)',
       });
     });
 

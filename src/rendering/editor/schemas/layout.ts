@@ -192,6 +192,15 @@ function timeAxisGroup(blockKey: string, language: string): HaFormSchema {
         },
         text('hour_height'),
       ),
+      // With the ruling's spacing and scale, because they answer the same question: how
+      // the paper under the events is drawn. `slot_minutes` says how often a rule appears
+      // and this row says what it looks like, so reading them apart is reading half an
+      // answer. The band's own boundary follows immediately, since it is the one other
+      // horizontal rule on the paper — and grouping the two here is what lets a user who
+      // wants to restyle "the grid's lines" find all of them in one place, rather than
+      // pairing each with the content it happens to sit near.
+      row(text('hour_line_width'), color('hour_line_color')),
+      row(text('allday_band_line_width'), color('allday_band_line_color')),
       color('weekend_background_color'),
       row(text('axis_width'), bool('show_axis_labels')),
       row(bool('show_now_line'), color('now_line_color')),

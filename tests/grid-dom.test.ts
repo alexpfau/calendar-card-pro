@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EVENTS, FROZEN_NOW, WEATHER, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
+import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
 import * as EventUtils from '../src/utils/events';
 
@@ -89,6 +90,21 @@ function renderGrid(
     Grid.renderGridGroupedEvents(days, effective, language, weatherForecasts, hass, FROZEN_NOW),
     container,
   );
+  return container;
+}
+
+/**
+ * Column view's own render, for the one assertion that is about the two views diverging.
+ *
+ * `day_header_separator_*` draws a per-day rule inside a column header and the spanning
+ * date-to-band rule in grid, so "grid does not draw the leaf's rule" is only meaningful
+ * beside the view that still does.
+ */
+function renderColumn(events: Types.CalendarEventData[], config: Types.Config): HTMLElement {
+  const effective = ViewConfig.resolveEffectiveConfig(config, 'column');
+  const days = EventUtils.groupEventsByDay(events, config, false, 'en', 'column');
+  const container = document.createElement('div');
+  litRender(Column.renderColumnGroupedEvents(days, effective, 'en', undefined, null), container);
   return container;
 }
 
@@ -1111,22 +1127,28 @@ describe('separators between grid days', () => {
     expect(rule.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe('rgb(4, 5, 6)');
   });
 
-  it('rules the grid and the hour lines from one value, at one strength', () => {
+  it('rules the grid and the hour lines at one strength, from two options', () => {
     // The two families are one system in the reader's eye, so a vertical day rule and a
-    // horizontal hour rule have to carry the same ink. They did not: the slot gradient and
-    // the hour gradient coincide at the shipped `slot_minutes: 60` and translucent ink
-    // composites, so an hour rule measured rgb(197, 197, 197) on the deployed build where
-    // a day rule of the same colour and width measured rgb(224, 224, 224).
+    // horizontal hour rule have to carry the same ink at the shipped defaults. They did
+    // not: the slot gradient and the hour gradient coincide at the shipped
+    // `slot_minutes: 60` and translucent ink composites, so an hour rule measured
+    // rgb(197, 197, 197) on the deployed build where a day rule of the same colour and
+    // width measured rgb(224, 224, 224).
     //
-    // Reconciled rather than asserted twice: the value the vertical is painted with has to
-    // be the value the gradients are handed, so both are read here from one render.
+    // Two options now, not one. `day_separator_*` means the rule between two days and has
+    // since the card shipped; driving the hour rules from it as well made a card-wide
+    // option quietly mean something else in one view. So this reconciles the two shipped
+    // DEFAULTS against each other rather than pinning one value read twice — read from the
+    // tables rather than from a literal, so a change to either is visible here.
     const container = renderGrid(EVENTS, spanConfig());
     const plain = requireElement<HTMLElement>(container, '.grid-separator-day');
     const hourly = requireElement<HTMLElement>(container, '.grid-rules');
-    const shipped = ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_color;
+    const vertical = ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_color;
+    const horizontal = ViewConfig.TIME_GRID_DEFAULTS.hour_line_color;
 
-    expect(plain.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(shipped);
-    expect(hourly.style.getPropertyValue('--calendar-card-grid-rule-color')).toBe(shipped);
+    expect(horizontal, 'the two families must ship the same ink').toBe(vertical);
+    expect(plain.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(vertical);
+    expect(hourly.style.getPropertyValue('--calendar-card-grid-rule-color')).toBe(horizontal);
     // ...and the slot pattern is switched off where it would only double the hour rule,
     // which is what makes "the same ink" true of the painted result and not just of the
     // value handed over.
@@ -1147,7 +1169,7 @@ describe('separators between grid days', () => {
       '.grid-rules',
     );
 
-    expect(denser.style.getPropertyValue('--calendar-card-grid-slot-color')).toBe(shipped);
+    expect(denser.style.getPropertyValue('--calendar-card-grid-slot-color')).toBe(horizontal);
 
     // The divergent-default half: a card-level color is for the list and column layouts
     // and does not reach grid, exactly as the card-level width does not.
@@ -1156,32 +1178,84 @@ describe('separators between grid days', () => {
       '.grid-separator-day',
     );
 
-    expect(cardLevel.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(shipped);
+    expect(cardLevel.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(vertical);
   });
 
-  it('hands a color the user chose to both rule families, undiluted', () => {
+  it('hands a color the user chose to the family that owns it, undiluted', () => {
     // The dilution is in the shipped DEFAULT, not in the drawing, which is the whole
     // reason it moved out of `.grid-rules` as an `opacity`. An opacity would have halved
     // this value too, and silently.
     const config = spanConfig();
-    config.time_grid = { day_separator_color: 'rgb(9, 8, 7)', slot_minutes: 15 };
+    config.time_grid = { hour_line_color: 'rgb(9, 8, 7)', slot_minutes: 15 };
     const container = renderGrid(EVENTS, config);
+    const rules = requireElement<HTMLElement>(container, '.grid-rules');
 
+    expect(rules.style.getPropertyValue('--calendar-card-grid-rule-color')).toBe('rgb(9, 8, 7)');
+    expect(rules.style.getPropertyValue('--calendar-card-grid-slot-color')).toBe('rgb(9, 8, 7)');
+    // ...and the rule closing the body at `end_time` is one of the hour rules, so it takes
+    // the same value rather than a second one.
     expect(
-      requireElement<HTMLElement>(container, '.grid-separator-day').style.getPropertyValue(
+      requireElement<HTMLElement>(container, '.grid-boundary-body-end').style.getPropertyValue(
         '--calendar-card-grid-rule-paint',
       ),
     ).toBe('rgb(9, 8, 7)');
+  });
+
+  it('stops day_separator_* tinting the horizontal rules', () => {
+    // The reverse direction of the split, and the one a user notices: `day_separator_color`
+    // used to paint the hour rules, the rule under the date row and the rule under the
+    // all-day band as well as the verticals it names. Reading only the vertical would pass
+    // whether or not the other three moved with it, so all four are read from one render
+    // and the three horizontals are asserted to have kept their own defaults.
+    const config = spanConfig();
+    config.time_grid = { day_separator_color: 'rgb(9, 8, 7)' };
+    const container = renderGrid(EVENTS, config);
+    const paint = (selector: string) =>
+      requireElement<HTMLElement>(container, selector).style.getPropertyValue(
+        '--calendar-card-grid-rule-paint',
+      );
+
+    expect(paint('.grid-separator-day'), 'the option it names must still work').toBe(
+      'rgb(9, 8, 7)',
+    );
     expect(
       requireElement<HTMLElement>(container, '.grid-rules').style.getPropertyValue(
         '--calendar-card-grid-rule-color',
       ),
-    ).toBe('rgb(9, 8, 7)');
-    expect(
-      requireElement<HTMLElement>(container, '.grid-boundary-band-bottom').style.getPropertyValue(
-        '--calendar-card-grid-rule-paint',
-      ),
-    ).toBe('rgb(9, 8, 7)');
+    ).toBe(ViewConfig.TIME_GRID_DEFAULTS.hour_line_color);
+    expect(paint('.grid-boundary-body-end')).toBe(ViewConfig.TIME_GRID_DEFAULTS.hour_line_color);
+    expect(paint('.grid-boundary-band-top')).toBe(
+      ViewConfig.TIME_GRID_DEFAULTS.day_header_separator_color,
+    );
+    expect(paint('.grid-boundary-band-bottom')).toBe(
+      ViewConfig.TIME_GRID_DEFAULTS.allday_band_line_color,
+    );
+  });
+
+  it('removes only the vertical rules at day_separator_width: 0', () => {
+    // The other half of the reverse check, and the one that used to take the whole grid's
+    // ruling with it. Both arms are rendered, because "the verticals are gone" is only
+    // evidence if they were there to begin with.
+    const on = renderGrid(EVENTS, spanConfig());
+    const config = spanConfig();
+    config.time_grid = { day_separator_width: '0px' };
+    const off = renderGrid(EVENTS, config);
+
+    expect(on.querySelectorAll('.grid-separator').length).toBeGreaterThan(0);
+    expect(off.querySelectorAll('.grid-separator')).toHaveLength(0);
+
+    // Every horizontal rule survives, and at the same width it had with the verticals on.
+    for (const selector of [
+      '.grid-boundary-band-top',
+      '.grid-boundary-band-bottom',
+      '.grid-boundary-body-end',
+      '.grid-rules',
+    ]) {
+      expect(off.querySelectorAll(selector), `${selector} went with the verticals`).toHaveLength(1);
+      expect(requireElement<HTMLElement>(off, selector).style.height).toBe(
+        requireElement<HTMLElement>(on, selector).style.height,
+      );
+    }
   });
 
   it('lets week and month separators win over day separators', () => {
@@ -1507,80 +1581,143 @@ describe('separators between grid days', () => {
     expect(top.style.alignSelf).toBe('start');
     expect(bottom.style.alignSelf).toBe('end');
 
-    // Same option as the vertical rules, and the lower one derived from it rather than
-    // configured separately, so one width governs the whole frame. Twice, not three
-    // times: the multiple dropped when the base doubled to 1px, where 3x reads as a bar
-    // rather than as a heavier line and scales to 6px the moment a user asks for 2px.
-    expect(top.style.height).toBe('1px');
-    expect(bottom.style.height).toBe('2px');
+    // One option each, taken from the tables rather than from literals. They used to be
+    // one option — `day_separator_*`, the lower rule as twice its width — which is what
+    // made three visually distinct rules impossible to configure apart. The shipped
+    // widths are unchanged: 1px above and 2px below, exactly what the old derivation
+    // produced, because splitting them was a change of which key controls what.
+    expect(top.style.height).toBe(ViewConfig.TIME_GRID_DEFAULTS.day_header_separator_width);
+    expect(bottom.style.height).toBe(ViewConfig.TIME_GRID_DEFAULTS.allday_band_line_width);
+    expect({ top: top.style.height, bottom: bottom.style.height }).toEqual({
+      top: '1px',
+      bottom: '2px',
+    });
     expect(top.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(
-      ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_color,
+      ViewConfig.TIME_GRID_DEFAULTS.day_header_separator_color,
     );
     expect(bottom.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe(
-      ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_color,
+      ViewConfig.TIME_GRID_DEFAULTS.allday_band_line_color,
     );
   });
 
-  it('keeps the frame proportional at a width the user chose, and drops it at zero', () => {
-    const wide = spanConfig();
-    wide.time_grid = { day_separator_width: '2px', day_separator_color: 'rgb(1, 2, 3)' };
-    const framed = renderGrid(EVENTS, wide);
+  it('lets the two band rules be set, and removed, apart', () => {
+    // The point of the split, so both directions are exercised on one render: the upper
+    // rule takes `day_header_separator_*`, the lower `allday_band_line_*`, and neither
+    // moves when the other does.
+    const apart = spanConfig();
+    apart.time_grid = {
+      day_header_separator_width: '4px',
+      day_header_separator_color: 'rgb(1, 2, 3)',
+      allday_band_line_width: '7px',
+      allday_band_line_color: 'rgb(4, 5, 6)',
+    };
+    const container = renderGrid(EVENTS, apart);
+    const top = requireElement<HTMLElement>(container, '.grid-boundary-band-top');
+    const bottom = requireElement<HTMLElement>(container, '.grid-boundary-band-bottom');
 
-    expect(requireElement<HTMLElement>(framed, '.grid-boundary-band-top').style.height).toBe('2px');
-    expect(requireElement<HTMLElement>(framed, '.grid-boundary-band-bottom').style.height).toBe(
-      '4px',
+    expect({
+      topWidth: top.style.height,
+      topPaint: top.style.getPropertyValue('--calendar-card-grid-rule-paint'),
+      bottomWidth: bottom.style.height,
+      bottomPaint: bottom.style.getPropertyValue('--calendar-card-grid-rule-paint'),
+    }).toEqual({
+      topWidth: '4px',
+      topPaint: 'rgb(1, 2, 3)',
+      bottomWidth: '7px',
+      bottomPaint: 'rgb(4, 5, 6)',
+    });
+
+    // And removing one leaves the other, which is the thing a single shared `framed` flag
+    // could not express: with one option, zeroing it took both rules.
+    const topOff = spanConfig();
+    topOff.time_grid = { day_header_separator_width: '0px' };
+    const bottomOff = spanConfig();
+    bottomOff.time_grid = { allday_band_line_width: '0px' };
+
+    expect(renderGrid(EVENTS, topOff).querySelectorAll('.grid-boundary-band-top')).toHaveLength(0);
+    expect(renderGrid(EVENTS, topOff).querySelectorAll('.grid-boundary-band-bottom')).toHaveLength(
+      1,
+    );
+    expect(renderGrid(EVENTS, bottomOff).querySelectorAll('.grid-boundary-band-top')).toHaveLength(
+      1,
     );
     expect(
-      requireElement<HTMLElement>(framed, '.grid-boundary-band-top').style.getPropertyValue(
-        '--calendar-card-grid-rule-paint',
-      ),
-    ).toBe('rgb(1, 2, 3)');
-
-    // Turning the day separator off turns the whole frame off with it, rather than
-    // leaving two rules a user has no way to reach. The rule closing the body at the band
-    // end is not part of that frame — it belongs to the hour rules and stays.
-    const off = spanConfig();
-    off.time_grid = { day_separator_width: '0px' };
-    const unframed = renderGrid(EVENTS, off);
-
-    expect(unframed.querySelectorAll('.grid-boundary-band-top')).toHaveLength(0);
-    expect(unframed.querySelectorAll('.grid-boundary-band-bottom')).toHaveLength(0);
-    expect(unframed.querySelectorAll('.grid-boundary-body-end')).toHaveLength(1);
+      renderGrid(EVENTS, bottomOff).querySelectorAll('.grid-boundary-band-bottom'),
+    ).toHaveLength(0);
   });
 
-  it('sizes the band padding from the frame the banners have to clear', () => {
-    // The band's padding is composed in the stylesheet from a custom property, so the
+  it('sizes the band padding from the two rules the banners have to clear', () => {
+    // The band's padding is composed in the stylesheet from custom properties, so the
     // write and the read are in different files and nothing else reconciles them:
     // deleting this write left the whole suite green while the padding silently fell back
-    // to a bare 2px and the frame started cutting across the first and last banner.
+    // to a bare 2px and the rules started cutting across the first and last banner.
     //
-    // Read against the width the rules are actually drawn at rather than against a
-    // literal, and at three widths, because the whole point of deriving it is that the
-    // evenness survives a width the user picked.
-    for (const width of ['1px', '3px', '0px']) {
+    // One property per edge, because the two rules are separate options now — a single
+    // width doubled for the lower edge was right only while the lower rule was twice the
+    // upper. Read against the widths the rules are actually drawn at rather than against
+    // literals, and at four combinations, because the whole point is that the evenness
+    // survives widths the user picked independently.
+    for (const [top, bottom] of [
+      ['1px', '2px'],
+      ['3px', '1px'],
+      ['0px', '5px'],
+      ['4px', '0px'],
+    ]) {
       const config = spanConfig();
-      config.time_grid = { day_separator_width: width };
+      config.time_grid = { day_header_separator_width: top, allday_band_line_width: bottom };
       const container = requireElement<HTMLElement>(renderGrid(EVENTS, config), '.grid-container');
 
-      expect(
-        container.style.getPropertyValue('--calendar-card-grid-frame-width'),
-        `the band must be padded for a ${width} frame`,
-      ).toBe(width);
+      expect({
+        top: container.style.getPropertyValue('--calendar-card-grid-band-top-width'),
+        bottom: container.style.getPropertyValue('--calendar-card-grid-band-bottom-width'),
+      }).toEqual({ top, bottom });
     }
 
-    // The default arm, taken from the override table rather than restated, so a change to
-    // the shipped width cannot leave this asserting a number the card no longer draws.
+    // The default arm, taken from the tables rather than restated, so a change to either
+    // shipped width cannot leave this asserting a number the card no longer draws.
     const plain = requireElement<HTMLElement>(renderGrid(EVENTS, spanConfig()), '.grid-container');
 
-    expect(plain.style.getPropertyValue('--calendar-card-grid-frame-width')).toBe(
-      ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_width,
+    expect({
+      top: plain.style.getPropertyValue('--calendar-card-grid-band-top-width'),
+      bottom: plain.style.getPropertyValue('--calendar-card-grid-band-bottom-width'),
+    }).toEqual({
+      top: ViewConfig.TIME_GRID_DEFAULTS.day_header_separator_width,
+      bottom: ViewConfig.TIME_GRID_DEFAULTS.allday_band_line_width,
+    });
+    // ...and the rules are drawn at those widths, which is what makes the padding the
+    // right amount of clearance rather than a coincidence.
+    const drawn = renderGrid(EVENTS, spanConfig());
+
+    expect({
+      top: requireElement<HTMLElement>(drawn, '.grid-boundary-band-top').style.height,
+      bottom: requireElement<HTMLElement>(drawn, '.grid-boundary-band-bottom').style.height,
+    }).toEqual({
+      top: ViewConfig.TIME_GRID_DEFAULTS.day_header_separator_width,
+      bottom: ViewConfig.TIME_GRID_DEFAULTS.allday_band_line_width,
+    });
+  });
+
+  it('writes the hour rule width where the stylesheet reads it', () => {
+    // `hour_line_width` reaches CSS as a custom property on the container and nowhere
+    // else — the stylesheet deliberately declares no default for it, so dropping this
+    // write leaves the gradients, the closing rule and the block clearance all reading an
+    // undefined property. Both arms rendered, because a value matching the default proves
+    // nothing on its own.
+    const plain = requireElement<HTMLElement>(renderGrid(EVENTS, spanConfig()), '.grid-container');
+
+    expect(plain.style.getPropertyValue('--calendar-card-grid-rule-width')).toBe(
+      ViewConfig.TIME_GRID_DEFAULTS.hour_line_width,
     );
-    // ...and the upper rule is drawn at that width, which is what makes the padding above
-    // the right amount of clearance rather than a coincidence.
+
+    const thick = spanConfig();
+    thick.time_grid = { hour_line_width: '3px' };
+
     expect(
-      requireElement<HTMLElement>(renderGrid(EVENTS, spanConfig()), '.grid-boundary-band-top').style
-        .height,
-    ).toBe(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES.day_separator_width);
+      requireElement<HTMLElement>(
+        renderGrid(EVENTS, thick),
+        '.grid-container',
+      ).style.getPropertyValue('--calendar-card-grid-rule-width'),
+    ).toBe('3px');
   });
 
   it('draws only the heavier rule when there is no all-day band to close', () => {
@@ -2102,7 +2239,9 @@ describe('the grid reuses the shared leaves', () => {
 
   it('renders day headers through the shared column-style header leaf', () => {
     const container = renderGrid(
-      [timed(17, '09:00', '10:00', 'Standup')],
+      // An all-day event as well as a timed one, so there is a band for the spanning rule
+      // to close. Without one row 3 collapses and only the heavier lower rule is drawn.
+      [timed(17, '09:00', '10:00', 'Standup'), allDay('2026-06-17', '2026-06-18', 'Holiday')],
       buildConfig({
         view: 'grid',
         days_to_show: 3,
@@ -2124,9 +2263,38 @@ describe('the grid reuses the shared leaves', () => {
     expect(requireElement(content, '.weather').parentElement).toBe(content);
     expect(requireElement(content, '.today-indicator-container.inline')).not.toBeNull();
 
-    const separator = requireElement<HTMLElement>(header, '.column-header-separator');
-    expect(separator.style.borderTopWidth).toBe('2px');
-    expect(separator.style.borderTopColor).toBe('rgb(1, 2, 3)');
+    // 🚨 The leaf's own separator is the one thing grid does NOT take from it, and this
+    // config is exactly the case that used to produce two rules at one boundary. Column
+    // draws `day_header_separator_*` inside each day's header, which `day_spacing` cuts
+    // into one dash per column; grid spends the same option on the unbroken rule between
+    // the date row and the all-day band. So the per-day rule must be absent here and the
+    // spanning rule must carry what was configured — asserted together, because either
+    // alone would pass while the option drew nothing at all.
+    expect(header.querySelectorAll('.column-header-separator')).toHaveLength(0);
+
+    const spanning = requireElement<HTMLElement>(container, '.grid-boundary-band-top');
+
+    expect(spanning.style.height).toBe('2px');
+    expect(spanning.style.getPropertyValue('--calendar-card-grid-rule-paint')).toBe('rgb(1, 2, 3)');
+
+    // ...and column view still draws it inside its header, so this is grid diverging
+    // rather than the leaf losing the feature.
+    const columnHeader = requireElement<HTMLElement>(
+      renderColumn(
+        [timed(17, '09:00', '10:00', 'Standup')],
+        buildConfig({
+          view: 'column',
+          days_to_show: 3,
+          column: {
+            day_header_separator_width: '2px',
+            day_header_separator_color: 'rgb(1, 2, 3)',
+          },
+        }),
+      ),
+      '.column-header-separator',
+    );
+
+    expect(columnHeader.style.borderTopWidth).toBe('2px');
   });
 
   it('gives a block an accent edge and a banner none', () => {

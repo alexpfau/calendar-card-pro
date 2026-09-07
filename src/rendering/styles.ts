@@ -1991,11 +1991,16 @@ export const cardStyles = css`
     margin-inline: calc(-1 * var(--calendar-card-grid-inset));
     padding-inline: var(--calendar-card-grid-inset);
     --calendar-card-grid-event-gap: 1px;
-    /* The thickness of one hour rule, named here because two rules a long way apart have
-       to agree on it: the gradients below paint it, and a block's clearance above has to
-       clear it. It is deliberately NOT day_separator_width -- a user widening the day
-       rules is asking for a heavier frame, not for twenty-four heavier hour lines. */
-    --calendar-card-grid-rule-width: 1px;
+    /* --calendar-card-grid-rule-width is NOT declared here. It is hour_line_width, and
+       the renderer writes it on this element, because three declarations a long way apart
+       have to agree on it: the gradients below paint the rule, .grid-boundary-body-end
+       closes the body with one, and a block's clearance above has to clear one. A default
+       here as well would be a fourth opinion and a literal duplicated in a file the
+       renderer cannot see.
+
+       It is deliberately NOT day_separator_width, which is the vertical rule between two
+       days -- somebody widening those is asking for heavier day boundaries, not for
+       twenty-four heavier hour lines. That is the whole reason the two are separate keys. */
   }
 
   /* ----- Time axis ----- */
@@ -2046,11 +2051,17 @@ export const cardStyles = css`
 
      🚨 No opacity here, and its absence is load-bearing. These lines and the vertical day
      rules are one system in the reader's eye, so they have to carry the same ink, and an
-     element opacity dims only one of the two. They now do carry the same ink, and by
-     construction rather than by coincidence: both read the resolved day_separator_color,
-     which the renderer hands over as --calendar-card-grid-rule-color. Dimming belongs in
-     that colour's own default, where a user who supplies one still gets exactly what they
-     asked for -- an opacity here would halve theirs too.
+     element opacity dims only one of the two. They carry the same ink at the shipped
+     defaults, and each family now has its own option to say so: hour_line_color arrives
+     here as --calendar-card-grid-rule-color, day_separator_color paints the verticals, and
+     both ship var(--divider-color) at half strength. Dimming belongs in those defaults,
+     where a user who supplies a colour still gets exactly what they asked for -- an
+     opacity here would halve theirs too, and it would halve only one of the two families.
+
+     Before the split, the verticals and the horizontals were literally the same option,
+     which guaranteed agreement and made disagreement impossible to ask for. Now agreement
+     is a default rather than a mechanism: a user can rule the paper one gray and box the
+     days in another, which is the point.
 
      The two patterns coincide exactly at the shipped slot_minutes: 60, and painting one
      pattern twice is NOT a no-op, because translucent ink composites. That is why the
@@ -2177,17 +2188,22 @@ export const cardStyles = css`
   .grid-allday-band {
     display: grid;
     row-gap: 2px;
-    /* Clear space for the frame plus the same 2px of breathing room at each end, so the
-       banners sit evenly between the two rules whatever width the user gave them. The
+    /* Clear space for each rule plus the same 2px of breathing room at each end, so the
+       banners sit evenly between the two rules whatever widths the user gave them. The
        rules are drawn at z-index 3 and would otherwise cut across the first and last
-       banner; the lower one is twice the base, hence the doubling here.
+       banner.
 
-       The fallback is 0px rather than 1px on purpose: the property is written on every
-       grid, so reaching the fallback means the whole custom-property chain is broken, and
-       2px of plain inset is a better thing to fail to than a frame's worth of padding
+       One property per edge, because the two rules are separate options now:
+       day_header_separator_width above, allday_band_line_width below. A single frame width
+       doubled for the lower edge was right only while the lower rule was a fixed multiple
+       of the upper one, and it would silently mis-pad the band the moment either moved.
+
+       The fallback is 0px rather than a width on purpose: the properties are written on
+       every grid, so reaching a fallback means the whole custom-property chain is broken,
+       and 2px of plain inset is a better thing to fail to than a frame's worth of padding
        around rules that are not there. */
-    padding-block-start: calc(var(--calendar-card-grid-frame-width, 0px) + 2px);
-    padding-block-end: calc(var(--calendar-card-grid-frame-width, 0px) * 2 + 2px);
+    padding-block-start: calc(var(--calendar-card-grid-band-top-width, 0px) + 2px);
+    padding-block-end: calc(var(--calendar-card-grid-band-bottom-width, 0px) + 2px);
     /* Above the vertical day rules, which now run through this row: a spanning banner has
        to paint over them or it reads as chopped into days. See the ladder above. */
     z-index: 2;

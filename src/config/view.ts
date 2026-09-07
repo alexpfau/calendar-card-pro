@@ -143,6 +143,10 @@ export const TIME_GRID_ONLY_KEYS = [
   'allday_band_max_rows',
   'axis_width',
   'show_axis_labels',
+  'hour_line_width',
+  'hour_line_color',
+  'allday_band_line_width',
+  'allday_band_line_color',
 ] as const;
 
 /**
@@ -376,11 +380,40 @@ export const COLUMN_DEFAULTS = {
  * `max_simultaneous_events: 3` is where blocks stop carrying readable text at a typical
  * card width. `axis_width` sizes to its own labels by default, so the gutter follows
  * whichever visible label is widest while keeping fixed inline padding around it.
+ *
+ * 🚨 Four rules ship the same gray and the repetition is the design, not a missed
+ * constant. `day_header_separator_*`, `hour_line_*`, `allday_band_line_*` and — over in
+ * the grid's divergent-default table below — `day_separator_*` each carry
+ * `var(--divider-color)` at half strength, because that is what the grid draws today and
+ * splitting them apart was a change of *which option controls what*, not of how anything
+ * looks. Factoring the value into one binding would put four independently settable
+ * options back on one string, which is the coupling this split exists to remove; it would
+ * also read to `check:docs`, which reconciles this table as source text, as a default of
+ * literally `GRID_RULE_COLOR`.
+ *
+ * 🚨 Do not name that table in this comment. `check:docs` locates it with a regular
+ * expression anchored on its name and running to the next `=`, so a mention here matches
+ * first and the gate then reconciles the wrong table — it read every key below as a
+ * divergent default and reported 35 errors.
+ *
+ * `day_header_separator_*` defaults to `1px` **here and `0px` in column**, because it
+ * draws a different thing in each. In column it is an optional per-day rule inside a day's
+ * own header, off unless asked for. In grid it is the rule between the date row and the
+ * all-day band — a rule the grid has always drawn, previously out of `day_separator_*`.
+ * So the option's grid default is the width that boundary is already drawn at, and
+ * setting it to `0px` is now how a user removes a rule they could not previously reach.
+ *
+ * `hour_line_*` and `allday_band_line_*` are literals rather than derived from each other
+ * or from anything else. The band rule used to be `scaleLength(day_separator_width, 2)`,
+ * which held macOS Calendar's proportion at whatever width one option was set to — a good
+ * trade while a single option drove every rule in the grid, and an invisible coupling the
+ * moment they are separable. `2px` is what that derivation produced at the shipped `1px`,
+ * so the default is unchanged and the relationship is now something a user can break.
  */
 export const TIME_GRID_DEFAULTS = {
   day_header_gap: '8px',
-  day_header_separator_width: '0px',
-  day_header_separator_color: 'var(--divider-color)',
+  day_header_separator_width: '1px',
+  day_header_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
 
   // A grid column carries positioned blocks rather than a full text list, so it can be
   // narrower than column view's 140px default. The width threshold also reserves the
@@ -406,6 +439,10 @@ export const TIME_GRID_DEFAULTS = {
   allday_band_max_rows: 3,
   axis_width: 'max-content',
   show_axis_labels: true,
+  hour_line_width: '1px',
+  hour_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+  allday_band_line_width: '2px',
+  allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
 } as const;
 
 /**
@@ -672,22 +709,32 @@ export const COLUMN_DEFAULT_OVERRIDES: {
  * meaning more than a list row's accent line can. `show_empty_days` keeps the time axis
  * contiguous unless a user explicitly hides empty columns in `time_grid:`.
  * `show_past_events` keeps today's finished blocks on the axis instead of emptying the
- * morning as the day passes. `day_separator_width` turns on vertical rules so a shared
- * axis reads as belonging to separate day columns, and `day_separator_color` lightens
- * them to the same token the horizontal rules already use. Ruled paper wants one gray,
+ * morning as the day passes. `day_separator_width` turns on the **vertical** rules so a
+ * shared axis reads as belonging to separate day columns, and `day_separator_color`
+ * lightens them to the same gray the horizontal rules use. Ruled paper wants one gray,
  * and the top-level `var(--secondary-text-color)` is a text hue: it drew the verticals
  * far heavier than the horizontals, which read as a table of boxes rather than as a
  * grid. Note this is a divergent default, so a top-level color no longer reaches grid;
  * that is already true of the width beside it, and the pair now behaves alike rather than
  * applying a card-wide color to a width the card level never asked for.
  *
- * 🚨 It is `var(--divider-color)` at **half** strength, and the halving lives here — in
- * the option's own default — rather than as an `opacity` on `.grid-rules`, which is where
- * it used to be. An element opacity dims one of the two rule families and not the other,
- * and it dims a colour the user supplied as well as the one the card shipped. As a default
- * it does neither: `renderRules` now takes this resolved value and paints the hour rules
- * with it, so both families carry the same ink by construction, and a user writing
- * `day_separator_color: red` gets red at full strength in both directions.
+ * 🚨 **Vertical only.** These two used to drive three visually distinct rules — the
+ * verticals between days, the rule under the date row, and the heavier one under the
+ * all-day band — plus the horizontal hour rules, which took their colour from
+ * `day_separator_color` as well. That silently redefined an option that has meant *the
+ * rule between two days* since the card shipped, and it made four rules impossible to
+ * configure apart: a user widening the day rules got four heavier horizontals they never
+ * asked for, and a user tinting them tinted the whole grid. The three horizontal families
+ * now have their own keys — `day_header_separator_*`, `allday_band_line_*` and
+ * `hour_line_*`, all in {@link TIME_GRID_DEFAULTS} — and `day_separator_width: 0` in grid
+ * now removes the vertical rules and nothing else.
+ *
+ * 🚨 The gray is `var(--divider-color)` at **half** strength, and the halving lives here —
+ * in the option's own default — rather than as an `opacity` on `.grid-rules`, which is
+ * where it used to be. An element opacity dims one of the two rule families and not the
+ * other, and it dims a colour the user supplied as well as the one the card shipped. As a
+ * default it does neither, and a user writing `day_separator_color: red` gets red at full
+ * strength on the rules that option still owns.
  *
  * The claim this replaces — that the two families already carried identical ink — was
  * false when it was written, and measuring is what found it. On the deployed build an hour

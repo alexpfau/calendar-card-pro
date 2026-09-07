@@ -674,8 +674,16 @@ describe('editor: the grid block as the form shows it', () => {
       axis_width: 'max-content',
       show_axis_labels: true,
       day_header_gap: '8px',
-      day_header_separator_width: '0px',
-      day_header_separator_color: 'var(--divider-color)',
+      // `1px` here against column's `0px` above, because the option draws a different
+      // thing in each view: an optional per-day rule inside a column header, and the one
+      // rule between the date row and the all-day band in grid — a rule the grid has
+      // always drawn, and which used to come out of `day_separator_*`.
+      day_header_separator_width: '1px',
+      day_header_separator_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      hour_line_width: '1px',
+      hour_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
+      allday_band_line_width: '2px',
+      allday_band_line_color: 'color-mix(in srgb, var(--divider-color) 50%, transparent)',
     });
   });
 

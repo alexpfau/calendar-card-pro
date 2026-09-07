@@ -130,54 +130,71 @@ reads as midnight rather than as an hour 24. It sits just above the closing rule
 mirror of the first label sitting just below its own, and it never changes the card's
 height: the gutter clips at the foot of the time body whatever the labels do.
 
-The existing separator options draw vertical rules between day columns in grid view:
+A grid draws four families of rule, and each has its own option. They ship the same gray —
+`var(--divider-color)` at half strength — so the paper reads as one grid rather than as a
+table of boxes, but nothing forces them to agree once you start changing them.
+
+| Rule                                                  | Option                                                      | Default |
+| ----------------------------------------------------- | ----------------------------------------------------------- | ------- |
+| Vertical, between day columns                         | `day_separator_width` / `day_separator_color`               | `1px`   |
+| Horizontal, between the date row and the all-day band | `day_header_separator_width` / `day_header_separator_color` | `1px`   |
+| Horizontal, under the all-day band                    | `allday_band_line_width` / `allday_band_line_color`         | `2px`   |
+| Horizontal, across the time body                      | `hour_line_width` / `hour_line_color`                       | `1px`   |
 
 ```yaml
 time_grid:
   day_separator_width: '1px'
-  day_separator_color: var(--secondary-text-color)
+  hour_line_color: var(--divider-color)
+  allday_band_line_width: '3px'
   week_separator_width: '2px'
   month_separator_width: '3px'
 ```
 
-Grid view turns day separators on by default, because a shared time axis needs visible day
-columns to read clearly. Both halves of that rule start from a grid default rather than
-from the card-level value: `1px` in half-strength `var(--divider-color)`, the same gray and
-the same width the horizontal hour rules are drawn in, so the paper reads as one grid
-rather than as a table of boxes. Every rule in a grid is one pixel — the vertical ones
-between day columns, the hour rules, and the line under the date row — and only the line
-under the all-day band is heavier. Set either inside `time_grid:` to change it — a
-card-level `day_separator_color` belongs to the list and column layouts and is left there.
-
-::: tip Half Strength Is The Default, Not The Drawing
-The dilution is in the shipped default value, so a color you set yourself is drawn exactly
-as you wrote it — in both directions. `day_separator_color` is the one value the vertical
-day rules, the hour rules and the band's frame are all painted with, so changing it changes
-the whole grid at once.
+::: warning Changed In v5
+`day_separator_width` and `day_separator_color` briefly drove all four families while grid
+view was in development. They mean what they have always meant — **the vertical rule
+between two days** — and the three horizontal families named above have their own options.
+If you set `day_separator_color` expecting the hour rules to follow, set `hour_line_color`
+as well.
 :::
 
-`day_separator_width` and `day_separator_color` draw the grid's whole frame, not only its
-vertical rules:
+**Down the columns**, `day_separator_*` runs from just under the date row to the foot of
+the axis. The rules cross the all-day band, and a banner spanning several days paints over
+them, so it still reads as one thing. Grid view turns them on by default, because a shared
+time axis needs visible day columns to read clearly; the card-level value is left to the
+list and column layouts, so set these inside `time_grid:`. Month rules win over week rules,
+and week rules win over day rules. Setting `day_separator_width: 0` removes the vertical
+rules and nothing else.
 
-- **Down the columns**, from just under the date row to the foot of the axis. The rules
-  cross the all-day band, and a banner spanning several days paints over them, so it still
-  reads as one thing.
-- **Under the date row**, as one unbroken line, running from the left edge of the first day
-  column to the right edge of the last. It crosses the gutters but not the hour gutter,
-  which macOS Calendar leaves clear too, and it begins and ends exactly where the hour
-  rules do.
-- **Under the all-day band**, at twice the width, because that boundary separates two
-  different kinds of row rather than two days. It is derived from `day_separator_width`
-  rather than configured on its own, so the proportion holds at whatever width you set.
-  It is drawn inside the band, growing upward, so it never bleeds into the first events of
-  the day, and the band's padding grows with it so the banners keep an even margin above
-  and below.
+**Under the date row**, `day_header_separator_*` draws one unbroken line from the left edge
+of the first day column to the right edge of the last. It crosses the gutters between
+columns but not the hour gutter, which macOS Calendar leaves clear too, and it begins and
+ends exactly where the hour rules do. This option exists in column view as well, where it
+draws a separate short rule inside each day's own header — the grid spends it on the one
+line that boundary needs. It is only drawn when there are all-day events to close off; with
+none, the band collapses and the heavier rule below takes its place.
 
-Setting `day_separator_width: 0` removes the frame entirely — including the line at the
-very top of the time body, which is the frame's rather than the hour ruling's. The hour
-rules and the weekend tint stay. Month rules win over week
-rules, and week rules win over day rules. The date row and the week numbers above it stay
-clear of all of them — they label the grid rather than belonging to it.
+**Under the all-day band**, `allday_band_line_*` is heavier, because that boundary separates
+two different kinds of row rather than two days. It used to be twice the day rule's width by
+derivation; it is its own option now, so the proportion is a default you can break rather
+than a rule you cannot see. It is drawn inside the band, growing upward, so it never bleeds
+into the first events of the day, and the band's padding grows with it so the banners keep
+an even margin above and below.
+
+**Across the time body**, `hour_line_*` rules every hour, and every `slot_minutes` boundary
+in between at the same width. Where a slot boundary is also an hour, the two coincide and
+read a shade heavier — the hierarchy that lets the eye find the hour on a quarter-hour grid.
+The rule closing the body at `end_time` belongs to this family too, so `hour_line_width: 0`
+removes the ruling and its closing line together.
+
+::: tip Half Strength Is The Default, Not The Drawing
+The dilution is in each option's shipped default, so a color you set yourself is drawn
+exactly as you wrote it. That is also why the four options are separate: one value for
+every rule made a heavier day boundary mean twenty-four heavier hour lines.
+:::
+
+The date row and the week numbers above it stay clear of all four families — they label the
+grid rather than belonging to it. The weekend tint is independent of all of them.
 
 When you choose **Time Grid** in the visual editor, it adds the grid defaults that differ
 from the shared card defaults into `time_grid:` for you. That makes the default day rule,

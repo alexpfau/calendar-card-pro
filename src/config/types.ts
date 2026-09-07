@@ -364,6 +364,12 @@ export interface ColumnOverrides extends SharedViewOverrides {
 export interface TimeGridOverrides extends SharedViewOverrides {
   // Shared day-header layout. These have no top-level counterpart and are read with
   // `resolveTimeGridOption`, not `resolveViewOption`.
+  //
+  // 🚨 `day_header_separator_*` draws a different thing here than it does in column view,
+  // and its grid default differs to match. In column it is a per-day rule inside each
+  // day's own header. In grid it is the ONE unbroken rule between the date row and the
+  // all-day band, spanning the day tracks — the boundary the grid's frame already drew,
+  // so this is the option that draws it rather than a second rule beside it.
   day_header_gap?: string;
   day_header_separator_width?: string;
   day_header_separator_color?: string;
@@ -446,6 +452,41 @@ export interface TimeGridOverrides extends SharedViewOverrides {
 
   /** Rows the band may grow to before the remaining banners are dropped. */
   allday_band_max_rows?: number;
+
+  /**
+   * The horizontal rules across the time body, as a CSS length and a CSS color.
+   *
+   * Grid-only, and deliberately not `day_separator_*`. Those have meant one thing since
+   * the card shipped — the rule *between two days* — and the grid drove three visually
+   * distinct rules from them, which made the three impossible to configure apart and
+   * silently redefined a long-standing option for one view.
+   *
+   * Named for the hour rather than for the slot because the labelled rules are the hours,
+   * and because it reads beside `hour_height`: one says how tall an hour is, the other how
+   * its boundary is drawn. A finer `slot_minutes` subdivides the same ruling and its rules
+   * are painted in this same ink, one step lighter where they are not also an hour.
+   */
+  hour_line_width?: string;
+
+  /** @see hour_line_width */
+  hour_line_color?: string;
+
+  /**
+   * The heavier rule under the all-day band, as a CSS length and a CSS color.
+   *
+   * Its own option rather than a multiple of anything else. It used to be
+   * `scaleLength(day_separator_width, 2)`, which held the macOS Calendar proportion at any
+   * width — but only while one option drove every rule in the grid. Once the families are
+   * separable, a derivation across two of them is a coupling the user cannot see: widening
+   * the vertical day rules would silently thicken a horizontal one they never touched.
+   *
+   * `allday_band_` rather than `band_`, following `allday_band_max_rows`, which already
+   * names this band in the config.
+   */
+  allday_band_line_width?: string;
+
+  /** @see allday_band_line_width */
+  allday_band_line_color?: string;
 
   /** Width of the hour-label gutter, as a CSS length. */
   axis_width?: string;

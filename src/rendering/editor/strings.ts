@@ -354,6 +354,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.hour_height.helper':
     "The calendar content area's natural height, one hour at a time. Ignored when a fixed height is set: " +
     'the axis compresses to fit instead.',
+  'time_grid.hour_line_width': 'Hour Rule Width',
+  'time_grid.hour_line_color': 'Hour Rule Color',
+  'time_grid.allday_band_line_width': 'All-Day Band Rule Width',
+  'time_grid.allday_band_line_color': 'All-Day Band Rule Color',
   'time_grid.axis_width': 'Hour Label Width',
   'time_grid.show_axis_labels': 'Show Hour Labels',
   'time_grid.show_now_line': 'Now Line',
@@ -678,8 +682,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'column.day_header_separator_color': 'Day Header Rule Color',
   'time_grid.day_header_separator': 'Day Header Rule',
   'time_grid.day_header_separator.helper':
-    'The rule under a grid heading. It sits inside the day header gap and above the ' +
-    'all-day band, so switching it off does not move events or slice banners.',
+    'The one unbroken rule between the date row and the all-day band, running the day ' +
+    'columns and their gaps but not the hour gutter. Set the width to 0 to remove it.',
   'time_grid.day_header_separator_width': 'Day Header Rule Width',
   'time_grid.day_header_separator_color': 'Day Header Rule Color',
 

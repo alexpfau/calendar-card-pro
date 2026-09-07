@@ -264,20 +264,20 @@ function renderGridSeparator(
  * have existed only to escape the container's padding, and there is nothing left to
  * escape.
  *
- * Both rules are drawn from `day_separator_width` and `day_separator_color`, the same
- * options as the vertical rules, so the grid's frame is one system a user changes in one
- * place. The lower rule is a multiple of that width rather than an option of its own:
- * macOS Calendar draws the line under the all-day area heavier than the hour rules, and
- * deriving it keeps that proportion at any width the user picks instead of stranding a
- * second length beside the first.
+ * 🚨 The two rules take **different options**, and that is the correctness fix rather than
+ * a styling choice. Both used to come from `day_separator_*`, the lower one as
+ * `scaleLength(day_separator_width, 2)` — so one option drove the rule between two days,
+ * the rule under the date row, the rule under the band and the ink of every hour rule.
+ * Four visually distinct rules, one key, and a long-standing option quietly meaning
+ * something new in one view. The upper rule is now `day_header_separator_*`, which already
+ * existed as a grid-only key and already named exactly this boundary; the lower is
+ * `allday_band_line_*`, new, and a literal rather than a multiple of anything, because a
+ * derivation across two independently settable options is a coupling the user cannot see.
+ * `2px` is what the old derivation produced at the shipped width, so nothing moved.
  *
- * The multiple is **two**, and it dropped from three when the base width doubled. Three
- * was chosen against a `0.5px` base, where it bought a 1.5px rule; against `1px` it buys
- * 3px, which stops reading as a heavier line and starts reading as a bar — and it grows
- * badly, since a user picking `2px` would get 6px. Two is the smallest multiple that
- * still reads as heavier at every base: it lands on 2px here, and an integer multiple of
- * a whole-pixel base is itself a whole pixel, where 1.5 would have put the emphasis rule
- * back on the half-pixel raster the rest of this change is getting off.
+ * macOS Calendar still draws the lower boundary heavier than the hour rules — that is a
+ * boundary between two kinds of row rather than between two hours — and the defaults keep
+ * that proportion. What changed is that a user can now break it.
  *
  * An explicit height keeps a rule out of the row sizing, and `alignSelf` decides which
  * edge of its row it sits on, so turning the frame on cannot change how tall the band or
@@ -613,7 +613,7 @@ function formatBandEnd(endMin: number, use24h: boolean): string {
  * @param band - The visible band
  * @param slotMinutes - Configured rule spacing
  * @param columnCount - Day columns to span
- * @param ruleColor - Resolved colour for one rule, the same option the day rules use
+ * @param ruleColor - Resolved `hour_line_color`
  * @returns The ruled backdrop
  */
 function renderRules(
@@ -1012,6 +1012,8 @@ export function renderGridGroupedEvents(
   const maxRows = ViewConfig.resolveTimeGridOption(config, 'allday_band_max_rows');
   const headerGap = ViewConfig.resolveTimeGridOption(config, 'day_header_gap');
   const weekendTint = ViewConfig.resolveTimeGridOption(config, 'weekend_background_color');
+  const hourLineWidth = ViewConfig.resolveTimeGridOption(config, 'hour_line_width');
+  const hourLineColor = ViewConfig.resolveTimeGridOption(config, 'hour_line_color');
 
   const bandHours = (band.endMin - band.startMin) / 60;
   const gutter = ViewConfig.sanitizeGutter(config.day_spacing);
@@ -1040,8 +1042,21 @@ export function renderGridGroupedEvents(
     .filter(({ separator, index }) => separator !== null && index > 0)
     .map(({ separator, index }) => renderGridSeparator(separator as GridSeparator, index, gutter));
 
-  // The two horizontal rules that frame the all-day band, drawn from the same option as
-  // the vertical ones so `day_separator_width: 0` turns the whole frame off together.
+  // The two horizontal rules framing the all-day band, each on its own option now.
+  //
+  // 🚨 They used to be one option — `day_separator_*`, which also drew the vertical rules
+  // and coloured the hour rules. `day_separator_*` has meant *the rule between two days*
+  // since the card shipped, and driving four visually distinct rules from it made all four
+  // impossible to configure apart. The upper rule is `day_header_separator_*`, a grid-only
+  // key that already existed and already named this boundary and which the renderer never
+  // read; the lower is the new `allday_band_line_*`.
+  //
+  // Using `day_header_separator_*` here also closes a live hazard rather than only tidying
+  // one up. It used to be handed to the shared day-header leaf, which draws a rule inside
+  // each day's own header — so a user switching it on got a second, `day_spacing`-broken
+  // rule at the same boundary the frame rule was already drawn at. After this there is one
+  // rule there and one key controlling it.
+  //
   // The upper rule is only drawn when there is a band to close: with no all-day events
   // row 3 collapses to nothing and the two rules would land on the same line, a hairline
   // stacked under a heavier one. The lower rule is the boundary either way.
@@ -1050,21 +1065,26 @@ export function renderGridGroupedEvents(
   // it belongs at the END of row 3, growing up into the band's bottom padding rather than
   // down into the first events of the day; with no band there is no row 3 to grow into and
   // it stays at the top of row 4.
-  const ruleWidth = config.day_separator_width;
-  const ruleColor = config.day_separator_color;
-  const framed = !ViewConfig.isZeroLength(ruleWidth);
-  const bandBoundaries = framed
-    ? [
-        ...(bandRows > 0 ? [renderGridBoundary('band-top', ruleWidth, ruleColor, 3, 'start')] : []),
-        renderGridBoundary(
-          'band-bottom',
-          ViewConfig.scaleLength(ruleWidth, 2),
-          ruleColor,
-          bandRows > 0 ? 3 : 4,
-          bandRows > 0 ? 'end' : 'start',
-        ),
-      ]
-    : [];
+  const bandTopWidth = ViewConfig.resolveTimeGridOption(config, 'day_header_separator_width');
+  const bandTopColor = ViewConfig.resolveTimeGridOption(config, 'day_header_separator_color');
+  const bandBottomWidth = ViewConfig.resolveTimeGridOption(config, 'allday_band_line_width');
+  const bandBottomColor = ViewConfig.resolveTimeGridOption(config, 'allday_band_line_color');
+  const bandBoundaries = [
+    ...(bandRows > 0 && !ViewConfig.isZeroLength(bandTopWidth)
+      ? [renderGridBoundary('band-top', bandTopWidth, bandTopColor, 3, 'start')]
+      : []),
+    ...(!ViewConfig.isZeroLength(bandBottomWidth)
+      ? [
+          renderGridBoundary(
+            'band-bottom',
+            bandBottomWidth,
+            bandBottomColor,
+            bandRows > 0 ? 3 : 4,
+            bandRows > 0 ? 'end' : 'start',
+          ),
+        ]
+      : []),
+  ];
 
   // A configured `height` turns the axis from a fixed scale into a share of the content
   // area, as both `docs/features/grid-view.md` and the `.grid-container` stylesheet
@@ -1130,11 +1150,21 @@ export function renderGridGroupedEvents(
           : {}),
         '--calendar-card-grid-now-color': nowLineColor,
         '--calendar-card-column-header-gap': headerGap,
-        // The band's padding is sized from the frame it has to clear, so the banners keep
-        // the same clear space under the upper rule as above the lower one at any width a
-        // user picks. Written unconditionally, `0px` included: with the frame off there is
-        // nothing to clear and the padding falls back to the bare inset.
-        '--calendar-card-grid-frame-width': ruleWidth,
+        // The band's padding is sized from the two rules it has to clear, one per edge, so
+        // the banners keep the same clear space under the upper rule as above the lower one
+        // at whatever widths a user picks. Two properties rather than one because the two
+        // rules are separate options now — a single `frame-width` was only ever right while
+        // the lower rule was a fixed multiple of the upper. Written unconditionally, `0px`
+        // included: with a rule off there is nothing to clear and the padding falls back to
+        // the bare inset.
+        '--calendar-card-grid-band-top-width': bandTopWidth,
+        '--calendar-card-grid-band-bottom-width': bandBottomWidth,
+        // The thickness of one hour rule, read in three places a long way apart: the
+        // gradients in `.grid-rules` paint it, the closing rule at the band's end matches
+        // it, and a block's top clearance has to clear it. Written from here rather than
+        // declared in the stylesheet so those three cannot disagree and so the option is
+        // reachable at all.
+        '--calendar-card-grid-rule-width': hourLineWidth,
         // Written only when it paints something, so the stylesheet's transparent fallback
         // is the off state rather than a placeholder. `transparent` and `none` are how a
         // user turns the shading off, and both are cheaper to drop here than to paint.
@@ -1169,7 +1199,8 @@ export function renderGridGroupedEvents(
           `
         : nothing}
       ${showAxisLabels ? renderAxis(band, config, hass) : nothing}
-      ${renderRules(band, slotMinutes, gridDays.length, ruleColor)} ${renderGridEndRule(ruleColor)}
+      ${renderRules(band, slotMinutes, gridDays.length, hourLineColor)}
+      ${renderGridEndRule(hourLineColor)}
       ${gridDays.map((day, index) =>
         renderDayBody(
           day,
@@ -1226,6 +1257,13 @@ function renderWeekNumbers(
  * Uses the same date leaf as column view, so the two layouts label a day identically
  * and a change to date formatting reaches both.
  *
+ * 🚨 `null` for the leaf's own separator, and that is the point rather than an omission.
+ * Column view draws `day_header_separator_*` inside each day's header, which `day_spacing`
+ * cuts into one dash per column; grid spends the same option on the unbroken rule between
+ * the date row and the all-day band, drawn by `renderGridBoundary`. Passing it here as well
+ * would put two rules at one boundary — a broken one on top of a whole one — which is
+ * exactly what a user switching the option on used to get.
+ *
  * @param day - Day to label
  * @param config - Card configuration
  * @param language - Language code for translations
@@ -1245,11 +1283,6 @@ function renderDayHeader(
   const dayDate = new Date(day.timestamp);
   const { isToday, isTomorrow } = Leaves.classifyDay(day.timestamp);
   const weatherContent = Leaves.renderDateWeather(dayDate, config, weatherForecasts);
-  const separatorWidth = ViewConfig.resolveTimeGridOption(config, 'day_header_separator_width');
-  const separatorColor = ViewConfig.resolveTimeGridOption(config, 'day_header_separator_color');
-  const headerSeparator = ViewConfig.isZeroLength(separatorWidth)
-    ? null
-    : { width: separatorWidth, color: separatorColor };
 
   return html`
     <div
@@ -1268,7 +1301,7 @@ function renderDayHeader(
         language,
         isToday,
         weatherContent,
-        headerSeparator,
+        null,
         hass,
       )}
     </div>
