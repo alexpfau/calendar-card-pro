@@ -11,7 +11,7 @@ import * as StartDate from '../../utils/start-date';
 import * as AccentText from '../accent-text';
 
 /**
- * Uncommitted text, keyed by synthetic field name.
+ * Raw form text, keyed by field name and qualified by storage scope in the workspace router.
  */
 export type PendingValues = Readonly<Record<string, string>>;
 

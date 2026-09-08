@@ -99,13 +99,19 @@ export function valueSource(
 }
 
 /**
- * The pending-text key for a synthetic field, shared only when its storage is shared.
+ * The pending-text key for a field, shared only when its storage is shared.
  *
- * @param name - Synthetic field
+ * @param name - Form field
  * @param workspace - Editing workspace
+ * @param path - Enclosing data keys, when the field is nested
  * @returns Root or block-qualified pending key
  */
-export function pendingKey(name: string, workspace: EditorWorkspace): string {
+export function pendingKey(
+  name: string,
+  workspace: EditorWorkspace,
+  path: ReadonlyArray<string> = [],
+): string {
+  if (path.length > 0) return [...path, name].join('.');
   const destinations = Synthetic.configKeysForField(name).map((key) => destination(key, workspace));
   const block = destinations[0];
   return block !== undefined && destinations.every((candidate) => candidate === block)
@@ -144,7 +150,7 @@ export function workspaceConfig(
  * @param config - Raw merged configuration
  * @param workspace - Editing workspace
  * @param pending - All held text, qualified by storage scope
- * @returns Effective form data with independently scoped synthetic values
+ * @returns Effective form data with independently scoped raw text
  */
 export function workspaceFormData(
   config: Readonly<Types.Config>,
@@ -176,12 +182,34 @@ export function workspaceFormData(
     const key = pendingKey(name, workspace);
     if (pending[key] !== undefined) held[name] = pending[key];
   }
-  return {
+  let data: Record<string, unknown> = {
     ...projected,
     ...blocks,
     weather: Value.weatherFormBlock(projected),
     ...Synthetic.deriveSyntheticData(projected, held),
   };
+  for (const [key, text] of Object.entries(pending)) {
+    const parts = key.split('.');
+    const name = parts[parts.length - 1];
+    const path = parts.slice(0, -1);
+    if (Synthetic.isSyntheticKey(name)) continue;
+    const block = destination(name, workspace);
+    if (path.length === 0 && block !== undefined) continue;
+    const paths = [path];
+    if (path.length === 1 && path[0] === block) paths.push([]);
+    for (const target of paths) {
+      // Keep "2" while the user types "24px", but never mask a changed effective value.
+      if (
+        Value.deepEqual(
+          normalizeFieldValue(config, target, name, text),
+          normalizeFieldValue(config, target, name, atPath(data, target, name)),
+        )
+      ) {
+        data = writePath(data, target, name, text);
+      }
+    }
+  }
+  return data;
 }
 
 function atPath(data: unknown, path: ReadonlyArray<string>, key: string): unknown {
@@ -235,18 +263,18 @@ export function applyWorkspaceChange(
     if (node.name === WORKSPACE_FIELD) continue;
     const synthetic = path.length === 0 && Synthetic.isSyntheticKey(node.name);
     const comparisonKey = synthetic ? Synthetic.configKeysForField(node.name)[0] : node.name;
-    const previous = normalizeFieldValue(
-      config,
-      path,
-      comparisonKey,
-      atPath(frame.data, path, node.name),
-    );
-    const next = normalizeFieldValue(
-      config,
-      path,
-      comparisonKey,
-      atPath(incoming, path, node.name),
-    );
+    const previousRaw = atPath(frame.data, path, node.name);
+    const nextRaw = atPath(incoming, path, node.name);
+    const previous = normalizeFieldValue(config, path, comparisonKey, previousRaw);
+    const next = normalizeFieldValue(config, path, comparisonKey, nextRaw);
+    const textChanged = 'text' in node.selector && !Value.deepEqual(previousRaw, nextRaw);
+    const heldKey = pendingKey(node.name, frame.workspace, path);
+    if (textChanged) delete held[heldKey];
+    const rawText =
+      textChanged && typeof nextRaw === 'string' && !Value.deepEqual(nextRaw, next)
+        ? nextRaw
+        : undefined;
+    if (rawText !== undefined) held[heldKey] = rawText;
     if (Value.deepEqual(previous, next)) continue;
 
     if (path.length > 0) {
@@ -287,6 +315,8 @@ export function applyWorkspaceChange(
         else held[key] = value;
       }
     }
+    // A synthetic commit can clear its pending key after accepting a coerced length.
+    if (rawText !== undefined) held[heldKey] = rawText;
   }
   if (config.view !== 'grid' && draft.view === 'grid') {
     draft = Value.seedTimeGridDivergentDefaults(draft, seedGridDefaults);

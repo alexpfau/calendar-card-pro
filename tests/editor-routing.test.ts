@@ -208,6 +208,68 @@ describe('coerced-against-coerced comparisons', () => {
   });
 });
 
+describe('typed lengths keep their raw text in the form', () => {
+  it.each(lengthKeys)('%s can be typed without inserting pixels mid-word', (key) => {
+    for (const workspace of ['column', 'grid'] as const) {
+      let config = buildConfig({ [key]: '4px' });
+      let pending: Record<string, string> = {};
+      const block = View.OVERRIDE_BLOCK_BY_VIEW[workspace]!;
+      for (const text of ['2', '2r', '2re', '2rem']) {
+        const current = frame(config, workspace, key);
+        current.data = Routing.workspaceFormData(config, workspace, pending);
+        const result = Routing.applyWorkspaceChange(
+          config,
+          current,
+          { ...current.data, [key]: text },
+          pending,
+        );
+        config = result.config;
+        pending = result.pending;
+        expect(Routing.workspaceFormData(config, workspace, pending)[key]).toBe(text);
+        expect(config[block]).toHaveProperty(key, text === '2' ? '2px' : text);
+      }
+    }
+  });
+
+  it('does not leak List text into a view with an equal explicit value', () => {
+    const config = buildConfig({
+      event_font_size: '2px',
+      column: { event_font_size: '2px' },
+      time_grid: { event_font_size: '2px' },
+    });
+    const current = frame(config, 'list', 'event_font_size');
+    const result = Routing.applyWorkspaceChange(
+      config,
+      current,
+      { ...current.data, event_font_size: '2' },
+      {},
+    );
+    expect(Routing.workspaceFormData(config, 'list', result.pending).event_font_size).toBe('2');
+    for (const view of ['column', 'grid'] as const) {
+      expect(Routing.workspaceFormData(config, view, result.pending).event_font_size).toBe('2px');
+    }
+  });
+
+  it('does not let held text mask a changed effective value', () => {
+    const config = buildConfig({ time_grid: { event_font_size: '2px' } });
+    const current = frame(config, 'grid', 'event_font_size');
+    const result = Routing.applyWorkspaceChange(
+      config,
+      current,
+      { ...current.data, event_font_size: '2' },
+      {},
+    );
+    expect(Routing.workspaceFormData(config, 'grid', result.pending).event_font_size).toBe('2');
+    expect(
+      Routing.workspaceFormData(
+        { ...config, time_grid: { event_font_size: '5px' } },
+        'grid',
+        result.pending,
+      ).event_font_size,
+    ).toBe('5px');
+  });
+});
+
 describe('synthetic edits are routed as real options', () => {
   it.each(['column', 'grid'] as const)(
     'uses %s values for a mode change without touching other views',
@@ -375,6 +437,101 @@ afterEach(() => {
 });
 
 describe('rendered form frames preserve edit intent', () => {
+  it.each(View.VIEWS)(
+    'keeps %s font input intact through renders and save echoes',
+    async (view) => {
+      const { editor, seen } = await mount();
+      emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
+        editing_workspace: view,
+      });
+      await editor.updateComplete;
+      editor.addEventListener('config-changed', (event) =>
+        editor.setConfig((event as CustomEvent<{ config: Types.Config }>).detail.config),
+      );
+      for (const text of ['2', '24', '24p', '24px']) {
+        const form = owner(editor, 'event_font_size');
+        emit(form, { ...form.data, event_font_size: text });
+        await editor.updateComplete;
+        expect(owner(editor, 'event_font_size').data.event_font_size).toBe(text);
+      }
+      const block = View.OVERRIDE_BLOCK_BY_VIEW[view];
+      expect(block ? seen.at(-1)?.[block] : seen.at(-1)).toMatchObject({
+        event_font_size: '24px',
+      });
+    },
+  );
+
+  it('preserves nested Grid length input, not only top-level overrides', async () => {
+    const { editor, seen } = await mount();
+    for (const text of ['6', '60', '60p', '60px']) {
+      const form = owner(editor, 'hour_height');
+      const grid = form.data.time_grid as Record<string, unknown>;
+      emit(form, { ...form.data, time_grid: { ...grid, hour_height: text } });
+      await editor.updateComplete;
+      expect(owner(editor, 'hour_height').data.time_grid).toHaveProperty('hour_height', text);
+    }
+    expect(seen.at(-1)?.time_grid).toHaveProperty('hour_height', '60px');
+  });
+
+  it('preserves synthetic height input using the same scoped pending text', async () => {
+    const { editor, seen } = await mount();
+    const mode = owner(editor, 'height_mode');
+    emit(mode, { ...mode.data, height_mode: 'fixed' });
+    await editor.updateComplete;
+    for (const text of ['2', '24', '24e', '24em']) {
+      const form = owner(editor, 'card_height');
+      emit(form, { ...form.data, card_height: text });
+      await editor.updateComplete;
+      expect(owner(editor, 'card_height').data.card_height).toBe(text);
+    }
+    expect(seen.at(-1)?.time_grid).toHaveProperty('height', '24em');
+  });
+
+  it('keeps format-only edits without writing an equivalent override again', async () => {
+    const { editor, seen } = await mount();
+    let form = owner(editor, 'event_font_size');
+    emit(form, { ...form.data, event_font_size: '2' });
+    await editor.updateComplete;
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2');
+    seen.length = 0;
+    form = owner(editor, 'event_font_size');
+    emit(form, { ...form.data, event_font_size: '2px' });
+    await editor.updateComplete;
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2px');
+    expect(seen).toHaveLength(0);
+  });
+
+  it('clears raw length text on reset even when it equals the view default', async () => {
+    const { editor } = await mount();
+    const form = owner(editor, 'event_font_size');
+    emit(form, { ...form.data, event_font_size: '12' });
+    await editor.updateComplete;
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('12');
+    editor
+      .shadowRoot!.querySelector<HTMLButtonElement>('[data-reset-keys="event_font_size"]')!
+      .click();
+    await editor.updateComplete;
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('12px');
+  });
+
+  it('keeps raw text in its storage scope and clears it on external config', async () => {
+    const { editor } = await mount();
+    const form = owner(editor, 'event_font_size');
+    emit(form, { ...form.data, event_font_size: '2' });
+    await editor.updateComplete;
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2');
+    const workspace = editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!;
+    emit(workspace, { editing_workspace: 'column' });
+    await editor.updateComplete;
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('19px');
+    emit(workspace, { editing_workspace: 'grid' });
+    await editor.updateComplete;
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2');
+    editor.setConfig(buildConfig({ view: 'grid', time_grid: { event_font_size: '2px' } }));
+    await editor.updateComplete;
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2px');
+  });
+
   it('routes a delayed edit to the workspace that rendered its form', async () => {
     const { editor, seen } = await mount();
     const old = owner(editor, 'event_font_size');

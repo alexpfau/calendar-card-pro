@@ -671,6 +671,7 @@ export class CalendarCardProEditor extends LitElement {
     }
     for (const key of keys) this._config = Exceptions.removeException(this._config, blockKey, key);
     const pending = { ...this._pending };
+    for (const key of keys) delete pending[`${blockKey}.${key}`];
     for (const name of Object.keys(Synthetic.SYNTHETIC_FIELDS)) {
       if (Synthetic.configKeysForField(name).some((key) => keys.includes(key)))
         delete pending[Routing.pendingKey(name, view)];
