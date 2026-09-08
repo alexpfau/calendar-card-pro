@@ -22,9 +22,11 @@ import * as Types from '../../config/types';
  */
 export interface SchemaCtx {
   view: Types.EffectiveView;
-  /** Shared uses root-value schemas and does not impose a per-view relevance filter. */
+  /** Editor workspace, independent of the card's displayed view. */
   workspace?: EditorWorkspace;
   config: Types.Config;
+  /** Authored values before workspace projection, when supplied by the live editor. */
+  rawConfig?: Types.Config;
   language: string;
 }
 

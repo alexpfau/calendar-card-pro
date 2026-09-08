@@ -35,9 +35,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.helper':
     'The card’s starting layout. Side-by-side layouts can fall back to List when space is tight.',
   editing_workspace: 'Editing Settings For',
-  'editing_workspace.helper':
-    'Follows Card Displays until you choose a workspace. Shared shows card-wide options and inherited defaults.',
-  'editing_workspace.option.shared.label': 'Shared',
+  'editing_workspace.helper': 'Choose which layout to edit without changing Card Displays.',
+  'editing_workspace.list_note':
+    'Column and Grid may use these List values too, unless that view has its own value for the option.',
+  'value_source.card': 'Applies to the whole card.',
+  'value_source.inherited': 'Uses the List value unless you change it here.',
+  'value_source.default': 'Uses this layout’s default until you change it here.',
+  'value_source.own': 'Set for this layout.',
+  'value_source.reset': 'Reset {option}',
   'editing_workspace.option.list.label': 'List',
   'editing_workspace.option.column.label': 'Column',
   'editing_workspace.option.grid.label': 'Grid',
@@ -296,19 +301,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // The surface for "this option has a different value in this layout". Worded as
   // exceptions throughout, because that is what they are: the card has one
   // configuration, and a handful of options may depart from it in one layout.
-  'exceptions.title': 'View Exceptions',
-  'exceptions.summary.none': 'Every option above uses this view\u2019s normal value',
-  'exceptions.summary.one': '1 option differs in this view',
-  'exceptions.summary.many': '{count} options differ in this view',
-  exceptions: 'Options With An Exception',
-  'exceptions.helper':
-    'Pick the options that should take a different value when this card renders as ' +
-    'this view. Removing one returns it to the shared value above.',
   'column.height': 'Height',
-  'column.height.helper': 'A fixed height for the column layout. Use auto to let it grow.',
   'column.max_height': 'Maximum Height',
-  'column.max_height.helper':
-    'The height the column layout may grow to before it scrolls. Use none for no limit.',
   'column.show_week_numbers': 'Week Numbers',
   'column.today_indicator': 'Today Indicator',
   'column.allday_badge': 'All-Day Badge',
@@ -388,17 +382,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Above this, the rest collapse into one block saying how many it stands for. Nothing ' +
     'is hidden without being counted.',
   'time_grid.height': 'Height',
-  'time_grid.height.helper':
-    'A fixed height for the grid layout. The time axis compresses to fit; use auto to let it grow.',
   'time_grid.max_height': 'Maximum Height',
-  'time_grid.max_height.helper': 'The tallest the grid layout may grow before it scrolls.',
   'time_grid.show_week_numbers': 'Week Numbers',
   'time_grid.allday_badge': 'All-Day Badge',
   'time_grid.remove_location_country': 'Remove Country From Location',
-  'column.show_empty_days.helper':
-    'Column layout defaults this to on, whatever the shared setting above says.',
-  'column.split_multiday_events.helper':
-    'Column layout defaults this to on, whatever the shared setting above says.',
 
   // --- Defaults a view substitutes -------------------------------------------
   //

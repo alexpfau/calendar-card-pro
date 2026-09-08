@@ -3,6 +3,7 @@
  * Defaults are stripped on write so opening the editor does not persist values the user never set.
  */
 
+import { normalizeRootValue } from './normalize';
 import { applySyntheticChange, isSyntheticKey } from './synthetic';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
@@ -168,7 +169,7 @@ export function stripColumnDefaults(
         config,
         key as keyof Types.ColumnOverrides & keyof Types.Config,
       );
-      if (deepEqual(inherited, value)) continue;
+      if (deepEqual(normalizeRootValue(key, inherited), normalizeRootValue(key, value))) continue;
       result[key] = value;
       continue;
     }
@@ -235,7 +236,7 @@ export function stripTimeGridDefaults(
         result[key] = value;
         continue;
       }
-      if (deepEqual(inherited, value)) continue;
+      if (deepEqual(normalizeRootValue(key, inherited), normalizeRootValue(key, value))) continue;
       result[key] = value;
       continue;
     }

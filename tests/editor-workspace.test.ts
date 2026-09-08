@@ -4,10 +4,8 @@ import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import { withholdInertFields } from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { walkSchema } from '../src/rendering/editor/panels';
-import { text } from '../src/rendering/editor/schemas/common';
 import { chassisSubforms } from '../src/rendering/editor/subforms';
 import {
   type EditorWorkspace,
@@ -31,7 +29,7 @@ interface Form extends HTMLElement {
   computeLabel(node: HaFormSchema): string;
 }
 
-const EXPECTED_WORKSPACES: ReadonlyArray<EditorWorkspace> = ['shared', ...VIEWS];
+const EXPECTED_WORKSPACES: ReadonlyArray<EditorWorkspace> = VIEWS;
 const PAIRS = EXPECTED_WORKSPACES.flatMap((from) =>
   EXPECTED_WORKSPACES.filter((to) => to !== from).map((to) => ({ from, to })),
 );
@@ -129,45 +127,17 @@ function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): vo
   const main = forms(editor, 'ha-form.panel-form').flatMap((form) => names(form.schema));
   expect(main.length).toBeGreaterThan(50);
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
-    expect(main.includes(key), `${current}: ${key}`).toBe(
-      current === 'shared' || scope.has(current),
-    );
+    expect(main.includes(key), `${current}: ${key}`).toBe(scope.has(current));
   }
   expect(main.includes('hour_height')).toBe(current === 'grid');
   expect(main.includes('min_day_width')).toBe(current === 'grid' || current === 'column');
   const entity = names(onlyForm(editor, 'ha-form.entity-form').schema);
-  expect(entity.includes('compact_events_to_show')).toBe(
-    current === 'shared' || current === 'list',
-  );
+  expect(entity.includes('compact_events_to_show')).toBe(current === 'list');
   expect(entity.includes('split_multiday_events')).toBe(current !== 'grid');
-  if (current === 'shared' || current === 'list') {
-    expect(forms(editor, 'ha-form.exception-picker')).toHaveLength(0);
+  expect(forms(editor, 'ha-form.exception-picker')).toHaveLength(0);
+  if (current === 'list') {
     expect(editor.shadowRoot!.querySelectorAll('.width-table')).toHaveLength(0);
   }
-}
-
-function picker(editor: EditorHost, key: string): Form {
-  const matches = forms(editor, 'ha-form.exception-picker').filter((form) =>
-    form.schema.some(
-      (node) =>
-        'selector' in node &&
-        'select' in node.selector &&
-        node.selector.select?.options.some(
-          (option) => typeof option !== 'string' && option.value === key,
-        ),
-    ),
-  );
-  expect(matches, `exception picker for ${key}`).toHaveLength(1);
-  return matches[0];
-}
-
-async function declare(editor: EditorHost, key: string): Promise<void> {
-  const form = picker(editor, key);
-  const selected = form.data.exceptions;
-  if (!Array.isArray(selected) || selected.some((name) => typeof name !== 'string')) {
-    throw new Error('Exception selection must be a list of keys');
-  }
-  await change(editor, form, { exceptions: [...selected, key] });
 }
 
 afterEach(() => {
@@ -215,8 +185,9 @@ describe('displayed view and editing workspace are separate controls', () => {
       const editor = await mount({ view });
       const seen = reports(editor);
       expect(workspace(editor)).toBe(view);
-      await choose(editor, 'shared');
-      expect(workspace(editor)).toBe('shared');
+      const other = VIEWS.find((candidate) => candidate !== view)!;
+      await choose(editor, other);
+      expect(workspace(editor)).toBe(other);
       expect(onlyForm(editor, 'ha-form.display-view-form').data.view).toBe(view);
       expect(seen).toEqual([]);
     },
@@ -241,7 +212,7 @@ describe('displayed view and editing workspace are separate controls', () => {
     'keeps the chosen %s workspace when Card Displays changes',
     async (chosen) => {
       const editor = await mount(enabled('list'));
-      await choose(editor, 'shared');
+      await choose(editor, 'column');
       await choose(editor, chosen);
       const seen = reports(editor);
       await display(editor, 'column');
@@ -279,18 +250,20 @@ describe('workspace transitions do not configure the card', () => {
     const editor = await mount();
     const seen = reports(editor);
     await choose(editor, 'grid');
-    await choose(editor, 'shared');
+    await choose(editor, 'list');
     expect(seen).toEqual([]);
     await change(editor, owner(editor, 'title'), { title: 'Example' });
     expect(seen).toEqual([{ entities: [{ entity: 'calendar.anna' }], title: 'Example' }]);
   });
 
-  it('keeps ordinary fields on the existing shared write path until the routing stage', async () => {
+  it('writes presentation values into the editing workspace without changing List', async () => {
     const editor = await mount();
     const seen = reports(editor);
     await choose(editor, 'grid');
     await change(editor, owner(editor, 'event_font_size'), { event_font_size: '27px' });
-    expect(seen).toEqual([{ entities: [{ entity: 'calendar.anna' }], event_font_size: '27px' }]);
+    expect(seen).toEqual([
+      { entities: [{ entity: 'calendar.anna' }], time_grid: { event_font_size: '27px' } },
+    ]);
     expect(workspace(editor)).toBe('grid');
   });
 
@@ -365,37 +338,28 @@ describe('workspace state survives echoes and pending edits', () => {
     expect(seen).toEqual([]);
   });
 
-  it('remembers unsaved exception declarations separately for each view', async () => {
+  it('keeps view values separate across workspace switches and external configurations', async () => {
     const editor = await mount(enabled('list'));
     const seen = reports(editor);
     await choose(editor, 'grid');
-    await declare(editor, 'title_max_lines');
-    expect(names(owner(editor, 'title_max_lines', 'ha-form.exception-form').schema)).toContain(
-      'title_max_lines',
-    );
+    await change(editor, owner(editor, 'title_max_lines'), { title_max_lines: 3 });
+    expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(3);
     await choose(editor, 'column');
-    expect(
-      forms(editor, 'ha-form.exception-form').flatMap((form) => names(form.schema)),
-    ).not.toContain('title_max_lines');
+    expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(0);
     await choose(editor, 'grid');
-    expect(names(owner(editor, 'title_max_lines', 'ha-form.exception-form').schema)).toContain(
-      'title_max_lines',
-    );
+    expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(3);
     editor.setConfig({ entities: ['calendar.ben'], view: 'grid' });
     await editor.updateComplete;
-    expect(
-      forms(editor, 'ha-form.exception-form').flatMap((form) => names(form.schema)),
-    ).not.toContain('title_max_lines');
-    expect(seen).toEqual([]);
+    expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(0);
+    expect(seen).toHaveLength(1);
   });
 
-  it('diffs an exception against the editing view, not the different displayed view', async () => {
+  it('diffs a view edit against its projection, not the different displayed view', async () => {
     const editor = await mount({ view: 'list', time_grid: { event_font_size: '23px' } });
     const seen = reports(editor);
     await choose(editor, 'grid');
-    await declare(editor, 'event_color');
     expect(seen).toEqual([]);
-    await change(editor, owner(editor, 'event_font_size', 'ha-form.exception-form'), {
+    await change(editor, owner(editor, 'event_font_size'), {
       event_font_size: '24px',
     });
     expect(seen).toEqual([
@@ -407,30 +371,12 @@ describe('workspace state survives echoes and pending edits', () => {
   });
 });
 
-describe('Shared exposes root options without adopting a renderer', () => {
-  it('keeps even an explicitly non-List option visible in Shared', async () => {
-    const editor = await mount(enabled('grid'));
-    const seen = reports(editor);
-    const viewModule = await import('../src/config/view');
-    const original = viewModule.appliesToView;
-    const applies = vi
-      .spyOn(viewModule, 'appliesToView')
-      .mockImplementation((key, view) =>
-        key === 'event_background_opacity' ? false : original(key, view),
-      );
-    const originalEntityScope = viewModule.entityScopeFor;
-    vi.spyOn(viewModule, 'entityScopeFor').mockImplementation((key) =>
-      key === 'show_time' ? new Set(['grid']) : originalEntityScope(key),
-    );
-    await choose(editor, 'shared');
-    assertWorkspaceFields(editor, 'shared');
-    expect(owner(editor, 'event_background_opacity')).toBeDefined();
-    expect(names(onlyForm(editor, 'ha-form.entity-form').schema)).toContain('show_time');
-    expect(withholdInertFields([text('future_root_option')], 'shared')).toEqual([
-      text('future_root_option'),
-    ]);
-    expect(VIEWS).not.toContain('shared');
-    expect(applies).not.toHaveBeenCalled();
-    expect(seen).toEqual([]);
-  });
+it('rejects the removed duplicate Shared workspace without changing configuration', async () => {
+  const editor = await mount();
+  const seen = reports(editor);
+  vi.spyOn(Logger, 'warn').mockImplementation(() => {});
+  await change(editor, onlyForm(editor, 'ha-form.workspace-form'), { [WORKSPACE_FIELD]: 'shared' });
+  expect(workspace(editor)).toBe('list');
+  expect(WORKSPACES).toEqual(VIEWS);
+  expect(seen).toEqual([]);
 });

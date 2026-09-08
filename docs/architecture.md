@@ -32,7 +32,9 @@ src/
 │   │   ├── overrides.ts          # Exceptions for the three union-typed options
 │   │   ├── subforms.ts           # The schemas a panel renders outside its own form
 │   │   ├── filter.ts             # Search and "customized only"
-│   │   ├── workspace.ts          # Editor-only Shared/List/Column/Grid selection
+│   │   ├── workspace.ts          # Editor-only List/Column/Grid selection
+│   │   ├── routing.ts            # Workspace projections and scope-captured writes
+│   │   ├── normalize.ts          # Comparable root and nested form values
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
 │   │   ├── localize.ts           # The string hooks `ha-form` calls
 │   │   ├── strings.ts            # English editor strings
@@ -203,8 +205,8 @@ containers; everything they place comes from `leaves.ts` and `presentation.ts`:
     is what lets both the test suite and `check:i18n` import a schema and read it
   - Built as a separate bundle and fetched on demand (see _Two Files, One Card_)
   - Keeps the displayed `view` separate from the editor-local workspace. Workspace
-    changes select schemas and exception forms without writing configuration; Shared
-    uses root-value schemas with no per-view relevance restriction
+    changes select schemas without writing configuration; edits use the workspace captured
+    by the emitting form and compare normalized values before choosing a storage scope
 
 ### Translations (`translations/`)
 

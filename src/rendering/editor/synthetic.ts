@@ -5,7 +5,6 @@
 
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
-import * as ViewConfig from '../../config/view';
 import * as EntityColors from '../../utils/entity-colors';
 import * as Helpers from '../../utils/helpers';
 import * as StartDate from '../../utils/start-date';
@@ -22,6 +21,8 @@ interface SyntheticApplyResult {
 }
 
 interface SyntheticField {
+  /** Real options this control writes; used for routing, pending text, and reset actions. */
+  readonly configKeys: ReadonlyArray<string>;
   /**
    * Reads the field's value out of the configuration.
    *
@@ -217,39 +218,22 @@ export function alldayBadgeColorMode(value: unknown): string {
  * @param config - Current configuration
  * @returns The configured view, or list when it names none the card knows
  */
-function configuredView(config: Readonly<Types.Config>): Types.EffectiveView {
-  return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
-}
-
 /**
- * Whether every governed color option resolves to the accent sentinel.
- *
- * 🚨 Resolved through the view, not read off the card level, and that is the whole design.
- * Grid view defaults all five to the sentinel, so a grid card that has never been edited
- * stores none of them — a card-level read would report the toggle *off* on exactly the
- * card the feature is on for. Reading what the card will actually draw is also what makes
- * this safe to leave underived: there is no stored boolean to fall out of step with the
- * fields, because the answer is recomputed from the fields every time.
+ * Whether every governed color in the supplied form projection is the accent sentinel.
+ * The workspace projection resolves inheritance before deriving any synthetic field.
  *
  * @param config - Current configuration
  * @returns `true` when every governed option is the sentinel
  */
 export function accentEventText(config: Readonly<Types.Config>): boolean {
-  const view = configuredView(config);
-
   return AccentText.ACCENT_TEXT_KEYS.every((key) =>
-    EntityColors.isAccentTextSentinel(
-      ViewConfig.resolveViewOption(
-        config,
-        key as keyof Types.ColumnOverrides & keyof Types.Config,
-        view,
-      ),
-    ),
+    EntityColors.isAccentTextSentinel(config[key as keyof Types.Config]),
   );
 }
 
 export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   height_mode: {
+    configKeys: ['height', 'max_height'],
     derive: (config) => heightMode(config),
     apply: (value, config) => {
       const discardHeights = { card_height: null, card_max_height: null };
@@ -288,6 +272,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   card_height: {
+    configKeys: ['height'],
     derive: (config) => (heightMode(config) === 'fixed' ? String(config.height) : ''),
     apply: (value) => {
       const text = String(value ?? '');
@@ -298,6 +283,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   card_max_height: {
+    configKeys: ['max_height'],
     derive: (config) => (heightMode(config) === 'maximum' ? String(config.max_height) : ''),
     apply: (value) => {
       const text = String(value ?? '');
@@ -308,6 +294,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   start_date_mode: {
+    configKeys: ['start_date'],
     derive: (config) => startDateMode(config),
     apply: (value, config) => {
       const discardDates = { start_date_offset: null, start_date_fixed: null };
@@ -329,6 +316,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   start_date_fixed: {
+    configKeys: ['start_date'],
     derive: (config) => {
       const match = FIXED_DATE_PATTERN.exec(String(config.start_date ?? '').trim());
       return match ? match[1] : '';
@@ -345,6 +333,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   start_date_offset: {
+    configKeys: ['start_date'],
     derive: (config) => (startDateMode(config) === 'offset' ? String(config.start_date) : ''),
     apply: (value) => {
       const text = String(value ?? '');
@@ -356,6 +345,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   language_mode: {
+    configKeys: ['language'],
     derive: (config) => languageMode(config),
     apply: (value, config) =>
       value === 'custom'
@@ -366,6 +356,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   time_format: {
+    configKeys: ['time_24h'],
     derive: (config) => {
       if (config.time_24h === 'system') return 'system';
       return config.time_24h === true ? '24' : '12';
@@ -391,6 +382,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    * plain closed-set string with no off value to encode, so the schema selects it by name.
    */
   allday_badge_position: {
+    configKeys: ['allday_badge'],
     derive: (config) => Helpers.resolveAlldayBadgePosition(config.allday_badge) ?? 'off',
     apply: (value) =>
       value === 'off' || typeof value !== 'string'
@@ -399,6 +391,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   week_number_mode: {
+    configKeys: ['show_week_numbers'],
     derive: (config) => config.show_week_numbers ?? 'none',
     apply: (value) =>
       value === 'iso' || value === 'simple'
@@ -407,6 +400,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   location_country_mode: {
+    configKeys: ['remove_location_country'],
     derive: (config) => locationCountryMode(config),
     apply: (value, config) => {
       if (value === 'builtin') return { changes: { remove_location_country: true } };
@@ -423,6 +417,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   accent_color_mode: {
+    configKeys: ['accent_color'],
     derive: (config) => accentColorMode(config),
     apply: (value, config) => {
       if (value === 'home_assistant') {
@@ -453,6 +448,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    * about which level it is describing.
    */
   allday_badge_color_mode: {
+    configKeys: ['allday_badge_color'],
     derive: (config) => alldayBadgeColorMode(config.allday_badge_color),
     apply: (value, config) => {
       if (value === 'accent' || value === 'text') {
@@ -477,19 +473,17 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
    * hand cannot leave a switch claiming otherwise. There is no second source of truth to
    * drift.
    *
-   * Writing is view-aware for the same reason reading is. Where the view substitutes its
-   * own default for these keys — grid does — a card-level write would be ignored and the
-   * switch would spring straight back on, so the values go into that view's block as well.
-   * Derived from {@link ViewConfig.hasDivergentDefault} rather than a test for grid, so a
-   * second view adopting the default needs no edit here.
+   * This emits one layer of changes. The workspace router chooses their destination;
+   * mirroring them into a view block here would also overwrite unrelated shared values.
    *
    * Switching it off restores the shipped defaults rather than whatever was there before.
    * Carrying the old values would mean storing them, which is the second source of truth
    * this field exists to avoid; the helper text says so.
    */
   accent_event_text: {
+    configKeys: AccentText.ACCENT_TEXT_KEYS,
     derive: (config) => accentEventText(config),
-    apply: (value, config) => {
+    apply: (value) => {
       const on = value === true;
       const changes: Record<string, unknown> = {};
 
@@ -499,24 +493,12 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
           : Config.DEFAULT_CONFIG[key as keyof Types.Config];
       }
 
-      const view = configuredView(config);
-      const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
-      const governedHere =
-        blockKey !== undefined &&
-        AccentText.ACCENT_TEXT_KEYS.some((key) => ViewConfig.hasDivergentDefault(key, view));
-
-      if (governedHere) {
-        const block = Helpers.isConfigBlock(config[blockKey])
-          ? (config[blockKey] as Record<string, unknown>)
-          : {};
-        changes[blockKey] = { ...block, ...changes };
-      }
-
       return { changes };
     },
   },
 
   location_country_pattern: {
+    configKeys: ['remove_location_country'],
     derive: (config) => {
       const value = config.remove_location_country;
       return locationCountryMode(config) === 'custom' ? String(value) : '';
@@ -525,6 +507,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   today_indicator_style: {
+    configKeys: ['today_indicator'],
     derive: (config) => todayIndicatorStyle(config),
     apply: (value, config) => {
       const discardText = { today_indicator_custom: null };
@@ -554,6 +537,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   today_indicator_icon: {
+    configKeys: ['today_indicator'],
     derive: (config) =>
       todayIndicatorStyle(config) === 'icon' ? String(config.today_indicator) : '',
     apply: (value) => {
@@ -565,6 +549,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   today_indicator_custom: {
+    configKeys: ['today_indicator'],
     derive: (config) =>
       todayIndicatorStyle(config) === 'custom' ? String(config.today_indicator) : '',
     apply: (value) => {
@@ -577,6 +562,7 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
   },
 
   calendars: {
+    configKeys: ['entities'],
     // One row per calendar, not one per block. The picker answers "which calendars does
     // this card show"; the per-calendar panels below answer "how many blocks, and what is
     // on each". Deriving 1:1 made the picker answer both and agree with itself on
@@ -641,7 +627,17 @@ export const SYNTHETIC_FIELDS: Readonly<Record<string, SyntheticField>> = {
  * @returns `true` when the key must never reach the configuration
  */
 export function isSyntheticKey(key: string): boolean {
-  return key in SYNTHETIC_FIELDS;
+  return Object.prototype.hasOwnProperty.call(SYNTHETIC_FIELDS, key);
+}
+
+/**
+ * The real options controlled by a form field.
+ *
+ * @param name - Schema field name
+ * @returns Declared synthetic targets, or the ordinary option itself
+ */
+export function configKeysForField(name: string): ReadonlyArray<string> {
+  return isSyntheticKey(name) ? SYNTHETIC_FIELDS[name].configKeys : [name];
 }
 
 /**

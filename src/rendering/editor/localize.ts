@@ -133,6 +133,7 @@ export function computeHelper(
   view: Types.EffectiveView,
   schema: HaFormSchema,
   path: ReadonlyArray<string> = [],
+  direct = false,
 ): string | undefined {
   const own =
     lookup(language, `${helperKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
@@ -146,7 +147,7 @@ export function computeHelper(
     (statedByEnclosingGroup(schema.name, path)
       ? undefined
       : applicabilityNote(language, schema.name, view)) ??
-    divergentDefaultNote(language, schema.name, view);
+    (direct ? undefined : divergentDefaultNote(language, schema.name, view));
 
   if (note === undefined) {
     return own;

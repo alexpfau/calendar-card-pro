@@ -18,6 +18,18 @@ export default css`
     padding-bottom: 16px;
   }
 
+  .workspace-note {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .view-resets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
   ha-expansion-panel {
     margin: 8px 0;
   }
@@ -89,8 +101,7 @@ export default css`
     margin-top: 8px;
   }
 
-  ha-expansion-panel.entity-panel,
-  ha-expansion-panel.exceptions {
+  ha-expansion-panel.entity-panel {
     margin: 0;
   }
 

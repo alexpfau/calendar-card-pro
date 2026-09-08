@@ -6,6 +6,7 @@ import * as Entities from './entities';
 import { type HaFormSchema, isGroupSchema } from './ha-form';
 import * as EditorLocalize from './localize';
 import { type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './panels';
+import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { deriveSyntheticData, isSyntheticKey } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
@@ -154,8 +155,12 @@ function searchableText(
 
   text.push(
     EditorLocalize.computeLabel(ctx.language, node, path),
-    EditorLocalize.computeHelper(ctx.language, ctx.view, node, path),
+    EditorLocalize.computeHelper(ctx.language, ctx.view, node, path, ctx.workspace !== undefined),
   );
+  if (ctx.workspace !== undefined && 'selector' in node) {
+    const source = Routing.valueSource(ctx.rawConfig ?? ctx.config, ctx.workspace, node.name);
+    if (source) text.push(EditorLocalize.lookup(ctx.language, `value_source.${source}`));
+  }
 
   if ('value' in node && typeof node.value === 'string') {
     text.push(node.value);
@@ -262,9 +267,16 @@ export function isCustomized(
   ctx: FilterCtx,
 ): boolean {
   const name = node.name;
+  const raw = ctx.rawConfig ?? ctx.config;
+
+  if (ctx.workspace !== undefined && dataPath.length === 0) {
+    const source = Routing.valueSource(raw, ctx.workspace, name);
+    if (source === 'own') return true;
+    if (source === 'default' || source === 'inherited') return false;
+  }
 
   if (dataPath.length === 1 && OVERRIDE_BLOCK_KEYS.has(dataPath[0])) {
-    const block = storedConfig(ctx.config)[dataPath[0]];
+    const block = storedConfig(raw)[dataPath[0]];
 
     return typeof block === 'object' && block !== null
       ? (block as Record<string, unknown>)[name] !== undefined
@@ -421,7 +433,7 @@ export function withholdInertFields(
       schema,
       undefined,
       (node, _path, dataPath) => {
-        if (isHeading(node) || view === 'shared') return true;
+        if (isHeading(node)) return true;
 
         if (dataPath.length === 0) {
           if (scope === 'card') return ViewConfig.appliesToView(node.name, view);

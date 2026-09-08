@@ -30,14 +30,13 @@ The longer panels are divided further by sub-headings, which name what the optio
 
 Two controls sit together above search. **Card Displays** chooses the card's starting
 layout and writes the existing `view` option. **Editing Settings For** selects an
-editor workspace: **Shared**, **List**, **Column**, or **Grid**. It starts by following
+editor workspace: **List**, **Column**, or **Grid**. It starts by following
 Card Displays, then stays independent once you choose a workspace. The workspace is
 never saved to YAML; opening the editor again starts from the card's displayed view.
 
-**Shared** shows card-wide options and inherited defaults, without a view-exception
-picker. The other workspaces omit controls that cannot affect that view, including
-their per-calendar forms and exception choices. Compact-mode controls appear in List
-and Shared. Multi-day splitting also appears in Column, but not Grid, which arranges
+Each workspace omits controls that cannot affect that view, including
+their per-calendar forms. Compact-mode controls appear in List.
+Multi-day splitting also appears in Column, but not Grid, which arranges
 multi-day events itself. Grid omits empty-day text and color because it draws blank
 columns rather than placeholder rows.
 
@@ -46,8 +45,11 @@ Search and **Customized Only** do not bring back controls for another workspace.
 To edit a list-only option used by a responsive fallback, choose List under
 Editing Settings For; Card Displays stays unchanged.
 
-Panel controls still edit shared values. Use **View Exceptions** in the Column or
-Grid workspace to give that layout a different value.
+Presentation controls show the value used by the selected workspace and write directly
+to its scope: top-level options for List, `column:` for Column, and `time_grid:` for Grid.
+Column and Grid can also use List values when they do not have their own value for an
+option, so editing List can affect those layouts too. Card-wide options such as calendars,
+title, language, and actions stay card-wide in every workspace.
 
 Hiding a control does not delete its stored value. For example, these empty-day options
 remain available to the list fallback, even though their controls are absent while
@@ -69,7 +71,7 @@ empty_day_color: '#607d8b'
 - **Context-Aware Options** — settings appear only when they are relevant, so a panel shows what applies rather than everything that exists
 - **Search** — find any option by name or by what it does, without knowing which panel holds it
 - **Customized Only** — hide everything left at its default, to see what a card actually changes
-- **Per-View Exceptions** — give an option a different value in column or grid view without leaving the editor
+- **Direct Per-View Editing** — choose a workspace and edit its effective values without adding a second control
 
 ::: info Editor Language Support
 The editor is available in **11 languages**, and the calendar itself in **35**. Nine of the eleven — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — are translated in full. English is the source language and lives in the card's code rather than in a translation file, and British English carries only the strings where it differs from it.
@@ -93,7 +95,7 @@ Three things follow their own rule under it, for reasons worth knowing:
 
 - **Calendars** show only the ones you have given settings of their own, which is a quick way to see which calendars have a color or a label and which simply follow the card.
 - **Per-calendar options** count as customized when they are set at all. Several of them mean "follow the card" when left alone, so `Show Time: Off` on one calendar is a real setting rather than a default.
-- **Exceptions** that apply to the selected view are always shown, since an option you asked to differ in one layout is a customization by definition — even before you change its value.
+- **View values** count as customized when the selected layout stores its own value. Values inherited from List or supplied by the layout's defaults are not user edits.
 
 ::: tip Not Everything Is There To Be Found
 The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
@@ -164,21 +166,26 @@ get the icon picker.
 
 ## ⚖️ View Exceptions
 
-Every panel that owns an option the editing workspace can override ends with a collapsed
-**View Exceptions** group. Pick an option there and it gets a second control, whose value
-applies only when the card renders in that view; remove it and the option returns to the
-shared value above. Shared and List have no exception picker. You can configure Column
-or Grid exceptions without changing Card Displays.
+View-specific values no longer need an exception picker. Select Column or Grid under
+**Editing Settings For**, then use the ordinary controls. Their helper text says whether
+the value comes from List, from that layout's own default, or from a value set for the layout.
 
-Only options that affect the selected view are offered as exceptions. The control an
-exception gets is the same control the option has in the panel above. Three of them store more than one
-kind of value in one key — week numbers, the today indicator, and country removal in
-locations — so each gets the same type dropdown it has in its own panel rather than being
-left to hand-written YAML.
+For example, editing Event Font Size in Grid writes the grid value while leaving the
+List value alone:
 
-An exception that ends up equal to the value it would inherit is not written to your
-configuration, so setting one back to the shared value removes the line rather than
-pinning it.
+```yaml
+event_font_size: '14px'
+time_grid:
+  event_font_size: '16px'
+```
+
+**Reset** buttons below each panel remove individual view values and restore what the
+layout would use without them. They do not remove the input or clear other layouts.
+Where one mode control governs several options, its reset clears those options together.
+
+A value equal to what the view inherits is omitted from the saved block. Options with a
+[different grid default](/features/grid-view#options-that-start-from-a-different-default)
+stay explicit when edited back to that default; use Reset to remove the explicit value.
 
 **→ [Column View](/features/column-view)** — the `column:` block, and what may go in it.
 

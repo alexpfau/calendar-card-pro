@@ -710,24 +710,20 @@ describe('editor filter: the chassis', () => {
     expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel')).toHaveLength(1);
   });
 
-  it('hides the exceptions widget until there is an exception to show', async () => {
+  it('offers no reset until a view has an explicit value', async () => {
     const { element, filterBy } = await mount({ view: 'column', entities: ['calendar.a'] });
 
-    expect(
-      element.shadowRoot!.querySelectorAll('ha-expansion-panel.exceptions').length,
-    ).toBeGreaterThan(0);
+    expect(element.shadowRoot!.querySelectorAll('.view-resets')).toHaveLength(0);
 
     await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.exceptions')).toHaveLength(0);
+    expect(element.shadowRoot!.querySelectorAll('.view-resets')).toHaveLength(0);
   });
 
   /**
-   * The other half of the rule, and the one that matters: an exception is a customization
-   * by construction, so it survives the filter that hides everything at a default —
-   * including before its value has been changed from the one it inherits.
+   * An explicit view value remains editable and resettable while customized-only is on.
    */
-  it('keeps the exceptions a card has declared', async () => {
+  it('keeps explicit view values and their reset controls', async () => {
     const { element, filterBy } = await mount({
       view: 'column',
       entities: ['calendar.a'],
@@ -736,8 +732,13 @@ describe('editor filter: the chassis', () => {
 
     await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.exceptions')).toHaveLength(1);
-    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(1);
+    expect(
+      element.shadowRoot!.querySelectorAll('[data-reset-keys="event_font_size"]'),
+    ).toHaveLength(1);
+    const offered = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].flatMap(
+      (form) => fieldNames((form as unknown as { schema: HaFormSchema[] }).schema),
+    );
+    expect(offered).toContain('event_font_size');
   });
 
   /**

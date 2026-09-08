@@ -110,7 +110,6 @@ describe('editor strings resolve in the requested language', () => {
     expect(EDITOR_STRINGS['card_height.helper']).not.toContain(
       'scrolling if the events do not fit',
     );
-    expect(EDITOR_STRINGS['time_grid.height.helper']).toContain('time axis compresses to fit');
     expect(EDITOR_STRINGS['time_grid.axis.helper']).toContain('calendar content height');
     expect(EDITOR_STRINGS['time_grid.hour_height.helper']).toContain(
       "calendar content area's natural height",

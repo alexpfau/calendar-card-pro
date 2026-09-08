@@ -62,7 +62,7 @@ import {
   widthTableRows,
 } from '../src/rendering/editor/schemas/layout';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
-import { chassisSubforms, exceptionSubforms } from '../src/rendering/editor/subforms';
+import { chassisSubforms, panelSubforms } from '../src/rendering/editor/subforms';
 import * as Synthetic from '../src/rendering/editor/synthetic';
 import {
   SYNTHETIC_FIELDS,
@@ -1444,12 +1444,20 @@ describe('editor: the chassis', () => {
     /**
      * Fires a form change the way `ha-form` does: the whole merged data object.
      *
-     * Defaults to the first panel's form, since every panel is handed the same data
-     * object and the handler recovers the edited key by comparison rather than from
-     * the event. Pass an index where the panel itself is under test.
+     * Selects the form that actually offers the changed field. Pass an index where
+     * the panel itself is under test; unrelated fields in a form's data are not edits.
      */
-    const change = async (patch: Record<string, unknown>, panelIndex = 0) => {
-      const target = element.shadowRoot!.querySelectorAll('ha-form.panel-form')[panelIndex];
+    const change = async (patch: Record<string, unknown>, panelIndex?: number) => {
+      const forms = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')];
+      const target =
+        panelIndex === undefined
+          ? forms.find((form) =>
+              [...walkSchema(schemaOf(form))].some(({ node }) =>
+                Object.prototype.hasOwnProperty.call(patch, node.name),
+              ),
+            )
+          : forms[panelIndex];
+      if (!target) throw new Error('No rendered form offers this edit');
       const data = (target as unknown as { data: Record<string, unknown> }).data;
       target.dispatchEvent(
         new CustomEvent('value-changed', { detail: { value: { ...data, ...patch } } }),
@@ -2763,25 +2771,6 @@ function schemaOf(form: Element): HaFormSchema[] {
   return (form as unknown as { schema: HaFormSchema[] }).schema;
 }
 
-/** Which exception picker offers a given option. */
-function pickerIndexFor(element: CalendarCardProEditor, key: string): number {
-  const pickers = [...element.shadowRoot!.querySelectorAll('ha-form.exception-picker')];
-
-  return pickers.findIndex((form) => {
-    const node = schemaOf(form)[0] as unknown as {
-      selector: { select: { options: SelectOption[] } };
-    };
-    return node.selector.select.options.some((option) => option.value === key);
-  });
-}
-
-/** Which exception form renders a given option. */
-function exceptionFormIndexFor(element: CalendarCardProEditor, key: string): number {
-  const forms = [...element.shadowRoot!.querySelectorAll('ha-form.exception-form')];
-
-  return forms.findIndex((form) => schemaOf(form).some((node) => node.name === key));
-}
-
 /** Fires a change from one of the editor's forms, the way `ha-form` does. */
 async function fire(
   element: CalendarCardProEditor,
@@ -4036,9 +4025,7 @@ describe('editor: the exceptions widget', () => {
     const listConfig = buildConfig({ view: 'list' });
     const panel = PANELS.find((entry) => entry.id === 'events')!;
 
-    expect(exceptionSubforms(panel, { view: 'list', config: listConfig, language: 'en' })).toEqual(
-      [],
-    );
+    expect(panelSubforms(panel, { view: 'list', config: listConfig, language: 'en' })).toEqual([]);
   });
 
   it('shows an added exception at the value it would otherwise inherit', () => {
@@ -4243,7 +4230,15 @@ describe('editor: the exceptions widget', () => {
   });
 });
 
-describe('editor: the exceptions widget in the chassis', () => {
+function routedFormIndex(element: CalendarCardProEditor, key: string): number {
+  const index = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].findIndex((form) =>
+    [...walkSchema(schemaOf(form))].some(({ node }) => node.name === key),
+  );
+  if (index < 0) throw new Error(`No routed form for ${key}`);
+  return index;
+}
+
+describe('editor: direct view controls in the chassis', () => {
   async function mountColumn(config: Partial<Types.Config>) {
     const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
     element.hass = {} as Types.Hass;
@@ -4259,15 +4254,12 @@ describe('editor: the exceptions widget in the chassis', () => {
     return { element, dispatched };
   }
 
-  it('adds no chrome to a card that has no exceptions', async () => {
+  it('adds no reset chrome to a card that has no view overrides', async () => {
     const { element } = await mountColumn({ entities: ['calendar.a'] });
 
-    // One collapsed group per panel that owns an overridable option, and no fields
-    // inside any of them until an exception is added.
     expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(0);
-    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-picker').length).toBeGreaterThan(
-      0,
-    );
+    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-picker')).toHaveLength(0);
+    expect(element.shadowRoot!.querySelectorAll('.view-resets')).toHaveLength(0);
   });
 
   /**
@@ -4290,85 +4282,53 @@ describe('editor: the exceptions widget in the chassis', () => {
     expect([...declaredKeys(columnConfig(), 'column')]).toEqual([]);
   });
 
-  it('renders a field once an option is picked, and stores nothing for it yet', async () => {
+  it('renders the effective field immediately without storing an override', async () => {
     const { element, dispatched } = await mountColumn({ entities: ['calendar.a'] });
 
-    const panelIndex = pickerIndexFor(element, 'event_font_size');
-    await fire(
-      element,
-      'ha-form.exception-picker',
-      { exceptions: ['event_font_size'] },
-      panelIndex,
-    );
-
-    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form').length).toBeGreaterThan(
-      0,
-    );
-
-    // Declaring an exception configures nothing: it starts out equal to the value it
-    // inherits, and an override equal to what it inherits is not an override.
+    expect(routedFormIndex(element, 'event_font_size')).toBeGreaterThanOrEqual(0);
     expect(dispatched).toEqual([]);
   });
 
   it('stores the exception once its value differs, and only then', async () => {
     const { element, dispatched } = await mountColumn({ entities: ['calendar.a'] });
 
-    const panelIndex = pickerIndexFor(element, 'event_font_size');
-    await fire(
-      element,
-      'ha-form.exception-picker',
-      { exceptions: ['event_font_size'] },
-      panelIndex,
-    );
-
-    const formIndex = exceptionFormIndexFor(element, 'event_font_size');
-    await fire(element, 'ha-form.exception-form', { event_font_size: '22px' }, formIndex);
+    const formIndex = routedFormIndex(element, 'event_font_size');
+    await fire(element, 'ha-form.panel-form', { event_font_size: '22px' }, formIndex);
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0].column).toEqual({ event_font_size: '22px' });
   });
 
-  it('shows declared exceptions from the active view only', async () => {
+  it('shows the active view’s effective values rather than another view’s overrides', async () => {
     const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
     element.hass = {} as Types.Hass;
     const config = {
       entities: ['calendar.a'],
       column: { event_font_size: '22px' },
-      time_grid: { location_font_size: '12px' },
+      time_grid: { event_font_size: '23px' },
     } as Types.Config;
 
     document.body.appendChild(element);
     element.setConfig({ ...config, view: 'grid' });
     await element.updateComplete;
 
-    const current = (key: string) =>
+    const current = () =>
       (
-        element.shadowRoot!.querySelectorAll('ha-form.exception-picker')[
-          pickerIndexFor(element, key)
-        ] as unknown as { data: { exceptions: string[] } }
-      ).data.exceptions;
-
-    expect(current('location_font_size')).toEqual(['location_font_size']);
-    expect(current('event_font_size')).not.toContain('event_font_size');
+        element.shadowRoot!.querySelectorAll('ha-form.panel-form')[
+          routedFormIndex(element, 'event_font_size')
+        ] as unknown as { data: Record<string, unknown> }
+      ).data.event_font_size;
+    expect(current()).toBe('23px');
 
     element.setConfig({ ...config, view: 'column' });
     await element.updateComplete;
 
-    expect(current('event_font_size')).toEqual(['event_font_size']);
-    expect(current('location_font_size')).not.toContain('location_font_size');
+    expect(current()).toBe('22px');
   });
 
   /**
-   * The whole lifecycle, through the echo. Each step is covered in isolation above; what
-   * this adds is Home Assistant answering every `config-changed` with a `setConfig`,
-   * which is where the two halves of the widget have to agree.
-   *
-   * Step three is the one that needs it. An exception set back to the value it inherits
-   * is stripped from storage — correctly, since it is no longer an exception — and the
-   * echo of that write carries a configuration with no trace of it. If the rows were
-   * derived from the stored block, the row would vanish under the cursor at the moment
-   * the user typed the shared value back. They are derived from what was *declared*,
-   * which the echo does not reset.
+   * Returning to an inherited value removes the stored override, never the direct
+   * input. That remains true when Home Assistant echoes every write immediately.
    */
   it('survives add, differ, revert and remove with Home Assistant echoing each write', async () => {
     const element = document.createElement(CHASSIS_TAG) as CalendarCardProEditor;
@@ -4385,48 +4345,36 @@ describe('editor: the exceptions widget in the chassis', () => {
     });
 
     const rowShown = () =>
-      [...element.shadowRoot!.querySelectorAll('ha-form.exception-form')].some((form) =>
-        schemaOf(form).some((node) => node.name === 'event_font_size'),
+      [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].some((form) =>
+        [...walkSchema(schemaOf(form))].some(({ node }) => node.name === 'event_font_size'),
       );
 
-    const pickerIndex = pickerIndexFor(element, 'event_font_size');
-
-    await fire(
-      element,
-      'ha-form.exception-picker',
-      { exceptions: ['event_font_size'] },
-      pickerIndex,
-    );
-    expect(dispatched, 'declaring an exception configures nothing').toEqual([]);
+    expect(dispatched, 'opening the editor configures nothing').toEqual([]);
     expect(rowShown()).toBe(true);
 
-    const formIndex = exceptionFormIndexFor(element, 'event_font_size');
-    await fire(element, 'ha-form.exception-form', { event_font_size: '22px' }, formIndex);
+    const formIndex = routedFormIndex(element, 'event_font_size');
+    await fire(element, 'ha-form.panel-form', { event_font_size: '22px' }, formIndex);
     expect(dispatched.at(-1)!.column).toEqual({ event_font_size: '22px' });
 
     // Set back to what it inherits: the key goes, the row stays.
     await fire(
       element,
-      'ha-form.exception-form',
+      'ha-form.panel-form',
       { event_font_size: DEFAULT_CONFIG.event_font_size },
       formIndex,
     );
     expect(dispatched.at(-1)).not.toHaveProperty('column');
     expect(rowShown(), 'the row survives the echo of its own value being stripped').toBe(true);
 
-    const current = (
-      element.shadowRoot!.querySelectorAll('ha-form.exception-picker')[pickerIndex] as unknown as {
-        data: { exceptions: string[] };
-      }
-    ).data.exceptions;
-
-    await fire(
-      element,
-      'ha-form.exception-picker',
-      { exceptions: current.filter((key) => key !== 'event_font_size') },
-      pickerIndex,
+    await fire(element, 'ha-form.panel-form', { event_font_size: '24px' }, formIndex);
+    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
+      '[data-reset-keys="event_font_size"]',
     );
-    expect(rowShown()).toBe(false);
+    expect(reset).not.toBeNull();
+    reset!.click();
+    await element.updateComplete;
+    expect(dispatched.at(-1)).not.toHaveProperty('column');
+    expect(rowShown()).toBe(true);
   });
 
   it('deletes the key and the block when the exception is taken away again', async () => {
@@ -4435,21 +4383,12 @@ describe('editor: the exceptions widget in the chassis', () => {
       column: { event_font_size: '22px' } as Types.ColumnOverrides,
     });
 
-    const panelIndex = pickerIndexFor(element, 'event_font_size');
-    const current = (
-      element.shadowRoot!.querySelectorAll('ha-form.exception-picker')[panelIndex] as unknown as {
-        data: { exceptions: string[] };
-      }
-    ).data.exceptions;
-
-    expect(current).toContain('event_font_size');
-
-    await fire(
-      element,
-      'ha-form.exception-picker',
-      { exceptions: current.filter((key) => key !== 'event_font_size') },
-      panelIndex,
+    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
+      '[data-reset-keys="event_font_size"]',
     );
+    expect(reset).not.toBeNull();
+    reset!.click();
+    await element.updateComplete;
 
     expect(dispatched).toHaveLength(1);
     expect(dispatched[0]).not.toHaveProperty('column');
@@ -4878,27 +4817,17 @@ describe('editor: exceptions for the union-typed options', () => {
       element.setConfig(config);
     });
 
-    const pickerIndex = pickerIndexFor(element, 'show_week_numbers');
-    expect(pickerIndex).toBeGreaterThanOrEqual(0);
-
-    await fire(
-      element,
-      'ha-form.exception-picker',
-      { exceptions: ['show_week_numbers'] },
-      pickerIndex,
-    );
-    expect(dispatched, 'declaring an exception configures nothing').toEqual([]);
-
-    const formIndex = exceptionFormIndexFor(element, 'week_number_mode');
+    expect(dispatched, 'opening the editor configures nothing').toEqual([]);
+    const formIndex = routedFormIndex(element, 'week_number_mode');
     expect(formIndex).toBeGreaterThanOrEqual(0);
 
-    await fire(element, 'ha-form.exception-form', { week_number_mode: 'none' }, formIndex);
+    await fire(element, 'ha-form.panel-form', { week_number_mode: 'none' }, formIndex);
 
     expect(dispatched.at(-1)!.column).toEqual({ show_week_numbers: null });
 
     // The row survives the echo, and still shows the shape that was chosen.
     const data = (
-      element.shadowRoot!.querySelectorAll('ha-form.exception-form')[formIndex] as unknown as {
+      element.shadowRoot!.querySelectorAll('ha-form.panel-form')[formIndex] as unknown as {
         data: Record<string, unknown>;
       }
     ).data;
