@@ -241,10 +241,9 @@ async function readEditorSchemaKeys() {
     // legitimately appear in both with DIFFERENT scopes — `entityScopeFor` is
     // `ENTITY_VIEW_SCOPE[key] ?? VIEW_SCOPE[key]`, not a merge, so the per-calendar
     // control and the card-level one can be inert in different views and need different
-    // notes. Spreading one over the other silently dropped the loser's scope and
-    // orphaned its string: `split_multiday_events` is card-level `['list','column']` and
-    // per-calendar `['list']`, and only the second survived the spread. Pairs, so both
-    // are reconciled.
+    // notes. Spreading one over the other would drop a differing scope and orphan
+    // its string. Keep pairs so both declarations remain covered, even while the
+    // per-calendar table has no exceptions to the card-level scopes.
     viewScopeEntries: [...Object.entries(VIEW_SCOPE), ...Object.entries(ENTITY_VIEW_SCOPE)],
     defaultOverridesByView: DEFAULT_OVERRIDES_BY_VIEW,
   };
@@ -353,7 +352,9 @@ async function readEditorOptionKeys() {
   );
 
   try {
-    for (const subform of chassisSubforms()) collect(subform.schema, subform.path);
+    for (const subform of chassisSubforms(OPTION_KEY_ECHO_LANGUAGE)) {
+      collect(subform.schema, subform.path);
+    }
 
     for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
       for (const panel of PANELS) {

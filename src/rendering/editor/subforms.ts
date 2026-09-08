@@ -7,6 +7,8 @@ import { FILTER_SCHEMA } from './filter';
 import type { HaFormSchema } from './ha-form';
 import * as Overrides from './overrides';
 import { type PanelDef, type SchemaCtx, type SubformDef } from './panels';
+import { buildDisplayViewSchema } from './schemas/layout';
+import { buildWorkspaceSchema } from './workspace';
 import * as ViewConfig from '../../config/view';
 
 export const EXCEPTION_PICKER = 'exceptions';
@@ -14,10 +16,15 @@ export const EXCEPTION_PICKER = 'exceptions';
 /**
  * Schemas the chassis renders itself, belonging to no panel.
  *
+ * @param language - Language used by the selectors' option labels
  * @returns Sub-forms the chassis renders above the panels
  */
-export function chassisSubforms(): SubformDef[] {
-  return [{ path: [], schema: FILTER_SCHEMA }];
+export function chassisSubforms(language = 'en'): SubformDef[] {
+  return [
+    { path: [], schema: buildDisplayViewSchema(language) },
+    { path: [], schema: buildWorkspaceSchema(language) },
+    { path: [], schema: FILTER_SCHEMA },
+  ];
 }
 
 export const CHASSIS_STRINGS: ReadonlyArray<string> = ['filter', 'entity', 'exceptions'];
@@ -30,6 +37,7 @@ export const CHASSIS_STRINGS: ReadonlyArray<string> = ['filter', 'entity', 'exce
  * @returns The picker and the eligible fields, or nothing
  */
 export function exceptionSubforms(panel: PanelDef, ctx: SchemaCtx): SubformDef[] {
+  if (ctx.workspace === 'shared') return [];
   const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
   if (blockKey === undefined) return [];
 

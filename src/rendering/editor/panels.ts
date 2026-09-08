@@ -14,6 +14,7 @@ import { EVENTS_ICON, buildEventsSchema } from './schemas/events';
 import { buildLayoutSchema, layoutExtras } from './schemas/layout';
 import { SEPARATORS_ICON, buildSeparatorsSchema } from './schemas/separators';
 import { WEATHER_ICON, buildWeatherSchema } from './schemas/weather';
+import type { EditorWorkspace } from './workspace';
 import * as Types from '../../config/types';
 
 /**
@@ -21,6 +22,8 @@ import * as Types from '../../config/types';
  */
 export interface SchemaCtx {
   view: Types.EffectiveView;
+  /** Shared uses root-value schemas and does not impose a per-view relevance filter. */
+  workspace?: EditorWorkspace;
   config: Types.Config;
   language: string;
 }

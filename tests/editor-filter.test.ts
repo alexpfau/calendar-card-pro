@@ -584,7 +584,9 @@ describe('editor filter: the bar itself', () => {
       subform.schema.map((node) => node.name),
     );
 
-    expect(declared).toEqual([SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD]);
+    expect(
+      declared.filter((name) => name === SEARCH_FIELD || name === CUSTOMIZED_ONLY_FIELD),
+    ).toEqual([SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD]);
     expect(CHASSIS_STRINGS).toContain('filter');
   });
 

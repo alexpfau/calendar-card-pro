@@ -68,6 +68,16 @@ function viewOptions(language: string): SelectOption[] {
 }
 
 /**
+ * Builds the card's displayed-view selector, rendered above the editor panels.
+ *
+ * @param language - Editor language
+ * @returns The existing illustrated view selector
+ */
+export function buildDisplayViewSchema(language: string): HaFormSchema[] {
+  return [{ name: 'view', selector: { select: { mode: 'box', options: viewOptions(language) } } }];
+}
+
+/**
  * Column density — the options that decide how narrow the card may get.
  *
  * @param blockKey - Config key holding this view's override block
@@ -251,10 +261,6 @@ const layoutSchema = Helpers.memoizeLast(
     language: string,
   ): HaFormSchema[] => {
     const schema: HaFormSchema[] = [
-      {
-        name: 'view',
-        selector: { select: { mode: 'box', options: viewOptions(language) } },
-      },
       {
         type: 'grid',
         name: '',

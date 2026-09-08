@@ -148,7 +148,7 @@ function forms(editor: CalendarCardProEditor, selector = 'ha-form.panel-form'): 
 }
 
 function formOwning(editor: CalendarCardProEditor, key: string): FormElement {
-  const found = forms(editor).find((form) =>
+  const found = forms(editor, 'ha-form.panel-form, ha-form.display-view-form').find((form) =>
     fields(form.schema).some((field) => field.key === key),
   );
   if (!found) throw new Error(`No rendered form owns ${key}`);

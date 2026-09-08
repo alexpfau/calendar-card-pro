@@ -25,7 +25,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'panel.layout.helper': 'How the card arranges days, and how much room it takes up.',
 
   // --- View -----------------------------------------------------------------
-  view: 'Layout',
+  view: 'Card Displays',
   'view.option.list.label': 'List',
   'view.option.list.description': 'Days stacked, one per row',
   'view.option.column.label': 'Columns',
@@ -33,9 +33,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.grid.label': 'Time Grid',
   'view.option.grid.description': 'Days side by side on an hour axis',
   'view.helper':
-    'Side-by-side layouts need width. Below the threshold in the table, the same card ' +
-    'renders as a list — so multiple layouts are live for one card, and the list ' +
-    'settings still matter.',
+    'The card’s starting layout. Side-by-side layouts can fall back to List when space is tight.',
+  editing_workspace: 'Editing Settings For',
+  'editing_workspace.helper':
+    'Follows Card Displays until you choose a workspace. Shared shows card-wide options and inherited defaults.',
+  'editing_workspace.option.shared.label': 'Shared',
+  'editing_workspace.option.list.label': 'List',
+  'editing_workspace.option.column.label': 'Column',
+  'editing_workspace.option.grid.label': 'Grid',
 
   // --- Width table ----------------------------------------------------------
   'width_table.title': 'This card renders',

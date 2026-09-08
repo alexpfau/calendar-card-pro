@@ -56,9 +56,13 @@ import {
   ENTITY_TRISTATE_VALUES,
   entitySchemaFor,
 } from '../src/rendering/editor/schemas/entity';
-import { buildLayoutSchema, widthTableRows } from '../src/rendering/editor/schemas/layout';
+import {
+  buildDisplayViewSchema,
+  buildLayoutSchema,
+  widthTableRows,
+} from '../src/rendering/editor/schemas/layout';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
-import { exceptionSubforms } from '../src/rendering/editor/subforms';
+import { chassisSubforms, exceptionSubforms } from '../src/rendering/editor/subforms';
 import * as Synthetic from '../src/rendering/editor/synthetic';
 import {
   SYNTHETIC_FIELDS,
@@ -1043,7 +1047,7 @@ describe('editor: labels', () => {
   });
 });
 
-describe('editor: the Layout panel', () => {
+describe('editor: displayed view and the Layout panel', () => {
   const ctx = (config: Types.Config) => ({
     view: config.view,
     config,
@@ -1052,9 +1056,9 @@ describe('editor: the Layout panel', () => {
 
   /** The `view` node's select configuration, narrowed off the schema union. */
   function viewSelect() {
-    const [view] = buildLayoutSchema(ctx(buildConfig()));
+    const [view] = buildDisplayViewSchema('en');
     if (!('selector' in view) || !('select' in view.selector) || !view.selector.select) {
-      throw new Error('the first Layout node is expected to be the view selector');
+      throw new Error('the displayed-view schema must contain the view selector');
     }
     return view.selector.select;
   }
@@ -1070,8 +1074,9 @@ describe('editor: the Layout panel', () => {
       .filter((name) => name !== '');
   }
 
-  it('offers the view selector', () => {
-    expect(names(buildConfig())).toContain('view');
+  it('keeps the view selector above the Layout panel rather than duplicating it', () => {
+    expect(buildDisplayViewSchema('en').map((node) => node.name)).toEqual(['view']);
+    expect(names(buildConfig())).not.toContain('view');
   });
 
   it('offers only the views the card can actually render', () => {
@@ -1784,6 +1789,11 @@ describe('editor: the panel set', () => {
     ];
 
     for (const config of configs) {
+      for (const subform of chassisSubforms(config.language ?? 'en')) {
+        for (const { node } of walkSchema(subform.schema)) {
+          if (node.name) offered.add(node.name);
+        }
+      }
       for (const { node } of everyNode(config)) {
         if (node.name) offered.add(node.name);
       }
@@ -4947,6 +4957,9 @@ function editorOptions(): Map<string, string[]> {
   for (const config of configs) {
     const ctx = { view: config.view, config, language: 'en' };
 
+    for (const subform of chassisSubforms(ctx.language)) {
+      collect(subform.schema, subform.path.length ? `${subform.path.join('.')}.` : '');
+    }
     for (const panel of PANELS) {
       collect(panel.build(ctx), '');
 

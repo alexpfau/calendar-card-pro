@@ -22,7 +22,7 @@ src/
 ├── rendering/                    # UI rendering code
 │   ├── editor/                   # Schema-driven configuration editor (its own bundle)
 │   │   ├── index.ts              # Build entry and public surface of the editor
-│   │   ├── element.ts            # The Lit element: lifecycle, panels, one handler
+│   │   ├── element.ts            # The Lit element: lifecycle, forms, editor state
 │   │   ├── panels.ts             # Panel registry and schema context
 │   │   ├── schemas/              # One module per panel, plus their shared vocabulary
 │   │   ├── ha-form.ts            # Our declaration of Home Assistant's schema shape
@@ -32,6 +32,7 @@ src/
 │   │   ├── overrides.ts          # Exceptions for the three union-typed options
 │   │   ├── subforms.ts           # The schemas a panel renders outside its own form
 │   │   ├── filter.ts             # Search and "customized only"
+│   │   ├── workspace.ts          # Editor-only Shared/List/Column/Grid selection
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
 │   │   ├── localize.ts           # The string hooks `ha-form` calls
 │   │   ├── strings.ts            # English editor strings
@@ -79,8 +80,9 @@ containers that arrange those shared pieces along different axes.
 
 Both layouts are live for the same card. A card configured for columns falls back to the
 list when it is too narrow to give every day `column.min_day_width`, so the view is
-resolved per render from the measured width rather than fixed by the configuration —
-which is why options are annotated as list-only rather than hidden. `config/view.ts` owns
+resolved per render from the measured width rather than fixed by the configuration.
+The editor workspace is separate: choosing List exposes its controls without changing
+the card's displayed view. `config/view.ts` owns
 that resolution, along with the `column:` override block whose values apply only when the
 card renders as columns.
 
@@ -200,6 +202,9 @@ containers; everything they place comes from `leaves.ts` and `presentation.ts`:
   - Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM, which
     is what lets both the test suite and `check:i18n` import a schema and read it
   - Built as a separate bundle and fetched on demand (see _Two Files, One Card_)
+  - Keeps the displayed `view` separate from the editor-local workspace. Workspace
+    changes select schemas and exception forms without writing configuration; Shared
+    uses root-value schemas with no per-view relevance restriction
 
 ### Translations (`translations/`)
 

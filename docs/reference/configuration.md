@@ -91,7 +91,7 @@ describe the shared day header, the time axis and the grid's responsive width fa
 
 These describe a date cell or a compact budget that the column layout does not have. They
 keep working in list view, including when a `view: column` card falls back to it on a
-narrow dashboard. The editor hides their controls while Column is selected without
+narrow dashboard. The editor hides their controls in the Column editing workspace without
 deleting stored values; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 **→ [Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view)** — why each one, and what to use instead.
@@ -110,7 +110,7 @@ a grid; when the default `min_days_fallback: list` drops it to the list layout b
 
 Empty-day text and color describe placeholder rows the grid never draws, while the date-cell
 alignment and indicator position belong to List. Their controls are hidden while Grid is
-selected, but stored values are preserved.
+the editing workspace, but stored values are preserved.
 
 **→ [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view)** — why each one.
 

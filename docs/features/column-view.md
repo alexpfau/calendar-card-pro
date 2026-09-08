@@ -187,9 +187,9 @@ Column density is controlled by [`min_days_to_show` and
 `min_days_fallback`](#showing-fewer-columns-instead) instead.
 
 ::: tip Hidden When Editing Column View
-The editor omits these controls while Column is selected, including the per-calendar compact
+The editor omits these controls in the Column workspace, including the per-calendar compact
 limit. Stored values are preserved and still apply when the card falls back to List. To
-change them, temporarily select List in Layout, then restore Column before saving.
+change them, select List under Editing Settings For; Card Displays stays unchanged.
 See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
 

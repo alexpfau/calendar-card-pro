@@ -11,6 +11,13 @@ export default css`
     padding: 4px 0;
   }
 
+  .view-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 16px;
+  }
+
   ha-expansion-panel {
     margin: 8px 0;
   }

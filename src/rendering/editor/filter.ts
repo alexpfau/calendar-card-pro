@@ -5,10 +5,11 @@
 import * as Entities from './entities';
 import { type HaFormSchema, isGroupSchema } from './ha-form';
 import * as EditorLocalize from './localize';
-import { type PanelDef, type PanelExtra, walkSchema } from './panels';
+import { type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './panels';
 import { entityConfigKeys } from './schemas/entity';
 import { deriveSyntheticData, isSyntheticKey } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
+import type { EditorWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -64,10 +65,7 @@ export function toFilterCriteria(data: Readonly<Record<string, unknown>>): Filte
 /**
  * Everything matching needs that is not the node itself.
  */
-export interface FilterCtx {
-  language: string;
-  view: Types.EffectiveView;
-  config: Types.Config;
+export interface FilterCtx extends SchemaCtx {
   criteria: FilterCriteria;
 }
 
@@ -415,7 +413,7 @@ function pruneLoneHeadings(schema: ReadonlyArray<HaFormSchema>): HaFormSchema[] 
  */
 export function withholdInertFields(
   schema: ReadonlyArray<HaFormSchema>,
-  view: Types.EffectiveView,
+  view: EditorWorkspace,
   scope: 'card' | 'entity' = 'card',
 ): HaFormSchema[] {
   return pruneLoneHeadings(
@@ -423,7 +421,7 @@ export function withholdInertFields(
       schema,
       undefined,
       (node, _path, dataPath) => {
-        if (isHeading(node)) return true;
+        if (isHeading(node) || view === 'shared') return true;
 
         if (dataPath.length === 0) {
           if (scope === 'card') return ViewConfig.appliesToView(node.name, view);
@@ -578,7 +576,7 @@ export function filterEntitySchema(
   path: ReadonlyArray<string>,
   ctx: FilterCtx,
 ): HaFormSchema[] {
-  const relevant = withholdInertFields(schema, ctx.view, 'entity');
+  const relevant = withholdInertFields(schema, ctx.workspace ?? ctx.view, 'entity');
   if (!isFiltering(ctx.criteria)) return relevant;
 
   const named = queryOf(ctx) !== '' && matchesEntity(entry, ctx);

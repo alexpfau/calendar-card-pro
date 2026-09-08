@@ -28,16 +28,26 @@ The longer panels are divided further by sub-headings, which name what the optio
 
 ## 🧭 Options for the Selected View
 
-The editor omits controls that cannot affect the view selected in **Layout**, including
-their per-calendar forms and view exceptions. Compact-mode controls appear only for
-**List**. Multi-day splitting appears for **List** and **Column**, but not **Grid**,
-which arranges multi-day events itself. Grid also omits empty-day text and color: it
-shows an empty day as a blank column rather than a placeholder row.
+Two controls sit together above search. **Card Displays** chooses the card's starting
+layout and writes the existing `view` option. **Editing Settings For** selects an
+editor workspace: **Shared**, **List**, **Column**, or **Grid**. It starts by following
+Card Displays, then stays independent once you choose a workspace. The workspace is
+never saved to YAML; opening the editor again starts from the card's displayed view.
 
-This follows the selected view, even if the preview is narrow enough to fall back to a
-list. Search and **Customized Only** do not bring back controls for another view. To
-edit a list-only option used by a responsive fallback, temporarily select **List**,
-make the edit, and restore **Column** or **Grid** before saving.
+**Shared** shows card-wide options and inherited defaults, without a view-exception
+picker. The other workspaces omit controls that cannot affect that view, including
+their per-calendar forms and exception choices. Compact-mode controls appear in List
+and Shared. Multi-day splitting also appears in Column, but not Grid, which arranges
+multi-day events itself. Grid omits empty-day text and color because it draws blank
+columns rather than placeholder rows.
+
+The workspace follows your selection, not the preview's width-dependent fallback.
+Search and **Customized Only** do not bring back controls for another workspace.
+To edit a list-only option used by a responsive fallback, choose List under
+Editing Settings For; Card Displays stays unchanged.
+
+Panel controls still edit shared values. Use **View Exceptions** in the Column or
+Grid workspace to give that layout a different value.
 
 Hiding a control does not delete its stored value. For example, these empty-day options
 remain available to the list fallback, even though their controls are absent while
@@ -154,10 +164,11 @@ get the icon picker.
 
 ## ⚖️ View Exceptions
 
-Every panel that owns an option the current view can override ends with a collapsed
+Every panel that owns an option the editing workspace can override ends with a collapsed
 **View Exceptions** group. Pick an option there and it gets a second control, whose value
 applies only when the card renders in that view; remove it and the option returns to the
-shared value above. A card with no exceptions costs one collapsed heading and nothing else.
+shared value above. Shared and List have no exception picker. You can configure Column
+or Grid exceptions without changing Card Displays.
 
 Only options that affect the selected view are offered as exceptions. The control an
 exception gets is the same control the option has in the panel above. Three of them store more than one

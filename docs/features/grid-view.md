@@ -506,10 +506,11 @@ The compact options — `compact_events_to_show`, `compact_days_to_show` and
 as a grid, as they do nothing while it is rendering as columns. They apply again if
 `min_days_fallback: list` drops the card to the list layout.
 
-The visual editor omits these controls while Grid is selected, including the per-calendar
+The visual editor omits these controls in the Grid editing workspace, including the per-calendar
 compact limit and multi-day splitting. It also omits `date_vertical_alignment` and
 `today_indicator_position`, which describe the list layout's date cell. Stored values are
-preserved for other layouts; see
+preserved for other layouts. Choose List under Editing Settings For to edit list-only
+options without changing Card Displays; see
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 The detail-row options also do nothing on all-day banners: `show_time`,

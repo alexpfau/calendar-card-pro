@@ -20,15 +20,18 @@ import {
   labelIconSourceOf,
   labelImageSourceOf,
 } from './schemas/entity';
+import { buildDisplayViewSchema } from './schemas/layout';
 import { interpolate } from './strings';
 import styles from './styles';
 import { EXCEPTION_PICKER } from './subforms';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
+import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Localize from '../../translations/localize';
+import * as Logger from '../../utils/logger';
 
 const ENTITY_ICON =
   'M19 19H5V8h14m-3-7v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2Z';
@@ -53,6 +56,10 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _filter: Filter.FilterCriteria = Filter.NO_FILTER;
 
+  @state() private _selectedWorkspace?: Workspace.EditorWorkspace;
+
+  private _exceptionsByView = new Map<Types.EffectiveView, ReadonlySet<string>>();
+
   private _renderedData = new Map<string, Record<string, unknown>>();
 
   /**
@@ -63,6 +70,24 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _viewForConfig(config: Readonly<Types.Config>): Types.EffectiveView {
     return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
+  }
+
+  /**
+   * Follows the displayed view until the user explicitly chooses a workspace.
+   */
+  private get _workspace(): Workspace.EditorWorkspace {
+    return this._selectedWorkspace ?? this._viewForConfig(this._config!);
+  }
+
+  /**
+   * Restores this view's saved and locally declared exceptions.
+   */
+  private _restoreDeclaredExceptions(): void {
+    const view = this._ctx.view;
+    this._declaredExceptions = new Set([
+      ...Exceptions.declaredKeys(this._config!, view),
+      ...(this._exceptionsByView.get(view) ?? []),
+    ]);
   }
 
   private _lastDispatched?: Record<string, unknown>;
@@ -86,12 +111,11 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     if (!isEcho) {
+      this._selectedWorkspace = undefined;
+      this._exceptionsByView.clear();
       this._pending = {};
       this._skipTimeGridDivergentDefaultSeed = false;
-      this._declaredExceptions = Exceptions.declaredKeys(
-        this._config,
-        this._viewForConfig(this._config),
-      );
+      this._restoreDeclaredExceptions();
     }
 
     this._lastDispatched = Value.toStoredConfig(this._config);
@@ -106,10 +130,14 @@ export class CalendarCardProEditor extends LitElement {
    */
   private get _ctx(): SchemaCtx {
     const config = this._config!;
-    const view = this._viewForConfig(config);
+    const workspace = this._workspace;
+    // List schemas read root values and add no view-only blocks. Shared uses that
+    // projection without inheriting List's relevance filter.
+    const view = workspace === 'shared' ? 'list' : workspace;
 
     return {
       view,
+      workspace,
       config,
       language: Localize.getEffectiveLanguage(config.language, this.hass?.locale),
     };
@@ -124,9 +152,7 @@ export class CalendarCardProEditor extends LitElement {
     const ctx = this._ctx;
 
     return {
-      language: ctx.language,
-      view: ctx.view,
-      config: ctx.config,
+      ...ctx,
       criteria: this._filter,
     };
   }
@@ -160,7 +186,8 @@ export class CalendarCardProEditor extends LitElement {
     const nextData = event.detail?.value as Record<string, unknown> | undefined;
     if (!nextData) return;
 
-    const previousView = this._viewForConfig(this._config);
+    const previousWorkspace = this._workspace;
+    const previousView = this._ctx.view;
     const previousData = this._renderedData.get(panelId) ?? this._formData();
     const applied = Value.applyFormChange(this._config, previousData, nextData, this._pending, {
       seedTimeGridDivergentDefaults: !this._skipTimeGridDivergentDefaultSeed,
@@ -169,9 +196,9 @@ export class CalendarCardProEditor extends LitElement {
     this._config = applied.config;
     this._pending = applied.pending;
 
-    const nextView = this._viewForConfig(this._config);
-    if (nextView !== previousView) {
-      this._declaredExceptions = Exceptions.declaredKeys(this._config, nextView);
+    if (this._workspace !== previousWorkspace) {
+      this._exceptionsByView.set(previousView, this._declaredExceptions);
+      this._restoreDeclaredExceptions();
     }
 
     this._renderedData.set(panelId, this._formData());
@@ -247,7 +274,7 @@ export class CalendarCardProEditor extends LitElement {
 
     // Keep panel.build complete for translation reconciliation; only rendered forms
     // withhold fields. Search and exceptions both receive this same reduced schema.
-    const built = Filter.withholdInertFields(panel.build(ctx), ctx.view);
+    const built = Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
     const wholePanel =
       filtering && !this._filter.customizedOnly && Filter.matchesPanel(panel, filterCtx);
     const schema = wholePanel ? built : Filter.filterSchema(built, filterCtx);
@@ -605,6 +632,7 @@ export class CalendarCardProEditor extends LitElement {
     schema: HaFormSchema[],
     ctx: SchemaCtx,
   ): TemplateResult | typeof nothing {
+    if (ctx.workspace === 'shared') return nothing;
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
     if (blockKey === undefined) return nothing;
 
@@ -677,7 +705,7 @@ export class CalendarCardProEditor extends LitElement {
                     EditorLocalize.computeSubformHelper(ctx.language, ctx.view, schemaNode, path)}
                   .localizeValue=${this._localizeValue}
                   @value-changed=${(event: CustomEvent) =>
-                    this._exceptionChanged(blockKey, names, event)}
+                    this._exceptionChanged(blockKey, names, ctx.view, event)}
                 ></ha-form>
               `}
         </div>
@@ -755,11 +783,13 @@ export class CalendarCardProEditor extends LitElement {
    *
    * @param blockKey - Config key holding the view's override block
    * @param names - Options whose rows this form is currently showing
+   * @param view - View the emitting form was built for
    * @param event - The form's `value-changed`
    */
   private _exceptionChanged(
     blockKey: keyof Types.Config,
     names: ReadonlyArray<string>,
+    view: Types.EffectiveView,
     event: CustomEvent,
   ): void {
     event.stopPropagation();
@@ -770,7 +800,7 @@ export class CalendarCardProEditor extends LitElement {
     const key = blockKey as string;
     const pending = Overrides.pendingForBlock(this._pending, key);
     const previous = Overrides.overrideFormData(
-      Value.exceptionFormBlock(this._config, this._viewForConfig(this._config), names),
+      Value.exceptionFormBlock(this._config, view, names),
       names,
       pending,
     );
@@ -821,10 +851,70 @@ export class CalendarCardProEditor extends LitElement {
 
     return html`
       <div class="card-config">
-        ${this._renderFilterBar()} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
+        ${this._renderViewControls(ctx)} ${this._renderFilterBar()} ${panels}
+        ${empty ? this._renderNoMatches(ctx) : nothing}
       </div>
     `;
   }
+
+  /**
+   * Keeps displayed-view configuration separate from the editor's local cursor.
+   *
+   * @param ctx - Current editor context
+   * @returns The two adjacent controls, outside the searchable panels
+   */
+  private _renderViewControls(ctx: SchemaCtx): TemplateResult {
+    const data = this._formData();
+    this._renderedData.set('display-view', data);
+
+    return html`
+      <div class="view-controls">
+        <ha-form
+          class="display-view-form"
+          .hass=${this.hass}
+          .data=${data}
+          .schema=${buildDisplayViewSchema(ctx.language)}
+          .computeLabel=${this._computeLabel}
+          .computeHelper=${this._computeHelper}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${(event: CustomEvent) => this._valueChanged('display-view', event)}
+        ></ha-form>
+        <ha-form
+          class="workspace-form"
+          .hass=${this.hass}
+          .data=${{ [Workspace.WORKSPACE_FIELD]: this._workspace }}
+          .schema=${Workspace.buildWorkspaceSchema(ctx.language)}
+          .computeLabel=${this._computeLabel}
+          .computeHelper=${this._computeHelper}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${this._workspaceChanged}
+        ></ha-form>
+      </div>
+    `;
+  }
+
+  /**
+   * Changes only the editor workspace; this form never enters the config write path.
+   *
+   * @param event - Workspace form's value change
+   */
+  private _workspaceChanged = (event: CustomEvent): void => {
+    event.stopPropagation();
+    if (!this._config) return;
+
+    const value: unknown = event.detail?.value?.[Workspace.WORKSPACE_FIELD];
+    if (!Workspace.isWorkspace(value)) {
+      Logger.warn('Ignoring an unsupported editor workspace', value);
+      this.requestUpdate();
+      return;
+    }
+    if (value === this._workspace) return;
+
+    this._exceptionsByView.set(this._ctx.view, this._declaredExceptions);
+    this._selectedWorkspace = value;
+    this._restoreDeclaredExceptions();
+    this._renderedData.clear();
+  };
 
   /**
    * Renders the filter bar above the panels.
