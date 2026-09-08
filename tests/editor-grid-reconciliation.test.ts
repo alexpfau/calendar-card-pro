@@ -91,7 +91,7 @@ describe('first-switch reconciliation regressions', () => {
     const { editor, reports } = await mount({ [entry.key]: entry.authored });
     await change(editor, 'view', 'grid');
     expect(reports).toHaveLength(1);
-    expect(reports[0]).toHaveProperty(`time_grid.${entry.key}`, entry.authored);
+    expect(reports[0]).toHaveProperty('time_grid', { [entry.key]: entry.authored });
     expect(notice(editor)).not.toBeNull();
     expect(notice(editor)!.textContent).toContain(lookup('en', entry.key));
   });
@@ -146,7 +146,8 @@ describe('first-switch reconciliation regressions', () => {
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid.event_background_opacity', 5);
-    expect(reports.at(-1)).toHaveProperty('time_grid.show_past_events', true);
+    expect(reports.at(-1)).not.toHaveProperty('time_grid.show_past_events');
+    expect(formFor(editor, 'show_past_events').data.show_past_events).toBe(true);
     expect(notice(editor)!.textContent).not.toContain(lookup('en', 'show_past_events'));
   });
 
@@ -253,7 +254,6 @@ describe('first-switch reconciliation regressions', () => {
       day_spacing: 4,
       event_background_opacity: 5,
       time_grid: {
-        ...View.TIME_GRID_DEFAULT_OVERRIDES,
         day_spacing: '4px',
         event_background_opacity: 5,
       },
@@ -270,18 +270,21 @@ describe('first-switch reconciliation regressions', () => {
     editor.setConfig(reports[0]);
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
-    expect(reports.at(-1)).toHaveProperty('time_grid.event_font_size', '12px');
+    expect(reports.at(-1)).not.toHaveProperty('time_grid');
+    expect(formFor(editor, 'event_font_size').data.event_font_size).toBe('12px');
     expect(notice(editor)).toBeNull();
   });
 });
 
-describe('unchanged first-switch controls', () => {
-  it('enumerates a positive divergent-default corpus and uses it for an unconfigured card', async () => {
+describe('implicit defaults and first-switch boundaries', () => {
+  it('shows every divergent default without storing any on a fresh Grid transition', async () => {
     console.info(`Grid first-switch corpus: ${CASES.length} divergent options`);
     expect(CASES.length).toBeGreaterThan(0);
     const { editor, reports } = await mount();
     await change(editor, 'view', 'grid');
-    expect(reports.at(-1)).toHaveProperty('time_grid', View.TIME_GRID_DEFAULT_OVERRIDES);
+    expect(reports).toEqual([{ entities: ['calendar.anna'], view: 'grid' }]);
+    const data = formFor(editor, 'event_background_opacity').data;
+    for (const { key, gridDefault } of CASES) expect(data[key], key).toEqual(gridDefault);
     expect(notice(editor)).toBeNull();
   });
 
@@ -291,7 +294,7 @@ describe('unchanged first-switch controls', () => {
     editor.setConfig(reports.at(-1)!);
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
-    expect(reports.at(-1)).toHaveProperty('time_grid', View.TIME_GRID_DEFAULT_OVERRIDES);
+    expect(reports.at(-1)).not.toHaveProperty('time_grid');
     expect(notice(editor)).toBeNull();
   });
 
@@ -301,7 +304,6 @@ describe('unchanged first-switch controls', () => {
     await change(editor, 'event_font_size', '18px');
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid', {
-      ...View.TIME_GRID_DEFAULT_OVERRIDES,
       event_font_size: '18px',
     });
     expect(notice(editor)).toBeNull();
@@ -331,7 +333,7 @@ describe('unchanged first-switch controls', () => {
       show_past_events: undefined,
     });
     await change(editor, 'view', 'grid');
-    expect(reports.at(-1)).toHaveProperty('time_grid', View.TIME_GRID_DEFAULT_OVERRIDES);
+    expect(reports.at(-1)).not.toHaveProperty('time_grid');
     expect(notice(editor)).toBeNull();
   });
 
@@ -340,5 +342,54 @@ describe('unchanged first-switch controls', () => {
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid.day_spacing', '1px');
     expect(notice(editor)).toBeNull();
+  });
+
+  it('pins an authored value that already matches the Grid default', async () => {
+    const { editor, reports } = await mount({ event_font_size: '12px' });
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)).toHaveProperty('time_grid', { event_font_size: '12px' });
+    expect(notice(editor)).toBeNull();
+  });
+
+  it('keeps a fresh card block-free across later view switches and unrelated edits', async () => {
+    const { editor, reports } = await mount();
+    await change(editor, 'view', 'grid');
+    expect(reports[0]).not.toHaveProperty('time_grid');
+    await change(editor, 'view', 'list');
+    await change(editor, 'view', 'grid');
+    await change(editor, 'title', 'Example');
+    expect(reports).toHaveLength(4);
+    for (const config of reports) expect(config).not.toHaveProperty('time_grid');
+    expect(formFor(editor, 'event_background_opacity').data.event_background_opacity).toBe(20);
+  });
+
+  it('does not present implicit Grid defaults as customized values', async () => {
+    const { editor, reports } = await mount();
+    await change(editor, 'view', 'grid');
+    expect(formFor(editor, 'event_background_opacity').data.event_background_opacity).toBe(20);
+    await change(editor, 'customized_only', true);
+    expect(reports).toHaveLength(1);
+    expect(formFor(editor, 'calendars')).toBeDefined();
+    const fields = [...editor.shadowRoot!.querySelectorAll<Form>('ha-form.panel-form')].flatMap(
+      (form) => [...workspaceFields(form.schema)].map(({ node }) => node.name),
+    );
+    expect(fields).not.toContain('event_background_opacity');
+    expect(fields).not.toContain('event_font_size');
+  });
+
+  it('does not remove existing explicit defaults from an older Grid configuration', async () => {
+    const { editor, reports } = await mount({
+      view: 'grid',
+      time_grid: { ...View.TIME_GRID_DEFAULT_OVERRIDES, min_day_width: 90 },
+    });
+    await change(editor, 'title', 'Example');
+    expect(reports).toHaveLength(1);
+    expect(reports[0]).toHaveProperty('time_grid', {
+      ...View.TIME_GRID_DEFAULT_OVERRIDES,
+      min_day_width: 90,
+    });
+    await change(editor, 'view', 'list');
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)?.time_grid).toEqual(reports[0].time_grid);
   });
 });

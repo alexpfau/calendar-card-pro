@@ -70,8 +70,10 @@ empty_day_color: '#607d8b'
 Changing **Card Displays** from List or Column to Time Grid keeps values you explicitly
 set at the top level, including a value equal to the List default. For options where
 Grid has a different default, the editor copies your value into `time_grid:` rather
-than replacing it. Options you did not set use Grid's defaults, and existing
-`time_grid:` values are left alone.
+than replacing it. Options you did not set use Grid's defaults without writing those
+defaults into YAML. A fresh card switched to Grid does not need a `time_grid:` block.
+This transition preserves existing per-view choices; it does not remove older overrides
+that happen to match a divergent Grid default.
 
 For example, these two authored values are kept in Grid:
 

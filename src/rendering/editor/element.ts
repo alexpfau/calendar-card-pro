@@ -76,7 +76,7 @@ export class CalendarCardProEditor extends LitElement {
 
   private _lastDispatched?: Record<string, unknown>;
 
-  private _skipTimeGridDivergentDefaultSeed = false;
+  private _skipGridReconciliation = false;
 
   /**
    * Accepts a configuration from Home Assistant.
@@ -99,7 +99,7 @@ export class CalendarCardProEditor extends LitElement {
       this._selectedWorkspace = undefined;
       this._pending = {};
       this._gridReconciliation = [];
-      this._skipTimeGridDivergentDefaultSeed = false;
+      this._skipGridReconciliation = false;
     }
 
     this._lastDispatched = Value.toStoredConfig(this._config);
@@ -168,7 +168,7 @@ export class CalendarCardProEditor extends LitElement {
       frame,
       nextData,
       this._pending,
-      !this._skipTimeGridDivergentDefaultSeed,
+      !this._skipGridReconciliation,
       this._authoredRootKeys,
     );
 
@@ -189,7 +189,7 @@ export class CalendarCardProEditor extends LitElement {
     }
     if (this._viewForConfig(previousConfig) !== this._viewForConfig(applied.config)) {
       this._gridReconciliation =
-        applied.config.view === 'grid' && !this._skipTimeGridDivergentDefaultSeed
+        applied.config.view === 'grid' && !this._skipGridReconciliation
           ? Value.gridReconciliationKeys(previousConfig, this._authoredRootKeys)
           : [];
     }
@@ -697,7 +697,7 @@ export class CalendarCardProEditor extends LitElement {
   ): void {
     if (!this._config) return;
     if (blockKey === 'time_grid' && keys.some((key) => ViewConfig.hasDivergentDefault(key, view))) {
-      this._skipTimeGridDivergentDefaultSeed = true;
+      this._skipGridReconciliation = true;
     }
     for (const key of keys) this._config = Exceptions.removeException(this._config, blockKey, key);
     const pending = { ...this._pending };

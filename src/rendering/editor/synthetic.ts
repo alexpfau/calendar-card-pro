@@ -212,8 +212,8 @@ export function alldayBadgeColorMode(value: unknown): string {
  *
  * Width fallback can substitute a narrower view at runtime, which nothing here can see —
  * and should not, because the editor describes the configuration rather than one browser
- * window's rendering of it. Same rule as `value.ts`, spelled out again rather than
- * imported to keep this module free of the editor's write path.
+ * window's rendering of it. Reading the view registry directly keeps this module
+ * independent of the editor element and its write path.
  *
  * @param config - Current configuration
  * @returns The configured view, or list when it names none the card knows

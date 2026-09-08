@@ -21,10 +21,6 @@ export const ATOMIC_KEYS = ['tap_action', 'hold_action'] as const;
 /** The nested groups of a `weather:` block, each defaulted option by option. */
 const WEATHER_GROUPS = ['date', 'event'] as const;
 
-interface FormChangeOptions {
-  seedTimeGridDivergentDefaults?: boolean;
-}
-
 /**
  * Structural comparison, enough for the small plain objects a config holds.
  *
@@ -115,10 +111,6 @@ function inheritedViewValue(
   return view === 'grid'
     ? inheritedTimeGridValue(config, key as keyof Types.TimeGridOverrides & keyof Types.Config)
     : inheritedColumnValue(config, key as keyof Types.ColumnOverrides & keyof Types.Config);
-}
-
-function effectiveView(config: Readonly<Types.Config>): Types.EffectiveView {
-  return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
 }
 
 /**
@@ -323,7 +315,7 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
   return stored;
 }
 
-function gridSeeds(
+function gridReconciliations(
   config: Readonly<Types.Config>,
   authoredRootKeys: ReadonlySet<string>,
 ): Array<{ key: string; value: unknown; reconciled: boolean }> {
@@ -331,13 +323,13 @@ function gridSeeds(
   return Object.entries(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES).flatMap(([key, gridDefault]) => {
     if (Object.prototype.hasOwnProperty.call(block, key)) return [];
     const root = config[key as keyof Types.Config];
-    const authored = authoredRootKeys.has(key) && root !== undefined && root !== null;
-    const value = authored ? normalizeRootValue(key, root) : gridDefault;
+    if (!authoredRootKeys.has(key) || root === undefined || root === null) return [];
+    const value = normalizeRootValue(key, root);
     return [
       {
         key,
         value,
-        reconciled: authored && !deepEqual(value, normalizeRootValue(key, gridDefault)),
+        reconciled: !deepEqual(value, normalizeRootValue(key, gridDefault)),
       },
     ];
   });
@@ -357,38 +349,39 @@ export function gridReconciliationKeys(
   config: Readonly<Types.Config>,
   authoredRootKeys: ReadonlySet<string>,
 ): ReadonlyArray<string> {
-  return gridSeeds(config, authoredRootKeys)
+  return gridReconciliations(config, authoredRootKeys)
     .filter(({ reconciled }) => reconciled)
     .map(({ key }) => key);
 }
 
 /**
- * Seeds missing Grid values on an editor transition, preserving authored root choices.
+ * Copies authored root choices on a Grid transition, without materializing view defaults.
  *
  * This is continuity across an explicit view change, not a renderer precedence rule.
  * Loading an already-Grid YAML card does not call it. The authored key set is editor-only:
  * merging DEFAULT_CONFIG first would make every default look like a user choice.
+ * Existing block values are never pruned, even when they equal a Grid default.
  *
  * @param config - Configuration after the view changed
- * @param enabled - Whether this editor session still wants the seed
+ * @param enabled - Whether this editor session still permits reconciliation after a reset
  * @param authoredRootKeys - Authored root keys, never inferred from the merged configuration
- * @returns The seeded configuration, or the original when no seed is needed
+ * @returns The reconciled configuration, or the original when no authored value needs copying
  */
-export function seedTimeGridDivergentDefaults(
+export function reconcileTimeGridValues(
   config: Readonly<Types.Config>,
   enabled = true,
   authoredRootKeys: ReadonlySet<string> = new Set(),
 ): Types.Config {
   if (!enabled) return config as Types.Config;
-  const seeds = gridSeeds(config, authoredRootKeys);
-  if (seeds.length === 0) return config as Types.Config;
+  const changes = gridReconciliations(config, authoredRootKeys);
+  if (changes.length === 0) return config as Types.Config;
   const block = Helpers.isConfigBlock(config.time_grid) ? config.time_grid : {};
 
   return {
     ...config,
     time_grid: {
       ...block,
-      ...Object.fromEntries(seeds.map(({ key, value }) => [key, value])),
+      ...Object.fromEntries(changes.map(({ key, value }) => [key, value])),
     },
   };
 }
@@ -405,7 +398,6 @@ interface FormApplication {
  * @param previousData - Form data as it was rendered
  * @param nextData - Form data as returned by the form
  * @param pending - Uncommitted text held for synthetic fields
- * @param options - Extra write-path behavior for view transitions
  * @returns The configuration and pending text after the edit
  */
 export function applyFormChange(
@@ -413,11 +405,9 @@ export function applyFormChange(
   previousData: Readonly<Record<string, unknown>>,
   nextData: Readonly<Record<string, unknown>>,
   pending: Readonly<Record<string, string>>,
-  options: FormChangeOptions = {},
 ): FormApplication {
   const next = { ...(config as unknown as Record<string, unknown>) };
   const nextPending: Record<string, string> = { ...pending };
-  const previousView = effectiveView(config);
 
   const write = (key: string, value: unknown): void => {
     if (value === undefined) {
@@ -448,15 +438,7 @@ export function applyFormChange(
     }
   }
 
-  let nextConfig = next as unknown as Types.Config;
-  if (previousView !== 'grid' && effectiveView(nextConfig) === 'grid') {
-    nextConfig = seedTimeGridDivergentDefaults(
-      nextConfig,
-      options.seedTimeGridDivergentDefaults !== false,
-    );
-  }
-
-  return { config: nextConfig, pending: nextPending };
+  return { config: next as unknown as Types.Config, pending: nextPending };
 }
 
 /**

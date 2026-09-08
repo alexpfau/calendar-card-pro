@@ -77,7 +77,7 @@ import {
   changedKeys,
   columnFormBlock,
   exceptionFormBlock,
-  seedTimeGridDivergentDefaults,
+  reconcileTimeGridValues,
   stripColumnDefaults,
   stripTimeGridDefaults,
   timeGridFormBlock,
@@ -1095,28 +1095,25 @@ describe('editor: displayed view and the Layout panel', () => {
     expect(VIEWS).toContain('grid');
   });
 
-  it('seeds visible exceptions when the user switches into grid', () => {
+  it('switches into grid without storing unselected defaults', () => {
     const config = buildConfig({ view: 'list' });
     const previous = { ...(config as unknown as Record<string, unknown>) };
     const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
 
-    expect(applied.config.time_grid).toEqual(TIME_GRID_DEFAULT_OVERRIDES);
-    expect(declaredKeys(applied.config, 'grid')).toEqual(
-      new Set(Object.keys(TIME_GRID_DEFAULT_OVERRIDES)),
-    );
+    expect(applied.config.time_grid).toBeUndefined();
     expect(toStoredConfig(applied.config)).toEqual({
       entities: [{ entity: 'calendar.personal' }],
       view: 'grid',
-      time_grid: TIME_GRID_DEFAULT_OVERRIDES,
     });
   });
 
-  it('seeds the past-event grid exception when the user switches into grid', () => {
+  it('resolves the past-event Grid default without storing it', () => {
     const config = buildConfig({ view: 'list' });
     const previous = { ...(config as unknown as Record<string, unknown>) };
     const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
 
-    expect(applied.config.time_grid?.show_past_events).toBe(true);
+    expect(applied.config.time_grid?.show_past_events).toBeUndefined();
+    expect(resolveEffectiveConfig(applied.config, 'grid').show_past_events).toBe(true);
   });
 
   it('does not seed over a grid value the user already stored', () => {
@@ -1128,30 +1125,20 @@ describe('editor: displayed view and the Layout panel', () => {
     const applied = applyFormChange(config, previous, { ...previous, view: 'grid' }, {});
 
     expect(applied.config.time_grid).toEqual({
-      ...TIME_GRID_DEFAULT_OVERRIDES,
       day_separator_width: '0px',
     });
     expect(toStoredConfig(applied.config)).toMatchObject({
       view: 'grid',
-      time_grid: { ...TIME_GRID_DEFAULT_OVERRIDES, day_separator_width: '0px' },
+      time_grid: { day_separator_width: '0px' },
     });
   });
 
-  it('does not seed again after the editor session suppresses it', () => {
-    const config = buildConfig({ view: 'column' });
-    const previous = { ...(config as unknown as Record<string, unknown>) };
-    const applied = applyFormChange(
-      config,
-      previous,
-      { ...previous, view: 'grid' },
-      {},
-      { seedTimeGridDivergentDefaults: false },
-    );
-
-    expect(applied.config.time_grid).toBeUndefined();
-    expect(toStoredConfig(applied.config)).toEqual({
-      entities: [{ entity: 'calendar.personal' }],
-      view: 'grid',
+  it('does not reconcile again after the editor session suppresses it', () => {
+    const config = buildConfig({ view: 'grid', day_spacing: '4em' });
+    const authored = new Set(['day_spacing']);
+    expect(reconcileTimeGridValues(config, false, authored).time_grid).toBeUndefined();
+    expect(reconcileTimeGridValues(config, true, authored).time_grid).toEqual({
+      day_spacing: '4em',
     });
   });
 
@@ -1164,11 +1151,10 @@ describe('editor: displayed view and the Layout panel', () => {
     expect(applied.config.days_to_show).toBe(5);
   });
 
-  it('seeds each divergent grid default from the registry', () => {
+  it('does not infer authored choices from the merged configuration', () => {
     const config = buildConfig({ view: 'grid', time_grid: { day_separator_width: '3px' } });
 
-    expect(seedTimeGridDivergentDefaults(config).time_grid).toEqual({
-      ...TIME_GRID_DEFAULT_OVERRIDES,
+    expect(reconcileTimeGridValues(config).time_grid).toEqual({
       day_separator_width: '3px',
     });
   });
