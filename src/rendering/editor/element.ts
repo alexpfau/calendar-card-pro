@@ -53,6 +53,10 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _selectedWorkspace?: Workspace.EditorWorkspace;
 
+  @state() private _gridReconciliation: ReadonlyArray<string> = [];
+
+  private _authoredRootKeys = new Set<string>();
+
   /**
    * Resolves the configured view to one the editor understands.
    *
@@ -84,6 +88,7 @@ export class CalendarCardProEditor extends LitElement {
       this._lastDispatched !== undefined &&
       Value.equalConfigs(config as unknown as Record<string, unknown>, this._lastDispatched);
 
+    if (!isEcho) this._authoredRootKeys = new Set(Object.keys(config));
     this._config = { ...Config.DEFAULT_CONFIG, ...config };
 
     if (!Array.isArray(this._config.entities)) {
@@ -93,6 +98,7 @@ export class CalendarCardProEditor extends LitElement {
     if (!isEcho) {
       this._selectedWorkspace = undefined;
       this._pending = {};
+      this._gridReconciliation = [];
       this._skipTimeGridDivergentDefaultSeed = false;
     }
 
@@ -156,13 +162,37 @@ export class CalendarCardProEditor extends LitElement {
     const nextData = event.detail?.value as Record<string, unknown> | undefined;
     if (!nextData) return;
 
+    const previousConfig = this._config;
     const applied = Routing.applyWorkspaceChange(
-      this._config,
+      previousConfig,
       frame,
       nextData,
       this._pending,
       !this._skipTimeGridDivergentDefaultSeed,
+      this._authoredRootKeys,
     );
+
+    const changed = new Set(
+      Value.changedKeys(
+        previousConfig as unknown as Record<string, unknown>,
+        applied.config as unknown as Record<string, unknown>,
+      ),
+    );
+    for (const { node, path } of Routing.workspaceFields(frame.schema)) {
+      if (path.length > 0) continue;
+      for (const key of Synthetic.configKeysForField(node.name)) {
+        if (!changed.has(key) || Routing.destination(key, frame.workspace) !== undefined) continue;
+        if (Object.prototype.hasOwnProperty.call(applied.config, key))
+          this._authoredRootKeys.add(key);
+        else this._authoredRootKeys.delete(key);
+      }
+    }
+    if (this._viewForConfig(previousConfig) !== this._viewForConfig(applied.config)) {
+      this._gridReconciliation =
+        applied.config.view === 'grid' && !this._skipTimeGridDivergentDefaultSeed
+          ? Value.gridReconciliationKeys(previousConfig, this._authoredRootKeys)
+          : [];
+    }
 
     this._config = applied.config;
     this._pending = applied.pending;
@@ -710,8 +740,34 @@ export class CalendarCardProEditor extends LitElement {
 
     return html`
       <div class="card-config">
-        ${this._renderViewControls(ctx)} ${this._renderFilterBar()} ${panels}
-        ${empty ? this._renderNoMatches(ctx) : nothing}
+        ${this._renderViewControls(ctx)} ${this._renderGridReconciliation(ctx)}
+        ${this._renderFilterBar()} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
+      </div>
+    `;
+  }
+
+  /**
+   * Reports the options kept across the explicit switch to Grid, once per transition.
+   *
+   * @param ctx - Current editor context
+   * @returns One dismissible notice, or nothing when no authored value conflicted
+   */
+  private _renderGridReconciliation(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    if (this._gridReconciliation.length === 0) return nothing;
+    const options = this._gridReconciliation.map((key) => this._string(ctx, key)).join(', ');
+    return html`
+      <div class="grid-reconciliation" data-grid-reconciliation role="status">
+        <strong>${this._string(ctx, 'grid_reconciliation.title')}</strong>
+        <div>${interpolate(this._string(ctx, 'grid_reconciliation.message'), { options })}</div>
+        <button
+          type="button"
+          class="text-button"
+          @click=${() => {
+            this._gridReconciliation = [];
+          }}
+        >
+          ${this._string(ctx, 'grid_reconciliation.dismiss')}
+        </button>
       </div>
     `;
   }

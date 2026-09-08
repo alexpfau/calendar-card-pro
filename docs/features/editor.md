@@ -65,6 +65,41 @@ empty_day_color: '#607d8b'
 **→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** and
 **[Options With No Effect in Column View](/reference/configuration#options-with-no-effect-in-column-view)** — the scoped options.
 
+### Switching an Existing Card to Grid
+
+Changing **Card Displays** from List or Column to Time Grid keeps values you explicitly
+set at the top level, including a value equal to the List default. For options where
+Grid has a different default, the editor copies your value into `time_grid:` rather
+than replacing it. Options you did not set use Grid's defaults, and existing
+`time_grid:` values are left alone.
+
+For example, these two authored values are kept in Grid:
+
+```yaml
+event_font_size: '18px'
+event_background_opacity: 5
+```
+
+The corresponding entries after switching are:
+
+```yaml
+view: grid
+event_font_size: '18px'
+event_background_opacity: 5
+time_grid:
+  event_font_size: '18px'
+  event_background_opacity: 5
+```
+
+One notice lists the options kept instead of Grid's defaults. Use the option's
+**Reset** button in the Grid workspace to return to its default; switching away and
+back in the same editing session does not recreate a reset value.
+
+This preserves continuity across an explicit editor transition, not a change made only
+in YAML. Opening an already-Grid card is read-only: a YAML card with root
+`event_background_opacity: 5` and no Grid opacity still shows Grid's default of 20.
+Choose the Grid workspace to change that value directly.
+
 ## ✨ Key Features
 
 - **Live Preview** — see changes immediately as you configure the card

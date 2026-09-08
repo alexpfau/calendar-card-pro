@@ -46,6 +46,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'editing_workspace.option.list.label': 'List',
   'editing_workspace.option.column.label': 'Column',
   'editing_workspace.option.grid.label': 'Grid',
+  'grid_reconciliation.title': 'Existing Values Kept for Grid',
+  'grid_reconciliation.message':
+    'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
+  'grid_reconciliation.dismiss': 'Dismiss',
 
   // --- Width table ----------------------------------------------------------
   'width_table.title': 'This card renders',

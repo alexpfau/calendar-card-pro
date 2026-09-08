@@ -323,38 +323,74 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
   return stored;
 }
 
+function gridSeeds(
+  config: Readonly<Types.Config>,
+  authoredRootKeys: ReadonlySet<string>,
+): Array<{ key: string; value: unknown; reconciled: boolean }> {
+  const block = Helpers.isConfigBlock(config.time_grid) ? config.time_grid : {};
+  return Object.entries(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES).flatMap(([key, gridDefault]) => {
+    if (Object.prototype.hasOwnProperty.call(block, key)) return [];
+    const root = config[key as keyof Types.Config];
+    const authored = authoredRootKeys.has(key) && root !== undefined && root !== null;
+    const value = authored ? normalizeRootValue(key, root) : gridDefault;
+    return [
+      {
+        key,
+        value,
+        reconciled: authored && !deepEqual(value, normalizeRootValue(key, gridDefault)),
+      },
+    ];
+  });
+}
+
 /**
- * Adds visible exceptions for the grid defaults the editor creates on first switch.
+ * Names authored root values the editor will preserve instead of substituting Grid defaults.
+ *
+ * An existing Grid value wins without reconciliation. Missing and null root values
+ * are unset; false and zero are authored values. Both comparison sides use the same coercion.
+ *
+ * @param config - Configuration before the editor switches the displayed view
+ * @param authoredRootKeys - Root keys captured before defaults were merged, plus later root edits
+ * @returns The conflicting options to name in one editor notice
+ */
+export function gridReconciliationKeys(
+  config: Readonly<Types.Config>,
+  authoredRootKeys: ReadonlySet<string>,
+): ReadonlyArray<string> {
+  return gridSeeds(config, authoredRootKeys)
+    .filter(({ reconciled }) => reconciled)
+    .map(({ key }) => key);
+}
+
+/**
+ * Seeds missing Grid values on an editor transition, preserving authored root choices.
+ *
+ * This is continuity across an explicit view change, not a renderer precedence rule.
+ * Loading an already-Grid YAML card does not call it. The authored key set is editor-only:
+ * merging DEFAULT_CONFIG first would make every default look like a user choice.
  *
  * @param config - Configuration after the view changed
  * @param enabled - Whether this editor session still wants the seed
+ * @param authoredRootKeys - Authored root keys, never inferred from the merged configuration
  * @returns The seeded configuration, or the original when no seed is needed
  */
 export function seedTimeGridDivergentDefaults(
   config: Readonly<Types.Config>,
   enabled = true,
+  authoredRootKeys: ReadonlySet<string> = new Set(),
 ): Types.Config {
   if (!enabled) return config as Types.Config;
-
-  const block = Helpers.isConfigBlock(config.time_grid)
-    ? (config.time_grid as Record<string, unknown>)
-    : undefined;
-  const seeded = { ...(block ?? {}) };
-
-  for (const [key, value] of Object.entries(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES)) {
-    if (!Object.prototype.hasOwnProperty.call(seeded, key)) {
-      seeded[key] = value;
-    }
-  }
-
-  if (deepEqual(block ?? {}, seeded)) {
-    return config as Types.Config;
-  }
+  const seeds = gridSeeds(config, authoredRootKeys);
+  if (seeds.length === 0) return config as Types.Config;
+  const block = Helpers.isConfigBlock(config.time_grid) ? config.time_grid : {};
 
   return {
-    ...(config as unknown as Record<string, unknown>),
-    time_grid: seeded,
-  } as unknown as Types.Config;
+    ...config,
+    time_grid: {
+      ...block,
+      ...Object.fromEntries(seeds.map(({ key, value }) => [key, value])),
+    },
+  };
 }
 
 interface FormApplication {

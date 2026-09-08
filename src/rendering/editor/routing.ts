@@ -220,15 +220,15 @@ function atPath(data: unknown, path: ReadonlyArray<string>, key: string): unknow
   return value;
 }
 
-function writePath(
-  data: Readonly<Record<string, unknown>>,
+function writePath<T extends object>(
+  data: Readonly<T>,
   path: ReadonlyArray<string>,
   key: string,
   value: unknown,
-): Record<string, unknown> {
+): T {
   if (path.length > 0) {
     const [parent, ...rest] = path;
-    const current = data[parent];
+    const current = Helpers.isConfigBlock(data) ? data[parent] : undefined;
     const child = writePath(Helpers.isConfigBlock(current) ? current : {}, rest, key, value);
     return { ...data, [parent]: child };
   }
@@ -248,6 +248,7 @@ function writePath(
  * @param incoming - Whole merged data returned by ha-form
  * @param pending - Held synthetic text
  * @param seedGridDefaults - Existing first-switch seeding policy
+ * @param authoredRootKeys - Root choices captured by the editor before merging defaults
  * @returns Updated raw configuration and held text
  */
 export function applyWorkspaceChange(
@@ -256,6 +257,7 @@ export function applyWorkspaceChange(
   incoming: Readonly<Record<string, unknown>>,
   pending: Synthetic.PendingValues,
   seedGridDefaults = true,
+  authoredRootKeys: ReadonlySet<string> = new Set(),
 ): { config: Types.Config; pending: Record<string, string> } {
   let draft: Types.Config = { ...config };
   const held = { ...pending };
@@ -278,10 +280,7 @@ export function applyWorkspaceChange(
     if (Value.deepEqual(previous, next)) continue;
 
     if (path.length > 0) {
-      draft = {
-        ...draft,
-        ...writePath(draft as unknown as Record<string, unknown>, path, node.name, next),
-      };
+      draft = writePath(draft, path, node.name, next);
       continue;
     }
 
@@ -303,10 +302,7 @@ export function applyWorkspaceChange(
         Value.deepEqual(value, normalizeRootValue(key, projection[key as keyof Types.Config]))
       )
         continue;
-      draft = {
-        ...draft,
-        ...writePath(draft as unknown as Record<string, unknown>, block ? [block] : [], key, value),
-      };
+      draft = writePath(draft, block ? [block] : [], key, value);
     }
     if ('pending' in applied) {
       for (const [name, value] of Object.entries(applied.pending ?? {})) {
@@ -319,7 +315,7 @@ export function applyWorkspaceChange(
     if (rawText !== undefined) held[heldKey] = rawText;
   }
   if (config.view !== 'grid' && draft.view === 'grid') {
-    draft = Value.seedTimeGridDivergentDefaults(draft, seedGridDefaults);
+    draft = Value.seedTimeGridDivergentDefaults(draft, seedGridDefaults, authoredRootKeys);
   }
   return { config: draft, pending: held };
 }

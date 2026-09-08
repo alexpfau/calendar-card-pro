@@ -24,6 +24,22 @@ export default css`
     line-height: 1.4;
   }
 
+  .grid-reconciliation {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border-inline-start: 3px solid var(--primary-color);
+    border-radius: 4px;
+    background: var(--secondary-background-color);
+    line-height: 1.4;
+  }
+
+  .grid-reconciliation .text-button {
+    align-self: flex-start;
+  }
+
   .view-resets {
     display: flex;
     flex-wrap: wrap;

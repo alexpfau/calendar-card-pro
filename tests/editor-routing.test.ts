@@ -437,6 +437,54 @@ afterEach(() => {
 });
 
 describe('rendered form frames preserve edit intent', () => {
+  it('clears a root option without restoring it from the previous object', async () => {
+    const { editor, seen } = await mount();
+    emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
+      editing_workspace: 'list',
+    });
+    await editor.updateComplete;
+    const form = owner(editor, 'event_font_size');
+    emit(form, { ...form.data, event_font_size: undefined });
+    await editor.updateComplete;
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).not.toHaveProperty('event_font_size');
+    expect(seen[0].column).toEqual({ event_font_size: '19px' });
+    expect(seen[0].time_grid).toEqual({ event_font_size: '23px' });
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('14px');
+  });
+
+  it('clears root values written by a synthetic mode control', async () => {
+    const { editor, seen } = await mount();
+    editor.setConfig(buildConfig({ start_date: 'today+7' }));
+    await editor.updateComplete;
+    const form = owner(editor, 'start_date_mode');
+    emit(form, { ...form.data, start_date_mode: 'default' });
+    await editor.updateComplete;
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).not.toHaveProperty('start_date');
+    expect(owner(editor, 'start_date_mode').data.start_date_mode).toBe('default');
+  });
+
+  it.each(['column', 'grid'] as const)(
+    'still clears a %s value through the nested write path',
+    async (view) => {
+      const { editor, seen } = await mount();
+      emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
+        editing_workspace: view,
+      });
+      await editor.updateComplete;
+      const form = owner(editor, 'event_font_size');
+      emit(form, { ...form.data, event_font_size: undefined });
+      await editor.updateComplete;
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).not.toHaveProperty(`${View.OVERRIDE_BLOCK_BY_VIEW[view]}.event_font_size`);
+      expect(seen[0].event_font_size).toBe('17px');
+      expect(owner(editor, 'event_font_size').data.event_font_size).toBe(
+        view === 'grid' ? '12px' : '17px',
+      );
+    },
+  );
+
   it.each(View.VIEWS)(
     'keeps %s font input intact through renders and save echoes',
     async (view) => {
