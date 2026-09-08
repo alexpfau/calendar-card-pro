@@ -394,9 +394,14 @@ describe('rendered form frames preserve edit intent', () => {
     const data = { ...form.data };
     expect(data.accent_event_text).toBe(true);
     emit(form, { ...data, event_color: '#112233' });
-    emit(form, { ...data, event_color: '#445566' });
+    // A second color edit masks the stale checkbox by writing the color again.
+    // Changing another field leaves the checkbox's accidental reset exposed.
+    emit(form, { ...data, event_color: '#112233', event_font_size: '24px' });
     await editor.updateComplete;
-    expect(seen.at(-1)?.time_grid).toMatchObject({ event_color: '#445566' });
+    expect(seen.at(-1)?.time_grid).toMatchObject({
+      event_color: '#112233',
+      event_font_size: '24px',
+    });
     expect(seen.at(-1)?.time_grid).not.toHaveProperty('time_color');
   });
 
