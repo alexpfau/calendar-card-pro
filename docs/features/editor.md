@@ -1,6 +1,6 @@
 # Visual Configuration Editor
 
-Calendar Card Pro includes a comprehensive visual editor that makes configuration intuitive and accessible—no YAML required!
+Configure the card with Home Assistant's visual editor and see a live preview as you edit.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor.png" alt="Visual Configuration Editor" width="600"><br>
 
@@ -101,6 +101,32 @@ This preserves continuity across an explicit editor transition, not a change mad
 in YAML. Opening an already-Grid card is read-only: a YAML card with root
 `event_background_opacity: 5` and no Grid opacity still shows Grid's default of 20.
 Choose the Grid workspace to change that value directly.
+
+::: info Saving & Reopening
+An authored root value equal to the card's default can be omitted when you save an unrelated edit. The open editor remembers that choice while you continue editing, but closing and reopening loses the history of an omitted value.
+
+For example, top-level `event_font_size: '14px'` is removed as a root default on save. If Grid has no explicit font-size override, a later transition to Grid after reopening uses its `12px` default because the saved configuration no longer says you chose `14px`. To keep that size for Grid across saves, set it in the Grid workspace or explicitly under `time_grid:`.
+:::
+
+### YAML & View Defaults
+
+The editor does not change the renderer's precedence rules. With no per-view override,
+these top-level values behave as follows:
+
+| Top-Level YAML            | List              | Column            | Grid              |
+| ------------------------- | ----------------- | ----------------- | ----------------- |
+| `show_empty_days: false`  | Hides empty days  | Keeps empty days  | Keeps empty days  |
+| `show_past_events: false` | Hides past events | Hides past events | Keeps past events |
+
+Set the corresponding value in `column:` or `time_grid:` to change that view, or use
+its editor workspace. Grid also substitutes its own styling defaults, even when you
+set a different top-level value. All thirteen are listed in
+[Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
+Column's two substitutions are listed in
+[Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default).
+
+A YAML-only edit produces no reconciliation notice. The notice belongs to an explicit
+editor transition to Grid; opening an editor or choosing a workspace is not a migration.
 
 ## ✨ Key Features
 

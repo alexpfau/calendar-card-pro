@@ -146,6 +146,10 @@ column:
   show_empty_days: false # columns hide them too
 ```
 
+`show_past_events` is different: Column inherits its top-level value unless `column:`
+overrides it. Grid substitutes `true` for both options. The editor guide includes the
+[comparison across all three layouts](/features/editor#yaml-view-defaults).
+
 ## 🚫 Options That Cannot Be Overridden
 
 These options decide _which_ events the card loads, so they must hold the same value in both layouts and are ignored inside `column:`. Set them at the top level:

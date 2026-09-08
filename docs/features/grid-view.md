@@ -424,7 +424,9 @@ time_grid:
   title_max_lines: 2
 ```
 
-Anything the block does not mention keeps its top-level value.
+Anything the block does not mention keeps its top-level value, except for the thirteen
+options listed below. In the visual editor, choose the Grid workspace to edit these
+values directly without changing Card Displays.
 
 ## 🔀 Options That Start From a Different Default
 
@@ -446,6 +448,25 @@ column is what grid view uses; **Instead of** is the top-level default it replac
 | `description_color`        | string  | `accent`                             | `--secondary-text-color`      |
 | `progress_bar_color`       | string  | `accent`                             | `--secondary-text-color`      |
 | `progress_bar_width`       | string  | `100%`                               | _per placement_               |
+
+These defaults take precedence even when you explicitly set a different top-level value.
+For example, `event_background_opacity: 5` at the top level does not change Grid's tint,
+and top-level `show_past_events: false` does not hide finished events in Grid. Set the
+Grid values in the block:
+
+```yaml
+view: grid
+event_background_opacity: 5
+show_past_events: false
+time_grid:
+  event_background_opacity: 5
+  show_past_events: false
+```
+
+This YAML precedence is intentional. The visual editor separately
+[preserves authored values when you switch an existing card to Grid](/features/editor#switching-an-existing-card-to-grid),
+and announces any conflicts it reconciles. A YAML-only edit has no such notice.
+Opening an already-Grid card does not rewrite its configuration.
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
