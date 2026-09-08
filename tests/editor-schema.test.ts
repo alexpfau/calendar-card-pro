@@ -10,7 +10,6 @@ import {
   COLUMN_DEFAULTS,
   COLUMN_DEFAULT_OVERRIDES,
   COLUMN_ONLY_KEYS,
-  COLUMN_OVERRIDE_KEYS,
   ENTITY_VIEW_SCOPE,
   TIME_GRID_DEFAULT_OVERRIDES,
   TIME_GRID_ONLY_KEYS,
@@ -33,13 +32,7 @@ import {
   toEntityFormData,
   writeEntity,
 } from '../src/rendering/editor/entities';
-import {
-  EXTRA_KEYS_BY_PANEL,
-  applySelection,
-  declaredKeys,
-  eligibleFields,
-  removeException,
-} from '../src/rendering/editor/exceptions';
+import { removeException } from '../src/rendering/editor/exceptions';
 import type { HaFormSchema, SelectOption } from '../src/rendering/editor/ha-form';
 import {
   applicabilityNote,
@@ -47,7 +40,6 @@ import {
   computeLabel,
   computeSubformHelper,
 } from '../src/rendering/editor/localize';
-import * as Overrides from '../src/rendering/editor/overrides';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { buildDayHeaderSchema } from '../src/rendering/editor/schemas/day-header';
 import {
@@ -62,8 +54,7 @@ import {
   widthTableRows,
 } from '../src/rendering/editor/schemas/layout';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
-import { chassisSubforms, panelSubforms } from '../src/rendering/editor/subforms';
-import * as Synthetic from '../src/rendering/editor/synthetic';
+import { chassisSubforms } from '../src/rendering/editor/subforms';
 import {
   SYNTHETIC_FIELDS,
   deriveSyntheticData,
@@ -76,7 +67,6 @@ import {
   applyFormChange,
   changedKeys,
   columnFormBlock,
-  exceptionFormBlock,
   reconcileTimeGridValues,
   stripColumnDefaults,
   stripTimeGridDefaults,
@@ -3946,141 +3936,7 @@ describe('editor: per-calendar settings', () => {
   });
 });
 
-describe('editor: the exceptions widget', () => {
-  /** The eligible exception fields of one panel, for a configuration. */
-  function eligibleFor(panelId: string, config: Types.Config = columnConfig()) {
-    const panel = PANELS.find((entry) => entry.id === panelId)!;
-    const ctx = { view: config.view, config, language: 'en' };
-    return eligibleFields(panel.build(ctx), ctx.view, panel.id);
-  }
-
-  it('offers an exception only for options the card can resolve per view', () => {
-    const offered = PANELS.flatMap((panel) => eligibleFor(panel.id).map((field) => field.name));
-
-    for (const name of offered) {
-      expect(COLUMN_OVERRIDE_KEYS as ReadonlyArray<string>, name).toContain(name);
-    }
-  });
-
-  /**
-   * Fetch-time options can never be per-view: switching layout at a viewport boundary
-   * must not fire a Home Assistant API call. `weather` is claimed whole by that
-   * boundary, sub-keys included.
-   */
-  it('offers no exception for anything that decides what is fetched', () => {
-    const offered = new Set(
-      PANELS.flatMap((panel) => eligibleFor(panel.id).map((field) => field.name)),
-    );
-
-    // `show_past_events` was in this list until it was traced to the API call and found
-    // not to reach it: the fetch window starts at midnight of the reference date whatever
-    // its value, so past events are always fetched and it only decides whether they
-    // render. It is an exception the editor now offers, asserted just below.
-    for (const key of ['entities', 'days_to_show', 'start_date', 'weather']) {
-      expect(offered.has(key), key).toBe(false);
-    }
-
-    for (const key of ['show_past_events', 'filter_duplicates']) {
-      expect(offered.has(key), key).toBe(true);
-    }
-
-    // The weather panel is the one whose every option is claimed by the boundary, so
-    // it is the one that must offer nothing at all.
-    expect(eligibleFor('weather')).toEqual([]);
-  });
-
-  it('gives an exception the same control as the option it overrides', () => {
-    const events = PANELS.find((panel) => panel.id === 'events')!;
-    const ctx = {
-      view: 'column' as const,
-      config: columnConfig({ show_location: true }),
-      language: 'en',
-    };
-    const schema = events.build(ctx);
-
-    const shared = [...walkSchema(schema)].find((entry) => entry.node.name === 'show_location')!
-      .node as { selector: unknown };
-    const exception = eligibleFields(schema, ctx.view, events.id).find(
-      (field) => field.name === 'show_location',
-    )!;
-
-    expect(exception.selector).toEqual(shared.selector);
-  });
-
-  it('offers nothing at all in a view whose configuration is the top level', () => {
-    const listConfig = buildConfig({ view: 'list' });
-    const panel = PANELS.find((entry) => entry.id === 'events')!;
-
-    expect(panelSubforms(panel, { view: 'list', config: listConfig, language: 'en' })).toEqual([]);
-  });
-
-  it('shows an added exception at the value it would otherwise inherit', () => {
-    const config = columnConfig({ event_font_size: '18px' });
-
-    const block = exceptionFormBlock(config, 'column', ['event_font_size']);
-
-    expect(block.event_font_size).toBe('18px');
-  });
-
-  /**
-   * `show_empty_days` is the case that makes the projection necessary rather than
-   * merely tidy: absent from the block, its effective value in column view is `true`,
-   * so a control bound to the raw block would render unchecked and state the opposite
-   * of what the card is doing.
-   */
-  it('shows a divergent column default as the column default, not the shared value', () => {
-    const config = columnConfig({ show_empty_days: false });
-
-    expect(exceptionFormBlock(config, 'column', ['show_empty_days']).show_empty_days).toBe(true);
-  });
-
-  it('shows a divergent grid default as the grid default, not the shared value', () => {
-    const config = gridConfig({ show_empty_days: false });
-
-    expect(TIME_GRID_DEFAULT_OVERRIDES.show_empty_days).toBe(true);
-    expect(exceptionFormBlock(config, 'grid', ['show_empty_days']).show_empty_days).toBe(true);
-  });
-
-  it('stores nothing for an exception left equal to what it inherits', () => {
-    const config = columnConfig({ event_font_size: '18px' });
-    const block = exceptionFormBlock(config, 'column', ['event_font_size']);
-
-    expect(
-      toStoredConfig({ ...config, column: block as Types.ColumnOverrides }),
-    ).not.toHaveProperty('column');
-  });
-
-  it('stores nothing for a grid exception left equal to what it inherits', () => {
-    const config = gridConfig({ event_font_size: '18px' });
-    const block = exceptionFormBlock(config, 'grid', ['event_font_size']);
-
-    expect(
-      toStoredConfig({ ...config, time_grid: block as Types.TimeGridOverrides }),
-    ).not.toHaveProperty('grid');
-  });
-
-  it('seeds the exceptions a configuration already sets, and nothing else', () => {
-    const declared = declaredKeys(
-      columnConfig({
-        column: { event_font_size: '22px', min_day_width: 200 } as Types.ColumnOverrides,
-      }),
-      'column',
-    );
-
-    expect([...declared]).toEqual(['event_font_size']);
-  });
-
-  it('reads exceptions only out of the view block being edited', () => {
-    const config = gridConfig({
-      column: { event_font_size: '22px' } as Types.ColumnOverrides,
-      time_grid: { location_font_size: '12px' } as Types.TimeGridOverrides,
-    });
-
-    expect([...declaredKeys(config, 'grid')]).toEqual(['location_font_size']);
-    expect([...declaredKeys(config, 'column')]).toEqual(['event_font_size']);
-    expect([...declaredKeys(config, 'list')]).toEqual([]);
-  });
-
+describe('editor: removing view overrides', () => {
   it('removes an exception by deleting the key, not by writing the shared value back', () => {
     const config = columnConfig({
       show_location: true,
@@ -4093,12 +3949,6 @@ describe('editor: the exceptions widget', () => {
     expect(toStoredConfig(next).column).toEqual({ event_font_size: '22px' });
   });
 
-  /**
-   * The whole reason the widget is hand-written. `ha-form-optional_actions` has no
-   * removal path at all, and force-promotes any key present in the data on every
-   * update — so a field with a value could never be hidden again, and an exception
-   * could never be taken away.
-   */
   it('leaves no empty block behind when the last exception is removed', () => {
     const config = columnConfig({
       show_location: true,
@@ -4109,110 +3959,6 @@ describe('editor: the exceptions widget', () => {
 
     expect(next).not.toHaveProperty('column');
     expect(toStoredConfig(next)).not.toHaveProperty('column');
-  });
-
-  it('adds and removes through one control, and touches no other panel keys', () => {
-    const config = columnConfig({
-      column: { show_location: false, day_spacing: '20px' } as Types.ColumnOverrides,
-    });
-
-    const eligible = ['show_location', 'show_time'];
-    const declared = new Set(['show_location', 'day_spacing']);
-
-    const applied = applySelection(config, 'column', eligible, declared, ['show_time']);
-
-    // Chosen: declared. Dropped: undeclared and deleted.
-    expect(applied.declared.has('show_time')).toBe(true);
-    expect(applied.declared.has('show_location')).toBe(false);
-    expect(applied.config.column).toEqual({ day_spacing: '20px' });
-
-    // Another panel's exception is untouched, because it was not offered here.
-    expect(applied.declared.has('day_spacing')).toBe(true);
-  });
-
-  it('ignores a selection naming an option this panel does not own', () => {
-    const config = columnConfig();
-    const applied = applySelection(config, 'column', ['show_time'], new Set(), [
-      'show_time',
-      'day_spacing',
-    ]);
-
-    expect([...applied.declared]).toEqual(['show_time']);
-  });
-
-  it('declares every extra key it offers as a real, selectable override', () => {
-    const layout = eligibleFor('layout').map((field) => field.name);
-
-    // The two heights are edited through a mode dropdown, which chooses *which* key is
-    // set and so cannot be an exception to one of them.
-    expect(layout).toContain('height');
-    expect(layout).toContain('max_height');
-
-    for (const field of eligibleFor('layout')) {
-      expect(COLUMN_OVERRIDE_KEYS as ReadonlyArray<string>, field.name).toContain(field.name);
-      expect(field.selector, field.name).toBeTypeOf('object');
-    }
-  });
-
-  /**
-   * Coverage, stated as a set rather than as a number, so that a key leaving the
-   * exceptions is a failing test rather than a thing nobody notices.
-   *
-   * The set is now empty, and getting it there is what E11 was. Three keys are stored as
-   * a union no single selector can emit — `null | 'iso' | 'simple'`, `boolean | string`,
-   * `string | boolean` — so each is edited through the same mode dropdown its panel uses,
-   * pointed at the block rather than at the card. See `overrides.ts`.
-   */
-  it('offers an exception for every overridable option, unions included', () => {
-    const swept = [
-      columnConfig(),
-      columnConfig({
-        ...Object.fromEntries(
-          Object.entries(DEFAULT_CONFIG)
-            .filter(([, value]) => typeof value === 'boolean')
-            .map(([key]) => [key, true]),
-        ),
-        view: 'column',
-        show_week_numbers: 'iso',
-      } as Partial<Types.Config>),
-      // The all-day treatment select is only built once a position is chosen, and neither
-      // sweep above chooses one: the boolean sweep cannot reach a string key, and the plain
-      // column config leaves it at its 'off' default. Without this the check reports
-      // allday_badge_style as having no exception -- correctly, from what it can see.
-      columnConfig({ allday_badge: 'time' } as Partial<Types.Config>),
-      // And the colour field is a gate deeper again: the badge on AND a custom colour. The
-      // mode is read off the value's shape, so any colour reaches it.
-      columnConfig({
-        allday_badge: 'time',
-        allday_badge_color: '#b5651d',
-      } as Partial<Types.Config>),
-    ];
-
-    const offered = new Set<string>();
-    for (const config of swept) {
-      for (const panel of PANELS) {
-        for (const field of eligibleFor(panel.id, config)) offered.add(field.name);
-      }
-    }
-
-    const missing = (COLUMN_OVERRIDE_KEYS as ReadonlyArray<string>).filter(
-      (key) => !offered.has(key),
-    );
-
-    expect(missing.sort()).toEqual([]);
-  });
-
-  it('offers each option exactly once, in the panel that owns it', () => {
-    const seen = new Map<string, string[]>();
-
-    for (const panel of PANELS) {
-      for (const field of eligibleFor(panel.id)) {
-        seen.set(field.name, [...(seen.get(field.name) ?? []), panel.id]);
-      }
-    }
-
-    const duplicated = [...seen.entries()].filter(([, panels]) => panels.length > 1);
-    expect(duplicated).toEqual([]);
   });
 });
 
@@ -4265,7 +4011,7 @@ describe('editor: direct view controls in the chassis', () => {
       computeHelper('en', 'list', { name: 'show_empty_days', selector: { boolean: {} } }),
     ).not.toBe(note);
 
-    expect([...declaredKeys(columnConfig(), 'column')]).toEqual([]);
+    expect(toStoredConfig(columnConfig())).not.toHaveProperty('column');
   });
 
   it('renders the effective field immediately without storing an override', async () => {
@@ -4381,403 +4127,9 @@ describe('editor: direct view controls in the chassis', () => {
   });
 });
 
-/**
- * E11 — the options whose stored value is a union of shapes.
- *
- * Each is edited through the same mode dropdown its own panel uses, pointed at the block
- * rather than at the card. What these pin is the one thing that genuinely differs
- * between the two scopes: **absent means the opposite**. At card level a missing key
- * takes the default, so *None* is written by removing it; inside an override block a
- * missing key inherits the shared value, so *None* has to be written as an explicit
- * value or the exception the user just asked for would silently disappear.
- */
-describe('editor: exceptions for the union-typed options', () => {
-  it('pins EXTRA_KEYS_BY_PANEL by value, because a walk cannot see an entry leaving', () => {
-    /*
-     * Three of these six entries are vestigial and three are load-bearing, which makes a
-     * tidy-up the realistic threat rather than a hypothetical one: `show_week_numbers`,
-     * `today_indicator` and `allday_badge` are all found by the schema walk anyway, so
-     * removing them changes no behaviour, and `remove_location_country` is dead-looking for
-     * the same reason while not being dead at all.
-     *
-     * 🚨 **This pin is what tells them apart, so do not read a failure here as the pin being
-     * stale.** Before it existed, a sweep on default config reported all four as dead and
-     * only a non-default config separated them. Now every deletion fails at least this test,
-     * so the discriminator is the COUNT: one failure and nothing else means the entry was
-     * vestigial and the pin is correct; two or three means real behavioural coverage went
-     * with it. Updating the pin to make a lone failure go away is exactly the move that
-     * restores the invisibility this test was added to remove. `exceptions.ts` carries the
-     * per-entry table.
-     *
-     * Of the live entries, only `remove_location_country` is covered behaviourally BELOW --
-     * `height` and `max_height` are covered by `declares every extra key it offers as a
-     * real, selectable override` and `offers an exception for every overridable option`,
-     * in a different describe further up this file. This test covers the table
-     * itself, and it is deliberately a value comparison rather than a loop over its keys:
-     * `for (const k of Object.keys(TABLE))` runs one fewer time when an entry is deleted
-     * and stays green, which is the trap AGENTS.md names. `toEqual` fails in BOTH
-     * directions, so an addition has to be a deliberate act too.
-     */
-    expect(EXTRA_KEYS_BY_PANEL).toEqual({
-      layout: ['height', 'max_height'],
-      day_header: ['show_week_numbers', 'today_indicator'],
-      events: ['allday_badge', 'remove_location_country'],
-    });
-  });
-
-  it('still offers remove_location_country when the location group is not built', () => {
-    /*
-     * The coverage the synthetic-resolution change quietly removed. Before it, dropping
-     * `remove_location_country` from `EXTRA_KEYS_BY_PANEL.events` failed 2 tests; after, it
-     * survived at 3221 -- because the walk now finds the option in place under default
-     * config, so the extras entry looks redundant to any mutation run at that config.
-     *
-     * It is not redundant. The location group only builds `location_country_mode` when
-     * `show_location` is on, so with locations OFF the walk never sees it at any name and
-     * the extras entry is the only path. That is a real configuration: locations off in the
-     * shared config, wanted back in one view.
-     */
-    const panel = PANELS.find((entry) => entry.id === 'events')!;
-    const offered = (showLocation: boolean) =>
-      eligibleFields(
-        panel.build({
-          view: 'column',
-          config: buildConfig({
-            view: 'column',
-            show_location: showLocation,
-          } as unknown as Partial<Types.Config>),
-          language: 'en',
-        }),
-        'column',
-        'events',
-        'en',
-      ).map((field) => field.name);
-
-    // The control: it is offered with locations ON, so the OFF case is testing the extras
-    // path rather than an option that was never offered at all.
-    expect(offered(true)).toContain('remove_location_country');
-    expect(offered(false)).toContain('remove_location_country');
-  });
-
-  it('offers a union-typed option where its panel renders it, not at the end', () => {
-    /*
-     * `eligibleFields` documents itself as returning "one field per eligible option, in the
-     * order the panel renders them", and for these it did not. A union-typed option renders
-     * under its SYNTHETIC name, which is not a `COLUMN_OVERRIDE_KEYS` member, so the schema
-     * walk skipped it and it arrived later from `EXTRA_KEYS_BY_PANEL` -- at the end.
-     *
-     * The visible cost was the badge pair: `allday_badge_style` is a real key found in place
-     * and `allday_badge` is not, so the picker offered the STYLE at index 5 and the POSITION
-     * it depends on at index 22, seventeen entries later, with nothing saying the style is
-     * inert while the position is off. Measured after the fix: 5 and 6.
-     *
-     * Asserted as adjacency and order rather than as fixed indices, which would break on any
-     * unrelated field being added to the panel.
-     */
-    const config = buildConfig({
-      view: 'column',
-      allday_badge: 'time',
-    } as unknown as Partial<Types.Config>);
-    const panel = PANELS.find((entry) => entry.id === 'events')!;
-    const names = eligibleFields(
-      panel.build({ view: 'column', config, language: 'en' }),
-      'column',
-      'events',
-      'en',
-    ).map((field) => field.name);
-
-    const position = names.indexOf('allday_badge');
-    const style = names.indexOf('allday_badge_style');
-
-    // The control: both have to be offered at all for their order to mean anything.
-    expect(position, 'allday_badge offered').toBeGreaterThanOrEqual(0);
-    expect(style, 'allday_badge_style offered').toBeGreaterThanOrEqual(0);
-
-    expect(style - position).toBe(1);
-  });
-
-  /*
-   * The reconciliation this block did not have, and the defect it did not catch.
-   *
-   * `UNION_OVERRIDES` projects each union-typed option through a SYNTHETIC field, named by
-   * its `mode`. Naming one that does not exist does not throw and does not fail a type check:
-   * `overrideFormData` deletes every key in the table from the data, and `deriveOverrideData`
-   * refills it from `SYNTHETIC_FIELDS` and simply finds nothing. The control renders BLANK --
-   * showing neither the value stored in the block nor the card-level one it inherits, which
-   * is the entire job of that widget.
-   *
-   * `allday_badge_style` shipped that way on this branch: a plain closed-set string with no
-   * second shape and therefore no synthetic, registered here anyway. Stored `'outline'`
-   * derived to `undefined`. Nothing caught it -- the table was module-local so no test could
-   * walk it, and the cases below hardcode the options that existed when they were written.
-   *
-   * Reconciled against `SYNTHETIC_FIELDS` rather than against a second list, so the next
-   * entry is covered whether or not anyone remembers this.
-   */
-  it('names a real synthetic field for every union-typed option', () => {
-    const synthetics = new Set(Object.keys(Synthetic.SYNTHETIC_FIELDS));
-    const missing = Object.entries(Overrides.UNION_OVERRIDES)
-      .filter(([, override]) => !synthetics.has(override.mode))
-      .map(([key, override]) => `${key} -> ${override.mode}`);
-
-    expect(missing).toEqual([]);
-  });
-
-  it('shows a plain-string exception its stored value rather than a blank', () => {
-    // The symptom the reconciliation above prevents, asserted directly so a reader sees what
-    // "blank" meant. `allday_badge_style` is not union-typed and needs no entry at all.
-    expect(
-      Overrides.overrideFormData({ allday_badge_style: 'outline' }, ['allday_badge_style'])
-        .allday_badge_style,
-    ).toBe('outline');
-  });
-
-  /** The eligible exception fields of one panel, for a configuration. */
-  function eligibleFor(panelId: string, config: Types.Config) {
-    const panel = PANELS.find((entry) => entry.id === panelId)!;
-    const ctx = { view: config.view, config, language: 'en' };
-    return eligibleFields(panel.build(ctx), ctx.view, panel.id, 'en');
-  }
-
-  /** The rows one declared exception renders, given a block. */
-  function rowsFor(
-    config: Types.Config,
-    keys: string[],
-    pending: Record<string, string> = {},
-  ): HaFormSchema[] {
-    const data = Overrides.overrideFormData(
-      exceptionFormBlock(config, config.view, keys),
-      keys,
-      pending,
-    );
-
-    return Overrides.expandFields(
-      keys.map((name) => ({ name, selector: { text: {} } })),
-      'en',
-      data,
-    );
-  }
-
-  /** Applies one change to the block, the way the chassis does. */
-  function change(
-    config: Types.Config,
-    keys: string[],
-    patch: Record<string, unknown>,
-    pending: Record<string, string> = {},
-  ) {
-    const previous = Overrides.overrideFormData(
-      exceptionFormBlock(config, config.view, keys),
-      keys,
-      pending,
-    );
-    const stored = (config.column ?? {}) as Record<string, unknown>;
-
-    return Overrides.applyOverrideChange(stored, previous, { ...previous, ...patch }, pending);
-  }
-
-  it('offers each of the three under its own name, not its mode field', () => {
-    const config = columnConfig();
-
-    for (const [panel, key] of [
-      ['day_header', 'show_week_numbers'],
-      ['day_header', 'today_indicator'],
-      ['events', 'remove_location_country'],
-    ] as const) {
-      const names = eligibleFor(panel, config).map((field) => field.name);
-      expect(names, key).toContain(key);
-    }
-  });
-
-  it('labels the picker entry, and carries the real options for the search to match', () => {
-    const field = eligibleFor('day_header', columnConfig()).find(
-      (candidate) => candidate.name === 'show_week_numbers',
-    )!;
-
-    expect(computeLabel('en', field, ['column'])).toBe('Week Numbers');
-
-    const options = (field.selector as { select: { options: SelectOption[] } }).select.options;
-    expect(options.map((option) => option.label)).toEqual(['None', 'ISO 8601', 'Simple']);
-  });
-
-  it('renders the mode dropdown the panel would, not the raw config key', () => {
-    const rows = rowsFor(columnConfig(), ['show_week_numbers']).map((node) => node.name);
-
-    expect(rows).toEqual(['week_number_mode']);
-  });
-
-  it('shows the inherited shape when the exception is first declared', () => {
-    const config = columnConfig({ show_week_numbers: 'iso' });
-    const data = Overrides.overrideFormData(
-      exceptionFormBlock(config, 'column', ['show_week_numbers']),
-      ['show_week_numbers'],
-    );
-
-    expect(data.week_number_mode).toBe('iso');
-    // The raw key never reaches the form: it would ride back untouched on the next
-    // change and mask whatever the dropdown wrote.
-    expect(data).not.toHaveProperty('show_week_numbers');
-  });
-
-  /**
-   * The correction this item turns on. `week_number_mode` writes `undefined` for *None*,
-   * which is right for the card and wrong for a block — so an explicit `null` is written
-   * instead, and `stripColumnDefaults` already declines to treat that as absent.
-   */
-  it('writes an explicit null for week numbers switched off in one view only', () => {
-    const config = columnConfig({ show_week_numbers: 'iso' });
-    const applied = change(config, ['show_week_numbers'], { week_number_mode: 'none' });
-
-    expect(applied.block).toEqual({ show_week_numbers: null });
-    expect(
-      toStoredConfig({ ...config, column: applied.block as Types.ColumnOverrides }).column,
-    ).toEqual({ show_week_numbers: null });
-  });
-
-  it('writes an explicit false for the other two switched off in one view only', () => {
-    const indicator = change(columnConfig({ today_indicator: 'dot' }), ['today_indicator'], {
-      today_indicator_style: 'none',
-    });
-    expect(indicator.block).toEqual({ today_indicator: false });
-
-    const country = change(
-      columnConfig({ remove_location_country: true }),
-      ['remove_location_country'],
-      { location_country_mode: 'keep' },
-    );
-    expect(country.block).toEqual({ remove_location_country: false });
-  });
-
-  it('stores nothing while an exception still matches what it inherits', () => {
-    const config = columnConfig({ show_week_numbers: 'iso' });
-    const applied = change(config, ['show_week_numbers'], { week_number_mode: 'iso' });
-
-    expect(
-      toStoredConfig({ ...config, column: applied.block as Types.ColumnOverrides }),
-    ).not.toHaveProperty('column');
-  });
-
-  it('leaves the block alone until a declared exception is actually edited', () => {
-    const config = columnConfig({ today_indicator: 'dot' });
-    const applied = change(config, ['today_indicator'], {});
-
-    expect(applied.block).toEqual({});
-  });
-
-  it('carries the value control the chosen shape calls for', () => {
-    const icon = columnConfig({ column: { today_indicator: 'mdi:star' } as Types.ColumnOverrides });
-    expect(rowsFor(icon, ['today_indicator']).map((node) => node.name)).toEqual([
-      'today_indicator_style',
-      'today_indicator_icon',
-    ]);
-
-    const custom = columnConfig({ column: { today_indicator: '⭐' } as Types.ColumnOverrides });
-    expect(rowsFor(custom, ['today_indicator']).map((node) => node.name)).toEqual([
-      'today_indicator_style',
-      'today_indicator_custom',
-    ]);
-
-    const pattern = columnConfig({
-      column: { remove_location_country: 'Germany' } as Types.ColumnOverrides,
-    });
-    expect(rowsFor(pattern, ['remove_location_country']).map((node) => node.name)).toEqual([
-      'location_country_mode',
-      'location_country_pattern',
-    ]);
-  });
-
-  it('seeds a shape that has no value yet rather than leaving the control empty', () => {
-    const config = columnConfig({ today_indicator: 'dot' });
-    const applied = change(config, ['today_indicator'], { today_indicator_style: 'icon' });
-
-    expect(String(applied.block.today_indicator)).toMatch(/^mdi:/);
-  });
-
-  /**
-   * The same hold the card-level control uses, and needed for the same reason — but since
-   * #573 only for the values that would actually move the style. A word-shaped partial
-   * classifies as text and keeps the shape on Custom, so it commits and the field stands;
-   * an `mdi:` partial would switch the shape to Icon and take this very field away, so it
-   * is held until the user finishes.
-   */
-  it('holds a half-typed value instead of reclassifying the shape under the cursor', () => {
-    const config = columnConfig({ column: { today_indicator: '⭐' } as Types.ColumnOverrides });
-
-    let pending: Record<string, string> = {};
-    let current = config;
-
-    for (const partial of ['mdi:c', 'mdi:cal', 'mdi:calendar']) {
-      const applied = change(
-        current,
-        ['today_indicator'],
-        { today_indicator_custom: partial },
-        pending,
-      );
-      pending = applied.pending;
-      current = { ...current, column: applied.block as Types.ColumnOverrides };
-
-      expect(current.column!.today_indicator, partial).toBe('⭐');
-      expect(pending['today_indicator_custom'], partial).toBe(partial);
-      expect(
-        rowsFor(current, ['today_indicator'], pending).map((node) => node.name),
-        partial,
-      ).toContain('today_indicator_custom');
-    }
-
-    const done = change(
-      current,
-      ['today_indicator'],
-      { today_indicator_custom: 'star.png' },
-      pending,
-    );
-    expect(done.block.today_indicator).toBe('star.png');
-    expect(done.pending).not.toHaveProperty('today_indicator_custom');
-  });
-
-  /**
-   * Held text is keyed under the block it belongs to. Without that, a card-level
-   * `today_indicator_custom` mid-edit and a column-view one would be the same entry, and
-   * whichever was typed last would appear in both fields.
-   */
-  it('keeps a block’s held text separate from the card’s', () => {
-    const pending = { today_indicator_custom: 'card', 'column.today_indicator_custom': 'block' };
-
-    expect(Overrides.pendingForBlock(pending, 'column')).toEqual({
-      today_indicator_custom: 'block',
-    });
-
-    expect(
-      Overrides.mergeBlockPending(pending, 'column', { today_indicator_custom: 'next' }),
-    ).toEqual({
-      today_indicator_custom: 'card',
-      'column.today_indicator_custom': 'next',
-    });
-  });
-
-  /**
-   * Each panel renders its own exceptions form bound to the same block, so a form only
-   * ever knows about its own rows. The raw union keys are stripped from the data it
-   * binds, which would be destructive if the write replaced the block — it does not: it
-   * diffs against the **stored** block and writes only what moved, which is why another
-   * panel's exception survives an edit here rather than being deleted by omission.
-   */
-  it('leaves another panel’s exception alone when this one is edited', () => {
-    const config = columnConfig({
-      show_week_numbers: 'iso',
-      column: { today_indicator: 'pulse' } as Types.ColumnOverrides,
-    });
-
-    const applied = change(config, ['show_week_numbers'], { week_number_mode: 'simple' });
-
-    expect(applied.block).toEqual({ today_indicator: 'pulse', show_week_numbers: 'simple' });
-  });
-
+describe('editor: stored and rendered union values', () => {
   it('never lets a stand-in field reach the stored configuration', () => {
     const config = columnConfig({ show_week_numbers: 'iso' });
-    const applied = change(config, ['show_week_numbers'], { week_number_mode: 'simple' });
-
-    expect(Object.keys(applied.block)).toEqual(['show_week_numbers']);
-
-    // And the write path refuses one that arrived by any other route.
     const stored = toStoredConfig({
       ...config,
       column: { show_week_numbers: 'simple', week_number_mode: 'simple' } as Types.ColumnOverrides,

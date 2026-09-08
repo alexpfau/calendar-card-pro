@@ -606,26 +606,3 @@ export function filterEntitySchema(
     ),
   );
 }
-
-/**
- * Filters the rows of a panel's exceptions widget.
- *
- * @param active - Exception rows currently declared
- * @param title - The widget's heading, as rendered
- * @param path - Label path the rows are rendered under
- * @param ctx - Matching context
- * @returns The rows to show
- */
-export function filterExceptions<T extends HaFormSchema>(
-  active: ReadonlyArray<T>,
-  title: string,
-  path: ReadonlyArray<string>,
-  ctx: FilterCtx,
-): T[] {
-  if (!isFiltering(ctx.criteria)) return [...active];
-
-  const query = queryOf(ctx);
-  if (query !== '' && textMatches(title, query)) return [...active];
-
-  return active.filter((field) => matchesQuery(field, path, ctx));
-}

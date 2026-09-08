@@ -26,10 +26,9 @@ src/
 │   │   ├── panels.ts             # Panel registry and schema context
 │   │   ├── schemas/              # One module per panel, plus their shared vocabulary
 │   │   ├── ha-form.ts            # Our declaration of Home Assistant's schema shape
-│   │   ├── value.ts              # Write path: default-stripping and pruning
+│   │   ├── value.ts              # Default stripping and authored-value reconciliation
 │   │   ├── entities.ts           # Write path for the per-calendar list
-│   │   ├── exceptions.ts         # Per-view exceptions, derived from each panel's schema
-│   │   ├── overrides.ts          # Exceptions for the three union-typed options
+│   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
 │   │   ├── subforms.ts           # The schemas a panel renders outside its own form
 │   │   ├── filter.ts             # Search and "customized only"
 │   │   ├── workspace.ts          # Editor-only List/Column/Grid selection
@@ -207,6 +206,9 @@ containers; everything they place comes from `leaves.ts` and `presentation.ts`:
   - Keeps the displayed `view` separate from the editor-local workspace. Workspace
     changes select schemas without writing configuration; edits use the workspace captured
     by the emitting form and compare normalized values before choosing a storage scope
+  - Captures authored root keys before merging defaults and keeps that information in
+    editor-local state. A transition to Grid copies only authored choices, never implicit
+    view defaults; Reset removes selected overrides without a separate exception picker
 
 ### Translations (`translations/`)
 

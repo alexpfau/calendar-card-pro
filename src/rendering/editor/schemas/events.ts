@@ -277,37 +277,9 @@ const eventsSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
-  // 🚨 Two of these config reads are deliberately raw beside five that resolve per view,
-  // and the discriminator is not which keys are column-overridable. It is this:
-  //
-  //   Resolve a gate per view when the key it reads is **not** a key the fields it opens
-  //   edit. Read it raw when the gate and the field it opens are two projections of the
-  //   **same** key.
-  //
-  // The main form is the card-level editor — `element.ts`'s `_formData()` spreads the
-  // config raw, so every value control here reports the card-level value whatever the
-  // view. `ctx.view` therefore decides which controls are *relevant to what is on screen*,
-  // never what a control reports.
-  //
-  // The five `show_*` satisfy the first half: `show_location` gates `location_font_size`
-  // and friends, which are independent keys still shown and written at card level. A card
-  // with `column: { show_location: true }` over a card-level `false` drew its locations and
-  // offered no control for styling them, which is the direction that costs the user
-  // something they can see. `schemas/content.ts` already resolves per view for
-  // `show_empty_days`; this is the same read.
-  //
-  // `locationCountryMode` satisfies the second, so resolving it would be a regression
-  // rather than the same fix one line down. It and `location_country_pattern` are both
-  // projections of `remove_location_country`, and `synthetic.ts` derives the pattern from
-  // raw config — so a view-resolved gate renders an empty pattern box under a dropdown
-  // still reading "Keep", and a keystroke in that box writes the card-level key. The
-  // column value is not stranded: `overrides.ts` declares `remove_location_country` a
-  // union-typed per-view exception, so it is edited in the `column:` block where it lives.
-  //
-  // `accentColorMode` is raw for a third reason and needs no rule: `accent_color` is not a
-  // `COLUMN_OVERRIDE_KEYS` member at all, so there is no per-view value to resolve.
-  //
-  // The resolved values are the memo keys, not the raw ones, so switching view rebuilds.
+  // The live editor supplies a workspace projection to both gates and synthetic values.
+  // Keep the view-aware gates for standalone schema builders too. The resolved values
+  // are memo keys, so a different view cannot reuse the previous view's visibility.
   return eventsSchema(
     ctx.language,
     ViewConfig.resolveViewOption(ctx.config, 'show_time', ctx.view),
@@ -322,12 +294,7 @@ export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
     Helpers.resolveAlldayBadgePosition(
       ViewConfig.resolveViewOption(ctx.config, 'allday_badge', ctx.view),
     ),
-    // Raw, NOT resolved through the view, where the position one line up is resolved. The
-    // difference is that this mode has a paired value field: `location_country_mode` is left
-    // raw for exactly this reason, recorded above. A view-resolved gate would open the colour
-    // box because a COLUMN stores a colour, under a dropdown still reading the card's
-    // "Accent" and over a field holding the card's value — and the next keystroke in that box
-    // writes the card level. The position has no such field, so resolving it costs nothing.
+    // Mode and value use the same projection, including a custom color held by this view.
     Synthetic.alldayBadgeColorMode(ctx.config.allday_badge_color),
   );
 }

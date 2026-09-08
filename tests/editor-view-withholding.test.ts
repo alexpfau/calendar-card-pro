@@ -6,7 +6,6 @@ import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
-import * as Exceptions from '../src/rendering/editor/exceptions';
 import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema, SelectorSchema } from '../src/rendering/editor/ha-form';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
@@ -337,20 +336,6 @@ describe('view withholding reconciles both directions', () => {
     expect(fields(Filter.withholdInertFields(raw, 'grid')).map((f) => f.key)).toEqual([
       'label_type',
     ]);
-  });
-
-  it('does not offer inert exceptions, even when given the complete unfiltered schema', () => {
-    for (const view of ['column', 'grid'] as const) {
-      const ctx = context(configFor(view));
-      const eligible = PANELS.flatMap((panel) =>
-        Exceptions.eligibleFields(panel.build(ctx), view, panel.id, ctx.language),
-      );
-      expect(eligible.length).toBeGreaterThan(30);
-      expect(eligible.some((field) => field.name === 'event_background_opacity')).toBe(true);
-      for (const key of ['split_multiday_events', 'empty_day_text']) {
-        expect(eligible.some((field) => field.name === key)).toBe(view === 'column');
-      }
-    }
   });
 });
 
