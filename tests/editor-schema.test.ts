@@ -910,11 +910,13 @@ describe('editor: applicability', () => {
       Object.fromEntries(
         Object.entries(ENTITY_VIEW_SCOPE).map(([key, views]) => [key, [...views].sort()]),
       ),
-    ).toEqual({
-      // Grid and column each choose their multi-day behavior by layout, so the
-      // per-calendar option only changes list view.
-      split_multiday_events: ['list'],
-    });
+    ).toEqual({});
+
+    // Empty is a statement, not a hole, so it needs the fallback proved beside it. With
+    // no entry of its own a per-calendar option must resolve to the card-level scope —
+    // and `toBe` rather than `toEqual`, because `entityScopeFor` promises the table wins
+    // outright rather than the two being merged into an equal-looking third set.
+    expect(entityScopeFor('split_multiday_events')).toBe(VIEW_SCOPE.split_multiday_events);
   });
 
   it('prefixes the option helper rather than replacing it', () => {
@@ -3892,32 +3894,48 @@ describe('editor: per-calendar settings', () => {
 
   /**
    * Per-entity and card-level `split_multiday_events` are the same word for two
-   * different scopes. The card-level key is a real column override — `column:
-   * { split_multiday_events: false }` skips the split entirely, while the per-entity one
-   * is ignored in column view because a column that omitted the later days of an event
-   * would be a claim about a day that is not true. Grid also fixes the answer by layout:
-   * all-day events span as one banner, and timed events split in the renderer.
+   * different scopes, and they now answer the same question the same way: the card-level
+   * key is a real column override, and the per-calendar one is honoured wherever the
+   * card-level one is. Only grid fixes the answer by layout — all-day events span as one
+   * banner, and timed events split in the renderer — so neither form reaches it.
+   *
+   * The per-calendar half used to stop at list view. That rested on a column being
+   * unable to survive one calendar splitting while another did not, which never squared
+   * with `column: { split_multiday_events: false }` producing the same blank columns for
+   * every calendar at once.
    */
-  it('says that a calendar own multi-day setting applies to the list layout', () => {
-    expect(ENTITY_VIEW_SCOPE.split_multiday_events.has('list')).toBe(true);
-    expect(ENTITY_VIEW_SCOPE.split_multiday_events.has('column')).toBe(false);
+  it('applies a calendar own multi-day setting wherever the card-level one applies', () => {
+    const scope = entityScopeFor('split_multiday_events');
 
-    const note = computeSubformHelper(
-      'en',
-      'column',
-      { name: 'split_multiday_events', selector: { text: {} } },
-      ['entity'],
-      entityScopeFor('split_multiday_events'),
-    );
+    expect(scope?.has('list')).toBe(true);
+    expect(scope?.has('column')).toBe(true);
+    expect(scope?.has('grid')).toBe(false);
 
-    expect(note).toBeTypeOf('string');
+    // Column is in scope, so there is no applicability note at all — not merely one that
+    // stops naming list view.
+    expect(
+      computeSubformHelper(
+        'en',
+        'column',
+        { name: 'split_multiday_events', selector: { text: {} } },
+        ['entity'],
+        scope,
+      ),
+    ).toBeUndefined();
 
-    // The card-level key now carries a scope of its own (it is inert in grid view), so
-    // this can no longer assert the table is empty. What matters is unchanged and is
-    // what `entityScopeFor` promises: the per-calendar table wins outright, rather than
-    // the two being merged or the card-level one leaking through.
-    expect(entityScopeFor('split_multiday_events')).toBe(ENTITY_VIEW_SCOPE.split_multiday_events);
-    expect(entityScopeFor('split_multiday_events')).not.toBe(VIEW_SCOPE.split_multiday_events);
+    // Grid is not, so the note has to survive the fallback rather than being lost with
+    // the `ENTITY_VIEW_SCOPE` entry that used to carry it.
+    expect(
+      computeSubformHelper(
+        'en',
+        'grid',
+        { name: 'split_multiday_events', selector: { text: {} } },
+        ['entity'],
+        scope,
+      ),
+    ).toBeTypeOf('string');
+
+    expect(scope).toBe(VIEW_SCOPE.split_multiday_events);
   });
 
   /**

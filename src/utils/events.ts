@@ -1117,7 +1117,7 @@ function processMultiDayEvents(
   const result: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    if (!shouldSplitEvent(event, config, splitPolicy === 'force')) {
+    if (!shouldSplitEvent(event, config)) {
       result.push(event);
       continue;
     }
@@ -1155,13 +1155,8 @@ function isMultiDayEvent(event: Types.CalendarEventData): boolean {
   return false;
 }
 
-function shouldSplitEvent(
-  event: Types.CalendarEventData,
-  config: Types.Config,
-  ignorePerEntityOverride = false,
-): boolean {
+function shouldSplitEvent(event: Types.CalendarEventData, config: Types.Config): boolean {
   if (
-    !ignorePerEntityOverride &&
     event._entityId &&
     event._matchedConfig &&
     typeof event._matchedConfig.split_multiday_events !== 'undefined'

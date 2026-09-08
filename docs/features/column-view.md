@@ -186,11 +186,6 @@ would truncate the grid after the third event and leave the remaining columns bl
 Column density is controlled by [`min_days_to_show` and
 `min_days_fallback`](#showing-fewer-columns-instead) instead.
 
-**Per-entity `split_multiday_events`** is ignored because a column _is_ a day: an unsplit
-event would leave every later column it spans silently blank, and a per-calendar opt-out
-would make one calendar honest and another not in the same card. The card-level
-`column: split_multiday_events: false` is the deliberate escape hatch, and it does work.
-
 ::: tip These Are Annotated in the Visual Editor
 The editor marks these controls rather than hiding them, because they still apply whenever
 the card falls back to the list layout.

@@ -255,15 +255,24 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
 
 /**
  * Which views a **per-entity** option affects, where that differs from the card-level
- * key of the same name.
+ * key of the same name. `entityScopeFor` falls back to `VIEW_SCOPE`.
  *
- * `split_multiday_events` differs: the card-level column override may skip splitting,
- * but a per-entity opt-out is ignored in column view so later days of a multi-day event
- * cannot disappear from their columns. `entityScopeFor` falls back to `VIEW_SCOPE`.
+ * Empty is the correct state, not a hole waiting to be filled — every per-calendar
+ * option currently reaches exactly the views its card-level namesake reaches, so the
+ * table has nothing to say. It is kept because the divergence it expresses is real and
+ * the next option to need it should have somewhere to go rather than a special case.
+ *
+ * It held one entry until v5: `split_multiday_events: ['list']`, on the reasoning that a
+ * column is a claim about one day, so a per-entity opt-out would leave the later columns
+ * of a multi-day event silently blank while another calendar on the same card stayed
+ * truthful. What that never accounted for is that `column: { split_multiday_events:
+ * false }` produces exactly those blank columns for every calendar at once — so the rule
+ * forbade the mixed layout and permitted the uniform one, which makes it a consistency
+ * preference rather than something a column could not survive. The editor meanwhile went
+ * on offering the per-calendar control to a column user, storing what they chose, and
+ * dropping it.
  */
-export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
-  split_multiday_events: new Set<Types.EffectiveView>(['list']),
-};
+export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {};
 
 /**
  * Whether an option has any effect in the given view.
@@ -995,26 +1004,26 @@ export function viewAppliesCompactLimits(view: Types.EffectiveView): boolean {
 /**
  * How the shared event processor should handle multi-day splitting for the view.
  *
- * A column is a claim about one day. An unsplit multi-day event would appear only in
- * the column it starts in and leave every later column it spans silently blank, so the
- * split is required in column view. Per-entity precedence is ignored so one calendar
- * cannot make the layout truthful while another does not.
+ * List and column both inherit: the card-level option decides, and a per-calendar value
+ * beats it. What separates them is the *default* — column's is `true`, because a column
+ * is a claim about one day and an unsplit event would leave every later column it spans
+ * blank. That is a default, not a lock; `column: { split_multiday_events: false }` has
+ * always been able to turn it off card-wide, and a per-calendar value can now do the
+ * same for one calendar.
  *
- * List view inherits the card and per-entity options. Grid view returns `never`: it does
- * its own timed segmentation at render time, and the upstream list splitter would rewrite
- * the middle day of a timed event as all-day data.
+ * Grid view returns `never`: it does its own timed segmentation at render time, and the
+ * upstream list splitter would rewrite the middle day of a timed event as all-day data.
  *
  * @param view - View currently being rendered
  * @returns Split policy for the shared event processor
  */
-export type MultidaySplitPolicy = 'force' | 'inherit' | 'never';
+export type MultidaySplitPolicy = 'inherit' | 'never';
 
 export function multidaySplitPolicy(view: Types.EffectiveView): MultidaySplitPolicy {
   switch (view) {
-    case 'column':
-      return 'force';
     case 'grid':
       return 'never';
+    case 'column':
     case 'list':
       return 'inherit';
   }

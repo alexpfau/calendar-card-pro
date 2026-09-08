@@ -87,7 +87,7 @@ describe the shared day header, the time axis and the grid's responsive width fa
 ### Options With No Effect in Column View
 
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
-`compact_days_to_show` · `compact_events_complete_days` · per-entity `split_multiday_events`
+`compact_days_to_show` · `compact_events_complete_days`
 
 These describe a date cell or a compact budget that the column layout does not have. They
 keep working in list view, including when a `view: column` card falls back to it on a
