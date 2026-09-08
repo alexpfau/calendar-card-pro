@@ -245,7 +245,9 @@ export class CalendarCardProEditor extends LitElement {
     const filterCtx = this._filterCtx;
     const filtering = Filter.isFiltering(this._filter);
 
-    const built = panel.build(ctx);
+    // Keep panel.build complete for translation reconciliation; only rendered forms
+    // withhold fields. Search and exceptions both receive this same reduced schema.
+    const built = Filter.withholdInertFields(panel.build(ctx), ctx.view);
     const wholePanel =
       filtering && !this._filter.customizedOnly && Filter.matchesPanel(panel, filterCtx);
     const schema = wholePanel ? built : Filter.filterSchema(built, filterCtx);
@@ -263,7 +265,7 @@ export class CalendarCardProEditor extends LitElement {
       exceptions === nothing &&
       entities === nothing;
 
-    if (filtering && empty) {
+    if (empty) {
       return nothing;
     }
 
@@ -594,7 +596,7 @@ export class CalendarCardProEditor extends LitElement {
    * Renders the exceptions widget for a panel.
    *
    * @param panel - Panel being rendered
-   * @param schema - The panel's schema, as built and before any filtering
+   * @param schema - The view-relevant schema, before search filtering
    * @param ctx - Schema context
    * @returns The widget, or nothing
    */

@@ -90,7 +90,11 @@ export function eligibleFields(
   panelId: string,
   language = 'en',
 ): SelectorSchema[] {
-  const overrideKeys = new Set(ViewConfig.viewBlockFor(view)?.overrideKeys ?? []);
+  const overrideKeys = new Set(
+    (ViewConfig.viewBlockFor(view)?.overrideKeys ?? []).filter((key) =>
+      ViewConfig.appliesToView(key, view),
+    ),
+  );
   const seen = new Set<string>();
   const fields: SelectorSchema[] = [];
 

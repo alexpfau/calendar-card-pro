@@ -904,6 +904,8 @@ describe('editor: applicability', () => {
       // Grid's card-level value is inert: all-day spans become one banner, and timed
       // events are segmented by the renderer instead of by the upstream list splitter.
       split_multiday_events: ['column', 'list'],
+      empty_day_text: ['column', 'list'],
+      empty_day_color: ['column', 'list'],
     });
 
     expect(

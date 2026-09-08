@@ -251,6 +251,12 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // All-day multi-day events become one spanning banner, and timed multi-day events are
   // segmented by the grid renderer so every segment stays timed.
   split_multiday_events: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // Grid discards _isEmptyDay rows in both sortDayEvents and
+  // splitTimedEventsAcrossGridDays. show_empty_days still controls which columns exist;
+  // only the placeholder's text and color are irrelevant there.
+  empty_day_text: new Set<Types.EffectiveView>(['list', 'column']),
+  empty_day_color: new Set<Types.EffectiveView>(['list', 'column']),
 };
 
 /**
@@ -282,7 +288,7 @@ export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.Effect
  * @returns `true` when the option affects that view, including for every unlisted key
  */
 export function appliesToView(key: string, view: Types.EffectiveView): boolean {
-  const scope = VIEW_SCOPE[key];
+  const scope = Object.prototype.hasOwnProperty.call(VIEW_SCOPE, key) ? VIEW_SCOPE[key] : undefined;
   return scope === undefined || scope.has(view);
 }
 
@@ -293,7 +299,10 @@ export function appliesToView(key: string, view: Types.EffectiveView): boolean {
  * @returns The views it affects, or `undefined` when it affects all of them
  */
 export function entityScopeFor(key: string): ReadonlySet<Types.EffectiveView> | undefined {
-  return ENTITY_VIEW_SCOPE[key] ?? VIEW_SCOPE[key];
+  if (Object.prototype.hasOwnProperty.call(ENTITY_VIEW_SCOPE, key)) {
+    return ENTITY_VIEW_SCOPE[key];
+  }
+  return Object.prototype.hasOwnProperty.call(VIEW_SCOPE, key) ? VIEW_SCOPE[key] : undefined;
 }
 
 // Fetch-time options cannot become view overrides because switching views must not refetch.

@@ -186,9 +186,11 @@ would truncate the grid after the third event and leave the remaining columns bl
 Column density is controlled by [`min_days_to_show` and
 `min_days_fallback`](#showing-fewer-columns-instead) instead.
 
-::: tip These Are Annotated in the Visual Editor
-The editor marks these controls rather than hiding them, because they still apply whenever
-the card falls back to the list layout.
+::: tip Hidden When Editing Column View
+The editor omits these controls while Column is selected, including the per-calendar compact
+limit. Stored values are preserved and still apply when the card falls back to List. To
+change them, temporarily select List in Layout, then restore Column before saving.
+See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
 
 ## 📊 Progress Bar & Countdown

@@ -1,5 +1,5 @@
 /**
- * Filtering helpers for the visual editor's field search.
+ * View relevance and field-search filtering for the visual editor.
  */
 
 import * as Entities from './entities';
@@ -302,7 +302,7 @@ type LeafPredicate = (
  * Filters a schema to the nodes a predicate keeps, groups and all.
  *
  * @param schema - Schema to filter
- * @param ctx - Matching context
+ * @param ctx - Search context, or undefined when no group may bypass the predicate
  * @param keeps - Decides one field
  * @param path - Enclosing group names, outermost first
  * @param dataPath - Enclosing object keys in the configuration, outermost first
@@ -310,7 +310,7 @@ type LeafPredicate = (
  */
 function filterNodes(
   schema: ReadonlyArray<HaFormSchema>,
-  ctx: FilterCtx,
+  ctx: FilterCtx | undefined,
   keeps: LeafPredicate,
   path: ReadonlyArray<string>,
   dataPath: ReadonlyArray<string>,
@@ -327,6 +327,7 @@ function filterNodes(
     const nestsData = node.name !== '' && node.flatten !== true;
 
     const wholeGroup =
+      ctx !== undefined &&
       !ctx.criteria.customizedOnly &&
       queryOf(ctx) !== '' &&
       matchesQuery(node, path, ctx, dataPath);
@@ -341,7 +342,7 @@ function filterNodes(
           nestsData ? [...dataPath, node.name] : dataPath,
         );
 
-    if (children.length === 0) continue;
+    if (!hasFields(children)) continue;
 
     kept.push({ ...node, schema: children });
   }
@@ -397,6 +398,59 @@ function pruneLoneHeadings(schema: ReadonlyArray<HaFormSchema>): HaFormSchema[] 
   }
 
   return kept;
+}
+
+/**
+ * Withholds only controls with a recorded verdict excluding their view.
+ *
+ * Run before search: a matching panel or group must not restore an inert control.
+ * Unknown keys stay visible. Data nesting matters, not label nesting: an unrelated
+ * weather field must not inherit the scope of a same-named top-level option, while
+ * a view block is checked against the view that owns it.
+ *
+ * @param schema - Complete schema, before search
+ * @param view - View being configured, not the preview's width-dependent fallback
+ * @param scope - Whether fields configure the card or one calendar
+ * @returns Relevant fields, with empty groups and stranded headings removed
+ */
+export function withholdInertFields(
+  schema: ReadonlyArray<HaFormSchema>,
+  view: Types.EffectiveView,
+  scope: 'card' | 'entity' = 'card',
+): HaFormSchema[] {
+  return pruneLoneHeadings(
+    filterNodes(
+      schema,
+      undefined,
+      (node, _path, dataPath) => {
+        if (isHeading(node)) return true;
+
+        if (dataPath.length === 0) {
+          if (scope === 'card') return ViewConfig.appliesToView(node.name, view);
+
+          return entityConfigKeys(node.name).some((key) => {
+            const views = ViewConfig.entityScopeFor(key);
+            return views === undefined || views.has(view);
+          });
+        }
+
+        const blockView =
+          dataPath.length === 1
+            ? ViewConfig.VIEWS.find(
+                (candidate) => ViewConfig.viewBlockFor(candidate)?.blockKey === dataPath[0],
+              )
+            : undefined;
+
+        return (
+          scope === 'entity' ||
+          blockView === undefined ||
+          ViewConfig.appliesToView(node.name, blockView)
+        );
+      },
+      [],
+      [],
+    ),
+  );
 }
 
 /**
@@ -524,13 +578,14 @@ export function filterEntitySchema(
   path: ReadonlyArray<string>,
   ctx: FilterCtx,
 ): HaFormSchema[] {
-  if (!isFiltering(ctx.criteria)) return [...schema];
+  const relevant = withholdInertFields(schema, ctx.view, 'entity');
+  if (!isFiltering(ctx.criteria)) return relevant;
 
   const named = queryOf(ctx) !== '' && matchesEntity(entry, ctx);
 
   return pruneLoneHeadings(
     filterNodes(
-      schema,
+      relevant,
       ctx,
       (node, nodePath) =>
         isHeading(node) ||

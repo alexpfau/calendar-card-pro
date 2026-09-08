@@ -497,10 +497,20 @@ event spanning several days is drawn as one banner across them, and timed events
 by the grid renderer into one timed block for each day they touch. The list splitter is not
 used, because it would turn the middle day of a timed event into an all-day banner.
 
+`empty_day_text` and `empty_day_color` also have no effect: grid discards the placeholder
+rows those options describe. `show_empty_days` still controls whether empty day columns
+are included.
+
 The compact options — `compact_events_to_show`, `compact_days_to_show` and
 `compact_events_complete_days` — are list-only and do nothing while the card is rendering
 as a grid, as they do nothing while it is rendering as columns. They apply again if
 `min_days_fallback: list` drops the card to the list layout.
+
+The visual editor omits these controls while Grid is selected, including the per-calendar
+compact limit and multi-day splitting. It also omits `date_vertical_alignment` and
+`today_indicator_position`, which describe the list layout's date cell. Stored values are
+preserved for other layouts; see
+[Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 The detail-row options also do nothing on all-day banners: `show_time`,
 `show_single_allday_time`, `show_multiday_allday_time`, `allday_badge`,

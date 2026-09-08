@@ -26,6 +26,33 @@ Panels open one at a time, and options inside them appear only when they apply �
 
 The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below; the card-level panel adds **Empty Days** at the end. Reading either panel therefore answers the same questions in the same order.
 
+## 🧭 Options for the Selected View
+
+The editor omits controls that cannot affect the view selected in **Layout**, including
+their per-calendar forms and view exceptions. Compact-mode controls appear only for
+**List**. Multi-day splitting appears for **List** and **Column**, but not **Grid**,
+which arranges multi-day events itself. Grid also omits empty-day text and color: it
+shows an empty day as a blank column rather than a placeholder row.
+
+This follows the selected view, even if the preview is narrow enough to fall back to a
+list. Search and **Customized Only** do not bring back controls for another view. To
+edit a list-only option used by a responsive fallback, temporarily select **List**,
+make the edit, and restore **Column** or **Grid** before saving.
+
+Hiding a control does not delete its stored value. For example, these empty-day options
+remain available to the list fallback, even though their controls are absent while
+editing Grid:
+
+```yaml
+view: grid
+show_empty_days: true
+empty_day_text: 'No plans'
+empty_day_color: '#607d8b'
+```
+
+**→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** and
+**[Options With No Effect in Column View](/reference/configuration#options-with-no-effect-in-column-view)** — the scoped options.
+
 ## ✨ Key Features
 
 - **Live Preview** — see changes immediately as you configure the card
@@ -56,7 +83,7 @@ Three things follow their own rule under it, for reasons worth knowing:
 
 - **Calendars** show only the ones you have given settings of their own, which is a quick way to see which calendars have a color or a label and which simply follow the card.
 - **Per-calendar options** count as customized when they are set at all. Several of them mean "follow the card" when left alone, so `Show Time: Off` on one calendar is a real setting rather than a default.
-- **Exceptions** are always shown, since an option you asked to differ in one layout is a customization by definition — even before you change its value.
+- **Exceptions** that apply to the selected view are always shown, since an option you asked to differ in one layout is a customization by definition — even before you change its value.
 
 ::: tip Not Everything Is There To Be Found
 The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
@@ -132,8 +159,8 @@ Every panel that owns an option the current view can override ends with a collap
 applies only when the card renders in that view; remove it and the option returns to the
 shared value above. A card with no exceptions costs one collapsed heading and nothing else.
 
-The control an exception gets is the same control the option has in the panel above, which
-now holds for every overridable option without exception. Three of them store more than one
+Only options that affect the selected view are offered as exceptions. The control an
+exception gets is the same control the option has in the panel above. Three of them store more than one
 kind of value in one key — week numbers, the today indicator, and country removal in
 locations — so each gets the same type dropdown it has in its own panel rather than being
 left to hand-written YAML.

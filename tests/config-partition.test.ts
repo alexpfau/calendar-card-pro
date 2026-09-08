@@ -117,18 +117,11 @@ const CARD_LEVEL_REASONS = {
   /** Decides which events exist at all, upstream of any view drawing them. */
   'content-filter': ['event_type'],
 
-  /**
-   * Behaviourally narrower than `VIEW_SCOPE` admits, and left that way deliberately.
-   *
-   * `sortDayEvents` and `splitTimedEventsAcrossGridDays` in `grid.ts` both `continue` past
-   * `_isEmptyDay`, so grid never draws an empty-day row at all — its docblock says a blank
-   * day "says the same thing without occupying a row". The option therefore cannot reach
-   * grid, but carries no `VIEW_SCOPE` entry saying so, so the editor still offers it to a
-   * grid user. Narrowing the scope is a user-visible change and belongs to the stage that
-   * takes it, not to this reconciliation; pinned by value here so the set cannot grow
-   * quietly in the meantime.
-   */
-  'scope-gap': ['empty_day_color'],
+  /** Placeholder ink, shared by list and column; grid draws no placeholder row. */
+  'empty-day': ['empty_day_color'],
+
+  /** Known unreachable options still missing a scope verdict. Must stay empty. */
+  'scope-gap': [] as string[],
 
   /**
    * Must stay empty at commit. A landing spot for an option seen but not yet decided, so
@@ -222,10 +215,18 @@ describe('card-level reasons', () => {
     expect([...CARD_LEVEL_REASONS['list-only']].sort()).toEqual(declaredListOnly);
   });
 
-  it('claims no scope narrower than VIEW_SCOPE actually declares', () => {
-    const overclaimed = CARD_LEVEL_REASONS['scope-gap'].filter((key) => key in VIEW_SCOPE);
+  it('leaves no known scope gap unresolved', () => {
+    expect(CARD_LEVEL_REASONS['scope-gap']).toEqual([]);
+  });
 
-    expect(overclaimed).toEqual([]);
+  it('reconciles card-level empty-day options with their declared scope', () => {
+    const listAndColumn = Object.entries(VIEW_SCOPE)
+      .filter(([, views]) => views.size === 2 && views.has('list') && views.has('column'))
+      .map(([key]) => key)
+      .filter((key) => CARD_LEVEL_KEYS.includes(key))
+      .sort();
+
+    expect([...CARD_LEVEL_REASONS['empty-day']].sort()).toEqual(listAndColumn);
   });
 });
 

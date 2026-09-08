@@ -485,8 +485,8 @@ export function groupEventsByDay(
   // Always run the splitter and let `shouldSplitEvent` decide per event, rather
   // than gating the call on the card-level value. A per-entity
   // `split_multiday_events: true` has to win over a card-level `false`, and a
-  // gate here would never consult it. Column view forces the split instead, so
-  // later days of a multi-day event cannot vanish from their columns. Grid view
+  // gate here would never consult it. Column uses the same per-calendar precedence,
+  // starting from a different card-level default. Grid view
   // opts out of this splitter entirely and keeps timed segmentation in its renderer.
   const splitEvents = processMultiDayEvents(
     events,
