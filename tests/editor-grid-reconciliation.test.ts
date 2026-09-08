@@ -120,6 +120,13 @@ describe('first-switch reconciliation regressions', () => {
     expect(reports.at(-1)).toHaveProperty('time_grid.event_font_size', '18px');
   });
 
+  it('keeps an authored zero opacity rather than treating it as unset', async () => {
+    const { editor, reports } = await mount({ event_background_opacity: 0 });
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)).toHaveProperty('time_grid.event_background_opacity', 0);
+    expect(notice(editor)!.textContent).toContain(lookup('en', 'event_background_opacity'));
+  });
+
   it('tracks a newly authored suppression returned to its root default', async () => {
     const { editor, reports } = await mount();
     await change(editor, 'show_past_events', true);
@@ -275,6 +282,28 @@ describe('unchanged first-switch controls', () => {
     const { editor, reports } = await mount();
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid', View.TIME_GRID_DEFAULT_OVERRIDES);
+    expect(notice(editor)).toBeNull();
+  });
+
+  it('does not turn merged defaults into authored values after an unrelated root edit', async () => {
+    const { editor, reports } = await mount();
+    await change(editor, 'title', 'Example');
+    editor.setConfig(reports.at(-1)!);
+    await editor.updateComplete;
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)).toHaveProperty('time_grid', View.TIME_GRID_DEFAULT_OVERRIDES);
+    expect(notice(editor)).toBeNull();
+  });
+
+  it('does not mark a preconfigured Grid value as an authored root value', async () => {
+    const { editor, reports } = await mount();
+    await change(editor, 'editing_workspace', 'grid');
+    await change(editor, 'event_font_size', '18px');
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)).toHaveProperty('time_grid', {
+      ...View.TIME_GRID_DEFAULT_OVERRIDES,
+      event_font_size: '18px',
+    });
     expect(notice(editor)).toBeNull();
   });
 
