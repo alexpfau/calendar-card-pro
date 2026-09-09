@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
+import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import * as EditorLocalize from '../src/rendering/editor/localize';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
@@ -277,12 +278,24 @@ describe('No two adjacent fields share a label', () => {
     const found: string[] = [];
 
     for (const panel of PANELS) {
-      const surfaces: Array<[string, ReadonlyArray<HaFormSchema>]> = [[panel.id, panel.build(ctx)]];
+      // 🚨 A subform's `path` is not decoration, and dropping it fails silently in the
+      // one direction that looks like success. `computeLabel` resolves
+      // `lookup(qualified) ?? lookup(bare) ?? humanize(name)`, so an empty path makes the
+      // qualified lookup a no-op: `accent_color` inside the calendar subform stops
+      // resolving `entity.accent_color`, and a field whose bare key does not exist at all
+      // falls through to `humanize()` — which returns a plausible sentence-case label
+      // rather than an error. An earlier version of this test read the subform that way
+      // and reported `Label type` and `Days of week`; the editor shows `Label Type` and
+      // `Days of the Week`. It still found the one real duplicate below, which is the
+      // trap: the answer was right and the evidence was worthless.
+      const surfaces: Array<[string, ReadonlyArray<HaFormSchema>, ReadonlyArray<string>]> = [
+        [panel.id, panel.build(ctx), []],
+      ];
       for (const subform of panel.subforms?.(ctx) ?? []) {
-        surfaces.push([`${panel.id}/subform`, subform.schema]);
+        surfaces.push([`${panel.id}/subform`, subform.schema, subform.path]);
       }
 
-      for (const [where, schema] of surfaces) {
+      for (const [where, schema, path] of surfaces) {
         // Collapsibles are skipped rather than recursed into: a label repeated across a
         // disclosure boundary is not adjacent to anything, and folding it in here would
         // report pairs no reader can see at once.
@@ -293,7 +306,7 @@ describe('No two adjacent fields share a label', () => {
             if ('schema' in node) walk(node.schema);
             else if ('selector' in node) {
               labels.push({
-                label: EditorLocalize.computeLabel('en', node, []),
+                label: EditorLocalize.computeLabel('en', node, path),
                 name: String(node.name),
               });
             }
@@ -328,6 +341,53 @@ describe('No two adjacent fields share a label', () => {
   for (const view of ['list', 'column', 'grid'] as Types.EffectiveView[]) {
     it(`has only the known pair in the ${view} workspace`, () => {
       expect(adjacentDuplicates(view)).toEqual(KNOWN);
+    });
+  }
+});
+
+describe('Sub-forms are view-scoped like the panels above them', () => {
+  // 🚨 This is a reconciliation, not a list, and that is the whole point. `VIEW_SCOPE` is
+  // the single statement of which views a key applies to, so asserting that re-filtering a
+  // declared sub-form drops nothing fails on the *next* per-calendar key someone scopes,
+  // with no second table to keep in step. A test naming `compact_events_to_show` and
+  // `split_multiday_events` would pass forever while the third key went unwithheld.
+  //
+  // The defect it closes: `element.ts` filters `panel.build(ctx)` and nothing else, so the
+  // card-level and per-calendar halves of one option disagreed inside a single panel.
+  function fieldNames(nodes: ReadonlyArray<HaFormSchema>): string[] {
+    return nodes.flatMap((node): string[] => {
+      if ('schema' in node) return fieldNames(node.schema);
+
+      return 'selector' in node ? [String(node.name)] : [];
+    });
+  }
+
+  for (const view of ['list', 'column', 'grid'] as Types.EffectiveView[]) {
+    it(`withholds nothing further in ${view}`, () => {
+      const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
+      const ctx: SchemaCtx = { config, view, language: 'en' };
+      let seen = 0;
+      let subforms = 0;
+
+      for (const panel of PANELS) {
+        for (const subform of panel.subforms?.(ctx) ?? []) {
+          subforms += 1;
+          const declared = fieldNames(subform.schema);
+          seen += declared.length;
+          expect({
+            where: `${panel.id}/${subform.path.join('.')}`,
+            dropped: declared.filter(
+              (name) =>
+                !fieldNames(Filter.withholdInertFields(subform.schema, view)).includes(name),
+            ),
+          }).toEqual({ where: `${panel.id}/${subform.path.join('.')}`, dropped: [] });
+        }
+      }
+
+      // A null has to prove it can be non-zero. Without these the whole describe passes
+      // when `subforms()` returns nothing at all.
+      expect(subforms).toBeGreaterThan(0);
+      expect(seen).toBeGreaterThan(15);
     });
   }
 });

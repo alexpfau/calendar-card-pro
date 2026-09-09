@@ -5,6 +5,7 @@
 import { mdiCalendarMultiple } from '@mdi/js';
 
 import { buildEntitySchema } from './entity';
+import { withholdInertFields } from '../filter';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx, SubformDef } from '../panels';
 
@@ -31,9 +32,28 @@ export function buildCalendarsSchema(_ctx: SchemaCtx): HaFormSchema[] {
 /**
  * Declares the schema the panel renders once per configured calendar.
  *
+ * 🚨 The withholding is not duplicated work. `element.ts` applies `withholdInertFields`
+ * to `panel.build(ctx)` and to that alone, so a sub-form never passed through it — and
+ * the two surfaces sit one above the other inside the same panel. That produced an
+ * editor which hid card-level `compact_events_to_show` in column and grid, correctly,
+ * while still offering the per-calendar one immediately below it, where it is equally
+ * inert: every read of that key is inside `compactLimitsApply`, and
+ * `viewAppliesCompactLimits` is `view === 'list'`. Grid did the same with
+ * `split_multiday_events`, which it ignores entirely.
+ *
+ * It is done here rather than at the render site so the declaration is view-correct on
+ * its own terms, which is what lets a test reconcile against it: applying the filter to
+ * the returned schema must be a no-op. Filtering in `element.ts` instead would leave
+ * nothing to assert without restating the call, which pins a test to itself.
+ *
  * @param ctx - Schema context
  * @returns The per-calendar sub-form
  */
 export function calendarsSubforms(ctx: SchemaCtx): SubformDef[] {
-  return [{ path: ENTITY_PATH, schema: buildEntitySchema(ctx) }];
+  return [
+    {
+      path: ENTITY_PATH,
+      schema: withholdInertFields(buildEntitySchema(ctx), ctx.workspace ?? ctx.view),
+    },
+  ];
 }
