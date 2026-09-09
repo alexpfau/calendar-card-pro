@@ -937,16 +937,17 @@ describe('editor: the order of the two panels', () => {
     ]);
   });
 
-  it('pins the card-level content group', () => {
-    // Sequenced from the group's own schema, not sliced out of the panel: a slice to the
-    // end swept in the locale group that follows.
-    const group = [...walkSchema(contentSchema())].find(
-      ({ node }) => 'schema' in node && node.name === 'content',
-    );
-
-    expect(group, 'the content group is gone').toBeDefined();
-
-    expect(sequence((group!.node as { schema: ReadonlyArray<HaFormSchema> }).schema)).toEqual([
+  it('pins the card-level content panel', () => {
+    // The whole panel, not a group inside it: the six options that used to sit in a
+    // collapsed group captioned "What The Card Shows" are now panel-level runs, so there
+    // is no group left to slice and the promotion is exactly what this has to pin. The
+    // two remaining groups are flattened into the tail by `sequence`, which is why the
+    // compact and locale fields appear here without their captions.
+    expect(sequence(contentSchema())).toEqual([
+      '# heading_time_range',
+      'days_to_show',
+      'start_date_mode',
+      'first_day_of_week',
       '# heading_filters',
       'event_type',
       'show_past_events',
@@ -958,6 +959,10 @@ describe('editor: the order of the two panels', () => {
       'empty_day_text',
       'empty_day_color',
       'hide_when_empty',
+      'compact_days_to_show',
+      'compact_events_to_show',
+      'language_mode',
+      'time_format',
     ]);
   });
 

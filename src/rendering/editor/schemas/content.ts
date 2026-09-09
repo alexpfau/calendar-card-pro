@@ -16,9 +16,6 @@ import { bool, color, group, heading, number, row, select, text } from './common
 export const CONTENT_ICON = mdiCalendarRange;
 
 const COMPACT_ICON = 'M4 5h16v2H4V5m0 6h10v2H4v-2m0 6h16v2H4v-2Z';
-const CONTENT_GROUP_ICON =
-  'M19 3h-4.18C14.4 1.84 13.3 1 12 1s-2.4.84-2.82 2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0' +
-  ' 2-2V5a2 2 0 0 0-2-2m-7 0a1 1 0 0 1 1 1 1 1 0 0 1-1 1 1 1 0 0 1-1-1 1 1 0 0 1 1-1Z';
 const LANGUAGE_ICON =
   'M12.87 15.07l-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44' +
   ' 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5' +
@@ -86,35 +83,44 @@ const contentSchema = Helpers.memoizeLast(
       : [];
 
     return [
+      // The time range the card covers, which is what the panel's own title leads with.
+      heading('heading_time_range'),
       number('days_to_show', 1),
       ...startDateFields(language, startMode),
       select(language, 'first_day_of_week', ['system', 'monday', 'sunday']),
 
+      // The three runs below were one collapsed group titled "What The Card Shows", which
+      // put `show_past_events` — among the most commonly changed options in the card —
+      // behind a disclosure, along with the event-type filter and the empty-day handling.
+      // Nothing here is a refinement of anything above it: these decide which events the
+      // card holds at all, which is the same order of question as `days_to_show`. So the
+      // group's own caption is gone and its three sub-headings stand at panel level,
+      // leaving the two genuinely optional subjects — the compact override and the locale
+      // overrides — as the panel's only collapsibles.
+      //
+      // The shared spine, matched by `buildEntitySchema`: which events qualify → how they
+      // are arranged across days → and then whatever is unique to this panel. The two
+      // panels configure the same pipeline, so reading them in different orders is what
+      // made the editor hard to scan.
+      heading('heading_filters'),
+      select(language, 'event_type', ['all', 'timed', 'all_day']),
+      bool('show_past_events'),
+      bool('filter_duplicates'),
+      // Dependent on purpose: with duplicates showing there is no merged row to recolor,
+      // so an always-visible field would be inert half the time — the silent no-op this
+      // editor tries hard not to ship.
+      ...(filterDuplicates ? [color('duplicate_accent_color')] : []),
+
+      heading('heading_multiday'),
+      bool('split_multiday_events'),
+
+      // Card-level only: the pipeline's terminal state, when nothing survived it.
+      heading('heading_nothing'),
+      bool('show_empty_days'),
+      ...emptyDayFields,
+      bool('hide_when_empty'),
+
       group(language, 'compact_mode', COMPACT_ICON, compactFields(hasEventLimit)),
-
-      group(language, 'content', CONTENT_GROUP_ICON, [
-        // The shared spine, matched by `buildEntitySchema`: which events qualify → how
-        // they are arranged across days → and then whatever is unique to this panel. The
-        // two panels configure the same pipeline, so reading them in different orders is
-        // what made the editor hard to scan.
-        heading('heading_filters'),
-        select(language, 'event_type', ['all', 'timed', 'all_day']),
-        bool('show_past_events'),
-        bool('filter_duplicates'),
-        // Dependent on purpose: with duplicates showing there is no merged row to recolor,
-        // so an always-visible field would be inert half the time — the silent no-op this
-        // editor tries hard not to ship.
-        ...(filterDuplicates ? [color('duplicate_accent_color')] : []),
-
-        heading('heading_multiday'),
-        bool('split_multiday_events'),
-
-        // Card-level only: the pipeline's terminal state, when nothing survived it.
-        heading('heading_nothing'),
-        bool('show_empty_days'),
-        ...emptyDayFields,
-        bool('hide_when_empty'),
-      ]),
 
       group(language, 'locale', LANGUAGE_ICON, [
         select(language, 'language_mode', ['system', 'custom']),

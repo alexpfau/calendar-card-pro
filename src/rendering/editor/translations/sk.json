@@ -210,7 +210,6 @@
   "compact_events_to_show": "Udalosti",
   "compact_events_complete_days": "Dokončiť posledný deň",
   "compact_events_complete_days.helper": "Namiesto zastavenia uprostred dňa pri dosiahnutí limitu udalostí zobrazí aj zvyšok toho dňa.",
-  "content": "Čo karta zobrazuje",
   "show_past_events": "Zobraziť minulé udalosti",
   "show_empty_days": "Zobraziť prázdne dni",
   "empty_day_text": "Text prázdneho dňa",

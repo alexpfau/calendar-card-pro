@@ -219,6 +219,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // a heading repeating its only field's label is the stutter `AGENTS.md` warns about, and
   // it is invisible to a DOM probe. Renaming the field rather than the heading also moves
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
+  heading_time_range: 'Time Range',
   heading_gap_and_rule: 'Gap & Rule',
   heading_hour_labels: 'Hour Labels',
   heading_on_the_grid: 'On the Grid',
@@ -442,7 +443,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'compact_events_complete_days.helper':
     'Rather than stopping mid-day at the event limit, show the rest of that day too.',
 
-  content: 'What The Card Shows',
   show_past_events: 'Show Past Events',
   show_empty_days: 'Show Empty Days',
   empty_day_text: 'Empty Day Text',

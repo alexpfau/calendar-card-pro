@@ -17,8 +17,6 @@ const WEEKEND_ICON =
   'M12 20a8 8 0 0 1-8-8 8 8 0 0 1 8-8 8 8 0 0 1 8 8 8 8 0 0 1-8 8m0-18a10 10 0 0 0-10 10 10 10 0' +
   ' 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2m.5 5H11v6l4.75 2.85.75-1.23-4-2.37V7Z';
 const TODAY_COLOR_ICON = 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2m0 4a6 6 0 0 1 0 12V6Z';
-const INDICATOR_ICON = 'M12 8a4 4 0 1 1-4 4 4 4 0 0 1 4-4Z';
-const WEEK_NUMBER_ICON = 'M4 5h16v2H4V5m0 6h16v2H4v-2m0 6h16v2H4v-2Z';
 
 export const TODAY_INDICATOR_STYLES: ReadonlyArray<string> = [
   'none',
@@ -67,7 +65,7 @@ export function weekNumberFields(language: string): HaFormSchema[] {
  * @param style - Derived indicator style
  * @returns The group
  */
-function todayIndicatorGroup(language: string, style: string): HaFormSchema {
+function todayIndicatorRun(language: string, style: string): HaFormSchema[] {
   const styling: HaFormSchema[] =
     style === 'none'
       ? []
@@ -76,10 +74,7 @@ function todayIndicatorGroup(language: string, style: string): HaFormSchema {
           text('today_indicator_position'),
         ];
 
-  return group(language, 'today_indicator', INDICATOR_ICON, [
-    ...todayIndicatorFields(language, style),
-    ...styling,
-  ]);
+  return [heading('today_indicator'), ...todayIndicatorFields(language, style), ...styling];
 }
 
 /**
@@ -89,7 +84,7 @@ function todayIndicatorGroup(language: string, style: string): HaFormSchema {
  * @param mode - Derived week-number mode
  * @returns The group
  */
-function weekNumberGroup(language: string, mode: string): HaFormSchema {
+function weekNumberRun(language: string, mode: string): HaFormSchema[] {
   const styling: HaFormSchema[] =
     mode === 'none'
       ? []
@@ -99,10 +94,7 @@ function weekNumberGroup(language: string, mode: string): HaFormSchema {
           color('week_number_background_color'),
         ];
 
-  return group(language, 'week_numbers', WEEK_NUMBER_ICON, [
-    ...weekNumberFields(language),
-    ...styling,
-  ]);
+  return [heading('week_numbers'), ...weekNumberFields(language), ...styling];
 }
 
 /**
@@ -174,6 +166,23 @@ const dayHeaderSchema = Helpers.memoizeLast(
     // within a panel beats consistency between two visits to it.
     ...(blockKey === undefined ? [] : dayHeaderRuleFields(blockKey)),
 
+    // Two headed runs where there were two collapsed groups. Both held exactly one control
+    // on a fresh card — a dropdown set to `none`, with every styling field below it
+    // conditional on that dropdown — so the panel offered two disclosures that opened onto
+    // one field each, and neither feature was discoverable without opening one.
+    //
+    // A heading rather than a promoted field, because the field cannot stand alone: the
+    // labels are `Style` and `Numbering`, which read correctly under a caption naming the
+    // subject and mean nothing at panel level. Renaming them would have been an
+    // English-only change against nine translated labels that are currently right.
+    //
+    // The headings reuse the group titles' own keys, so `Today Indicator` and
+    // `Week Numbers` arrive already translated in all nine languages. A new heading key
+    // would have been English everywhere — the same trap `lookupForView` documents, in the
+    // direction where nothing warns you.
+    ...todayIndicatorRun(language, indicatorStyle),
+    ...weekNumberRun(language, weekNumberMode),
+
     group(language, 'weekend_colors', WEEKEND_ICON, [
       color('weekend_weekday_color'),
       color('weekend_day_color'),
@@ -185,9 +194,6 @@ const dayHeaderSchema = Helpers.memoizeLast(
       color('today_day_color'),
       color('today_month_color'),
     ]),
-
-    todayIndicatorGroup(language, indicatorStyle),
-    weekNumberGroup(language, weekNumberMode),
   ],
 );
 

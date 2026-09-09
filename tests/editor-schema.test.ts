@@ -2491,10 +2491,21 @@ describe('editor: the Events panel opening run', () => {
    * Pinned by value and in order, because the order is the change. Every field is under a
    * heading — a bare option above the first one would be captioned by nothing.
    */
-  it('captions all three subjects, with the title no longer split', () => {
+  it('captions all four subjects, with the title no longer split', () => {
     // The default config resolves the accent mode to `custom`, so the conditional colour
     // field is present — which is the shape the row was designed around.
+    //
+    // The content run leads, and its five switches are the reason the four groups below
+    // can be emitted conditionally: what an event is made of is decided here, and each
+    // group holds only the styling of a line that already exists. That run is why this
+    // pin is the panel's whole visible body rather than three styling runs.
     expect(namesIn(buildConfig())).toEqual([
+      'heading_details',
+      'show_time',
+      'show_location',
+      'show_description',
+      'show_countdown',
+      'show_progress_bar',
       'heading_accent',
       'accent_event_text',
       'accent_color_mode',

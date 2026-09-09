@@ -129,3 +129,131 @@ describe('Collapsibles come last in every panel', () => {
     }
   }
 });
+
+describe('No collapsible opens onto fewer than two controls', () => {
+  // The same complaint one level down, and the reason four disclosures disappeared from
+  // this editor. A group whose contents are conditional on its own first field collapses
+  // to that one field on a fresh card: `Location` was a single checkbox behind a
+  // disclosure captioned as though it were about location styling, `Description` the same,
+  // and Day Header's `Today Indicator` and `Week Numbers` were one dropdown each. A reader
+  // could not discover that the card can show a location, or mark today, without opening a
+  // group that gave no reason to think it held the switch.
+  //
+  // Two is the threshold because a disclosure is a trade — one row of chrome and a click,
+  // against however many rows it hides. At one control the trade is never worth taking.
+  //
+  // The remedy differs by case and the test deliberately does not care which was used:
+  // the content switches were promoted to a visible run and their groups now hold styling
+  // only, while Day Header's two became headed runs because their labels — `Style` and
+  // `Numbering` — mean nothing without the caption. Both satisfy this.
+  //
+  // Default config, because that is the state a new user meets; a group that fills up once
+  // its switch is on was never the problem.
+  const views = ['list', 'column', 'grid'] as const;
+
+  /** Every operable control below a node, across rows and nested groups alike. */
+  function controls(schema: ReadonlyArray<HaFormSchema>): number {
+    return schema.reduce(
+      (total, node) =>
+        'schema' in node ? total + controls(node.schema) : total + ('selector' in node ? 1 : 0),
+      0,
+    );
+  }
+
+  function thin(schema: ReadonlyArray<HaFormSchema>, where: string, found: string[]): void {
+    for (const node of schema) {
+      if ('type' in node && node.type === 'expandable') {
+        const held = controls(node.schema);
+        if (held < 2) {
+          found.push(`${where}/${node.title ?? node.name} holds ${held}`);
+        }
+        thin(node.schema, where, found);
+      } else if ('schema' in node) {
+        thin(node.schema, where, found);
+      }
+    }
+  }
+
+  for (const view of views) {
+    it(`${view} has no one-control disclosure`, () => {
+      const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
+      const ctx: SchemaCtx = { config, view, language: 'en' };
+      const found: string[] = [];
+      let seen = 0;
+
+      for (const panel of PANELS) {
+        const schema = panel.build(ctx);
+        seen += controls(schema);
+        thin(schema, `${view}/${panel.id}`, found);
+
+        // The per-calendar subform is reached through `subforms`, not through `build`, so
+        // a walk of the panels alone never sees its thirty-odd fields. It is flat today;
+        // this is what notices if it stops being.
+        for (const sub of panel.subforms?.(ctx) ?? []) {
+          seen += controls(sub.schema);
+          thin(sub.schema, `${view}/${panel.id}:subform`, found);
+        }
+      }
+
+      // The denominator, beside the verdict rather than in a step of its own: an empty
+      // `found` proves nothing if the walk reached nothing, and a walk that silently
+      // stopped covering the editor is exactly the failure this file already had once.
+      expect(seen, 'the walk found no controls at all').toBeGreaterThan(100);
+      expect(found).toEqual([]);
+    });
+  }
+});
+
+describe('The card and the per-calendar subform caption the same switches alike', () => {
+  // `heading_details` is deliberately shared. The subform has captioned `show_time` /
+  // `show_location` / `show_description` with it for as long as it has had headings, and
+  // the card-level run that replaced four collapsed groups asks the same question one
+  // level up — so it reuses the key rather than introducing an English-only one beside a
+  // translated one. That reuse is only defensible while both surfaces really do put the
+  // same switches under it in the same order, which is what this asserts.
+  //
+  // The card run carries two the subform does not; the claim is that the shared three
+  // agree on order and caption, not that the two lists are equal.
+  function underDetails(schema: ReadonlyArray<HaFormSchema>): string[] {
+    const flat: string[] = [];
+    const walk = (nodes: ReadonlyArray<HaFormSchema>): void => {
+      for (const node of nodes) {
+        if ('type' in node && node.type === 'expandable') continue;
+        if ('schema' in node) {
+          walk(node.schema);
+          continue;
+        }
+        flat.push(node.name);
+      }
+    };
+    walk(schema);
+
+    const start = flat.indexOf('heading_details');
+    if (start === -1) return [];
+
+    const rest = flat.slice(start + 1);
+    const end = rest.findIndex((name) => name.startsWith('heading_'));
+
+    return (end === -1 ? rest : rest.slice(0, end)).filter((name) =>
+      ['show_time', 'show_location', 'show_description'].includes(name),
+    );
+  }
+
+  const config = buildConfig({ view: 'list', entities: [{ entity: 'calendar.anna' }] });
+  const ctx: SchemaCtx = { config, view: 'list', language: 'en' };
+
+  it('puts the three shared switches under it in the same order on both', () => {
+    const events = PANELS.find((panel) => panel.id === 'events');
+    const calendars = PANELS.find((panel) => panel.id === 'calendars');
+    if (events === undefined || calendars === undefined) {
+      throw new Error('a panel was renamed, and this test now proves nothing');
+    }
+
+    const card = underDetails(events.build(ctx));
+    const subform = (calendars.subforms?.(ctx) ?? []).flatMap((sub) => underDetails(sub.schema));
+
+    // Both halves pinned by value: an empty pair would agree with itself.
+    expect(card).toEqual(['show_time', 'show_location', 'show_description']);
+    expect(subform).toEqual(['show_time', 'show_location', 'show_description']);
+  });
+});

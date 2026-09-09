@@ -111,19 +111,31 @@ function alldayBadgeFields(
   ];
 }
 
-function timeGroup(language: string, showTime: boolean): HaFormSchema {
-  const styling: HaFormSchema[] = showTime
-    ? [
-        bool('show_end_time'),
-        bool('show_single_allday_time'),
-        bool('show_multiday_allday_time'),
-        bool('time_two_digit_hours'),
-        row(text('time_font_size'), color('time_color')),
-        row(text('time_icon_size'), number('time_max_lines', 0)),
-      ]
-    : [];
+/**
+ * The time group — how the time line looks, once there is one.
+ *
+ * `show_time` itself is not here: whether the line exists at all is a content decision
+ * and sits in the panel's visible run. Returning an empty array rather than an empty
+ * group is what stops a disclosure opening onto nothing; the same contract holds for the
+ * three groups below.
+ *
+ * @param language - Effective language code
+ * @param showTime - Whether event times are shown
+ * @returns The group, or nothing when times are off
+ */
+function timeGroup(language: string, showTime: boolean): HaFormSchema[] {
+  if (!showTime) return [];
 
-  return group(language, 'time', TIME_ICON, [bool('show_time'), ...styling]);
+  return [
+    group(language, 'time', TIME_ICON, [
+      bool('show_end_time'),
+      bool('show_single_allday_time'),
+      bool('show_multiday_allday_time'),
+      bool('time_two_digit_hours'),
+      row(text('time_font_size'), color('time_color')),
+      row(text('time_icon_size'), number('time_max_lines', 0)),
+    ]),
+  ];
 }
 
 export const LOCATION_COUNTRY_MODES: ReadonlyArray<string> = ['keep', 'builtin', 'custom'];
@@ -148,19 +160,23 @@ export function locationCountryFields(language: string, countryMode: string): Ha
  * @param language - Effective language code
  * @param showLocation - Whether event locations are shown
  * @param countryMode - Derived country-removal mode
- * @returns The group
+ * @returns The group, or nothing when locations are off
  */
-function locationGroup(language: string, showLocation: boolean, countryMode: string): HaFormSchema {
-  const styling: HaFormSchema[] = showLocation
-    ? [
-        bool('show_location_allday'),
-        ...locationCountryFields(language, countryMode),
-        row(text('location_font_size'), color('location_color')),
-        row(text('location_icon_size'), number('location_max_lines', 0)),
-      ]
-    : [];
+function locationGroup(
+  language: string,
+  showLocation: boolean,
+  countryMode: string,
+): HaFormSchema[] {
+  if (!showLocation) return [];
 
-  return group(language, 'location', LOCATION_ICON, [bool('show_location'), ...styling]);
+  return [
+    group(language, 'location', LOCATION_ICON, [
+      bool('show_location_allday'),
+      ...locationCountryFields(language, countryMode),
+      row(text('location_font_size'), color('location_color')),
+      row(text('location_icon_size'), number('location_max_lines', 0)),
+    ]),
+  ];
 }
 
 /**
@@ -168,18 +184,18 @@ function locationGroup(language: string, showLocation: boolean, countryMode: str
  *
  * @param language - Effective language code
  * @param showDescription - Whether event descriptions are shown
- * @returns The group
+ * @returns The group, or nothing when descriptions are off
  */
-function descriptionGroup(language: string, showDescription: boolean): HaFormSchema {
-  const styling: HaFormSchema[] = showDescription
-    ? [
-        bool('show_description_allday'),
-        row(text('description_font_size'), color('description_color')),
-        row(text('description_icon_size'), number('description_max_lines', 0)),
-      ]
-    : [];
+function descriptionGroup(language: string, showDescription: boolean): HaFormSchema[] {
+  if (!showDescription) return [];
 
-  return group(language, 'description', DESCRIPTION_ICON, [bool('show_description'), ...styling]);
+  return [
+    group(language, 'description', DESCRIPTION_ICON, [
+      bool('show_description_allday'),
+      row(text('description_font_size'), color('description_color')),
+      row(text('description_icon_size'), number('description_max_lines', 0)),
+    ]),
+  ];
 }
 
 /**
@@ -188,21 +204,26 @@ function descriptionGroup(language: string, showDescription: boolean): HaFormSch
  * @param language - Effective language code
  * @param showCountdown - Whether the countdown is shown
  * @param showProgressBar - Whether the progress bar is shown
- * @returns The group
+ * @returns The group, or nothing when neither is on
  */
 function progressGroup(
   language: string,
   showCountdown: boolean,
   showProgressBar: boolean,
-): HaFormSchema {
-  return group(language, 'progress', PROGRESS_ICON, [
-    bool('show_countdown'),
-    ...(showCountdown ? [bool('show_countdown_allday')] : []),
-    bool('show_progress_bar'),
-    ...(showProgressBar
-      ? [color('progress_bar_color'), row(text('progress_bar_height'), text('progress_bar_width'))]
-      : []),
-  ]);
+): HaFormSchema[] {
+  if (!showCountdown && !showProgressBar) return [];
+
+  return [
+    group(language, 'progress', PROGRESS_ICON, [
+      ...(showCountdown ? [bool('show_countdown_allday')] : []),
+      ...(showProgressBar
+        ? [
+            color('progress_bar_color'),
+            row(text('progress_bar_height'), text('progress_bar_width')),
+          ]
+        : []),
+    ]),
+  ];
 }
 
 /**
@@ -233,9 +254,40 @@ const eventsSchema = Helpers.memoizeLast(
     badgePosition: Helpers.AlldayBadgePosition | null,
     badgeColorMode: string,
   ): HaFormSchema[] => [
-    // Accent first, because it is the coarsest thing here: one color, taken from the
-    // calendar, that the bar, the tint and — through the switch leading this run — every
-    // line of text can be drawn from. Those four were spread across the panel with
+    // The five switches that decide which lines an event is made of, in one visible run
+    // and ahead of everything that styles them.
+    //
+    // They were one per collapsed group, each leading the styling it gates — which reads
+    // well once you have opened the group and is invisible until you do. On a fresh card
+    // the styling is conditional and mostly absent, so three of those four groups held a
+    // single switch: `Location` was one checkbox behind a disclosure, `Description` the
+    // same, `Countdown & Progress` two. A reader could not discover that this card shows
+    // a location at all without opening a group captioned as though it were about
+    // location *styling*.
+    //
+    // So the switch and its styling split by what they answer: whether the line exists is
+    // a content decision and belongs with the other four; how it looks is a refinement of
+    // a line that already exists. Each group is now emitted only when its switch is on,
+    // which is why there is no group here holding nothing — a disclosure that opens onto
+    // one checkbox is worse than the checkbox.
+    //
+    // `heading_details` rather than a new key: the per-calendar subform already captions
+    // `show_time` / `show_location` / `show_description` with it, so this is the same
+    // category one level up, and reusing it keeps the two surfaces reading alike in all
+    // nine translated languages instead of putting an English-only caption over the
+    // card-level copy. `What Each Event Shows` was considered and is the wording this
+    // file's heading comment records as already rejected — the headings are terse noun
+    // phrases, and that one collides with the panel about what a card shows.
+    heading('heading_details'),
+    bool('show_time'),
+    bool('show_location'),
+    bool('show_description'),
+    bool('show_countdown'),
+    bool('show_progress_bar'),
+
+    // Accent next, because it is the coarsest of the styling runs: one color, taken from
+    // the calendar, that the bar, the tint and — through the switch leading this run —
+    // every line of text can be drawn from. Those four were spread across the panel with
     // `title_max_lines` and the background opacity in between, so the accent read as four
     // unrelated options rather than as one decision with three consequences.
     heading('heading_accent'),
@@ -278,10 +330,10 @@ const eventsSchema = Helpers.memoizeLast(
     select(language, 'event_icon_vertical_alignment', ['top', 'middle', 'bottom']),
     ...alldayBadgeFields(language, badgePosition, badgeColorMode),
 
-    timeGroup(language, showTime),
-    locationGroup(language, showLocation, countryMode),
-    descriptionGroup(language, showDescription),
-    progressGroup(language, showCountdown, showProgressBar),
+    ...timeGroup(language, showTime),
+    ...locationGroup(language, showLocation, countryMode),
+    ...descriptionGroup(language, showDescription),
+    ...progressGroup(language, showCountdown, showProgressBar),
   ],
 );
 
