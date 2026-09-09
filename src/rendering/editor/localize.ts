@@ -38,12 +38,38 @@ export function lookup(language: string, key: string): string | undefined {
 /**
  * Resolves one string key, preferring a variant written for the workspace being configured.
  *
- * The order matters more than it looks. A view-qualified key is a refinement of a shared
- * one, and refinements are written in English first — so resolving it through `lookup`
- * alone would hand a German reader the English refinement in place of the German shared
- * word they already had. Every translated source is therefore consulted before any
- * English source is: a language that translates the shared key and not the qualified one
- * keeps its own word, and only a language with neither sees English.
+ * The order matters more than it looks, and it is a standing hazard rather than a detail
+ * of the one key that needed it first. Shared keys are translated; a view-qualified key is
+ * a *refinement* of a shared one, and refinements are written in English first and
+ * translated later if at all. So the two halves of every such pair are at different
+ * translation maturities, permanently, and resolving the qualified one first per language
+ * would hand a German reader the English refinement in place of the German shared word
+ * they already had. Every translated source is therefore consulted before any English
+ * source is: a language that translates the shared key and not the qualified one keeps its
+ * own word, and only a language with neither sees English.
+ *
+ * 🚨 That regression is invisible to every gate. The string is present, the lookup
+ * succeeds, the panel renders, `check:i18n` sees a reachable key — it simply reads in the
+ * wrong language, and presents as a refinement while being a downgrade for every language
+ * but English. Nothing mechanical would report it.
+ *
+ * Which is why the obvious simplification is the thing to guard against:
+ *
+ * ```ts
+ * lookup(language, qualified) ?? lookup(language, shared); // ❌ reintroduces it
+ * ```
+ *
+ * That reads as the same fallback chain and is not. `lookup` already falls back to English
+ * per key, so once an English refinement exists the first call always returns it and the
+ * second term is unreachable — for all thirty-five languages at once. The four-term form
+ * below is deliberate; do not collapse it into two `lookup` calls.
+ *
+ * Falsifier, since a claim about ordering should ship with one: swap the second and third
+ * terms so `EDITOR_STRINGS[qualified]` is consulted before `translated?.[shared]`, then run
+ * `tests/editor-workspace.test.ts`. The cross-language reconciliation in
+ * `describe('a panel retitles itself for the workspace it configures')` fails and nothing
+ * else does. That test also asserts its own denominator, so it fails rather than passing
+ * quietly if no language is left in a position to be downgraded.
  *
  * @param language - Effective language code
  * @param key - Shared string key
