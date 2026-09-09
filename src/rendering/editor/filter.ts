@@ -148,7 +148,12 @@ function searchableText(
   const dataKey = EditorLocalize.qualifiedKey(node.name, dataPath);
   if (dataKey !== text[1]) text.push(dataKey);
 
-  if ('titleKey' in node && node.titleKey !== undefined) {
+  // Expandables only. A group renders the `title` the schema hands it rather than asking
+  // for a label, so its own strings have to be read off the node. A *field* may carry a
+  // `titleKey` too — it is how a field nested for storage keeps a qualified key — and that
+  // one resolves through `computeLabel` below like any other, which is where its label and
+  // helper actually come from.
+  if ('type' in node && node.type === 'expandable' && node.titleKey !== undefined) {
     text.push(node.title, EditorLocalize.lookup(ctx.language, `${node.titleKey}.helper`));
     return text;
   }

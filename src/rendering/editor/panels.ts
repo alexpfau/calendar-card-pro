@@ -150,19 +150,37 @@ export const PANELS: ReadonlyArray<PanelDef> = [
 /**
  * Walks every node of a schema, groups included.
  *
+ * Yields both paths, because they diverge and each answers a different question. Home
+ * Assistant qualifies a label only under an expandable, while it nests *data* under any
+ * named node that is not flattened — so a named `grid` moves a field's storage without
+ * moving its label. Anything asking "where is this written in YAML" wants `dataPath`;
+ * anything asking "what key does this label itself from" wants `path`. Deriving one from
+ * the other is what the two rules below exist to prevent.
+ *
  * @param schema - Schema to walk
- * @param path - Enclosing expandable group names, outermost first
+ * @param path - Enclosing label group names, outermost first
+ * @param dataPath - Enclosing configuration keys, outermost first
  */
 export function* walkSchema(
   schema: ReadonlyArray<HaFormSchema>,
   path: ReadonlyArray<string> = [],
-): Generator<{ node: HaFormSchema; path: ReadonlyArray<string> }> {
+  dataPath: ReadonlyArray<string> = path,
+): Generator<{
+  node: HaFormSchema;
+  path: ReadonlyArray<string>;
+  dataPath: ReadonlyArray<string>;
+}> {
   for (const node of schema) {
-    yield { node, path };
+    yield { node, path, dataPath };
 
     if ('schema' in node) {
       const nestsLabels = node.type === 'expandable' && node.name !== '';
-      yield* walkSchema(node.schema, nestsLabels ? [...path, node.name] : path);
+      const nestsData = node.name !== '' && node.flatten !== true;
+      yield* walkSchema(
+        node.schema,
+        nestsLabels ? [...path, node.name] : path,
+        nestsData ? [...dataPath, node.name] : dataPath,
+      );
     }
   }
 }

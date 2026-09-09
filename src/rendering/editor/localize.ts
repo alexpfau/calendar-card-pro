@@ -49,6 +49,13 @@ export function qualifiedKey(name: string, path: ReadonlyArray<string> = []): st
 /**
  * Resolves the label for a schema node.
  *
+ * Honours `titleKey`, so that a node states its own key rather than having one derived
+ * from where it sits. Labels and helpers were asymmetric here until the day-header rule
+ * needed it — helpers respected the override and labels did not — and nothing noticed,
+ * because the only nodes carrying one were expandables, and `ha-form-expandable` renders
+ * the `title` the schema hands it instead of asking for a label. Both now resolve through
+ * `stringKey`.
+ *
  * @param language - Effective language code
  * @param schema - The node being labelled
  * @param path - Enclosing group names, outermost first
@@ -59,7 +66,7 @@ export function computeLabel(
   schema: HaFormSchema,
   path: ReadonlyArray<string> = [],
 ): string {
-  const qualified = qualifiedKey(schema.name, path);
+  const qualified = stringKey(schema, path);
 
   return lookup(language, qualified) ?? lookup(language, schema.name) ?? humanize(schema.name);
 }
@@ -136,7 +143,7 @@ export function computeHelper(
   direct = false,
 ): string | undefined {
   const own =
-    lookup(language, `${helperKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
+    lookup(language, `${stringKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
 
   const groupNote = groupScopeNote(language, schema.name, view);
   if (groupNote !== undefined) {
@@ -184,13 +191,13 @@ function divergentDefaultNote(
 }
 
 /**
- * The key a node's helper text is stored under.
+ * The string key a node resolves its label and helper from.
  *
  * @param schema - The node being described
  * @param path - Enclosing group names, outermost first
- * @returns The key to look the helper up under
+ * @returns The node's own key, or the one its position implies
  */
-function helperKey(schema: HaFormSchema, path: ReadonlyArray<string>): string {
+function stringKey(schema: HaFormSchema, path: ReadonlyArray<string>): string {
   if ('titleKey' in schema && schema.titleKey !== undefined) {
     return schema.titleKey;
   }

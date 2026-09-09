@@ -4,11 +4,12 @@
 
 import { mdiCalendarWeekBegin } from '@mdi/js';
 
+import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
-import { bool, color, group, row, select, text } from './common';
+import { bool, color, group, heading, row, scope, select, text } from './common';
 
 export const DAY_HEADER_ICON = mdiCalendarWeekBegin;
 
@@ -105,12 +106,48 @@ function weekNumberGroup(language: string, mode: string): HaFormSchema {
 }
 
 /**
+ * The gap under a day header and the rule drawn inside it.
+ *
+ * The rule was a collapsed `nested()` under Separators, which was wrong twice over: every
+ * other rule in that panel is vertical in these two views and this one is horizontal, and
+ * the gap it is drawn *inside* was in Layout, one panel further away again. Gap and rule
+ * are one decision, so they are read together or not at all.
+ *
+ * Both live in the view's own block, and the two things that made this a presentation
+ * change are separate mechanisms — assuming the first buys the second is the trap here.
+ * The `scope` keeps the **data** path, so the values are still written to `column:` /
+ * `time_grid:`. It does *not* keep the string keys: Home Assistant qualifies a label only
+ * under an expandable, so without the `titleKey` below the three would label themselves
+ * bare and the two views would share one description. Only the chrome around them goes.
+ *
+ * @param blockKey - Config key holding this view's override block
+ * @returns The heading and its fields
+ */
+function dayHeaderRuleFields(blockKey: string): HaFormSchema[] {
+  // See above: storage nesting does not carry the label with it, so each field names the
+  // key it had when a collapsible earned that prefix for it.
+  const keyed = <T extends HaFormSchema>(node: T): T => ({
+    ...node,
+    titleKey: `${blockKey}.${node.name}`,
+  });
+
+  return [
+    heading('heading_gap_and_rule'),
+    scope(blockKey, [
+      keyed(text('day_header_gap')),
+      row(keyed(text('day_header_separator_width')), keyed(color('day_header_separator_color'))),
+    ]),
+  ];
+}
+
+/**
  * Builds the Day Header panel schema.
  *
  * @param language - Effective language code
  * @param showMonth - Whether the month line is shown
  * @param indicatorStyle - Derived today-indicator style
  * @param weekNumberMode - Derived week-number mode
+ * @param blockKey - Config key holding this view's block, when it owns the rule keys
  * @returns The panel's schema
  */
 const dayHeaderSchema = Helpers.memoizeLast(
@@ -119,6 +156,7 @@ const dayHeaderSchema = Helpers.memoizeLast(
     showMonth: boolean,
     indicatorStyle: string,
     weekNumberMode: string,
+    blockKey: string | undefined,
   ): HaFormSchema[] => [
     select(language, 'date_vertical_alignment', ['top', 'middle', 'bottom']),
 
@@ -141,6 +179,15 @@ const dayHeaderSchema = Helpers.memoizeLast(
 
     todayIndicatorGroup(language, indicatorStyle),
     weekNumberGroup(language, weekNumberMode),
+
+    // Last, and that is a choice rather than an append. A heading claims whatever follows
+    // it, so a run placed mid-panel would caption the two collapsibles above — and this is
+    // the only run here that exists in some views and not others, so keeping it at the end
+    // means a user moving between workspaces sees the same panel with a section added,
+    // rather than the same options in a different order. The collapsibles above carry
+    // their own titles, so nothing is left uncaptioned by putting a bare heading below
+    // them.
+    ...(blockKey === undefined ? [] : dayHeaderRuleFields(blockKey)),
   ],
 );
 
@@ -151,10 +198,16 @@ const dayHeaderSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildDayHeaderSchema(ctx: SchemaCtx): HaFormSchema[] {
+  const block = ViewConfig.viewBlockFor(ctx.view);
+
   return dayHeaderSchema(
     ctx.language,
     ctx.config.show_month,
     Synthetic.todayIndicatorStyle(ctx.config),
     ctx.config.show_week_numbers ?? 'none',
+    // Gated on the block owning the keys rather than on the view merely having one, the
+    // same test Layout and Separators used before these fields moved here. List has no
+    // block at all, so it gets neither the heading nor the fields.
+    block?.onlyKeys.includes('day_header_gap') === true ? block.blockKey : undefined,
   );
 }

@@ -1872,9 +1872,17 @@ describe('editor: the panel set', () => {
       }),
     ];
 
+    // Both paths, because the expectations above are written in both languages and a node
+    // can be qualified by one and not the other. Weather's members are named by their
+    // label path (`date.show_conditions`), while a block's members are named as they are
+    // written in YAML (`column.day_header_gap`) — and the day-header rule is qualified by
+    // the data path alone, since a named `grid` nests storage without nesting labels.
+    // Asking only one question missed three of the six the day it moved.
     for (const config of configs) {
-      for (const { node, path } of everyNode(config)) {
-        if (node.name) offered.add([...path, node.name].join('.'));
+      for (const { node, path, dataPath } of everyNode(config)) {
+        if (!node.name) continue;
+        offered.add([...path, node.name].join('.'));
+        offered.add([...dataPath, node.name].join('.'));
       }
     }
 
@@ -2170,12 +2178,99 @@ describe('editor: the Weather panel', () => {
   });
 });
 
+describe('editor: the day-header rule', () => {
+  function panelNodes(config: Types.Config) {
+    const panel = PANELS.find((entry) => entry.id === 'day_header')!;
+    return [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))];
+  }
+
+  function namesIn(config: Types.Config): string[] {
+    return panelNodes(config)
+      .map((entry) => entry.node.name)
+      .filter(Boolean);
+  }
+
+  const RULE_KEYS = ['day_header_gap', 'day_header_separator_width', 'day_header_separator_color'];
+
+  /**
+   * The gap and the rule drawn inside it are one decision, so they are offered together
+   * or not at all. They were two panels apart before: the gap under Grid Density in
+   * Layout, the rule in a collapsible under Separators.
+   */
+  it('offers the gap and the rule together, only where the view owns them', () => {
+    expect(namesIn(buildConfig())).not.toContain('day_header_gap');
+    expect(namesIn(buildConfig())).not.toContain('day_header_separator_width');
+
+    for (const config of [columnConfig(), gridConfig()]) {
+      for (const key of RULE_KEYS) expect(namesIn(config)).toContain(key);
+    }
+  });
+
+  /**
+   * Captioned by a bare heading rather than wrapped in a collapsible, which is the whole
+   * point of the move — three fields behind a disclosure nobody opened.
+   */
+  it('captions them with a heading and no collapsible', () => {
+    for (const config of [columnConfig(), gridConfig()]) {
+      const nodes = panelNodes(config);
+      const heading = nodes.find((entry) => entry.node.name === 'heading_gap_and_rule');
+
+      expect(heading?.node).toEqual({ name: 'heading_gap_and_rule', type: 'constant' });
+
+      for (const key of RULE_KEYS) {
+        const entry = nodes.find((item) => item.node.name === key)!;
+        expect(entry.path).toEqual([]);
+      }
+    }
+  });
+
+  /**
+   * The move is presentation only, so the values still have to be written where they were.
+   * A named `grid` nests data without nesting labels, which is what lets the collapsible
+   * go while `column:` / `time_grid:` keep receiving these three.
+   */
+  it("still stores them inside the view's own block", () => {
+    for (const [config, blockKey] of [
+      [columnConfig(), 'column'],
+      [gridConfig(), 'time_grid'],
+    ] as const) {
+      for (const key of RULE_KEYS) {
+        const entry = panelNodes(config).find((item) => item.node.name === key)!;
+        expect(entry.dataPath).toEqual([blockKey]);
+      }
+    }
+  });
+
+  /**
+   * Storage moved out from under the labels, so without an explicit key each field would
+   * label itself bare and the two views would share one description. They do not: the
+   * column rule sits inside the gap, the grid one runs the day columns but not the hour
+   * gutter, and a reader needs whichever applies.
+   */
+  it('keeps a description of its own per view', () => {
+    const helperFor = (config: Types.Config, key: string) => {
+      const entry = panelNodes(config).find((item) => item.node.name === key)!;
+      return computeHelper('en', config.view, entry.node, entry.path, true);
+    };
+
+    const column = helperFor(columnConfig(), 'day_header_separator_width');
+    const grid = helperFor(gridConfig(), 'day_header_separator_width');
+
+    expect(column).toBeDefined();
+    expect(grid).toBeDefined();
+    expect(column).not.toEqual(grid);
+    expect(helperFor(columnConfig(), 'day_header_gap')).not.toEqual(
+      helperFor(gridConfig(), 'day_header_gap'),
+    );
+  });
+});
+
 describe('editor: the Separators panel', () => {
   function namesIn(config: Types.Config): string[] {
     const panel = PANELS.find((entry) => entry.id === 'separators')!;
-    return [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))]
-      .map((entry) => entry.node.name)
-      .filter((name): name is string => Boolean(name));
+    return [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))].map(
+      (entry) => entry.node.name,
+    );
   }
 
   it('offers the three rules every view draws', () => {
@@ -2187,24 +2282,32 @@ describe('editor: the Separators panel', () => {
   });
 
   /**
-   * Sited by what it is rather than by where it is stored: the day-header rule lives
-   * inside a view's override block, and belongs beside the three rules it is a fourth
-   * of rather than in the panel that happens to own that block.
+   * The panel is homogeneous in every view, and that is the assertion.
+   *
+   * The day-header rule used to sit here in a collapsible, on the reasoning that it was a
+   * fourth rule alongside these three. It is not. In column and grid these three are drawn
+   * *between* the days and the day-header rule is drawn *across* them, so the panel was
+   * asking two different questions under one name — and the gap the rule is drawn inside
+   * was a third panel away, in Layout. Gap and rule are one decision and now live together
+   * under Day Header.
+   *
+   * Asserted for all three views, because the old placement was view-conditional and a
+   * check on the default view alone could not have seen it.
    */
-  it('offers the day-header rule only for views that have one', () => {
-    expect(namesIn(buildConfig())).not.toContain('day_header_separator_width');
-    expect(namesIn(columnConfig())).toContain('day_header_separator_width');
-    expect(namesIn(gridConfig())).toContain('day_header_separator_width');
-  });
-
-  it('stores the day-header rule inside the block it belongs to', () => {
-    const panel = PANELS.find((entry) => entry.id === 'separators')!;
-    const config = columnConfig();
-    const schema = panel.build({ view: 'column', config, language: 'en' });
-    const block = schema.find((node) => 'schema' in node && node.name === 'column');
-
-    expect(block).toBeDefined();
-    expect(block).not.toHaveProperty('flatten');
+  it('offers only rules that divide one day, week or month from the next', () => {
+    for (const config of [buildConfig(), columnConfig(), gridConfig()]) {
+      expect(namesIn(config)).toEqual([
+        '',
+        'day_separator_width',
+        'day_separator_color',
+        '',
+        'week_separator_width',
+        'week_separator_color',
+        '',
+        'month_separator_width',
+        'month_separator_color',
+      ]);
+    }
   });
 });
 

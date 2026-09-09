@@ -219,6 +219,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // a heading repeating its only field's label is the stutter `AGENTS.md` warns about, and
   // it is invisible to a DOM probe. Renaming the field rather than the heading also moves
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
+  heading_gap_and_rule: 'Gap & Rule',
   heading_filters: 'Event Filtering',
   heading_replace: 'Text Replacement',
   heading_multiday: 'Multi-Day Events',
@@ -679,17 +680,18 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   week_separator_color: 'Week Rule Color',
   month_separator_width: 'Month Rule Width',
   month_separator_color: 'Month Rule Color',
-  'column.day_header_separator': 'Day Header Rule',
-  'column.day_header_separator.helper':
+  // The rule's own explanation moved onto the width field when the collapsible around it
+  // became a sub-heading. A heading carries no helper, so leaving the text on the group
+  // key would have deleted it from the editor rather than relocated it.
+  'column.day_header_separator_width': 'Day Header Rule Width',
+  'column.day_header_separator_width.helper':
     'The rule under a column heading. It sits inside the day header gap, so switching ' +
     'it off does not move the events.',
-  'column.day_header_separator_width': 'Day Header Rule Width',
   'column.day_header_separator_color': 'Day Header Rule Color',
-  'time_grid.day_header_separator': 'Day Header Rule',
-  'time_grid.day_header_separator.helper':
+  'time_grid.day_header_separator_width': 'Day Header Rule Width',
+  'time_grid.day_header_separator_width.helper':
     'The one unbroken rule between the date row and the all-day band, running the day ' +
     'columns and their gaps but not the hour gutter. Set the width to 0 to remove it.',
-  'time_grid.day_header_separator_width': 'Day Header Rule Width',
   'time_grid.day_header_separator_color': 'Day Header Rule Color',
 
   // --- Weather --------------------------------------------------------------

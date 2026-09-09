@@ -85,13 +85,7 @@ export function buildDisplayViewSchema(language: string): HaFormSchema[] {
  * @param language - Effective language code
  * @returns The density group
  */
-function densityGroup(
-  view: Types.EffectiveView,
-  blockKey: string,
-  daysToShow: number,
-  language: string,
-): HaFormSchema {
-  const onlyKeys = ViewConfig.viewBlockFor(view)?.onlyKeys ?? [];
+function densityGroup(blockKey: string, daysToShow: number, language: string): HaFormSchema {
   const schema: HaFormSchema[] = [
     {
       type: 'grid',
@@ -135,13 +129,6 @@ function densityGroup(
       },
     },
   ];
-
-  if (onlyKeys.includes('day_header_gap')) {
-    schema.push({
-      name: 'day_header_gap',
-      selector: { text: { type: 'text' } },
-    });
-  }
 
   return {
     type: 'expandable',
@@ -293,15 +280,16 @@ const layoutSchema = Helpers.memoizeLast(
       schema.push({ name: 'card_max_height', selector: { text: { type: 'text' } } });
     }
 
-    // Gated on the view owning these keys, not merely on it owning a block. The group
-    // is column's density story — `min_day_width`, `min_days_to_show`,
-    // `min_days_fallback`, `day_header_gap` — and emitting it for any view with a block
-    // offered a grid card four controls its `time_grid:` block does not accept, each of which
-    // would have been stored and then ignored. `VIEWS_WITH_WIDTH_FALLBACK` is the same
-    // concept the width table below is already gated on.
+    // Gated on the view owning these keys, not merely on it owning a block. The group is
+    // column's density story — `min_day_width`, `min_days_to_show`, `min_days_fallback` —
+    // and emitting it for any view with a block offered a grid card three controls its
+    // `time_grid:` block does not accept, each of which would have been stored and then
+    // ignored. `VIEWS_WITH_WIDTH_FALLBACK` is the same concept the width table below is
+    // already gated on. `day_header_gap` was a fourth member until it moved to the Day
+    // Header panel, where it sits with the rule drawn inside it.
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
     if (blockKey !== undefined && ViewConfig.VIEWS_WITH_WIDTH_FALLBACK.has(view)) {
-      schema.push(densityGroup(view, blockKey, daysToShow, language));
+      schema.push(densityGroup(blockKey, daysToShow, language));
     }
 
     // The axis IS the layout for this view, so it belongs in this panel rather than in a
