@@ -110,7 +110,12 @@ describe('editor strings resolve in the requested language', () => {
     expect(EDITOR_STRINGS['card_height.helper']).not.toContain(
       'scrolling if the events do not fit',
     );
-    expect(EDITOR_STRINGS['time_grid.axis.helper']).toContain('calendar content height');
+    // There were three sites; there are two. `time_grid.axis.helper` was the Time Axis
+    // collapsible's description, and the collapsible is gone — the axis is top-level
+    // captioned runs now, and a `constant` heading has no helper to hang prose on. The
+    // story is not weakened by that: it was told on a disclosure a user had to open,
+    // and it is still told on both fields they actually manipulate.
+    expect(EDITOR_STRINGS['time_grid.axis.helper']).toBeUndefined();
     expect(EDITOR_STRINGS['time_grid.hour_height.helper']).toContain(
       "calendar content area's natural height",
     );

@@ -159,7 +159,6 @@
   "time_grid.min_days_fallback.option.list.label": "Przełącz na listę",
   "time_grid.min_days_fallback.option.cramp.label": "Zachowaj siatkę, węższą",
   "time_grid.axis": "Oś czasu",
-  "time_grid.axis.helper": "Które godziny karta rysuje i jak są oddzielane liniami. Wszystko na osi jest pozycjonowane jako część tego pasma, więc stała wysokość obszaru zawartości kalendarza po prostu je ściska.",
   "time_grid.start_time": "Pierwsza godzina",
   "time_grid.start_time.helper": "W formacie HH:mm. Wydarzenia w całości wcześniejsze nie są w ogóle rysowane, więc to decyduje, co karta pokazuje, a nie tylko jak wygląda.",
   "time_grid.end_time": "Ostatnia godzina",

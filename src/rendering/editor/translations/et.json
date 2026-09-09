@@ -159,7 +159,6 @@
   "time_grid.min_days_fallback.option.list.label": "Mine üle loetelule",
   "time_grid.min_days_fallback.option.cramp.label": "Hoia raster, kitsamalt",
   "time_grid.axis": "Ajatelg",
-  "time_grid.axis.helper": "Millised tunnid kaart joonistab ja kuidas need joontega märgitakse. Kõik teljel paikneb selle vahemiku osana, nii et fikseeritud kalendrisisuala kõrgus surub selle lihtsalt kokku.",
   "time_grid.start_time": "Esimene tund",
   "time_grid.start_time.helper": "Kujul HH:mm. Täielikult enne seda olevad sündmused jäetakse üldse joonistamata, seega otsustab see, mida kaart näitab, mitte ainult seda, kuidas see välja näeb.",
   "time_grid.end_time": "Viimane tund",

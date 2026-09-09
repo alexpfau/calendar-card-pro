@@ -160,6 +160,20 @@ const dayHeaderSchema = Helpers.memoizeLast(
     bool('show_month'),
     ...(showMonth ? [row(text('month_font_size'), color('month_color'))] : []),
 
+    // Above the collapsibles, not below them. Every panel in this editor ends in its
+    // collapsed subsections, so a bare heading and two plain fields appended *after* four
+    // of them reads as an afterthought stapled to the bottom rather than as part of the
+    // panel — and a reader who has scrolled past four closed groups has stopped expecting
+    // ordinary options at all.
+    //
+    // An earlier version of this file argued the opposite, on the grounds that keeping the
+    // run last means a user switching workspaces sees the same panel with a section added
+    // rather than the same options reordered. That is true, and it is the weaker claim:
+    // the collapsibles-last convention is what a user reads on every panel of every view,
+    // whereas the reordering is noticed once by someone changing workspace. Consistency
+    // within a panel beats consistency between two visits to it.
+    ...(blockKey === undefined ? [] : dayHeaderRuleFields(blockKey)),
+
     group(language, 'weekend_colors', WEEKEND_ICON, [
       color('weekend_weekday_color'),
       color('weekend_day_color'),
@@ -174,15 +188,6 @@ const dayHeaderSchema = Helpers.memoizeLast(
 
     todayIndicatorGroup(language, indicatorStyle),
     weekNumberGroup(language, weekNumberMode),
-
-    // Last, and that is a choice rather than an append. A heading claims whatever follows
-    // it, so a run placed mid-panel would caption the two collapsibles above — and this is
-    // the only run here that exists in some views and not others, so keeping it at the end
-    // means a user moving between workspaces sees the same panel with a section added,
-    // rather than the same options in a different order. The collapsibles above carry
-    // their own titles, so nothing is left uncaptioned by putting a bare heading below
-    // them.
-    ...(blockKey === undefined ? [] : dayHeaderRuleFields(blockKey)),
   ],
 );
 

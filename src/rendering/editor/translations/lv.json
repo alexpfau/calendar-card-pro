@@ -159,7 +159,6 @@
   "time_grid.min_days_fallback.option.list.label": "Atgriezties pie saraksta",
   "time_grid.min_days_fallback.option.cramp.label": "Saglabāt režģi, šaurāk",
   "time_grid.axis": "Laika ass",
-  "time_grid.axis.helper": "Kuras stundas kartīte zīmē un kā tās ir iezīmētas ar līnijām. Viss uz ass tiek novietots kā šīs joslas daļa, tāpēc kalendāra satura apgabala fiksēts augstums to vienkārši saspiež.",
   "time_grid.start_time": "Pirmā stunda",
   "time_grid.start_time.helper": "Kā HH:mm. Notikumi, kas pilnībā ir pirms šī laika, vispār netiek zīmēti, tāpēc tas nosaka, ko kartīte rāda, ne tikai kā tā izskatās.",
   "time_grid.end_time": "Pēdējā stunda",

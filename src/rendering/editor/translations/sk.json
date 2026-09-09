@@ -159,7 +159,6 @@
   "time_grid.min_days_fallback.option.list.label": "Prejsť späť na zoznam",
   "time_grid.min_days_fallback.option.cramp.label": "Ponechať mriežku, užšiu",
   "time_grid.axis": "Časová os",
-  "time_grid.axis.helper": "Ktoré hodiny karta vykreslí a ako ich označí čiarami. Všetko na osi sa umiestňuje ako podiel tohto pásma, takže pevná výška oblasti obsahu kalendára ho jednoducho stlačí.",
   "time_grid.start_time": "Prvá hodina",
   "time_grid.start_time.helper": "Vo formáte HH:mm. Udalosti celé pred týmto časom sa vôbec nevykreslia, takže toto určuje, čo karta zobrazuje, nielen ako vyzerá.",
   "time_grid.end_time": "Posledná hodina",

@@ -220,6 +220,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // it is invisible to a DOM probe. Renaming the field rather than the heading also moves
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
   heading_gap_and_rule: 'Gap & Rule',
+  heading_hour_labels: 'Hour Labels',
+  heading_on_the_grid: 'On the Grid',
+  heading_card_size: 'Card Size & Spacing',
   heading_accent: 'Accent',
   heading_title: 'Title',
   heading_icon_and_badge: 'Icon & Badge',
@@ -335,9 +338,6 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'time_grid.min_days_fallback.option.list.label': 'Fall back to a list',
   'time_grid.min_days_fallback.option.cramp.label': 'Keep the grid, narrower',
   'time_grid.axis': 'Time Axis',
-  'time_grid.axis.helper':
-    'Which hours the card draws, and how they are ruled. Everything on the axis is ' +
-    'positioned as a share of this band, so a fixed calendar content height simply compresses it.',
   'time_grid.start_time': 'First Hour',
   'time_grid.start_time.helper':
     'As HH:mm. Events entirely before this are not drawn at all, so this decides what ' +

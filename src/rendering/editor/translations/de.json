@@ -159,7 +159,6 @@
   "time_grid.min_days_fallback.option.list.label": "Auf Liste zurückfallen",
   "time_grid.min_days_fallback.option.cramp.label": "Raster behalten, schmaler",
   "time_grid.axis": "Zeitachse",
-  "time_grid.axis.helper": "Welche Stunden die Karte zeichnet und wie sie durch Linien markiert werden. Alles auf der Achse wird als Anteil dieses Bereichs positioniert, sodass eine feste Höhe des Kalenderinhalts ihn einfach zusammendrückt.",
   "time_grid.start_time": "Erste Stunde",
   "time_grid.start_time.helper": "Als HH:mm. Termine vollständig davor werden gar nicht gezeichnet; dies entscheidet also, was die Karte zeigt, nicht nur, wie sie aussieht.",
   "time_grid.end_time": "Letzte Stunde",

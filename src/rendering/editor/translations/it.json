@@ -159,7 +159,6 @@
   "time_grid.min_days_fallback.option.list.label": "Passa alla lista",
   "time_grid.min_days_fallback.option.cramp.label": "Mantieni la griglia, più stretta",
   "time_grid.axis": "Asse orario",
-  "time_grid.axis.helper": "Quali ore disegna la scheda e come vengono scandite. Tutto sull'asse è posizionato come quota di questa fascia, quindi un'altezza fissa dell'area di contenuto del calendario lo comprime semplicemente.",
   "time_grid.start_time": "Prima ora",
   "time_grid.start_time.helper": "Come HH:mm. Gli eventi interamente precedenti non vengono disegnati affatto, quindi questo decide cosa mostra la scheda e non solo il suo aspetto.",
   "time_grid.end_time": "Ultima ora",

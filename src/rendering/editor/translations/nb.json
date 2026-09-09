@@ -159,7 +159,6 @@
   "time_grid.min_days_fallback.option.list.label": "Fall tilbake til en liste",
   "time_grid.min_days_fallback.option.cramp.label": "Behold rutenettet, smalere",
   "time_grid.axis": "Tidsakse",
-  "time_grid.axis.helper": "Hvilke timer kortet tegner, og hvordan de markeres med linjer. Alt på aksen plasseres som en andel av dette båndet, så en fast høyde for kalenderinnholdsområdet bare komprimerer den.",
   "time_grid.start_time": "Første time",
   "time_grid.start_time.helper": "Som HH:mm. Hendelser som er helt før dette, tegnes ikke i det hele tatt, så dette bestemmer hva kortet viser, ikke bare hvordan det ser ut.",
   "time_grid.end_time": "Siste time",
