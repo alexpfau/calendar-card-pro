@@ -220,6 +220,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // it is invisible to a DOM probe. Renaming the field rather than the heading also moves
   // the per-calendar label closer to the card-level `Split Multi-Day Events`.
   heading_gap_and_rule: 'Gap & Rule',
+  heading_accent: 'Accent',
+  heading_title: 'Title',
+  heading_icon_and_badge: 'Icon & Badge',
   heading_between_days: 'Between Days',
   heading_across_the_grid: 'Across the Grid',
   heading_filters: 'Event Filtering',

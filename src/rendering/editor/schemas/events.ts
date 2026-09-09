@@ -9,7 +9,7 @@ import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
-import { bool, color, group, number, row, select, text } from './common';
+import { bool, color, group, heading, number, row, select, text } from './common';
 
 export const EVENTS_ICON = mdiCalendarText;
 
@@ -233,13 +233,18 @@ const eventsSchema = Helpers.memoizeLast(
     badgePosition: Helpers.AlldayBadgePosition | null,
     badgeColorMode: string,
   ): HaFormSchema[] => [
-    // First, ahead of every color control it governs. The panel is ordered coarse to fine
-    // by scope, and this is the only control that changes what five of the others mean —
-    // a reader who meets it after picking a color has already picked one that is being
-    // overridden. It forward-references the accent, which the control two rows down
-    // decides; the helper names that explicitly, which is the cheaper of the two costs.
+    // Accent first, because it is the coarsest thing here: one color, taken from the
+    // calendar, that the bar, the tint and — through the switch leading this run — every
+    // line of text can be drawn from. Those four were spread across the panel with
+    // `title_max_lines` and the background opacity in between, so the accent read as four
+    // unrelated options rather than as one decision with three consequences.
+    heading('heading_accent'),
+    // Still first within it, and still ahead of every color control it governs, which is
+    // the invariant this run was ordered around before it had a heading: it changes what
+    // `event_color` and the four group colors below mean, so a reader meeting it after
+    // picking one has already picked a color that is being overridden. It
+    // forward-references the accent the next control decides; the helper says so.
     bool('accent_event_text'),
-    row(text('event_font_size'), color('event_color')),
     // The mode and the colour it governs are one control, so they share a row. A grid
     // collapses to a single column on a narrow viewport, so a conditional field placed
     // after this row would land below whatever else the row held — which is how the
@@ -249,18 +254,28 @@ const eventsSchema = Helpers.memoizeLast(
       ? row(select(language, 'accent_color_mode', ACCENT_COLOR_MODES), color('accent_color'))
       : select(language, 'accent_color_mode', ACCENT_COLOR_MODES),
     text('vertical_line_width'),
+    // With the accent rather than with the title, because the tint is *made* of the accent
+    // — `presentation.ts` mixes it from the same resolved color the bar uses. Reading it
+    // beside a font size suggested it was a property of the event box; it is the third
+    // place the accent shows up.
     number('event_background_opacity', 0, 100, '%'),
+
+    // The title's own four, which were split in two by the accent run above: size and
+    // color came before it, the line limit and the scroll after. Nothing separates them
+    // now, and this is the only run in the panel that styles the title — the four groups
+    // below each style one other line.
+    heading('heading_title'),
+    row(text('event_font_size'), color('event_color')),
     number('title_max_lines', 0),
     bool('scroll_long_titles'),
-    select(language, 'event_icon_vertical_alignment', ['top', 'middle', 'bottom']),
 
-    // Not inside the time group, and not gated on show_time. The badge marks an event as
-    // all-day; only one of its two positions happens to sit in the time row, and gating the
-    // pair on show_time would make the TITLE pill unreachable for anyone who has turned times
-    // off -- which is exactly the configuration the title position exists to serve.
-    // Placed after the per-event appearance options and before the per-field groups because
-    // that is where its scope puts it: it qualifies a whole class of event, which is a
-    // coarser question than how any one field is formatted.
+    // The two markers an event can carry, as opposed to the text it is made of. The badge
+    // is not inside the time group and not gated on show_time: it marks an event as
+    // all-day, only one of its two positions happens to sit in the time row, and gating
+    // the pair on show_time would make the TITLE pill unreachable for anyone who has
+    // turned times off — exactly the configuration the title position exists to serve.
+    heading('heading_icon_and_badge'),
+    select(language, 'event_icon_vertical_alignment', ['top', 'middle', 'bottom']),
     ...alldayBadgeFields(language, badgePosition, badgeColorMode),
 
     timeGroup(language, showTime),

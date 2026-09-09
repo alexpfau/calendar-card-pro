@@ -2439,6 +2439,82 @@ describe('editor: what Layout no longer holds', () => {
   });
 });
 
+/**
+ * The Events panel's opening run, which nothing captioned until now.
+ *
+ * Its four field groups — Time, Location, Description, Countdown & Progress — were already
+ * collapsibles with titles of their own. The eleven options above them were not: they ran
+ * unbroken from a color switch to an all-day badge, mixing three subjects, with the
+ * title's four options split in two by the accent's four.
+ */
+describe('editor: the Events panel opening run', () => {
+  function namesIn(config: Types.Config): string[] {
+    const panel = PANELS.find((entry) => entry.id === 'events')!;
+    const names: string[] = [];
+
+    for (const entry of walkSchema(panel.build({ view: config.view, config, language: 'en' }))) {
+      // Stop at the first group: those carry their own titles and are not what moved.
+      if ('type' in entry.node && entry.node.type === 'expandable') break;
+      if (entry.node.name !== '') names.push(entry.node.name);
+    }
+
+    return names;
+  }
+
+  /**
+   * Pinned by value and in order, because the order is the change. Every field is under a
+   * heading — a bare option above the first one would be captioned by nothing.
+   */
+  it('captions all three subjects, with the title no longer split', () => {
+    // The default config resolves the accent mode to `custom`, so the conditional colour
+    // field is present — which is the shape the row was designed around.
+    expect(namesIn(buildConfig())).toEqual([
+      'heading_accent',
+      'accent_event_text',
+      'accent_color_mode',
+      'accent_color',
+      'vertical_line_width',
+      'event_background_opacity',
+      'heading_title',
+      'event_font_size',
+      'event_color',
+      'title_max_lines',
+      'scroll_long_titles',
+      'heading_icon_and_badge',
+      'event_icon_vertical_alignment',
+      'allday_badge_position',
+    ]);
+  });
+
+  /**
+   * The invariant the run was ordered around before it had headings, and the reason Accent
+   * leads rather than follows Title: `accent_event_text` decides where the title's color
+   * comes from, so meeting it after `event_color` means having already picked a color that
+   * is being overridden. Grouping by subject could easily have inverted the two.
+   */
+  it('still asks whether text takes the accent before offering a text color', () => {
+    for (const config of [buildConfig(), columnConfig(), gridConfig()]) {
+      const names = namesIn(config);
+
+      expect(names.indexOf('accent_event_text')).toBeLessThan(names.indexOf('event_color'));
+    }
+  });
+
+  /**
+   * The tint is mixed from the resolved accent in `presentation.ts`, so it is the third
+   * place the accent appears rather than a property of the event box. Sitting beside a
+   * font size is what made it read as the latter.
+   */
+  it('keeps the background tint with the accent it is mixed from', () => {
+    const names = namesIn(buildConfig());
+    const accent = names.indexOf('heading_accent');
+    const title = names.indexOf('heading_title');
+
+    expect(names.indexOf('event_background_opacity')).toBeGreaterThan(accent);
+    expect(names.indexOf('event_background_opacity')).toBeLessThan(title);
+  });
+});
+
 describe('editor: the Time Range & Content panel', () => {
   function namesIn(config: Types.Config): string[] {
     const panel = PANELS.find((entry) => entry.id === 'content')!;
