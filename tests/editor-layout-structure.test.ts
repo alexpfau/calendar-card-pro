@@ -38,6 +38,31 @@ function outline(schema: ReadonlyArray<HaFormSchema>): string[] {
   });
 }
 
+/**
+ * One calendar's sub-form as the editor renders it.
+ *
+ * 🚨 Go through `filterEntitySchema`, never `subform.schema`. View scoping is applied
+ * there, one layer below the declaration, so a test reading the declared schema is
+ * measuring something no user sees — and will happily fail on a duplicate call that
+ * changes nothing, which is a green light dressed as a guard.
+ *
+ * `NO_FILTER` is the resting state: `filterEntitySchema` withholds before it consults the
+ * criteria, so this is the schema shown to somebody who has typed nothing.
+ *
+ * @param subform - Sub-form as declared by its panel
+ * @param ctx - Schema context, whose workspace decides the scoping
+ * @returns The nodes the element hands to `ha-form`
+ */
+function renderedSubform(
+  subform: { schema: ReadonlyArray<HaFormSchema>; path: ReadonlyArray<string> },
+  ctx: SchemaCtx,
+): HaFormSchema[] {
+  return Filter.filterEntitySchema(subform.schema, { entity: 'calendar.anna' }, subform.path, {
+    ...ctx,
+    criteria: Filter.NO_FILTER,
+  });
+}
+
 function layoutOutline(view: Types.EffectiveView): string[] {
   const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
   const ctx: SchemaCtx = { config, view, language: 'en' };
@@ -347,13 +372,20 @@ describe('No two adjacent fields share a label', () => {
 
 describe('Sub-forms are view-scoped like the panels above them', () => {
   // 🚨 This is a reconciliation, not a list, and that is the whole point. `VIEW_SCOPE` is
-  // the single statement of which views a key applies to, so asserting that re-filtering a
-  // declared sub-form drops nothing fails on the *next* per-calendar key someone scopes,
-  // with no second table to keep in step. A test naming `compact_events_to_show` and
-  // `split_multiday_events` would pass forever while the third key went unwithheld.
+  // the single statement of which views a key applies to, so comparing what the editor
+  // renders against what that rule permits fails on the *next* per-calendar key someone
+  // scopes, with no second table to keep in step. A test naming `compact_events_to_show`
+  // and `split_multiday_events` would pass forever while the third key went unwithheld.
   //
-  // The defect it closes: `element.ts` filters `panel.build(ctx)` and nothing else, so the
-  // card-level and per-calendar halves of one option disagreed inside a single panel.
+  // 🚨 It asserts on `renderedSubform`, not on `subform.schema`, and the distinction is
+  // the entire difference between coverage and decoration. The withholding happens in
+  // `filterEntitySchema`, one layer below the declaration — so a test reading
+  // `subform.schema` measures a schema nobody renders. An earlier version of this file did
+  // exactly that, and it "detected" a reverted duplicate call in `calendarsSubforms` that
+  // was provably invisible to users: the live editor rendered byte-identical field and
+  // heading counts in all three workspaces with that call removed. The test failed, the
+  // editor did not change, and the failure read as protection. Assert on the layer the
+  // element actually calls, or the invariant only restates whichever call you just wrote.
   function fieldNames(nodes: ReadonlyArray<HaFormSchema>): string[] {
     return nodes.flatMap((node): string[] => {
       if ('schema' in node) return fieldNames(node.schema);
@@ -363,7 +395,7 @@ describe('Sub-forms are view-scoped like the panels above them', () => {
   }
 
   for (const view of ['list', 'column', 'grid'] as Types.EffectiveView[]) {
-    it(`withholds nothing further in ${view}`, () => {
+    it(`renders the sub-form scoped to ${view}`, () => {
       const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
       const ctx: SchemaCtx = { config, view, language: 'en' };
       let seen = 0;
@@ -372,17 +404,22 @@ describe('Sub-forms are view-scoped like the panels above them', () => {
       for (const panel of PANELS) {
         for (const subform of panel.subforms?.(ctx) ?? []) {
           subforms += 1;
-          const declared = fieldNames(subform.schema);
-          seen += declared.length;
+          const where = `${panel.id}/${subform.path.join('.')}`;
+          const rendered = fieldNames(renderedSubform(subform, ctx));
+          seen += rendered.length;
+
           expect({
-            where: `${panel.id}/${subform.path.join('.')}`,
-            dropped: declared.filter(
+            where,
+            offered: fieldNames(subform.schema).filter((name) => !rendered.includes(name)),
+          }).toEqual({
+            where,
+            offered: fieldNames(subform.schema).filter(
               (name) =>
                 !fieldNames(Filter.withholdInertFields(subform.schema, view, 'entity')).includes(
                   name,
                 ),
             ),
-          }).toEqual({ where: `${panel.id}/${subform.path.join('.')}`, dropped: [] });
+          });
         }
       }
 
@@ -419,7 +456,7 @@ describe('No sub-form heading is left captioning nothing', () => {
 
       for (const panel of PANELS) {
         for (const subform of panel.subforms?.(ctx) ?? []) {
-          const seq = flat(subform.schema);
+          const seq = flat(renderedSubform(subform, ctx));
           const empty: number[] = [];
 
           seq.forEach((kind, i) => {
