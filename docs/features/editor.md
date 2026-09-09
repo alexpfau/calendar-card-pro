@@ -40,6 +40,11 @@ Multi-day splitting also appears in Column, but not Grid, which arranges
 multi-day events itself. Grid omits empty-day text and color because it draws blank
 columns rather than placeholder rows.
 
+A panel can also change its name for the workspace you are in. Grid titles the
+**Separators** panel **Rules**, because grid is the only view that draws rules _across_
+the days as well as between them, so the shared name covers half of what the panel holds
+there.
+
 The workspace follows your selection, not the preview's width-dependent fallback.
 Search and **Customized Only** do not bring back controls for another workspace.
 To edit a list-only option used by a responsive fallback, choose List under

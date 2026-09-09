@@ -344,7 +344,8 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _panelTitle(panel: PanelDef, ctx: SchemaCtx): string {
     return (
-      EditorLocalize.lookup(ctx.language, panel.titleKey) ?? EditorLocalize.humanize(panel.titleKey)
+      EditorLocalize.lookupForView(ctx.language, panel.titleKey, ctx.workspace ?? ctx.view) ??
+      EditorLocalize.humanize(panel.titleKey)
     );
   }
 
@@ -356,7 +357,12 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Helper text, or `undefined` when the panel has none
    */
   private _panelHelper(panel: PanelDef, ctx: SchemaCtx): string | undefined {
-    return EditorLocalize.lookup(ctx.language, `${panel.titleKey}.helper`);
+    return EditorLocalize.lookupForView(
+      ctx.language,
+      panel.titleKey,
+      ctx.workspace ?? ctx.view,
+      '.helper',
+    );
   }
 
   /**

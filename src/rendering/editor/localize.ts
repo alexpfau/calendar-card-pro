@@ -36,6 +36,40 @@ export function lookup(language: string, key: string): string | undefined {
 }
 
 /**
+ * Resolves one string key, preferring a variant written for the workspace being configured.
+ *
+ * The order matters more than it looks. A view-qualified key is a refinement of a shared
+ * one, and refinements are written in English first — so resolving it through `lookup`
+ * alone would hand a German reader the English refinement in place of the German shared
+ * word they already had. Every translated source is therefore consulted before any
+ * English source is: a language that translates the shared key and not the qualified one
+ * keeps its own word, and only a language with neither sees English.
+ *
+ * @param language - Effective language code
+ * @param key - Shared string key
+ * @param view - Workspace being configured
+ * @param suffix - Dotted tail applied after the view segment, such as `.helper`
+ * @returns The resolved string, or `undefined` when no source defines either key
+ */
+export function lookupForView(
+  language: string,
+  key: string,
+  view: string,
+  suffix = '',
+): string | undefined {
+  const qualified = `${key}.${view}${suffix}`;
+  const shared = `${key}${suffix}`;
+  const translated = EDITOR_LANGUAGE_STRINGS[language.toLowerCase()];
+
+  return (
+    translated?.[qualified] ??
+    translated?.[shared] ??
+    EDITOR_STRINGS[qualified] ??
+    EDITOR_STRINGS[shared]
+  );
+}
+
+/**
  * Builds the qualified key for a schema node inside a group.
  *
  * @param name - Node name

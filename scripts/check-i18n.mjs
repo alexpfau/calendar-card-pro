@@ -211,6 +211,14 @@ async function readEditorSchemaKeys() {
     roots.add(panel.titleKey);
     titles.add(panel.titleKey);
     helpers.add(panel.titleKey);
+    // `_panelTitle` and `_panelHelper` resolve `<titleKey>.<view>` before the shared key,
+    // so a panel whose contents differ enough by view can retitle itself there. The title
+    // needs no registration — it is reachable under the shared root — but the helper does,
+    // or a legitimate per-view helper reads as a string nothing can look up. Registered
+    // as permitted rather than required: adding these to `titles` would demand 27 headings
+    // that should not exist. Reconciled against VIEWS rather than listed, so the day a
+    // fourth view lands its qualified keys are covered without an edit here.
+    for (const view of VIEWS) helpers.add(`${panel.titleKey}.${view}`);
     for (const prefix of panel.strings ?? []) roots.add(prefix);
   }
 

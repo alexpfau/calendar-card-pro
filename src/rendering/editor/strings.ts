@@ -679,6 +679,12 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // --- Separators -----------------------------------------------------------
   'panel.separators': 'Separators',
   'panel.separators.helper': 'The rules the card draws between days, weeks and months.',
+  // Grid alone gathers horizontal rules — the hour lines and the band edge — beside the
+  // vertical day, week and month ones, so "Separators" describes only half of what the
+  // panel holds there. The field labels in it already say "Rule".
+  'panel.separators.grid': 'Rules',
+  'panel.separators.grid.helper':
+    'Every rule the grid draws, both between the days and across all of them.',
   day_separator_width: 'Day Rule Width',
   day_separator_color: 'Day Rule Color',
   week_separator_width: 'Week Rule Width',

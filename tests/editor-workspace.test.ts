@@ -5,9 +5,11 @@ import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
-import { walkSchema } from '../src/rendering/editor/panels';
+import { lookupForView } from '../src/rendering/editor/localize';
+import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { chassisSubforms } from '../src/rendering/editor/subforms';
+import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations/index';
 import {
   type EditorWorkspace,
   WORKSPACES,
@@ -432,5 +434,88 @@ describe('the editor names each view once', () => {
         );
       }
     }
+  });
+});
+
+/**
+ * A panel may retitle itself for the workspace being configured.
+ *
+ * Separators is the case that forced it. In list and column every option in that panel
+ * draws a rule *between* days, and "Separators" describes it exactly. In grid the panel
+ * also holds the hour lines and the band edge, which run *across* the days, so the shared
+ * title names half of what is in the box. The field labels there already read "Day Rule
+ * Width", so "Rules" is the word the panel was using anyway.
+ *
+ * The resolution order is the part worth pinning. A view-qualified key is a refinement,
+ * and refinements are written in English first, so resolving one through the ordinary
+ * language-then-English chain would hand a German reader "Rules" in place of the
+ * "Trennlinien" they already had — a translated string replaced by an English one, which
+ * is a regression dressed as an improvement.
+ */
+describe('a panel retitles itself for the workspace it configures', () => {
+  /**
+   * Pinned by value across every view rather than asserted for grid alone. Dropping the
+   * grid entry fails, and so does a fourth view arriving without a decision about it —
+   * which is the point, since silence would give it the list title by default.
+   */
+  it('titles the rules panel per view', () => {
+    const titles = Object.fromEntries(
+      VIEWS.map((view) => [view, lookupForView('en', 'panel.separators', view)]),
+    );
+
+    expect(titles).toEqual({ list: 'Separators', column: 'Separators', grid: 'Rules' });
+  });
+
+  /**
+   * Reconciled across every translated language, panel and view rather than spot-checked,
+   * and it reports its own denominator: `guarded` counts the cases where an English
+   * refinement exists and the language does not have it, which is precisely the class that
+   * would drop to English if the order were wrong. A zero there would mean the loop proved
+   * nothing, so it is asserted rather than assumed.
+   */
+  it('never replaces a translated title with an English refinement', () => {
+    let guarded = 0;
+
+    for (const [language, table] of Object.entries(EDITOR_LANGUAGE_STRINGS)) {
+      for (const panel of PANELS) {
+        for (const view of VIEWS) {
+          const shared = table[panel.titleKey];
+          const qualified = `${panel.titleKey}.${view}`;
+          if (shared === undefined || table[qualified] !== undefined) continue;
+          if (EDITOR_STRINGS[qualified] !== undefined) guarded += 1;
+
+          expect(
+            lookupForView(language, panel.titleKey, view),
+            `${language} lost its own ${panel.titleKey} in ${view}`,
+          ).toBe(shared);
+        }
+      }
+    }
+
+    expect(guarded, 'no language could have dropped to an English refinement').toBeGreaterThan(0);
+  });
+
+  /**
+   * The two tests above check the resolver. This one checks that the element asks it —
+   * a correct resolver nothing calls is the failure they cannot see between them.
+   *
+   * The panel is located by an option it contains rather than by index, so reordering the
+   * nine sections cannot silently retarget the assertion.
+   */
+  it('renders the retitled panel', async () => {
+    const editor = await mount();
+    const header = (): { header: string; secondary: string } =>
+      owner(editor, 'day_separator_width').closest('ha-expansion-panel') as unknown as {
+        header: string;
+        secondary: string;
+      };
+
+    expect(header().header).toBe('Separators');
+    expect(header().secondary).toBe(EDITOR_STRINGS['panel.separators.helper']);
+
+    await choose(editor, 'grid');
+
+    expect(header().header).toBe('Rules');
+    expect(header().secondary).toBe(EDITOR_STRINGS['panel.separators.grid.helper']);
   });
 });
