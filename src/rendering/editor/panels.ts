@@ -19,10 +19,33 @@ import * as Types from '../../config/types';
 
 /**
  * Everything a schema builder is allowed to read.
+ *
+ * 🚨 `view` and `workspace` carry the same value in the live editor and are still two
+ * fields. `_ctx` in `element.ts` sets `const view = workspace`, so every call site's
+ * `ctx.workspace ?? ctx.view` resolves to the workspace there whichever half it reads —
+ * which makes the pair look like a redundancy to delete, and it is not.
+ *
+ * `view` is what the card renders and is the only thing a builder can rely on, because it
+ * is the only one that is required. `check:i18n` builds every schema from
+ * `{ view, config, language }` and names no workspace at all, and most of the suite does
+ * the same — collapsing to `workspace` would make the gate pass a concept it does not
+ * have.
+ *
+ * `workspace` is what the editor is being *pointed at*, and it is optional because only
+ * the live editor knows it. The two were genuinely different before the workspace
+ * selector: the editor configured whatever the card displayed, so a user could not reach
+ * a grid option without switching the card to grid. They are equal today because the
+ * selector made pointing the editor the only way to change which view you configure.
+ *
+ * So read `ctx.workspace ?? ctx.view` when you want the view whose values are being
+ * edited — the storage destination, `withholdInertFields`, `valueSource` — and read
+ * `ctx.view` when you want the view a builder must work for regardless of caller. Do not
+ * merge them on the evidence that they are equal; that equality is one assignment in one
+ * getter, and the fallback is what lets everything else stay unaware of it.
  */
 export interface SchemaCtx {
   view: Types.EffectiveView;
-  /** Editor workspace, independent of the card's displayed view. */
+  /** Editor workspace, independent of the card's displayed view. See the note above. */
   workspace?: EditorWorkspace;
   config: Types.Config;
   /** Authored values before workspace projection, when supplied by the live editor. */
