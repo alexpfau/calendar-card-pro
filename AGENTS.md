@@ -1745,6 +1745,38 @@ different artefacts.
   defect in the reporter's own terms, which separates _fixed_ from _still broken_ without a
   probe. Where it does not, the regression test usually carries the reporter's scenario in its
   name.
+- **Two derivations agreeing is worth nothing unless the _mechanisms_ differ.** The row-3
+  falsifier says to have someone derive it a second way, and the bullet above closes on passes
+  that agreed because they shared a brief. Sharing runs deeper than sharing an input, and three
+  agreements collapsed in one day, each on a different shared component. Two regexes over one
+  file are **one parser**: a config-key count was reconciled at 102 twice because both patterns
+  spelled the class `[a-z_]+`, and `time_24h` is the only digit-bearing key in `Config`, so the
+  under-count was stably exactly one and never looked noisy. Two copies of a document compared
+  with `cmp` are **one instant**: a durable artifact and its off-session backstop reported
+  identical twice while the writer was still editing, so the reader was verifying a moving
+  target. A reachability trace and a harmlessness verdict are **one call site**: the trace
+  reached `widthFallbackDefaults` through the single field absent from `COLUMN_DEFAULTS`, and
+  the verdict then generalized from that field to the two that are present, which turn out to
+  be immune for unrelated local reasons instead. All three _raised_ confidence rather than
+  lowering it. **A runtime enumeration and a source parse are two mechanisms; two greps are
+  one.** Name the pair that carried the result, and prefer one that cannot share a parser, a
+  clock or a caller. The same failure has a social form — **a relayed claim acquires
+  corroboration it never earned**, because a claim passed on unchanged reaches the decider in
+  two voices when there was only ever one observation, and nothing in the second voice says it
+  is an echo. Relay the provenance with the claim, _"the other pass states X; I have not tested
+  it"_: one clause, and one source stays distinguishable from two. None of this is a mechanical
+  gate — nothing can detect from outside that two derivations share a parser — which is why it
+  sits with the prose conventions rather than with the reconciliations.
+- **Before asking whether the probe could be wrong, ask whether there is a probe.** The table
+  above is entirely about probes that exist, and the cheapest claim to get wrong is the one
+  nobody thought needed measuring. A pass asserted that widening an editor workspace type to
+  admit a fourth value would compile clean while `ReadonlySet.has()` silently returned `false`
+  for every scoped key — a landmine, reasoned carefully, relayed onward, and never typed into a
+  terminal. One command inverted it: the control exited 0 and silent, the widened alias produced
+  **11 errors**, and the two lines named with the most confidence were two of them, because
+  `.has()` rejects the widened union at the call rather than answering `false`. A claim cheap
+  enough to test and obvious enough not to bother is the one that enters the record as reasoning
+  and gets cited as fact.
 - **Verifying the checkable half of a claim does not verify the claim.** A report that pairs
   code facts with a behavioural result invites you to check the facts, find them exact, and
   carry the result across on that credit. A sibling pass's control-design example cited two
