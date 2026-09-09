@@ -67,7 +67,7 @@ empty_day_color: '#607d8b'
 
 ### Switching an Existing Card to Grid
 
-Changing **Card Displays** from List or Column to Time Grid keeps values you explicitly
+Changing **Card Displays** from List or Column to Grid keeps values you explicitly
 set at the top level, including a value equal to the List default. For options where
 Grid has a different default, the editor copies your value into `time_grid:` rather
 than replacing it. Options you did not set use Grid's defaults without writing those

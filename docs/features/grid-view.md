@@ -12,7 +12,7 @@ days_to_show: 3
 ```
 
 In the [visual editor](/features/editor) the layout is the first control in the **Layout**
-panel. Choosing **Time Grid** reveals a **Time Axis** group below it, holding every option on this page.
+panel. Choosing **Grid** reveals a **Time Axis** group below it, holding every option on this page.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
@@ -232,7 +232,7 @@ every rule made a heavier day boundary mean twenty-four heavier hour lines.
 The date row and the week numbers above it stay clear of all four families — they label the
 grid rather than belonging to it. The weekend tint is independent of all of them.
 
-When you choose **Time Grid** in the visual editor, it adds the grid defaults that differ
+When you choose **Grid** in the visual editor, it adds the grid defaults that differ
 from the shared card defaults into `time_grid:` for you. That makes the default day rule,
 event background opacity, finished-event visibility and empty-day behavior visible in their
 panels, where you can change them without changing the list or column layouts.

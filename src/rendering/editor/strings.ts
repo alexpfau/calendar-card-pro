@@ -30,7 +30,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'view.option.list.description': 'Days stacked, one per row',
   'view.option.column.label': 'Columns',
   'view.option.column.description': 'Days side by side',
-  'view.option.grid.label': 'Time Grid',
+  'view.option.grid.label': 'Grid',
   'view.option.grid.description': 'Days side by side on an hour axis',
   'view.helper':
     'The card’s starting layout. Side-by-side layouts can fall back to List when space is tight.',
@@ -515,7 +515,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'accent_event_text.helper':
     'Draws each event\u2019s title, time, location, description and progress bar in the ' +
     'color of the calendar it came from, rather than in one color for the whole card. ' +
-    'Time Grid does this by default. Each of those five options also takes the value ' +
+    'Grid does this by default. Each of those five options also takes the value ' +
     'accent on its own, so one field can follow the calendar while the rest do not \u2014 ' +
     'and switching this off returns all five to their standard colors rather than to ' +
     'anything set before.',
