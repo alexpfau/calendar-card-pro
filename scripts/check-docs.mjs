@@ -165,6 +165,12 @@ function buildConstantResolver() {
 const COVERAGE_EXCLUDES = ['development/', 'architecture.md', 'RELEASE_NOTES.md'];
 
 /**
+ * The prose files at the repository root, which `listDocs` cannot reach because it walks
+ * `docs/` only. Check 12 reads these as well; see its docblock for why.
+ */
+const ROOT_PROSE = ['AGENTS.md', 'README.md', 'CONTRIBUTING.md'].map((name) => join(ROOT, name));
+
+/**
  * RELEASE_NOTES.md is exempt from the example convention as well, for the opposite
  * reason: it is a record of what shipped. Editing a two-year-old release note to satisfy
  * a convention introduced later would falsify it.
@@ -1071,7 +1077,23 @@ function checkPageIntros(docs) {
 // Checks 12-15 — spelling, option tables, bidirectional cross-links
 // ---------------------------------------------------------------------------
 
-/** Check 12: US spelling around US-spelled config options. */
+/**
+ * Check 12: US spelling around US-spelled config options.
+ *
+ * The corpus is `docs/` **plus the three prose files at the repository root**, which sat
+ * outside every style check until they were added here. `AGENTS.md` had accumulated 19
+ * lines of British spelling and `README.md` one, none of it visible to a gate, while
+ * `AGENTS.md` itself told contributors to use US spelling — the file stating the rule was
+ * the file breaking it. The root three are the only `.md` outside `docs/` that a human
+ * reads as prose; everything else at that level is a config or a template.
+ *
+ * The word list is the one that has actually appeared here, not a general British
+ * lexicon. Adding a term is cheap and adding a wrong one is not: each entry is matched
+ * case-insensitively as a substring, so a term that is also a legitimate identifier,
+ * CSS keyword or API value would fail the gate on correct text. `cancelled` is the live
+ * example of that hazard — it is the RFC 5545 `STATUS` value, so it is safe here only
+ * because this card never reads that property. Check before extending.
+ */
 const BRITISH = [
   ['colour', 'color'],
   ['customis', 'customiz'],
@@ -1083,6 +1105,13 @@ const BRITISH = [
   ['analyse', 'analyze'],
   ['cancelled', 'canceled'],
   ['travelling', 'traveling'],
+  ['artefact', 'artifact'],
+  ['normalis', 'normaliz'],
+  ['generalis', 'generaliz'],
+  ['defence', 'defense'],
+  ['catalogue', 'catalog'],
+  ['licence', 'license'],
+  ['modelling', 'modeling'],
 ];
 
 function checkSpelling(docs) {
@@ -2980,7 +3009,7 @@ function main() {
   checkAdmonitions(docs);
   checkHeadingStyle(docs);
   checkPageIntros(docs);
-  checkSpelling(docs);
+  checkSpelling([...docs, ...ROOT_PROSE]);
   checkOptionTables(docs);
   checkOptionNoun(docs);
   checkCrossLinks(docs);
