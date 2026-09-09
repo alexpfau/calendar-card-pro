@@ -257,3 +257,77 @@ describe('The card and the per-calendar subform caption the same switches alike'
     expect(subform).toEqual(['show_time', 'show_location', 'show_description']);
   });
 });
+
+/**
+ * Two fields in a row carrying the same label.
+ *
+ * `row()` is an `ha-form` grid, so a pair reads side by side on a desktop and **stacks**
+ * on a phone — where two identical labels one above the other leave no way to tell which
+ * control is which. That is the 390px-only class of defect, invisible to a wide capture.
+ *
+ * Pinned by value rather than asserted empty, because the one live instance is an open
+ * product decision rather than an oversight, and a test that merely tolerated it would
+ * let a *second* one arrive unnoticed. When the pair below is resolved, delete its entry
+ * and this fails until the list matches again.
+ */
+describe('No two adjacent fields share a label', () => {
+  function adjacentDuplicates(view: Types.EffectiveView): string[] {
+    const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
+    const ctx: SchemaCtx = { config, view, language: 'en' };
+    const found: string[] = [];
+
+    for (const panel of PANELS) {
+      const surfaces: Array<[string, ReadonlyArray<HaFormSchema>]> = [[panel.id, panel.build(ctx)]];
+      for (const subform of panel.subforms?.(ctx) ?? []) {
+        surfaces.push([`${panel.id}/subform`, subform.schema]);
+      }
+
+      for (const [where, schema] of surfaces) {
+        // Collapsibles are skipped rather than recursed into: a label repeated across a
+        // disclosure boundary is not adjacent to anything, and folding it in here would
+        // report pairs no reader can see at once.
+        const labels: Array<{ label: string; name: string }> = [];
+        const walk = (nodes: ReadonlyArray<HaFormSchema>): void => {
+          for (const node of nodes) {
+            if ('type' in node && node.type === 'expandable') continue;
+            if ('schema' in node) walk(node.schema);
+            else if ('selector' in node) {
+              labels.push({
+                label: EditorLocalize.computeLabel('en', node, []),
+                name: String(node.name),
+              });
+            }
+          }
+        };
+        walk(schema);
+
+        for (let i = 1; i < labels.length; i++) {
+          if (labels[i].label !== '' && labels[i].label === labels[i - 1].label) {
+            found.push(
+              `${where}: "${labels[i].label}" = ${labels[i - 1].name} + ${labels[i].name}`,
+            );
+          }
+        }
+      }
+    }
+
+    return [...new Set(found)].sort();
+  }
+
+  // The accent mode and the colour it governs are both `Accent Color`, on the card and
+  // again on the per-calendar subform, in English and in all ten translations — which is
+  // why no English-only rename fixes it. Reusing the already-translated
+  // `accent_color_mode.option.custom.label` looks free and is not: the dropdown's own
+  // *value* is that string, so the swatch below would read `Custom color / Custom color`.
+  // A real fix needs a new string translated nine times. Alex's call.
+  const KNOWN = [
+    'calendars/subform: "Accent Color" = accent_color_mode + accent_color',
+    'events: "Accent Color" = accent_color_mode + accent_color',
+  ];
+
+  for (const view of ['list', 'column', 'grid'] as Types.EffectiveView[]) {
+    it(`has only the known pair in the ${view} workspace`, () => {
+      expect(adjacentDuplicates(view)).toEqual(KNOWN);
+    });
+  }
+});
