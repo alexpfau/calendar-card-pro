@@ -29,9 +29,8 @@ import {
 } from '../src/rendering/accent-text';
 import * as Column from '../src/rendering/column';
 import { walkSchema } from '../src/rendering/editor/panels';
+import * as Routing from '../src/rendering/editor/routing';
 import { buildEventsSchema } from '../src/rendering/editor/schemas/events';
-import * as Synthetic from '../src/rendering/editor/synthetic';
-import { applyFormChange } from '../src/rendering/editor/value';
 import * as Grid from '../src/rendering/grid';
 import * as Render from '../src/rendering/render';
 import { cardStyles, generateCustomPropertiesObject } from '../src/rendering/styles';
@@ -583,15 +582,21 @@ describe('the editor toggle', () => {
   const governed = ACCENT_TEXT_OPTIONS.map(([key]) => key);
 
   function form(config: Types.Config): boolean {
-    return Synthetic.deriveSyntheticData(config).accent_event_text as boolean;
+    return Routing.workspaceFormData(config, config.view).accent_event_text as boolean;
   }
 
   function toggle(config: Types.Config, value: boolean): Types.Config {
-    const before = { ...config, ...Synthetic.deriveSyntheticData(config) } as Record<
-      string,
-      unknown
-    >;
-    return applyFormChange(config, before, { ...before, accent_event_text: value }, {}).config;
+    const before = Routing.workspaceFormData(config, config.view);
+    return Routing.applyWorkspaceChange(
+      config,
+      {
+        workspace: config.view,
+        schema: [{ name: 'accent_event_text', selector: { boolean: {} } }],
+        data: before,
+      },
+      { ...before, accent_event_text: value },
+      {},
+    ).config;
   }
 
   it('reads on for a default grid card and off for a default list card', () => {
@@ -656,11 +661,11 @@ describe('the editor toggle', () => {
     expect(form(toggle(off, true))).toBe(true);
   });
 
-  it('leaves a column card at the card level, having no divergent default to beat', () => {
+  it('writes Column colors into Column without recoloring List', () => {
     const on = toggle(buildConfig({ view: 'column' }), true);
 
-    expect(on.column).toBeUndefined();
-    expect(on.event_color).toBe(ACCENT_TEXT_SENTINEL);
+    expect(on.column?.event_color).toBe(ACCENT_TEXT_SENTINEL);
+    expect(on.event_color).toBe(DEFAULT_CONFIG.event_color);
     expect(form(on)).toBe(true);
   });
 
@@ -675,13 +680,19 @@ describe('the editor toggle', () => {
 });
 
 describe('where the toggle sits', () => {
-  it('is the first control in the Event Content panel', () => {
-    // Placement is a claim, not an accident: the panel is ordered coarse to fine by scope,
-    // and this is the only control that changes what five of the others mean. A reader who
-    // meets it *after* picking a color has already picked one that is being overridden —
-    // so it has to precede every field it governs, and `event_color` is the first of them.
-    // Every governed field is behind its own `show_*` gate, so all four are opened here:
-    // a panel that renders only three of them cannot state where the fifth sits.
+  it('leads the Accent run and precedes every color it governs', () => {
+    // Placement is a claim, not an accident: this is the only control that changes what
+    // five of the others mean, so a reader who meets it *after* picking a color has
+    // already picked one that is being overridden. Every governed field is behind its own
+    // `show_*` gate, so all four are opened here: a panel that renders only three of them
+    // cannot state where the fifth sits.
+    //
+    // This used to assert the switch was the panel's first control, which it no longer is
+    // — the five content switches now open the panel, above everything that styles what
+    // they turn on. That earlier form was always the weaker claim: being first in the
+    // panel is a fact about what happens to sit above it, whereas leading its own run and
+    // preceding every field it governs is the property the placement exists for. Both
+    // halves are asserted, so moving the run does not silently retire either.
     const schema = buildEventsSchema({
       config: buildConfig({
         show_time: true,
@@ -694,12 +705,19 @@ describe('where the toggle sits', () => {
     });
 
     expect(schema.length, 'panel rendered nothing').toBeGreaterThan(5);
-    expect((schema[0] as { name?: string }).name).toBe('accent_event_text');
 
-    const names = [...walkSchema(schema)].map(({ node }) => node.name);
+    const names = schema.map((node) => (node as { name?: string }).name);
+    const accentHeading = names.indexOf('heading_accent');
+
+    expect(accentHeading, 'the Accent heading is gone').toBeGreaterThan(-1);
+    expect(names[accentHeading + 1], 'something got between the heading and the switch').toBe(
+      'accent_event_text',
+    );
+
+    const walked = [...walkSchema(schema)].map(({ node }) => node.name);
     for (const [key] of ACCENT_TEXT_OPTIONS) {
-      expect(names.indexOf('accent_event_text'), `${key} must come after the toggle`).toBeLessThan(
-        names.indexOf(key),
+      expect(walked.indexOf('accent_event_text'), `${key} must come after the toggle`).toBeLessThan(
+        walked.indexOf(key),
       );
     }
   });

@@ -22,16 +22,18 @@ src/
 ├── rendering/                    # UI rendering code
 │   ├── editor/                   # Schema-driven configuration editor (its own bundle)
 │   │   ├── index.ts              # Build entry and public surface of the editor
-│   │   ├── element.ts            # The Lit element: lifecycle, panels, one handler
+│   │   ├── element.ts            # The Lit element: lifecycle, forms, editor state
 │   │   ├── panels.ts             # Panel registry and schema context
 │   │   ├── schemas/              # One module per panel, plus their shared vocabulary
 │   │   ├── ha-form.ts            # Our declaration of Home Assistant's schema shape
-│   │   ├── value.ts              # Write path: default-stripping and pruning
+│   │   ├── value.ts              # Default stripping and authored-value reconciliation
 │   │   ├── entities.ts           # Write path for the per-calendar list
-│   │   ├── exceptions.ts         # Per-view exceptions, derived from each panel's schema
-│   │   ├── overrides.ts          # Exceptions for the three union-typed options
+│   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
 │   │   ├── subforms.ts           # The schemas a panel renders outside its own form
 │   │   ├── filter.ts             # Search and "customized only"
+│   │   ├── workspace.ts          # Editor-only List/Column/Grid selection
+│   │   ├── routing.ts            # Workspace projections and scope-captured writes
+│   │   ├── normalize.ts          # Comparable root and nested form values
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
 │   │   ├── localize.ts           # The string hooks `ha-form` calls
 │   │   ├── strings.ts            # English editor strings
@@ -79,8 +81,9 @@ containers that arrange those shared pieces along different axes.
 
 Both layouts are live for the same card. A card configured for columns falls back to the
 list when it is too narrow to give every day `column.min_day_width`, so the view is
-resolved per render from the measured width rather than fixed by the configuration —
-which is why options are annotated as list-only rather than hidden. `config/view.ts` owns
+resolved per render from the measured width rather than fixed by the configuration.
+The editor workspace is separate: choosing List exposes its controls without changing
+the card's displayed view. `config/view.ts` owns
 that resolution, along with the `column:` override block whose values apply only when the
 card renders as columns.
 
@@ -200,6 +203,12 @@ containers; everything they place comes from `leaves.ts` and `presentation.ts`:
   - Everything except `element.ts` and `styles.ts` is free of Lit and of the DOM, which
     is what lets both the test suite and `check:i18n` import a schema and read it
   - Built as a separate bundle and fetched on demand (see _Two Files, One Card_)
+  - Keeps the displayed `view` separate from the editor-local workspace. Workspace
+    changes select schemas without writing configuration; edits use the workspace captured
+    by the emitting form and compare normalized values before choosing a storage scope
+  - Captures authored root keys before merging defaults and keeps that information in
+    editor-local state. A transition to Grid copies only authored choices, never implicit
+    view defaults; Reset removes selected overrides without a separate exception picker
 
 ### Translations (`translations/`)
 

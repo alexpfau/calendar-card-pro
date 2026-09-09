@@ -14,14 +14,42 @@ import { EVENTS_ICON, buildEventsSchema } from './schemas/events';
 import { buildLayoutSchema, layoutExtras } from './schemas/layout';
 import { SEPARATORS_ICON, buildSeparatorsSchema } from './schemas/separators';
 import { WEATHER_ICON, buildWeatherSchema } from './schemas/weather';
+import type { EditorWorkspace } from './workspace';
 import * as Types from '../../config/types';
 
 /**
  * Everything a schema builder is allowed to read.
+ *
+ * 🚨 `view` and `workspace` carry the same value in the live editor and are still two
+ * fields. `_ctx` in `element.ts` sets `const view = workspace`, so every call site's
+ * `ctx.workspace ?? ctx.view` resolves to the workspace there whichever half it reads —
+ * which makes the pair look like a redundancy to delete, and it is not.
+ *
+ * `view` is what the card renders and is the only thing a builder can rely on, because it
+ * is the only one that is required. `check:i18n` builds every schema from
+ * `{ view, config, language }` and names no workspace at all, and most of the suite does
+ * the same — collapsing to `workspace` would make the gate pass a concept it does not
+ * have.
+ *
+ * `workspace` is what the editor is being *pointed at*, and it is optional because only
+ * the live editor knows it. The two were genuinely different before the workspace
+ * selector: the editor configured whatever the card displayed, so a user could not reach
+ * a grid option without switching the card to grid. They are equal today because the
+ * selector made pointing the editor the only way to change which view you configure.
+ *
+ * So read `ctx.workspace ?? ctx.view` when you want the view whose values are being
+ * edited — the storage destination, `withholdInertFields`, `valueSource` — and read
+ * `ctx.view` when you want the view a builder must work for regardless of caller. Do not
+ * merge them on the evidence that they are equal; that equality is one assignment in one
+ * getter, and the fallback is what lets everything else stay unaware of it.
  */
 export interface SchemaCtx {
   view: Types.EffectiveView;
+  /** Editor workspace, independent of the card's displayed view. See the note above. */
+  workspace?: EditorWorkspace;
   config: Types.Config;
+  /** Authored values before workspace projection, when supplied by the live editor. */
+  rawConfig?: Types.Config;
   language: string;
 }
 
@@ -145,19 +173,37 @@ export const PANELS: ReadonlyArray<PanelDef> = [
 /**
  * Walks every node of a schema, groups included.
  *
+ * Yields both paths, because they diverge and each answers a different question. Home
+ * Assistant qualifies a label only under an expandable, while it nests *data* under any
+ * named node that is not flattened — so a named `grid` moves a field's storage without
+ * moving its label. Anything asking "where is this written in YAML" wants `dataPath`;
+ * anything asking "what key does this label itself from" wants `path`. Deriving one from
+ * the other is what the two rules below exist to prevent.
+ *
  * @param schema - Schema to walk
- * @param path - Enclosing expandable group names, outermost first
+ * @param path - Enclosing label group names, outermost first
+ * @param dataPath - Enclosing configuration keys, outermost first
  */
 export function* walkSchema(
   schema: ReadonlyArray<HaFormSchema>,
   path: ReadonlyArray<string> = [],
-): Generator<{ node: HaFormSchema; path: ReadonlyArray<string> }> {
+  dataPath: ReadonlyArray<string> = path,
+): Generator<{
+  node: HaFormSchema;
+  path: ReadonlyArray<string>;
+  dataPath: ReadonlyArray<string>;
+}> {
   for (const node of schema) {
-    yield { node, path };
+    yield { node, path, dataPath };
 
     if ('schema' in node) {
       const nestsLabels = node.type === 'expandable' && node.name !== '';
-      yield* walkSchema(node.schema, nestsLabels ? [...path, node.name] : path);
+      const nestsData = node.name !== '' && node.flatten !== true;
+      yield* walkSchema(
+        node.schema,
+        nestsLabels ? [...path, node.name] : path,
+        nestsData ? [...dataPath, node.name] : dataPath,
+      );
     }
   }
 }

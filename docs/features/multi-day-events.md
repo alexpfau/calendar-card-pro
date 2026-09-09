@@ -47,6 +47,13 @@ column:
   split_multiday_events: false
 ```
 
-The per-calendar form of this option is read in list view only, for the same reason — see
-[Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view).
+The per-calendar form of this option works in the column layout too, so a single calendar
+can keep its events whole while the rest of the card splits:
+
+```yaml
+entities:
+  - entity: calendar.anna
+    split_multiday_events: false
+```
+
 :::

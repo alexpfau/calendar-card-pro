@@ -26,7 +26,7 @@
   "day_color": "Day Number Colour",
   "month_color": "Month Colour",
   "accent_event_text": "Use Calendar Colours For Event Text",
-  "accent_event_text.helper": "Draws each event’s title, time, location, description and progress bar in the colour of the calendar it came from, rather than in one colour for the whole card. Time Grid does this by default. Each of those five options also takes the value accent on its own, so one field can follow the calendar while the rest do not — and switching this off returns all five to their standard colours rather than to anything set before.",
+  "accent_event_text.helper": "Draws each event’s title, time, location, description and progress bar in the colour of the calendar it came from, rather than in one colour for the whole card. Grid does this by default. Each of those five options also takes the value accent on its own, so one field can follow the calendar while the rest do not — and switching this off returns all five to their standard colours rather than to anything set before.",
   "weekend_colors": "Weekend Colours",
   "weekend_weekday_color": "Weekend Weekday Colour",
   "weekend_day_color": "Weekend Day Number Colour",

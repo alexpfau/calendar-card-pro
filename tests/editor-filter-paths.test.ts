@@ -80,7 +80,14 @@ describe('editor search resolves configuration paths as well as label paths', ()
   });
 
   it('still finds a field nested under an expandable by its qualified path', () => {
-    expect(searchIn('events', 'location.show_location', buildConfig())).toContain('show_location');
+    // `location.show_location` was the case here until the five content switches moved out
+    // of their groups and into the panel's opening run — `show_location` is no longer
+    // nested under anything, so the query proved nothing about qualified paths. The group
+    // still exists once locations are on, and everything left in it is genuinely nested,
+    // so the subject is unchanged and the config now says out loud what it depends on.
+    expect(
+      searchIn('events', 'location.location_font_size', buildConfig({ show_location: true })),
+    ).toContain('location_font_size');
   });
 
   it('still finds a field by its bare name', () => {

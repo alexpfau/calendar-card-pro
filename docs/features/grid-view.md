@@ -12,7 +12,7 @@ days_to_show: 3
 ```
 
 In the [visual editor](/features/editor) the layout is the first control in the **Layout**
-panel. Choosing **Time Grid** reveals a **Time Axis** group below it, holding every option on this page.
+panel. Choosing **Grid** reveals a **Time Axis** group below it, holding every option on this page.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
@@ -232,7 +232,7 @@ every rule made a heavier day boundary mean twenty-four heavier hour lines.
 The date row and the week numbers above it stay clear of all four families — they label the
 grid rather than belonging to it. The weekend tint is independent of all of them.
 
-When you choose **Time Grid** in the visual editor, it adds the grid defaults that differ
+When you choose **Grid** in the visual editor, it adds the grid defaults that differ
 from the shared card defaults into `time_grid:` for you. That makes the default day rule,
 event background opacity, finished-event visibility and empty-day behavior visible in their
 panels, where you can change them without changing the list or column layouts.
@@ -424,7 +424,9 @@ time_grid:
   title_max_lines: 2
 ```
 
-Anything the block does not mention keeps its top-level value.
+Anything the block does not mention keeps its top-level value, except for the thirteen
+options listed below. In the visual editor, choose the Grid workspace to edit these
+values directly without changing Card Displays.
 
 ## 🔀 Options That Start From a Different Default
 
@@ -446,6 +448,25 @@ column is what grid view uses; **Instead of** is the top-level default it replac
 | `description_color`        | string  | `accent`                             | `--secondary-text-color`      |
 | `progress_bar_color`       | string  | `accent`                             | `--secondary-text-color`      |
 | `progress_bar_width`       | string  | `100%`                               | _per placement_               |
+
+These defaults take precedence even when you explicitly set a different top-level value.
+For example, `event_background_opacity: 5` at the top level does not change Grid's tint,
+and top-level `show_past_events: false` does not hide finished events in Grid. Set the
+Grid values in the block:
+
+```yaml
+view: grid
+event_background_opacity: 5
+show_past_events: false
+time_grid:
+  event_background_opacity: 5
+  show_past_events: false
+```
+
+This YAML precedence is intentional. The visual editor separately
+[preserves authored values when you switch an existing card to Grid](/features/editor#switching-an-existing-card-to-grid),
+and announces any conflicts it reconciles. A YAML-only edit has no such notice.
+Opening an already-Grid card does not rewrite its configuration.
 
 A block on a time axis is read by its **area** — an untinted one is an outline you have to
 reconstruct — so grid view fills blocks by default. And a day with nothing in it is still
@@ -497,10 +518,21 @@ event spanning several days is drawn as one banner across them, and timed events
 by the grid renderer into one timed block for each day they touch. The list splitter is not
 used, because it would turn the middle day of a timed event into an all-day banner.
 
+`empty_day_text` and `empty_day_color` also have no effect: grid discards the placeholder
+rows those options describe. `show_empty_days` still controls whether empty day columns
+are included.
+
 The compact options — `compact_events_to_show`, `compact_days_to_show` and
 `compact_events_complete_days` — are list-only and do nothing while the card is rendering
 as a grid, as they do nothing while it is rendering as columns. They apply again if
 `min_days_fallback: list` drops the card to the list layout.
+
+The visual editor omits these controls in the Grid editing workspace, including the per-calendar
+compact limit and multi-day splitting. It also omits `date_vertical_alignment` and
+`today_indicator_position`, which describe the list layout's date cell. Stored values are
+preserved for other layouts. Choose List under Editing Settings For to edit list-only
+options without changing Card Displays; see
+[Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 The detail-row options also do nothing on all-day banners: `show_time`,
 `show_single_allday_time`, `show_multiday_allday_time`, `allday_badge`,

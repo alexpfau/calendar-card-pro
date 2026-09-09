@@ -151,6 +151,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 ### Latest Release: v5.0
 
 - 🗓️ **Grid View**: Set [`view: grid`](https://calendar-card-pro.alexpfau.com/features/grid-view) and days become columns against a shared hour axis, each event drawn at its real start time and sized by how long it runs — the week view a calendar app gives you, in a Lovelace card. Overlapping events sit side by side, and when more overlap than will fit the rest collapse into a counted `+N` block
+- 🎛️ **Edit the Layout You Mean**: Choose a List, Column, or Grid [editor workspace](https://calendar-card-pro.alexpfau.com/features/editor) independently of the card's displayed layout. Controls show the values that layout uses, with direct overrides and Reset buttons; untouched Grid defaults stay out of YAML
 - 🕒 **A Line Across Today**: [`show_now_line`](https://calendar-card-pro.alexpfau.com/features/grid-view) marks the current time on today's column only, and only while it falls inside the hours you draw
 - 🏷️ **An All-Day Band**: all-day and multi-day events get their own rows above the axis, spanning the days they cover, so they never compete with the hour grid for space
 - ⚙️ **An Axis You Set**: `start_time`, `end_time`, `hour_height`, `slot_minutes` and `axis_width` decide which hours are drawn and how they are ruled, and the grid sheds columns or falls back to the list when it runs out of width

@@ -1,6 +1,6 @@
 # Visual Configuration Editor
 
-Calendar Card Pro includes a comprehensive visual editor that makes configuration intuitive and accessible—no YAML required!
+Configure the card with Home Assistant's visual editor and see a live preview as you edit.
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor.png" alt="Visual Configuration Editor" width="600"><br>
 
@@ -10,21 +10,128 @@ To open it, click the three dots (⋮) in the top-right corner of the card and s
 
 The editor is organized into nine panels, each named for what it configures rather than for where the option happens to live in YAML. They are listed here in the order the editor shows them:
 
-| Panel                    | What it covers                                                     |
-| ------------------------ | ------------------------------------------------------------------ |
-| **Calendars**            | Which calendars the card shows, and how each one looks             |
-| **Layout**               | How the card arranges days, and how much room it takes up          |
-| **Time Range & Content** | Which days the card covers, and what it puts in them               |
-| **Card & Title**         | The card itself, and the heading above it                          |
-| **Day Header**           | How each day announces itself, whichever layout it is announced in |
-| **Events**               | The events themselves, and the lines each one can carry            |
-| **Separators**           | The rules the card draws between days, weeks and months            |
-| **Weather**              | A forecast beside the day, beside the event, or both               |
-| **Actions & Refresh**    | What a tap does, and how often the card re-reads its calendars     |
+| Panel                    | What it covers                                                                    |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| **Calendars**            | Which calendars the card shows, and how each one looks                            |
+| **Layout**               | How the card arranges days, and how much room it takes up                         |
+| **Time Range & Content** | Which days the card covers, and what it puts in them                              |
+| **Card & Title**         | The card itself, and the heading above it                                         |
+| **Day Header**           | How each day announces itself, whichever layout it is announced in                |
+| **Events**               | The events themselves, and the lines each one can carry                           |
+| **Separators**           | Every rule the card draws — between days in any view, and in grid across them too |
+| **Weather**              | A forecast beside the day, beside the event, or both                              |
+| **Actions & Refresh**    | What a tap does, and how often the card re-reads its calendars                    |
 
 Panels open one at a time, and options inside them appear only when they apply — enabling a feature reveals the settings that belong to it.
 
 The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below; the card-level panel adds **Empty Days** at the end. Reading either panel therefore answers the same questions in the same order.
+
+## 🧭 Options for the Selected View
+
+Two controls sit together above search. **Card Displays** chooses the card's starting
+layout and writes the existing `view` option. **Editing Settings For** selects an
+editor workspace: **List**, **Column**, or **Grid**. It starts by following
+Card Displays, then stays independent once you choose a workspace. The workspace is
+never saved to YAML; opening the editor again starts from the card's displayed view.
+
+Each workspace omits controls that cannot affect that view, including
+their per-calendar forms. Compact-mode controls appear in List.
+Multi-day splitting also appears in Column, but not Grid, which arranges
+multi-day events itself. Grid omits empty-day text and color because it draws blank
+columns rather than placeholder rows.
+
+A panel can also change its name for the workspace you are in. Grid titles the
+**Separators** panel **Rules**, because grid is the only view that draws rules _across_
+the days as well as between them, so the shared name covers half of what the panel holds
+there.
+
+The workspace follows your selection, not the preview's width-dependent fallback.
+Search and **Customized Only** do not bring back controls for another workspace.
+To edit a list-only option used by a responsive fallback, choose List under
+Editing Settings For; Card Displays stays unchanged.
+
+Presentation controls show the value used by the selected workspace and write directly
+to its scope: top-level options for List, `column:` for Column, and `time_grid:` for Grid.
+Column and Grid can also use List values when they do not have their own value for an
+option, so editing List can affect those layouts too. Card-wide options such as calendars,
+title, language, and actions stay card-wide in every workspace.
+
+Hiding a control does not delete its stored value. For example, these empty-day options
+remain available to the list fallback, even though their controls are absent while
+editing Grid:
+
+```yaml
+view: grid
+show_empty_days: true
+empty_day_text: 'No plans'
+empty_day_color: '#607d8b'
+```
+
+**→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** and
+**[Options With No Effect in Column View](/reference/configuration#options-with-no-effect-in-column-view)** — the scoped options.
+
+### Switching an Existing Card to Grid
+
+Changing **Card Displays** from List or Column to Grid keeps values you explicitly
+set at the top level, including a value equal to the List default. For options where
+Grid has a different default, the editor copies your value into `time_grid:` rather
+than replacing it. Options you did not set use Grid's defaults without writing those
+defaults into YAML. A fresh card switched to Grid does not need a `time_grid:` block.
+This transition preserves existing per-view choices; it does not remove older overrides
+that happen to match a divergent Grid default.
+
+For example, these two authored values are kept in Grid:
+
+```yaml
+event_font_size: '18px'
+event_background_opacity: 5
+```
+
+The corresponding entries after switching are:
+
+```yaml
+view: grid
+event_font_size: '18px'
+event_background_opacity: 5
+time_grid:
+  event_font_size: '18px'
+  event_background_opacity: 5
+```
+
+One notice lists the options kept instead of Grid's defaults. Use the option's
+**Reset** button in the Grid workspace to return to its default; switching away and
+back in the same editing session does not recreate a reset value.
+
+This preserves continuity across an explicit editor transition, not a change made only
+in YAML. Opening an already-Grid card is read-only: a YAML card with root
+`event_background_opacity: 5` and no Grid opacity still shows Grid's default of 20.
+Choose the Grid workspace to change that value directly.
+
+::: info Saving & Reopening
+An authored root value equal to the card's default can be omitted when you save an unrelated edit. The open editor remembers that choice while you continue editing, but closing and reopening loses the history of an omitted value.
+
+For example, top-level `event_font_size: '14px'` is removed as a root default on save. If Grid has no explicit font-size override, a later transition to Grid after reopening uses its `12px` default because the saved configuration no longer says you chose `14px`. To keep that size for Grid across saves, set it in the Grid workspace or explicitly under `time_grid:`.
+:::
+
+### YAML & View Defaults
+
+The editor does not change the renderer's precedence rules. With no per-view override,
+these top-level values behave as follows:
+
+| Top-Level YAML            | List              | Column            | Grid              |
+| ------------------------- | ----------------- | ----------------- | ----------------- |
+| `show_empty_days: false`  | Hides empty days  | Keeps empty days  | Keeps empty days  |
+| `show_past_events: false` | Hides past events | Hides past events | Keeps past events |
+
+Set the corresponding value in `column:` or `time_grid:` to change that view, or use
+its editor workspace. Grid also substitutes its own styling defaults, even when you
+set a different top-level value. All thirteen are listed in
+[Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default).
+Column's two substitutions are listed in
+[Column Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default).
+
+A YAML-only edit produces no reconciliation notice. The notice belongs to an explicit
+editor transition to Grid; opening an editor or choosing a workspace is not a migration.
 
 ## ✨ Key Features
 
@@ -32,7 +139,7 @@ The longer panels are divided further by sub-headings, which name what the optio
 - **Context-Aware Options** — settings appear only when they are relevant, so a panel shows what applies rather than everything that exists
 - **Search** — find any option by name or by what it does, without knowing which panel holds it
 - **Customized Only** — hide everything left at its default, to see what a card actually changes
-- **Per-View Exceptions** — give an option a different value in column or grid view without leaving the editor
+- **Direct Per-View Editing** — choose a workspace and edit its effective values without adding a second control
 
 ::: info Editor Language Support
 The editor is available in **11 languages**, and the calendar itself in **35**. Nine of the eleven — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — are translated in full. English is the source language and lives in the card's code rather than in a translation file, and British English carries only the strings where it differs from it.
@@ -56,7 +163,7 @@ Three things follow their own rule under it, for reasons worth knowing:
 
 - **Calendars** show only the ones you have given settings of their own, which is a quick way to see which calendars have a color or a label and which simply follow the card.
 - **Per-calendar options** count as customized when they are set at all. Several of them mean "follow the card" when left alone, so `Show Time: Off` on one calendar is a real setting rather than a default.
-- **Exceptions** are always shown, since an option you asked to differ in one layout is a customization by definition — even before you change its value.
+- **View values** count as customized when the selected layout stores its own value. Values inherited from List or supplied by the layout's defaults are not user edits.
 
 ::: tip Not Everything Is There To Be Found
 The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
@@ -127,20 +234,26 @@ get the icon picker.
 
 ## ⚖️ View Exceptions
 
-Every panel that owns an option the current view can override ends with a collapsed
-**View Exceptions** group. Pick an option there and it gets a second control, whose value
-applies only when the card renders in that view; remove it and the option returns to the
-shared value above. A card with no exceptions costs one collapsed heading and nothing else.
+View-specific values no longer need an exception picker. Select Column or Grid under
+**Editing Settings For**, then use the ordinary controls. Their helper text says whether
+the value comes from List, from that layout's own default, or from a value set for the layout.
 
-The control an exception gets is the same control the option has in the panel above, which
-now holds for every overridable option without exception. Three of them store more than one
-kind of value in one key — week numbers, the today indicator, and country removal in
-locations — so each gets the same type dropdown it has in its own panel rather than being
-left to hand-written YAML.
+For example, editing Event Font Size in Grid writes the grid value while leaving the
+List value alone:
 
-An exception that ends up equal to the value it would inherit is not written to your
-configuration, so setting one back to the shared value removes the line rather than
-pinning it.
+```yaml
+event_font_size: '14px'
+time_grid:
+  event_font_size: '16px'
+```
+
+**Reset** buttons below each panel remove individual view values and restore what the
+layout would use without them. They do not remove the input or clear other layouts.
+Where one mode control governs several options, its reset clears those options together.
+
+A value equal to what the view inherits is omitted from the saved block. Options with a
+[different grid default](/features/grid-view#options-that-start-from-a-different-default)
+stay explicit when edited back to that default; use Reset to remove the explicit value.
 
 **→ [Column View](/features/column-view)** — the `column:` block, and what may go in it.
 

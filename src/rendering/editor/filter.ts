@@ -1,14 +1,16 @@
 /**
- * Filtering helpers for the visual editor's field search.
+ * View relevance and field-search filtering for the visual editor.
  */
 
 import * as Entities from './entities';
 import { type HaFormSchema, isGroupSchema } from './ha-form';
 import * as EditorLocalize from './localize';
-import { type PanelDef, type PanelExtra, walkSchema } from './panels';
+import { type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './panels';
+import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { deriveSyntheticData, isSyntheticKey } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
+import type { EditorWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -64,10 +66,7 @@ export function toFilterCriteria(data: Readonly<Record<string, unknown>>): Filte
 /**
  * Everything matching needs that is not the node itself.
  */
-export interface FilterCtx {
-  language: string;
-  view: Types.EffectiveView;
-  config: Types.Config;
+export interface FilterCtx extends SchemaCtx {
   criteria: FilterCriteria;
 }
 
@@ -149,15 +148,24 @@ function searchableText(
   const dataKey = EditorLocalize.qualifiedKey(node.name, dataPath);
   if (dataKey !== text[1]) text.push(dataKey);
 
-  if ('titleKey' in node && node.titleKey !== undefined) {
+  // Expandables only. A group renders the `title` the schema hands it rather than asking
+  // for a label, so its own strings have to be read off the node. A *field* may carry a
+  // `titleKey` too — it is how a field nested for storage keeps a qualified key — and that
+  // one resolves through `computeLabel` below like any other, which is where its label and
+  // helper actually come from.
+  if ('type' in node && node.type === 'expandable' && node.titleKey !== undefined) {
     text.push(node.title, EditorLocalize.lookup(ctx.language, `${node.titleKey}.helper`));
     return text;
   }
 
   text.push(
     EditorLocalize.computeLabel(ctx.language, node, path),
-    EditorLocalize.computeHelper(ctx.language, ctx.view, node, path),
+    EditorLocalize.computeHelper(ctx.language, ctx.view, node, path, ctx.workspace !== undefined),
   );
+  if (ctx.workspace !== undefined && 'selector' in node) {
+    const source = Routing.valueSource(ctx.rawConfig ?? ctx.config, ctx.workspace, node.name);
+    if (source) text.push(EditorLocalize.lookup(ctx.language, `value_source.${source}`));
+  }
 
   if ('value' in node && typeof node.value === 'string') {
     text.push(node.value);
@@ -264,9 +272,16 @@ export function isCustomized(
   ctx: FilterCtx,
 ): boolean {
   const name = node.name;
+  const raw = ctx.rawConfig ?? ctx.config;
+
+  if (ctx.workspace !== undefined && dataPath.length === 0) {
+    const source = Routing.valueSource(raw, ctx.workspace, name);
+    if (source === 'own') return true;
+    if (source === 'default' || source === 'inherited') return false;
+  }
 
   if (dataPath.length === 1 && OVERRIDE_BLOCK_KEYS.has(dataPath[0])) {
-    const block = storedConfig(ctx.config)[dataPath[0]];
+    const block = storedConfig(raw)[dataPath[0]];
 
     return typeof block === 'object' && block !== null
       ? (block as Record<string, unknown>)[name] !== undefined
@@ -302,7 +317,7 @@ type LeafPredicate = (
  * Filters a schema to the nodes a predicate keeps, groups and all.
  *
  * @param schema - Schema to filter
- * @param ctx - Matching context
+ * @param ctx - Search context, or undefined when no group may bypass the predicate
  * @param keeps - Decides one field
  * @param path - Enclosing group names, outermost first
  * @param dataPath - Enclosing object keys in the configuration, outermost first
@@ -310,7 +325,7 @@ type LeafPredicate = (
  */
 function filterNodes(
   schema: ReadonlyArray<HaFormSchema>,
-  ctx: FilterCtx,
+  ctx: FilterCtx | undefined,
   keeps: LeafPredicate,
   path: ReadonlyArray<string>,
   dataPath: ReadonlyArray<string>,
@@ -327,6 +342,7 @@ function filterNodes(
     const nestsData = node.name !== '' && node.flatten !== true;
 
     const wholeGroup =
+      ctx !== undefined &&
       !ctx.criteria.customizedOnly &&
       queryOf(ctx) !== '' &&
       matchesQuery(node, path, ctx, dataPath);
@@ -341,7 +357,7 @@ function filterNodes(
           nestsData ? [...dataPath, node.name] : dataPath,
         );
 
-    if (children.length === 0) continue;
+    if (!hasFields(children)) continue;
 
     kept.push({ ...node, schema: children });
   }
@@ -397,6 +413,59 @@ function pruneLoneHeadings(schema: ReadonlyArray<HaFormSchema>): HaFormSchema[] 
   }
 
   return kept;
+}
+
+/**
+ * Withholds only controls with a recorded verdict excluding their view.
+ *
+ * Run before search: a matching panel or group must not restore an inert control.
+ * Unknown keys stay visible. Data nesting matters, not label nesting: an unrelated
+ * weather field must not inherit the scope of a same-named top-level option, while
+ * a view block is checked against the view that owns it.
+ *
+ * @param schema - Complete schema, before search
+ * @param view - View being configured, not the preview's width-dependent fallback
+ * @param scope - Whether fields configure the card or one calendar
+ * @returns Relevant fields, with empty groups and stranded headings removed
+ */
+export function withholdInertFields(
+  schema: ReadonlyArray<HaFormSchema>,
+  view: EditorWorkspace,
+  scope: 'card' | 'entity' = 'card',
+): HaFormSchema[] {
+  return pruneLoneHeadings(
+    filterNodes(
+      schema,
+      undefined,
+      (node, _path, dataPath) => {
+        if (isHeading(node)) return true;
+
+        if (dataPath.length === 0) {
+          if (scope === 'card') return ViewConfig.appliesToView(node.name, view);
+
+          return entityConfigKeys(node.name).some((key) => {
+            const views = ViewConfig.entityScopeFor(key);
+            return views === undefined || views.has(view);
+          });
+        }
+
+        const blockView =
+          dataPath.length === 1
+            ? ViewConfig.VIEWS.find(
+                (candidate) => ViewConfig.viewBlockFor(candidate)?.blockKey === dataPath[0],
+              )
+            : undefined;
+
+        return (
+          scope === 'entity' ||
+          blockView === undefined ||
+          ViewConfig.appliesToView(node.name, blockView)
+        );
+      },
+      [],
+      [],
+    ),
+  );
 }
 
 /**
@@ -524,13 +593,14 @@ export function filterEntitySchema(
   path: ReadonlyArray<string>,
   ctx: FilterCtx,
 ): HaFormSchema[] {
-  if (!isFiltering(ctx.criteria)) return [...schema];
+  const relevant = withholdInertFields(schema, ctx.workspace ?? ctx.view, 'entity');
+  if (!isFiltering(ctx.criteria)) return relevant;
 
   const named = queryOf(ctx) !== '' && matchesEntity(entry, ctx);
 
   return pruneLoneHeadings(
     filterNodes(
-      schema,
+      relevant,
       ctx,
       (node, nodePath) =>
         isHeading(node) ||
@@ -540,27 +610,4 @@ export function filterEntitySchema(
       [],
     ),
   );
-}
-
-/**
- * Filters the rows of a panel's exceptions widget.
- *
- * @param active - Exception rows currently declared
- * @param title - The widget's heading, as rendered
- * @param path - Label path the rows are rendered under
- * @param ctx - Matching context
- * @returns The rows to show
- */
-export function filterExceptions<T extends HaFormSchema>(
-  active: ReadonlyArray<T>,
-  title: string,
-  path: ReadonlyArray<string>,
-  ctx: FilterCtx,
-): T[] {
-  if (!isFiltering(ctx.criteria)) return [...active];
-
-  const query = queryOf(ctx);
-  if (query !== '' && textMatches(title, query)) return [...active];
-
-  return active.filter((field) => matchesQuery(field, path, ctx));
 }

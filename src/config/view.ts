@@ -251,19 +251,62 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // All-day multi-day events become one spanning banner, and timed multi-day events are
   // segmented by the grid renderer so every segment stays timed.
   split_multiday_events: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // Grid discards _isEmptyDay rows in both sortDayEvents and
+  // splitTimedEventsAcrossGridDays. show_empty_days still controls which columns exist;
+  // only the placeholder's text and color are irrelevant there.
+  empty_day_text: new Set<Types.EffectiveView>(['list', 'column']),
+  empty_day_color: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // Grid draws an all-day event as a banner in its own band, and `renderBanner` emits the
+  // summary and nothing else — no time, no location, no description, no countdown. So the
+  // five options that decide which of those an all-day row carries are computed, handed to
+  // the banner, and dropped. One mechanism, five keys: they share a fate because they share
+  // the renderer that ignores them, which is why they are listed together rather than as
+  // five findings.
+  //
+  // Measured by re-render rather than by reading: flipping each against grid's effective
+  // value leaves all 302 elements identical on every computed longhand and both
+  // pseudo-elements, while the same flip changes the element count outright in list and
+  // column. See tests/view-scope-inert.test.ts, which is that comparison as a gate.
+  show_single_allday_time: new Set<Types.EffectiveView>(['list', 'column']),
+  show_multiday_allday_time: new Set<Types.EffectiveView>(['list', 'column']),
+  show_location_allday: new Set<Types.EffectiveView>(['list', 'column']),
+  show_description_allday: new Set<Types.EffectiveView>(['list', 'column']),
+  show_countdown_allday: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // 🚨 Not the reason it looks like. `.event` IS emitted in grid — on the timed block, on
+  // the banner and on the "+N more" overflow chip — so a grep for the class finds it and
+  // says the padding rule applies. It does not. `styles.ts` is one stylesheet, and
+  // `.grid-event` and `.grid-banner` each set their own `padding` some 1800 lines below
+  // `.event`, at the same specificity. Later wins, and every grid node carrying `.event`
+  // carries one of those two. Nothing in grid consumes --calendar-card-event-spacing.
+  //
+  // Recorded at this length because the class match is genuinely convincing and cost one
+  // wrong verdict in review before the cascade was checked.
+  event_spacing: new Set<Types.EffectiveView>(['list', 'column']),
 };
 
 /**
  * Which views a **per-entity** option affects, where that differs from the card-level
- * key of the same name.
+ * key of the same name. `entityScopeFor` falls back to `VIEW_SCOPE`.
  *
- * `split_multiday_events` differs: the card-level column override may skip splitting,
- * but a per-entity opt-out is ignored in column view so later days of a multi-day event
- * cannot disappear from their columns. `entityScopeFor` falls back to `VIEW_SCOPE`.
+ * Empty is the correct state, not a hole waiting to be filled — every per-calendar
+ * option currently reaches exactly the views its card-level namesake reaches, so the
+ * table has nothing to say. It is kept because the divergence it expresses is real and
+ * the next option to need it should have somewhere to go rather than a special case.
+ *
+ * It held one entry until v5: `split_multiday_events: ['list']`, on the reasoning that a
+ * column is a claim about one day, so a per-entity opt-out would leave the later columns
+ * of a multi-day event silently blank while another calendar on the same card stayed
+ * truthful. What that never accounted for is that `column: { split_multiday_events:
+ * false }` produces exactly those blank columns for every calendar at once — so the rule
+ * forbade the mixed layout and permitted the uniform one, which makes it a consistency
+ * preference rather than something a column could not survive. The editor meanwhile went
+ * on offering the per-calendar control to a column user, storing what they chose, and
+ * dropping it.
  */
-export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {
-  split_multiday_events: new Set<Types.EffectiveView>(['list']),
-};
+export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView>>> = {};
 
 /**
  * Whether an option has any effect in the given view.
@@ -273,7 +316,7 @@ export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.Effect
  * @returns `true` when the option affects that view, including for every unlisted key
  */
 export function appliesToView(key: string, view: Types.EffectiveView): boolean {
-  const scope = VIEW_SCOPE[key];
+  const scope = Object.prototype.hasOwnProperty.call(VIEW_SCOPE, key) ? VIEW_SCOPE[key] : undefined;
   return scope === undefined || scope.has(view);
 }
 
@@ -284,7 +327,10 @@ export function appliesToView(key: string, view: Types.EffectiveView): boolean {
  * @returns The views it affects, or `undefined` when it affects all of them
  */
 export function entityScopeFor(key: string): ReadonlySet<Types.EffectiveView> | undefined {
-  return ENTITY_VIEW_SCOPE[key] ?? VIEW_SCOPE[key];
+  if (Object.prototype.hasOwnProperty.call(ENTITY_VIEW_SCOPE, key)) {
+    return ENTITY_VIEW_SCOPE[key];
+  }
+  return Object.prototype.hasOwnProperty.call(VIEW_SCOPE, key) ? VIEW_SCOPE[key] : undefined;
 }
 
 // Fetch-time options cannot become view overrides because switching views must not refetch.
@@ -903,6 +949,46 @@ export const OVERRIDE_BLOCK_BY_VIEW: Readonly<
 ) as Readonly<Partial<Record<Types.EffectiveView, keyof Types.Config>>>;
 
 /**
+ * Where an edit to an option belongs when the editor is configuring a given view.
+ *
+ * `block` means the value is written into that view's own block (`column:` or
+ * `time_grid:`); `top-level` means it is written at the card level, where every view
+ * that does not override it will read it.
+ */
+export type ConfigRoute = 'block' | 'top-level';
+
+/**
+ * Which route an option takes when edited while configuring a view.
+ *
+ * The editor was built with list view as the default and the other views expressed as
+ * deltas, so an edit has always gone to the top level unless the user first found the
+ * exception picker. Routing by the view being configured is what lets that picker stop
+ * being a user-facing concept, and this is the single place that decides it.
+ *
+ * 🚨 **Derived from {@link VIEW_BLOCKS}, never from a second list.** The obvious
+ * shortcut — routing anything in `TIME_GRID_OVERRIDE_KEYS` — is wrong twice over: that
+ * array is an alias of `COLUMN_OVERRIDE_KEYS`, so it says nothing about grid in
+ * particular, and it holds keys grid accepts but cannot act on. Reading the registry
+ * means a view that gains or loses a block needs no edit here.
+ *
+ * List has no block and is not an omission: list *is* the top level, so every route
+ * from it is `top-level` by construction.
+ *
+ * @param key - Config key being edited
+ * @param view - View the editor is currently configuring
+ * @returns Where the write belongs
+ */
+export function routeForKey(key: string, view: Types.EffectiveView): ConfigRoute {
+  const block = VIEW_BLOCKS[view];
+
+  if (!block) {
+    return 'top-level';
+  }
+
+  return block.overrideKeys.includes(key) || block.onlyKeys.includes(key) ? 'block' : 'top-level';
+}
+
+/**
  * The raw, unvalidated contents of a view's block on a given config.
  *
  * @param config - Merged configuration
@@ -955,26 +1041,26 @@ export function viewAppliesCompactLimits(view: Types.EffectiveView): boolean {
 /**
  * How the shared event processor should handle multi-day splitting for the view.
  *
- * A column is a claim about one day. An unsplit multi-day event would appear only in
- * the column it starts in and leave every later column it spans silently blank, so the
- * split is required in column view. Per-entity precedence is ignored so one calendar
- * cannot make the layout truthful while another does not.
+ * List and column both inherit: the card-level option decides, and a per-calendar value
+ * beats it. What separates them is the *default* — column's is `true`, because a column
+ * is a claim about one day and an unsplit event would leave every later column it spans
+ * blank. That is a default, not a lock; `column: { split_multiday_events: false }` has
+ * always been able to turn it off card-wide, and a per-calendar value can now do the
+ * same for one calendar.
  *
- * List view inherits the card and per-entity options. Grid view returns `never`: it does
- * its own timed segmentation at render time, and the upstream list splitter would rewrite
- * the middle day of a timed event as all-day data.
+ * Grid view returns `never`: it does its own timed segmentation at render time, and the
+ * upstream list splitter would rewrite the middle day of a timed event as all-day data.
  *
  * @param view - View currently being rendered
  * @returns Split policy for the shared event processor
  */
-export type MultidaySplitPolicy = 'force' | 'inherit' | 'never';
+export type MultidaySplitPolicy = 'inherit' | 'never';
 
 export function multidaySplitPolicy(view: Types.EffectiveView): MultidaySplitPolicy {
   switch (view) {
-    case 'column':
-      return 'force';
     case 'grid':
       return 'never';
+    case 'column':
     case 'list':
       return 'inherit';
   }

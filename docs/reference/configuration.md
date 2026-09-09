@@ -87,24 +87,30 @@ describe the shared day header, the time axis and the grid's responsive width fa
 ### Options With No Effect in Column View
 
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
-`compact_days_to_show` · `compact_events_complete_days` · per-entity `split_multiday_events`
+`compact_days_to_show` · `compact_events_complete_days`
 
 These describe a date cell or a compact budget that the column layout does not have. They
 keep working in list view, including when a `view: column` card falls back to it on a
-narrow dashboard, so they are annotated rather than removed.
+narrow dashboard. The editor hides their controls in the Column editing workspace without
+deleting stored values; see [Options for the Selected View](/features/editor#options-for-the-selected-view).
 
 **→ [Options That Do Nothing in Column View](/features/column-view#options-that-do-nothing-in-column-view)** — why each one, and what to use instead.
 
 ### Options With No Effect in Grid View
 
-`compact_events_to_show` · `compact_days_to_show` · `compact_events_complete_days` ·
-`split_multiday_events` (card-wide and per-entity)
+`date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
+`compact_days_to_show` · `compact_events_complete_days` ·
+`split_multiday_events` (card-wide and per-entity) · `empty_day_text` · `empty_day_color`
 
 Compact caps empty later day columns rather than shortening the card, and the grid already
 segments multi-day events itself — all-day as one spanning banner, timed as one block per
 day — so the list splitter is not used. These keys stay inert while the card is rendering as
 a grid; when the default `min_days_fallback: list` drops it to the list layout below
 `min_days_to_show`, they apply again just as they do for column view.
+
+Empty-day text and color describe placeholder rows the grid never draws, while the date-cell
+alignment and indicator position belong to List. Their controls are hidden while Grid is
+the editing workspace, but stored values are preserved.
 
 **→ [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view)** — why each one.
 
@@ -211,6 +217,11 @@ fixed `height` compresses the time axis rather than scrolling.
 
 ## 📅 Event Column
 
+Grid substitutes its own values for [thirteen shared options](/features/grid-view#options-that-start-from-a-different-default),
+even when they are explicitly set at the top level. Set those values in `time_grid:`
+or use the Grid editor workspace. In particular, top-level `show_past_events: false`
+still hides past events in List and Column, but Grid requires its own override.
+
 | Option                          | Type              | Default                                            | Description                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------------- | ----------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `event_background_opacity`      | number            | `0`                                                | Background opacity (0-100) for events using entity accent color. Grid view defaults this to `20` inside `time_grid:`                                                                                                                                                                                                                                                  |
@@ -221,7 +232,7 @@ fixed `height` compresses the time axis rather than scrolling.
 | `show_progress_bar`             | boolean           | `false`                                            | Whether to show a progress bar for currently running events                                                                                                                                                                                                                                                                                                           |
 | `progress_bar_color`            | string            | `var(--secondary-text-color)`                      | Color of the progress bar. Accepts `accent` for each event’s own calendar color; grid view defaults this to `accent` inside `time_grid:`                                                                                                                                                                                                                              |
 | `progress_bar_height`           | string            | `calc(var(--calendar-card-font-size-time) * 0.75)` | Height of the progress bar                                                                                                                                                                                                                                                                                                                                            |
-| `progress_bar_width`            | string            | _per placement_                                    | Width of the progress bar. Unset, each layout uses its own: `60px` on the time row in list view, `80%` of the column in column view, where the bar takes a row of its own. Grid view defaults this to `100%` inside `time_grid:`. A value here replaces all of them                                                                                                   |
+| `progress_bar_width`            | string            | _per placement_                                    | Width of the progress bar. Unset, each layout uses its own: `60px` on the time row in list view and `80%` on the separate row in column view. A top-level value replaces those defaults. Grid uses `100%` unless `time_grid.progress_bar_width` overrides it                                                                                                          |
 | `empty_day_color`               | string            | `--primary-text-color`                             | Color for "No events" text on empty days                                                                                                                                                                                                                                                                                                                              |
 | `event_font_size`               | string            | `14px`                                             | Event title font size. Grid view defaults this to `12px` inside `time_grid:`, because a block is one column wide rather than a full row                                                                                                                                                                                                                               |
 | `title_max_lines`               | number            | `0`                                                | Maximum number of lines to show for event titles (0 = unlimited). Truncated text shows `...`                                                                                                                                                                                                                                                                          |

@@ -52,6 +52,19 @@ interface BaseSchema {
   name: string;
   required?: boolean;
   disabled?: boolean;
+  /**
+   * String key this node resolves its label and helper from, overriding the one derived
+   * from its position.
+   *
+   * Home Assistant extends the label path for `ha-form-expandable` and for nothing else,
+   * so a field nested for *storage* by a named `grid` is labelled as though it were at
+   * the top level. That is usually right — a `grid` is layout. It is wrong when the same
+   * field name means different things in different blocks, which is exactly the case the
+   * day-header rule presents: `column:` and `time_grid:` both hold a `day_header_gap`,
+   * and the rule inside it is described differently in each. Naming the key here keeps
+   * both descriptions without putting a collapsible around the fields to earn the prefix.
+   */
+  titleKey?: string;
 }
 
 /**
@@ -77,11 +90,9 @@ export interface GridSchema {
   flatten?: boolean;
 }
 
-interface ExpandableSchema {
+interface ExpandableSchema extends BaseSchema {
   type: 'expandable';
-  name: string;
   title?: string;
-  titleKey?: string;
   icon?: string;
   iconPath?: string;
   expanded?: boolean;

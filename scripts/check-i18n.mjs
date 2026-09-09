@@ -211,6 +211,14 @@ async function readEditorSchemaKeys() {
     roots.add(panel.titleKey);
     titles.add(panel.titleKey);
     helpers.add(panel.titleKey);
+    // `_panelTitle` and `_panelHelper` resolve `<titleKey>.<view>` before the shared key,
+    // so a panel whose contents differ enough by view can retitle itself there. The title
+    // needs no registration — it is reachable under the shared root — but the helper does,
+    // or a legitimate per-view helper reads as a string nothing can look up. Registered
+    // as permitted rather than required: adding these to `titles` would demand 27 headings
+    // that should not exist. Reconciled against VIEWS rather than listed, so the day a
+    // fourth view lands its qualified keys are covered without an edit here.
+    for (const view of VIEWS) helpers.add(`${panel.titleKey}.${view}`);
     for (const prefix of panel.strings ?? []) roots.add(prefix);
   }
 
@@ -241,10 +249,9 @@ async function readEditorSchemaKeys() {
     // legitimately appear in both with DIFFERENT scopes — `entityScopeFor` is
     // `ENTITY_VIEW_SCOPE[key] ?? VIEW_SCOPE[key]`, not a merge, so the per-calendar
     // control and the card-level one can be inert in different views and need different
-    // notes. Spreading one over the other silently dropped the loser's scope and
-    // orphaned its string: `split_multiday_events` is card-level `['list','column']` and
-    // per-calendar `['list']`, and only the second survived the spread. Pairs, so both
-    // are reconciled.
+    // notes. Spreading one over the other would drop a differing scope and orphan
+    // its string. Keep pairs so both declarations remain covered, even while the
+    // per-calendar table has no exceptions to the card-level scopes.
     viewScopeEntries: [...Object.entries(VIEW_SCOPE), ...Object.entries(ENTITY_VIEW_SCOPE)],
     defaultOverridesByView: DEFAULT_OVERRIDES_BY_VIEW,
   };
@@ -281,14 +288,11 @@ function escapeForRegExp(value) {
  * `offset` — a documented setting gone from the editor while its control, its helper text
  * and its translations all stay put.
  *
- * The key is **taken from the editor rather than modelled**, because modelling it does not
- * work. Four different shapes are in use: `view.option.list.label` from the node's own
- * name, `column.min_days_fallback.option.list.label` from its group-qualified name,
- * `entity.show_time.option.inherit.label` from the per-calendar prefix, and — the one that
- * defeats any rule written from the schema — `week_number_mode.option.iso.label` for a node
- * *named* `show_week_numbers`, because `unionPickerField` labels the picker for a union
- * option through the synthetic mode field standing in for it. The built schema has thrown
- * that key away by the time anything can read it.
+ * The key is taken from the editor rather than reconstructed from a node name.
+ * Labels may use the node's own name (`view.option.list.label`), its group-qualified
+ * name (`column.min_days_fallback.option.list.label`), or a per-calendar prefix
+ * (`entity.show_time.option.inherit.label`). A schema helper can choose its label key
+ * independently of the stored name, so the actual lookup is the source of truth.
  *
  * So the schema is built under a language that echoes every key back instead of resolving
  * it. Each option's `label` is then literally the key the editor asked for, derived by the
@@ -353,7 +357,9 @@ async function readEditorOptionKeys() {
   );
 
   try {
-    for (const subform of chassisSubforms()) collect(subform.schema, subform.path);
+    for (const subform of chassisSubforms(OPTION_KEY_ECHO_LANGUAGE)) {
+      collect(subform.schema, subform.path);
+    }
 
     for (const config of probeConfigs(DEFAULT_CONFIG, VIEWS)) {
       for (const panel of PANELS) {

@@ -584,7 +584,9 @@ describe('editor filter: the bar itself', () => {
       subform.schema.map((node) => node.name),
     );
 
-    expect(declared).toEqual([SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD]);
+    expect(
+      declared.filter((name) => name === SEARCH_FIELD || name === CUSTOMIZED_ONLY_FIELD),
+    ).toEqual([SEARCH_FIELD, CUSTOMIZED_ONLY_FIELD]);
     expect(CHASSIS_STRINGS).toContain('filter');
   });
 
@@ -708,24 +710,20 @@ describe('editor filter: the chassis', () => {
     expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.entity-panel')).toHaveLength(1);
   });
 
-  it('hides the exceptions widget until there is an exception to show', async () => {
+  it('offers no reset until a view has an explicit value', async () => {
     const { element, filterBy } = await mount({ view: 'column', entities: ['calendar.a'] });
 
-    expect(
-      element.shadowRoot!.querySelectorAll('ha-expansion-panel.exceptions').length,
-    ).toBeGreaterThan(0);
+    expect(element.shadowRoot!.querySelectorAll('.view-resets')).toHaveLength(0);
 
     await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.exceptions')).toHaveLength(0);
+    expect(element.shadowRoot!.querySelectorAll('.view-resets')).toHaveLength(0);
   });
 
   /**
-   * The other half of the rule, and the one that matters: an exception is a customization
-   * by construction, so it survives the filter that hides everything at a default —
-   * including before its value has been changed from the one it inherits.
+   * An explicit view value remains editable and resettable while customized-only is on.
    */
-  it('keeps the exceptions a card has declared', async () => {
+  it('keeps explicit view values and their reset controls', async () => {
     const { element, filterBy } = await mount({
       view: 'column',
       entities: ['calendar.a'],
@@ -734,8 +732,13 @@ describe('editor filter: the chassis', () => {
 
     await filterBy({ [CUSTOMIZED_ONLY_FIELD]: true });
 
-    expect(element.shadowRoot!.querySelectorAll('ha-expansion-panel.exceptions')).toHaveLength(1);
-    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(1);
+    expect(
+      element.shadowRoot!.querySelectorAll('[data-reset-keys="event_font_size"]'),
+    ).toHaveLength(1);
+    const offered = [...element.shadowRoot!.querySelectorAll('ha-form.panel-form')].flatMap(
+      (form) => fieldNames((form as unknown as { schema: HaFormSchema[] }).schema),
+    );
+    expect(offered).toContain('event_font_size');
   });
 
   /**
@@ -934,16 +937,17 @@ describe('editor: the order of the two panels', () => {
     ]);
   });
 
-  it('pins the card-level content group', () => {
-    // Sequenced from the group's own schema, not sliced out of the panel: a slice to the
-    // end swept in the locale group that follows.
-    const group = [...walkSchema(contentSchema())].find(
-      ({ node }) => 'schema' in node && node.name === 'content',
-    );
-
-    expect(group, 'the content group is gone').toBeDefined();
-
-    expect(sequence((group!.node as { schema: ReadonlyArray<HaFormSchema> }).schema)).toEqual([
+  it('pins the card-level content panel', () => {
+    // The whole panel, not a group inside it: the six options that used to sit in a
+    // collapsed group captioned "What The Card Shows" are now panel-level runs, so there
+    // is no group left to slice and the promotion is exactly what this has to pin. The
+    // two remaining groups are flattened into the tail by `sequence`, which is why the
+    // compact and locale fields appear here without their captions.
+    expect(sequence(contentSchema())).toEqual([
+      '# heading_time_range',
+      'days_to_show',
+      'start_date_mode',
+      'first_day_of_week',
       '# heading_filters',
       'event_type',
       'show_past_events',
@@ -955,6 +959,10 @@ describe('editor: the order of the two panels', () => {
       'empty_day_text',
       'empty_day_color',
       'hide_when_empty',
+      'compact_days_to_show',
+      'compact_events_to_show',
+      'language_mode',
+      'time_format',
     ]);
   });
 

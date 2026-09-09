@@ -36,6 +36,66 @@ export function lookup(language: string, key: string): string | undefined {
 }
 
 /**
+ * Resolves one string key, preferring a variant written for the workspace being configured.
+ *
+ * The order matters more than it looks, and it is a standing hazard rather than a detail
+ * of the one key that needed it first. Shared keys are translated; a view-qualified key is
+ * a *refinement* of a shared one, and refinements are written in English first and
+ * translated later if at all. So the two halves of every such pair are at different
+ * translation maturities, permanently, and resolving the qualified one first per language
+ * would hand a German reader the English refinement in place of the German shared word
+ * they already had. Every translated source is therefore consulted before any English
+ * source is: a language that translates the shared key and not the qualified one keeps its
+ * own word, and only a language with neither sees English.
+ *
+ * 🚨 That regression is invisible to every gate. The string is present, the lookup
+ * succeeds, the panel renders, `check:i18n` sees a reachable key — it simply reads in the
+ * wrong language, and presents as a refinement while being a downgrade for every language
+ * but English. Nothing mechanical would report it.
+ *
+ * Which is why the obvious simplification is the thing to guard against:
+ *
+ * ```ts
+ * lookup(language, qualified) ?? lookup(language, shared); // ❌ reintroduces it
+ * ```
+ *
+ * That reads as the same fallback chain and is not. `lookup` already falls back to English
+ * per key, so once an English refinement exists the first call always returns it and the
+ * second term is unreachable — for all thirty-five languages at once. The four-term form
+ * below is deliberate; do not collapse it into two `lookup` calls.
+ *
+ * Falsifier, since a claim about ordering should ship with one: swap the second and third
+ * terms so `EDITOR_STRINGS[qualified]` is consulted before `translated?.[shared]`, then run
+ * `tests/editor-workspace.test.ts`. The cross-language reconciliation in
+ * `describe('a panel retitles itself for the workspace it configures')` fails and nothing
+ * else does. That test also asserts its own denominator, so it fails rather than passing
+ * quietly if no language is left in a position to be downgraded.
+ *
+ * @param language - Effective language code
+ * @param key - Shared string key
+ * @param view - Workspace being configured
+ * @param suffix - Dotted tail applied after the view segment, such as `.helper`
+ * @returns The resolved string, or `undefined` when no source defines either key
+ */
+export function lookupForView(
+  language: string,
+  key: string,
+  view: string,
+  suffix = '',
+): string | undefined {
+  const qualified = `${key}.${view}${suffix}`;
+  const shared = `${key}${suffix}`;
+  const translated = EDITOR_LANGUAGE_STRINGS[language.toLowerCase()];
+
+  return (
+    translated?.[qualified] ??
+    translated?.[shared] ??
+    EDITOR_STRINGS[qualified] ??
+    EDITOR_STRINGS[shared]
+  );
+}
+
+/**
  * Builds the qualified key for a schema node inside a group.
  *
  * @param name - Node name
@@ -49,6 +109,13 @@ export function qualifiedKey(name: string, path: ReadonlyArray<string> = []): st
 /**
  * Resolves the label for a schema node.
  *
+ * Honours `titleKey`, so that a node states its own key rather than having one derived
+ * from where it sits. Labels and helpers were asymmetric here until the day-header rule
+ * needed it — helpers respected the override and labels did not — and nothing noticed,
+ * because the only nodes carrying one were expandables, and `ha-form-expandable` renders
+ * the `title` the schema hands it instead of asking for a label. Both now resolve through
+ * `stringKey`.
+ *
  * @param language - Effective language code
  * @param schema - The node being labelled
  * @param path - Enclosing group names, outermost first
@@ -59,7 +126,7 @@ export function computeLabel(
   schema: HaFormSchema,
   path: ReadonlyArray<string> = [],
 ): string {
-  const qualified = qualifiedKey(schema.name, path);
+  const qualified = stringKey(schema, path);
 
   return lookup(language, qualified) ?? lookup(language, schema.name) ?? humanize(schema.name);
 }
@@ -133,9 +200,10 @@ export function computeHelper(
   view: Types.EffectiveView,
   schema: HaFormSchema,
   path: ReadonlyArray<string> = [],
+  direct = false,
 ): string | undefined {
   const own =
-    lookup(language, `${helperKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
+    lookup(language, `${stringKey(schema, path)}.helper`) ?? fallbackHelper(language, schema);
 
   const groupNote = groupScopeNote(language, schema.name, view);
   if (groupNote !== undefined) {
@@ -146,7 +214,7 @@ export function computeHelper(
     (statedByEnclosingGroup(schema.name, path)
       ? undefined
       : applicabilityNote(language, schema.name, view)) ??
-    divergentDefaultNote(language, schema.name, view);
+    (direct ? undefined : divergentDefaultNote(language, schema.name, view));
 
   if (note === undefined) {
     return own;
@@ -183,13 +251,13 @@ function divergentDefaultNote(
 }
 
 /**
- * The key a node's helper text is stored under.
+ * The string key a node resolves its label and helper from.
  *
  * @param schema - The node being described
  * @param path - Enclosing group names, outermost first
- * @returns The key to look the helper up under
+ * @returns The node's own key, or the one its position implies
  */
-function helperKey(schema: HaFormSchema, path: ReadonlyArray<string>): string {
+function stringKey(schema: HaFormSchema, path: ReadonlyArray<string>): string {
   if ('titleKey' in schema && schema.titleKey !== undefined) {
     return schema.titleKey;
   }

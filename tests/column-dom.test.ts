@@ -1223,16 +1223,23 @@ describe('column view DOM', () => {
     });
 
     /**
-     * A per-entity `split_multiday_events: false` is inert in column view (spec §D5), and
-     * these two tests are a matched pair: the same event, the same opt-out, opposite
-     * outcomes in the two views. Asserting only the column half would pass just as well
-     * if the per-entity setting had been broken outright rather than scoped to one view.
+     * A per-entity `split_multiday_events` is honoured in column view exactly as in list
+     * view, and these two tests are a matched pair: the same event, the same opt-out, the
+     * same outcome in both views.
      *
-     * The reason for the exception is structural. A column is a claim about one day, so
-     * an unsplit event leaves every later column it spans silently blank — and because
-     * precedence is per entity, one calendar in a card would be honest while another was
-     * not. In list view a multi-day event is one row that names its own end date, so
-     * nothing is hidden and the documented precedence stands.
+     * It did not always work that way. Column view used to ignore per-entity precedence
+     * outright, on the reasoning that an unsplit event leaves every later column it spans
+     * silently blank, so one calendar in a card would be honest while another was not.
+     * What that argument never accounted for is that `column: { split_multiday_events:
+     * false }` has always been able to produce the same blank columns card-wide — so the
+     * rule forbade the mixed layout while permitting the uniform one, which makes it a
+     * consistency preference rather than a claim the column could not survive. Meanwhile
+     * the editor showed the per-calendar control to a column user, stored what they
+     * chose, and dropped it.
+     *
+     * The control for this pair is the test at the top of this block: the same fixture
+     * without the opt-out still covers two columns, so a `1` here cannot be the split
+     * having stopped working altogether.
      */
     const optedOutOfSplitting = () =>
       EVENTS.map((event) =>
@@ -1244,15 +1251,40 @@ describe('column view DOM', () => {
           : event,
       );
 
-    it('ignores a per-entity opt-out, because a column cannot lie about its own day', () => {
+    it('honours a per-entity opt-out, as list view always has', () => {
       const container = renderColumnContainer(optedOutOfSplitting(), buildConfig());
       const covered = Array.from(container.querySelectorAll('.day-column')).filter((column) =>
         column.textContent?.includes('Conference'),
       );
 
+      expect(covered.length).toBe(1);
+      // The tell of an unsplit event, and the same one the `column:` escape hatch leaves.
+      // Counting columns alone would pass if the event had merely gone missing.
+      expect(covered[0]?.textContent).toContain('until');
+    });
+
+    it('lets a per-entity opt-in beat a column-level opt-out', () => {
+      // The opposite direction, and the one that proves precedence is genuinely per
+      // calendar. Without it, a column view that had simply stopped splitting anything
+      // would pass the test above.
+      const optedIn = EVENTS.map((event) =>
+        event.summary === 'Conference'
+          ? {
+              ...event,
+              _matchedConfig: { entity: 'calendar.personal', split_multiday_events: true },
+            }
+          : event,
+      );
+
+      const container = renderColumnContainer(
+        optedIn,
+        buildConfig({ column: { split_multiday_events: false } }),
+      );
+      const covered = Array.from(container.querySelectorAll('.day-column')).filter((column) =>
+        column.textContent?.includes('Conference'),
+      );
+
       expect(covered.length).toBe(2);
-      // Both segments carry the per-entity config through the split, so a later change
-      // that re-reads it downstream cannot quietly undo this.
       for (const column of covered) {
         expect(column.textContent).not.toContain('until');
       }

@@ -4,7 +4,7 @@ title: Release Notes
 
 # Calendar Card Pro v5.0.0
 
-**Your days, side by side, against an hour axis.** Grid view draws each day as a column and each event as a block at its real start time, sized by how long it runs — the week view a calendar app gives you, in a Lovelace card. All-day events sit in a band of their own above the axis, a line marks the current time, and everything you already configure about how an event looks carries straight over.
+**Grid view for your calendar, direct controls for each layout.** Grid view draws days as columns and events as blocks positioned and sized by their start time and duration, with an all-day band and a current-time line. The visual editor lets you choose which layout to configure without changing the card's displayed layout.
 
 ## 🎉 New Features
 
@@ -18,9 +18,24 @@ Set `view: grid` and the card stops being a list. Days become columns against a 
 - **The axis is yours to set** - `start_time` and `end_time` choose the hours drawn, `hour_height` how tall an hour is, `slot_minutes` how finely it is ruled, `axis_label_minutes` how often it is labeled, and `axis_width` how wide the hour gutter sits. `show_axis_labels` turns the labels off entirely.
 - **It gives way gracefully when narrow** - `min_day_width` sets how narrow a day column may get before the grid sheds one, `min_days_to_show` the fewest it will shrink to, and `min_days_fallback` what happens when even that will not fit — fall back to the list, or cramp. The same flexible width machinery column view already uses.
 - **Blocks reveal more as they grow** - A short block shows its title; a taller one adds the time, then the progress bar, then location, description and weather. The card never draws a row into a block that cannot hold it, so nothing is clipped mid-sentence.
-- **Sensible different defaults, visible in the editor** - A few options mean something different on a time axis, so grid substitutes its own: filled event blocks, empty days kept, past events kept, a hairline between day columns, and a full-width progress bar. Switch a card to grid in the visual editor and each one is written into `time_grid:` as an exception you can see and change, rather than hiding in resolution.
+- **Grid defaults you can edit directly** - Grid starts with filled event blocks, empty days and past events kept, a hairline between day columns, and a full-width progress bar. The Grid workspace shows each option's effective value and where it comes from. Editing a control writes its Grid value into `time_grid:`; the editor no longer adds untouched defaults to YAML.
 
 Every option grid view adds lives under `time_grid:`, and that block is also where you override any presentation option for grid alone. See [Grid View](https://calendar-card-pro.alexpfau.com/features/grid-view).
+
+### 🎛️ Configure the View You Mean
+
+**Card Displays** chooses the card's starting layout. **Editing Settings For** chooses the List, Column, or Grid workspace, so you can prepare another layout without switching the card to it. The workspace is not saved in YAML.
+
+- **Edit the value the layout uses** - Column and Grid controls show their effective values and write directly to `column:` or `time_grid:`. Helper text distinguishes inherited values, layout defaults, and explicit overrides. Reset removes a view's override without taking away its control or changing another layout.
+- **See only relevant controls** - Each workspace withholds options that its renderer cannot use, including per-calendar options. Search and Customized Only stay within that workspace.
+- **Keep your choices when switching to Grid** - An editor transition to Grid copies authored root values into missing Grid overrides, with one notice naming the options kept instead of Grid defaults. Existing Grid overrides win. Opening an already-Grid card does not run a migration.
+- **Keep default configurations short** - A fresh Grid card needs no `time_grid:` block. Untouched defaults are neither saved nor counted as customizations, and older explicit overrides are not removed just because they match a default.
+
+List values can still be inherited by other layouts, and card-wide options such as calendars, title, language, and actions remain card-wide. YAML precedence is unchanged: Grid's divergent defaults still beat top-level values unless its block overrides them. Default-valued root choices can lose their authored status after a save and reload. See [the visual editor guide](https://calendar-card-pro.alexpfau.com/features/editor) for the scope rules and that limitation.
+
+### 📆 Per-Calendar Splitting in Column View
+
+An individual calendar's `split_multiday_events` option now works in Column as well as List. It takes precedence over that view's card-wide choice, so one calendar can keep a multi-day event as a single entry while another splits it across days. Existing Column cards that already set this per-calendar option now follow it. Grid's own event segmentation is unchanged. See [per-calendar options](https://calendar-card-pro.alexpfau.com/features/core-settings#available-options-for-entity-configuration-objects).
 
 ### 🔭 What Comes After This
 
@@ -91,6 +106,8 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 - [#325](https://github.com/alexpfau/calendar-card-pro/issues/325) - A "now" line on a time-axis day view — answered by `show_now_line`
 - [#339](https://github.com/alexpfau/calendar-card-pro/pull/339) - The original grid-view proposal by @lenaxia, whose design and config surface shaped this one. Its paging controls and event-detail popup are deliberately not here: both are view-independent and belong to [#185](https://github.com/alexpfau/calendar-card-pro/issues/185) and [#241](https://github.com/alexpfau/calendar-card-pro/issues/241) rather than inside the grid renderer
 - [#374](https://github.com/alexpfau/calendar-card-pro/issues/374) - Optional horizontal auto-scroll for long event titles — answered in full by `scroll_long_titles`, scoped to the title as the issue proposed
+
+---
 
 # Calendar Card Pro v4.2.0
 

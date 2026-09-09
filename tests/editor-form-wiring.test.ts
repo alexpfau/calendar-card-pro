@@ -16,6 +16,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
+import type { HaFormSchema } from '../src/rendering/editor/ha-form';
+import { walkSchema } from '../src/rendering/editor/panels';
 
 customElements.define('editor-form-wiring-probe', CalendarCardProEditor);
 
@@ -61,8 +63,8 @@ function formData(form: Element): Record<string, unknown> {
 
 /** The field names in an `ha-form`'s schema. */
 function schemaNames(form: Element): string[] {
-  const schema = (form as unknown as { schema?: Array<{ name?: string }> }).schema ?? [];
-  return schema.map((node) => node?.name ?? '');
+  const schema = (form as unknown as { schema?: HaFormSchema[] }).schema ?? [];
+  return [...walkSchema(schema)].map(({ node }) => node.name);
 }
 
 /** The panel form that owns a given option. */
@@ -262,45 +264,38 @@ describe('editor per-calendar forms', () => {
   });
 });
 
-describe('editor exception forms', () => {
-  it('renders an override form for the field the picker selects', async () => {
+describe('direct view forms and resets', () => {
+  it('offers the view value without a picker or a duplicate form', async () => {
     const element = await mount({ entities: ['calendar.a'], view: 'column' });
     expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(0);
 
-    const picker = element.shadowRoot!.querySelector('ha-form.exception-picker')!;
-    change(picker, { exceptions: ['day_spacing'] });
-    await element.updateComplete;
-
-    const overrides = Array.from(element.shadowRoot!.querySelectorAll('ha-form.exception-form'));
-    expect(overrides).toHaveLength(1);
-    expect(schemaNames(overrides[0])).toContain('day_spacing');
+    expect(element.shadowRoot!.querySelector('.exception-picker')).toBeNull();
+    expect(schemaNames(panelOwning(element, 'day_spacing'))).toContain('day_spacing');
   });
 
-  it('removes the override form when the picker deselects the field', async () => {
-    const element = await mount({ entities: ['calendar.a'], view: 'column' });
-
-    const picker = element.shadowRoot!.querySelector('ha-form.exception-picker')!;
-    change(picker, { exceptions: ['day_spacing'] });
+  it('resets an override without removing the input', async () => {
+    const element = await mount({
+      entities: ['calendar.a'],
+      view: 'column',
+      column: { day_spacing: '20px' },
+    });
+    const reset = element.shadowRoot!.querySelector<HTMLButtonElement>(
+      '[data-reset-keys="day_spacing"]',
+    );
+    expect(reset).not.toBeNull();
+    reset!.click();
     await element.updateComplete;
-    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(1);
-
-    change(element.shadowRoot!.querySelector('ha-form.exception-picker')!, { exceptions: [] });
-    await element.updateComplete;
-
-    expect(element.shadowRoot!.querySelectorAll('ha-form.exception-form')).toHaveLength(0);
+    expect(formData(panelOwning(element, 'day_spacing')).day_spacing).toBe('10px');
+    expect(element.shadowRoot!.querySelector('[data-reset-keys="day_spacing"]')).toBeNull();
   });
 
   it('writes an override value into the view block', async () => {
     const element = await mount({ entities: ['calendar.a'], view: 'column' });
     const seen = reported(element);
 
-    const picker = element.shadowRoot!.querySelector('ha-form.exception-picker')!;
-    change(picker, { exceptions: ['day_spacing'] });
-    await element.updateComplete;
-
-    const override = element.shadowRoot!.querySelector('ha-form.exception-form')!;
+    const override = panelOwning(element, 'day_spacing');
     const data = formData(override);
-    const key = Object.keys(data)[0];
+    const key = 'day_spacing';
     change(override, { ...data, [key]: '20px' });
     await element.updateComplete;
 
@@ -309,18 +304,14 @@ describe('editor exception forms', () => {
     expect(last.column).toEqual({ [key]: '20px' });
   });
 
-  it('keeps the exception events inside the editor', async () => {
+  it('keeps routed view events inside the editor', async () => {
     const element = await mount({ entities: ['calendar.a'], view: 'column' });
     let escaped = 0;
     document.addEventListener('value-changed', () => (escaped += 1));
 
-    const picker = element.shadowRoot!.querySelector('ha-form.exception-picker')!;
-    change(picker, { exceptions: ['day_spacing'] });
-    await element.updateComplete;
-
-    const override = element.shadowRoot!.querySelector('ha-form.exception-form')!;
+    const override = panelOwning(element, 'day_spacing');
     const data = formData(override);
-    change(override, { ...data, [Object.keys(data)[0]]: '20px' });
+    change(override, { ...data, day_spacing: '20px' });
     await element.updateComplete;
 
     expect(escaped).toBe(0);

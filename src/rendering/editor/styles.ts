@@ -11,6 +11,41 @@ export default css`
     padding: 4px 0;
   }
 
+  .view-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-bottom: 16px;
+  }
+
+  .workspace-note {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .grid-reconciliation {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 16px;
+    padding: 12px;
+    border-inline-start: 3px solid var(--primary-color);
+    border-radius: 4px;
+    background: var(--secondary-background-color);
+    line-height: 1.4;
+  }
+
+  .grid-reconciliation .text-button {
+    align-self: flex-start;
+  }
+
+  .view-resets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
   ha-expansion-panel {
     margin: 8px 0;
   }
@@ -82,8 +117,7 @@ export default css`
     margin-top: 8px;
   }
 
-  ha-expansion-panel.entity-panel,
-  ha-expansion-panel.exceptions {
+  ha-expansion-panel.entity-panel {
     margin: 0;
   }
 

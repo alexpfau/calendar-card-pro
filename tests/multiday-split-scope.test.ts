@@ -140,6 +140,46 @@ describe('multi-day splitting is resolved per view', () => {
     await expect(daysShowing(conference, config, 'list', 'entity-on')).resolves.toBe(3);
   });
 
+  it('honours a per-entity opt-out in column view too', async () => {
+    // Column used to ignore per-entity precedence outright. The card-level escape hatch
+    // could always produce the same unsplit layout for every calendar at once, so the
+    // rule only ever forbade the mixed form — and the editor went on offering the
+    // control, storing the answer and dropping it.
+    const config = buildConfig({
+      view: 'column',
+      entities: [{ entity: 'calendar.personal', split_multiday_events: false }],
+    });
+
+    await expect(daysShowing(conference, config, 'column', 'col-entity-off')).resolves.toBe(1);
+  });
+
+  it('lets a per-entity opt-in win over the column escape hatch', async () => {
+    // The control for the case above, and the one that separates "precedence is per
+    // calendar" from "column stopped splitting". Column's divergent default is `true`,
+    // so the block has to say `false` for the entity value to be the only thing left
+    // that can split it.
+    const config = buildConfig({
+      view: 'column',
+      column: { split_multiday_events: false },
+      entities: [{ entity: 'calendar.personal', split_multiday_events: true }],
+    });
+
+    await expect(daysShowing(conference, config, 'column', 'col-entity-on')).resolves.toBe(3);
+  });
+
+  it('ignores both forms in grid view, which segments in its own renderer', async () => {
+    // `multidaySplitPolicy('grid')` is `never`, so neither the card-level option nor a
+    // per-calendar one reaches the upstream splitter. Asserted against the strongest
+    // input available: both saying `true`, which is what would split it anywhere else.
+    const config = buildConfig({
+      view: 'grid',
+      split_multiday_events: true,
+      entities: [{ entity: 'calendar.personal', split_multiday_events: true }],
+    });
+
+    await expect(daysShowing(conference, config, 'grid', 'grid-never')).resolves.toBe(1);
+  });
+
   it('drops segments that fall past the requested window', async () => {
     // Segments used to be created upstream of the fetch-time window filter and
     // were trimmed by it. Days are selected with `.slice()` over days that *have*

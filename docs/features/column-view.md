@@ -14,9 +14,9 @@ view: column
 days_to_show: 5
 ```
 
-In the [visual editor](/features/editor) the layout is the first control in the **Layout**
-panel. Choosing **Columns** reveals the column-only options below it, and adds a
-**View Exceptions** row to the panels whose options can differ between the two layouts.
+In the [visual editor](/features/editor), **Card Displays** chooses the visible layout.
+Select **Column** under **Editing Settings For** to edit its presentation values directly,
+including its column-only options, without changing the card's displayed layout.
 
 Column view is responsive by design. A day column has a minimum readable width, so a card
 too narrow to give every configured day that much room falls back to the list layout.
@@ -146,6 +146,10 @@ column:
   show_empty_days: false # columns hide them too
 ```
 
+`show_past_events` is different: Column inherits its top-level value unless `column:`
+overrides it. Grid substitutes `true` for both options. The editor guide includes the
+[comparison across all three layouts](/features/editor#yaml-view-defaults).
+
 ## 🚫 Options That Cannot Be Overridden
 
 These options decide _which_ events the card loads, so they must hold the same value in both layouts and are ignored inside `column:`. Set them at the top level:
@@ -186,14 +190,11 @@ would truncate the grid after the third event and leave the remaining columns bl
 Column density is controlled by [`min_days_to_show` and
 `min_days_fallback`](#showing-fewer-columns-instead) instead.
 
-**Per-entity `split_multiday_events`** is ignored because a column _is_ a day: an unsplit
-event would leave every later column it spans silently blank, and a per-calendar opt-out
-would make one calendar honest and another not in the same card. The card-level
-`column: split_multiday_events: false` is the deliberate escape hatch, and it does work.
-
-::: tip These Are Annotated in the Visual Editor
-The editor marks these controls rather than hiding them, because they still apply whenever
-the card falls back to the list layout.
+::: tip Hidden When Editing Column View
+The editor omits these controls in the Column workspace, including the per-calendar compact
+limit. Stored values are preserved and still apply when the card falls back to List. To
+change them, select List under Editing Settings For; Card Displays stays unchanged.
+See [Options for the Selected View](/features/editor#options-for-the-selected-view).
 :::
 
 ## 📊 Progress Bar & Countdown

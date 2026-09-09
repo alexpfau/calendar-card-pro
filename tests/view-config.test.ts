@@ -571,9 +571,9 @@ describe('view-semantics predicates', () => {
     expect(viewAppliesCompactLimits('grid')).toBe(false);
   });
 
-  it('answers each view with a distinct multi-day split policy', () => {
-    expect(multidaySplitPolicy('column')).toBe('force');
+  it('inherits the card-level answer everywhere except grid', () => {
     expect(multidaySplitPolicy('list')).toBe('inherit');
+    expect(multidaySplitPolicy('column')).toBe('inherit');
     expect(multidaySplitPolicy('grid')).toBe('never');
   });
 });

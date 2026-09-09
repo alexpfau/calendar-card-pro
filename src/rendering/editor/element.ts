@@ -9,10 +9,10 @@ import { property, state } from 'lit/decorators.js';
 import * as Entities from './entities';
 import * as Exceptions from './exceptions';
 import * as Filter from './filter';
-import type { HaFormSchema, SelectorSchema } from './ha-form';
+import type { HaFormSchema } from './ha-form';
 import * as EditorLocalize from './localize';
-import * as Overrides from './overrides';
 import { PANELS, type PanelDef, type PanelExtra, type SchemaCtx } from './panels';
+import * as Routing from './routing';
 import { ENTITY_PATH } from './schemas/calendars';
 import {
   accentColorModeOf,
@@ -20,20 +20,20 @@ import {
   labelIconSourceOf,
   labelImageSourceOf,
 } from './schemas/entity';
+import { buildDisplayViewSchema } from './schemas/layout';
 import { interpolate } from './strings';
 import styles from './styles';
-import { EXCEPTION_PICKER } from './subforms';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
+import * as Workspace from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Localize from '../../translations/localize';
+import * as Logger from '../../utils/logger';
 
 const ENTITY_ICON =
   'M19 19H5V8h14m-3-7v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2Z';
-const EXCEPTION_ICON =
-  'M11 15h2v2h-2v-2m0-8h2v6h-2V7m1-5C6.47 2 2 6.5 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2Z';
 
 /**
  * Schema-driven configuration editor for Calendar Card Pro.
@@ -49,11 +49,13 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _pending: Record<string, string> = {};
 
-  @state() private _declaredExceptions: ReadonlySet<string> = new Set();
-
   @state() private _filter: Filter.FilterCriteria = Filter.NO_FILTER;
 
-  private _renderedData = new Map<string, Record<string, unknown>>();
+  @state() private _selectedWorkspace?: Workspace.EditorWorkspace;
+
+  @state() private _gridReconciliation: ReadonlyArray<string> = [];
+
+  private _authoredRootKeys = new Set<string>();
 
   /**
    * Resolves the configured view to one the editor understands.
@@ -65,9 +67,16 @@ export class CalendarCardProEditor extends LitElement {
     return ViewConfig.VIEWS.includes(config.view) ? config.view : 'list';
   }
 
+  /**
+   * Follows the displayed view until the user explicitly chooses a workspace.
+   */
+  private get _workspace(): Workspace.EditorWorkspace {
+    return this._selectedWorkspace ?? this._viewForConfig(this._config!);
+  }
+
   private _lastDispatched?: Record<string, unknown>;
 
-  private _skipTimeGridDivergentDefaultSeed = false;
+  private _skipGridReconciliation = false;
 
   /**
    * Accepts a configuration from Home Assistant.
@@ -79,6 +88,7 @@ export class CalendarCardProEditor extends LitElement {
       this._lastDispatched !== undefined &&
       Value.equalConfigs(config as unknown as Record<string, unknown>, this._lastDispatched);
 
+    if (!isEcho) this._authoredRootKeys = new Set(Object.keys(config));
     this._config = { ...Config.DEFAULT_CONFIG, ...config };
 
     if (!Array.isArray(this._config.entities)) {
@@ -86,17 +96,13 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     if (!isEcho) {
+      this._selectedWorkspace = undefined;
       this._pending = {};
-      this._skipTimeGridDivergentDefaultSeed = false;
-      this._declaredExceptions = Exceptions.declaredKeys(
-        this._config,
-        this._viewForConfig(this._config),
-      );
+      this._gridReconciliation = [];
+      this._skipGridReconciliation = false;
     }
 
     this._lastDispatched = Value.toStoredConfig(this._config);
-
-    this._renderedData.clear();
   }
 
   /**
@@ -105,12 +111,16 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Schema context for the current configuration
    */
   private get _ctx(): SchemaCtx {
-    const config = this._config!;
-    const view = this._viewForConfig(config);
+    const rawConfig = this._config!;
+    const workspace = this._workspace;
+    const view = workspace;
+    const config = Routing.workspaceConfig(rawConfig, workspace);
 
     return {
       view,
+      workspace,
       config,
+      rawConfig,
       language: Localize.getEffectiveLanguage(config.language, this.hass?.locale),
     };
   }
@@ -124,9 +134,7 @@ export class CalendarCardProEditor extends LitElement {
     const ctx = this._ctx;
 
     return {
-      language: ctx.language,
-      view: ctx.view,
-      config: ctx.config,
+      ...ctx,
       criteria: this._filter,
     };
   }
@@ -137,22 +145,16 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Form data
    */
   private _formData(): Record<string, unknown> {
-    return {
-      ...(this._config as unknown as Record<string, unknown>),
-      column: Value.columnFormBlock(this._config!),
-      time_grid: Value.timeGridFormBlock(this._config!),
-      weather: Value.weatherFormBlock(this._config!),
-      ...Synthetic.deriveSyntheticData(this._config!, this._pending),
-    };
+    return Routing.workspaceFormData(this._config!, this._workspace, this._pending);
   }
 
   /**
    * Folds a form change into the configuration and reports it.
    *
-   * @param panelId - Panel that produced the event
+   * @param frame - Scope, schema, and data captured when this form was rendered
    * @param event - The form's `value-changed`
    */
-  private _valueChanged(panelId: string, event: CustomEvent): void {
+  private _valueChanged(frame: Routing.FormFrame, event: CustomEvent): void {
     event.stopPropagation();
 
     if (!this._config) return;
@@ -160,21 +162,43 @@ export class CalendarCardProEditor extends LitElement {
     const nextData = event.detail?.value as Record<string, unknown> | undefined;
     if (!nextData) return;
 
-    const previousView = this._viewForConfig(this._config);
-    const previousData = this._renderedData.get(panelId) ?? this._formData();
-    const applied = Value.applyFormChange(this._config, previousData, nextData, this._pending, {
-      seedTimeGridDivergentDefaults: !this._skipTimeGridDivergentDefaultSeed,
-    });
+    const previousConfig = this._config;
+    const applied = Routing.applyWorkspaceChange(
+      previousConfig,
+      frame,
+      nextData,
+      this._pending,
+      !this._skipGridReconciliation,
+      this._authoredRootKeys,
+    );
+
+    const changed = new Set(
+      Value.changedKeys(
+        previousConfig as unknown as Record<string, unknown>,
+        applied.config as unknown as Record<string, unknown>,
+      ),
+    );
+    for (const { node, path } of Routing.workspaceFields(frame.schema)) {
+      if (path.length > 0) continue;
+      for (const key of Synthetic.configKeysForField(node.name)) {
+        if (!changed.has(key) || Routing.destination(key, frame.workspace) !== undefined) continue;
+        if (Object.prototype.hasOwnProperty.call(applied.config, key))
+          this._authoredRootKeys.add(key);
+        else this._authoredRootKeys.delete(key);
+      }
+    }
+    if (this._viewForConfig(previousConfig) !== this._viewForConfig(applied.config)) {
+      this._gridReconciliation =
+        applied.config.view === 'grid' && !this._skipGridReconciliation
+          ? Value.gridReconciliationKeys(previousConfig, this._authoredRootKeys)
+          : [];
+    }
 
     this._config = applied.config;
     this._pending = applied.pending;
 
-    const nextView = this._viewForConfig(this._config);
-    if (nextView !== previousView) {
-      this._declaredExceptions = Exceptions.declaredKeys(this._config, nextView);
-    }
-
-    this._renderedData.set(panelId, this._formData());
+    // Keep what ha-form emitted, not newly derived synthetic values it has not seen yet.
+    frame.data = structuredClone(nextData);
 
     this._report(applied.config);
   }
@@ -222,7 +246,19 @@ export class CalendarCardProEditor extends LitElement {
     options?: { path?: string[] },
   ): string | undefined => {
     const ctx = this._ctx;
-    return EditorLocalize.computeHelper(ctx.language, ctx.view, schema, options?.path ?? []);
+    const helper = EditorLocalize.computeHelper(
+      ctx.language,
+      ctx.view,
+      schema,
+      options?.path ?? [],
+      true,
+    );
+    const source =
+      'selector' in schema
+        ? Routing.valueSource(this._config!, ctx.workspace ?? ctx.view, schema.name)
+        : undefined;
+    const note = source ? EditorLocalize.lookup(ctx.language, `value_source.${source}`) : undefined;
+    return [note, helper].filter((value) => value !== undefined).join(' ') || undefined;
   };
 
   /**
@@ -245,25 +281,31 @@ export class CalendarCardProEditor extends LitElement {
     const filterCtx = this._filterCtx;
     const filtering = Filter.isFiltering(this._filter);
 
-    const built = panel.build(ctx);
+    // Keep panel.build complete for translation reconciliation; only rendered forms
+    // withhold fields. Search and exceptions both receive this same reduced schema.
+    const built = Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
     const wholePanel =
       filtering && !this._filter.customizedOnly && Filter.matchesPanel(panel, filterCtx);
     const schema = wholePanel ? built : Filter.filterSchema(built, filterCtx);
 
     const data = this._formData();
-    this._renderedData.set(panel.id, data);
+    const frame: Routing.FormFrame = {
+      workspace: ctx.workspace ?? ctx.view,
+      schema,
+      data,
+    };
 
-    const exceptions = this._renderExceptions(panel, built, ctx);
+    const resets = this._renderResetControls(schema, ctx);
     const entities = this._renderEntities(panel, ctx);
     const extras = Filter.filterExtras(panel.extras?.(ctx) ?? [], panel, filterCtx);
 
     const empty =
       !Filter.hasFields(schema) &&
       extras.length === 0 &&
-      exceptions === nothing &&
+      resets === nothing &&
       entities === nothing;
 
-    if (filtering && empty) {
+    if (empty) {
       return nothing;
     }
 
@@ -285,9 +327,9 @@ export class CalendarCardProEditor extends LitElement {
             .computeLabel=${this._computeLabel}
             .computeHelper=${this._computeHelper}
             .localizeValue=${this._localizeValue}
-            @value-changed=${(event: CustomEvent) => this._valueChanged(panel.id, event)}
+            @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
           ></ha-form>
-          ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${exceptions}
+          ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${resets}
         </div>
       </ha-expansion-panel>
     `;
@@ -302,7 +344,8 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _panelTitle(panel: PanelDef, ctx: SchemaCtx): string {
     return (
-      EditorLocalize.lookup(ctx.language, panel.titleKey) ?? EditorLocalize.humanize(panel.titleKey)
+      EditorLocalize.lookupForView(ctx.language, panel.titleKey, ctx.workspace ?? ctx.view) ??
+      EditorLocalize.humanize(panel.titleKey)
     );
   }
 
@@ -314,7 +357,12 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Helper text, or `undefined` when the panel has none
    */
   private _panelHelper(panel: PanelDef, ctx: SchemaCtx): string | undefined {
-    return EditorLocalize.lookup(ctx.language, `${panel.titleKey}.helper`);
+    return EditorLocalize.lookupForView(
+      ctx.language,
+      panel.titleKey,
+      ctx.workspace ?? ctx.view,
+      '.helper',
+    );
   }
 
   /**
@@ -591,201 +639,80 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
-   * Renders the exceptions widget for a panel.
+   * Offers reset actions for explicit values, without duplicating the editing controls.
    *
-   * @param panel - Panel being rendered
-   * @param schema - The panel's schema, as built and before any filtering
-   * @param ctx - Schema context
-   * @returns The widget, or nothing
+   * @param schema - Fields currently shown
+   * @param ctx - Editing context
+   * @returns Per-option reset buttons, or nothing
    */
-  private _renderExceptions(
-    panel: PanelDef,
-    schema: HaFormSchema[],
+  private _renderResetControls(
+    schema: ReadonlyArray<HaFormSchema>,
     ctx: SchemaCtx,
   ): TemplateResult | typeof nothing {
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
     if (blockKey === undefined) return nothing;
-
-    const eligible = Exceptions.eligibleFields(schema, ctx.view, panel.id, ctx.language);
-    if (eligible.length === 0) return nothing;
-
-    const declared = Exceptions.activeFields(eligible, this._declaredExceptions);
-    const path = [blockKey as string];
-    const filtering = Filter.isFiltering(this._filter);
-    const title = this._string(ctx, 'exceptions.title');
-    const active = Filter.filterExceptions(declared, title, path, this._filterCtx);
-
-    if (filtering && active.length === 0) return nothing;
-
-    const label = (field: SelectorSchema): string =>
-      EditorLocalize.computeLabel(ctx.language, field, path);
-
-    const picker: HaFormSchema = {
-      name: EXCEPTION_PICKER,
-      selector: {
-        select: {
-          mode: 'dropdown',
-          multiple: true,
-          options: eligible.map((field) => ({ value: field.name, label: label(field) })),
-        },
-      },
-    };
-
-    const names = active.map((field) => field.name);
-    const data = Overrides.overrideFormData(
-      Value.exceptionFormBlock(this._config!, ctx.view, names),
-      names,
-      Overrides.pendingForBlock(this._pending, blockKey as string),
-    );
-    const rows = Overrides.expandFields(active, ctx.language, data);
-
+    const stored = Value.toStoredConfig(this._config!)[blockKey];
+    if (!stored || typeof stored !== 'object') return nothing;
+    const seen = new Set<string>();
+    const resets = [...Routing.workspaceFields(schema)].flatMap(({ node, path, labelPath }) => {
+      const keys = (
+        path.length === 1 && path[0] === blockKey
+          ? [node.name]
+          : path.length === 0
+            ? Synthetic.configKeysForField(node.name).filter(
+                (key) => Routing.destination(key, ctx.view) === blockKey,
+              )
+            : []
+      ).filter((key) => Object.prototype.hasOwnProperty.call(stored, key) && !seen.has(key));
+      if (keys.length === 0) return [];
+      keys.forEach((key) => seen.add(key));
+      return [{ keys, label: EditorLocalize.computeLabel(ctx.language, node, labelPath) }];
+    });
+    if (resets.length === 0) return nothing;
     return html`
-      <ha-expansion-panel
-        outlined
-        class="exceptions"
-        .header=${title}
-        .secondary=${this._exceptionSummary(declared.length, ctx)}
-        .leftChevron=${false}
-        .expanded=${filtering}
-      >
-        <ha-svg-icon slot="leading-icon" .path=${EXCEPTION_ICON}></ha-svg-icon>
-        <div class="panel-body">
-          <ha-form
-            class="exception-picker"
-            .hass=${this.hass}
-            .data=${{ [EXCEPTION_PICKER]: declared.map((field) => field.name) }}
-            .schema=${[picker]}
-            .computeLabel=${this._computeLabel}
-            .computeHelper=${this._computeHelper}
-            .localizeValue=${this._localizeValue}
-            @value-changed=${(event: CustomEvent) =>
-              this._exceptionsSelected(blockKey, eligible, event)}
-          ></ha-form>
-          ${active.length === 0
-            ? nothing
-            : html`
-                <ha-form
-                  class="exception-form"
-                  .hass=${this.hass}
-                  .data=${data}
-                  .schema=${rows}
-                  .computeLabel=${(schemaNode: HaFormSchema) =>
-                    EditorLocalize.computeLabel(ctx.language, schemaNode, path)}
-                  .computeHelper=${(schemaNode: HaFormSchema) =>
-                    EditorLocalize.computeSubformHelper(ctx.language, ctx.view, schemaNode, path)}
-                  .localizeValue=${this._localizeValue}
-                  @value-changed=${(event: CustomEvent) =>
-                    this._exceptionChanged(blockKey, names, event)}
-                ></ha-form>
-              `}
-        </div>
-      </ha-expansion-panel>
+      <div class="view-resets">
+        ${resets.map(
+          ({ keys, label }) => html`
+            <button
+              type="button"
+              class="text-button"
+              data-reset-keys=${keys.join(' ')}
+              @click=${() => this._resetViewValues(blockKey, ctx.view, keys)}
+            >
+              ${interpolate(this._string(ctx, 'value_source.reset'), {
+                option: label,
+              })}
+            </button>
+          `,
+        )}
+      </div>
     `;
   }
 
   /**
-   * The line under the exceptions heading.
+   * Returns one view value to its inherited or view-default value.
    *
-   * @param count - How many options this panel currently overrides
-   * @param ctx - Schema context
-   * @returns Secondary text
+   * @param blockKey - View's storage block
+   * @param view - View whose value is reset
+   * @param keys - Options controlled by the field
    */
-  private _exceptionSummary(count: number, ctx: SchemaCtx): string {
-    if (count === 0) return this._string(ctx, 'exceptions.summary.none');
-    if (count === 1) return this._string(ctx, 'exceptions.summary.one');
-
-    return interpolate(this._string(ctx, 'exceptions.summary.many'), { count });
-  }
-
-  /**
-   * Adds and removes exceptions as the picker reports them.
-   *
-   * @param blockKey - Config key holding the view's override block
-   * @param eligible - The panel's eligible fields
-   * @param event - The picker's `value-changed`
-   */
-  private _exceptionsSelected(
+  private _resetViewValues(
     blockKey: keyof Types.Config,
-    eligible: ReadonlyArray<SelectorSchema>,
-    event: CustomEvent,
+    view: Types.EffectiveView,
+    keys: ReadonlyArray<string>,
   ): void {
-    event.stopPropagation();
-
     if (!this._config) return;
-
-    const selection = event.detail?.value?.[EXCEPTION_PICKER];
-    if (!Array.isArray(selection)) return;
-
-    const chosen = selection.map((key) => String(key));
-    const eligibleNames = eligible.map((field) => field.name);
-    if (blockKey === 'time_grid') {
-      const divergentKeys = Object.keys(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES);
-      const eligibleDivergentKeys = divergentKeys.filter((key) => eligibleNames.includes(key));
-      if (eligibleDivergentKeys.length > 0) {
-        const removedSeededKey = eligibleDivergentKeys.some(
-          (key) => this._declaredExceptions.has(key) && !chosen.includes(key),
-        );
-        const hasSeededKey = eligibleDivergentKeys.some((key) => chosen.includes(key));
-        if (removedSeededKey) {
-          this._skipTimeGridDivergentDefaultSeed = true;
-        } else if (hasSeededKey) {
-          this._skipTimeGridDivergentDefaultSeed = false;
-        }
-      }
+    if (blockKey === 'time_grid' && keys.some((key) => ViewConfig.hasDivergentDefault(key, view))) {
+      this._skipGridReconciliation = true;
     }
-
-    const applied = Exceptions.applySelection(
-      this._config,
-      blockKey,
-      eligibleNames,
-      this._declaredExceptions,
-      chosen,
-    );
-
-    this._config = applied.config;
-    this._declaredExceptions = applied.declared;
-
-    this._report(this._config);
-  }
-
-  /**
-   * Folds a change to an exception's value into the override block.
-   *
-   * @param blockKey - Config key holding the view's override block
-   * @param names - Options whose rows this form is currently showing
-   * @param event - The form's `value-changed`
-   */
-  private _exceptionChanged(
-    blockKey: keyof Types.Config,
-    names: ReadonlyArray<string>,
-    event: CustomEvent,
-  ): void {
-    event.stopPropagation();
-
-    const next = event.detail?.value as Record<string, unknown> | undefined;
-    if (!next || !this._config) return;
-
-    const key = blockKey as string;
-    const pending = Overrides.pendingForBlock(this._pending, key);
-    const previous = Overrides.overrideFormData(
-      Value.exceptionFormBlock(this._config, this._viewForConfig(this._config), names),
-      names,
-      pending,
-    );
-
-    const stored = this._config[blockKey];
-    const applied = Overrides.applyOverrideChange(
-      stored && typeof stored === 'object' && !Array.isArray(stored)
-        ? (stored as Record<string, unknown>)
-        : {},
-      previous,
-      next,
-      pending,
-    );
-
-    this._pending = Overrides.mergeBlockPending(this._pending, key, applied.pending);
-    this._config = { ...this._config, [blockKey]: applied.block } as Types.Config;
-
+    for (const key of keys) this._config = Exceptions.removeException(this._config, blockKey, key);
+    const pending = { ...this._pending };
+    for (const key of keys) delete pending[`${blockKey}.${key}`];
+    for (const name of Object.keys(Synthetic.SYNTHETIC_FIELDS)) {
+      if (Synthetic.configKeysForField(name).some((key) => keys.includes(key)))
+        delete pending[Routing.pendingKey(name, view)];
+    }
+    this._pending = pending;
     this._report(this._config);
   }
 
@@ -819,10 +746,96 @@ export class CalendarCardProEditor extends LitElement {
 
     return html`
       <div class="card-config">
+        ${this._renderViewControls(ctx)} ${this._renderGridReconciliation(ctx)}
         ${this._renderFilterBar()} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
       </div>
     `;
   }
+
+  /**
+   * Reports the options kept across the explicit switch to Grid, once per transition.
+   *
+   * @param ctx - Current editor context
+   * @returns One dismissible notice, or nothing when no authored value conflicted
+   */
+  private _renderGridReconciliation(ctx: SchemaCtx): TemplateResult | typeof nothing {
+    if (this._gridReconciliation.length === 0) return nothing;
+    const options = this._gridReconciliation.map((key) => this._string(ctx, key)).join(', ');
+    return html`
+      <div class="grid-reconciliation" data-grid-reconciliation role="status">
+        <strong>${this._string(ctx, 'grid_reconciliation.title')}</strong>
+        <div>${interpolate(this._string(ctx, 'grid_reconciliation.message'), { options })}</div>
+        <button
+          type="button"
+          class="text-button"
+          @click=${() => {
+            this._gridReconciliation = [];
+          }}
+        >
+          ${this._string(ctx, 'grid_reconciliation.dismiss')}
+        </button>
+      </div>
+    `;
+  }
+
+  /**
+   * Keeps displayed-view configuration separate from the editor's local cursor.
+   *
+   * @param ctx - Current editor context
+   * @returns The two adjacent controls, outside the searchable panels
+   */
+  private _renderViewControls(ctx: SchemaCtx): TemplateResult {
+    const data = { view: this._viewForConfig(this._config!) };
+    const schema = buildDisplayViewSchema(ctx.language);
+    const frame: Routing.FormFrame = { workspace: 'list', schema, data };
+    const note = Workspace.workspaceNote(ctx.workspace ?? ctx.view);
+
+    return html`
+      <div class="view-controls">
+        <ha-form
+          class="display-view-form"
+          .hass=${this.hass}
+          .data=${data}
+          .schema=${schema}
+          .computeLabel=${this._computeLabel}
+          .computeHelper=${this._computeHelper}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+        ></ha-form>
+        <ha-form
+          class="workspace-form"
+          .hass=${this.hass}
+          .data=${{ [Workspace.WORKSPACE_FIELD]: this._workspace }}
+          .schema=${Workspace.buildWorkspaceSchema(ctx.language)}
+          .computeLabel=${this._computeLabel}
+          .computeHelper=${this._computeHelper}
+          .localizeValue=${this._localizeValue}
+          @value-changed=${this._workspaceChanged}
+        ></ha-form>
+        ${note ? html` <div class="workspace-note">${this._string(ctx, note)}</div> ` : nothing}
+      </div>
+    `;
+  }
+
+  /**
+   * Changes only the editor workspace; this form never enters the config write path.
+   *
+   * @param event - Workspace form's value change
+   */
+  private _workspaceChanged = (event: CustomEvent): void => {
+    event.stopPropagation();
+    if (!this._config) return;
+
+    const value: unknown = event.detail?.value?.[Workspace.WORKSPACE_FIELD];
+    if (!Workspace.isWorkspace(value)) {
+      Logger.warn('Ignoring an unsupported editor workspace', value);
+      this.requestUpdate();
+      return;
+    }
+    if (value === this._workspace) return;
+
+    this._selectedWorkspace = value;
+  };
 
   /**
    * Renders the filter bar above the panels.
