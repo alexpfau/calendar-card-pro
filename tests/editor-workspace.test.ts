@@ -114,6 +114,13 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
       },
     ],
     show_empty_days: true,
+    // The three parents whose children are `VIEW_SCOPE` keys. Without them
+    // `show_location_allday`, `show_description_allday` and `show_countdown_allday` are
+    // never built at all, so the scope assertion below reads absent-because-gated as
+    // absent-because-withheld and passes for the wrong reason in every view.
+    show_location: true,
+    show_description: true,
+    show_countdown: true,
     compact_days_to_show: 2,
     compact_events_to_show: 3,
     compact_events_complete_days: true,

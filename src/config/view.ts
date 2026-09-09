@@ -257,6 +257,34 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   // only the placeholder's text and color are irrelevant there.
   empty_day_text: new Set<Types.EffectiveView>(['list', 'column']),
   empty_day_color: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // Grid draws an all-day event as a banner in its own band, and `renderBanner` emits the
+  // summary and nothing else — no time, no location, no description, no countdown. So the
+  // five options that decide which of those an all-day row carries are computed, handed to
+  // the banner, and dropped. One mechanism, five keys: they share a fate because they share
+  // the renderer that ignores them, which is why they are listed together rather than as
+  // five findings.
+  //
+  // Measured by re-render rather than by reading: flipping each against grid's effective
+  // value leaves all 302 elements identical on every computed longhand and both
+  // pseudo-elements, while the same flip changes the element count outright in list and
+  // column. See tests/view-scope-inert.test.ts, which is that comparison as a gate.
+  show_single_allday_time: new Set<Types.EffectiveView>(['list', 'column']),
+  show_multiday_allday_time: new Set<Types.EffectiveView>(['list', 'column']),
+  show_location_allday: new Set<Types.EffectiveView>(['list', 'column']),
+  show_description_allday: new Set<Types.EffectiveView>(['list', 'column']),
+  show_countdown_allday: new Set<Types.EffectiveView>(['list', 'column']),
+
+  // 🚨 Not the reason it looks like. `.event` IS emitted in grid — on the timed block, on
+  // the banner and on the "+N more" overflow chip — so a grep for the class finds it and
+  // says the padding rule applies. It does not. `styles.ts` is one stylesheet, and
+  // `.grid-event` and `.grid-banner` each set their own `padding` some 1800 lines below
+  // `.event`, at the same specificity. Later wins, and every grid node carrying `.event`
+  // carries one of those two. Nothing in grid consumes --calendar-card-event-spacing.
+  //
+  // Recorded at this length because the class match is genuinely convincing and cost one
+  // wrong verdict in review before the cascade was checked.
+  event_spacing: new Set<Types.EffectiveView>(['list', 'column']),
 };
 
 /**

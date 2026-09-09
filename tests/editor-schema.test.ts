@@ -900,6 +900,17 @@ describe('editor: applicability', () => {
       split_multiday_events: ['column', 'list'],
       empty_day_text: ['column', 'list'],
       empty_day_color: ['column', 'list'],
+      // Grid's banner renderer emits the summary and drops every other content part, so
+      // the five options deciding what an all-day row carries are computed and discarded.
+      show_single_allday_time: ['column', 'list'],
+      show_multiday_allday_time: ['column', 'list'],
+      show_location_allday: ['column', 'list'],
+      show_description_allday: ['column', 'list'],
+      show_countdown_allday: ['column', 'list'],
+      // `.event` is emitted in grid, so the padding rule looks like it applies. It is
+      // overridden 1800 lines later by `.grid-event` and `.grid-banner` at equal
+      // specificity, and every grid node carrying `.event` carries one of those.
+      event_spacing: ['column', 'list'],
     });
 
     expect(
