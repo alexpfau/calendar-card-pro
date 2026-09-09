@@ -6,6 +6,7 @@ import { VIEWS, VIEW_SCOPE } from '../src/config/view';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { walkSchema } from '../src/rendering/editor/panels';
+import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { chassisSubforms } from '../src/rendering/editor/subforms';
 import {
   type EditorWorkspace,
@@ -386,4 +387,50 @@ it('rejects the removed duplicate Shared workspace without changing configuratio
   expect(workspace(editor)).toBe('list');
   expect(WORKSPACES).toEqual(VIEWS);
   expect(seen).toEqual([]);
+});
+
+describe('the editor names each view once', () => {
+  /**
+   * A reconciliation rather than a list of three, because the bug is forgetting: a new
+   * view added to `VIEWS` is covered here the day it lands, and neither table can lose an
+   * entry without failing. `AGENTS.md` records this project losing rows from
+   * hand-maintained tables while the suite stayed green.
+   *
+   * The two selectors stack in the same editor — the illustrated tiles pick what the card
+   * displays, the workspace picker below them picks what you are configuring — so a view
+   * reading "Columns" in one and "Column" in the other is two names on one screen. That is
+   * what this caught.
+   */
+  it('gives the workspace picker and the display tiles the same labels', () => {
+    for (const view of VIEWS) {
+      expect(EDITOR_STRINGS[`editing_workspace.option.${view}.label`]).toBe(
+        EDITOR_STRINGS[`view.option.${view}.label`],
+      );
+    }
+  });
+
+  /**
+   * Provenance describes a storage *layer*, so it must not name a view. "Uses the List
+   * value" was true only because the top level is simultaneously List's own storage and
+   * the value every other view falls back to — the ambiguity a `list:` block would remove,
+   * at which point the sentence becomes plainly false.
+   *
+   * Reconciled against `VIEWS` for the same reason as the test above. `editing_workspace`
+   * strings are deliberately out of scope: the note under the picker names Column and Grid
+   * on purpose, because it is telling a List editor who else reads these values.
+   */
+  it('describes provenance by layer, never by view name', () => {
+    const states = ['card', 'inherited', 'default', 'own'] as const;
+    const names = VIEWS.map((view) => EDITOR_STRINGS[`view.option.${view}.label`]);
+
+    for (const state of states) {
+      const text = EDITOR_STRINGS[`value_source.${state}`];
+      expect(text, `value_source.${state} is missing`).toBeTypeOf('string');
+      for (const name of names) {
+        expect(text, `value_source.${state} names the ${name} view`).not.toMatch(
+          new RegExp(`\\b${name}\\b`),
+        );
+      }
+    }
+  });
 });

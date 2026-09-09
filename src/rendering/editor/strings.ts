@@ -37,14 +37,14 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   editing_workspace: 'Editing Settings For',
   'editing_workspace.helper': 'Choose which layout to edit without changing Card Displays.',
   'editing_workspace.list_note':
-    'Column and Grid may use these List values too, unless that view has its own value for the option.',
+    'Column and Grid may use these values too, unless that view has its own value for the option.',
   'value_source.card': 'Applies to the whole card.',
-  'value_source.inherited': 'Uses the List value unless you change it here.',
+  'value_source.inherited': 'Uses the card-wide value unless you change it here.',
   'value_source.default': 'Uses this layout’s default until you change it here.',
   'value_source.own': 'Set for this layout.',
   'value_source.reset': 'Reset {option}',
   'editing_workspace.option.list.label': 'List',
-  'editing_workspace.option.column.label': 'Column',
+  'editing_workspace.option.column.label': 'Columns',
   'editing_workspace.option.grid.label': 'Grid',
   'grid_reconciliation.title': 'Existing Values Kept for Grid',
   'grid_reconciliation.message':
