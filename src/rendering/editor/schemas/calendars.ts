@@ -50,10 +50,5 @@ export function buildCalendarsSchema(_ctx: SchemaCtx): HaFormSchema[] {
  * @returns The per-calendar sub-form
  */
 export function calendarsSubforms(ctx: SchemaCtx): SubformDef[] {
-  return [
-    {
-      path: ENTITY_PATH,
-      schema: buildEntitySchema(ctx),
-    },
-  ];
+  return [{ path: ENTITY_PATH, schema: buildEntitySchema(ctx) }];
 }
