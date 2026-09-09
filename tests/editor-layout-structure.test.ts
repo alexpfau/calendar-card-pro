@@ -378,7 +378,9 @@ describe('Sub-forms are view-scoped like the panels above them', () => {
             where: `${panel.id}/${subform.path.join('.')}`,
             dropped: declared.filter(
               (name) =>
-                !fieldNames(Filter.withholdInertFields(subform.schema, view)).includes(name),
+                !fieldNames(Filter.withholdInertFields(subform.schema, view, 'entity')).includes(
+                  name,
+                ),
             ),
           }).toEqual({ where: `${panel.id}/${subform.path.join('.')}`, dropped: [] });
         }
@@ -388,6 +390,54 @@ describe('Sub-forms are view-scoped like the panels above them', () => {
       // when `subforms()` returns nothing at all.
       expect(subforms).toBeGreaterThan(0);
       expect(seen).toBeGreaterThan(15);
+    });
+  }
+});
+
+describe('No sub-form heading is left captioning nothing', () => {
+  // 🚨 Withholding a key can empty the heading above it, and a stranded heading is worse
+  // than no heading: it makes a claim about whatever follows it, so it silently relabels
+  // the next section. `## Multi-Day Events` held exactly one control, `split_multiday_events`,
+  // which grid withholds — so scoping the sub-form is the first change able to strand one.
+  //
+  // The live probe that verified the scoping could not have seen this. It counted
+  // `ha-selector-*` elements, and a heading is an `ha-form-constant`; the editor would have
+  // rendered a bare bold label over the wrong fields while every measured count was right.
+  function flat(nodes: ReadonlyArray<HaFormSchema>): Array<'heading' | 'field'> {
+    return nodes.flatMap((node): Array<'heading' | 'field'> => {
+      if ('schema' in node) return flat(node.schema);
+
+      return ['selector' in node ? 'field' : 'heading'];
+    });
+  }
+
+  for (const view of ['list', 'column', 'grid'] as Types.EffectiveView[]) {
+    it(`captions at least one field per heading in ${view}`, () => {
+      const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
+      const ctx: SchemaCtx = { config, view, language: 'en' };
+      let headings = 0;
+
+      for (const panel of PANELS) {
+        for (const subform of panel.subforms?.(ctx) ?? []) {
+          const seq = flat(subform.schema);
+          const empty: number[] = [];
+
+          seq.forEach((kind, i) => {
+            if (kind !== 'heading') return;
+            headings += 1;
+            if (seq[i + 1] === undefined || seq[i + 1] === 'heading') empty.push(i);
+          });
+
+          expect({ where: `${panel.id}/${subform.path.join('.')}`, empty }).toEqual({
+            where: `${panel.id}/${subform.path.join('.')}`,
+            empty: [],
+          });
+        }
+      }
+
+      // Without this the test passes when the sub-form has no headings at all, which is
+      // the state a bad refactor would produce.
+      expect(headings).toBeGreaterThan(2);
     });
   }
 });
