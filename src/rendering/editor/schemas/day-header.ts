@@ -9,7 +9,7 @@ import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
-import { bool, color, group, heading, row, scope, select, text } from './common';
+import { blockScope, bool, color, group, heading, row, select, text } from './common';
 
 export const DAY_HEADER_ICON = mdiCalendarWeekBegin;
 
@@ -124,18 +124,13 @@ function weekNumberGroup(language: string, mode: string): HaFormSchema {
  * @returns The heading and its fields
  */
 function dayHeaderRuleFields(blockKey: string): HaFormSchema[] {
-  // See above: storage nesting does not carry the label with it, so each field names the
-  // key it had when a collapsible earned that prefix for it.
-  const keyed = <T extends HaFormSchema>(node: T): T => ({
-    ...node,
-    titleKey: `${blockKey}.${node.name}`,
-  });
-
   return [
     heading('heading_gap_and_rule'),
-    scope(blockKey, [
-      keyed(text('day_header_gap')),
-      row(keyed(text('day_header_separator_width')), keyed(color('day_header_separator_color'))),
+    // `blockScope`, not `scope`: see its docblock. These three keep the `${blockKey}.`
+    // string prefix a collapsible used to earn them, so nothing translated moves.
+    blockScope(blockKey, [
+      text('day_header_gap'),
+      row(text('day_header_separator_width'), color('day_header_separator_color')),
     ]),
   ];
 }

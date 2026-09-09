@@ -2282,7 +2282,8 @@ describe('editor: the Separators panel', () => {
   });
 
   /**
-   * The panel is homogeneous in every view, and that is the assertion.
+   * List and column rule in one direction only, so the panel stays a single family there
+   * and that is the assertion.
    *
    * The day-header rule used to sit here in a collapsible, on the reasoning that it was a
    * fourth rule alongside these three. It is not. In column and grid these three are drawn
@@ -2291,11 +2292,11 @@ describe('editor: the Separators panel', () => {
    * was a third panel away, in Layout. Gap and rule are one decision and now live together
    * under Day Header.
    *
-   * Asserted for all three views, because the old placement was view-conditional and a
-   * check on the default view alone could not have seen it.
+   * Pinned by value rather than by `toContain`, so a key arriving here fails as loudly as
+   * one leaving.
    */
-  it('offers only rules that divide one day, week or month from the next', () => {
-    for (const config of [buildConfig(), columnConfig(), gridConfig()]) {
+  it('offers only day, week and month rules in the views ruled one way', () => {
+    for (const config of [buildConfig(), columnConfig()]) {
       expect(namesIn(config)).toEqual([
         '',
         'day_separator_width',
@@ -2307,6 +2308,133 @@ describe('editor: the Separators panel', () => {
         'month_separator_width',
         'month_separator_color',
       ]);
+    }
+  });
+
+  /**
+   * Grid rules its paper in both directions, and until now only one direction was in this
+   * panel: `hour_line_*` and `allday_band_line_*` were in Layout, inside the time-axis
+   * collapsible. A user restyling "the grid's lines" was being sent to two panels.
+   *
+   * `day_spacing` comes too. It is the gutter the vertical rules are centered in — at the
+   * grid defaults a 1px rule in a 1px gutter fills it exactly — so gutter and rule are one
+   * visual decision, the same argument that moved the day-header gap to sit with its rule.
+   *
+   * Pinned by value, in order, because the headings are the point: each has to caption the
+   * run that follows it, and a key appended to the wrong run would be captioned wrongly
+   * while every `toContain` still passed.
+   */
+  it('gathers every rule the grid draws, split by direction', () => {
+    expect(namesIn(gridConfig())).toEqual([
+      'heading_between_days',
+      'day_spacing',
+      '',
+      'day_separator_width',
+      'day_separator_color',
+      '',
+      'week_separator_width',
+      'week_separator_color',
+      '',
+      'month_separator_width',
+      'month_separator_color',
+      'heading_across_the_grid',
+      'time_grid',
+      '',
+      'hour_line_width',
+      'hour_line_color',
+      '',
+      'allday_band_line_width',
+      'allday_band_line_color',
+    ]);
+  });
+
+  /**
+   * Presentation only. `day_spacing` is a shared key whose grid value `routeForKey` sends
+   * to the block, exactly as it did while the field was in Layout; the hour and band keys
+   * are grid-only and are read from the block, so they keep the data path their
+   * collapsible gave them.
+   */
+  it('leaves every value stored where it was', () => {
+    const panel = PANELS.find((entry) => entry.id === 'separators')!;
+    const config = gridConfig();
+    const paths = new Map(
+      [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))].map((entry) => [
+        entry.node.name,
+        entry.dataPath,
+      ]),
+    );
+
+    expect(paths.get('day_spacing')).toEqual([]);
+    expect(paths.get('day_separator_width')).toEqual([]);
+
+    for (const key of [
+      'hour_line_width',
+      'hour_line_color',
+      'allday_band_line_width',
+      'allday_band_line_color',
+    ]) {
+      expect(paths.get(key)).toEqual(['time_grid']);
+    }
+  });
+
+  /**
+   * The grid-only keys were labelled `time_grid.*` while a collapsible earned them that
+   * prefix. A bare `scope` nests data without nesting labels, so without `blockScope`
+   * stamping the key back on they would silently fall back to a humanized field name.
+   */
+  it('keeps the grid-only rules labelled from their own strings', () => {
+    const panel = PANELS.find((entry) => entry.id === 'separators')!;
+    const config = gridConfig();
+    const nodes = [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))];
+
+    const labelOf = (name: string) => {
+      const entry = nodes.find((item) => item.node.name === name)!;
+      return computeLabel('en', entry.node, entry.path);
+    };
+
+    expect(labelOf('hour_line_width')).toBe('Hour Rule Width');
+    expect(labelOf('allday_band_line_width')).toBe('All-Day Band Rule Width');
+  });
+});
+
+/**
+ * Layout keeps the axis and loses the ink.
+ */
+describe('editor: what Layout no longer holds', () => {
+  function namesIn(config: Types.Config): string[] {
+    const panel = PANELS.find((entry) => entry.id === 'layout')!;
+    return [...walkSchema(panel.build({ view: config.view, config, language: 'en' }))].map(
+      (entry) => entry.node.name,
+    );
+  }
+
+  it('sends the grid rules to Separators and keeps the axis', () => {
+    const names = namesIn(gridConfig());
+
+    for (const key of [
+      'hour_line_width',
+      'hour_line_color',
+      'allday_band_line_width',
+      'allday_band_line_color',
+      'day_spacing',
+    ]) {
+      expect(names).not.toContain(key);
+    }
+
+    // The shading fills a column rather than ruling one, so it stays with the axis.
+    expect(names).toContain('weekend_background_color');
+    expect(names).toContain('slot_minutes');
+  });
+
+  /**
+   * `day_spacing` moved for grid alone. Removing it from the shared row instead would
+   * have taken the option away from the two views where it really is vertical spacing,
+   * and no grid-only assertion could have seen that.
+   */
+  it('leaves the spacing row alone in the views that still mean it', () => {
+    for (const config of [buildConfig(), columnConfig()]) {
+      expect(namesIn(config)).toContain('day_spacing');
+      expect(namesIn(config)).toContain('event_spacing');
     }
   });
 });

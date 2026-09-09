@@ -125,6 +125,46 @@ export function scope(name: string, children: HaFormSchema[]): GridSchema {
 }
 
 /**
+ * A `scope` whose fields keep naming their own strings.
+ *
+ * Storage nesting and label nesting are separate mechanisms here, and this exists because
+ * assuming the first implies the second is the trap. A named `grid` nests **data** — that
+ * is the rule `filter.ts` walks, and the only reason `weather.entity` reaches config — but
+ * Home Assistant qualifies a **label** only under `ha-form-expandable`. So fields moved out
+ * of a collapsible and into a bare `scope` keep their values where they were and lose the
+ * key prefix their translations are filed under, silently, in every language at once.
+ *
+ * Stamping `titleKey` restores it. Nine languages' worth of `time_grid.*` prose stays
+ * addressable, and two views keep separate descriptions of the same option instead of
+ * collapsing onto one bare key.
+ *
+ * Unnamed containers are recursed into, since a `row` is chrome rather than a level. A
+ * named one is another scope and prefixes its own children, so it is left alone. An
+ * explicit `titleKey` always wins.
+ *
+ * @param name - Config key holding the nested object
+ * @param children - Fields stored inside it
+ * @returns The scope
+ */
+export function blockScope(name: string, children: HaFormSchema[]): GridSchema {
+  const isGrid = (node: HaFormSchema): node is GridSchema => 'type' in node && node.type === 'grid';
+
+  const stamp = (node: HaFormSchema): HaFormSchema => {
+    if (isGrid(node)) {
+      return node.name === '' ? { ...node, schema: node.schema.map(stamp) } : node;
+    }
+
+    if (node.name === '' || node.titleKey !== undefined) {
+      return node;
+    }
+
+    return { ...node, titleKey: `${name}.${node.name}` };
+  };
+
+  return scope(name, children.map(stamp));
+}
+
+/**
  * A collapsible sub-group whose children stay at the top level of the configuration.
  *
  * @param language - Effective language code

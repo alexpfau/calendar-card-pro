@@ -189,15 +189,13 @@ function timeAxisGroup(blockKey: string, language: string): HaFormSchema {
         },
         text('hour_height'),
       ),
-      // With the ruling's spacing and scale, because they answer the same question: how
-      // the paper under the events is drawn. `slot_minutes` says how often a rule appears
-      // and this row says what it looks like, so reading them apart is reading half an
-      // answer. The band's own boundary follows immediately, since it is the one other
-      // horizontal rule on the paper — and grouping the two here is what lets a user who
-      // wants to restyle "the grid's lines" find all of them in one place, rather than
-      // pairing each with the content it happens to sit near.
-      row(text('hour_line_width'), color('hour_line_color')),
-      row(text('allday_band_line_width'), color('allday_band_line_color')),
+      // The two rule rows that used to sit here — `hour_line_*` and `allday_band_line_*` —
+      // are in Separators now, with every other rule the grid draws. The argument for
+      // keeping them was that `slot_minutes` says how often an hour rule appears and the
+      // row said what it looks like; the argument that beat it is that a user restyling
+      // "the grid's lines" was being sent to two panels, and this one is about the axis
+      // rather than about ink. The shading stays, because it fills a column rather than
+      // ruling one, and nothing in Separators would caption it.
       color('weekend_background_color'),
       // The gutter, and the two options qualifying it. `axis_label_minutes` follows
       // `show_axis_labels` because it is moot without it — a cadence read before the
@@ -247,15 +245,27 @@ const layoutSchema = Helpers.memoizeLast(
     daysToShow: number,
     language: string,
   ): HaFormSchema[] => {
+    // Grid keeps neither: `event_spacing` is inert there and withheld by `VIEW_SCOPE`,
+    // and `day_spacing` is the column gutter rather than vertical space between days, so
+    // it is in Separators beside the rules drawn inside it. Building the row conditionally
+    // rather than letting the filter empty it keeps the panel's shape a decision made
+    // here, where it can be read.
+    const spacing: HaFormSchema[] =
+      view === 'grid'
+        ? []
+        : [
+            {
+              type: 'grid',
+              name: '',
+              schema: [
+                { name: 'day_spacing', selector: { text: { type: 'text' } } },
+                { name: 'event_spacing', selector: { text: { type: 'text' } } },
+              ],
+            },
+          ];
+
     const schema: HaFormSchema[] = [
-      {
-        type: 'grid',
-        name: '',
-        schema: [
-          { name: 'day_spacing', selector: { text: { type: 'text' } } },
-          { name: 'event_spacing', selector: { text: { type: 'text' } } },
-        ],
-      },
+      ...spacing,
       {
         name: 'additional_card_spacing',
         selector: { text: { type: 'text' } },
