@@ -7,6 +7,7 @@ import {
   DEFAULT_OVERRIDES_BY_VIEW,
   appliesToView,
   resolveEffectiveConfig,
+  resolveViewOption,
 } from '../src/config/view';
 
 /**
@@ -254,6 +255,28 @@ describe('cross-view divergent defaults', () => {
 
           expect(effective[key]).toEqual(owned);
           expect(effective[key]).not.toEqual(top);
+
+          // 🚨 The same question asked of the *other* implementation, and it is a second
+          // implementation rather than a second caller. `resolveEffectiveConfig` seeds
+          // `{ ...block.defaultOverrides }` and returns `{ ...config, ...applied }`, so the
+          // view default wins by spread order; `resolveViewOption` resolves one key and
+          // wins by `??`. Nothing links them, and no grep finds both — the bulk form has no
+          // `??` to match on.
+          //
+          // Asserted here because this file is named for the behavior, so a maintainer who
+          // reads it believes the behavior is covered. It was covered once. Deleting the
+          // divergent-default branch from `resolveViewOption` outright left all 34 tests in
+          // this file green, and the *subtle* change that prompted this — making an authored
+          // top-level value win — failed 2 tests suite-wide, neither of them here. Per
+          // `AGENTS.md`, a small non-zero count reads as a complete measurement of a cheap
+          // change, which is exactly how the second site went unnoticed.
+          expect(
+            resolveViewOption(
+              config,
+              key as keyof Types.ColumnOverrides & keyof Types.Config,
+              view,
+            ),
+          ).toEqual(owned);
         });
       }
     }
