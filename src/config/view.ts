@@ -156,6 +156,38 @@ export const TIME_GRID_ONLY_KEYS = [
 ] as const;
 
 /**
+ * Every option that may appear inside the `list:` block.
+ *
+ * The shared set plus the five keys `VIEW_SCOPE` marks list-only. Those five sat at the
+ * top level through v4 for a reason that stopped being true when column view arrived:
+ * as long as list was the only view, the top level *was* the list block. They are
+ * override keys rather than only-keys because each has a `Types.Config` counterpart —
+ * `OnlyKeysWithCounterpart` rejects the other classification, which is the assertion
+ * doing the deciding rather than this comment.
+ *
+ * 🚨 Spread, not filtered. The spread of a tuple is still a tuple, so the partition
+ * assertions below stay literal; the `.filter()` hazard documented on
+ * `TIME_GRID_OVERRIDE_KEYS` applies here too.
+ */
+export const LIST_OVERRIDE_KEYS = [
+  ...COLUMN_OVERRIDE_KEYS,
+  'compact_days_to_show',
+  'compact_events_to_show',
+  'compact_events_complete_days',
+  'date_vertical_alignment',
+  'today_indicator_position',
+] as const;
+
+/**
+ * List has no option without a top-level counterpart.
+ *
+ * Empty by construction rather than by omission: every list-only key is an override of
+ * a card-level key, so classifying any of them here would fail
+ * `_AssertListOnlyKeysHaveNoCounterpart`.
+ */
+export const LIST_ONLY_KEYS = [] as const;
+
+/**
  * Compile-time partition check for a view's two key arrays.
  *
  * The arrays are the only thing that decides whether an override reaches the renderer:
@@ -231,6 +263,16 @@ export type _AssertEveryGridOverrideKeyHoistable = AssertNever<
 >;
 export type _AssertGridOnlyKeysHaveNoCounterpart = AssertNever<
   OnlyKeysWithCounterpart<typeof TIME_GRID_ONLY_KEYS>
+>;
+
+export type _AssertEveryListKeyClassified = AssertNever<
+  UnclassifiedKeys<Types.ListOverrides, typeof LIST_OVERRIDE_KEYS, typeof LIST_ONLY_KEYS>
+>;
+export type _AssertEveryListOverrideKeyHoistable = AssertNever<
+  OverrideKeysWithoutCounterpart<Types.ListOverrides, typeof LIST_OVERRIDE_KEYS>
+>;
+export type _AssertListOnlyKeysHaveNoCounterpart = AssertNever<
+  OnlyKeysWithCounterpart<typeof LIST_ONLY_KEYS>
 >;
 
 export const VIEWS: ReadonlyArray<Types.EffectiveView> = ['list', 'column', 'grid'];
@@ -323,6 +365,41 @@ export const ENTITY_VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.Effect
 export function appliesToView(key: string, view: Types.EffectiveView): boolean {
   const scope = Object.prototype.hasOwnProperty.call(VIEW_SCOPE, key) ? VIEW_SCOPE[key] : undefined;
   return scope === undefined || scope.has(view);
+}
+
+/**
+ * Whether an option is worth setting on the shared base rather than in a view block.
+ *
+ * 🚨 The answer is *more than one view*, not *any view*. The shared workspace exists to
+ * set a value once for every layout that reads it, so a key only one layout reads has no
+ * business there — putting `today_indicator_position` on the shared base would offer the
+ * user a control that is, by construction, list's alone.
+ *
+ * This is why widening the workspace type is not enough on its own. The obvious repair
+ * for the compiler error this answers is `scope.has(workspace)`, which is `false` for
+ * every scoped key when the workspace is `'shared'` — so the shared base would withhold
+ * precisely the keys it is for, silently and while typechecking.
+ *
+ * 🚨 An unscoped key is *not* automatically shared, which is where this parts company with
+ * `appliesToView`. A block-only key such as `hour_height` or `min_day_width` has no
+ * `VIEW_SCOPE` entry because it has no top-level home at all — it exists only inside a
+ * block. Treating "unscoped" as "shared" there offered the control on the shared base and
+ * would have written the value to the top level, where nothing ever reads it: the exact
+ * silent-wrong-destination bug the view-first editor was built to remove.
+ *
+ * @param key - Config key to test
+ * @param scopeFor - How to look the key's scope up; defaults to the card-level scope
+ * @returns Whether more than one view reads it at the top level
+ */
+export function appliesToSharedBase(
+  key: string,
+  scopeFor: (key: string) => ReadonlySet<Types.EffectiveView> | undefined = (candidate) =>
+    Object.prototype.hasOwnProperty.call(VIEW_SCOPE, candidate) ? VIEW_SCOPE[candidate] : undefined,
+): boolean {
+  if (BLOCK_ONLY_KEYS.has(key)) return false;
+
+  const scope = scopeFor(key);
+  return scope === undefined || scope.size > 1;
 }
 
 /**
@@ -914,6 +991,16 @@ interface ViewBlock {
 }
 
 export const VIEW_BLOCKS: Readonly<Partial<Record<Types.EffectiveView, ViewBlock>>> = {
+  list: {
+    blockKey: 'list',
+    overrideKeys: LIST_OVERRIDE_KEYS,
+    onlyKeys: LIST_ONLY_KEYS,
+    onlyDefaults: {},
+    // Empty by definition, not by omission. A divergent default is a view disagreeing
+    // with the shipped card-level value, and the card-level values *are* list's — every
+    // `DEFAULT_CONFIG` entry was written for the only view that existed when it landed.
+    defaultOverrides: {},
+  },
   column: {
     blockKey: 'column',
     overrideKeys: COLUMN_OVERRIDE_KEYS,
@@ -952,6 +1039,18 @@ export const OVERRIDE_BLOCK_BY_VIEW: Readonly<
 > = Object.fromEntries(
   Object.entries(VIEW_BLOCKS).map(([view, block]) => [view, block.blockKey]),
 ) as Readonly<Partial<Record<Types.EffectiveView, keyof Types.Config>>>;
+
+/**
+ * Every key that exists only inside a view block, with no top-level counterpart.
+ *
+ * Derived from {@link VIEW_BLOCKS} rather than written out, so a view registered with new
+ * `onlyKeys` is covered the day it lands. Read by {@link appliesToSharedBase}, which must
+ * refuse these: they have no top level to be set at, so offering one on the shared base
+ * would write a key nothing reads.
+ */
+const BLOCK_ONLY_KEYS: ReadonlySet<string> = new Set(
+  Object.values(VIEW_BLOCKS).flatMap((block) => block.onlyKeys as ReadonlyArray<string>),
+);
 
 /**
  * Where an edit to an option belongs when the editor is configuring a given view.
@@ -1177,7 +1276,11 @@ export function resolveEffectiveConfig(
     }
   }
 
-  return { ...config, ...applied } as Types.Config;
+  // Identity on the no-op path. List's block has no divergent defaults, so an unpopulated
+  // `list:` leaves nothing to apply — and the card memoizes on configuration identity and
+  // hands the result to caches that compare by reference. A fresh equal object would still
+  // render correctly and quietly turn every one of those comparisons into a miss.
+  return Object.keys(applied).length === 0 ? config : ({ ...config, ...applied } as Types.Config);
 }
 
 //-----------------------------------------------------------------------------

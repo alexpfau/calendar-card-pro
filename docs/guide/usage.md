@@ -59,7 +59,8 @@ entities:
   - entity: calendar.personal
     color: '#c2ffb3' # Green for personal events
 days_to_show: 7
-compact_events_to_show: 3 # Always only show 3 events
+list:
+  compact_events_to_show: 3 # Always only show 3 events
 tap_action:
   action: expand # Tap to expand/collapse
 ```

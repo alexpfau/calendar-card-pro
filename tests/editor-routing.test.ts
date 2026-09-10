@@ -41,43 +41,49 @@ const lengthKeys = View.COLUMN_OVERRIDE_KEYS.filter(
 );
 
 describe('workspace routing uses the actual destination', () => {
-  it.each(['column', 'grid'] as const)(
-    'writes %s presentation options only into its block',
-    (workspace) => {
-      const config = buildConfig({
-        view: 'list',
-        event_font_size: '17px',
-        column: { event_spacing: '3em' },
-        time_grid: { day_spacing: '2px' },
-      });
-      const past = !Routing.workspaceFormData(config, workspace).show_past_events;
-      const result = apply(config, workspace, { event_font_size: '23px', show_past_events: past });
-      const key = View.OVERRIDE_BLOCK_BY_VIEW[workspace]!;
-      expect(result.config[key]).toMatchObject({ event_font_size: '23px', show_past_events: past });
-      expect(result.config.event_font_size).toBe('17px');
-      expect(result.config.view).toBe('list');
-      expect(result.config[workspace === 'grid' ? 'column' : 'time_grid']).toEqual(
-        config[workspace === 'grid' ? 'column' : 'time_grid'],
-      );
-    },
-  );
-
-  it('keeps List and card-wide edits at root while preserving explicit view values', () => {
+  // Driven off `VIEWS` rather than the `['column', 'grid']` pair this replaced. That pair
+  // was written when list had no block and root was list's storage, so it stated the
+  // asymmetry as a fact; with `list:` registered it would have gone on passing while
+  // saying nothing about the view most cards use.
+  it.each(View.VIEWS)('writes %s presentation options only into its block', (workspace) => {
     const config = buildConfig({
-      view: 'grid',
-      day_spacing: '10px',
-      column: { day_spacing: '4px' },
+      view: 'list',
+      event_font_size: '17px',
+      list: { day_spacing: '7px' },
+      column: { event_spacing: '3em' },
       time_grid: { day_spacing: '2px' },
     });
-    const list = apply(config, 'list', { day_spacing: '3em' }).config;
-    expect(list.day_spacing).toBe('3em');
-    expect(list.column).toEqual(config.column);
-    expect(list.time_grid).toEqual(config.time_grid);
-    const global = apply(list, 'grid', { title: 'Example', days_to_show: 9 }).config;
-    expect(global.title).toBe('Example');
-    expect(global.days_to_show).toBe(9);
-    expect(global.time_grid).not.toHaveProperty('title');
-    expect(global.time_grid).not.toHaveProperty('days_to_show');
+    const past = !Routing.workspaceFormData(config, workspace).show_past_events;
+    const result = apply(config, workspace, { event_font_size: '23px', show_past_events: past });
+    const key = View.OVERRIDE_BLOCK_BY_VIEW[workspace]!;
+
+    expect(result.config[key]).toMatchObject({ event_font_size: '23px', show_past_events: past });
+    expect(result.config.event_font_size).toBe('17px');
+    expect(result.config.view).toBe('list');
+
+    // Every other registered block, found rather than named — the `grid ? column :
+    // time_grid` conditional this replaces could only ever check one of two.
+    for (const other of View.VIEWS) {
+      const otherKey = View.OVERRIDE_BLOCK_BY_VIEW[other]!;
+      if (otherKey === key) continue;
+      expect(result.config[otherKey], otherKey).toEqual(config[otherKey]);
+    }
+  });
+
+  it('keeps a card-wide edit at root from every workspace', () => {
+    // The layered arrangement's other half. Presentation options route into the
+    // workspace's block; a card-wide option has no per-view meaning and must stay at root
+    // wherever it was edited, or a title set in Grid would vanish on switching to List.
+    for (const workspace of View.VIEWS) {
+      const config = buildConfig({ view: 'grid', column: { day_spacing: '4px' } });
+      const result = apply(config, workspace, { title: 'Example', days_to_show: 9 }).config;
+      const key = View.OVERRIDE_BLOCK_BY_VIEW[workspace]!;
+
+      expect(result.title, workspace).toBe('Example');
+      expect(result.days_to_show, workspace).toBe(9);
+      expect(result[key] ?? {}, workspace).not.toHaveProperty('title');
+      expect(result[key] ?? {}, workspace).not.toHaveProperty('days_to_show');
+    }
   });
 
   it('projects each view rather than the card’s displayed view', () => {
@@ -407,7 +413,7 @@ function emit(form: Form, data: Record<string, unknown>): void {
     new CustomEvent('value-changed', { detail: { value: data }, bubbles: true, composed: true }),
   );
 }
-async function mount() {
+async function mount(extra: Record<string, unknown> = {}) {
   const editor = new CalendarCardProEditor();
   editor.hass = {
     states: {},
@@ -421,6 +427,7 @@ async function mount() {
       event_font_size: '17px',
       column: { event_font_size: '19px' },
       time_grid: { event_font_size: '23px' },
+      ...extra,
     }),
   );
   document.body.appendChild(editor);
@@ -437,10 +444,18 @@ afterEach(() => {
 });
 
 describe('rendered form frames preserve edit intent', () => {
+  /**
+   * 🚨 Shared, not List, and the move is the whole point of the layered arrangement.
+   * Root used to be list's storage, so clearing a value from the List workspace cleared
+   * root. With `list:` registered, List writes into its own block and root is the shared
+   * base — so this case had to follow root to the workspace that now owns it. Left on
+   * List it would have gone on passing the moment anything put a `list:` value in the
+   * fixture, while testing something else entirely.
+   */
   it('clears a root option without restoring it from the previous object', async () => {
     const { editor, seen } = await mount();
     emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
-      editing_workspace: 'list',
+      editing_workspace: 'shared',
     });
     await editor.updateComplete;
     const form = owner(editor, 'event_font_size');
@@ -451,6 +466,30 @@ describe('rendered form frames preserve edit intent', () => {
     expect(seen[0].column).toEqual({ event_font_size: '19px' });
     expect(seen[0].time_grid).toEqual({ event_font_size: '23px' });
     expect(owner(editor, 'event_font_size').data.event_font_size).toBe('14px');
+  });
+
+  /**
+   * The other half, and the one that is new. Clearing from List drops the *list* override
+   * and leaves the shared base standing — so the control falls back to root rather than to
+   * the shipped default, which is what distinguishes layered from three parallel views.
+   */
+  it('clears a list override back to the shared base rather than to the default', async () => {
+    const { editor, seen } = await mount({ list: { event_font_size: '21px' } });
+    emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
+      editing_workspace: 'list',
+    });
+    await editor.updateComplete;
+
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('21px');
+
+    const form = owner(editor, 'event_font_size');
+    emit(form, { ...form.data, event_font_size: undefined });
+    await editor.updateComplete;
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).not.toHaveProperty('list');
+    expect(seen[0].event_font_size).toBe('17px');
+    expect(owner(editor, 'event_font_size').data.event_font_size).toBe('17px');
   });
 
   it('clears root values written by a synthetic mode control', async () => {

@@ -222,6 +222,49 @@ export function stripTimeGridDefaults(
 }
 
 /**
+ * Strips a `list:` block to what the user actually authored.
+ *
+ * 🚨 Presence *is* authorship here, so unlike `stripColumnDefaults` this keeps a value
+ * that equals what the key would inherit. That is deliberate and it is the one line that
+ * makes `list:` worth having beyond symmetry.
+ *
+ * `Helpers.filterDefaultValues` makes an authored root value equal to the shipped default
+ * unrepresentable — `event_font_size: '14px'` is indistinguishable from not having set it,
+ * which is why the editor carries an in-memory `_authoredRootKeys` set that dies with the
+ * dialog. A block entry has no such problem: nothing puts a key inside `list:` except a
+ * user editing List, so the key being there is the record. `stripTimeGridDefaults` already
+ * relies on this for grid's divergent-default keys; this generalizes it to the block.
+ *
+ * The cost is that a `list:` block can hold a line that changes nothing today. That is the
+ * point — it changes something the moment the shared root value beside it moves.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The authored block, or `undefined` when it holds nothing
+ */
+export function stripListDefaults(
+  config: Readonly<Types.Config>,
+): Record<string, unknown> | undefined {
+  const block = config.list;
+
+  if (!Helpers.isConfigBlock(block)) {
+    return undefined;
+  }
+
+  const overrideKeys = new Set<string>(ViewConfig.LIST_OVERRIDE_KEYS);
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
+    if (value === undefined) continue;
+    if (isSyntheticKey(key)) continue;
+    if (!overrideKeys.has(key)) continue;
+
+    result[key] = value;
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+/**
  * Removes the config keys that v3.0.0 deleted from the runtime.
  *
  * @param draft - Config being prepared for writing, mutated in place
@@ -245,6 +288,106 @@ function pruneDeprecatedKeys(draft: Record<string, unknown>): void {
 }
 
 /**
+ * Keys a v5 save moves out of the top level and into `list:`.
+ *
+ * Derived, never written out. Two groups, for two different reasons:
+ *
+ * 1. **List-only keys.** `VIEW_SCOPE` says no other view reads them, so the top level is
+ *    making a claim ("this is shared") that the card itself contradicts. Relocating them
+ *    corrects a factual error in the format and cannot change any view's rendering.
+ * 2. **Divergent-default keys.** Every view that disagrees with the shipped card-level
+ *    value does so because that value was written for list, back when list was the only
+ *    view. Recording them as list's is what lets a later change treat a *root* value as
+ *    genuinely shared instead of guessing whether it was meant for list.
+ *
+ * 🚨 Group 2 narrows a key's scope, so {@link relocateListKeys} applies it only to a card
+ * whose view is already `list`. See the guard there.
+ *
+ * @returns The two relocation groups
+ */
+/**
+ * The registry entry the v5 migration relocates into.
+ *
+ * Held as the block object rather than the view's name so the two comparisons below are
+ * identity checks. `tests/editor-schema.test.ts` forbids comparing against a view by name
+ * anywhere in this directory, and the reason is worth more than the rule: a fourth view
+ * must cost a registry entry and a string, not a hunt for string comparisons.
+ */
+const TARGET_BLOCK = ViewConfig.VIEW_BLOCKS.list;
+
+function listRelocationKeys(): { readonly listOnly: string[]; readonly divergent: string[] } {
+  const listOnly: string[] = [];
+  const divergent = new Set<string>();
+
+  for (const key of ViewConfig.LIST_OVERRIDE_KEYS) {
+    const scope = ViewConfig.VIEW_SCOPE[key];
+    if (scope && scope.size === 1 && scope.has('list')) listOnly.push(key);
+  }
+
+  for (const view of ViewConfig.VIEWS) {
+    const block = ViewConfig.viewBlockFor(view);
+    // Identity against the registry entry, never a comparison on the view's name. The
+    // target is *the block the migration writes into*, so a fourth view needs no edit
+    // here — and `tests/editor-schema.test.ts` forbids naming a view in this directory.
+    if (!block || block === TARGET_BLOCK) continue;
+    for (const key of Object.keys(block.defaultOverrides)) divergent.add(key);
+  }
+
+  return { listOnly, divergent: [...divergent].sort() };
+}
+
+/**
+ * Moves top-level values that were only ever list's into the `list:` block.
+ *
+ * Silent and on save, the shape `pruneDeprecatedKeys` already established. It runs on the
+ * stored shape, after defaults have been filtered out, so it can only ever see values the
+ * user authored.
+ *
+ * 🚨 Never changes what any view renders at the moment it runs. The list-only group is
+ * inert outside list by `VIEW_SCOPE`. The divergent group is guarded on `view === 'list'`
+ * because a `column:` card *inherits* most of those keys from the top level — relocating
+ * `event_font_size` out from under a column card would drop it from 18px to the shipped
+ * 14px with nothing on screen to explain why.
+ *
+ * 🚨 `includeDivergent` is what keeps the migration from eating the Shared workspace. Root
+ * is where Shared writes, and on a list card most divergent keys are exactly what a user
+ * goes to Shared to set once — so relocating them on the same save would silently move the
+ * value into `list:` and leave the other two views on the shipped default. Pass `false`
+ * whenever the edit came from Shared; the list-only half still moves, because no view but
+ * list can read it either way.
+ *
+ * @param stored - Stored configuration, mutated in place
+ * @param view - The card's configured view
+ * @param includeDivergent - Whether to move keys another view would inherit from root
+ */
+export function relocateListKeys(
+  stored: Record<string, unknown>,
+  view: Types.EffectiveView,
+  includeDivergent = true,
+): void {
+  const { listOnly, divergent } = listRelocationKeys();
+  const onTargetView = ViewConfig.viewBlockFor(view) === TARGET_BLOCK;
+  const moving = onTargetView && includeDivergent ? [...listOnly, ...divergent] : listOnly;
+
+  const block: Record<string, unknown> = Helpers.isConfigBlock(stored.list)
+    ? { ...(stored.list as Record<string, unknown>) }
+    : {};
+
+  let moved = false;
+  for (const key of moving) {
+    if (!Object.prototype.hasOwnProperty.call(stored, key)) continue;
+    // An existing block entry is the user's newer answer; the root value is the older one.
+    if (!Object.prototype.hasOwnProperty.call(block, key)) block[key] = stored[key];
+    delete stored[key];
+    moved = true;
+  }
+
+  if (!moved && !Helpers.isConfigBlock(stored.list)) return;
+  if (Object.keys(block).length > 0) stored.list = block;
+  else delete stored.list;
+}
+
+/**
  * Reduces a merged configuration to the smallest one that renders identically.
  *
  * @param config - Merged configuration as the form sees it
@@ -261,6 +404,9 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
 
   const atomic = ATOMIC_KEYS.map((key) => [key, draft[key]] as const);
   for (const [key] of atomic) delete draft[key];
+
+  const list = stripListDefaults(config);
+  delete draft.list;
 
   const column = stripColumnDefaults(config);
   delete draft.column;
@@ -280,6 +426,10 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
     if (value !== undefined && !deepEqual(value, Config.DEFAULT_CONFIG[key])) {
       stored[key] = value;
     }
+  }
+
+  if (list !== undefined) {
+    stored.list = list;
   }
 
   if (column !== undefined) {
@@ -482,6 +632,39 @@ export function timeGridFormBlock(config: Readonly<Types.Config>): Record<string
     ...(config.time_grid ?? {}),
   };
 }
+
+/**
+ * Builds the `list:` block as the form should show it.
+ *
+ * One layer where {@link columnFormBlock} has two, and the asymmetry is the point: list
+ * registers no keys of its own and no divergent defaults, so there is nothing to project.
+ * The card-level value *is* what list would use, and it is already bound as its own field
+ * at the top level — projecting it in here too would show the same number twice and make
+ * every unset option look authored.
+ *
+ * @param config - Merged configuration, defaults already applied
+ * @returns The stored block, unprojected
+ */
+export function listFormBlock(config: Readonly<Types.Config>): Record<string, unknown> {
+  return { ...((config.list ?? {}) as Record<string, unknown>) };
+}
+
+/**
+ * The form block builder for each view that owns one.
+ *
+ * A record rather than a conditional, because the conditional it replaces read
+ * `view === 'grid' ? grid : column` — correct while two views were registered and silently
+ * wrong the moment a third arrived, handing list the column projection and with it every
+ * `COLUMN_DEFAULTS` value. `tests/editor-value-round-trip.test.ts` reconciles this against
+ * `VIEW_BLOCKS`, so a view registered without a builder fails rather than inheriting one.
+ */
+export const VIEW_FORM_BLOCKS: Readonly<
+  Partial<Record<Types.EffectiveView, (config: Readonly<Types.Config>) => Record<string, unknown>>>
+> = {
+  list: listFormBlock,
+  column: columnFormBlock,
+  grid: timeGridFormBlock,
+};
 
 /**
  * Builds the `weather:` block as the form should show it.

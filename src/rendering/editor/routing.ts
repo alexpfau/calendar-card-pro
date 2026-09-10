@@ -6,7 +6,7 @@ import type { HaFormSchema, SelectorSchema } from './ha-form';
 import { normalizeFieldValue, normalizeRootValue } from './normalize';
 import * as Synthetic from './synthetic';
 import * as Value from './value';
-import { type EditorWorkspace, WORKSPACE_FIELD } from './workspace';
+import { type EditorWorkspace, WORKSPACE_FIELD, viewForWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import type * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -59,8 +59,13 @@ export function destination(
   key: string,
   workspace: EditorWorkspace,
 ): keyof Types.Config | undefined {
-  return ViewConfig.routeForKey(key, workspace) === 'block'
-    ? ViewConfig.viewBlockFor(workspace)?.blockKey
+  const view = viewForWorkspace(workspace);
+  // Shared *is* the root. Every key edited there is written at the top level, which is
+  // what makes it the one workspace that can still author a value for all three views.
+  if (view === undefined) return undefined;
+
+  return ViewConfig.routeForKey(key, view) === 'block'
+    ? ViewConfig.viewBlockFor(view)?.blockKey
     : undefined;
 }
 
@@ -74,14 +79,19 @@ const storedConfig = Helpers.memoizeLast((config: Readonly<Types.Config>) =>
  * @param config - Raw merged configuration
  * @param workspace - Editing workspace
  * @param name - Schema field name
- * @returns The source category, omitted for List and editor navigation
+ * @returns The source category, omitted for Shared and editor navigation
  */
 export function valueSource(
   config: Readonly<Types.Config>,
   workspace: EditorWorkspace,
   name: string,
 ): 'card' | 'inherited' | 'default' | 'own' | undefined {
-  const block = ViewConfig.viewBlockFor(workspace);
+  const view = viewForWorkspace(workspace);
+  // Shared has nothing to be sourced *from*: it is the base every other answer refers to,
+  // so labelling its controls would say "this value comes from here" on every row.
+  if (view === undefined) return undefined;
+
+  const block = ViewConfig.viewBlockFor(view);
   if (!block || name === 'view' || name === WORKSPACE_FIELD) return undefined;
   const keys = Synthetic.configKeysForField(name);
   if (!keys.some((key) => destination(key, workspace) === block.blockKey)) return 'card';
@@ -92,7 +102,7 @@ export function valueSource(
   )
     return 'own';
   return keys.some(
-    (key) => block.onlyKeys.includes(key) || ViewConfig.hasDivergentDefault(key, workspace),
+    (key) => block.onlyKeys.includes(key) || ViewConfig.hasDivergentDefault(key, view),
   )
     ? 'default'
     : 'inherited';
@@ -136,12 +146,15 @@ export function workspaceConfig(
       ...config,
     }),
   );
-  const view = workspace;
-  const effective = ViewConfig.resolveEffectiveConfig(root, view);
+  // Shared shows the base itself, so no block is resolved over it and `view` keeps the
+  // card's own value — the schema builders read that to decide what a preview looks like,
+  // and the shared base does not have a layout of its own to claim.
+  const view = viewForWorkspace(workspace);
+  const effective = view === undefined ? root : ViewConfig.resolveEffectiveConfig(root, view);
   const normalized = Object.fromEntries(
     Object.entries(effective).map(([key, value]) => [key, normalizeRootValue(key, value)]),
   );
-  return { ...effective, ...normalized, view };
+  return { ...effective, ...normalized, view: view ?? root.view };
 }
 
 /**
@@ -162,8 +175,8 @@ export function workspaceFormData(
     ViewConfig.VIEWS.flatMap((view) => {
       const block = ViewConfig.viewBlockFor(view);
       if (!block) return [];
-      const values =
-        view === 'grid' ? Value.timeGridFormBlock(config) : Value.columnFormBlock(config);
+      const values = Value.VIEW_FORM_BLOCKS[view]?.(config);
+      if (!values) return [];
       return [
         [
           block.blockKey,

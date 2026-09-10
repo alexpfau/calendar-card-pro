@@ -113,8 +113,11 @@ export class CalendarCardProEditor extends LitElement {
   private get _ctx(): SchemaCtx {
     const rawConfig = this._config!;
     const workspace = this._workspace;
-    const view = workspace;
     const config = Routing.workspaceConfig(rawConfig, workspace);
+    // Shared has no layout of its own, so its panels are built as list — the base every
+    // other view widens. `config.view` stays the card's real displayed view, because that
+    // is the value the Card Displays control edits; see `baseViewForWorkspace`.
+    const view = Workspace.baseViewForWorkspace(workspace);
 
     return {
       view,
@@ -210,6 +213,13 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _report(config: Types.Config): void {
     const stored = Value.toStoredConfig(config);
+
+    // The v5 migration, run at the one place a save happens rather than inside
+    // `toStoredConfig` — that function is also the diff baseline and the filter's
+    // customized-only projection, and neither wants a migration applied to what it reads.
+    // Shared writes at root by design, so a save from there must not relocate the keys it
+    // exists to author; see `relocateListKeys`.
+    Value.relocateListKeys(stored, config.view, this._workspace !== 'shared');
 
     if (Value.equalConfigs(stored, this._lastDispatched ?? {})) {
       return;

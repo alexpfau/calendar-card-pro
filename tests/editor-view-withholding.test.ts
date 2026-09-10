@@ -46,8 +46,19 @@ function fields(schema: ReadonlyArray<HaFormSchema>, path: ReadonlyArray<string>
   });
 }
 
+/**
+ * 🚨 Projects the view block the way the editor does, rather than handing the panels the
+ * raw configuration. The two were the same thing while root was list's storage; with
+ * `list:` registered they are not, and a parent control whose value has moved into the
+ * block would be absent here and present in the rendered editor — reported as the panel
+ * withholding a field it does not withhold.
+ *
+ * @param config - Raw configuration
+ * @param view - View to project for
+ * @returns A schema context matching the editor's own
+ */
 function context(config: Types.Config, view = config.view): SchemaCtx {
-  return { config, view, language: 'en' };
+  return { config: ViewConfig.resolveEffectiveConfig(config, view), view, language: 'en' };
 }
 
 function configFor(view: Types.EffectiveView, enabled = true): Types.Config {
@@ -408,16 +419,22 @@ describe('withholding is not a search filter or a config edit', () => {
   });
 
   it('preserves hidden root, calendar, and block values through edits and a view round trip', async () => {
-    const hidden = {
+    // Split because the v5 migration relocates list-only keys into `list:` on save, on a
+    // grid card as much as a list one — they are inert outside list either way. The
+    // empty-day pair is scoped `column,list`, so it is not list-only and stays at root.
+    const hiddenRoot = {
       empty_day_text: 'No plans',
       empty_day_color: '#607d8b',
+    };
+    const hiddenList = {
       compact_days_to_show: 2,
       compact_events_to_show: 3,
       compact_events_complete_days: true,
     };
     const config = buildConfig({
       ...configFor('grid'),
-      ...hidden,
+      ...hiddenRoot,
+      ...hiddenList,
       time_grid: { split_multiday_events: true, empty_day_text: 'Grid placeholder' },
     });
     const editor = await mount(config);
@@ -445,7 +462,8 @@ describe('withholding is not a search filter or a config edit', () => {
 
     expect(seen).toHaveLength(4);
     for (const saved of seen) {
-      expect(saved).toMatchObject(hidden);
+      expect(saved).toMatchObject(hiddenRoot);
+      expect(saved.list).toMatchObject(hiddenList);
       expect(saved.time_grid).toMatchObject({
         split_multiday_events: true,
         empty_day_text: 'Grid placeholder',
@@ -503,7 +521,7 @@ describe('empty-day reachability is reconciled across the config partition', () 
     // `COLUMN_OVERRIDE_KEYS`, so "fewer routable than derived" was a restatement of the
     // asymmetry. Both are routable as of v5.0.0 — the whole family the placeholder row
     // derives is reachable from the Column workspace, which is the property worth pinning.
-    expect(routable.length).toBe(family.length);
+    expect(routable).toEqual(family);
     expect({ unscoped, wrongScope }).toEqual({ unscoped: [], wrongScope: [] });
   });
 

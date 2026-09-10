@@ -14,6 +14,7 @@ import {
   TIME_GRID_DEFAULT_OVERRIDES,
   TIME_GRID_ONLY_KEYS,
   VIEWS,
+  VIEW_BLOCKS,
   VIEW_SCOPE,
   appliesToView,
   describeColumnLayoutBands,
@@ -1534,8 +1535,16 @@ describe('editor: the chassis', () => {
 
     await change({ height_mode: 'fixed' });
 
-    expect(dispatched[0]).not.toHaveProperty('height_mode');
-    expect(dispatched[0].height).toBe('300px');
+    const stored = dispatched[0] as Record<string, unknown>;
+    const block = (stored.list ?? {}) as Record<string, unknown>;
+
+    expect(stored).not.toHaveProperty('height_mode');
+    expect(block).not.toHaveProperty('height_mode');
+
+    // Asserted wherever the router put it rather than at root. The List workspace writes
+    // into `list:`, the same way Column and Grid write into theirs — pinning the location
+    // here would make this a test of the routing table rather than of the synthetic key.
+    expect(block.height ?? stored.height).toBe('300px');
   });
 
   it('mounts one form per registered panel', async () => {
@@ -1835,10 +1844,15 @@ describe('editor: the panel set', () => {
       max_height: 'height_mode',
     };
 
-    // `weather`, `column` and `time_grid` are containers offered as their members rather than
-    // under their own name, so none is expected here. Their members are reconciled by the
-    // test below — skipping a container here once skipped everything inside it too.
-    const containers = new Set(['weather', 'column', 'time_grid']);
+    // `weather` and every registered view block are containers offered as their members
+    // rather than under their own name, so none is expected here. Their members are
+    // reconciled by the test below — skipping a container here once skipped everything
+    // inside it too. The view blocks are read off the registry, so a fourth view arrives
+    // covered rather than reported as a missing option.
+    const containers = new Set([
+      'weather',
+      ...Object.values(VIEW_BLOCKS).map((block) => block.blockKey),
+    ]);
 
     const missing = Object.keys(DEFAULT_CONFIG).filter((key) => {
       if (containers.has(key)) return false;
@@ -2789,6 +2803,38 @@ describe('editor: the write path over the whole configuration', () => {
    * A configuration with every top-level option set to something other than its
    * default, so that nothing is tested by accident of matching a default.
    */
+  const VIEW_BLOCK_KEYS = new Set<string>(
+    Object.values(VIEW_BLOCKS).map((block) => block.blockKey),
+  );
+
+  /**
+   * A block whose single entry cannot be mistaken for the value it would inherit.
+   *
+   * 🚨 The strip drops a block entry equal to what the block would inherit from root, and
+   * `everythingSet` flips every boolean at root — so a block written as
+   * `{ show_location: false }` beside a root `show_location: false` is stripped to nothing
+   * and the container reads as *lost*. Writing the shipped default instead guarantees the
+   * pair differ, whatever the flip produced.
+   *
+   * Found on the registry rather than named, so a fourth view needs no edit here. Every
+   * block shares `COLUMN_OVERRIDE_KEYS`, so a boolean member always exists; the assertion
+   * says so rather than letting an empty block quietly weaken the test.
+   *
+   * @param blockKey - The block's YAML key
+   * @returns A one-entry block that survives the strip
+   */
+  function blockThatSurvivesTheStrip(blockKey: string): Record<string, unknown> {
+    const block = Object.values(VIEW_BLOCKS).find((entry) => entry.blockKey === blockKey);
+    const key = block?.overrideKeys.find(
+      (candidate) =>
+        typeof (DEFAULT_CONFIG as unknown as Record<string, unknown>)[candidate] === 'boolean',
+    );
+
+    expect(key, `${blockKey} has no boolean override to write`).toBeDefined();
+
+    return { [key!]: (DEFAULT_CONFIG as unknown as Record<string, unknown>)[key!] };
+  }
+
   function everythingSet(): Types.Config {
     const custom: Record<string, unknown> = {};
 
@@ -2796,8 +2842,7 @@ describe('editor: the write path over the whole configuration', () => {
       if (key === 'entities') custom[key] = ['calendar.a'];
       else if (key === 'view') custom[key] = 'column';
       else if (key === 'weather') custom[key] = { ...(value as object), entity: 'weather.home' };
-      else if (key === 'column') custom[key] = { min_day_width: 200, show_location: false };
-      else if (key === 'time_grid') custom[key] = { min_day_width: 120, show_location: false };
+      else if (VIEW_BLOCK_KEYS.has(key)) custom[key] = blockThatSurvivesTheStrip(key);
       else if (key === 'tap_action' || key === 'hold_action')
         custom[key] = { action: 'navigate', navigation_path: '/x' };
       else if (typeof value === 'boolean') custom[key] = !value;

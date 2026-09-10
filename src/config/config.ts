@@ -150,6 +150,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   refresh_interval: Constants.CACHE.DEFAULT_DATA_REFRESH_MINUTES,
   refresh_on_navigate: true,
 
+  list: undefined,
   column: undefined,
   time_grid: undefined,
 };

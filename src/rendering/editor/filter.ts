@@ -10,7 +10,7 @@ import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
 import { deriveSyntheticData, isSyntheticKey } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
-import type { EditorWorkspace } from './workspace';
+import { type EditorWorkspace, viewForWorkspace } from './workspace';
 import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
@@ -433,6 +433,8 @@ export function withholdInertFields(
   view: EditorWorkspace,
   scope: 'card' | 'entity' = 'card',
 ): HaFormSchema[] {
+  const effectiveView = viewForWorkspace(view);
+
   return pruneLoneHeadings(
     filterNodes(
       schema,
@@ -441,11 +443,18 @@ export function withholdInertFields(
         if (isHeading(node)) return true;
 
         if (dataPath.length === 0) {
-          if (scope === 'card') return ViewConfig.appliesToView(node.name, view);
+          if (scope === 'card') {
+            return effectiveView === undefined
+              ? ViewConfig.appliesToSharedBase(node.name)
+              : ViewConfig.appliesToView(node.name, effectiveView);
+          }
 
           return entityConfigKeys(node.name).some((key) => {
             const views = ViewConfig.entityScopeFor(key);
-            return views === undefined || views.has(view);
+            if (effectiveView === undefined) {
+              return ViewConfig.appliesToSharedBase(key, ViewConfig.entityScopeFor);
+            }
+            return views === undefined || views.has(effectiveView);
           });
         }
 

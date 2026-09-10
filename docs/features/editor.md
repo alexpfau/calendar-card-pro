@@ -30,11 +30,15 @@ The longer panels are divided further by sub-headings, which name what the optio
 
 Two controls sit together above search. **Card Displays** chooses the card's starting
 layout and writes the existing `view` option. **Editing Settings For** selects an
-editor workspace: **List**, **Column**, or **Grid**. It starts by following
-Card Displays, then stays independent once you choose a workspace. The workspace is
-never saved to YAML; opening the editor again starts from the card's displayed view.
+editor workspace: **All Layouts**, **List**, **Column**, or **Grid**. It starts by
+following Card Displays, then stays independent once you choose a workspace. The workspace
+is never saved to YAML; opening the editor again starts from the card's displayed view.
 
-Each workspace omits controls that cannot affect that view, including
+**All Layouts** edits the shared base — the top level, which every layout falls back to.
+It offers only the options that have a shared meaning, so the layout-specific ones are
+absent there rather than being written somewhere only one view reads.
+
+Each of the other three omits controls that cannot affect that view, including
 their per-calendar forms. Compact-mode controls appear in List.
 Multi-day splitting also appears in Column, but not Grid, which arranges
 multi-day events itself. Grid omits empty-day text and color because it draws blank
@@ -50,11 +54,16 @@ Search and **Customized Only** do not bring back controls for another workspace.
 To edit a list-only option used by a responsive fallback, choose List under
 Editing Settings For; Card Displays stays unchanged.
 
+Editing a card written before v5 moves its list options into `list:` on the first save.
+Nothing else changes, and configurations left alone keep working exactly as they are —
+see [Per-View Options](/features/core-settings#per-view-options).
+
 Presentation controls show the value used by the selected workspace and write directly
-to its scope: top-level options for List, `column:` for Column, and `time_grid:` for Grid.
-Column and Grid can also use List values when they do not have their own value for an
-option, so editing List can affect those layouts too. Card-wide options such as calendars,
-title, language, and actions stay card-wide in every workspace.
+to its scope: the top level for All Layouts, then `list:`, `column:` and `time_grid:` for
+the three views. A view block holds only what should differ there; anything it does not
+mention comes from the shared base, so editing All Layouts moves every layout that has not
+overridden the option. Card-wide options such as calendars, title, language, and actions
+stay card-wide in every workspace.
 
 Hiding a control does not delete its stored value. For example, these empty-day options
 remain available to the list fallback, even though their controls are absent while

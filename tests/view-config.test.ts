@@ -236,13 +236,24 @@ describe('resolveEffectiveConfig', () => {
    * quietly turn every one of those comparisons into a miss.
    */
   describe('object identity', () => {
-    it('returns the original in list view, however populated the block', () => {
+    it('returns the original in list view when the list block is absent', () => {
       const config = buildConfig({
         show_location: true,
         column: { show_location: false, event_font_size: '11px' },
       });
 
       expect(resolveEffectiveConfig(config, 'list')).toBe(config);
+    });
+
+    // The other half of the same invariant: identity is the no-op path, not a special
+    // case for list. A populated block has to allocate, or the override never applies.
+    it('allocates in list view once the list block carries a value', () => {
+      const config = buildConfig({ show_location: true, list: { show_location: false } });
+
+      const resolved = resolveEffectiveConfig(config, 'list');
+
+      expect(resolved).not.toBe(config);
+      expect(resolved.show_location).toBe(false);
     });
 
     // Column view always allocates, because `COLUMN_DEFAULT_OVERRIDES` applies there

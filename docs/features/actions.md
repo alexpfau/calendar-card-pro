@@ -7,8 +7,9 @@ Calendar Card Pro is interactive: you can let users expand a compact card to rev
 One of Calendar Card Pro's most powerful features is the ability to toggle between compact and expanded mode:
 
 ```yaml
-# Limit events in compact mode
-compact_events_to_show: 5
+list:
+  # Limit events in compact mode
+  compact_events_to_show: 5
 
 # Enable expand/collapse with tap
 tap_action:
@@ -49,8 +50,9 @@ entities:
   - entity: calendar.holidays
     compact_events_to_show: 1
     # At most 1 holiday event while compact
-compact_events_to_show: 4
-# Show at most 4 events total in compact mode
+list:
+  compact_events_to_show: 4
+  # Show at most 4 events total in compact mode
 
 tap_action:
   action: expand

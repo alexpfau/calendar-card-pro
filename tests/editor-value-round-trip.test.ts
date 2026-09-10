@@ -17,7 +17,12 @@ import '../src/calendar-card-pro';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
-import { columnFormBlock, timeGridFormBlock, toStoredConfig } from '../src/rendering/editor/value';
+import {
+  VIEW_FORM_BLOCKS,
+  columnFormBlock,
+  timeGridFormBlock,
+  toStoredConfig,
+} from '../src/rendering/editor/value';
 
 /** The config `setConfig` would hold for a given piece of user YAML. */
 function asSetConfigWould(raw: Record<string, unknown>): Types.Config {
@@ -199,10 +204,13 @@ describe('the card element fills nested blocks on setConfig', () => {
  * views.
  */
 describe('a view block survives the round trip the panel puts it through', () => {
-  const formBlockFor: Record<string, (config: Types.Config) => Record<string, unknown>> = {
-    column: columnFormBlock,
-    grid: timeGridFormBlock,
-  };
+  // Production's own dispatch, not a copy of it. A copy would be a second table to keep
+  // in step, and the defect this file exists to report is exactly a view that reaches the
+  // panel without a builder — which a private copy would hide by supplying one.
+  const formBlockFor = VIEW_FORM_BLOCKS as Record<
+    string,
+    ((config: Types.Config) => Record<string, unknown>) | undefined
+  >;
 
   it.each(Object.keys(ViewConfig.VIEW_BLOCKS))('keeps a stored %s override', (view) => {
     const block = ViewConfig.VIEW_BLOCKS[view as Types.EffectiveView];
@@ -230,10 +238,13 @@ describe('a view block survives the round trip the panel puts it through', () =>
       [blockKey!]: { [key!]: false },
     });
 
-    expect(buildBlock(config)[key!], `${view}.${key} missing from the form block`).toBe(false);
-    expect(toStoredConfig({ ...config, [blockKey!]: buildBlock(config) })).toEqual({
+    expect(buildBlock!(config)[key!], `${view}.${key} missing from the form block`).toBe(false);
+    expect(toStoredConfig({ ...config, [blockKey!]: buildBlock!(config) })).toEqual({
       entities: [{ entity: 'calendar.a' }],
-      view,
+      // The strip prunes a `view` equal to the default, so the default view's case must
+      // not expect one back. Derived rather than special-cased on the name, so moving the
+      // default to another view does not quietly turn this into a test of nothing.
+      ...(view === Config.DEFAULT_CONFIG.view ? {} : { view }),
       [blockKey!]: { [key!]: false },
     });
   });
@@ -250,7 +261,7 @@ describe('a view block survives the round trip the panel puts it through', () =>
       view,
       [blockKey]: { [key]: value },
     });
-    const block = formBlockFor[view](config);
+    const block = formBlockFor[view]!(config);
 
     expect(block[key], `${view}.${key} missing from the form block`).toBe(value);
     expect(toStoredConfig({ ...config, [blockKey]: block })).toEqual({

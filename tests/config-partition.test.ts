@@ -31,7 +31,9 @@ import { describe, expect, it } from 'vitest';
 import {
   COLUMN_OVERRIDE_KEYS,
   FETCH_TIME_KEYS,
+  LIST_OVERRIDE_KEYS,
   VIEWS,
+  VIEW_BLOCKS,
   VIEW_SCOPE,
   routeForKey,
 } from '../src/config/view';
@@ -41,8 +43,11 @@ import { ATOMIC_KEYS } from '../src/rendering/editor/value';
  * The declared members of `Config`, read from the source.
  *
  * Read as text because an interface leaves nothing behind at runtime, and reading the
- * runtime `DEFAULT_CONFIG` instead would measure the defaults rather than the type —
- * `progress_bar_width` is a declared option with no default and would vanish.
+ * runtime `DEFAULT_CONFIG` instead would measure the defaults rather than the type. The
+ * two agree today only because every declared option without a real default is written
+ * out explicitly as `undefined` — `progress_bar_width` and `list` among them, and nothing
+ * enforces that habit. A member added to `Config` and forgotten in `DEFAULT_CONFIG` would
+ * be invisible to a runtime scan and is exactly what this file exists to catch.
  * `tests/editor-derived-field-mapping.test.ts` backs its own scan the same way.
  *
  * @returns Every top-level config key, in declaration order
@@ -57,7 +62,7 @@ function declaredConfigKeys(): string[] {
 }
 
 /** Options holding a nested block rather than a value of their own. */
-const CONTAINER_KEYS = ['weather', 'column', 'time_grid'] as const;
+const CONTAINER_KEYS = ['weather', 'list', 'column', 'time_grid'] as const;
 
 /**
  * Why an option is decided at card level rather than routed into a view's block.
@@ -88,15 +93,6 @@ const CARD_LEVEL_REASONS = {
 
   /** Stored whole rather than option by option; reconciled against `ATOMIC_KEYS` below. */
   action: ['tap_action', 'hold_action'],
-
-  /** Declared list-only in `VIEW_SCOPE`; reconciled against it below. */
-  'list-only': [
-    'compact_days_to_show',
-    'compact_events_to_show',
-    'compact_events_complete_days',
-    'today_indicator_position',
-    'date_vertical_alignment',
-  ],
 
   /**
    * The date column's ink. Every view draws a date, and none of them has ever offered to
@@ -130,8 +126,32 @@ const CARD_LEVEL_REASONS = {
 
 const CARD_LEVEL_KEYS = Object.values(CARD_LEVEL_REASONS).flat();
 
+/**
+ * Every key some registered view can hold in its block, derived from the registry.
+ *
+ * Deliberately *not* `LIST_OVERRIDE_KEYS` even though the two must agree: that constant is
+ * one of the things under test, so using it as the bucket would let a key vanish from the
+ * registry and the partition together. The reconciliation between the two is its own
+ * assertion below.
+ *
+ * `onlyKeys` are deliberately excluded: those live only inside a block and are not members
+ * of `Config` at all, so they were never part of this partition and would read as phantom.
+ *
+ * @returns Sorted union of every registered block's `overrideKeys`
+ */
+function routableKeys(): string[] {
+  const keys = new Set<string>();
+
+  for (const block of Object.values(VIEW_BLOCKS)) {
+    for (const key of block.overrideKeys) keys.add(key as string);
+  }
+
+  return [...keys].sort();
+}
+
 describe('config partition', () => {
   const declared = declaredConfigKeys();
+  const routable = routableKeys();
 
   it('reads a plausible number of options from the type', () => {
     expect(declared.length).toBeGreaterThan(90);
@@ -140,7 +160,7 @@ describe('config partition', () => {
 
   it('places every declared option in exactly one bucket', () => {
     const buckets: Record<string, ReadonlyArray<string>> = {
-      routable: COLUMN_OVERRIDE_KEYS,
+      routable,
       container: CONTAINER_KEYS,
       fetchTime: [...FETCH_TIME_KEYS].filter(
         (key) => !(CONTAINER_KEYS as ReadonlyArray<string>).includes(key),
@@ -164,7 +184,7 @@ describe('config partition', () => {
   it('names no option the type does not declare', () => {
     const known = new Set(declared);
     const phantom = [
-      ...COLUMN_OVERRIDE_KEYS,
+      ...routable,
       ...CONTAINER_KEYS,
       ...CARD_LEVEL_KEYS,
       ...[...FETCH_TIME_KEYS].filter(
@@ -181,11 +201,25 @@ describe('config partition', () => {
     );
 
     expect(
-      COLUMN_OVERRIDE_KEYS.length +
-        CONTAINER_KEYS.length +
-        fetchTime.length +
-        CARD_LEVEL_KEYS.length,
+      routable.length + CONTAINER_KEYS.length + fetchTime.length + CARD_LEVEL_KEYS.length,
     ).toBe(declared.length);
+  });
+
+  // The registry walk above and the declared constant have to agree, and neither is
+  // derived from the other — the constant is written as `COLUMN_OVERRIDE_KEYS` plus the
+  // list-only keys, the walk reads what every block actually carries. A block registered
+  // with the wrong key set fails here rather than shifting the partition unnoticed.
+  it('agrees with the widest declared override set', () => {
+    expect(routable).toEqual([...LIST_OVERRIDE_KEYS].sort());
+  });
+
+  // Every view widens the same base, so `COLUMN_OVERRIDE_KEYS` must remain a subset. It is
+  // the shared seed; list adds its own five on top and nothing may be dropped from it.
+  it('keeps the shared base a subset of the routable set', () => {
+    const missing = COLUMN_OVERRIDE_KEYS.filter((key) => !routable.includes(key));
+
+    expect(missing).toEqual([]);
+    expect(routable.length).toBeGreaterThan(COLUMN_OVERRIDE_KEYS.length);
   });
 });
 
@@ -202,14 +236,23 @@ describe('card-level reasons', () => {
     expect([...CARD_LEVEL_REASONS.action].sort()).toEqual([...ATOMIC_KEYS].sort());
   });
 
-  it('matches VIEW_SCOPE on the options declared list-only', () => {
+  // Since v5 list owns a block like the other two, so an option declared list-only in
+  // `VIEW_SCOPE` is routable into `list:` rather than stranded at card level. Asserted as
+  // an emptiness in both directions: no list-only key may be card-level, and every one
+  // must be routable. Before v5 this same set was a named card-level bucket.
+  it('routes every list-only option rather than deciding it at card level', () => {
     const declaredListOnly = Object.entries(VIEW_SCOPE)
       .filter(([, views]) => views.size === 1 && views.has('list'))
       .map(([key]) => key)
-      .filter((key) => CARD_LEVEL_KEYS.includes(key))
       .sort();
 
-    expect([...CARD_LEVEL_REASONS['list-only']].sort()).toEqual(declaredListOnly);
+    expect(declaredListOnly.length).toBeGreaterThan(0);
+    expect(declaredListOnly.filter((key) => CARD_LEVEL_KEYS.includes(key))).toEqual([]);
+    expect(
+      declaredListOnly.filter(
+        (key) => !(LIST_OVERRIDE_KEYS as ReadonlyArray<string>).includes(key),
+      ),
+    ).toEqual([]);
   });
 
   it('leaves no known scope gap unresolved', () => {
@@ -236,22 +279,31 @@ describe('card-level reasons', () => {
       .sort();
 
     expect(listAndColumn).toEqual([]);
+
+    // Reachability is the point, so say where they are reachable from as well as where
+    // they are not: both members of the pair carry through into `list:` too.
+    for (const key of ['empty_day_text', 'empty_day_color']) {
+      expect((LIST_OVERRIDE_KEYS as ReadonlyArray<string>).includes(key), key).toBe(true);
+    }
   });
 });
 
 describe('routeForKey', () => {
-  it('sends everything to the top level for a view with no block', () => {
+  // Since v5 every view owns a block, so there is no longer a view for which everything
+  // goes to the top level. What survives of that invariant is the half that still holds:
+  // a key no block carries is top-level *in every view*, list included.
+  it('sends an option no block carries to the top level in every view', () => {
     const routes = new Set(
-      [...COLUMN_OVERRIDE_KEYS, ...CARD_LEVEL_KEYS].map((key) => routeForKey(key, 'list')),
+      VIEWS.flatMap((view) => CARD_LEVEL_KEYS.map((key) => routeForKey(key, view))),
     );
 
     expect(routes).toEqual(new Set(['top-level']));
   });
 
   it('sends an overridable option into the block of a view that has one', () => {
-    const blockViews = VIEWS.filter((view) => view !== 'list');
+    const blockViews = VIEWS.filter((view) => VIEW_BLOCKS[view] !== undefined);
 
-    expect(blockViews.length).toBeGreaterThan(0);
+    expect(blockViews.length).toBe(VIEWS.length);
 
     for (const view of blockViews) {
       expect({ view, route: routeForKey('event_background_opacity', view) }).toEqual({
