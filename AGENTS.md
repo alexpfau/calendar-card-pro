@@ -1806,6 +1806,21 @@ different artifacts.
   the remedy is a fixture that separates them — an event whose start hour is deliberately not a
   key — rather than a deletion. With those fixtures added the once-invisible single mutation
   fails 5 of 17, so the same probe that proved the gap now proves it closed.
+
+  🚨 **The same masking is worse when it does _not_ go green, and that case is not a mutation
+  sweep at all — it is costing a proposed change.** A green result invites the suspicion this
+  rule is built on; a small non-zero result invites confidence, because it reads as a complete
+  measurement of a cheap change. Pricing a candidate fix to `resolveViewOption` gave **2 of
+  4,354** failing, which was reported as the whole blast radius. `resolveEffectiveConfig` is a
+  second, independent implementation of the same rule — it seeds `{ ...block.defaultOverrides }`
+  and returns `{ ...config, ...applied }`, so the view defaults spread _last_ and win by a
+  different mechanism, with no `??` to grep for — and it is the one the card itself calls.
+  Patching both gave **25 across 7 files**, adding the rendered-DOM suite the single-site figure
+  had missed entirely. So the first number was not merely 12× low; it was the wrong _kind_ of
+  answer, describing a resolver nicety where the change alters what users see. **Before quoting
+  a cost, ask whether the behavior you edited is implemented once** — a rule expressed both
+  per-key and in bulk is two sites, and the bulk one is usually the one production takes.
+
 - **"Already fixed at the tip" does not establish that a report was stale.** A triage run
   against a tip that has already absorbed the report cannot detect the report: it reports
   _already fixed, no action needed_ whether the finding was genuine prior art or was live
