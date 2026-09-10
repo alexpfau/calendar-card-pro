@@ -651,6 +651,18 @@ export class CalendarCardProEditor extends LitElement {
   /**
    * Offers reset actions for explicit values, without duplicating the editing controls.
    *
+   * 🚨 Guards on where the *workspace writes*, never on `ctx.view`. Those agreed while list
+   * was blockless, so `ctx.view` read as a destination for free. It stopped being one the
+   * moment `list:` was registered: the shared workspace builds its panels as list — see
+   * {@link Workspace.baseViewForWorkspace} — so `ctx.view` is `'list'` there, and guarding on
+   * it offered Shared the reset buttons for `list:`. Clicking one deleted a List override
+   * from a workspace that cannot write to `list:` at all, leaving root untouched.
+   *
+   * Shared therefore offers none, which is the answer the reset *means* rather than a
+   * special case: {@link _resetViewValues} returns a value to what it inherits, and the
+   * shared base inherits from nothing. It is also what the root-writing workspace did
+   * before `list:` existed, so this restores that behavior rather than inventing one.
+   *
    * @param schema - Fields currently shown
    * @param ctx - Editing context
    * @returns Per-option reset buttons, or nothing
@@ -659,7 +671,9 @@ export class CalendarCardProEditor extends LitElement {
     schema: ReadonlyArray<HaFormSchema>,
     ctx: SchemaCtx,
   ): TemplateResult | typeof nothing {
-    const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
+    const view = ctx.workspace === undefined ? ctx.view : Workspace.viewForWorkspace(ctx.workspace);
+    if (view === undefined) return nothing;
+    const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
     if (blockKey === undefined) return nothing;
     const stored = Value.toStoredConfig(this._config!)[blockKey];
     if (!stored || typeof stored !== 'object') return nothing;
@@ -670,7 +684,7 @@ export class CalendarCardProEditor extends LitElement {
           ? [node.name]
           : path.length === 0
             ? Synthetic.configKeysForField(node.name).filter(
-                (key) => Routing.destination(key, ctx.view) === blockKey,
+                (key) => Routing.destination(key, view) === blockKey,
               )
             : []
       ).filter((key) => Object.prototype.hasOwnProperty.call(stored, key) && !seen.has(key));
@@ -687,7 +701,7 @@ export class CalendarCardProEditor extends LitElement {
               type="button"
               class="text-button"
               data-reset-keys=${keys.join(' ')}
-              @click=${() => this._resetViewValues(blockKey, ctx.view, keys)}
+              @click=${() => this._resetViewValues(blockKey, view, keys)}
             >
               ${interpolate(this._string(ctx, 'value_source.reset'), {
                 option: label,

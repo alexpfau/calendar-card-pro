@@ -675,3 +675,55 @@ describe('rendered form frames preserve edit intent', () => {
     expect(owner(editor, 'event_font_size').data.event_font_size).toBe('12px');
   });
 });
+
+/**
+ * 🚨 The reset controls are the one place a workspace's *destination* is asked for, and
+ * `ctx.view` stopped being able to answer it when `list:` gained a block. The shared
+ * workspace builds its panels as list, so `ctx.view` reads `'list'` there — a guard on it
+ * offered Shared the reset buttons belonging to `list:`, and clicking one deleted a List
+ * override from a workspace that cannot write to `list:` at all.
+ *
+ * Both directions are pinned. Dropping the shared case lets the regression back in
+ * silently; dropping the list case lets a guard that returns nothing everywhere pass.
+ */
+describe('reset controls follow the workspace destination, not the built view', () => {
+  const resetKeys = (editor: CalendarCardProEditor) =>
+    [...editor.shadowRoot!.querySelectorAll('[data-reset-keys]')].map((node) =>
+      node.getAttribute('data-reset-keys'),
+    );
+
+  const mountListCard = async () =>
+    mount({
+      view: 'list',
+      event_font_size: '17px',
+      list: { event_font_size: '18px' },
+      column: {},
+      time_grid: {},
+    });
+
+  const select = async (editor: CalendarCardProEditor, workspace: string) => {
+    emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
+      editing_workspace: workspace,
+    });
+    await editor.updateComplete;
+  };
+
+  it('offers a list override its reset in the List workspace', async () => {
+    const { editor } = await mountListCard();
+    await select(editor, 'list');
+    expect(resetKeys(editor)).toContain('event_font_size');
+  });
+
+  it('offers no resets in the shared workspace, which inherits from nothing', async () => {
+    const { editor } = await mountListCard();
+    await select(editor, 'shared');
+    expect(resetKeys(editor)).toEqual([]);
+  });
+
+  it('leaves a list override untouched when the shared workspace is open', async () => {
+    const { editor, seen } = await mountListCard();
+    await select(editor, 'shared');
+    expect(editor.shadowRoot!.querySelector('[data-reset-keys="event_font_size"]')).toBeNull();
+    expect(seen).toHaveLength(0);
+  });
+});
