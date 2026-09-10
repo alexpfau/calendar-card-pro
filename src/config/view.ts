@@ -23,6 +23,11 @@ import * as Logger from '../utils/logger';
 export const COLUMN_OVERRIDE_KEYS = [
   'show_empty_days',
   'empty_day_text',
+  // Paired with `empty_day_text` deliberately. `VIEW_SCOPE` gives both the identical
+  // `{list, column}` scope, so a column user overriding the placeholder's text and not its
+  // color was an accident of sequence rather than a decision — the text key was added here
+  // and the color key, written at the same time for the same feature, was not.
+  'empty_day_color',
   'split_multiday_events',
   // Render-side filters; neither changes the Home Assistant request or cache key.
   'show_past_events',

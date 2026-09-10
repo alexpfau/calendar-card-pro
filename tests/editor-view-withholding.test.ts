@@ -498,8 +498,12 @@ describe('empty-day reachability is reconciled across the config partition', () 
     expect(family.length).toBeGreaterThan(0);
     expect(family).toEqual(expect.arrayContaining(['empty_day_text', 'empty_day_color']));
     for (const keys of families) expect(keys).toEqual(family);
-    expect(routable.length).toBeGreaterThan(0);
-    expect(routable.length).toBeLessThan(family.length);
+    // Was `toBeLessThan(family.length)`, which pinned the split rather than the rule: the
+    // family is exactly `empty_day_text` and `empty_day_color`, and only the first was in
+    // `COLUMN_OVERRIDE_KEYS`, so "fewer routable than derived" was a restatement of the
+    // asymmetry. Both are routable as of v5.0.0 — the whole family the placeholder row
+    // derives is reachable from the Column workspace, which is the property worth pinning.
+    expect(routable.length).toBe(family.length);
     expect({ unscoped, wrongScope }).toEqual({ unscoped: [], wrongScope: [] });
   });
 

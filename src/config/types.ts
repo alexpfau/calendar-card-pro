@@ -253,6 +253,7 @@ export interface SharedViewOverrides {
   // Day grouping and empty days
   show_empty_days?: boolean;
   empty_day_text?: string;
+  empty_day_color?: string;
   split_multiday_events?: boolean;
 
   // Render-side filters; they do not refetch on width transitions.

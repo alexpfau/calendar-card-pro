@@ -117,9 +117,6 @@ const CARD_LEVEL_REASONS = {
   /** Decides which events exist at all, upstream of any view drawing them. */
   'content-filter': ['event_type'],
 
-  /** Placeholder ink, shared by list and column; grid draws no placeholder row. */
-  'empty-day': ['empty_day_color'],
-
   /** Known unreachable options still missing a scope verdict. Must stay empty. */
   'scope-gap': [] as string[],
 
@@ -219,14 +216,26 @@ describe('card-level reasons', () => {
     expect(CARD_LEVEL_REASONS['scope-gap']).toEqual([]);
   });
 
-  it('reconciles card-level empty-day options with their declared scope', () => {
+  it('leaves no list-and-column option stranded at the card level', () => {
+    // Nine options are scoped to exactly `{list, column}`. Eight were reachable from the
+    // Column workspace and `empty_day_color` was not, although its twin `empty_day_text`
+    // — same feature, same scope, written in the same change — was. That was an accident
+    // of sequence rather than a decision, and it is fixed in v5.0.0 by adding the key to
+    // `COLUMN_OVERRIDE_KEYS`.
+    //
+    // This reconciliation used to compare the card-level `empty-day` bucket against
+    // `VIEW_SCOPE`, which made it a description of the asymmetry rather than a guard
+    // against it. Stated as an invariant instead: an option the card honors in column view
+    // but which cannot be written into `column:` is unreachable from the workspace that
+    // configures that view. If a future option needs to be a genuine exception, this fails
+    // and the exception gets argued for rather than inherited.
     const listAndColumn = Object.entries(VIEW_SCOPE)
       .filter(([, views]) => views.size === 2 && views.has('list') && views.has('column'))
       .map(([key]) => key)
       .filter((key) => CARD_LEVEL_KEYS.includes(key))
       .sort();
 
-    expect([...CARD_LEVEL_REASONS['empty-day']].sort()).toEqual(listAndColumn);
+    expect(listAndColumn).toEqual([]);
   });
 });
 
