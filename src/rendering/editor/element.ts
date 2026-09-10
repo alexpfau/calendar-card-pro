@@ -429,7 +429,7 @@ export class CalendarCardProEditor extends LitElement {
             Entities.labelTypeOf(entry),
             accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
             labelIconSourceOf(Entities.asEntityConfig(entry).label),
-            Entities.showsLocation(entry, ctx.config, ctx.view),
+            Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
             labelImageSourceOf(Entities.asEntityConfig(entry).label),
           ),
           entry,
@@ -649,6 +649,23 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * The view whose layer this context writes into, or `undefined` for the shared base.
+   *
+   * 🚨 Not `ctx.view`, and the difference only appears under the shared workspace. Panels
+   * there are built as a view — see {@link Workspace.baseViewForWorkspace} — so `ctx.view`
+   * answers *what this looks like*, which is the wrong question for anything that resolves
+   * a value or writes one. Both callers below reach a block by view name, and a name sends
+   * them into that block; the shared base has none. `ctx.workspace` is absent for callers
+   * that build a context by hand, where the two questions still coincide.
+   *
+   * @param ctx - Editing context
+   * @returns The view being written, or `undefined` when the shared base is
+   */
+  private _destinationView(ctx: SchemaCtx): Types.EffectiveView | undefined {
+    return ctx.workspace === undefined ? ctx.view : Workspace.viewForWorkspace(ctx.workspace);
+  }
+
+  /**
    * Offers reset actions for explicit values, without duplicating the editing controls.
    *
    * 🚨 Guards on where the *workspace writes*, never on `ctx.view`. Those agreed while list
@@ -671,7 +688,7 @@ export class CalendarCardProEditor extends LitElement {
     schema: ReadonlyArray<HaFormSchema>,
     ctx: SchemaCtx,
   ): TemplateResult | typeof nothing {
-    const view = ctx.workspace === undefined ? ctx.view : Workspace.viewForWorkspace(ctx.workspace);
+    const view = this._destinationView(ctx);
     if (view === undefined) return nothing;
     const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
     if (blockKey === undefined) return nothing;

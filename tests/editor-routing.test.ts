@@ -727,3 +727,56 @@ describe('reset controls follow the workspace destination, not the built view', 
     expect(seen).toHaveLength(0);
   });
 });
+
+/**
+ * 🚨 The companion to the reset guard: `showsLocation` reaches a block by view name, so
+ * naming a view for the shared workspace consults a block that workspace cannot write to.
+ * Once `list:` existed, a card that turned locations off in list alone hid `location_icon`
+ * in Shared, while column and grid still drew locations.
+ *
+ * The List arm is the control. Without it a gate that hides the field everywhere passes.
+ */
+describe('entity subforms resolve show_location against the layer being edited', () => {
+  const hasLocationIcon = (editor: CalendarCardProEditor) =>
+    [...editor.shadowRoot!.querySelectorAll<Form>('ha-form')].some((form) =>
+      JSON.stringify((form as unknown as { schema?: unknown }).schema ?? []).includes(
+        'location_icon',
+      ),
+    );
+
+  const openWorkspace = async (editor: CalendarCardProEditor, workspace: string) => {
+    emit(editor.shadowRoot!.querySelector<Form>('ha-form.workspace-form')!, {
+      editing_workspace: workspace,
+    });
+    await editor.updateComplete;
+  };
+
+  const mountLocationCard = async () =>
+    mount({
+      view: 'list',
+      show_location: true,
+      list: { show_location: false },
+      column: {},
+      time_grid: {},
+    });
+
+  it('hides the location icon in the workspace whose block turned locations off', async () => {
+    const { editor } = await mountLocationCard();
+    await openWorkspace(editor, 'list');
+    expect(hasLocationIcon(editor)).toBe(false);
+  });
+
+  it('keeps the location icon in the shared workspace, which no block covers', async () => {
+    const { editor } = await mountLocationCard();
+    await openWorkspace(editor, 'shared');
+    expect(hasLocationIcon(editor)).toBe(true);
+  });
+
+  it('keeps the location icon in workspaces that still draw locations', async () => {
+    const { editor } = await mountLocationCard();
+    await openWorkspace(editor, 'column');
+    expect(hasLocationIcon(editor)).toBe(true);
+    await openWorkspace(editor, 'grid');
+    expect(hasLocationIcon(editor)).toBe(true);
+  });
+});

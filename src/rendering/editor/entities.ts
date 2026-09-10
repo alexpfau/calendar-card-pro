@@ -200,18 +200,31 @@ export function asEntityConfig(entry: string | Types.EntityConfig): Types.Entity
  * replaces the marker on a row that is not being drawn, so offering it there is the editor
  * claiming to control something it does not.
  *
+ * 🚨 `undefined` means the shared base, and it is not the same as picking a view. A view
+ * name sends {@link ViewConfig.resolveViewOption} into that view's block, so answering the
+ * shared workspace with a view would consult a block the workspace cannot write to — and
+ * once `list:` existed, passing the built view read `list:` and hid `location_icon` for a
+ * card that had turned locations off in list alone, while column and grid still drew them.
+ * The shared base's own answer is the top-level value, with no block over it.
+ *
+ * Residual, and deliberate: a card whose base says no locations but whose `column:` turns
+ * them back on hides the control here. That is the shared base answering for itself, and
+ * the control is still offered in the workspace that overrode it.
+ *
  * @param entry - Entry as stored
  * @param config - Merged configuration
- * @param view - View the card is configured to render
+ * @param view - View being edited, or `undefined` for the shared base
  * @returns `true` when this calendar's events can show a location
  */
 export function showsLocation(
   entry: string | Types.EntityConfig,
   config: Readonly<Types.Config>,
-  view: Types.EffectiveView,
+  view: Types.EffectiveView | undefined,
 ): boolean {
   const own = asEntityConfig(entry).show_location;
   if (typeof own === 'boolean') return own;
+
+  if (view === undefined) return Boolean(config.show_location);
 
   return Boolean(ViewConfig.resolveViewOption(config as Types.Config, 'show_location', view));
 }
