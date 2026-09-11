@@ -53,11 +53,18 @@ const baseConfig = (overrides: Record<string, unknown> = {}): Types.Config =>
 
 describe('the registry is the single source', () => {
   it('registers exactly the views that own a block', () => {
-    expect(Object.keys(VIEW_BLOCKS).sort()).toEqual(['column', 'grid']);
+    expect(Object.keys(VIEW_BLOCKS).sort()).toEqual(['column', 'grid', 'list']);
   });
 
-  it('reports no block for a view that has none', () => {
-    expect(viewBlockFor('list')).toBeUndefined();
+  // List's entry is what makes the three views symmetric, and it is the only one whose
+  // `defaultOverrides` is empty — the shipped card-level values *are* list's, so it has
+  // nothing to diverge from.
+  it('registers list with no divergent defaults and no keys of its own', () => {
+    const block = viewBlockFor('list');
+
+    expect(block?.blockKey).toBe('list');
+    expect(block?.defaultOverrides).toEqual({});
+    expect(block?.onlyKeys).toEqual([]);
   });
 
   // Derived rather than written out a second time, so a view cannot be registered in
@@ -187,10 +194,12 @@ describe('behaviour follows the registry', () => {
     );
   });
 
-  it('leaves a view with no registry entry untouched', () => {
+  // List is registered, so it no longer short-circuits on identity — but with an empty
+  // block and no divergent defaults the resolved value has to be the top-level one.
+  it('leaves every value alone for a registered view that overrides nothing', () => {
     const config = baseConfig({ day_spacing: '10px', column: { day_spacing: '99px' } });
 
-    expect(resolveEffectiveConfig(config, 'list')).toBe(config);
+    expect(resolveEffectiveConfig(config, 'list')).toEqual(config);
   });
 
   it('resolves a single option through the registered block too', () => {

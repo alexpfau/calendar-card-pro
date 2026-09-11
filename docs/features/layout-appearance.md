@@ -124,8 +124,9 @@ Fine-tune the spacing and alignment of your calendar elements:
 day_spacing: '8px' # Space between different calendar days
 event_spacing: '6px' # Internal padding within each event
 
-# Date column alignment
-date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
+list:
+  # Date column alignment
+  date_vertical_alignment: 'top' # Options: 'top', 'middle', 'bottom'
 
 # Event icon alignment
 event_icon_vertical_alignment: 'middle' # Options: 'top', 'middle', 'bottom'
@@ -308,9 +309,10 @@ today_indicator: /local/custom-indicator.png # Image path
 today_indicator: https://example.com/today.png # Or any image URL
 
 # Position the indicator precisely with CSS-like coordinates
-today_indicator_position: "15% 50%" # Centered left in the date column (default)
-today_indicator_position: "15% 15%" # Top left
-today_indicator_position: "85% 15%" # Top right
+list:
+  today_indicator_position: "15% 50%" # Centered left in the date column (default)
+  today_indicator_position: "15% 15%" # Top left
+  today_indicator_position: "85% 15%" # Top right
 
 # Restyle the indicator
 today_indicator_color: "#03a9f4" # Color — applies to the dot and to MDI icons (default)
@@ -341,4 +343,4 @@ The `today_indicator_position` option accepts CSS-like position values in the fo
 
 `today_indicator_size` scales every indicator type — it sets the icon size, the font size for emoji and text, and the image width. `today_indicator_color` colors the icon-based types (the dot, `pulse`, `glow` and any `mdi:` icon) and is also the color of the glow itself; emojis and images keep their own colors, and text takes the color it inherits.
 
-The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column).
+The options on this page are grouped in the reference under [Layout & Spacing](/reference/configuration#layout-spacing), [Week Numbers & Horizontal Separators](/reference/configuration#week-numbers-horizontal-separators), [Today Indicator](/reference/configuration#today-indicator) and [Date Column](/reference/configuration#date-column). Two of them — `date_vertical_alignment` and `today_indicator_position` — are list-only and belong inside `list:`; they are listed under [List-Only Options](/reference/configuration#list-only-options).

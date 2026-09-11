@@ -145,6 +145,9 @@ export interface Config {
   refresh_interval: number;
   refresh_on_navigate: boolean;
 
+  // List view
+  list?: ListOverrides;
+
   // Column view
   column?: ColumnOverrides;
 
@@ -331,6 +334,25 @@ export interface SharedViewOverrides {
   week_separator_color?: string;
   month_separator_width?: string;
   month_separator_color?: string;
+}
+
+/**
+ * The `list:` block — every shared override, plus list's own presentation keys.
+ *
+ * List has no key of its own without a top-level counterpart, so unlike the other two
+ * views it declares no view-only members: everything here is an override of a card-level
+ * key. The five below are list-only in `VIEW_SCOPE`, which is why no other view can
+ * override them and why they never entered the shared set.
+ */
+export interface ListOverrides extends SharedViewOverrides {
+  // Compact mode. Nothing outside list view reads these.
+  compact_days_to_show?: number;
+  compact_events_to_show?: number;
+  compact_events_complete_days?: boolean;
+
+  // List-row layout.
+  date_vertical_alignment?: string;
+  today_indicator_position?: string;
 }
 
 /**

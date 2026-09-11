@@ -178,9 +178,12 @@ describe('editor panel option forms', () => {
     change(lines, { ...formData(lines), title_max_lines: 3 });
     await element.updateComplete;
 
+    // Located by name rather than by position: `days_to_show` is fetch-time and stays at
+    // the top level, `title_max_lines` is a list override and lands in `list:` in v5. The
+    // subject is that both survive one report, not where either sits.
     expect(seen).toHaveLength(2);
     expect(seen[1].days_to_show).toBe(7);
-    expect(seen[1].title_max_lines).toBe(3);
+    expect(seen[1].list).toHaveProperty('title_max_lines', 3);
   });
 
   it('keeps the panel event inside the editor', async () => {

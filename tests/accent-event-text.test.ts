@@ -585,6 +585,24 @@ describe('the editor toggle', () => {
     return Routing.workspaceFormData(config, config.view).accent_event_text as boolean;
   }
 
+  /**
+   * Reads a governed option the way the card does, through the view's own block.
+   *
+   * List's edits land in `list:` in v5 exactly as Column's land in `column:`, so reading
+   * the top level here would report `undefined` for a switch that is working — and the
+   * docblock above already says a view substituting its own default must write its own
+   * block. List is now such a view.
+   *
+   * @param config - Configuration to read
+   * @param key - Governed option
+   * @returns The value the view resolves
+   */
+  function effective(config: Types.Config, key: string): unknown {
+    return (
+      ViewConfig.resolveEffectiveConfig(config, config.view) as unknown as Record<string, unknown>
+    )[key];
+  }
+
   function toggle(config: Types.Config, value: boolean): Types.Config {
     const before = Routing.workspaceFormData(config, config.view);
     return Routing.applyWorkspaceChange(
@@ -629,16 +647,14 @@ describe('the editor toggle', () => {
     const on = toggle(buildConfig({ view: 'list' }), true);
 
     for (const key of governed) {
-      expect((on as unknown as Record<string, unknown>)[key]).toBe(ACCENT_TEXT_SENTINEL);
+      expect(effective(on, key)).toBe(ACCENT_TEXT_SENTINEL);
     }
     expect(form(on)).toBe(true);
 
     const off = toggle(on, false);
 
     for (const key of governed) {
-      expect((off as unknown as Record<string, unknown>)[key]).toBe(
-        DEFAULT_CONFIG[key as keyof Types.Config],
-      );
+      expect(effective(off, key)).toBe(DEFAULT_CONFIG[key as keyof Types.Config]);
     }
     expect(form(off)).toBe(false);
   });

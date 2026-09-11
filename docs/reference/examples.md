@@ -42,7 +42,8 @@ entities:
   - entity: calendar.personal
     color: '#c2ffb3' # Green for personal events
 days_to_show: 7
-compact_events_to_show: 3 # Always only show 3 events
+list:
+  compact_events_to_show: 3 # Always only show 3 events
 tap_action:
   action: expand # Tap to expand/collapse
 ```
@@ -63,7 +64,8 @@ entities:
   - entity: calendar.personal
     accent_color: '#43a047'
 days_to_show: 5
-compact_events_to_show: 5
+list:
+  compact_events_to_show: 5
 event_background_opacity: 20
 vertical_line_width: 5px
 event_spacing: 6px
@@ -83,7 +85,8 @@ entities:
   - entity: calendar.family
     accent_color: '#ff6c92'
 days_to_show: 5
-compact_events_to_show: 6
+list:
+  compact_events_to_show: 6
 vertical_line_width: 5px
 event_spacing: 5px
 show_week_numbers: iso
@@ -171,7 +174,8 @@ entities:
     color: '#b3ffd9'
 start_date: today
 days_to_show: 10
-compact_events_to_show: 10
+list:
+  compact_events_to_show: 10
 language: en
 
 # Header
@@ -191,7 +195,8 @@ day_separator_width: 2px
 day_separator_color: '#baf1ff80'
 
 # Date Column
-date_vertical_alignment: middle
+list:
+  date_vertical_alignment: middle
 weekday_font_size: 14px
 weekday_color: '#baf1ff'
 day_font_size: 32px

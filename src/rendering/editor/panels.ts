@@ -20,10 +20,12 @@ import * as Types from '../../config/types';
 /**
  * Everything a schema builder is allowed to read.
  *
- * 🚨 `view` and `workspace` carry the same value in the live editor and are still two
- * fields. `_ctx` in `element.ts` sets `const view = workspace`, so every call site's
- * `ctx.workspace ?? ctx.view` resolves to the workspace there whichever half it reads —
- * which makes the pair look like a redundancy to delete, and it is not.
+ * 🚨 The two carry the same value for the three view workspaces and differ for Shared,
+ * and they are two fields for that reason. `_ctx` in `element.ts` sets
+ * `view = baseViewForWorkspace(workspace)`, which is the identity everywhere except
+ * Shared, where it is `list` — so for a view workspace every call site's
+ * `ctx.workspace ?? ctx.view` resolves to the same thing whichever half it reads, which
+ * makes the pair look like a redundancy to delete, and it is not.
  *
  * `view` is what the card renders and is the only thing a builder can rely on, because it
  * is the only one that is required. `check:i18n` builds every schema from
@@ -34,8 +36,12 @@ import * as Types from '../../config/types';
  * `workspace` is what the editor is being *pointed at*, and it is optional because only
  * the live editor knows it. The two were genuinely different before the workspace
  * selector: the editor configured whatever the card displayed, so a user could not reach
- * a grid option without switching the card to grid. They are equal today because the
- * selector made pointing the editor the only way to change which view you configure.
+ * a grid option without switching the card to grid. Shared reopened that gap on purpose —
+ * it edits the base every view reads, so it has no view of its own and its panels are
+ * built as `list`, the one view that declares neither an only-key nor a divergent
+ * default and therefore makes no view-specific claim. Building them as whatever the card
+ * happened to display would have made a shared option appear and disappear from Shared as
+ * the user switched the card.
  *
  * So read `ctx.workspace ?? ctx.view` when you want the view whose values are being
  * edited — the storage destination, `withholdInertFields`, `valueSource` — and read

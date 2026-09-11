@@ -113,8 +113,11 @@ export class CalendarCardProEditor extends LitElement {
   private get _ctx(): SchemaCtx {
     const rawConfig = this._config!;
     const workspace = this._workspace;
-    const view = workspace;
     const config = Routing.workspaceConfig(rawConfig, workspace);
+    // Shared has no layout of its own, so its panels are built as list — the base every
+    // other view widens. `config.view` stays the card's real displayed view, because that
+    // is the value the Card Displays control edits; see `baseViewForWorkspace`.
+    const view = Workspace.baseViewForWorkspace(workspace);
 
     return {
       view,
@@ -210,6 +213,13 @@ export class CalendarCardProEditor extends LitElement {
    */
   private _report(config: Types.Config): void {
     const stored = Value.toStoredConfig(config);
+
+    // The v5 migration, run at the one place a save happens rather than inside
+    // `toStoredConfig` — that function is also the diff baseline and the filter's
+    // customized-only projection, and neither wants a migration applied to what it reads.
+    // Shared writes at root by design, so a save from there must not relocate the keys it
+    // exists to author; see `relocateListKeys`.
+    Value.relocateListKeys(stored, config.view, this._workspace !== 'shared');
 
     if (Value.equalConfigs(stored, this._lastDispatched ?? {})) {
       return;
@@ -419,7 +429,7 @@ export class CalendarCardProEditor extends LitElement {
             Entities.labelTypeOf(entry),
             accentColorModeOf(Entities.asEntityConfig(entry).accent_color),
             labelIconSourceOf(Entities.asEntityConfig(entry).label),
-            Entities.showsLocation(entry, ctx.config, ctx.view),
+            Entities.showsLocation(entry, ctx.config, this._destinationView(ctx)),
             labelImageSourceOf(Entities.asEntityConfig(entry).label),
           ),
           entry,
@@ -639,7 +649,36 @@ export class CalendarCardProEditor extends LitElement {
   }
 
   /**
+   * The view whose layer this context writes into, or `undefined` for the shared base.
+   *
+   * 🚨 Not `ctx.view`, and the difference only appears under the shared workspace. Panels
+   * there are built as a view — see {@link Workspace.baseViewForWorkspace} — so `ctx.view`
+   * answers *what this looks like*, which is the wrong question for anything that resolves
+   * a value or writes one. Both callers below reach a block by view name, and a name sends
+   * them into that block; the shared base has none. `ctx.workspace` is absent for callers
+   * that build a context by hand, where the two questions still coincide.
+   *
+   * @param ctx - Editing context
+   * @returns The view being written, or `undefined` when the shared base is
+   */
+  private _destinationView(ctx: SchemaCtx): Types.EffectiveView | undefined {
+    return ctx.workspace === undefined ? ctx.view : Workspace.viewForWorkspace(ctx.workspace);
+  }
+
+  /**
    * Offers reset actions for explicit values, without duplicating the editing controls.
+   *
+   * 🚨 Guards on where the *workspace writes*, never on `ctx.view`. Those agreed while list
+   * was blockless, so `ctx.view` read as a destination for free. It stopped being one the
+   * moment `list:` was registered: the shared workspace builds its panels as list — see
+   * {@link Workspace.baseViewForWorkspace} — so `ctx.view` is `'list'` there, and guarding on
+   * it offered Shared the reset buttons for `list:`. Clicking one deleted a List override
+   * from a workspace that cannot write to `list:` at all, leaving root untouched.
+   *
+   * Shared therefore offers none, which is the answer the reset *means* rather than a
+   * special case: {@link _resetViewValues} returns a value to what it inherits, and the
+   * shared base inherits from nothing. It is also what the root-writing workspace did
+   * before `list:` existed, so this restores that behavior rather than inventing one.
    *
    * @param schema - Fields currently shown
    * @param ctx - Editing context
@@ -649,7 +688,9 @@ export class CalendarCardProEditor extends LitElement {
     schema: ReadonlyArray<HaFormSchema>,
     ctx: SchemaCtx,
   ): TemplateResult | typeof nothing {
-    const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[ctx.view];
+    const view = this._destinationView(ctx);
+    if (view === undefined) return nothing;
+    const blockKey = ViewConfig.OVERRIDE_BLOCK_BY_VIEW[view];
     if (blockKey === undefined) return nothing;
     const stored = Value.toStoredConfig(this._config!)[blockKey];
     if (!stored || typeof stored !== 'object') return nothing;
@@ -660,7 +701,7 @@ export class CalendarCardProEditor extends LitElement {
           ? [node.name]
           : path.length === 0
             ? Synthetic.configKeysForField(node.name).filter(
-                (key) => Routing.destination(key, ctx.view) === blockKey,
+                (key) => Routing.destination(key, view) === blockKey,
               )
             : []
       ).filter((key) => Object.prototype.hasOwnProperty.call(stored, key) && !seen.has(key));
@@ -677,7 +718,7 @@ export class CalendarCardProEditor extends LitElement {
               type="button"
               class="text-button"
               data-reset-keys=${keys.join(' ')}
-              @click=${() => this._resetViewValues(blockKey, ctx.view, keys)}
+              @click=${() => this._resetViewValues(blockKey, view, keys)}
             >
               ${interpolate(this._string(ctx, 'value_source.reset'), {
                 option: label,

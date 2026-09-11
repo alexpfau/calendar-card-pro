@@ -6,6 +6,11 @@ import * as Filter from '../src/rendering/editor/filter';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import * as EditorLocalize from '../src/rendering/editor/localize';
 import { PANELS, type SchemaCtx } from '../src/rendering/editor/panels';
+import {
+  type EditorWorkspace,
+  WORKSPACES,
+  baseViewForWorkspace,
+} from '../src/rendering/editor/workspace';
 
 /**
  * The Layout panel's rendered order, flattened the way a reader sees it.
@@ -61,6 +66,47 @@ function renderedSubform(
     ...ctx,
     criteria: Filter.NO_FILTER,
   });
+}
+
+/**
+ * A schema context for one workspace, built the way the element builds it.
+ *
+ * 🚨 `view` is `baseViewForWorkspace(workspace)`, not the workspace. They coincide for
+ * the three view workspaces and diverge for Shared, which has no view of its own and
+ * builds as list. Passing `'shared'` as the view would not compile, and passing the
+ * card's displayed view would make Shared's contents follow whatever the card happened
+ * to show.
+ *
+ * @param workspace - Workspace being rendered
+ * @returns Context for the panel builders
+ */
+function ctxFor(workspace: EditorWorkspace): SchemaCtx {
+  const view = baseViewForWorkspace(workspace);
+  return {
+    config: buildConfig({ view, entities: [{ entity: 'calendar.anna' }] }),
+    view,
+    workspace,
+    language: 'en',
+  };
+}
+
+/**
+ * One panel's schema as the element renders it.
+ *
+ * 🚨 Mirrors `_renderPanel`, which withholds inert fields before anything else touches
+ * the schema. Walking `panel.build(ctx)` raw would make every workspace identical — and
+ * Shared exists precisely because withholding is what distinguishes it, so a test reading
+ * the declaration would report Shared as covered while measuring list four times.
+ *
+ * @param panel - Panel definition
+ * @param ctx - Schema context, whose workspace decides the withholding
+ * @returns The nodes the element hands to `ha-form`
+ */
+function renderedPanel(
+  panel: (typeof PANELS)[number],
+  ctx: SchemaCtx,
+): ReadonlyArray<HaFormSchema> {
+  return Filter.withholdInertFields(panel.build(ctx), ctx.workspace ?? ctx.view);
 }
 
 function layoutOutline(view: Types.EffectiveView): string[] {
@@ -139,13 +185,10 @@ describe('Collapsibles come last in every panel', () => {
   // Stated as a property, not as a list: nothing after the first collapsible may be
   // anything other than a collapsible. That covers panels nobody has written yet, which a
   // per-panel expectation would not.
-  const views = ['list', 'column', 'grid'] as const;
-
-  for (const view of views) {
+  for (const workspace of WORKSPACES) {
     for (const panel of PANELS) {
-      it(`${panel.id} in ${view}`, () => {
-        const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
-        const entries = outline(panel.build({ config, view, language: 'en' }));
+      it(`${panel.id} in ${workspace}`, () => {
+        const entries = outline(renderedPanel(panel, ctxFor(workspace)));
         const first = entries.findIndex((entry) => entry.startsWith('['));
         if (first === -1) {
           return;
@@ -175,8 +218,6 @@ describe('No collapsible opens onto fewer than two controls', () => {
   //
   // Default config, because that is the state a new user meets; a group that fills up once
   // its switch is on was never the problem.
-  const views = ['list', 'column', 'grid'] as const;
-
   /** Every operable control below a node, across rows and nested groups alike. */
   function controls(schema: ReadonlyArray<HaFormSchema>): number {
     return schema.reduce(
@@ -200,34 +241,57 @@ describe('No collapsible opens onto fewer than two controls', () => {
     }
   }
 
-  for (const view of views) {
-    it(`${view} has no one-control disclosure`, () => {
-      const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
-      const ctx: SchemaCtx = { config, view, language: 'en' };
+  /** Operable controls a workspace shows, panels and per-calendar sub-forms alike. */
+  const reach = new Map<EditorWorkspace, number>();
+
+  for (const workspace of WORKSPACES) {
+    it(`${workspace} has no one-control disclosure`, () => {
+      const ctx = ctxFor(workspace);
       const found: string[] = [];
       let seen = 0;
 
       for (const panel of PANELS) {
-        const schema = panel.build(ctx);
+        const schema = renderedPanel(panel, ctx);
         seen += controls(schema);
-        thin(schema, `${view}/${panel.id}`, found);
+        thin(schema, `${workspace}/${panel.id}`, found);
 
         // The per-calendar subform is reached through `subforms`, not through `build`, so
         // a walk of the panels alone never sees its thirty-odd fields. It is flat today;
         // this is what notices if it stops being.
         for (const sub of panel.subforms?.(ctx) ?? []) {
-          seen += controls(sub.schema);
-          thin(sub.schema, `${view}/${panel.id}:subform`, found);
+          const rendered = renderedSubform(sub, ctx);
+          seen += controls(rendered);
+          thin(rendered, `${workspace}/${panel.id}:subform`, found);
         }
       }
 
       // The denominator, beside the verdict rather than in a step of its own: an empty
       // `found` proves nothing if the walk reached nothing, and a walk that silently
       // stopped covering the editor is exactly the failure this file already had once.
-      expect(seen, 'the walk found no controls at all').toBeGreaterThan(100);
+      //
+      // Ninety rather than a hundred because Shared withholds every view-scoped key by
+      // design and legitimately walks fewer controls than any single view. The constant
+      // is only a floor under "did the walk reach the editor"; the test below carries the
+      // part that used to be implied in it.
+      reach.set(workspace, seen);
+      expect(seen, 'the walk found no controls at all').toBeGreaterThan(90);
       expect(found).toEqual([]);
     });
   }
+
+  it('shows Shared strictly fewer controls than List, and not far fewer', () => {
+    // 🚨 The failure this replaces a magic number with. A Shared workspace that stopped
+    // withholding would be byte-identical to List — which is what an earlier Shared
+    // actually was, measured across 63 configurations, and why it was deleted. Equality
+    // here is the whole feature quietly doing nothing, and no count-against-a-constant
+    // can see it because both numbers would be comfortably above any floor.
+    const shared = reach.get('shared');
+    const list = reach.get('list');
+
+    expect({ shared, list }).toEqual({ shared: expect.any(Number), list: expect.any(Number) });
+    expect(shared!).toBeLessThan(list!);
+    expect(list! - shared!).toBeLessThan(20);
+  });
 });
 
 describe('The card and the per-calendar subform caption the same switches alike', () => {
@@ -297,9 +361,8 @@ describe('The card and the per-calendar subform caption the same switches alike'
  * and this fails until the list matches again.
  */
 describe('No two adjacent fields share a label', () => {
-  function adjacentDuplicates(view: Types.EffectiveView): string[] {
-    const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
-    const ctx: SchemaCtx = { config, view, language: 'en' };
+  function adjacentDuplicates(workspace: EditorWorkspace): string[] {
+    const ctx = ctxFor(workspace);
     const found: string[] = [];
 
     for (const panel of PANELS) {
@@ -363,9 +426,9 @@ describe('No two adjacent fields share a label', () => {
     'events: "Accent Color" = accent_color_mode + accent_color',
   ];
 
-  for (const view of ['list', 'column', 'grid'] as Types.EffectiveView[]) {
-    it(`has only the known pair in the ${view} workspace`, () => {
-      expect(adjacentDuplicates(view)).toEqual(KNOWN);
+  for (const workspace of WORKSPACES) {
+    it(`has only the known pair in the ${workspace} workspace`, () => {
+      expect(adjacentDuplicates(workspace)).toEqual(KNOWN);
     });
   }
 });
@@ -394,10 +457,9 @@ describe('Sub-forms are view-scoped like the panels above them', () => {
     });
   }
 
-  for (const view of ['list', 'column', 'grid'] as Types.EffectiveView[]) {
-    it(`renders the sub-form scoped to ${view}`, () => {
-      const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
-      const ctx: SchemaCtx = { config, view, language: 'en' };
+  for (const workspace of WORKSPACES) {
+    it(`renders the sub-form scoped to ${workspace}`, () => {
+      const ctx = ctxFor(workspace);
       let seen = 0;
       let subforms = 0;
 
@@ -415,9 +477,9 @@ describe('Sub-forms are view-scoped like the panels above them', () => {
             where,
             offered: fieldNames(subform.schema).filter(
               (name) =>
-                !fieldNames(Filter.withholdInertFields(subform.schema, view, 'entity')).includes(
-                  name,
-                ),
+                !fieldNames(
+                  Filter.withholdInertFields(subform.schema, ctx.workspace ?? ctx.view, 'entity'),
+                ).includes(name),
             ),
           });
         }
@@ -448,10 +510,9 @@ describe('No sub-form heading is left captioning nothing', () => {
     });
   }
 
-  for (const view of ['list', 'column', 'grid'] as Types.EffectiveView[]) {
-    it(`captions at least one field per heading in ${view}`, () => {
-      const config = buildConfig({ view, entities: [{ entity: 'calendar.anna' }] });
-      const ctx: SchemaCtx = { config, view, language: 'en' };
+  for (const workspace of WORKSPACES) {
+    it(`captions at least one field per heading in ${workspace}`, () => {
+      const ctx = ctxFor(workspace);
       let headings = 0;
 
       for (const panel of PANELS) {

@@ -32,6 +32,7 @@ cards.
 | `split_multiday_events`        | boolean | `false`                       | Display multi-day events on each day they cover. Column view defaults this to `true` and does not inherit the top-level value — a column is a day, so a spanning event belongs in each one it covers. See [Options That Start From a Different Default](/features/column-view#options-that-start-from-a-different-default)                                                                                                                                       |
 | `event_type`                   | string  | `all`                         | Which class of event the card keeps — `all` shows every event, `timed` keeps only those with a clock time, and `all_day` keeps only all-day ones. It describes the kind of event, not how long it lasts. Setting it per calendar, on a calendar listed twice, is how one calendar's all-day events get their own color. See [Separating All-Day From Timed Events](/features/core-settings#separating-all-day-from-timed-events)                                 |
 | `language`                     | string  | `System`, fallback `en`       | Interface language (auto-detects from HA). Governs every string the card renders, including the weather condition words — see [Weather](/features/weather#weather-in-the-column-layout)                                                                                                                                                                                                                                                                          |
+| `list`                         | object  | Inherits the top-level values | Options that should take a different value in list view, plus the five that only list reads. Only presentation options may appear here — see [Per-View Options](/features/core-settings#per-view-options)                                                                                                                                                                                                                                                        |
 | `column`                       | object  | Inherits the top-level values | Options that should take a different value in column view. Only presentation options may appear here — see [Column View](/features/column-view)                                                                                                                                                                                                                                                                                                                  |
 | `time_grid`                    | object  | Inherits the top-level values | Options that should take a different value in grid view, plus the time axis's own settings. Only presentation options may appear here — see [Grid View](/features/grid-view)                                                                                                                                                                                                                                                                                     |
 
@@ -83,6 +84,29 @@ describe the shared day header, the time axis and the grid's responsive width fa
 | `time_grid → allday_band_max_rows`       | number  | `3`                                                             | Rows the all-day band may grow to before remaining banners are dropped                                                                          |
 
 **→ [Grid View](/features/grid-view)** — worked examples.
+
+### List-Only Options
+
+These five apply in list view and nowhere else, because they describe a date cell or a
+compact budget that neither of the other layouts has. They belong inside `list:`, which is
+where the visual editor writes them.
+
+| Option                                | Type    | Default   | Description                                                                  |
+| ------------------------------------- | ------- | --------- | ---------------------------------------------------------------------------- |
+| `list → date_vertical_alignment`      | string  | `middle`  | How the date aligns with its events: `top`, `middle` or `bottom`             |
+| `list → today_indicator_position`     | string  | `15% 50%` | Where the indicator sits in the date column, as CSS-like coordinates         |
+| `list → compact_events_to_show`       | number  | -         | Most events shown while the card is compact; unset shows them all            |
+| `list → compact_days_to_show`         | number  | -         | Most days shown while the card is compact; unset shows every day in range    |
+| `list → compact_events_complete_days` | boolean | `false`   | Never cut a day off part-way: if one of its events is shown, all of them are |
+
+::: tip Older Configurations Keep Working
+Written at the top level they behave exactly as they always did, so nothing needs changing
+by hand. The editor moves them into `list:` the next time you save.
+:::
+
+**→ [Compact Mode & Event Limits](/features/core-settings#compact-mode-event-limits)** — the three compact options, worked through.
+**→ [Spacing & Alignment](/features/layout-appearance#spacing-alignment)** — `date_vertical_alignment`.
+**→ [Today Indicator](/features/layout-appearance#today-indicator)** — `today_indicator_position`.
 
 ### Options With No Effect in Column View
 

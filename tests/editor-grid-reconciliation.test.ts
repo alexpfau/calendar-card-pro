@@ -62,6 +62,27 @@ async function change(editor: EditorHost, key: string, value: unknown): Promise<
   await editor.updateComplete;
 }
 
+/**
+ * Authors a value at the top level, then returns to the workspace the test was in.
+ *
+ * 🚨 The venue moved in v5 and the tests below would otherwise have gone on passing while
+ * testing nothing. Reconciliation copies a *root* value into a view's block on the first
+ * switch, so it only has a subject when root is where the value was authored. Root used to
+ * be list's storage, so an ordinary edit reached it; with `list:` registered an edit made
+ * in the List workspace is a list override, and grid inheriting it would be the leak this
+ * arrangement exists to close. Shared is where the shared base is authored now.
+ *
+ * @param editor - Mounted editor
+ * @param key - Option to author
+ * @param value - Value to author
+ */
+async function authorAtRoot(editor: EditorHost, key: string, value: unknown): Promise<void> {
+  const previous = formFor(editor, 'editing_workspace').data.editing_workspace;
+  await change(editor, 'editing_workspace', 'shared');
+  await change(editor, key, value);
+  await change(editor, 'editing_workspace', previous);
+}
+
 function notice(editor: EditorHost): HTMLElement | null {
   return editor.shadowRoot!.querySelector('[data-grid-reconciliation]');
 }
@@ -113,7 +134,7 @@ describe('first-switch reconciliation regressions', () => {
 
   it('tracks an authored root value introduced after the editor opened', async () => {
     const { editor, reports } = await mount();
-    await change(editor, 'event_font_size', '18px');
+    await authorAtRoot(editor, 'event_font_size', '18px');
     editor.setConfig(reports.at(-1)!);
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
@@ -129,8 +150,8 @@ describe('first-switch reconciliation regressions', () => {
 
   it('tracks a newly authored suppression returned to its root default', async () => {
     const { editor, reports } = await mount();
-    await change(editor, 'show_past_events', true);
-    await change(editor, 'show_past_events', false);
+    await authorAtRoot(editor, 'show_past_events', true);
+    await authorAtRoot(editor, 'show_past_events', false);
     expect(reports.at(-1)).not.toHaveProperty('show_past_events');
     editor.setConfig(reports.at(-1)!);
     await editor.updateComplete;
@@ -223,7 +244,7 @@ describe('first-switch reconciliation regressions', () => {
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid.event_background_opacity', 5);
     await change(editor, 'view', 'list');
-    await change(editor, 'event_background_opacity', 65);
+    await authorAtRoot(editor, 'event_background_opacity', 65);
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('event_background_opacity', 65);
     expect(reports.at(-1)).toHaveProperty('time_grid.event_background_opacity', 5);
@@ -262,7 +283,12 @@ describe('first-switch reconciliation regressions', () => {
 
   it('forgets root authorship when an option is cleared and echoed without it', async () => {
     const { editor, reports } = await mount({ event_font_size: '18px' });
-    await change(editor, 'event_font_size', undefined);
+    // Cleared from Shared, because a view workspace cannot clear the shared base. Left on
+    // List this passed for the wrong reason: the clear was a no-op against an absent
+    // `list:` override, and the migration then moved root's value into `list:` — so the
+    // key had indeed left root, and the assertion below could not tell that apart from the
+    // clear it was written to check.
+    await authorAtRoot(editor, 'event_font_size', undefined);
     // Feeding a missing report back as setConfig(undefined) made the old control pass
     // without deleting anything. The emitted change is a necessary positive control.
     expect(reports).toHaveLength(1);
@@ -271,6 +297,11 @@ describe('first-switch reconciliation regressions', () => {
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).not.toHaveProperty('time_grid');
+
+    // Asked of Grid explicitly. Choosing a workspace pins it, and `authorAtRoot` chooses
+    // one — so the workspace no longer follows Card Displays here, and reading the control
+    // without saying which workspace would report List's value and look like a regression.
+    await change(editor, 'editing_workspace', 'grid');
     expect(formFor(editor, 'event_font_size').data.event_font_size).toBe('12px');
     expect(notice(editor)).toBeNull();
   });

@@ -32,7 +32,10 @@ interface Form extends HTMLElement {
   computeLabel(node: HaFormSchema): string;
 }
 
-const EXPECTED_WORKSPACES: ReadonlyArray<EditorWorkspace> = VIEWS;
+// Written out rather than aliased to `WORKSPACES`, so the picker and the constant are two
+// surfaces that must agree instead of one restated twice. Shared leads because it is the
+// base the other three override.
+const EXPECTED_WORKSPACES: ReadonlyArray<EditorWorkspace> = ['shared', ...VIEWS];
 const PAIRS = EXPECTED_WORKSPACES.flatMap((from) =>
   EXPECTED_WORKSPACES.filter((to) => to !== from).map((to) => ({ from, to })),
 );
@@ -137,7 +140,10 @@ function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): vo
   const main = forms(editor, 'ha-form.panel-form').flatMap((form) => names(form.schema));
   expect(main.length).toBeGreaterThan(50);
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
-    expect(main.includes(key), `${current}: ${key}`).toBe(scope.has(current));
+    // Shared offers a key when more than one layout reads it; a view offers it when that
+    // view reads it. Asking `scope.has('shared')` would be false for every scoped key.
+    const expected = current === 'shared' ? scope.size > 1 : scope.has(current);
+    expect(main.includes(key), `${current}: ${key}`).toBe(expected);
   }
   expect(main.includes('hour_height')).toBe(current === 'grid');
   expect(main.includes('min_day_width')).toBe(current === 'grid' || current === 'column');
@@ -381,14 +387,56 @@ describe('workspace state survives echoes and pending edits', () => {
   });
 });
 
-it('rejects the removed duplicate Shared workspace without changing configuration', async () => {
-  const editor = await mount();
-  const seen = reports(editor);
-  vi.spyOn(Logger, 'warn').mockImplementation(() => {});
-  await change(editor, onlyForm(editor, 'ha-form.workspace-form'), { [WORKSPACE_FIELD]: 'shared' });
-  expect(workspace(editor)).toBe('list');
-  expect(WORKSPACES).toEqual(VIEWS);
-  expect(seen).toEqual([]);
+/**
+ * Shared is a workspace with no view behind it.
+ *
+ * It was deleted in the editor rework's Stage 5 on the correct measurement that it was
+ * byte-identical to List across 63 configurations — true only because list's keys lived at
+ * the top level. `list:` gives it a job, so these assert the two halves that make it more
+ * than a fourth name for List: switching to it writes nothing, and an edit made in it
+ * lands at the top level where every view can read it.
+ */
+describe('the shared workspace', () => {
+  it('offers one workspace per view plus the shared base', () => {
+    expect(WORKSPACES).toEqual(['shared', ...VIEWS]);
+  });
+
+  it('is selectable and changes no configuration by being selected', async () => {
+    const editor = await mount();
+    const seen = reports(editor);
+
+    await change(editor, onlyForm(editor, 'ha-form.workspace-form'), {
+      [WORKSPACE_FIELD]: 'shared',
+    });
+
+    expect(workspace(editor)).toBe('shared');
+    expect(seen).toEqual([]);
+  });
+
+  // The distinguishing behaviour. The same edit made in the List workspace lands in
+  // `list:`; made here it lands at the top level, which is the whole point of the layer.
+  it('writes an edit to the top level rather than into any block', async () => {
+    const editor = await mount({ view: 'list' });
+    const seen = reports(editor);
+
+    await change(editor, onlyForm(editor, 'ha-form.workspace-form'), {
+      [WORKSPACE_FIELD]: 'shared',
+    });
+    await change(editor, owner(editor, 'event_font_size'), { event_font_size: '24px' });
+
+    expect(seen).toEqual([{ entities: [{ entity: 'calendar.anna' }], event_font_size: '24px' }]);
+  });
+
+  it('writes the same edit into the list block from the List workspace', async () => {
+    const editor = await mount({ view: 'list' });
+    const seen = reports(editor);
+
+    await change(editor, owner(editor, 'event_font_size'), { event_font_size: '24px' });
+
+    expect(seen).toEqual([
+      { entities: [{ entity: 'calendar.anna' }], list: { event_font_size: '24px' } },
+    ]);
+  });
 });
 
 describe('the editor names each view once', () => {

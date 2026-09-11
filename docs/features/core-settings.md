@@ -936,14 +936,15 @@ Calendar Card Pro offers powerful controls for managing what appears in compact 
 # Total days to fetch from API and display when expanded
 days_to_show: 7
 
-# Event limit for compact mode
-compact_events_to_show: 5 # Preferred: New option name
+list:
+  # Event limit for compact mode
+  compact_events_to_show: 5 # Preferred: New option name
 
-# Day limit in compact mode
-compact_days_to_show: 2 # Fewer days to display in compact mode
+  # Day limit in compact mode
+  compact_days_to_show: 2 # Fewer days to display in compact mode
 
-# Ensure complete days are shown
-compact_events_complete_days: true # Never cut off a day's events mid-day
+  # Ensure complete days are shown
+  compact_events_complete_days: true # Never cut off a day's events mid-day
 ```
 
 ::: warning Compact Mode Applies to List View Only
@@ -987,7 +988,8 @@ The `compact_days_to_show` option lets you display fewer days in compact mode:
 
 ```yaml
 days_to_show: 7 # Show 7 days when expanded
-compact_days_to_show: 2 # Show only the next 2 days with events in compact mode
+list:
+  compact_days_to_show: 2 # Show only the next 2 days with events in compact mode
 ```
 
 This is useful for dashboards where you want an initial view showing just the most immediate events, with the ability to expand to view the entire week.
@@ -997,8 +999,9 @@ This is useful for dashboards where you want an initial view showing just the mo
 When using event limits, the `compact_events_complete_days` option ensures that partial days are never shown:
 
 ```yaml
-compact_events_to_show: 5
-compact_events_complete_days: true
+list:
+  compact_events_to_show: 5
+  compact_events_complete_days: true
 ```
 
 When enabled, this feature ensures that if at least one event from a day is shown, all events from that day will be displayed. This prevents confusion that might arise when some events from a day are visible but others are hidden.
@@ -1018,10 +1021,45 @@ These flexible controls allow you to:
 - **Provide complete context**: Ensure users can see all events for any shown day
 - **Support easy expansion**: Allow users to see the full calendar with a single tap
 
+## 🧱 Per-View Options
+
+Calendar Card Pro renders in three layouts, and each has a block of its own: `list:`,
+`column:` and `time_grid:`. Everything at the top level is the **shared base** — write an
+option there once and all three layouts use it.
+
+```yaml
+# Shared by every layout
+event_font_size: 14px
+show_location: true
+
+column:
+  event_font_size: 11px # Column view only — narrower columns, smaller type
+```
+
+A block names only what should differ. Anything it does not mention keeps the top-level
+value, so the example above shows locations in all three layouts and shrinks the type in
+just one.
+
+Each block also holds the options only that layout has — the compact caps and date-cell
+settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`. Those
+have no shared meaning, so there is nothing at the top level for them to fall back to.
+
+::: tip Older Configurations Keep Working
+Before v5 there was no `list:` block, so list options were written at the top level. They
+still are read there, permanently — nothing needs changing by hand. The visual editor
+writes the new arrangement the next time you save a card.
+:::
+
+**→ [Column View](/features/column-view)** — what column may override, and what it ignores.
+**→ [Grid View](/features/grid-view)** — the same for the time grid.
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the five options only list reads.
+
 ## 🧭 Column View
 
 Column view moved to its own page — it outgrew this one.
 
 **→ [Column View](/features/column-view)** — the layout, per-view overrides, spacing and the responsive fallbacks.
+
+**→ [List-Only Options in the configuration reference](/reference/configuration#list-only-options)** — the compact options and the two date-cell ones, which live inside `list:`.
 
 **→ [Core Settings in the configuration reference](/reference/configuration#core-settings)** — the full option table for everything on this page.

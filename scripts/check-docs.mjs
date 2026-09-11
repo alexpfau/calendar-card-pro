@@ -1668,6 +1668,7 @@ function report(counts) {
       `${counts.reachable} pages reachable from the navigation, ` +
       `${counts.themed} theme defaults documented, ` +
       `${counts.citations} line citations checked, ` +
+      `${counts.listFences} YAML examples checked for list-only keys, ` +
       `${counts.languages} language counts checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
       `release surfaces checked against v${counts.version}.\n`,
@@ -2899,6 +2900,79 @@ function checkReadmeFragmentLinks() {
 }
 
 // ---------------------------------------------------------------------------
+// Check 30 — no example writes a list-only option at the top level
+// ---------------------------------------------------------------------------
+
+/**
+ * The five keys `VIEW_SCOPE` scopes to list alone, read from the source rather than
+ * listed here. A hand-written copy would silently stop covering the next one somebody
+ * scopes to list, which is the failure this project has already had in several tables.
+ *
+ * @returns The list-only config keys
+ */
+function readListOnlyKeys() {
+  const src = readFileSync(VIEW_TS, 'utf8');
+  const block = src.match(/VIEW_SCOPE[^=]*=\s*\{([\s\S]*?)\n\};/);
+  if (!block) {
+    console.error(`\n✗ FATAL: could not locate VIEW_SCOPE in ${relative(ROOT, VIEW_TS)}.\n`);
+    process.exit(2);
+  }
+  const keys = new Set();
+  for (const line of block[1].split('\n')) {
+    const m = line.match(/^ {2}([a-z0-9_]+):\s*new Set<[^>]*>\(\[([^\]]*)\]\)/);
+    if (m && m[2].replace(/['\s]/g, '') === 'list') keys.add(m[1]);
+  }
+  assertFound(keys, 'list-only VIEW_SCOPE keys', VIEW_TS);
+  return keys;
+}
+
+/**
+ * Since v5 these belong inside `list:`. Writing one at the top level still *works* —
+ * that compatibility is permanent, because a YAML-mode user never opens the editor that
+ * would move it — but an example teaching the old arrangement teaches a reader to write
+ * a config the editor will silently rewrite under them.
+ *
+ * `RELEASE_NOTES.md` is exempt for the reason `AGENTS.md` gives: it records what was
+ * announced at the time and is not rewritten. `whats-new.md` is exempt on the same
+ * grounds.
+ *
+ * The check reads column 0 only, so a per-calendar `compact_events_to_show` under
+ * `entities:` is untouched — that one is an entity option and has no `list:` home.
+ *
+ * @param {string[]} docs - Every published page
+ * @param {Set<string>} listOnly - Keys from `readListOnlyKeys`
+ * @returns The number of fences inspected, so a short corpus is visible in the report
+ */
+function checkListBlockExamples(docs, listOnly) {
+  const exempt = ['RELEASE_NOTES.md', 'guide/whats-new.md'];
+  let fences = 0;
+  for (const file of [...docs, ...ROOT_PROSE]) {
+    if (isExcluded(file, exempt)) continue;
+    const rel = relative(ROOT, file);
+    const text = readFileSync(file, 'utf8');
+    // The language group is deliberately not optional: an optional one skips a `json`
+    // opener and then runs the lazy body on to the wrong closing delimiter.
+    const re = /```([a-z]*)\n([\s\S]*?)```/g;
+    let m;
+    while ((m = re.exec(text))) {
+      if (m[1] !== 'yaml' && m[1] !== 'yml') continue;
+      fences++;
+      const line0 = text.slice(0, m.index).split('\n').length;
+      m[2].split('\n').forEach((line, i) => {
+        const key = line.match(/^([a-z0-9_]+):/);
+        if (key && listOnly.has(key[1])) {
+          error(
+            `${rel}:${line0 + 1 + i}: \`${key[1]}\` is list-only and sits at the top level — ` +
+              'move it inside a `list:` block',
+          );
+        }
+      });
+    }
+  }
+  return fences;
+}
+
+// ---------------------------------------------------------------------------
 // Check 29 — absolute links into the docs site resolve to a real page and heading
 // ---------------------------------------------------------------------------
 
@@ -3026,6 +3100,7 @@ function main() {
   const removed = checkDeprecatedTable(readDeprecatedMaps());
   const reachable = checkPageReachability(docs, readNavRoutes());
   const themed = checkThemeDefaults(readThemeTable());
+  const listFences = checkListBlockExamples(docs, readListOnlyKeys());
   const citations = checkCitations();
   const languages = checkLanguageCounts();
 
@@ -3048,6 +3123,7 @@ function main() {
       reachable,
       themed,
       citations,
+      listFences,
       languages,
       readmeAnchors,
       version,
