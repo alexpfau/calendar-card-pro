@@ -513,8 +513,7 @@ export interface CalendarEventData {
    * Set on every segment produced by splitting a multi-day event, so a row can
    * tell "one day of a longer event" from a standalone event.
    *
-   * Split timed events can look all-day after segmentation; this flag lets countdowns
-   * count whole calendar days for every segment.
+   * The date-window filter uses this to exclude segments beyond the window's end.
    */
   _isMultiDaySegment?: boolean;
   /**

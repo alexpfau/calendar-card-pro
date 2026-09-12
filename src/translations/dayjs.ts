@@ -1,5 +1,5 @@
 /**
- * dayjs configuration and utilities for relative time formatting.
+ * Relative-time formatting and Day.js locale configuration.
  */
 
 import dayjs from 'dayjs';
@@ -41,6 +41,28 @@ import 'dayjs/locale/uk';
 import 'dayjs/locale/vi';
 import 'dayjs/locale/zh-cn';
 import 'dayjs/locale/zh-tw';
+
+const relativeUnitFormatters = new Map<string, Intl.RelativeTimeFormat>();
+
+/**
+ * Format a whole number of days or hours, using the date word for tomorrow.
+ *
+ * @param value Number of whole units until the event
+ * @param unit Calendar days or elapsed hours
+ * @param locale Language code
+ * @returns Localized relative-unit string
+ */
+export function getRelativeUnitString(value: number, unit: 'day' | 'hour', locale: string): string {
+  const mappedLocale = mapLocale(locale);
+  const numeric = unit === 'day' && value === 1 ? 'auto' : 'always';
+  const cacheKey = `${mappedLocale}:${numeric}`;
+  let formatter = relativeUnitFormatters.get(cacheKey);
+  if (!formatter) {
+    formatter = new Intl.RelativeTimeFormat(mappedLocale, { numeric });
+    relativeUnitFormatters.set(cacheKey, formatter);
+  }
+  return formatter.format(value, unit);
+}
 
 /**
  * Get relative time string (e.g., "in 2 days")

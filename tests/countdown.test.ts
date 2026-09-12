@@ -5,7 +5,7 @@ import * as EventUtils from '../src/utils/events';
 import * as FormatUtils from '../src/utils/format';
 
 /**
- * Countdown behaviour for multi-day events (issue #344 and its follow-up).
+ * Countdown behavior through the real fetch, split, and grouping pipeline.
  *
  * Two regressions have shipped here, both invisible to the rest of the suite:
  * the original "one day short after midday" for all-day events, and then a
@@ -14,9 +14,8 @@ import * as FormatUtils from '../src/utils/format';
  * `dateTime`. Both are time-dependent and neither changes the DOM structure, so
  * the list-DOM snapshot cannot see them — they need explicit assertions.
  *
- * Every case asserts across several times of day. A single instant would have
- * passed happily on the broken code: the sequence was correct before noon and
- * wrong after it.
+ * Since v4.2 every event counts calendar dates, with "tomorrow" on the next date
+ * and clock precision only for a start later today.
  */
 const TIMED_MULTI_DAY = {
   summary: 'Sommerferie',
@@ -36,7 +35,7 @@ const SINGLE_DAY_TIMED = {
   end: { dateTime: '2026-08-17T08:00:00.000Z' },
 };
 
-/** Times of day spanning the midday rounding boundary that broke both fixes. */
+/** Times spanning the rounding boundaries that previously changed day counts. */
 const HOURS = ['00:30', '08:30', '11:30', '12:30', '13:30', '19:53', '23:30'];
 
 let instance = 0;
@@ -101,7 +100,7 @@ describe('countdown', () => {
       for (const hour of HOURS) {
         expect(await countdowns([TIMED_MULTI_DAY], `2026-08-18T${hour}:00.000Z`), hour).toEqual([
           null,
-          'in a day',
+          'tomorrow',
           'in 2 days',
         ]);
       }
@@ -110,7 +109,7 @@ describe('countdown', () => {
     it('keeps wall-clock precision on a row starting later today', async () => {
       expect(await countdowns([TIMED_MULTI_DAY], '2026-08-17T05:00:00.000Z')).toEqual([
         'in 2 hours',
-        'in a day',
+        'tomorrow',
         'in 2 days',
         'in 3 days',
       ]);
@@ -118,15 +117,15 @@ describe('countdown', () => {
   });
 
   describe('unsplit events', () => {
-    it('measures a single-day timed event from the current instant', async () => {
+    it('counts calendar days for a single-day timed event', async () => {
       expect(await countdowns([SINGLE_DAY_TIMED], '2026-08-13T19:53:00.000Z')).toEqual([
-        'in 3 days',
+        'in 4 days',
       ]);
     });
 
-    it('measures an unsplit multi-day event from its real start time', async () => {
+    it('counts to the start date of an unsplit multi-day event', async () => {
       expect(await countdowns([TIMED_MULTI_DAY], '2026-08-13T19:53:00.000Z', false)).toEqual([
-        'in 3 days',
+        'in 4 days',
       ]);
     });
   });

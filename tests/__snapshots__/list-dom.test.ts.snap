@@ -474,7 +474,7 @@ exports[`list view DOM > renders countdown and progress bar 1`] = `
 <ha-icon icon="mdi:clock-outline"></ha-icon>
 <span>All day, until Friday, Jun 19</span>
 </div>
-<div class="time-countdown">in a day</div>
+<div class="time-countdown">tomorrow</div>
 </div>
 </div>
 </div>

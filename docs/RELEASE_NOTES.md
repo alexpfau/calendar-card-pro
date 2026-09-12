@@ -4,7 +4,7 @@ title: Release Notes
 
 # Calendar Card Pro v4.2.0
 
-**A shared event now says who it belongs to, plural — and can say so in a color of its own.** When `filter_duplicates` collapses an event two calendars hold into one row, that row now names every calendar it came from instead of only the first, and an optional accent color sets the shared events apart at a glance.
+**A shared event now says who it belongs to, plural — and can say so in a color of its own.** When `filter_duplicates` collapses an event two calendars hold into one row, that row now names every calendar it came from instead of only the first, and an optional accent color sets the shared events apart at a glance. Countdowns also follow calendar dates now, with "tomorrow" for the next day and hours or minutes for starts later today.
 
 ## 🎉 New Features
 
@@ -17,11 +17,13 @@ title: Release Notes
 
 ## 🐛 Bug Fixes
 
+- **Timed Countdowns Skipped a Calendar Day** - Timed events on consecutive dates could read "in 2 days" and "in 4 days" because their different start times rounded in opposite directions. Countdowns now follow local calendar dates: "tomorrow" for the next date, exact day counts for later dates, and hours or minutes for starts later today. More distant events stay in days instead of rounding into months or years. **This applies automatically to existing countdowns**, including all-day and split multi-day events, with no new option. See [Countdown Display](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) (Thanks @BalooDK, #344)
 - **A Blocklist Was Ignored Whenever an Allowlist Was Set** - Giving one calendar both lists applied the allowlist and silently dropped the blocklist, so `allowlist: Cheap` with `blocklist: quarter` still showed the quarter-hourly events. The two are independent filters now: an event has to match the allowlist _and_ escape the blocklist, which is what "these, except those" was always meant to say. The same fix stops a half-typed allowlist from disabling a working blocklist — a pattern that will not compile now costs only its own filtering. If a calendar of yours carries both and the blocklist overlaps what the allowlist admits, it will show fewer events than before; clearing the blocklist restores the old result. See [Filtering by Event Name](https://calendar-card-pro.alexpfau.com/features/core-settings#filtering-by-event-name) (#602)
 
 ## Related Issues
 
 - [#151](https://github.com/alexpfau/calendar-card-pro/issues/151) - Give a deduplicated event its own color instead of the first calendar's by @Bastian007, supported by @dw1562, @jbunting, @MarkSmurph and @Juergen-sudo — answered by both features above: the labels name every calendar, and `duplicate_accent_color` gives it the color its title asks for
+- [#344](https://github.com/alexpfau/calendar-card-pro/issues/344) - Timed-event countdowns skipping a day, reported by @BalooDK in a follow-up to the original all-day report by @Scooshie
 - [#602](https://github.com/alexpfau/calendar-card-pro/issues/602) - Blocklist not applied when an allowlist is present by @Tazzios, who also pinpointed the line responsible
 
 **Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.1.0...v4.2.0

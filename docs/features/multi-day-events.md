@@ -28,7 +28,7 @@ This feature is especially useful for:
 - Seeing all active events for a given day at a glance
 - Getting a clearer picture of on-call schedules, multi-day conferences, or travel
 
-Because each row stands for a day rather than for the event as a whole, a [countdown](/features/event-content#countdown-display) on a split row counts whole calendar days to that row's own date. A holiday starting Monday reads as "in 4 days" on its first row, "in 5 days" on the second, and so on, whether or not the original event had a start time.
+Because each row stands for a day rather than for the event as a whole, a [countdown](/features/event-content#countdown-display) on a split row counts to that row's own start. Tomorrow's row reads "tomorrow," later rows count whole calendar days, and a timed row starting later today counts hours or minutes. A holiday starting tomorrow therefore reads "tomorrow," "in 2 days," "in 3 days," and so on, whether or not the original event had a start time. Rows already under way have no countdown.
 
 The option can be applied globally to all calendars or controlled separately for each calendar entity.
 
