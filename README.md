@@ -151,7 +151,7 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 ### Latest Release: v4.2
 
 - 🧑 **Shared Events, Clearly Marked**: Merged duplicates show [every contributing calendar's label](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) instead of only the first; set `duplicate_accent_color` to give shared events a color of their own
-- 🐛 **Countdowns Follow Calendar Dates**: [Countdowns](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) now say "tomorrow" for the next date and count exact days after that, without skipping days or rounding into months; starts later today keep clock countdowns
+- 🐛 **Countdowns Follow Calendar Dates**: [Countdowns](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) now say "tomorrow" for the next date and stop skipping days between later dates; same-day starts keep clock countdowns, while distant dates retain natural month/year wording
 - 🐛 **Allowlists & Blocklists Work Together**: [Combined filters](https://calendar-card-pro.alexpfau.com/features/core-settings#filtering-by-event-name) now keep only events that match the allowlist and escape the blocklist, rather than silently ignoring the blocklist
 
 ### v4.1

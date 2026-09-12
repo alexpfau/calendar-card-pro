@@ -19,7 +19,7 @@ title: Release Notes
 
 ### Countdowns
 
-- **Timed Countdowns Skipped a Calendar Day** - Timed events on consecutive dates could read "in 2 days" and "in 4 days" because their start times rounded in opposite directions. Countdowns now use local calendar dates: localized "tomorrow" for the next date, exact day counts thereafter, and clock units only for starts later today. Distant events stay in days instead of rounding into months or years. **This applies automatically to existing countdowns**, including all-day and split multi-day events, with no new option. See [Countdown Display](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) (Thanks @BalooDK and @KieranHills, #344, #342, #610)
+- **Timed Countdowns Skipped a Calendar Day** - Timed events on consecutive dates could read "in 2 days" and "in 4 days" because their start times rounded in opposite directions. Countdowns now use local calendar dates: localized "tomorrow" for the next date, date-based relative wording thereafter, and clock units only for starts later today. Distant dates keep familiar phrases such as "in a month" or "in a year." **This applies automatically to existing countdowns**, including all-day and split multi-day events, with no new option. See [Countdown Display](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) (Thanks @BalooDK, #344, #610)
 
 ### Event Filtering
 
@@ -28,7 +28,6 @@ title: Release Notes
 ## Related Issues
 
 - [#151](https://github.com/alexpfau/calendar-card-pro/issues/151) - Give a deduplicated event its own color instead of the first calendar's by @Bastian007, supported by @dw1562, @jbunting, @MarkSmurph and @Juergen-sudo — answered by both features above: the labels name every calendar, and `duplicate_accent_color` gives it the color its title asks for
-- [#342](https://github.com/alexpfau/calendar-card-pro/issues/342) - Show the countdown in exact days, not "in a month" by @KieranHills — now automatic, with no additional option
 - [#344](https://github.com/alexpfau/calendar-card-pro/issues/344) - Timed-event countdowns skipping a day, reported by @BalooDK in a follow-up to the original all-day report by @Scooshie — this release answers the timed-event follow-up; the original all-day fix shipped earlier
 - [#602](https://github.com/alexpfau/calendar-card-pro/issues/602) - Blocklist not applied when an allowlist is present by @Tazzios, who also pinpointed the line responsible
 

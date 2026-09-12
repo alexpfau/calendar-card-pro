@@ -20,6 +20,16 @@ function timedEvent(start: Date): CalendarEventData {
   };
 }
 
+function allDayEvent(start: Date): CalendarEventData {
+  const date = (value: Date) =>
+    `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(
+      value.getDate(),
+    ).padStart(2, '0')}`;
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start: { date: date(start) }, end: { date: date(end) } };
+}
+
 describe('calendar-day countdowns in a real timezone', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
@@ -77,5 +87,33 @@ describe('calendar-day countdowns in a real timezone', () => {
     expect([22, 24]).toContain(elapsedHours);
     vi.setSystemTime(now);
     expect(getCountdownString(timedEvent(start))).toBe(`in ${elapsedHours} hours`);
+
+    start.setHours(23, 59, 59);
+    const roundedHours = Math.round((start.getTime() - now.getTime()) / 3600000);
+    expect([23, 25]).toContain(roundedHours);
+    expect(getCountdownString(timedEvent(start))).toBe(`in ${roundedHours} hours`);
+  });
+
+  it.each(transitionDates)('keeps natural long-range wording across the %s transition', (date) => {
+    const reference = new Date(`${date}T00:00:00`);
+    reference.setDate(reference.getDate() - 1);
+    for (const row of [
+      { days: 30, expected: 'in a month' },
+      { days: 365, expected: 'in a year' },
+    ]) {
+      const start = new Date(reference);
+      start.setDate(start.getDate() + row.days);
+      start.setHours(8);
+      if (row.days === 30) {
+        expect(start.getTimezoneOffset()).not.toBe(reference.getTimezoneOffset());
+      }
+      for (const hour of [0, 12, 23]) {
+        const now = new Date(reference);
+        now.setHours(hour, 45);
+        vi.setSystemTime(now);
+        expect(getCountdownString(timedEvent(start))).toBe(row.expected);
+        expect(getCountdownString(allDayEvent(start))).toBe(row.expected);
+      }
+    }
   });
 });

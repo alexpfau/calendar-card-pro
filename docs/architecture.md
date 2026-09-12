@@ -206,8 +206,9 @@ containers; everything they place comes from `leaves.ts` and `presentation.ts`:
 Provides internationalization support:
 
 - **dayjs.ts**:
-  - Shares locale mapping between Day.js's short countdown phrases and native relative-unit formatting
-  - Uses cached `Intl.RelativeTimeFormat` instances for "tomorrow" and explicit day/hour counts
+  - Shares locale mapping between Day.js's natural relative-time wording and native relative-unit formatting
+  - Formats later-date countdowns through Day.js with both reference and target anchored to their local calendar dates, retaining its natural day/month/year selection
+  - Uses cached `Intl.RelativeTimeFormat` instances for "tomorrow" and explicit same-day hour counts, while Day.js retains its short clock phrases
 
 - **localize.ts**:
   - Manages language detection and selection
