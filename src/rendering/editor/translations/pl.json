@@ -184,6 +184,8 @@
   "hide_when_empty.helper": "Całkowicie usuwa kartę z panelu, dopóki nie ma ona nic do pokazania.",
   "filter_duplicates": "Filtruj duplikaty",
   "filter_duplicates.helper": "Ukrywa wydarzenie, którego tytuł, początek, koniec i lokalizacja są takie same jak w innym. Zostaje kopia z wpisu wymienionego wcześniej, wraz z jego etykietą i kolorem.",
+  "duplicate_accent_color": "Kolor wspólnego wydarzenia",
+  "duplicate_accent_color.helper": "Kolor akcentu dla wydarzenia zachowanego z dwóch lub więcej różnych kalendarzy, zamiast koloru pierwszego kalendarza. Pozostawiony pusty zachowuje kolor tego kalendarza.",
   "split_multiday_events": "Podziel wydarzenia wielodniowe",
   "split_multiday_events.helper": "Pokazuje wydarzenie w każdym dniu, który obejmuje, a nie tylko w dniu rozpoczęcia.",
   "event_type": "Typ wydarzenia",

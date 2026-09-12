@@ -184,6 +184,8 @@
   "hide_when_empty.helper": "Kým karta nemá čo zobraziť, úplne ju odstráni z panela.",
   "filter_duplicates": "Filtrovať duplicity",
   "filter_duplicates.helper": "Skryje udalosť, ktorej názov, začiatok, koniec aj miesto sa zhodujú s inou. Zachová sa kópia z položky uvedenej skôr, aj s jej štítkom a farbou.",
+  "duplicate_accent_color": "Farba spoločnej udalosti",
+  "duplicate_accent_color.helper": "Farba zvýraznenia pre udalosť zachovanú z dvoch alebo viacerých rôznych kalendárov, namiesto farby prvého kalendára. Ak zostane prázdne, zachová farbu daného kalendára.",
   "split_multiday_events": "Rozdeliť viacdňové udalosti",
   "split_multiday_events.helper": "Zobrazí udalosť v každom dni, ktorý pokrýva, a nie len v deň jej začiatku.",
   "event_type": "Typ udalosti",

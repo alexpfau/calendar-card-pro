@@ -184,6 +184,8 @@
   "hide_when_empty.helper": "Eemaldab kaardi töölaualt täielikult, kuni sellel pole midagi näidata.",
   "filter_duplicates": "Filtreeri duplikaadid",
   "filter_duplicates.helper": "Peidab sündmuse, mille pealkiri, algus, lõpp ja asukoht ühtivad mõne teise omaga. Alles jääb koopia eespool olevast kirjest koos oma sildi ja värviga.",
+  "duplicate_accent_color": "Jagatud sündmuse värv",
+  "duplicate_accent_color.helper": "Esiletõstmise värv sündmusele, mis jääb alles kahest või enamast erinevast kalendrist, esimese kalendri värvi asemel. Tühjaks jäetuna säilib selle kalendri värv.",
   "split_multiday_events": "Jaga mitmepäevased sündmused",
   "split_multiday_events.helper": "Näita sündmust igal päeval, mida see hõlmab, mitte ainult alguspäeval.",
   "event_type": "Sündmuse tüüp",

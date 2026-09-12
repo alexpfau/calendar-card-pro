@@ -184,6 +184,8 @@
   "hide_when_empty.helper": "Visiškai pašalina kortelę iš skydelio, kol jai nėra ko rodyti.",
   "filter_duplicates": "Filtruoti dublikatus",
   "filter_duplicates.helper": "Paslepia įvykį, kurio pavadinimas, pradžia, pabaiga ir vieta sutampa su kito įvykio. Paliekama kopija iš aukščiau esančio įrašo kartu su jo etikete ir spalva.",
+  "duplicate_accent_color": "Bendro įvykio spalva",
+  "duplicate_accent_color.helper": "Akcentinė spalva įvykiui, kuris paliekamas iš dviejų ar daugiau skirtingų kalendorių, vietoje pirmojo kalendoriaus spalvos. Palikus tuščią, išlaikoma to kalendoriaus spalva.",
   "split_multiday_events": "Skaidyti kelių dienų įvykius",
   "split_multiday_events.helper": "Rodyti įvykį kiekvieną dieną, kurią jis apima, o ne tik pradžios dieną.",
   "event_type": "Įvykio tipas",

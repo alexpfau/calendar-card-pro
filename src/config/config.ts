@@ -23,6 +23,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   hide_when_empty: false,
   empty_day_text: undefined,
   filter_duplicates: false,
+  duplicate_accent_color: undefined,
   split_multiday_events: false,
   event_type: 'all',
   language: undefined,

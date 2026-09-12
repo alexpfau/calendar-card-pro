@@ -184,6 +184,8 @@
   "hide_when_empty.helper": "Tar bort kortet helt från instrumentpanelen så länge det inte har något att visa.",
   "filter_duplicates": "Filtrera dubbletter",
   "filter_duplicates.helper": "Döljer en händelse vars titel, start, slut och plats stämmer med en annan. Kopian från den post som står först behålls, tillsammans med sin etikett och färg.",
+  "duplicate_accent_color": "Gemensam händelsefärg",
+  "duplicate_accent_color.helper": "Accentfärg för en händelse som behålls från två eller flera olika kalendrar, i stället för den första kalenderns färg. Lämnas det tomt behålls den kalenderns färg.",
   "split_multiday_events": "Dela upp flerdagshändelser",
   "split_multiday_events.helper": "Visa en händelse varje dag den sträcker sig över, i stället för bara den dag den börjar.",
   "event_type": "Händelsetyp",

@@ -2,6 +2,39 @@
 title: Release Notes
 ---
 
+# Calendar Card Pro v4.2.0
+
+**Shared events now show every contributing calendar's label and can use a color of their own.** Countdowns follow local calendar dates, and blocklists work alongside allowlists. Existing countdown-enabled cards pick up the new wording automatically; the shared-event color is opt-in.
+
+## 🎉 New Features
+
+### 🧑 Shared Events, Clearly Marked
+
+<img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_shared_event_color.png" alt="One calendar's events in pink and another's in blue, with the events both calendars share drawn in green and showing both calendars' pictures" width="600"><br>
+
+- **See Every Calendar on a Shared Event** - A lunch on two calendars now shows both labels on its single row instead of only the first. With `filter_duplicates: true`, contributing calendars' labels appear in their configured order, and identical resolved labels are drawn once. Nothing changes unless you both filter duplicates and label your calendars. Listing one calendar twice to [map icons by keyword](https://calendar-card-pro.alexpfau.com/features/core-settings#mapping-icons-onto-events-by-keyword) still keeps the first block's single icon. See [Labeling & Coloring Shared Events](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) (Thanks @MarkSmurph, @Juergen-sudo and @jbunting, #599)
+- **Give Shared Events Their Own Color** - Set `duplicate_accent_color` to mark events shared by two or more **distinct** calendars. It colors the accent line and any background tint or all-day badge that follows the calendar's accent. Any CSS color works, including a theme variable, and both list and column views support it. Leave it unset to keep the first calendar's color. Multiple blocks of one calendar remain untouched. See [Labeling & Coloring Shared Events](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) (Thanks @Bastian007 and @dw1562, #599)
+
+## 🐛 Bug Fixes
+
+### Countdowns
+
+- **Timed Countdowns Skipped a Calendar Day** - Timed events on consecutive dates could read "in 2 days" and "in 4 days" because their start times rounded in opposite directions. Countdowns now use local calendar dates: localized "tomorrow" for the next date, date-based relative wording thereafter, and clock units only for starts later today. Distant dates keep familiar phrases such as "in a month" or "in a year." **This applies automatically to existing countdowns**, including all-day and split multi-day events, with no new option. See [Countdown Display](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) (Thanks @BalooDK, #344, #610)
+
+### Event Filtering
+
+- **A Blocklist Was Ignored When an Allowlist Was Set** - A calendar with `allowlist: Cheap` and `blocklist: quarter` still showed the quarter-hourly events. Both filters now apply: an event must match the allowlist _and_ escape the blocklist. An invalid pattern disables only its own filter, so a half-typed allowlist no longer switches off a working blocklist. **Existing combined filters may show fewer events after upgrading**; clearing the blocklist restores the previous result. See [Filtering by Event Name](https://calendar-card-pro.alexpfau.com/features/core-settings#filtering-by-event-name) (Thanks @Tazzios, #602, #605)
+
+## Related Issues
+
+- [#151](https://github.com/alexpfau/calendar-card-pro/issues/151) - Give a deduplicated event its own color instead of the first calendar's by @Bastian007, supported by @dw1562, @jbunting, @MarkSmurph and @Juergen-sudo — answered by both features above: the labels name every calendar, and `duplicate_accent_color` gives it the color its title asks for
+- [#344](https://github.com/alexpfau/calendar-card-pro/issues/344) - Timed-event countdowns skipping a day, reported by @BalooDK in a follow-up to the original all-day report by @Scooshie — this release answers the timed-event follow-up; the original all-day fix shipped earlier
+- [#602](https://github.com/alexpfau/calendar-card-pro/issues/602) - Blocklist not applied when an allowlist is present by @Tazzios, who also pinpointed the line responsible
+
+**Full Changelog**: https://github.com/alexpfau/calendar-card-pro/compare/v4.1.0...v4.2.0
+
+---
+
 # Calendar Card Pro v4.1.0
 
 **Per-calendar filtering, rewriting and styling, an all-day pill in each calendar's own color, and an editor that can list one calendar twice so each copy answers differently.** A calendar used to be one thing: you added it, and it contributed all of its events, styled one way. This release takes that apart — one shared family calendar can show birthdays as a name and an age, retire bin day at eleven in the morning, and say only _Busy_ for a parent's work, all at the same time. [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes) walks through it, building a hallway dashboard out of four calendars and seven blocks; everything below is the parts list.
