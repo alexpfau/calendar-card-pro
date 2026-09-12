@@ -7,7 +7,7 @@ import * as Helpers from './helpers';
 import * as Logger from './logger';
 import * as Constants from '../config/constants';
 import * as Types from '../config/types';
-import { getRelativeTimeString } from '../translations/dayjs';
+import { getRelativeTimeString, getRelativeUnitString } from '../translations/dayjs';
 import * as Localize from '../translations/localize';
 
 //-----------------------------------------------------------------------------
@@ -170,7 +170,7 @@ export function formatEventTimeParts(
 
 /**
  * Generates a localized countdown string for an event
- * All-day and split multi-day rows count calendar days rather than remaining hours.
+ * Future dates count calendar days; only starts later today count hours or minutes.
  *
  * @param event Calendar event to generate countdown for
  * @param language Language to use
@@ -183,7 +183,6 @@ export function getCountdownString(
   if (event._isEmptyDay || !event.start) return null;
 
   const now = new Date();
-  const isAllDayEvent = !event.start.dateTime;
   const startDate = event.start.dateTime
     ? new Date(event.start.dateTime)
     : event.start.date
@@ -192,19 +191,16 @@ export function getCountdownString(
 
   if (!startDate || startDate <= now) return null;
 
-  const countsCalendarDays = isAllDayEvent || Boolean(event._isMultiDaySegment);
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfEventDay = new Date(
-    startDate.getFullYear(),
-    startDate.getMonth(),
-    startDate.getDate(),
-  );
-
-  if (countsCalendarDays && startOfEventDay > startOfToday) {
-    return getRelativeTimeString(startOfEventDay, language, startOfToday);
+  const days = getCalendarDayDiff(now, startDate);
+  if (days > 0) {
+    return getRelativeUnitString(days, 'day', language);
   }
 
-  return getRelativeTimeString(startDate, language);
+  // Keep Day.js's short phrases, but never let a long wait today round into "a day".
+  const hours = Math.round((startDate.getTime() - now.getTime()) / 3600000);
+  return hours >= 2
+    ? getRelativeUnitString(hours, 'hour', language)
+    : getRelativeTimeString(startDate, language, now);
 }
 
 /**

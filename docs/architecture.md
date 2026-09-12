@@ -44,7 +44,7 @@ src/
 │   ├── presentation.ts           # Layout-independent per-event presentation models
 │   └── styles.ts                 # CSS styles and dynamic styling
 ├── translations/                 # Localization support
-│   ├── dayjs.ts                  # Day.js locale configuration
+│   ├── dayjs.ts                  # Relative-time localization
 │   ├── localize.ts               # Translation functions
 │   └── languages/                # Translation files (35 supported languages)
 │       ├── en.json               # English translations
@@ -204,6 +204,10 @@ containers; everything they place comes from `leaves.ts` and `presentation.ts`:
 ### Translations (`translations/`)
 
 Provides internationalization support:
+
+- **dayjs.ts**:
+  - Shares locale mapping between Day.js's short countdown phrases and native relative-unit formatting
+  - Uses cached `Intl.RelativeTimeFormat` instances for "tomorrow" and explicit day/hour counts
 
 - **localize.ts**:
   - Manages language detection and selection
