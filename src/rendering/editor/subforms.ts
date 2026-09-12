@@ -27,6 +27,7 @@ export const CHASSIS_STRINGS: ReadonlyArray<string> = [
   'editing_workspace',
   'value_source',
   'grid_reconciliation',
+  'config_migration',
 ];
 
 /**

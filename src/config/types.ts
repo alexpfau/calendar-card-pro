@@ -12,6 +12,7 @@ import type { LabelType } from '../utils/helpers';
 /** Main configuration interface for the card. */
 export interface Config {
   // Core settings
+  config_version?: number;
   entities: Array<string | EntityConfig>;
   view: EffectiveView;
   start_date?: string;

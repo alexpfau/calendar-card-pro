@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { DEFAULT_CONFIG } from '../src/config/config';
+import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import {
@@ -612,7 +612,10 @@ describe('editor filter: the chassis', () => {
   async function mount(config: Partial<Types.Config>) {
     const element = document.createElement(TAG) as CalendarCardProEditor;
     element.hass = {} as Types.Hass;
-    element.setConfig(config as Types.Config);
+    element.setConfig({
+      config_version: CURRENT_CONFIG_VERSION,
+      ...config,
+    } as Types.Config);
     document.body.appendChild(element);
     await element.updateComplete;
 
@@ -776,7 +779,11 @@ describe('editor filter: the chassis', () => {
     await element.updateComplete;
 
     expect(dispatched).toHaveLength(1);
-    expect(dispatched[0]).toEqual({ entities: ['calendar.a'], days_to_show: 10 });
+    expect(dispatched[0]).toEqual({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.a'],
+      days_to_show: 10,
+    });
   });
 });
 

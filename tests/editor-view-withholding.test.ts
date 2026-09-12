@@ -2,6 +2,7 @@ import { render as litRender } from 'lit';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
+import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
@@ -139,7 +140,7 @@ function reconcile(actual: Field[], expected: Field[]): void {
   expect(actual).toEqual(expected);
 }
 
-async function mount(config: Types.Config): Promise<CalendarCardProEditor> {
+async function mount(config: Types.Config, current = true): Promise<CalendarCardProEditor> {
   const editor = new CalendarCardProEditor();
   editor.hass = {
     states: {},
@@ -147,7 +148,10 @@ async function mount(config: Types.Config): Promise<CalendarCardProEditor> {
     callApi: async () => [],
     callService: () => {},
   };
-  editor.setConfig(config);
+  const raw = { ...config };
+  if (current) raw.config_version = Config.CURRENT_CONFIG_VERSION;
+  else delete raw.config_version;
+  editor.setConfig(raw);
   document.body.appendChild(editor);
   await editor.updateComplete;
   return editor;
@@ -437,7 +441,7 @@ describe('withholding is not a search filter or a config edit', () => {
       ...hiddenList,
       time_grid: { split_multiday_events: true, empty_day_text: 'Grid placeholder' },
     });
-    const editor = await mount(config);
+    const editor = await mount(config, false);
     const seen: Record<string, unknown>[] = [];
     editor.addEventListener('config-changed', (event) => {
       seen.push((event as CustomEvent<{ config: Record<string, unknown> }>).detail.config);

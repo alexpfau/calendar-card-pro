@@ -423,6 +423,7 @@ async function mount(extra: Record<string, unknown> = {}) {
   };
   editor.setConfig(
     buildConfig({
+      config_version: Config.CURRENT_CONFIG_VERSION,
       view: 'grid',
       event_font_size: '17px',
       column: { event_font_size: '19px' },
@@ -434,7 +435,13 @@ async function mount(extra: Record<string, unknown> = {}) {
   await editor.updateComplete;
   const seen: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) =>
-    seen.push(structuredClone((event as CustomEvent).detail.config)),
+    seen.push(
+      (() => {
+        const config = structuredClone((event as CustomEvent).detail.config);
+        delete config.config_version;
+        return config;
+      })(),
+    ),
   );
   return { editor, seen };
 }
@@ -494,7 +501,12 @@ describe('rendered form frames preserve edit intent', () => {
 
   it('clears root values written by a synthetic mode control', async () => {
     const { editor, seen } = await mount();
-    editor.setConfig(buildConfig({ start_date: 'today+7' }));
+    editor.setConfig(
+      buildConfig({
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        start_date: 'today+7',
+      }),
+    );
     await editor.updateComplete;
     const form = owner(editor, 'start_date_mode');
     emit(form, { ...form.data, start_date_mode: 'default' });
@@ -614,7 +626,13 @@ describe('rendered form frames preserve edit intent', () => {
     emit(workspace, { editing_workspace: 'grid' });
     await editor.updateComplete;
     expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2');
-    editor.setConfig(buildConfig({ view: 'grid', time_grid: { event_font_size: '2px' } }));
+    editor.setConfig(
+      buildConfig({
+        config_version: Config.CURRENT_CONFIG_VERSION,
+        view: 'grid',
+        time_grid: { event_font_size: '2px' },
+      }),
+    );
     await editor.updateComplete;
     expect(owner(editor, 'event_font_size').data.event_font_size).toBe('2px');
   });

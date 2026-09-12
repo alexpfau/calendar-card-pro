@@ -30,14 +30,20 @@ interface Form extends HTMLElement {
 async function mount(config: Record<string, unknown> = {}) {
   const editor = document.createElement('editor-grid-reconciliation-test') as EditorHost;
   editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig({ entities: ['calendar.anna'], ...config });
+  editor.setConfig({
+    config_version: Config.CURRENT_CONFIG_VERSION,
+    entities: ['calendar.anna'],
+    ...config,
+  });
   document.body.appendChild(editor);
   await editor.updateComplete;
   const reports: Record<string, unknown>[] = [];
   editor.addEventListener('config-changed', (event) => {
-    reports.push(
-      structuredClone((event as CustomEvent<{ config: Record<string, unknown> }>).detail.config),
+    const config = structuredClone(
+      (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config,
     );
+    delete config.config_version;
+    reports.push(config);
   });
   return { editor, reports };
 }
@@ -125,7 +131,7 @@ describe('first-switch reconciliation regressions', () => {
     await change(editor, 'title', 'Example');
     expect(reports.at(-1)).not.toHaveProperty('show_past_events');
     expect(reports.at(-1)).not.toHaveProperty('event_font_size');
-    editor.setConfig(reports.at(-1)!);
+    editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...reports.at(-1)! });
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid.show_past_events', false);
@@ -135,7 +141,7 @@ describe('first-switch reconciliation regressions', () => {
   it('tracks an authored root value introduced after the editor opened', async () => {
     const { editor, reports } = await mount();
     await authorAtRoot(editor, 'event_font_size', '18px');
-    editor.setConfig(reports.at(-1)!);
+    editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...reports.at(-1)! });
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid.event_font_size', '18px');
@@ -153,7 +159,7 @@ describe('first-switch reconciliation regressions', () => {
     await authorAtRoot(editor, 'show_past_events', true);
     await authorAtRoot(editor, 'show_past_events', false);
     expect(reports.at(-1)).not.toHaveProperty('show_past_events');
-    editor.setConfig(reports.at(-1)!);
+    editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...reports.at(-1)! });
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid.show_past_events', false);
@@ -163,7 +169,11 @@ describe('first-switch reconciliation regressions', () => {
     const { editor, reports } = await mount({ show_past_events: false });
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid.show_past_events', false);
-    editor.setConfig({ entities: ['calendar.ben'], event_background_opacity: 5 });
+    editor.setConfig({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.ben'],
+      event_background_opacity: 5,
+    });
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).toHaveProperty('time_grid.event_background_opacity', 5);
@@ -203,7 +213,7 @@ describe('first-switch reconciliation regressions', () => {
       expect(notices[0].textContent).toContain(lookup('en', key));
     }
     expect(notices[0].textContent).not.toContain(lookup('en', 'day_spacing'));
-    editor.setConfig(reports.at(-1)!);
+    editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...reports.at(-1)! });
     await editor.updateComplete;
     expect(notice(editor)).not.toBeNull();
     notice(editor)!.querySelector<HTMLButtonElement>('button')!.click();
@@ -293,7 +303,7 @@ describe('first-switch reconciliation regressions', () => {
     // without deleting anything. The emitted change is a necessary positive control.
     expect(reports).toHaveLength(1);
     expect(reports[0]).not.toHaveProperty('event_font_size');
-    editor.setConfig(reports[0]);
+    editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...reports[0] });
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).not.toHaveProperty('time_grid');
@@ -322,7 +332,7 @@ describe('implicit defaults and first-switch boundaries', () => {
   it('does not turn merged defaults into authored values after an unrelated root edit', async () => {
     const { editor, reports } = await mount();
     await change(editor, 'title', 'Example');
-    editor.setConfig(reports.at(-1)!);
+    editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...reports.at(-1)! });
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
     expect(reports.at(-1)).not.toHaveProperty('time_grid');

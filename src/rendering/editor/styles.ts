@@ -24,6 +24,48 @@ export default css`
     line-height: 1.4;
   }
 
+  .config-migration {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+    border-inline-start: 3px solid var(--primary-color);
+    border-radius: 4px;
+    background: var(--secondary-background-color);
+    line-height: 1.4;
+  }
+
+  .migration-choice {
+    align-self: flex-start;
+    min-height: 44px;
+    max-width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--primary-color);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--primary-color);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 500;
+  }
+
+  .migration-choice:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 3px;
+  }
+
+  .migration-choice.primary {
+    background: var(--primary-color);
+    color: var(--text-primary-color, white);
+  }
+
+  .migration-choice-note {
+    color: var(--secondary-text-color);
+    font-size: 12px;
+    line-height: 1.4;
+    margin-top: -8px;
+  }
+
   .grid-reconciliation {
     display: flex;
     flex-direction: column;

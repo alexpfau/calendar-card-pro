@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CURRENT_CONFIG_VERSION,
   DEFAULT_CONFIG,
   DEPRECATED_CONFIG_MAP,
+  configVersionState,
   findDeprecatedKeys,
   hasConfigChanged,
   mergeConfig,
@@ -59,6 +61,24 @@ describe('toValidNumber', () => {
     expect(toValidNumber(-1, 0)).toBeUndefined();
     expect(toValidNumber('-3', 0)).toBeUndefined();
   });
+});
+
+describe('configVersionState', () => {
+  it.each([
+    [{}, { kind: 'legacy' }],
+    [{ config_version: 4 }, { kind: 'legacy', version: 4 }],
+    [{ config_version: CURRENT_CONFIG_VERSION }, { kind: 'current', version: 5 }],
+    [{ config_version: 6 }, { kind: 'future', version: 6 }],
+  ])('classifies %j', (config, expected) => {
+    expect(configVersionState(config)).toEqual(expected);
+  });
+
+  it.each(['5', 5.5, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'rejects the authored marker %s without coercion',
+    (value) => {
+      expect(configVersionState({ config_version: value })).toEqual({ kind: 'invalid', value });
+    },
+  );
 });
 
 describe('normalizeNumericOptions', () => {

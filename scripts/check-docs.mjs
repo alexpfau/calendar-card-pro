@@ -214,6 +214,9 @@ const isStructural = (raw) => raw.startsWith('[') || raw.startsWith('{');
  * touching an entry.
  */
 const VERIFIED_RUNTIME_FALLBACKS = new Map([
+  // Editor metadata has no runtime fallback. Absence means the configuration predates
+  // the marker and stays on the legacy path until the editor adopts it.
+  ['config_version', '-'],
   // utils/events.ts — absent or unparseable resolves to today ("Falling back to today").
   ['start_date', 'Today'],
   // config/config.ts `toValidNumber(…, 1)` — the 1 is a floor, not a default. Absent
@@ -484,10 +487,27 @@ function checkCopyableExamples(docs) {
     const rel = relative(ROOT, file);
     if (EXAMPLE_EXCLUDES.some((ex) => relative(DOCS_DIR, file) === ex)) continue;
     const text = readFileSync(file, 'utf8');
-    const blocks = text.match(/^```ya?ml\n[\s\S]*?^```/gm) || [];
-    blocks.forEach((block, i) => {
+    const blocks = [...text.matchAll(/^```ya?ml\n[\s\S]*?^```/gm)];
+    blocks.forEach((match, i) => {
+      const block = match[0];
       if (!/^\s*type:\s*custom:calendar-card-pro\s*$/m.test(block)) return;
       complete++;
+      const firstLine = text.slice(0, match.index).split('\n').length;
+      const topLevel = new Map();
+      block.split('\n').forEach((line, blockLine) => {
+        const key = line.match(/^([a-z0-9_]+):/);
+        if (!key) return;
+        const lineNumber = firstLine + blockLine;
+        const previous = topLevel.get(key[1]);
+        if (previous !== undefined) {
+          error(
+            `${rel}:${lineNumber}: yaml block #${i + 1} repeats top-level key ` +
+              `\`${key[1]}\`; first declared at ${rel}:${previous}`,
+          );
+        } else {
+          topLevel.set(key[1], lineNumber);
+        }
+      });
       const decl = block.match(/^([ \t]*)entities:[ \t]*(.*)$/m);
       if (!decl) {
         error(
@@ -526,6 +546,39 @@ function checkCopyableExamples(docs) {
     );
   }
   return complete;
+}
+
+/**
+ * Reconciles the editor-maintained configuration format with the reference.
+ *
+ * @returns The documented format version
+ */
+function checkConfigVersion() {
+  const source = readFileSync(CONFIG_TS, 'utf8');
+  const declared = source.match(/export const CURRENT_CONFIG_VERSION\s*=\s*(\d+);/);
+  if (!declared) {
+    console.error(
+      `\n✗ FATAL: could not locate CURRENT_CONFIG_VERSION in ${relative(ROOT, CONFIG_TS)}.\n`,
+    );
+    process.exit(2);
+  }
+
+  const reference = readFileSync(REFERENCE_DOC, 'utf8');
+  const documented = reference.match(/Current editor format:\s*`(\d+)`/);
+  if (!documented) {
+    error(
+      'docs/reference/configuration.md does not state the current editor format for `config_version`.',
+    );
+    return Number(declared[1]);
+  }
+
+  if (documented[1] !== declared[1]) {
+    error(
+      `docs/reference/configuration.md says config format ${documented[1]}, but ` +
+        `CURRENT_CONFIG_VERSION is ${declared[1]}.`,
+    );
+  }
+  return Number(documented[1]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1671,6 +1724,7 @@ function report(counts) {
       `${counts.listFences} YAML examples checked for list-only keys, ` +
       `${counts.languages} language counts checked, ` +
       `${counts.readmeAnchors} README anchor links checked, ` +
+      `config format v${counts.configVersion} documented, ` +
       `release surfaces checked against v${counts.version}.\n`,
   );
 
@@ -3074,6 +3128,7 @@ function main() {
   checkFences(docs);
   checkSilentMarkdown(docs);
   const complete = checkCopyableExamples(docs);
+  const configVersion = checkConfigVersion();
   checkReadmeExample();
   const releases = checkWhatsNewCoverage();
   const links = checkInternalLinks(docs);
@@ -3126,6 +3181,7 @@ function main() {
       listFences,
       languages,
       readmeAnchors,
+      configVersion,
       version,
     }),
   );

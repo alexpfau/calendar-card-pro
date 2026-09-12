@@ -287,6 +287,8 @@ function pruneDeprecatedKeys(draft: Record<string, unknown>): void {
   });
 }
 
+const TARGET_BLOCK = ViewConfig.VIEW_BLOCKS.list;
+
 /**
  * Keys a v5 save moves out of the top level and into `list:`.
  *
@@ -300,22 +302,15 @@ function pruneDeprecatedKeys(draft: Record<string, unknown>): void {
  *    view. Recording them as list's is what lets a later change treat a *root* value as
  *    genuinely shared instead of guessing whether it was meant for list.
  *
- * 🚨 Group 2 narrows a key's scope, so {@link relocateListKeys} applies it only to a card
- * whose view is already `list`. See the guard there.
+ * Group 2 narrows a key's scope, so it moves only after the user explicitly chooses
+ * {@link ListMigrationMode} `keep-list`.
  *
  * @returns The two relocation groups
  */
-/**
- * The registry entry the v5 migration relocates into.
- *
- * Held as the block object rather than the view's name so the two comparisons below are
- * identity checks. `tests/editor-schema.test.ts` forbids comparing against a view by name
- * anywhere in this directory, and the reason is worth more than the rule: a fourth view
- * must cost a registry entry and a string, not a hunt for string comparisons.
- */
-const TARGET_BLOCK = ViewConfig.VIEW_BLOCKS.list;
-
-function listRelocationKeys(): { readonly listOnly: string[]; readonly divergent: string[] } {
+export function listRelocationKeys(): {
+  readonly listOnly: string[];
+  readonly divergent: string[];
+} {
   const listOnly: string[] = [];
   const divergent = new Set<string>();
 
@@ -337,54 +332,61 @@ function listRelocationKeys(): { readonly listOnly: string[]; readonly divergent
 }
 
 /**
- * Moves top-level values that were only ever list's into the `list:` block.
+ * Authored divergent root keys whose pre-v5 meaning is ambiguous.
  *
- * Silent and on save, the shape `pruneDeprecatedKeys` already established. It runs on the
- * stored shape, after defaults have been filtered out, so it can only ever see values the
- * user authored.
- *
- * 🚨 Never changes what any view renders at the moment it runs. The list-only group is
- * inert outside list by `VIEW_SCOPE`. The divergent group is guarded on `view === 'list'`
- * because a `column:` card *inherits* most of those keys from the top level — relocating
- * `event_font_size` out from under a column card would drop it from 18px to the shipped
- * 14px with nothing on screen to explain why.
- *
- * 🚨 `includeDivergent` is what keeps the migration from eating the Shared workspace. Root
- * is where Shared writes, and on a list card most divergent keys are exactly what a user
- * goes to Shared to set once — so relocating them on the same save would silently move the
- * value into `list:` and leave the other two views on the shipped default. Pass `false`
- * whenever the edit came from Shared; the list-only half still moves, because no view but
- * list can read it either way.
- *
- * @param stored - Stored configuration, mutated in place
- * @param view - The card's configured view
- * @param includeDivergent - Whether to move keys another view would inherit from root
+ * @param authored - Raw configuration before defaults are merged
+ * @returns Present root keys that another view gives a divergent default
  */
-export function relocateListKeys(
-  stored: Record<string, unknown>,
-  view: Types.EffectiveView,
-  includeDivergent = true,
-): void {
-  const { listOnly, divergent } = listRelocationKeys();
-  const onTargetView = ViewConfig.viewBlockFor(view) === TARGET_BLOCK;
-  const moving = onTargetView && includeDivergent ? [...listOnly, ...divergent] : listOnly;
+export function ambiguousRootKeys(authored: Readonly<Record<string, unknown>>): string[] {
+  const { divergent } = listRelocationKeys();
+  return divergent.filter((key) => Object.prototype.hasOwnProperty.call(authored, key));
+}
 
-  const block: Record<string, unknown> = Helpers.isConfigBlock(stored.list)
-    ? { ...(stored.list as Record<string, unknown>) }
+export type ListMigrationMode = 'keep-list' | 'shared-root';
+
+export interface ListMigrationResult {
+  readonly config: Record<string, unknown>;
+  readonly movedRootKeys: ReadonlyArray<string>;
+}
+
+/**
+ * Moves authored legacy root values into the `list:` block and stamps the v5 format.
+ *
+ * The authored shape is separate from the minimized stored shape so a root value equal to
+ * `DEFAULT_CONFIG` remains visible to migration after normal serialization strips it.
+ *
+ * @param stored - Minimized configuration prepared for writing
+ * @param authored - Raw configuration whose root presence records authorship
+ * @param mode - Whether ambiguous divergent roots belong to List or remain shared
+ * @returns A new stamped configuration and the root keys removed from it
+ */
+export function migrateListConfig(
+  stored: Readonly<Record<string, unknown>>,
+  authored: Readonly<Record<string, unknown>>,
+  mode: ListMigrationMode,
+): ListMigrationResult {
+  const { listOnly, divergent } = listRelocationKeys();
+  const moving = mode === 'keep-list' ? [...listOnly, ...divergent] : listOnly;
+  const migrated = { ...stored };
+
+  const block: Record<string, unknown> = Helpers.isConfigBlock(migrated.list)
+    ? { ...(migrated.list as Record<string, unknown>) }
     : {};
 
-  let moved = false;
+  const movedRootKeys: string[] = [];
   for (const key of moving) {
-    if (!Object.prototype.hasOwnProperty.call(stored, key)) continue;
+    if (!Object.prototype.hasOwnProperty.call(authored, key)) continue;
     // An existing block entry is the user's newer answer; the root value is the older one.
-    if (!Object.prototype.hasOwnProperty.call(block, key)) block[key] = stored[key];
-    delete stored[key];
-    moved = true;
+    if (!Object.prototype.hasOwnProperty.call(block, key)) block[key] = authored[key];
+    delete migrated[key];
+    movedRootKeys.push(key);
   }
 
-  if (!moved && !Helpers.isConfigBlock(stored.list)) return;
-  if (Object.keys(block).length > 0) stored.list = block;
-  else delete stored.list;
+  if (Object.keys(block).length > 0) migrated.list = block;
+  else delete migrated.list;
+  migrated.config_version = Config.CURRENT_CONFIG_VERSION;
+
+  return { config: migrated, movedRootKeys };
 }
 
 /**

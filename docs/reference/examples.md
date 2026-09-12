@@ -176,6 +176,7 @@ start_date: today
 days_to_show: 10
 list:
   compact_events_to_show: 10
+  date_vertical_alignment: middle
 language: en
 
 # Header
@@ -195,8 +196,6 @@ day_separator_width: 2px
 day_separator_color: '#baf1ff80'
 
 # Date Column
-list:
-  date_vertical_alignment: middle
 weekday_font_size: 14px
 weekday_color: '#baf1ff'
 day_font_size: 32px

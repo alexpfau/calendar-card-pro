@@ -14,6 +14,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import * as Config from '../src/config/config';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import * as Entities from '../src/rendering/editor/entities';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
@@ -32,7 +33,7 @@ async function mount(config: Record<string, unknown>): Promise<EditorHost> {
   const element = document.createElement('editor-form-wiring-probe') as EditorHost;
   element.hass = { states: {}, locale: { language: 'en' } };
   document.body.appendChild(element);
-  element.setConfig(config);
+  element.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...config });
   await element.updateComplete;
   return element;
 }
@@ -41,7 +42,11 @@ async function mount(config: Record<string, unknown>): Promise<EditorHost> {
 function reported(element: EditorHost): Array<Record<string, unknown>> {
   const seen: Array<Record<string, unknown>> = [];
   element.addEventListener('config-changed', (event) => {
-    seen.push((event as CustomEvent).detail.config as Record<string, unknown>);
+    const config = {
+      ...((event as CustomEvent).detail.config as Record<string, unknown>),
+    };
+    delete config.config_version;
+    seen.push(config);
   });
   return seen;
 }

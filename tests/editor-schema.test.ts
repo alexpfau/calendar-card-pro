@@ -4,7 +4,12 @@ import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { DEFAULT_CONFIG, DEPRECATED_CONFIG_MAP, normalizeEntities } from '../src/config/config';
+import {
+  CURRENT_CONFIG_VERSION,
+  DEFAULT_CONFIG,
+  DEPRECATED_CONFIG_MAP,
+  normalizeEntities,
+} from '../src/config/config';
 import type * as Types from '../src/config/types';
 import {
   COLUMN_DEFAULTS,
@@ -1446,13 +1451,18 @@ describe('editor: the chassis', () => {
   async function mount(config: Partial<Types.Config>) {
     const element = document.createElement(TAG) as CalendarCardProEditor;
     element.hass = {} as Types.Hass;
-    element.setConfig(config as Types.Config);
+    element.setConfig({
+      config_version: CURRENT_CONFIG_VERSION,
+      ...config,
+    } as Types.Config);
     document.body.appendChild(element);
     await element.updateComplete;
 
     const dispatched: Array<Record<string, unknown>> = [];
     element.addEventListener('config-changed', (event) => {
-      dispatched.push((event as CustomEvent).detail.config);
+      const next = { ...((event as CustomEvent).detail.config as Record<string, unknown>) };
+      delete next.config_version;
+      dispatched.push(next);
     });
 
     /**
@@ -1522,7 +1532,10 @@ describe('editor: the chassis', () => {
 
     // Home Assistant answers a `config-changed` by feeding the configuration back in.
     // That echo must not reset the editor's uncommitted state.
-    element.setConfig(dispatched[dispatched.length - 1] as unknown as Types.Config);
+    element.setConfig({
+      config_version: CURRENT_CONFIG_VERSION,
+      ...dispatched[dispatched.length - 1],
+    } as unknown as Types.Config);
     await element.updateComplete;
 
     const form = element.shadowRoot!.querySelector('ha-form.panel-form')!;
@@ -1853,9 +1866,10 @@ describe('editor: the panel set', () => {
       'weather',
       ...Object.values(VIEW_BLOCKS).map((block) => block.blockKey),
     ]);
+    const editorManaged = new Set(['config_version']);
 
     const missing = Object.keys(DEFAULT_CONFIG).filter((key) => {
-      if (containers.has(key)) return false;
+      if (containers.has(key) || editorManaged.has(key)) return false;
       return !offered.has(key) && !offered.has(standIns[key] ?? key);
     });
 

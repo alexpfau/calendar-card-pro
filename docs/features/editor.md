@@ -54,9 +54,9 @@ Search and **Customized Only** do not bring back controls for another workspace.
 To edit a list-only option used by a responsive fallback, choose List under
 Editing Settings For; Card Displays stays unchanged.
 
-Editing a card written before v5 moves its list options into `list:` on the first save.
-Nothing else changes, and configurations left alone keep working exactly as they are —
-see [Per-View Options](/features/core-settings#per-view-options).
+Cards created or adopted by the v5 editor carry an internal configuration-format marker.
+Configurations left alone keep working exactly as they are — see
+[Per-View Options](/features/core-settings#per-view-options).
 
 Presentation controls show the value used by the selected workspace and write directly
 to its scope: the top level for All Layouts, then `list:`, `column:` and `time_grid:` for
@@ -79,13 +79,41 @@ empty_day_color: '#607d8b'
 **→ [Options With No Effect in Grid View](/reference/configuration#options-with-no-effect-in-grid-view)** and
 **[Options With No Effect in Column View](/reference/configuration#options-with-no-effect-in-column-view)** — the scoped options.
 
+### Upgrading a Card From Before v5
+
+Before v5, List settings lived at the top level, alongside values inherited by Column.
+In v5, that same location means **All Layouts**. When an older List or Grid card contains an option
+whose default differs in another layout, the editor cannot safely guess which meaning you
+want. It pauses before showing the normal controls and offers two choices:
+
+- **Keep my existing List appearance** — recommended. The existing values stay with List,
+  while Column and Grid use their own defaults.
+- **Use these settings for all layouts** — the existing values become the shared starting
+  point for each layout that does not override them.
+
+Either choice preserves the layout currently on screen at the moment you choose it. On a
+Grid card, the choice decides what List — including a responsive List fallback — uses
+later; the current Grid appearance is unchanged.
+
+The editor asks only when at least one authored value is genuinely ambiguous. The five
+options that only List can read move automatically, because they have no possible shared
+meaning. A List or Grid card with no ambiguous values opens normally and adopts the v5
+format on its first actual edit. Merely opening and closing the editor writes nothing.
+
+Column cards do not show this choice. Column inherited most top-level values before v5, so
+moving them would change the layout already on screen. Its first editor edit keeps those
+values shared, moves only the unambiguous List-only options, and records the v5 format.
+
+Once the choice or automatic adoption is saved, it is not asked again. The marker is
+maintained by the editor; ordinary users do not need to add it by hand.
+
 ### Switching an Existing Card to Grid
 
-Changing **Card Displays** from List or Column to Grid keeps values you explicitly
-set at the top level, including a value equal to the List default. For options where
-Grid has a different default, the editor copies your value into `time_grid:` rather
-than replacing it. Options you did not set use Grid's defaults without writing those
-defaults into YAML. A fresh card switched to Grid does not need a `time_grid:` block.
+On a v5-format card, changing **Card Displays** from List or Column to Grid keeps values
+you explicitly set through All Layouts, including a value equal to the List default. For
+options where Grid has a different default, the editor copies your value into `time_grid:`
+rather than replacing it. Options you did not set use Grid's defaults without writing
+those defaults into YAML. A fresh card switched to Grid does not need a `time_grid:` block.
 This transition preserves existing per-view choices; it does not remove older overrides
 that happen to match a divergent Grid default.
 
@@ -112,9 +140,11 @@ One notice lists the options kept instead of Grid's defaults. Use the option's
 back in the same editing session does not recreate a reset value.
 
 This preserves continuity across an explicit editor transition, not a change made only
-in YAML. Opening an already-Grid card is read-only: a YAML card with root
+in YAML. Opening an already-Grid v5 card is read-only: a YAML card with root
 `event_background_opacity: 5` and no Grid opacity still shows Grid's default of 20.
-Choose the Grid workspace to change that value directly.
+An unversioned Grid card with ambiguous root values first shows the upgrade choice above;
+either answer leaves its current Grid appearance alone. Choose the Grid workspace to
+change that value directly.
 
 ::: info Saving & Reopening
 An authored root value equal to the card's default can be omitted when you save an unrelated edit. The open editor remembers that choice while you continue editing, but closing and reopening loses the history of an omitted value.

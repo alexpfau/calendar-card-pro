@@ -1046,8 +1046,10 @@ have no shared meaning, so there is nothing at the top level for them to fall ba
 
 ::: tip Older Configurations Keep Working
 Before v5 there was no `list:` block, so list options were written at the top level. They
-still are read there, permanently — nothing needs changing by hand. The visual editor
-writes the new arrangement the next time you save a card.
+still are read there, permanently — nothing needs changing by hand. When an older card has
+top-level options that could mean either "List only" or "shared by every layout", the
+visual editor asks which meaning you want before it changes the configuration. If there is
+no such ambiguity, the first real editor save adopts the new arrangement automatically.
 :::
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.

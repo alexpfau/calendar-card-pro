@@ -3,21 +3,21 @@
  *
  * Three separate contracts share this file because they only make sense together:
  * the block is a peer of `column:` and `time_grid:` in the registry, the top level is
- * now a shared base rather than list's storage, and an old configuration is relocated
- * onto that arrangement the first time its owner saves from the editor.
+ * now a shared base rather than list's storage, and the editor records how an owner
+ * chooses to interpret an older configuration.
  *
  * 🚨 The migration is deliberately asymmetric and the asymmetry is the whole safety
  * argument, so it is asserted from both sides here. A key that is list-only by
  * `VIEW_SCOPE` moves on any card, because no other view reads it either way. A key whose
- * column or grid default *diverges* from the top-level one moves only on a card that is
- * displaying list — moving it on a column card would hand column its own divergent
- * default in place of the value the user had been seeing.
+ * column or grid default *diverges* from the top-level one moves only after the owner
+ * chooses to keep it with List. Column adoption leaves those roots in place so it
+ * does not discard values the user is already seeing.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
-import { DEFAULT_CONFIG } from '../src/config/config';
+import { CURRENT_CONFIG_VERSION, DEFAULT_CONFIG } from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
 import * as Value from '../src/rendering/editor/value';
@@ -164,84 +164,102 @@ describe('empty_day_color is overridable per view', () => {
 });
 
 describe('the migration relocates an old configuration', () => {
-  function relocate(
+  function migrate(
     stored: Record<string, unknown>,
-    view: Types.EffectiveView,
-    includeDivergent = true,
+    mode: Value.ListMigrationMode,
+    authored: Record<string, unknown> = stored,
   ): Record<string, unknown> {
-    const copy = structuredClone(stored);
-    Value.relocateListKeys(copy, view, includeDivergent);
-    return copy;
+    return Value.migrateListConfig(stored, authored, mode).config;
   }
 
   it('moves a list-only key on a card displaying any view', () => {
-    for (const view of ['list', 'column', 'grid'] as Types.EffectiveView[]) {
-      const moved = relocate(
-        { entities: ['calendar.anna'], today_indicator_position: 'left' },
-        view,
-      );
+    const moved = migrate(
+      { entities: ['calendar.anna'], today_indicator_position: 'left' },
+      'shared-root',
+    );
 
-      expect(moved, view).toEqual({
-        entities: ['calendar.anna'],
-        list: { today_indicator_position: 'left' },
-      });
-    }
+    expect(moved).toEqual({
+      config_version: CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      list: { today_indicator_position: 'left' },
+    });
   });
 
-  it('moves a divergent key only on a card displaying list', () => {
+  it('moves a divergent key only when the user keeps the List appearance', () => {
     const stored = { entities: ['calendar.anna'], event_font_size: '18px' };
 
-    expect(relocate(stored, 'list')).toEqual({
+    expect(migrate(stored, 'keep-list')).toEqual({
+      config_version: CURRENT_CONFIG_VERSION,
       entities: ['calendar.anna'],
       list: { event_font_size: '18px' },
     });
-
-    for (const view of ['column', 'grid'] as Types.EffectiveView[]) {
-      // Relocating here would replace the value column had been inheriting with column's
-      // own divergent default, changing what the user sees on a save they did not intend
-      // as a restyle.
-      expect(relocate(stored, view), view).toEqual(stored);
-    }
   });
 
-  it('leaves a divergent key at the top level when the edit came from Shared', () => {
-    // The user is authoring the shared base at that moment, so moving what they just
-    // wrote into `list:` would undo the edit as it was saved.
-    expect(relocate({ event_font_size: '18px' }, 'list', false)).toEqual({
+  it('leaves a divergent key at the top level when it is declared shared', () => {
+    expect(migrate({ event_font_size: '18px' }, 'shared-root')).toEqual({
+      config_version: CURRENT_CONFIG_VERSION,
       event_font_size: '18px',
     });
 
     // The list-only half still moves, because no other view reads it either way.
-    expect(relocate({ today_indicator_position: 'left' }, 'list', false)).toEqual({
+    expect(migrate({ today_indicator_position: 'left' }, 'shared-root')).toEqual({
+      config_version: CURRENT_CONFIG_VERSION,
       list: { today_indicator_position: 'left' },
     });
   });
 
   it('keeps an existing block entry, which is the newer answer of the two', () => {
     expect(
-      relocate({ event_font_size: '18px', list: { event_font_size: '22px' } }, 'list'),
-    ).toEqual({ list: { event_font_size: '22px' } });
+      migrate({ event_font_size: '18px', list: { event_font_size: '22px' } }, 'keep-list'),
+    ).toEqual({
+      config_version: CURRENT_CONFIG_VERSION,
+      list: { event_font_size: '22px' },
+    });
   });
 
-  it('leaves a configuration that needs nothing moved untouched', () => {
+  it('stamps a configuration that needs nothing moved without changing its values', () => {
     const stored = { entities: ['calendar.anna'], days_to_show: 7, column: { columns: 3 } };
 
-    expect(relocate(stored, 'column')).toEqual(stored);
-    expect(relocate(stored, 'list')).toEqual(stored);
+    expect(migrate(stored, 'shared-root')).toEqual({
+      ...stored,
+      config_version: CURRENT_CONFIG_VERSION,
+    });
   });
 
   it('covers every relocatable key and nothing else', () => {
     // Reconciled against the two sets rather than spot-checked, so a key leaving either
     // one fails here instead of quietly narrowing what the migration reaches.
-    const listCard = relocate(
+    const listCard = migrate(
       Object.fromEntries([...LIST_ONLY, ...DIVERGENT].map((key) => [key, 'x'])),
-      'list',
+      'keep-list',
     );
 
-    expect(Object.keys(listCard)).toEqual(['list']);
+    expect(Object.keys(listCard).sort()).toEqual(['config_version', 'list']);
     expect(new Set(Object.keys(listCard.list as object))).toEqual(
       new Set([...LIST_ONLY, ...DIVERGENT]),
     );
+  });
+
+  it('reads default-valued authorship from the raw configuration before stripping', () => {
+    const authored = {
+      show_past_events: DEFAULT_CONFIG.show_past_events,
+      compact_events_complete_days: DEFAULT_CONFIG.compact_events_complete_days,
+    };
+    const migrated = migrate({}, 'keep-list', authored);
+
+    expect(migrated.list).toEqual(authored);
+  });
+
+  it('derives ambiguity from authored divergent root presence only', () => {
+    expect(Value.ambiguousRootKeys({ event_font_size: '18px', title: 'Example' })).toEqual([
+      'event_font_size',
+    ]);
+    expect(
+      Value.ambiguousRootKeys({
+        list: { event_font_size: '18px' },
+        today_indicator_position: 'left',
+      }),
+    ).toEqual([]);
   });
 });
 

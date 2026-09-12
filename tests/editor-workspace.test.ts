@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { buildConfig } from './fixtures';
+import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
@@ -65,7 +66,13 @@ function owner(editor: EditorHost, key: string, selector = 'ha-form.panel-form')
 async function mount(overrides: Partial<Types.Config> = {}): Promise<EditorHost> {
   const editor = document.createElement('editor-workspace-test') as EditorHost;
   editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig(buildConfig({ entities: ['calendar.anna'], ...overrides }));
+  editor.setConfig(
+    buildConfig({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.anna'],
+      ...overrides,
+    }),
+  );
   document.body.appendChild(editor);
   await editor.updateComplete;
   return editor;
@@ -101,9 +108,11 @@ async function display(editor: EditorHost, view: Types.EffectiveView): Promise<v
 function reports(editor: EditorHost): Array<Record<string, unknown>> {
   const seen: Array<Record<string, unknown>> = [];
   editor.addEventListener('config-changed', (event) => {
-    seen.push(
-      structuredClone((event as CustomEvent<{ config: Record<string, unknown> }>).detail.config),
+    const config = structuredClone(
+      (event as CustomEvent<{ config: Record<string, unknown> }>).detail.config,
     );
+    delete config.config_version;
+    seen.push(config);
   });
   return seen;
 }
@@ -333,11 +342,15 @@ describe('workspace state survives echoes and pending edits', () => {
     await choose(editor, 'grid');
     await change(editor, owner(editor, 'title'), { title: 'Example' });
     expect(seen).toHaveLength(1);
-    editor.setConfig(seen[0]);
+    editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...seen[0] });
     await editor.updateComplete;
     expect(workspace(editor)).toBe('grid');
 
-    editor.setConfig({ entities: ['calendar.ben'], view: 'list' });
+    editor.setConfig({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.ben'],
+      view: 'list',
+    });
     await editor.updateComplete;
     expect(workspace(editor)).toBe('list');
     await display(editor, 'column');
@@ -364,7 +377,11 @@ describe('workspace state survives echoes and pending edits', () => {
     expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(0);
     await choose(editor, 'grid');
     expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(3);
-    editor.setConfig({ entities: ['calendar.ben'], view: 'grid' });
+    editor.setConfig({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.ben'],
+      view: 'grid',
+    });
     await editor.updateComplete;
     expect(owner(editor, 'title_max_lines').data.title_max_lines).toBe(0);
     expect(seen).toHaveLength(1);

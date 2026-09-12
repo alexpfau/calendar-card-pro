@@ -47,7 +47,10 @@ async function mount(config: unknown): Promise<'rendered' | string> {
   element.hass = { states: {}, locale: { language: 'en' } } as unknown as Types.Hass;
 
   try {
-    element.setConfig(config as Types.Config);
+    element.setConfig({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      ...(config as object),
+    } as Types.Config);
     document.body.appendChild(element);
     await element.updateComplete;
     return 'rendered';
@@ -104,7 +107,10 @@ describe('editor robustness against a malformed entities value', () => {
     // normalizer turned `editor-filter` and `editor-schema` round-trip cases red.
     const element = document.createElement(TAG) as CalendarCardProEditor;
     element.hass = { states: {}, locale: { language: 'en' } } as unknown as Types.Hass;
-    element.setConfig({ entities: ['calendar.personal'] } as unknown as Types.Config);
+    element.setConfig({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      entities: ['calendar.personal'],
+    } as unknown as Types.Config);
 
     const held = (element as unknown as { _config: Types.Config })._config;
     expect(held.entities).toEqual(['calendar.personal']);

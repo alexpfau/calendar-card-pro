@@ -30,10 +30,18 @@ import * as Config from '../../config/config';
 import * as Types from '../../config/types';
 import * as ViewConfig from '../../config/view';
 import * as Localize from '../../translations/localize';
+import * as Helpers from '../../utils/helpers';
 import * as Logger from '../../utils/logger';
 
 const ENTITY_ICON =
   'M19 19H5V8h14m-3-7v2H8V1H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-1V1h-2Z';
+
+type MigrationState =
+  | { readonly kind: 'current' }
+  | { readonly kind: 'automatic' }
+  | { readonly kind: 'choice'; readonly keys: ReadonlyArray<string> }
+  | { readonly kind: 'future'; readonly version: number }
+  | { readonly kind: 'invalid'; readonly value: unknown };
 
 /**
  * Schema-driven configuration editor for Calendar Card Pro.
@@ -55,7 +63,11 @@ export class CalendarCardProEditor extends LitElement {
 
   @state() private _gridReconciliation: ReadonlyArray<string> = [];
 
+  @state() private _migration: MigrationState = { kind: 'current' };
+
   private _authoredRootKeys = new Set<string>();
+
+  private _rawConfig: Record<string, unknown> = {};
 
   /**
    * Resolves the configured view to one the editor understands.
@@ -84,16 +96,18 @@ export class CalendarCardProEditor extends LitElement {
    * @param config - Card configuration as stored
    */
   setConfig(config: Types.Config): void {
+    const rawConfig = config as unknown as Record<string, unknown>;
     const isEcho =
-      this._lastDispatched !== undefined &&
-      Value.equalConfigs(config as unknown as Record<string, unknown>, this._lastDispatched);
+      this._lastDispatched !== undefined && Value.equalConfigs(rawConfig, this._lastDispatched);
 
-    if (!isEcho) this._authoredRootKeys = new Set(Object.keys(config));
+    if (!isEcho) this._authoredRootKeys = new Set(Object.keys(rawConfig));
+    this._rawConfig = structuredClone(rawConfig);
     this._config = { ...Config.DEFAULT_CONFIG, ...config };
 
     if (!Array.isArray(this._config.entities)) {
       this._config.entities = [];
     }
+    this._migration = this._migrationState(rawConfig);
 
     if (!isEcho) {
       this._selectedWorkspace = undefined;
@@ -103,6 +117,85 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     this._lastDispatched = Value.toStoredConfig(this._config);
+  }
+
+  /**
+   * Classifies the editor's migration path from the raw authored configuration.
+   *
+   * @param rawConfig - Configuration before defaults are merged
+   * @returns The state that gates or prepares editor writes
+   */
+  private _migrationState(rawConfig: Readonly<Record<string, unknown>>): MigrationState {
+    const version = Config.configVersionState(rawConfig);
+    if (version.kind === 'current') return { kind: 'current' };
+    if (version.kind === 'future') return version;
+    if (version.kind === 'invalid') return version;
+
+    const alreadyLayered =
+      version.version === undefined &&
+      (Helpers.isConfigBlock(rawConfig.list) || Helpers.isConfigBlock(rawConfig.time_grid));
+    if (alreadyLayered) return { kind: 'automatic' };
+
+    const keys = Value.ambiguousRootKeys(rawConfig);
+    const block = ViewConfig.viewBlockFor(this._viewForConfig(this._config!));
+    const needsChoice =
+      block === ViewConfig.VIEW_BLOCKS.list || block === ViewConfig.VIEW_BLOCKS.grid;
+    return needsChoice && keys.length > 0 ? { kind: 'choice', keys } : { kind: 'automatic' };
+  }
+
+  /**
+   * Builds the migrated stored shape from the current local configuration.
+   *
+   * @param mode - Meaning selected for authored divergent root values
+   * @returns Stamped stored configuration and the roots removed from it
+   */
+  private _migrationResult(mode: Value.ListMigrationMode): Value.ListMigrationResult {
+    return Value.migrateListConfig(Value.toStoredConfig(this._config!), this._rawConfig, mode);
+  }
+
+  /**
+   * Makes a migration result the editor's local truth before Home Assistant echoes it.
+   *
+   * @param result - Stored migration result
+   */
+  private _adoptMigration(result: Value.ListMigrationResult): void {
+    for (const key of result.movedRootKeys) this._authoredRootKeys.delete(key);
+    this._rawConfig = structuredClone(result.config);
+    this._config = {
+      ...Config.DEFAULT_CONFIG,
+      ...(result.config as unknown as Types.Config),
+    };
+    if (!Array.isArray(this._config.entities)) this._config.entities = [];
+    this._migration = { kind: 'current' };
+  }
+
+  /**
+   * Accepts a write and prepares any non-ambiguous migration.
+   *
+   * @returns Whether configuration editing is allowed
+   */
+  private _prepareForWrite(): boolean {
+    if (this._migration.kind !== 'current' && this._migration.kind !== 'automatic') {
+      Logger.debug('Ignoring an editor write while migration is blocked', this._migration.kind);
+      return false;
+    }
+    if (this._migration.kind === 'automatic') {
+      this._adoptMigration(this._migrationResult('shared-root'));
+    }
+    return true;
+  }
+
+  /**
+   * Commits the user's one-time interpretation of legacy root values.
+   *
+   * @param mode - Whether ambiguous values belong to List or every layout
+   */
+  private _chooseMigration(mode: Value.ListMigrationMode): void {
+    if (this._migration.kind !== 'choice') return;
+    const result = this._migrationResult(mode);
+    this._adoptMigration(result);
+    this._lastDispatched = result.config;
+    this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: result.config } }));
   }
 
   /**
@@ -165,6 +258,7 @@ export class CalendarCardProEditor extends LitElement {
     const nextData = event.detail?.value as Record<string, unknown> | undefined;
     if (!nextData) return;
 
+    if (!this._prepareForWrite()) return;
     const previousConfig = this._config;
     const applied = Routing.applyWorkspaceChange(
       previousConfig,
@@ -203,6 +297,7 @@ export class CalendarCardProEditor extends LitElement {
     // Keep what ha-form emitted, not newly derived synthetic values it has not seen yet.
     frame.data = structuredClone(nextData);
 
+    if (changed.size === 0) return;
     this._report(applied.config);
   }
 
@@ -214,18 +309,12 @@ export class CalendarCardProEditor extends LitElement {
   private _report(config: Types.Config): void {
     const stored = Value.toStoredConfig(config);
 
-    // The v5 migration, run at the one place a save happens rather than inside
-    // `toStoredConfig` — that function is also the diff baseline and the filter's
-    // customized-only projection, and neither wants a migration applied to what it reads.
-    // Shared writes at root by design, so a save from there must not relocate the keys it
-    // exists to author; see `relocateListKeys`.
-    Value.relocateListKeys(stored, config.view, this._workspace !== 'shared');
-
     if (Value.equalConfigs(stored, this._lastDispatched ?? {})) {
       return;
     }
 
     this._lastDispatched = stored;
+    this._rawConfig = structuredClone(stored);
 
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: stored } }));
   }
@@ -575,15 +664,18 @@ export class CalendarCardProEditor extends LitElement {
     const next = event.detail?.value as Record<string, unknown> | undefined;
     if (!next || !this._config) return;
 
+    const entities = Entities.writeEntity(
+      this._config.entities ?? [],
+      index,
+      next,
+      this._config.accent_color,
+      this.hass ?? undefined,
+    );
+    if (Value.deepEqual(entities, this._config.entities)) return;
+    if (!this._prepareForWrite()) return;
     this._config = {
       ...this._config,
-      entities: Entities.writeEntity(
-        this._config.entities ?? [],
-        index,
-        next,
-        this._config.accent_color,
-        this.hass ?? undefined,
-      ),
+      entities,
     };
 
     this._report(this._config);
@@ -608,6 +700,7 @@ export class CalendarCardProEditor extends LitElement {
   private _pasteEntitySettings(index: number): void {
     if (!this._config) return;
 
+    if (!this._prepareForWrite()) return;
     this._config = {
       ...this._config,
       entities: Entities.pasteSettings(this._config.entities ?? [], index),
@@ -624,6 +717,7 @@ export class CalendarCardProEditor extends LitElement {
   private _duplicateEntity(index: number): void {
     if (!this._config) return;
 
+    if (!this._prepareForWrite()) return;
     this._config = {
       ...this._config,
       entities: Entities.duplicateEntity(this._config.entities ?? [], index),
@@ -640,6 +734,7 @@ export class CalendarCardProEditor extends LitElement {
   private _removeEntity(index: number): void {
     if (!this._config) return;
 
+    if (!this._prepareForWrite()) return;
     this._config = {
       ...this._config,
       entities: Entities.removeEntity(this._config.entities ?? [], index),
@@ -743,6 +838,7 @@ export class CalendarCardProEditor extends LitElement {
     keys: ReadonlyArray<string>,
   ): void {
     if (!this._config) return;
+    if (!this._prepareForWrite()) return;
     if (blockKey === 'time_grid' && keys.some((key) => ViewConfig.hasDivergentDefault(key, view))) {
       this._skipGridReconciliation = true;
     }
@@ -779,6 +875,27 @@ export class CalendarCardProEditor extends LitElement {
     }
 
     const ctx = this._ctx;
+    if (this._migration.kind === 'choice') {
+      return this._renderMigrationChoice(ctx, this._migration.keys);
+    }
+    if (this._migration.kind === 'future') {
+      return this._renderMigrationBlock(
+        ctx,
+        'config_migration.future_title',
+        interpolate(this._string(ctx, 'config_migration.future_message'), {
+          version: this._migration.version,
+        }),
+      );
+    }
+    if (this._migration.kind === 'invalid') {
+      return this._renderMigrationBlock(
+        ctx,
+        'config_migration.invalid_title',
+        interpolate(this._string(ctx, 'config_migration.invalid_message'), {
+          value: String(this._migration.value),
+        }),
+      );
+    }
     const panels = PANELS.map((panel) => this._renderPanel(panel, ctx)).filter(
       (panel) => panel !== nothing,
     );
@@ -789,6 +906,78 @@ export class CalendarCardProEditor extends LitElement {
       <div class="card-config">
         ${this._renderViewControls(ctx)} ${this._renderGridReconciliation(ctx)}
         ${this._renderFilterBar()} ${panels} ${empty ? this._renderNoMatches(ctx) : nothing}
+      </div>
+    `;
+  }
+
+  /**
+   * Renders the one-time interpretation choice for ambiguous legacy values.
+   *
+   * @param ctx - Current editor context
+   * @param keys - Authored roots whose meaning differs between List and another view
+   * @returns The blocking choice surface
+   */
+  private _renderMigrationChoice(ctx: SchemaCtx, keys: ReadonlyArray<string>): TemplateResult {
+    const block = ViewConfig.viewBlockFor(this._viewForConfig(this._config!));
+    const messageKey =
+      block === ViewConfig.VIEW_BLOCKS.grid
+        ? 'config_migration.grid_message'
+        : 'config_migration.list_message';
+    const options = keys.map((key) => this._string(ctx, key)).join(', ');
+
+    return html`
+      <div class="card-config">
+        <div
+          class="config-migration"
+          data-config-migration
+          role="group"
+          aria-labelledby="config-migration-title"
+        >
+          <strong id="config-migration-title"
+            >${this._string(ctx, 'config_migration.title')}</strong
+          >
+          <div>${this._string(ctx, messageKey)}</div>
+          <div>${interpolate(this._string(ctx, 'config_migration.affected'), { options })}</div>
+          <button
+            type="button"
+            class="migration-choice primary"
+            @click=${() => this._chooseMigration('keep-list')}
+          >
+            ${this._string(ctx, 'config_migration.keep_list')}
+          </button>
+          <div class="migration-choice-note">
+            ${this._string(ctx, 'config_migration.keep_list_note')}
+          </div>
+          <button
+            type="button"
+            class="migration-choice"
+            @click=${() => this._chooseMigration('shared-root')}
+          >
+            ${this._string(ctx, 'config_migration.use_shared')}
+          </button>
+          <div class="migration-choice-note">
+            ${this._string(ctx, 'config_migration.use_shared_note')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Renders a non-destructive version error with no configuration controls.
+   *
+   * @param ctx - Current editor context
+   * @param titleKey - Localized heading key
+   * @param message - Resolved explanatory text
+   * @returns The blocking message
+   */
+  private _renderMigrationBlock(ctx: SchemaCtx, titleKey: string, message: string): TemplateResult {
+    return html`
+      <div class="card-config">
+        <div class="config-migration" data-config-migration role="alert">
+          <strong>${this._string(ctx, titleKey)}</strong>
+          <div>${message}</div>
+        </div>
       </div>
     `;
   }

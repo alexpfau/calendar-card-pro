@@ -51,6 +51,24 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'grid_reconciliation.message':
     'Grid kept your existing values for: {options}. Use Reset in Grid to use its default for an option.',
   'grid_reconciliation.dismiss': 'Dismiss',
+  'config_migration.title': 'Choose How to Upgrade This Card',
+  'config_migration.list_message':
+    'Version 5 separates settings for List from settings shared by every layout. Either choice keeps the card looking the same right now.',
+  'config_migration.grid_message':
+    'Version 5 separates settings for List from settings shared by every layout. Either choice keeps Grid looking the same right now and decides what List uses later.',
+  'config_migration.affected': 'Choose what these settings mean: {options}.',
+  'config_migration.keep_list': 'Keep my existing List appearance',
+  'config_migration.keep_list_note':
+    'Recommended. These choices stay with List, while Column and Grid use their own defaults.',
+  'config_migration.use_shared': 'Use these settings for all layouts',
+  'config_migration.use_shared_note':
+    'These choices become the common starting point for every layout that does not override them.',
+  'config_migration.future_title': 'This Card Uses a Newer Configuration',
+  'config_migration.future_message':
+    'This editor supports configuration version 5, but the card uses version {version}. Update Calendar Card Pro before editing it.',
+  'config_migration.invalid_title': 'Configuration Version Is Invalid',
+  'config_migration.invalid_message':
+    'The card has an invalid configuration version ({value}). Correct it in YAML before using the visual editor.',
 
   // --- Width table ----------------------------------------------------------
   'width_table.title': 'This card renders',

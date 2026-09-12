@@ -11,7 +11,10 @@ import * as Logger from '../utils/logger';
 // CORE CONFIGURATION
 //-----------------------------------------------------------------------------
 
+export const CURRENT_CONFIG_VERSION = 5;
+
 export const DEFAULT_CONFIG: Types.Config = {
+  config_version: undefined,
   entities: [],
   view: 'list',
   start_date: undefined,
@@ -154,6 +157,37 @@ export const DEFAULT_CONFIG: Types.Config = {
   column: undefined,
   time_grid: undefined,
 };
+
+export type ConfigVersionState =
+  | { readonly kind: 'legacy'; readonly version?: number }
+  | { readonly kind: 'current'; readonly version: number }
+  | { readonly kind: 'future'; readonly version: number }
+  | { readonly kind: 'invalid'; readonly value: unknown };
+
+/**
+ * Classifies the authored configuration format without coercing it.
+ *
+ * @param config - Raw configuration before defaults are merged
+ * @returns The version state the editor must honor
+ */
+export function configVersionState(config: Readonly<Record<string, unknown>>): ConfigVersionState {
+  if (!Object.prototype.hasOwnProperty.call(config, 'config_version')) {
+    return { kind: 'legacy' };
+  }
+
+  const value = config.config_version;
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 0
+  ) {
+    return { kind: 'invalid', value };
+  }
+  if (value < CURRENT_CONFIG_VERSION) return { kind: 'legacy', version: value };
+  if (value > CURRENT_CONFIG_VERSION) return { kind: 'future', version: value };
+  return { kind: 'current', version: value };
+}
 
 //-----------------------------------------------------------------------------
 // CONFIGURATION UTILITIES
@@ -852,6 +886,7 @@ const SUGGESTION_TIME_GRID_LABEL = 'Time Grid';
 function buildDefaultCardConfig(entities: ReadonlyArray<string>): Record<string, unknown> {
   return {
     type: 'custom:calendar-card-pro-dev',
+    config_version: CURRENT_CONFIG_VERSION,
     entities: [...entities],
     days_to_show: 3,
     show_location: true,

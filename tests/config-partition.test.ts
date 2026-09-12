@@ -91,6 +91,9 @@ const CARD_LEVEL_REASONS = {
    */
   identity: ['view', 'language', 'time_24h'],
 
+  /** Editor-maintained marker for the persisted configuration shape. */
+  metadata: ['config_version'],
+
   /** Stored whole rather than option by option; reconciled against `ATOMIC_KEYS` below. */
   action: ['tap_action', 'hold_action'],
 
