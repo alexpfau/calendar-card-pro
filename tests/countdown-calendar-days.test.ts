@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { CalendarEventData } from '../src/config/types';
+import { getRelativeTimeString } from '../src/translations/dayjs';
 import { TRANSLATIONS } from '../src/translations/localize';
 import { getCountdownString } from '../src/utils/format';
 
@@ -85,8 +86,8 @@ describe('calendar-day countdowns', () => {
     { now: '2026-12-31T23:50:00Z', start: '2027-01-02T08:00:00Z', expected: 'in 2 days' },
     { now: '2028-02-28T23:50:00Z', start: '2028-03-01T08:00:00Z', expected: 'in 2 days' },
     { now: '2026-02-28T23:50:00Z', start: '2026-03-01T08:00:00Z', expected: 'tomorrow' },
-    { now: '2026-09-08T20:13:00Z', start: '2026-10-08T08:00:00Z', expected: 'in 30 days' },
-    { now: '2026-09-08T20:13:00Z', start: '2027-09-08T08:00:00Z', expected: 'in 365 days' },
+    { now: '2026-09-08T20:13:00Z', start: '2026-10-08T08:00:00Z', expected: 'in a month' },
+    { now: '2026-09-08T20:13:00Z', start: '2027-09-08T08:00:00Z', expected: 'in a year' },
   ])('counts dates from $now to $start as $expected', ({ now, start, expected }) => {
     vi.setSystemTime(new Date(now));
     expect(getCountdownString(timedEvent(start))).toBe(expected);
@@ -108,13 +109,36 @@ describe('calendar-day countdowns', () => {
     }
   });
 
-  it('does not depend on the original all-day span for distant countdowns', () => {
-    expect(
-      getCountdownString({
-        start: { date: '2026-10-08' },
-        end: { date: '2026-10-15' },
-      }),
-    ).toBe('in 30 days');
+  it('anchors both dates before choosing natural units at a month boundary', () => {
+    for (const hour of ['00:00', '12:00', '23:59']) {
+      vi.setSystemTime(new Date(`2026-09-08T${hour}:00Z`));
+      for (const start of ['00:00', '12:00', '23:59']) {
+        expect(getCountdownString(timedEvent(`2026-10-03T${start}:00Z`))).toBe('in 25 days');
+        expect(getCountdownString(timedEvent(`2026-10-04T${start}:00Z`))).toBe('in a month');
+      }
+    }
+  });
+
+  it.each([
+    { start: '2026-10-08', end: '2026-10-15', expected: 'in a month' },
+    { start: '2027-09-08', end: '2027-09-15', expected: 'in a year' },
+  ])('keeps natural wording for distant timed, all-day and split rows: $expected', (row) => {
+    const timed: CalendarEventData = {
+      ...timedEvent(`${row.start}T08:00:00Z`),
+      end: { dateTime: `${row.end}T12:00:00Z` },
+    };
+    const allDay: CalendarEventData = {
+      start: { date: row.start },
+      end: { date: row.end },
+    };
+    for (const event of [
+      timed,
+      allDay,
+      { ...timed, _isMultiDaySegment: true },
+      { ...allDay, _isMultiDaySegment: true },
+    ]) {
+      expect(getCountdownString(event)).toBe(row.expected);
+    }
   });
 
   it('continues to suppress started events, empty rows, and missing starts', () => {
@@ -135,8 +159,8 @@ describe('calendar-day countdowns', () => {
     { language: 'DA', tomorrow: 'i morgen', twoDays: 'om 2 dage' },
     { language: 'de-DE', tomorrow: 'morgen', twoDays: 'in 2 Tagen' },
     { language: 'fr', tomorrow: 'demain', twoDays: 'dans 2 jours' },
-    { language: 'zh-cn', tomorrow: '明天', twoDays: '2天后' },
-    { language: 'zh-tw', tomorrow: '明天', twoDays: '2 天後' },
+    { language: 'zh-cn', tomorrow: '明天', twoDays: '2 天内' },
+    { language: 'zh-tw', tomorrow: '明天', twoDays: '2 天內' },
     { language: 'klingon', tomorrow: 'tomorrow', twoDays: 'in 2 days' },
     { language: 'not_a_locale', tomorrow: 'tomorrow', twoDays: 'in 2 days' },
   ])('localizes $language without replacing numeric days with date words', (row) => {
@@ -144,19 +168,22 @@ describe('calendar-day countdowns', () => {
     expect(getCountdownString(timedEvent('2026-09-10T08:00:00Z'), row.language)).toBe(row.twoDays);
   });
 
-  it('resolves calendar and long-hour countdowns in every registered card language', () => {
+  it('resolves tomorrow, natural dates and long-hour countdowns in every card language', () => {
     const languages = Object.keys(TRANSLATIONS);
     expect(languages.length).toBeGreaterThanOrEqual(35);
+    const reference = new Date('2026-09-08T00:00:00Z');
     for (const language of languages) {
       const calendar = new Intl.RelativeTimeFormat(language, { numeric: 'auto' });
       const numeric = new Intl.RelativeTimeFormat(language, { numeric: 'always' });
-      vi.setSystemTime(new Date('2026-09-08T00:00:00Z'));
+      vi.setSystemTime(reference);
       expect(getCountdownString(timedEvent('2026-09-09T08:00:00Z'), language), language).toBe(
         calendar.format(1, 'day'),
       );
-      expect(getCountdownString(timedEvent('2026-09-10T08:00:00Z'), language), language).toBe(
-        numeric.format(2, 'day'),
-      );
+      for (const date of ['2026-09-10', '2026-10-08', '2027-09-08']) {
+        expect(getCountdownString(timedEvent(`${date}T08:00:00Z`), language), language).toBe(
+          getRelativeTimeString(new Date(`${date}T00:00:00Z`), language, reference),
+        );
+      }
       expect(getCountdownString(timedEvent('2026-09-08T23:00:00Z'), language), language).toBe(
         numeric.format(23, 'hour'),
       );

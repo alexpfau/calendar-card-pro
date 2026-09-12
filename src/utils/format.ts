@@ -170,7 +170,8 @@ export function formatEventTimeParts(
 
 /**
  * Generates a localized countdown string for an event
- * Future dates count calendar days; only starts later today count hours or minutes.
+ * Future dates use natural relative units measured between local calendar dates.
+ * Only starts later today use clock units.
  *
  * @param event Calendar event to generate countdown for
  * @param language Language to use
@@ -192,8 +193,19 @@ export function getCountdownString(
   if (!startDate || startDate <= now) return null;
 
   const days = getCalendarDayDiff(now, startDate);
-  if (days > 0) {
-    return getRelativeUnitString(days, 'day', language);
+  if (days === 1) {
+    return getRelativeUnitString(1, 'day', language);
+  }
+
+  if (days > 1) {
+    // Anchor both dates so clock time cannot change Day.js's natural unit selection.
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfEventDay = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate(),
+    );
+    return getRelativeTimeString(startOfEventDay, language, startOfToday);
   }
 
   // Keep Day.js's short phrases, but never let a long wait today round into "a day".
