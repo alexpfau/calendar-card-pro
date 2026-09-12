@@ -150,8 +150,9 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 
 ### Latest Release: v4.2
 
-- 🧑 **A Shared Event Shows Every Calendar's Label**: With duplicates filtered, an event two calendars hold kept one row and one label, so a lunch you and your partner both have showed only one of you. That row now draws [the label of every calendar it came from](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) — both faces instead of one, with identical labels drawn once. Colors are unchanged, and nothing changes unless you both filter duplicates and label your calendars
-- 🎨 **A Color for Events Two Calendars Share**: [`duplicate_accent_color`](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) accents every merged event in a color of its own — the labels say who an event belongs to, this says at a glance that it is shared. Only fires across different calendars; unset, nothing changes
+- 🧑 **Shared Events, Clearly Marked**: Merged duplicates show [every contributing calendar's label](https://calendar-card-pro.alexpfau.com/features/core-settings#labeling-coloring-shared-events) instead of only the first; set `duplicate_accent_color` to give shared events a color of their own
+- 🐛 **Countdowns Follow Calendar Dates**: [Countdowns](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display) now say "tomorrow" for the next date and count exact days after that, without skipping days or rounding into months; starts later today keep clock countdowns
+- 🐛 **Allowlists & Blocklists Work Together**: [Combined filters](https://calendar-card-pro.alexpfau.com/features/core-settings#filtering-by-event-name) now keep only events that match the allowlist and escape the blocklist, rather than silently ignoring the blocklist
 
 ### v4.1
 
@@ -160,7 +161,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🧑 **A Person's Photo in Front of Their Calendar**: Set a calendar's `label` to a person entity ID and the card shows [that person's picture](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-persons-picture) — faces instead of words on a household dashboard
 - 🗂️ **Split One Calendar by Event Type**: [`event_type`](https://calendar-card-pro.alexpfau.com/features/core-settings) takes `all`, `timed` or `all_day`, card-wide or per calendar — list one calendar twice for a color on each, and [**Duplicate** in the editor](https://calendar-card-pro.alexpfau.com/features/editor#per-calendar-panels-actions) builds it for you
 - 🔍 **Two New Per-Calendar Filters**: [`allday_expires_at`](https://calendar-card-pro.alexpfau.com/features/core-settings#retiring-all-day-events-during-the-day) retires an all-day event partway through the day, so a bin collection stops sitting on the card until midnight, and [`days_of_week`](https://calendar-card-pro.alexpfau.com/features/core-settings#showing-a-calendar-on-weekdays-only) keeps one calendar to weekdays or weekends
-- 💬 **Teams Meetings Get the Teams Icon**: online meetings show [the Teams logo instead of a map pin](https://calendar-card-pro.alexpfau.com/features/event-content#the-location-icon) automatically, in any language Teams writes them in — or set `location_icon` on a calendar to name a different one
 - 🎂 **Ages on Birthdays, Counts on Anniversaries**: Write `YEAR=1976` in a birthday event's description and the card appends the age to the title — [nothing to configure](https://calendar-card-pro.alexpfau.com/features/event-content#birthday-ages-anniversary-counts), and it stays right every year
 - ✏️ **Rewrite What an Event Says**: [`replace_pattern`, `replace_with` and `replace_field`](https://calendar-card-pro.alexpfau.com/features/core-settings#text-replacement) rewrite one field of a calendar's events as the card draws them, leaving the calendar untouched. [One Calendar, Many Purposes](https://calendar-card-pro.alexpfau.com/guide/one-calendar-many-purposes) puts this and three of the options above into a single card
 
@@ -171,8 +171,6 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - ⚡ **41% Smaller to Download**: The editor moved into a file the card fetches only when you open it, taking it and all its translations off the path every dashboard pays for
 - ⚡ **Fewer Round-Trips on Every Page Load**: One card load asked Home Assistant for the same events up to four times; requests are now deduplicated, and two display-only switches no longer discard a valid cache entry
 - 🌍 **Eleven Editor Languages**: Nine newly translated in full — German, Estonian, Italian, Latvian, Lithuanian, Norwegian Bokmål, Polish, Slovak and Swedish — alongside US and British English, with per-string fallback so a partial translation still renders
-- 📏 **Per-Field Line Limits**: Cap the lines used by a title, time or location with [`title_max_lines`, `time_max_lines` and `location_max_lines`](https://calendar-card-pro.alexpfau.com/features/event-content#limiting-lines-per-field)
-- 🌦️ **Weather in Column View**: A row of its own beneath the time, optionally [stating the condition in words](https://calendar-card-pro.alexpfau.com/features/weather#weather-in-the-column-layout) in your language
 - 🐛 **Dates, Clocks and Week Numbers**: [Week numbers](https://calendar-card-pro.alexpfau.com/features/layout-appearance#week-numbers-visual-separators) were wrong for one date in seven outside UTC, the clock format disagreed with Home Assistant's own locale data for 33 of its 64 languages, and `first_day_of_week: system` returned Monday to everyone
 - ⚠️ **Breaking**: Manual installs now copy [two files](https://calendar-card-pro.alexpfau.com/guide/installation#manual-installation), `event_icon_vertical_alignment` defaults to `top`, and weather badges are styled through [custom properties](https://calendar-card-pro.alexpfau.com/features/theming#weather-custom-properties) instead of inline styles
 
@@ -183,23 +181,10 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🐛 **Per-Calendar Settings Applied Late**: Editing a per-calendar label, colour or toggle did nothing until the cache expired — edits now apply immediately
 - 🐛 **Disappearing and Ellipsised Text**: Titles gained a `…` when nothing had been truncated, and long words in descriptions and locations were clipped mid-character with no warning
 - 🐛 **Multi-Day Countdowns**: Each row of a [split multi-day event](https://calendar-card-pro.alexpfau.com/features/multi-day-events) counted differently; every row now counts whole calendar days to its own date
-- 🐛 **Silently Ignored Options**: Options removed back in v3.0.0 were dropped without comment for YAML users, and are now reported with their replacement
 
-### v3.5
+_Older releases are covered in the [Full Release Notes](https://calendar-card-pro.alexpfau.com/RELEASE_NOTES)._
 
-- 🫥 **Empty State Control**: [Remove the card entirely](https://calendar-card-pro.alexpfau.com/features/event-content#calendar-events-display) when there are no upcoming events, or replace "No upcoming events" with [your own wording](https://calendar-card-pro.alexpfau.com/features/event-content#custom-empty-day-text)
-- 📅 **Flexible Start Dates**: [Anchor the view to the week or a weekday](https://calendar-card-pro.alexpfau.com/features/start-date-offset#start-date-configuration) with `start_of_week`, `saturday`, and composable offsets like `start_of_week+7`
-- 🏷️ **Templated Titles**: Render the card title from a [Home Assistant template](https://calendar-card-pro.alexpfau.com/features/title-templates#dynamic-titles-with-templates), updating live from sensors or the current date
-- 🔎 **Suggested in the Card Picker**: Home Assistant 2026.6+ offers the card under **Community** when you [add a card by entity](https://calendar-card-pro.alexpfau.com/guide/usage#adding-the-card-to-your-dashboard) and pick a calendar
-- 🐛 **Card Title Sizing**: Titles rendered as plain body text after Home Assistant dropped the Polymer font variables; they are back at their intended size and weight
-- 🐛 **Failed Calendars No Longer Look Empty**: An unreachable calendar now shows an error instead of claiming there are no events — which could silently hide the card
-
-### v3.4
-
-- ⏳ **All-Day Countdown Control**: Hide countdowns on all-day events while keeping them on timed ones with [`show_countdown_allday`](https://calendar-card-pro.alexpfau.com/features/event-content#countdown-display)
-- 🌤️ **Weather Across the Full Range**: Timed events beyond Home Assistant's hourly forecast horizon now [fall back to the daily forecast](https://calendar-card-pro.alexpfau.com/features/weather#weather-configuration-options) instead of showing nothing
-- 🐛 **All-Day Countdowns Off By One**: Now measured in whole calendar days instead of from the current instant
-- ⚡ **Faster Rendering**: Color resolution is cached, removing hundreds of forced layouts per refresh on large calendars
+<p align="right"><a href="#top">⬆️ back to top</a></p>
 
 ## 5️⃣ Contributing
 
