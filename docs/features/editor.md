@@ -34,7 +34,8 @@ editor workspace: **All Layouts**, **List**, **Column**, or **Grid**. It starts 
 following Card Displays, then stays independent once you choose a workspace. The workspace
 is never saved to YAML; opening the editor again starts from the card's displayed view.
 
-**All Layouts** edits the shared base — the top level, which every layout falls back to.
+**All Layouts** edits the shared base — the top level, which layouts fall back to after
+their own overrides and any [different built-in defaults](#yaml-view-defaults).
 It offers only the options that have a shared meaning, so the layout-specific ones are
 absent there rather than being written somewhere only one view reads.
 
@@ -60,10 +61,11 @@ Configurations left alone keep working exactly as they are — see
 
 Presentation controls show the value used by the selected workspace and write directly
 to its scope: the top level for All Layouts, then `list:`, `column:` and `time_grid:` for
-the three views. A view block holds only what should differ there; anything it does not
-mention comes from the shared base, so editing All Layouts moves every layout that has not
-overridden the option. Card-wide options such as calendars, title, language, and actions
-stay card-wide in every workspace.
+the three views. A missing view value uses that layout's own default when it has one,
+otherwise the shared base. Editing All Layouts therefore changes only the layouts that
+inherit that option; it does not overwrite their explicit choices or built-in defaults.
+Card-wide options such as calendars, title, language, and actions stay card-wide in every
+workspace.
 
 Hiding a control does not delete its stored value. For example, these empty-day options
 remain available to the list fallback, even though their controls are absent while
@@ -87,9 +89,9 @@ whose default differs in another layout, the editor cannot safely guess which me
 want. It pauses before showing the normal controls and offers two choices:
 
 - **Keep my existing List appearance** — recommended. The existing values stay with List,
-  while Column and Grid use their own defaults.
+  while Column and Grid keep their own settings and defaults.
 - **Use these settings for all layouts** — the existing values become the shared starting
-  point for each layout that does not override them.
+  point. A layout's own settings and built-in defaults can still take precedence.
 
 Either choice preserves the layout currently on screen at the moment you choose it. On a
 Grid card, the choice decides what List — including a responsive List fallback — uses
@@ -103,6 +105,10 @@ format on its first actual edit. Merely opening and closing the editor writes no
 Column cards do not show this choice. Column inherited most top-level values before v5, so
 moving them would change the layout already on screen. Its first editor edit keeps those
 values shared, moves only the unambiguous List-only options, and records the v5 format.
+
+A versionless configuration already containing `list:` or `time_grid:` is treated as
+layered. It opens normally and adopts the marker on its first actual edit without
+reinterpreting shared values.
 
 Once the choice or automatic adoption is saved, it is not asked again. The marker is
 maintained by the editor; ordinary users do not need to add it by hand.
@@ -147,9 +153,15 @@ either answer leaves its current Grid appearance alone. Choose the Grid workspac
 change that value directly.
 
 ::: info Saving & Reopening
-An authored root value equal to the card's default can be omitted when you save an unrelated edit. The open editor remembers that choice while you continue editing, but closing and reopening loses the history of an omitted value.
+An explicit shared choice is kept in YAML when another layout has a different default
+for that option, even if you set it back to the card's default. The same applies when
+you choose shared storage during an upgrade. Closing and reopening does not lose that
+choice.
 
-For example, top-level `event_font_size: '14px'` is removed as a root default on save. If Grid has no explicit font-size override, a later transition to Grid after reopening uses its `12px` default because the saved configuration no longer says you chose `14px`. To keep that size for Grid across saves, set it in the Grid workspace or explicitly under `time_grid:`.
+For example, explicitly setting Event Font Size to `14px` in All Layouts keeps
+`event_font_size: '14px'` in the saved configuration. A later editor transition to Grid
+can therefore preserve `14px` after reopening, just as it does in the original session.
+Untouched defaults are not added, and a value set directly in Grid still wins.
 :::
 
 ### YAML & View Defaults
@@ -202,7 +214,7 @@ Three things follow their own rule under it, for reasons worth knowing:
 
 - **Calendars** show only the ones you have given settings of their own, which is a quick way to see which calendars have a color or a label and which simply follow the card.
 - **Per-calendar options** count as customized when they are set at all. Several of them mean "follow the card" when left alone, so `Show Time: Off` on one calendar is a real setting rather than a default.
-- **View values** count as customized when the selected layout stores its own value. Values inherited from List or supplied by the layout's defaults are not user edits.
+- **View values** count as customized when the selected layout stores its own value. Values inherited from the shared base or supplied by the layout's defaults are not user edits.
 
 ::: tip Not Everything Is There To Be Found
 The editor only offers the settings your current configuration calls for: a fixed calendar content height appears once the height mode is fixed, and the compact-mode modifier appears once there is an event limit for it to modify. A search cannot turn up a control that is not on screen, so if nothing matches, check whether the option it depends on is switched on.
@@ -273,9 +285,10 @@ get the icon picker.
 
 ## ⚖️ View Exceptions
 
-View-specific values no longer need an exception picker. Select Column or Grid under
+View-specific values no longer need an exception picker. Select List, Column, or Grid under
 **Editing Settings For**, then use the ordinary controls. Their helper text says whether
-the value comes from List, from that layout's own default, or from a value set for the layout.
+the value comes from the shared card settings, from that layout's own default, or from a
+value set for the layout.
 
 For example, editing Event Font Size in Grid writes the grid value while leaving the
 List value alone:
@@ -290,7 +303,9 @@ time_grid:
 layout would use without them. They do not remove the input or clear other layouts.
 Where one mode control governs several options, its reset clears those options together.
 
-A value equal to what the view inherits is omitted from the saved block. Options with a
+List keeps every valid explicit value in `list:`, even one equal to the shared value;
+use Reset to return to inheritance. Column and most Grid values equal to what the view
+inherits are omitted from their saved blocks. Options with a
 [different grid default](/features/grid-view#options-that-start-from-a-different-default)
 stay explicit when edited back to that default; use Reset to remove the explicit value.
 

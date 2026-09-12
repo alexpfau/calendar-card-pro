@@ -15,7 +15,7 @@ src/
 │   ├── config.ts                 # DEFAULT_CONFIG and config helpers
 │   ├── constants.ts              # Application constants and defaults
 │   ├── types.ts                  # TypeScript interface definitions
-│   └── view.ts                   # View resolution: the `column:` block, density, fallback
+│   └── view.ts                   # List/Column/Grid blocks, defaults, density, fallback
 ├── interaction/                  # User interaction handling
 │   ├── actions.ts                # Action execution (tap, hold, etc.)
 │   └── feedback.ts               # Visual feedback (ripple, hold indicators)
@@ -26,12 +26,12 @@ src/
 │   │   ├── panels.ts             # Panel registry and schema context
 │   │   ├── schemas/              # One module per panel, plus their shared vocabulary
 │   │   ├── ha-form.ts            # Our declaration of Home Assistant's schema shape
-│   │   ├── value.ts              # Default stripping and authored-value reconciliation
+│   │   ├── value.ts              # Serialization, legacy migration, authored-value retention
 │   │   ├── entities.ts           # Write path for the per-calendar list
 │   │   ├── exceptions.ts         # Removes stored view overrides for Reset controls
 │   │   ├── subforms.ts           # The schemas a panel renders outside its own form
 │   │   ├── filter.ts             # Search and "customized only"
-│   │   ├── workspace.ts          # Editor-only List/Column/Grid selection
+│   │   ├── workspace.ts          # Editor-only All Layouts/List/Column/Grid selection
 │   │   ├── routing.ts            # Workspace projections and scope-captured writes
 │   │   ├── normalize.ts          # Comparable root and nested form values
 │   │   ├── synthetic.ts          # UI-only fields, and values invalid while typed
@@ -42,7 +42,8 @@ src/
 │   │   └── styles.ts             # Editor chassis CSS
 │   ├── render.ts                 # Card shell and the list view
 │   ├── column.ts                 # The column view
-│   ├── leaves.ts                 # Axis-agnostic leaf renderers shared by both views
+│   ├── grid.ts                   # The timed grid and spanning all-day band
+│   ├── leaves.ts                 # Leaf renderers shared across the three views
 │   ├── presentation.ts           # Layout-independent per-event presentation models
 │   └── styles.ts                 # CSS styles and dynamic styling
 ├── translations/                 # Localization support
@@ -54,6 +55,7 @@ src/
 │       └── ...                   # Other language files
 └── utils/                        # Utility functions
     ├── events.ts                 # Calendar event fetching and processing
+    ├── grid.ts                   # Pure time-grid geometry, overlap lanes, banner spans
     ├── format.ts                 # Date and text formatting
     ├── start-date.ts             # The `start_date` relative-date grammar
     ├── helpers.ts                # Generic utilities (color, ID generation)
@@ -64,28 +66,68 @@ src/
     └── weather-i18n.ts           # Condition text in the card's language
 ```
 
-## 🧭 Two Views, One Agenda
+## 🧭 Three Views, One Agenda
 
-The card renders the same agenda in one of two layouts, and this is the structural fact
+The card renders the same agenda in one of three layouts, and this is the structural fact
 most worth holding on to before changing anything under `rendering/`:
 
 - **`view: list`** stacks days vertically, each day a row. This is what the card has
   always done and remains the default.
 - **`view: column`** lays days side by side, one column each.
+- **`view: grid`** positions timed events against a shared hour axis, with all-day events
+  in a separate band above it.
 
-They are not two implementations of the card. Every **leaf** — the date block, the event
-body, the weather badges, the today indicator — lives in `leaves.ts` and knows nothing
-about which container will place it; `presentation.ts` computes everything about an event
-that does not depend on layout. `render.ts` and `column.ts` are therefore just the two
-containers that arrange those shared pieces along different axes.
+They share the card shell, event pipeline, and presentation models rather than duplicating
+the card. `leaves.ts` holds reusable date, event-content, weather, and indicator renderers;
+`presentation.ts` computes layout-independent event details. `render.ts`, `column.ts`, and
+`grid.ts` arrange those pieces. Grid also uses the pure geometry in `utils/grid.ts` for
+wall-clock placement, overlapping lanes, and multi-day banner spans.
 
-Both layouts are live for the same card. A card configured for columns falls back to the
-list when it is too narrow to give every day `column.min_day_width`, so the view is
-resolved per render from the measured width rather than fixed by the configuration.
-The editor workspace is separate: choosing List exposes its controls without changing
-the card's displayed view. `config/view.ts` owns
-that resolution, along with the `column:` override block whose values apply only when the
-card renders as columns.
+The effective view can change with available width. Column and Grid can fall back to List
+or retain their side-by-side layout with horizontal scrolling, according to their density
+options. Grid's width calculation also reserves the hour gutter. `config/view.ts` owns
+this resolution and its hysteresis, so resizing does not repeatedly flip layouts at a
+boundary. The editor workspace is separate: choosing List exposes its controls without
+changing the displayed layout.
+
+## 🧱 Configuration Layers & Editor Adoption
+
+The top level is the shared base. `list:`, `column:`, and `time_grid:` hold presentation
+values for their own views; calendars, fetching, language, actions, and other card-wide
+options stay at the top level. For a shared view option, both `resolveViewOption` and
+`resolveEffectiveConfig` apply the same order: explicit view override, built-in divergent
+view default, shared value. List has no divergent defaults. View-only options use their
+own block defaults, with permanent root fallback for the legacy List-only options.
+
+The editor exposes four destinations: **All Layouts** writes roots, and **List**,
+**Column**, and **Grid** write their blocks. `workspace.ts` distinguishes the destination
+from the view used to build panel structure. All Layouts uses List-shaped panels, but
+conditional controls resolve shared values, never `list:` overrides. `routing.ts`
+captures the destination with each rendered form so a delayed event cannot write into a
+different workspace.
+
+`config_version: 5` records editor adoption; it is not a renderer precedence switch.
+`configVersionState` classifies missing or older nonnegative integer markers as legacy,
+accepts the current version, and blocks visual-editor writes for future or malformed
+versions. It does not coerce a string such as `'5'` into a number.
+
+For an ambiguous legacy List or Grid card, the editor waits for the user's interpretation
+of authored divergent roots. **Keep my existing List appearance** moves them into
+`list:`; **Use these settings for all layouts** keeps them shared. Both move List-only
+roots into `list:`, preserve explicit block values, and stamp the format. Legacy Column,
+unambiguous cards, and versionless configurations already carrying `list:` or `time_grid:`
+adopt on the first real edit without that prompt. Opening alone emits no configuration.
+
+Authorship is captured from raw input before defaults are merged. Migration uses those raw
+values, including `false`, zero, and default-equal values; local editor state is updated
+before forms reopen or Home Assistant echoes the save. Serialization retains explicit
+divergent shared roots so reopening does not lose a choice that a later Grid transition
+must preserve. Implicit defaults remain absent. A transition to Grid may copy those roots
+into `time_grid:`; that editor reconciliation does not run when loading YAML.
+
+See [Per-View Options](/features/core-settings#per-view-options) and the
+[editor upgrade flow](/features/editor#upgrading-a-card-from-before-v5) for user-facing
+examples.
 
 ## 📦 Two Files, One Card
 
@@ -127,6 +169,7 @@ Manages all configuration aspects of the card:
 
 - **config.ts**:
   - Defines default configuration (`DEFAULT_CONFIG`)
+  - Classifies configuration-format markers for safe editor adoption
   - Provides helper functions for normalizing entity configurations
   - Detects configuration changes that require data refresh
   - Generates stub configurations for the card editor
@@ -142,14 +185,14 @@ Manages all configuration aspects of the card:
   - Provides type safety throughout the application
 
 - **view.ts**:
-  - Resolves the effective value of an option for the view being rendered, merging the
-    `column:` override block over the top-level value
+  - Resolves List, Column, and Grid values from view overrides, divergent defaults, and
+    the shared base
   - Owns which options may be overridden per view, and which may not — anything deciding
-    _which_ events are fetched has to hold one value in both layouts, because the card
+    _which_ events are fetched has to hold one value across layouts, because the card
     switches between them as the dashboard resizes
-  - Computes the width threshold at which the column layout engages, and the hysteresis
+  - Computes the width thresholds at which side-by-side layouts engage, and the hysteresis
     that stops it oscillating at the boundary
-  - Validates the `column:` block and reports unusable keys
+  - Validates all three view blocks and reports unusable keys
 
 ### Interaction (`interaction/`)
 
@@ -168,24 +211,30 @@ Handles all user interaction with the card:
 
 ### Rendering (`rendering/`)
 
-Generates the HTML and CSS for the card. `render.ts` and `column.ts` are the two view
-containers; everything they place comes from `leaves.ts` and `presentation.ts`:
+Generates the HTML and CSS for the card. Three view containers share `leaves.ts` and
+`presentation.ts`, with time-grid geometry kept separate from DOM construction:
 
 - **render.ts**:
   - Renders the card shell — title, states, error and empty output
   - Renders the **list** view: days stacked vertically, each event a table row
-  - Dispatches to the column view once `config/view.ts` resolves one
+  - Exposes Column and Grid renderers for the main component's view dispatch
 
 - **column.ts**:
   - Renders the **column** view: each day a vertical track, laid out side by side
   - Arranges the same leaves as the list view along the other axis, and adds the
     column-only furniture — per-column headers, vertical separators in the gutter
 
+- **grid.ts**:
+  - Renders the hour gutter, timed-event columns, spanning all-day band, and now line
+  - Splits timed multi-day events into timed segments without turning middle days into
+    all-day events; the List/Column `split_multiday_events` option is not used
+  - Applies percentage-based positions and overlap lanes from `utils/grid.ts`
+
 - **leaves.ts**:
   - The axis-agnostic pieces: the date block, the event body, the weather badges, the
     today indicator
-  - None of them knows which container will place it, which is what keeps the two views
-    from drifting apart in what they draw
+  - Receives resolved values and presentation hints from the containers, keeping shared
+    content consistent across views
 
 - **presentation.ts**:
   - Computes everything about an event that does not depend on layout: whether it has
@@ -206,9 +255,10 @@ containers; everything they place comes from `leaves.ts` and `presentation.ts`:
   - Keeps the displayed `view` separate from the editor-local workspace. Workspace
     changes select schemas without writing configuration; edits use the workspace captured
     by the emitting form and compare normalized values before choosing a storage scope
-  - Captures authored root keys before merging defaults and keeps that information in
-    editor-local state. A transition to Grid copies only authored choices, never implicit
-    view defaults; Reset removes selected overrides without a separate exception picker
+  - Captures authored root keys before merging defaults and persists choices whose presence
+    matters after reopening. A transition to Grid copies only authored choices, never
+    implicit view defaults; Reset removes selected view values without an exception picker
+  - Gates legacy adoption through `config_version` and a one-time choice where necessary
 
 ### Translations (`translations/`)
 
@@ -232,6 +282,12 @@ Provides core functionality across the card:
   - Implements caching system for calendar data
   - Processes and filters events based on configuration
   - Groups events by day for display
+
+- **grid.ts**:
+  - Resolves visible time bands and local wall-clock positions
+  - Splits timed events by day, packs overlapping lanes, and places all-day banners
+  - Takes the current instant as input where needed, so geometry tests do not depend on
+    DOM measurements or the running clock
 
 - **format.ts**:
   - Formats dates and times for display
@@ -293,8 +349,11 @@ graph TD
     Render --> ViewRes[View Resolution]
     ViewRes --> List[List View]
     ViewRes --> Column[Column View]
+    ViewRes --> Grid[Grid View]
     List --> Leaves[Shared Leaf Renderers]
     Column --> Leaves
+    Grid --> Leaves
+    Grid --> Geometry[Pure Grid Geometry]
     Leaves --> Present[Presentation Models]
     Render --> Styles[CSS Generation]
     Render --> Localize[Translations]
@@ -327,9 +386,11 @@ graph TD
    - Events are stored in local storage with configurable expiration
 2. **Data Processing**:
    - Raw calendar events are filtered for relevant dates
-   - Events are grouped by day using `groupEventsByDay()`
+   - Events are grouped by day using `groupEventsByDay()` with the effective view's options
    - Each event is enhanced with formatted time and location strings
    - Entity-specific styling is applied to each event
+   - Grid keeps source event types intact for its separate timed-segment and all-day-band
+     placement, rather than using the List/Column multi-day splitter
 
 3. **Rendering Flow**:
    - Main component calls `render()` which uses the `Render` module

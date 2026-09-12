@@ -349,6 +349,19 @@ export interface ListMigrationResult {
   readonly movedRootKeys: ReadonlyArray<string>;
 }
 
+function retainAuthoredSharedValues(
+  stored: Record<string, unknown>,
+  authored: Readonly<Record<string, unknown>>,
+  authoredRootKeys: ReadonlySet<string>,
+): void {
+  // These roots can differ from a view's defaults. Their presence preserves the user's
+  // choice on a later editor view switch, even when the value equals DEFAULT_CONFIG.
+  for (const key of listRelocationKeys().divergent) {
+    const value = authored[key];
+    if (authoredRootKeys.has(key) && value !== undefined && value !== null) stored[key] = value;
+  }
+}
+
 /**
  * Moves authored legacy root values into the `list:` block and stamps the v5 format.
  *
@@ -368,6 +381,7 @@ export function migrateListConfig(
   const { listOnly, divergent } = listRelocationKeys();
   const moving = mode === 'keep-list' ? [...listOnly, ...divergent] : listOnly;
   const migrated = { ...stored };
+  retainAuthoredSharedValues(migrated, authored, new Set(Object.keys(authored)));
 
   const block: Record<string, unknown> = Helpers.isConfigBlock(migrated.list)
     ? { ...(migrated.list as Record<string, unknown>) }
@@ -390,12 +404,16 @@ export function migrateListConfig(
 }
 
 /**
- * Reduces a merged configuration to the smallest one that renders identically.
+ * Removes unused defaults while preserving explicitly authored shared view choices.
  *
  * @param config - Merged configuration as the form sees it
+ * @param authoredRootKeys - Raw root presence plus later root edits; never merged defaults
  * @returns The configuration to store
  */
-export function toStoredConfig(config: Readonly<Types.Config>): Record<string, unknown> {
+export function toStoredConfig(
+  config: Readonly<Types.Config>,
+  authoredRootKeys: ReadonlySet<string> = new Set(),
+): Record<string, unknown> {
   const draft = { ...(config as unknown as Record<string, unknown>) };
 
   for (const key of Object.keys(draft)) {
@@ -423,6 +441,7 @@ export function toStoredConfig(config: Readonly<Types.Config>): Record<string, u
     draft,
     Config.DEFAULT_CONFIG as unknown as Record<string, unknown>,
   );
+  retainAuthoredSharedValues(stored, draft, authoredRootKeys);
 
   for (const [key, value] of atomic) {
     if (value !== undefined && !deepEqual(value, Config.DEFAULT_CONFIG[key])) {

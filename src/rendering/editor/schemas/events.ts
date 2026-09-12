@@ -4,11 +4,11 @@
 
 import { mdiCalendarText } from '@mdi/js';
 
-import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
+import { resolveWorkspaceOption } from '../workspace';
 import { bool, color, group, heading, number, row, select, text } from './common';
 
 export const EVENTS_ICON = mdiCalendarText;
@@ -344,22 +344,18 @@ const eventsSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
-  // The live editor supplies a workspace projection to both gates and synthetic values.
-  // Keep the view-aware gates for standalone schema builders too. The resolved values
-  // are memo keys, so a different view cannot reuse the previous view's visibility.
+  const workspace = ctx.workspace ?? ctx.view;
   return eventsSchema(
     ctx.language,
-    ViewConfig.resolveViewOption(ctx.config, 'show_time', ctx.view),
-    ViewConfig.resolveViewOption(ctx.config, 'show_location', ctx.view),
-    ViewConfig.resolveViewOption(ctx.config, 'show_description', ctx.view),
+    resolveWorkspaceOption(ctx.config, 'show_time', workspace),
+    resolveWorkspaceOption(ctx.config, 'show_location', workspace),
+    resolveWorkspaceOption(ctx.config, 'show_description', workspace),
     Synthetic.locationCountryMode(ctx.config),
-    ViewConfig.resolveViewOption(ctx.config, 'show_countdown', ctx.view),
-    ViewConfig.resolveViewOption(ctx.config, 'show_progress_bar', ctx.view),
+    resolveWorkspaceOption(ctx.config, 'show_countdown', workspace),
+    resolveWorkspaceOption(ctx.config, 'show_progress_bar', workspace),
     Synthetic.accentColorMode(ctx.config),
-    // Resolved through the view, so a column-view override of the position shows the
-    // treatment select when the column turns the badge on and the card level has it off.
     Helpers.resolveAlldayBadgePosition(
-      ViewConfig.resolveViewOption(ctx.config, 'allday_badge', ctx.view),
+      resolveWorkspaceOption(ctx.config, 'allday_badge', workspace),
     ),
     // Mode and value use the same projection, including a custom color held by this view.
     Synthetic.alldayBadgeColorMode(ctx.config.allday_badge_color),

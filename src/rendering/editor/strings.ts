@@ -37,7 +37,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   editing_workspace: 'Editing Settings For',
   'editing_workspace.helper': 'Choose which layout to edit without changing Card Displays.',
   'editing_workspace.shared_note':
-    'Every layout uses these values, unless that layout has its own value for the option.',
+    'These are the shared starting values. A layout’s own settings or built-in defaults can take precedence.',
   'value_source.card': 'Applies to the whole card.',
   'value_source.inherited': 'Uses the card-wide value unless you change it here.',
   'value_source.default': 'Uses this layout’s default until you change it here.',
@@ -59,10 +59,10 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'config_migration.affected': 'Choose what these settings mean: {options}.',
   'config_migration.keep_list': 'Keep my existing List appearance',
   'config_migration.keep_list_note':
-    'Recommended. These choices stay with List, while Column and Grid use their own defaults.',
+    'Recommended. Keep these values specific to List; other layouts keep their own settings and defaults.',
   'config_migration.use_shared': 'Use these settings for all layouts',
   'config_migration.use_shared_note':
-    'These choices become the common starting point for every layout that does not override them.',
+    'Keep these values shared. A layout’s own settings and built-in defaults can still take precedence.',
   'config_migration.future_title': 'This Card Uses a Newer Configuration',
   'config_migration.future_message':
     'This editor supports configuration version 5, but the card uses version {version}. Update Calendar Card Pro before editing it.',

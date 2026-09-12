@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { buildConfig } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import { VIEWS, VIEW_SCOPE } from '../src/config/view';
@@ -17,6 +16,19 @@ import {
   WORKSPACE_FIELD,
 } from '../src/rendering/editor/workspace';
 import * as Logger from '../src/utils/logger';
+
+// Complete shipped translations must not remove the partial-language fallback fixture.
+vi.mock('../src/rendering/editor/translations/index', async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import('../src/rendering/editor/translations/index')>();
+  return {
+    ...original,
+    EDITOR_LANGUAGE_STRINGS: {
+      ...original.EDITOR_LANGUAGE_STRINGS,
+      'test-partial': { 'panel.separators': 'Translated separator title' },
+    },
+  };
+});
 
 customElements.define('editor-workspace-test', CalendarCardProEditor);
 
@@ -66,13 +78,11 @@ function owner(editor: EditorHost, key: string, selector = 'ha-form.panel-form')
 async function mount(overrides: Partial<Types.Config> = {}): Promise<EditorHost> {
   const editor = document.createElement('editor-workspace-test') as EditorHost;
   editor.hass = { states: {}, locale: { language: 'en' } };
-  editor.setConfig(
-    buildConfig({
-      config_version: Config.CURRENT_CONFIG_VERSION,
-      entities: ['calendar.anna'],
-      ...overrides,
-    }),
-  );
+  editor.setConfig({
+    config_version: Config.CURRENT_CONFIG_VERSION,
+    entities: [{ entity: 'calendar.anna' }],
+    ...overrides,
+  });
   document.body.appendChild(editor);
   await editor.updateComplete;
   return editor;
@@ -534,9 +544,8 @@ describe('a panel retitles itself for the workspace it configures', () => {
   /**
    * Reconciled across every translated language, panel and view rather than spot-checked,
    * and it reports its own denominator: `guarded` counts the cases where an English
-   * refinement exists and the language does not have it, which is precisely the class that
-   * would drop to English if the order were wrong. A zero there would mean the loop proved
-   * nothing, so it is asserted rather than assumed.
+   * refinement exists and the language does not have it, including the deliberately partial
+   * fixture above. That branch must remain covered when every shipped language is complete.
    */
   it('never replaces a translated title with an English refinement', () => {
     let guarded = 0;

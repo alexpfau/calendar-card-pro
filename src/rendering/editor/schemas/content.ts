@@ -6,11 +6,11 @@ import { mdiCalendarRange } from '@mdi/js';
 
 import * as Config from '../../../config/config';
 import * as Types from '../../../config/types';
-import * as ViewConfig from '../../../config/view';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
 import * as Synthetic from '../synthetic';
+import { resolveWorkspaceOption } from '../workspace';
 import { bool, color, group, heading, number, row, select, text } from './common';
 
 export const CONTENT_ICON = mdiCalendarRange;
@@ -138,32 +138,15 @@ const contentSchema = Helpers.memoizeLast(
  * @returns The panel's schema
  */
 export function buildContentSchema(ctx: SchemaCtx): HaFormSchema[] {
+  const workspace = ctx.workspace ?? ctx.view;
   return contentSchema(
     ctx.language,
     Synthetic.startDateMode(ctx.config),
     Synthetic.languageMode(ctx.config),
     hasCompactEventLimit(ctx.config),
-    resolvesEmptyDays(ctx.config, ctx.view),
-    resolvesFilterDuplicates(ctx.config, ctx.view),
+    Boolean(resolveWorkspaceOption(ctx.config, 'show_empty_days', workspace)),
+    Boolean(resolveWorkspaceOption(ctx.config, 'filter_duplicates', workspace)),
   );
-}
-
-/**
- * Whether duplicates are filtered in the view the card is configured for.
- *
- * View-aware for the same reason `resolvesEmptyDays` is: `filter_duplicates` is a
- * `COLUMN_OVERRIDE_KEYS` member, so a card filtering duplicates only in its column view
- * must still be offered the accent color while that view's exceptions are being edited.
- *
- * @param config - Merged configuration
- * @param view - View the panel is being built for
- * @returns `true` when a merged row can exist, and so can be recolored
- */
-function resolvesFilterDuplicates(
-  config: Readonly<Types.Config>,
-  view: Types.EffectiveView,
-): boolean {
-  return Boolean(ViewConfig.resolveViewOption(config as Types.Config, 'filter_duplicates', view));
 }
 
 /**
@@ -174,15 +157,4 @@ function resolvesFilterDuplicates(
  */
 function hasCompactEventLimit(config: Readonly<Types.Config>): boolean {
   return Config.toValidNumber(config.compact_events_to_show, 0) !== undefined;
-}
-
-/**
- * Whether the card shows empty days in the view it is configured for.
- *
- * @param config - Merged configuration
- * @param view - View the card is configured to render
- * @returns `true` when empty days can appear
- */
-function resolvesEmptyDays(config: Readonly<Types.Config>, view: Types.EffectiveView): boolean {
-  return Boolean(ViewConfig.resolveViewOption(config as Types.Config, 'show_empty_days', view));
 }

@@ -73,6 +73,25 @@ describe('the expand gesture outside list view', () => {
     expect(card.isExpanded).toBe(false);
   });
 
+  it.each(['compact_events_to_show', 'compact_days_to_show'])(
+    'expands when %s is stored in the List block',
+    (key) => {
+      const card = mount(
+        config({
+          compact_events_to_show: undefined,
+          compact_days_to_show: undefined,
+          list: { [key]: 2 },
+        }),
+      );
+      expect(card.effectiveView).toBe('list');
+      expect(card.isExpanded).toBe(false);
+      card.toggleExpanded();
+      expect(card.isExpanded).toBe(true);
+      card.toggleExpanded();
+      expect(card.isExpanded).toBe(false);
+    },
+  );
+
   it('does NOT expand in COLUMN view, even with a compact limit set', () => {
     const card = mount(config({ view: 'column' }));
     expect(card.effectiveView).toBe('column');

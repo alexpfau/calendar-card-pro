@@ -3,14 +3,20 @@
  * values, then records the answer so no later save has to guess again.
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import '../src/calendar-card-pro';
+import { FROZEN_NOW } from './fixtures';
 import * as Config from '../src/config/config';
 import type * as Types from '../src/config/types';
 import * as View from '../src/config/view';
 import { CalendarCardProEditor } from '../src/rendering/editor/element';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { workspaceFields } from '../src/rendering/editor/routing';
+import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
+import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations/index';
+import { listRelocationKeys } from '../src/rendering/editor/value';
+import { groupEventsByDay } from '../src/utils/events';
 
 const TAG = 'editor-config-migration-test';
 customElements.define(TAG, CalendarCardProEditor);
@@ -24,6 +30,13 @@ interface EditorHost extends HTMLElement {
 interface Form extends HTMLElement {
   schema: ReadonlyArray<HaFormSchema>;
   data: Record<string, unknown>;
+}
+
+interface ExpandableCard extends HTMLElement {
+  config: Types.Config;
+  isExpanded: boolean;
+  setConfig(config: Record<string, unknown>): void;
+  handleAction(action: Types.ActionConfig): void;
 }
 
 async function mount(config: Record<string, unknown>) {
@@ -50,8 +63,10 @@ function forms(editor: EditorHost): Form[] {
 }
 
 function formFor(editor: EditorHost, key: string): Form {
-  const matches = forms(editor).filter((form) =>
-    [...workspaceFields(form.schema)].some(({ node }) => node.name === key),
+  const matches = forms(editor).filter(
+    (form) =>
+      !form.classList.contains('entity-form') &&
+      [...workspaceFields(form.schema)].some(({ node }) => node.name === key),
   );
   expect(matches, `form for ${key}`).toHaveLength(1);
   return matches[0];
@@ -82,6 +97,7 @@ function merged(config: Record<string, unknown>): Types.Config {
 
 afterEach(() => {
   document.body.replaceChildren();
+  vi.useRealTimers();
 });
 
 describe('ambiguous legacy configurations', () => {
@@ -299,6 +315,40 @@ describe('automatic adoption paths', () => {
 });
 
 describe('configuration version states', () => {
+  it.each(['en', ...Object.keys(EDITOR_LANGUAGE_STRINGS)])(
+    'renders the migration choices and version warnings in %s',
+    async (language) => {
+      const expected = (key: string) =>
+        EDITOR_LANGUAGE_STRINGS[language]?.[key] ?? EDITOR_STRINGS[key];
+      const { editor, reports } = await mount({
+        language,
+        event_font_size: '18px',
+      });
+      const panel = blocker(editor)!;
+      expect(panel.textContent).toContain(expected('config_migration.title'));
+      expect(
+        [...panel.querySelectorAll('button')].map((button) => button.textContent?.trim()),
+      ).toEqual([expected('config_migration.keep_list'), expected('config_migration.use_shared')]);
+      await choose(editor, 'keep-list');
+      expect(reports[0]).toMatchObject({
+        language,
+        list: { event_font_size: '18px' },
+        config_version: Config.CURRENT_CONFIG_VERSION,
+      });
+
+      editor.setConfig({ language, config_version: 6 });
+      await editor.updateComplete;
+      expect(blocker(editor)!.textContent).toContain(expected('config_migration.future_title'));
+      expect(forms(editor)).toHaveLength(0);
+
+      editor.setConfig({ language, config_version: '5' });
+      await editor.updateComplete;
+      expect(blocker(editor)!.textContent).toContain(expected('config_migration.invalid_title'));
+      expect(forms(editor)).toHaveLength(0);
+      expect(reports).toHaveLength(1);
+    },
+  );
+
   it.each([
     { event_font_size: '18px' },
     { config_version: 6, list: { event_font_size: '18px' } },
@@ -412,5 +462,159 @@ describe('adoption waits for a real edit', () => {
       event_font_size: '18px',
       list: { today_indicator_position: 'left' },
     });
+  });
+});
+
+describe('All Layouts follows shared values rather than List', () => {
+  it.each([true, false])('gates dependent controls on root switches set to %s', async (enabled) => {
+    const switches = (on: boolean) => ({
+      show_time: on,
+      show_location: on,
+      show_description: on,
+      show_countdown: on,
+      show_progress_bar: on,
+      show_empty_days: on,
+      filter_duplicates: on,
+      allday_badge: on ? 'title' : false,
+    });
+    const children = [
+      'time_font_size',
+      'location_font_size',
+      'description_font_size',
+      'show_countdown_allday',
+      'progress_bar_height',
+      'empty_day_text',
+      'duplicate_accent_color',
+      'allday_badge_style',
+    ];
+    const { editor, reports } = await mount({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      ...switches(enabled),
+      list: switches(!enabled),
+    });
+
+    const visible = () =>
+      new Set(
+        forms(editor)
+          .filter((form) => !form.classList.contains('entity-form'))
+          .flatMap((form) => [...workspaceFields(form.schema)].map(({ node }) => node.name)),
+      );
+    await change(editor, 'editing_workspace', 'shared');
+    expect(formFor(editor, 'show_location').data.show_location).toBe(enabled);
+    for (const key of children) expect(visible().has(key), `Shared ${key}`).toBe(enabled);
+
+    await change(editor, 'editing_workspace', 'list');
+    for (const key of children) expect(visible().has(key), `List ${key}`).toBe(!enabled);
+    expect(reports).toEqual([]);
+  });
+
+  it('preserves default-valued Shared intent after closing and reopening', async () => {
+    const { editor, reports } = await mount({ config_version: Config.CURRENT_CONFIG_VERSION });
+    await change(editor, 'editing_workspace', 'shared');
+    const values = {
+      event_font_size: ['18px', '14px'],
+      day_spacing: ['18px', '10px'],
+      event_background_opacity: [5, 0],
+      show_past_events: [true, false],
+    };
+    for (const [key, [other, chosen]] of Object.entries(values)) {
+      await change(editor, key, other);
+      await change(editor, key, chosen);
+    }
+    const saved = reports.at(-1)!;
+    const chosen = Object.fromEntries(
+      Object.entries(values).map(([key, [, value]]) => [key, value]),
+    );
+    expect(saved).toMatchObject(chosen);
+
+    const reopened = await mount(saved);
+    await change(reopened.editor, 'view', 'grid');
+    await change(editor, 'view', 'grid');
+    expect(reopened.reports.at(-1)?.time_grid).toMatchObject(chosen);
+    expect(reopened.reports.at(-1)?.time_grid).toEqual(reports.at(-1)?.time_grid);
+  });
+
+  it('keeps default-valued roots when migration explicitly chooses shared storage', async () => {
+    const chosen = {
+      event_font_size: '14px',
+      day_spacing: '10px',
+      event_background_opacity: 0,
+      show_past_events: false,
+    };
+    const { editor, reports } = await mount(chosen);
+    await choose(editor, 'shared-root');
+    expect(reports.at(-1)).toMatchObject({
+      ...chosen,
+      config_version: Config.CURRENT_CONFIG_VERSION,
+    });
+
+    const reopened = await mount(reports.at(-1)!);
+    await change(reopened.editor, 'view', 'grid');
+    expect(reopened.reports.at(-1)?.time_grid).toMatchObject(chosen);
+  });
+
+  it('retains every authored divergent root default without materializing unrelated defaults', async () => {
+    const keys = listRelocationKeys().divergent;
+    const authored = Object.fromEntries(
+      keys.map((key) => [key, Config.DEFAULT_CONFIG[key as keyof Types.Config]]),
+    );
+    const { editor, reports } = await mount({
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      ...authored,
+    });
+    await change(editor, 'title', 'Shared choices');
+    expect(reports.at(-1)).toEqual({
+      entities: ['calendar.anna'],
+      config_version: Config.CURRENT_CONFIG_VERSION,
+      title: 'Shared choices',
+      ...authored,
+    });
+  });
+});
+
+describe('compact expansion after editor migration', () => {
+  it.each([
+    { key: 'compact_events_to_show', limit: 2 },
+    { key: 'compact_days_to_show', limit: 1 },
+  ])('keeps the real expand action working after migrating $key', async ({ key, limit }) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+    const raw = {
+      entities: ['calendar.anna'],
+      days_to_show: 3,
+      [key]: limit,
+      tap_action: { action: 'expand' },
+    };
+    const { editor, reports } = await mount(raw);
+    await change(editor, 'title', 'Compact calendar');
+    const migrated = reports.at(-1)!;
+    expect(migrated).toHaveProperty(`list.${key}`, limit);
+    expect(migrated).not.toHaveProperty(key);
+
+    const events: Types.CalendarEventData[] = [
+      ['2026-06-17', '2026-06-18'],
+      ['2026-06-18', '2026-06-19'],
+      ['2026-06-19', '2026-06-20'],
+    ].map(([start, end], index) => ({
+      summary: `Appointment ${index + 1}`,
+      start: { date: start },
+      end: { date: end },
+      _entityId: 'calendar.anna',
+    }));
+    for (const config of [raw, migrated]) {
+      const card = document.createElement('calendar-card-pro-dev') as ExpandableCard;
+      card.setConfig(config);
+      document.body.appendChild(card);
+      const eventCount = () =>
+        groupEventsByDay(events, card.config, card.isExpanded, 'en', 'list').flatMap(
+          (day) => day.events,
+        ).length;
+      expect(eventCount()).toBe(limit);
+      card.handleAction(card.config.tap_action!);
+      expect(card.isExpanded).toBe(true);
+      expect(eventCount()).toBe(3);
+      card.handleAction(card.config.tap_action!);
+      expect(eventCount()).toBe(limit);
+    }
   });
 });

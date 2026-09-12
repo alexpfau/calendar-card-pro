@@ -2100,11 +2100,12 @@ class CalendarCardPro extends LitElement {
     const isLimit = (value: unknown): boolean =>
       typeof value === 'number' && Number.isFinite(value);
 
-    if (isLimit(this.config.compact_events_to_show) || isLimit(this.config.compact_days_to_show)) {
+    const config = this.effectiveConfig;
+    if (isLimit(config.compact_events_to_show) || isLimit(config.compact_days_to_show)) {
       return true;
     }
 
-    return (this.config.entities ?? []).some(
+    return (config.entities ?? []).some(
       (entity) =>
         typeof entity === 'object' && entity !== null && isLimit(entity.compact_events_to_show),
     );

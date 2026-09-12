@@ -1024,11 +1024,13 @@ These flexible controls allow you to:
 ## 🧱 Per-View Options
 
 Calendar Card Pro renders in three layouts, and each has a block of its own: `list:`,
-`column:` and `time_grid:`. Everything at the top level is the **shared base** — write an
-option there once and all three layouts use it.
+`column:` and `time_grid:`. Top-level presentation options form the **shared base**.
+For an option that a view can override, the card uses the view's explicit value first,
+then any built-in default specific to that view, then the shared value. List has no
+different built-in defaults; Column and Grid do.
 
 ```yaml
-# Shared by every layout
+# Shared starting values
 event_font_size: 14px
 show_location: true
 
@@ -1036,13 +1038,18 @@ column:
   event_font_size: 11px # Column view only — narrower columns, smaller type
 ```
 
-A block names only what should differ. Anything it does not mention keeps the top-level
-value, so the example above shows locations in all three layouts and shrinks the type in
-just one.
+A block names what you want that layout to use explicitly. The example above shows
+locations in all three layouts, but the event font sizes are **14px in List, 11px in
+Column, and 12px in Grid**: Grid's own typography default takes precedence over the shared
+font size. Set `time_grid.event_font_size` as well if you want to change it there.
+See the [Column defaults](/features/column-view#options-that-start-from-a-different-default)
+and [Grid defaults](/features/grid-view#options-that-start-from-a-different-default) for
+the complete exception lists.
 
 Each block also holds the options only that layout has — the compact caps and date-cell
 settings in `list:`, the column widths in `column:`, the time axis in `time_grid:`. Those
-have no shared meaning, so there is nothing at the top level for them to fall back to.
+have no shared meaning and are not offered in All Layouts. Legacy List-only root values
+remain supported as described below.
 
 ::: tip Older Configurations Keep Working
 Before v5 there was no `list:` block, so list options were written at the top level. They
@@ -1051,6 +1058,12 @@ top-level options that could mean either "List only" or "shared by every layout"
 visual editor asks which meaning you want before it changes the configuration. If there is
 no such ambiguity, the first real editor save adopts the new arrangement automatically.
 :::
+
+In the [visual editor](/features/editor#options-for-the-selected-view), choose All Layouts
+to edit shared values or a named layout to edit only its block. Explicit shared choices
+whose defaults differ by layout remain in saved YAML even when they match the card default.
+Switching the displayed layout to Grid in the editor can copy those choices into
+`time_grid:` to preserve them; this is an editor action, not different YAML precedence.
 
 **→ [Column View](/features/column-view)** — what column may override, and what it ignores.
 **→ [Grid View](/features/grid-view)** — the same for the time grid.

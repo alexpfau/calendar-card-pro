@@ -116,7 +116,7 @@ export class CalendarCardProEditor extends LitElement {
       this._skipGridReconciliation = false;
     }
 
-    this._lastDispatched = Value.toStoredConfig(this._config);
+    this._lastDispatched = Value.toStoredConfig(this._config, this._authoredRootKeys);
   }
 
   /**
@@ -150,7 +150,11 @@ export class CalendarCardProEditor extends LitElement {
    * @returns Stamped stored configuration and the roots removed from it
    */
   private _migrationResult(mode: Value.ListMigrationMode): Value.ListMigrationResult {
-    return Value.migrateListConfig(Value.toStoredConfig(this._config!), this._rawConfig, mode);
+    return Value.migrateListConfig(
+      Value.toStoredConfig(this._config!, this._authoredRootKeys),
+      this._rawConfig,
+      mode,
+    );
   }
 
   /**
@@ -307,7 +311,7 @@ export class CalendarCardProEditor extends LitElement {
    * @param config - Merged configuration after the edit
    */
   private _report(config: Types.Config): void {
-    const stored = Value.toStoredConfig(config);
+    const stored = Value.toStoredConfig(config, this._authoredRootKeys);
 
     if (Value.equalConfigs(stored, this._lastDispatched ?? {})) {
       return;

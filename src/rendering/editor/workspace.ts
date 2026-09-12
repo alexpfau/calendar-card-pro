@@ -5,13 +5,13 @@
 import type { HaFormSchema } from './ha-form';
 import { select } from './schemas/common';
 import type * as Types from '../../config/types';
-import { VIEWS } from '../../config/view';
+import { VIEWS, resolveViewOption } from '../../config/view';
 
 /**
  * A workspace is a place values are written, which is not the same thing as a view.
  *
  * Three of the four name a view and write into that view's block. `'shared'` names the
- * top level — the base every view reads when its own block is silent — so it is a real
+ * top level — the fallback after a view's overrides and built-in defaults — so it is a real
  * destination with no view behind it. It was deleted once, in the editor rework's Stage 5,
  * on the correct finding that it was byte-identical to List; that was true only because
  * list's keys lived at the top level. `list:` is what gives it a job.
@@ -35,6 +35,21 @@ export const WORKSPACES: ReadonlyArray<EditorWorkspace> = ['shared', ...VIEWS];
  */
 export function viewForWorkspace(workspace: EditorWorkspace): Types.EffectiveView | undefined {
   return workspace === 'shared' ? undefined : workspace;
+}
+
+/**
+ * Resolves an option for conditional controls without treating Shared as List.
+ *
+ * @param config - Configuration available to the schema
+ * @param key - Shared view option that gates another control
+ * @param workspace - Destination being edited, not the schema's base view
+ * @returns The shared root value or the selected view's resolved value
+ */
+export function resolveWorkspaceOption<
+  K extends keyof Types.SharedViewOverrides & keyof Types.Config,
+>(config: Readonly<Types.Config>, key: K, workspace: EditorWorkspace): Types.Config[K] {
+  const view = viewForWorkspace(workspace);
+  return view === undefined ? config[key] : resolveViewOption(config, key, view);
 }
 
 /**

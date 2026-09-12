@@ -561,17 +561,18 @@ export const GLOSSARY_TERMS = [
   },
   {
     name: 'accent',
-    sense: 'the accent colour',
+    // The heading covers the bar, fill, and text treatment, not just its color selector.
+    sense: 'visual emphasis from the event bar, background fill, and text',
     decided: {
-      de: 'Akzentfarbe',
-      et: 'Esiletõstmise värv',
+      de: 'Akzent',
+      et: 'Esiletõstmine',
       it: 'Accento',
       lt: 'Akcentas',
       lv: 'Akcents',
-      nb: 'Aksentfarge',
+      nb: 'Aksent',
       pl: 'Akcent',
       sk: 'Zvýraznenie',
-      sv: 'Accentfärg',
+      sv: 'Framhävning',
     },
     rejected: {},
   },

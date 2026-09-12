@@ -123,14 +123,14 @@ describe('first-switch reconciliation regressions', () => {
     expect(notice(editor)!.textContent).toContain(lookup('en', entry.key));
   });
 
-  it('keeps explicitly authored root defaults even though serialization omits them', async () => {
+  it('keeps explicitly authored root defaults in storage and across the HA echo', async () => {
     const { editor, reports } = await mount({
       show_past_events: Config.DEFAULT_CONFIG.show_past_events,
       event_font_size: Config.DEFAULT_CONFIG.event_font_size,
     });
     await change(editor, 'title', 'Example');
-    expect(reports.at(-1)).not.toHaveProperty('show_past_events');
-    expect(reports.at(-1)).not.toHaveProperty('event_font_size');
+    expect(reports.at(-1)).toHaveProperty('show_past_events', false);
+    expect(reports.at(-1)).toHaveProperty('event_font_size', '14px');
     editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...reports.at(-1)! });
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
@@ -158,7 +158,7 @@ describe('first-switch reconciliation regressions', () => {
     const { editor, reports } = await mount();
     await authorAtRoot(editor, 'show_past_events', true);
     await authorAtRoot(editor, 'show_past_events', false);
-    expect(reports.at(-1)).not.toHaveProperty('show_past_events');
+    expect(reports.at(-1)).toHaveProperty('show_past_events', false);
     editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...reports.at(-1)! });
     await editor.updateComplete;
     await change(editor, 'view', 'grid');
