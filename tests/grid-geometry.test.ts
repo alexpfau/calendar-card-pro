@@ -614,6 +614,15 @@ describe('splitTimedEventByDay', () => {
 });
 
 describe('segmentMinutes', () => {
+  it('uses ordinary UTC geometry for instants spanning a fold in a different zone', () => {
+    const segment: Types.CalendarEventData = {
+      start: { dateTime: '2026-11-01T01:45:00-04:00' },
+      end: { dateTime: '2026-11-01T01:15:00-05:00' },
+    };
+    expect(new Date(segment.start.dateTime!).getTimezoneOffset()).toBe(0);
+    expect(segmentMinutes(segment)).toEqual({ startMin: 345, endMin: 375 });
+  });
+
   it('reads the wall clock of a same-day segment', () => {
     expect(segmentMinutes(timedEvent(9, 17))).toEqual({ startMin: 540, endMin: 1020 });
   });

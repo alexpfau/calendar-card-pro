@@ -60,6 +60,19 @@ columns for both timed and all-day events. A calendar's `days_of_week` filter ju
 covered date separately, so an event that starts on an excluded date can still appear on a
 later eligible date.
 
+### Events in the Repeated DST Hour
+
+The axis shows each local clock time once. When clocks move backward, a valid event can
+finish at the same or an earlier clock reading than it started. Grid draws that event from
+its local start for its elapsed duration, so it remains visible instead of becoming an
+empty or inverted block. For example, 01:45 before the clock change to 01:15 afterward is
+30 minutes long and occupies 01:45–02:15 on this single-hour axis.
+
+The event's stored start and end, time text, and progress remain based on its real
+instants. Clipping and overlap lanes use the displayed block interval. Other events keep
+their wall-clock endpoints, and a full local day still fills one day column whether it
+contains 23, 24, or 25 hours.
+
 ::: warning A Bad Time Resets Both Bounds
 If either value cannot be read as `HH:mm`, the card falls back to `07:00`–`22:00` for
 both. Honoring one half of a pair would produce a band you never asked for and could not

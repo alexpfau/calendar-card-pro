@@ -634,6 +634,9 @@ export function splitTimedEventByDay(
  *
  * A segment running to the following local midnight reports `1440` rather than `0`, so
  * a block ending at midnight is drawn to the bottom of the band instead of collapsing.
+ * When a backward clock change makes a positive-duration segment's end clock equal to
+ * or earlier than its start, draw its elapsed duration from that local start. The axis
+ * has only one copy of the repeated hour; the event's actual instants remain unchanged.
  *
  * @param segment - A timed segment confined to one local day
  * @returns Start and end in minutes from that day's midnight
@@ -646,7 +649,7 @@ export function segmentMinutes(segment: Types.CalendarEventData): LaneInput | nu
   const start = new Date(segment.start.dateTime);
   const end = new Date(segment.end.dateTime);
 
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
     return null;
   }
 
@@ -654,10 +657,11 @@ export function segmentMinutes(segment: Types.CalendarEventData): LaneInput | nu
   const rawEndMin = minutesFromMidnight(end);
 
   // Midnight reads as 0 on the *following* day, which would invert the interval.
-  const endMin =
-    FormatUtils.getCalendarDayDiff(start, end) > 0 || (rawEndMin === 0 && end > start)
-      ? MINUTES_PER_DAY
-      : rawEndMin;
+  let endMin = FormatUtils.getCalendarDayDiff(start, end) > 0 ? MINUTES_PER_DAY : rawEndMin;
+
+  if (endMin <= startMin && end.getTimezoneOffset() > start.getTimezoneOffset()) {
+    endMin = startMin + (end.getTime() - start.getTime()) / 60000;
+  }
 
   return { startMin, endMin };
 }
