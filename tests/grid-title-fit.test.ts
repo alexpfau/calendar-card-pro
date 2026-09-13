@@ -1,13 +1,44 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { cardStyles } from '../src/rendering/styles';
 import {
   adjacentGridTitleFont,
+  fitCompactGridTitles,
   gridTitleHasUsefulWidth,
   gridTitlePrefix,
+  gridTitleTarget,
   minimumGridTitleFont,
   selectGridTitleFont,
 } from '../src/utils/grid-title-fit';
+
+it('reuses one parked Range instead of burdening later DOM mutations with per-event ranges', () => {
+  const scope = document.implementation.createHTMLDocument('Grid fitting');
+  const blocks = Array.from({ length: 30 }, () => {
+    const block = scope.createElement('div');
+    block.innerHTML =
+      '<div class="grid-event-disclosure"><div class="summary-row"><div class="summary">' +
+      '<span class="calendar-label">Anna</span><span class="event-title">Library pickup</span>' +
+      '</div></div></div>';
+    scope.body.append(block);
+    return gridTitleTarget(block)!;
+  });
+  const create = vi.spyOn(scope, 'createRange');
+  const clone = vi.spyOn(Range.prototype, 'cloneRange');
+  try {
+    fitCompactGridTitles(blocks);
+    fitCompactGridTitles(blocks);
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(clone).not.toHaveBeenCalled();
+    const range = create.mock.results[0].value as Range;
+    expect(range.startContainer).toBe(scope);
+    expect(range.endContainer).toBe(scope);
+    expect(range.collapsed).toBe(true);
+    expect(blocks).toHaveLength(30);
+  } finally {
+    create.mockRestore();
+    clone.mockRestore();
+  }
+});
 
 describe('Grid compact font ladder', () => {
   it.each([

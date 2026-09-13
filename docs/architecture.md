@@ -295,6 +295,8 @@ Provides core functionality across the card:
   - Tries symmetric compact insets before scaling, protecting every text part's font floor
   - Uses bounded, batched layout reads and writes; the host owns dirty-block tracking,
     resize/font/image/content invalidation, and disconnect cleanup
+  - Reuses one parked measurement range per document, returning rectangle snapshots instead
+    of leaving per-event live ranges to burden later DOM mutations
   - Leaves time geometry, all-day banners, and ordinary List/Column rendering unchanged
 
 - **events.ts**:

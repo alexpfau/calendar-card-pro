@@ -17,10 +17,18 @@ const Segmenter = (
   }
 ).Segmenter;
 const GRAPHEMES = Segmenter ? new Segmenter(undefined, { granularity: 'grapheme' }) : null;
+const MEASUREMENT_RANGES = new WeakMap<Document, Range>();
 
 interface Bounds {
   top: number;
   bottom: number;
+}
+
+interface TextRun {
+  node: Node;
+  start: number;
+  text: string;
+  rects: DOMRect[];
 }
 
 export interface GridTitleTarget {
@@ -139,26 +147,65 @@ export function gridTitleTarget(block: HTMLElement): GridTitleTarget | null {
     : null;
 }
 
-function textRanges(element: Element): Range[] {
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-  const ranges: Range[] = [];
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    const text = node.textContent ?? '';
-    const start = text.search(/\S/u);
-    if (start < 0) continue;
-    const range = document.createRange();
-    range.setStart(node, start);
-    range.setEnd(node, text.trimEnd().length);
-    ranges.push(range);
+function measurementRange(document: Document): Range {
+  let range = MEASUREMENT_RANGES.get(document);
+  if (!range) {
+    range = document.createRange();
+    MEASUREMENT_RANGES.set(document, range);
   }
-  return ranges;
+  return range;
+}
+
+function parkRange(range: Range, document: Document): void {
+  range.setStart(document, 0);
+  range.collapse(true);
+}
+
+// A live Range participates in later DOM mutations until collected. Reuse one cursor and
+// return rectangle snapshots, then park it outside the card so it cannot retain a removed card.
+function textRuns(element: Element): TextRun[] {
+  const document = element.ownerDocument;
+  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  const runs: TextRun[] = [];
+  const range = measurementRange(document);
+  try {
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = node.textContent ?? '';
+      const start = text.search(/\S/u);
+      if (start < 0) continue;
+      range.setStart(node, start);
+      range.setEnd(node, text.trimEnd().length);
+      runs.push({
+        node,
+        start,
+        text: text.slice(start).trimEnd(),
+        rects: Array.from(range.getClientRects()),
+      });
+    }
+    return runs;
+  } finally {
+    parkRange(range, document);
+  }
+}
+
+function prefixWidth(run: TextRun | undefined, prefix: string): number {
+  const document = run?.node.ownerDocument;
+  if (!run || !document || !prefix) return 0;
+  const range = measurementRange(document);
+  try {
+    range.setStart(run.node, run.start);
+    range.setEnd(run.node, run.start + prefix.length);
+    return range.getBoundingClientRect().width;
+  } finally {
+    parkRange(range, document);
+  }
 }
 
 function labelRects(target: GridTitleTarget): DOMRect[] {
   return Array.from(target.summary.children).flatMap((label) => {
     if (label === target.title) return [];
     return label.matches('.calendar-label')
-      ? textRanges(label).flatMap((range) => Array.from(range.getClientRects()))
+      ? textRuns(label).flatMap((run) => run.rects)
       : Array.from(label.getClientRects());
   });
 }
@@ -211,8 +258,8 @@ export function normalGridTitleFits(target: GridTitleTarget): boolean {
   ) {
     return false;
   }
-  const ranges = textRanges(target.title);
-  const first = ranges[0]?.getClientRects()[0];
+  const runs = textRuns(target.title);
+  const first = runs[0]?.rects[0];
   if (!first || first.height <= 0) return false;
   const clip = normalClip(target);
   const row = target.row.getBoundingClientRect();
@@ -236,7 +283,7 @@ export function normalGridTitleFits(target: GridTitleTarget): boolean {
 function centeredShift(target: GridTitleTarget): number | null {
   const clip = normalClip(target);
   const row = target.row.getBoundingClientRect();
-  const glyphs = textRanges(target.summary).flatMap((range) => Array.from(range.getClientRects()));
+  const glyphs = textRuns(target.summary).flatMap((run) => run.rects);
   const bounds = union([
     row,
     ...glyphs.filter((glyph) => inside(glyph, row)),
@@ -262,28 +309,24 @@ function measureCompact(
   canvas: CanvasRenderingContext2D | null,
 ): CompactMeasurement {
   const scale = blockScale(target.block);
-  const ranges = textRanges(target.title);
-  const titleStyle = getComputedStyle(ranges[0]?.startContainer.parentElement ?? target.title);
+  const runs = textRuns(target.title);
+  const titleStyle = getComputedStyle(runs[0]?.node.parentElement ?? target.title);
   const title = target.title.getBoundingClientRect();
   const row = target.row.getBoundingClientRect();
   const summary = target.summary.getBoundingClientRect();
   const disclosure = target.disclosure.getBoundingClientRect();
-  const glyphs = ranges.flatMap((range) => Array.from(range.getClientRects()));
+  const glyphs = runs.flatMap((run) => run.rects);
   const labels = labelRects(target);
   const bounds = union([row, ...glyphs, ...labels]);
-  const text = ranges[0]?.toString() ?? '';
+  const text = runs[0]?.text ?? '';
   const prefix = gridTitlePrefix(text);
-  const prefixRange = ranges[0]?.cloneRange();
-  if (prefixRange && prefix) {
-    prefixRange.setEnd(prefixRange.startContainer, prefixRange.startOffset + prefix.length);
-  }
   const zoom = px(getComputedStyle(target.summary).zoom) || 1;
   if (canvas) canvas.font = titleStyle.font || `${titleStyle.fontSize} ${titleStyle.fontFamily}`;
   const ellipsis = canvas
     ? (canvas.measureText('\u2026').width + px(titleStyle.letterSpacing)) * scale * zoom
     : Infinity;
   const fullWidth = glyphs.reduce((width, rect) => width + rect.width, 0);
-  const prefixWidth = prefix && prefixRange ? prefixRange.getBoundingClientRect().width : 0;
+  const usefulWidth = prefixWidth(runs[0], prefix);
   const labelsFit = labels.every(
     (label) =>
       label.left >= summary.left - PRECISION &&
@@ -300,8 +343,8 @@ function measureCompact(
       px(titleStyle.fontSize),
       ...Array.from(target.summary.querySelectorAll<HTMLElement>('.calendar-label')).flatMap(
         (label) =>
-          textRanges(label).map((range) =>
-            px(getComputedStyle(range.startContainer.parentElement ?? label).fontSize),
+          textRuns(label).map((run) =>
+            px(getComputedStyle(run.node.parentElement ?? label).fontSize),
           ),
       ),
     ],
@@ -312,7 +355,7 @@ function measureCompact(
     readable:
       labelsFit &&
       imagesReady &&
-      gridTitleHasUsefulWidth(title.width, fullWidth, prefixWidth, ellipsis),
+      gridTitleHasUsefulWidth(title.width, fullWidth, usefulWidth, ellipsis),
   };
 }
 
