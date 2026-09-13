@@ -9,6 +9,7 @@ import { lookupForView } from '../src/rendering/editor/localize';
 import { PANELS, walkSchema } from '../src/rendering/editor/panels';
 import { EDITOR_STRINGS } from '../src/rendering/editor/strings';
 import { chassisSubforms } from '../src/rendering/editor/subforms';
+import { configKeysForField } from '../src/rendering/editor/synthetic';
 import { EDITOR_LANGUAGE_STRINGS } from '../src/rendering/editor/translations/index';
 import {
   type EditorWorkspace,
@@ -146,6 +147,8 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
     show_location: true,
     show_description: true,
     show_countdown: true,
+    allday_badge: 'title',
+    allday_badge_color: '#b5651d',
     compact_days_to_show: 2,
     compact_events_to_show: 3,
     compact_events_complete_days: true,
@@ -156,8 +159,9 @@ function enabled(view: Types.EffectiveView): Partial<Types.Config> {
 }
 
 function assertWorkspaceFields(editor: EditorHost, current: EditorWorkspace): void {
-  const main = forms(editor, 'ha-form.panel-form').flatMap((form) => names(form.schema));
-  expect(main.length).toBeGreaterThan(50);
+  const namesInForms = forms(editor, 'ha-form.panel-form').flatMap((form) => names(form.schema));
+  expect(namesInForms.length).toBeGreaterThan(50);
+  const main = namesInForms.flatMap((name) => configKeysForField(name));
   for (const [key, scope] of Object.entries(VIEW_SCOPE)) {
     // Shared offers a key when more than one layout reads it; a view offers it when that
     // view reads it. Asking `scope.has('shared')` would be false for every scoped key.

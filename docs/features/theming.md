@@ -172,8 +172,8 @@ card_mod:
 
 ### Shade weekend days
 
-`weekend` is on the day container in every view, so one rule covers the weekend whichever
-layout is active. Which days carry it follows your Home Assistant language, so this rule
+This rule covers the weekend in List and Column. Which days carry the `weekend` class
+follows your Home Assistant language, so this rule
 shades Friday and Saturday in an Arabic or Hebrew household without being rewritten:
 
 ```yaml
@@ -188,6 +188,9 @@ card_mod:
       border-radius: 8px;
     }
 ```
+
+For Grid, use [`time_grid.weekend_background_color`](/features/grid-view#shading-the-weekend)
+instead. Its tint spans the time axis and all-day band rather than either day container above.
 
 ### Frameless calendar integration
 

@@ -59,30 +59,30 @@ absent `column:` block a visual no-op.
 These live inside the `time_grid:` block and have no top-level counterpart, because they
 describe the shared day header, the time axis and the grid's responsive width fallback.
 
-| Option                                   | Type    | Default                                                         | Description                                                                                                                                     |
-| ---------------------------------------- | ------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `time_grid → day_header_gap`             | string  | `8px`                                                           | Vertical space between a day header and the content below it                                                                                    |
-| `time_grid → day_header_separator_width` | string  | `1px`                                                           | Thickness of the rule between the date row and the all-day band, drawn unbroken across the day columns; `0px` removes it                        |
-| `time_grid → day_header_separator_color` | string  | `color-mix(in srgb, var(--divider-color) 50%, transparent)`     | Color of that rule                                                                                                                              |
-| `time_grid → min_day_width`              | number  | `100`                                                           | Narrowest a day column may become, in pixels, before the grid sheds a column. Three days fit at 410px, or 426px entering from the list fallback |
-| `time_grid → min_days_to_show`           | number  | `1`                                                             | Fewest day columns the grid may shrink to. Defaults to one because a one-day grid is a useful day view with a now line                          |
-| `time_grid → min_days_fallback`          | string  | `list`                                                          | What happens when even `min_days_to_show` will not fit: `list` or `cramp`. Cramp retains a `2rem` day floor and scrolls horizontally below it   |
-| `time_grid → start_time`                 | string  | `07:00`                                                         | First moment the axis draws, as `HH:mm`. A value that cannot be read resets this and `end_time` together                                        |
-| `time_grid → end_time`                   | string  | `22:00`                                                         | Last moment the axis draws. Also accepts `24:00` for the end of the day                                                                         |
-| `time_grid → slot_minutes`               | number  | `60`                                                            | Spacing of the axis rules, in minutes: `15`, `20`, `30` or `60`. Changes the ruling only, never how tall an hour is                             |
-| `time_grid → weekend_background_color`   | string  | `color-mix(in srgb, var(--primary-text-color) 4%, transparent)` | Background tint for a weekend day column, from the date row down. Grid view only; set `transparent` to turn it off                              |
-| `time_grid → hour_height`                | string  | `48px`                                                          | Height of one hour. Sets the calendar content area's natural height; under a fixed `height` the axis compresses to fit instead                  |
-| `time_grid → hour_line_width`            | string  | `1px`                                                           | Thickness of the horizontal rules across the time body. `0px` removes them, and the rule closing the body at `end_time` with them               |
-| `time_grid → hour_line_color`            | string  | `color-mix(in srgb, var(--divider-color) 50%, transparent)`     | Color of those rules. A finer `slot_minutes` draws its extra rules in the same color                                                            |
-| `time_grid → allday_band_line_width`     | string  | `2px`                                                           | Thickness of the heavier rule under the all-day band. Twice the hour rule by default, but its own option rather than a multiple of one          |
-| `time_grid → allday_band_line_color`     | string  | `color-mix(in srgb, var(--divider-color) 50%, transparent)`     | Color of that rule                                                                                                                              |
-| `time_grid → axis_width`                 | string  | `max-content`                                                   | Width of the hour-label gutter. The default sizes to the widest visible gutter label with fixed padding                                         |
-| `time_grid → show_axis_labels`           | boolean | `true`                                                          | Label the axis with its hours                                                                                                                   |
-| `time_grid → axis_label_minutes`         | number  | `60`                                                            | How often the axis is labeled, in minutes: `30`, `60`, `120` or `180`. Counted from midnight, and independent of `slot_minutes`                 |
-| `time_grid → show_now_line`              | boolean | `true`                                                          | Draw a line across today's column at the current time                                                                                           |
-| `time_grid → now_line_color`             | string  | `var(--error-color)`                                            | Color of that line                                                                                                                              |
-| `time_grid → max_simultaneous_events`    | number  | `3`                                                             | Most event lanes drawn side by side before the rest collapse into one `+N` block. Nothing is ever hidden without being counted                  |
-| `time_grid → allday_band_max_rows`       | number  | `3`                                                             | Rows the all-day band may grow to before remaining banners are dropped                                                                          |
+| Option                                   | Type    | Default                                                         | Description                                                                                                                                           |
+| ---------------------------------------- | ------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `time_grid → day_header_gap`             | string  | `8px`                                                           | Vertical space between a day header and the content below it                                                                                          |
+| `time_grid → day_header_separator_width` | string  | `1px`                                                           | Thickness of the rule between the date row and the all-day band, drawn unbroken across the day columns; `0px` removes it                              |
+| `time_grid → day_header_separator_color` | string  | `color-mix(in srgb, var(--divider-color) 50%, transparent)`     | Color of that rule                                                                                                                                    |
+| `time_grid → min_day_width`              | number  | `100`                                                           | Narrowest a day column may become, in pixels, before the grid sheds a column. Three days fit at 410px, or 426px entering from the list fallback       |
+| `time_grid → min_days_to_show`           | number  | `1`                                                             | Fewest day columns the grid may shrink to. Defaults to one because a one-day grid is a useful day view with a now line                                |
+| `time_grid → min_days_fallback`          | string  | `list`                                                          | What happens when even `min_days_to_show` will not fit: `list` or `cramp`. Cramp retains a `2rem` day floor and scrolls horizontally below it         |
+| `time_grid → start_time`                 | string  | `07:00`                                                         | First moment the axis draws, as `HH:mm`. A value that cannot be read resets this and `end_time` together                                              |
+| `time_grid → end_time`                   | string  | `22:00`                                                         | Last moment the axis draws. Also accepts `24:00` for the end of the day                                                                               |
+| `time_grid → slot_minutes`               | number  | `60`                                                            | Spacing of the axis rules, in minutes: `15`, `20`, `30` or `60`. Changes the ruling only, never how tall an hour is                                   |
+| `time_grid → weekend_background_color`   | string  | `color-mix(in srgb, var(--primary-text-color) 4%, transparent)` | Background tint for a weekend day column, from the date row down. Grid view only; set `transparent` to turn it off                                    |
+| `time_grid → hour_height`                | string  | `48px`                                                          | Height of one hour. Sets the calendar content area's natural height; under a fixed `height` the axis compresses to fit instead                        |
+| `time_grid → hour_line_width`            | string  | `1px`                                                           | Thickness of the horizontal rules across the time body. `0px` removes them, and the rule closing the body at `end_time` with them                     |
+| `time_grid → hour_line_color`            | string  | `color-mix(in srgb, var(--divider-color) 50%, transparent)`     | Color of those rules. A finer `slot_minutes` draws its extra rules in the same color                                                                  |
+| `time_grid → allday_band_line_width`     | string  | `2px`                                                           | Thickness of the heavier rule under the all-day band. Twice the hour rule by default, but its own option rather than a multiple of one                |
+| `time_grid → allday_band_line_color`     | string  | `color-mix(in srgb, var(--divider-color) 50%, transparent)`     | Color of that rule                                                                                                                                    |
+| `time_grid → axis_width`                 | string  | `max-content`                                                   | Width of the hour-label gutter. The default sizes to the widest visible gutter label with fixed padding                                               |
+| `time_grid → show_axis_labels`           | boolean | `true`                                                          | Label the axis with its hours                                                                                                                         |
+| `time_grid → axis_label_minutes`         | number  | `60`                                                            | How often the axis is labeled, in minutes: `30`, `60`, `120` or `180`. Counted from midnight, and independent of `slot_minutes`                       |
+| `time_grid → show_now_line`              | boolean | `true`                                                          | Draw a line across today's column at the current time                                                                                                 |
+| `time_grid → now_line_color`             | string  | `var(--error-color)`                                            | Color of that line                                                                                                                                    |
+| `time_grid → max_simultaneous_events`    | number  | `3`                                                             | Most event lanes drawn side by side before the rest collapse into one `+N` block. Positive fractions round down to whole lanes, with a minimum of one |
+| `time_grid → allday_band_max_rows`       | number  | `3`                                                             | Rows the all-day band may grow to before remaining banners are dropped. Positive fractions round down to whole rows, with a minimum of one            |
 
 **→ [Grid View](/features/grid-view)** — worked examples.
 
@@ -126,7 +126,8 @@ deleting stored values; see [Options for the Selected View](/features/editor#opt
 
 `date_vertical_alignment` · `today_indicator_position` · `compact_events_to_show` ·
 `compact_days_to_show` · `compact_events_complete_days` ·
-`split_multiday_events` (card-wide and per-entity) · `empty_day_text` · `empty_day_color`
+`split_multiday_events` (card-wide and per-entity) · `empty_day_text` · `empty_day_color` ·
+`allday_badge` · `allday_badge_style` · `allday_badge_color`
 
 Compact caps empty later day columns rather than shortening the card, and the grid already
 segments multi-day events itself — all-day as one spanning banner, timed as one block per
@@ -136,7 +137,8 @@ a grid; when the default `min_days_fallback: list` drops it to the list layout b
 
 Empty-day text and color describe placeholder rows the grid never draws, while the date-cell
 alignment and indicator position belong to List. Their controls are hidden while Grid is
-the editing workspace, but stored values are preserved.
+the editing workspace, but stored values are preserved. All-day badge controls are also
+hidden: Grid's banners have their own shape, and its timed blocks never draw an all-day badge.
 
 **→ [Options That Do Nothing in Grid View](/features/grid-view#options-that-do-nothing-in-grid-view)** — why each one.
 

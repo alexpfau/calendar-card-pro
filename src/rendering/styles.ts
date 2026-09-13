@@ -2376,7 +2376,9 @@ export const cardStyles = css`
        must live inside that percentage or events visually run past their end rule. */
     box-sizing: border-box;
     overflow: hidden;
-    min-height: 14px;
+    --calendar-card-grid-block-min-height: min(14px, 100%);
+    min-height: var(--calendar-card-grid-block-min-height);
+    max-height: 100%;
     padding: 2px 4px;
     border-radius: 4px;
     border-inline-start: var(--calendar-card-line-width-vertical) solid transparent;
@@ -2408,14 +2410,17 @@ export const cardStyles = css`
        not pixels -- a percentage of a band whose height is still a custom property cannot
        express one pixel, so the two have to meet at the browser.
 
-       A block shorter than both gaps computes a negative height, which resolves to zero,
-       and min-height above floors it -- the same floor that already carries a ten-minute
-       event. */
+       Short blocks use the minimum-height floor. Clamp that marker upward at the band's
+       end so final-second events stay visible without adding scroll overflow. */
     --calendar-card-grid-block-gap-above: calc(
       var(--calendar-card-grid-event-gap) + var(--calendar-card-grid-rule-width)
     );
     --calendar-card-grid-block-gap-below: var(--calendar-card-grid-event-gap);
-    top: calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above));
+    top: clamp(
+      0px,
+      calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above)),
+      calc(100% - var(--calendar-card-grid-block-min-height))
+    );
     height: calc(
       var(--calendar-card-grid-block-height) - var(--calendar-card-grid-block-gap-above) - var(
           --calendar-card-grid-block-gap-below

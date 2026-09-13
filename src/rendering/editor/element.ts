@@ -319,12 +319,16 @@ export class CalendarCardProEditor extends LitElement {
   private _report(config: Types.Config): void {
     const stored = Value.toStoredConfig(config, this._authoredRootKeys);
 
+    // A pruned override must stop owning its value locally too, before any HA echo.
+    this._rawConfig = structuredClone(stored);
+    this._config = { ...Config.DEFAULT_CONFIG, ...this._rawConfig };
+    if (!Array.isArray(this._config.entities)) this._config.entities = [];
+
     if (Value.equalConfigs(stored, this._lastDispatched ?? {})) {
       return;
     }
 
     this._lastDispatched = stored;
-    this._rawConfig = structuredClone(stored);
 
     this.dispatchEvent(new CustomEvent('config-changed', { detail: { config: stored } }));
   }

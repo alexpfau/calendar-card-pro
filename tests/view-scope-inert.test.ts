@@ -112,7 +112,9 @@ function renderView(view: Types.EffectiveView, overrides: Partial<Types.Config>)
   litRender(
     view === 'grid'
       ? Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, NOW)
-      : Render.renderGroupedEvents(days, effective, 'en', undefined, null),
+      : view === 'column'
+        ? Render.renderColumnGroupedEvents(days, effective, 'en', undefined, null)
+        : Render.renderGroupedEvents(days, effective, 'en', undefined, null),
     container,
   );
 
@@ -127,6 +129,26 @@ const ALLDAY_CONTENT_KEYS = [
   'show_description_allday',
   'show_countdown_allday',
 ] as const;
+
+describe('all-day badge options in grid', () => {
+  it.each([
+    { key: 'allday_badge', before: 'off', after: 'title' },
+    { key: 'allday_badge', before: 'title', after: 'time' },
+    { key: 'allday_badge_style', before: 'subtle', after: 'filled' },
+    { key: 'allday_badge_color', before: 'accent', after: '#123456' },
+  ])(
+    '$key changes both agenda views, but not the title-only grid banners',
+    ({ key, before, after }) => {
+      const base = { allday_badge: 'time', [key]: before };
+      const changed = { allday_badge: 'time', [key]: after };
+      for (const view of ['list', 'column'] as const) {
+        expect(renderView(view, base)).not.toBe(renderView(view, changed));
+      }
+      expect(renderView('grid', base)).toContain('grid-banner');
+      expect(renderView('grid', base)).toBe(renderView('grid', changed));
+    },
+  );
+});
 
 describe('all-day content options in grid', () => {
   /**

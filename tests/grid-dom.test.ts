@@ -1037,6 +1037,38 @@ describe('all-day events go in the band, not the body', () => {
     );
   });
 
+  it.each([
+    [0.5, 1],
+    [1, 1],
+    [1.5, 1],
+    [2, 2],
+    [2.75, 2],
+  ])('uses whole rows and lanes for a cap of %s', (cap, expected) => {
+    const container = renderGrid(
+      [
+        ...Array.from({ length: 4 }, (_, index) =>
+          allDay('2026-06-17', '2026-06-18', `Festival ${index}`),
+        ),
+        ...Array.from({ length: 4 }, (_, index) =>
+          timed(17, '12:00', '13:00', `Workshop ${index}`),
+        ),
+      ],
+      buildConfig({
+        view: 'grid',
+        days_to_show: 1,
+        time_grid: { allday_band_max_rows: cap, max_simultaneous_events: cap },
+      }),
+    );
+
+    expect(container.querySelectorAll('.grid-event:not(.grid-event-overflow)')).toHaveLength(
+      expected,
+    );
+    expect(container.querySelectorAll('.grid-banner')).toHaveLength(expected);
+    expect(container.querySelector('.grid-event-overflow-label')?.textContent).toContain(
+      `+${4 - expected}`,
+    );
+  });
+
   it('sizes the all-day band from rows actually used rather than the configured cap', () => {
     const container = renderGrid(
       [allDay('2026-06-17', '2026-06-18', 'Only banner')],

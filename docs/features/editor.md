@@ -171,6 +171,11 @@ For example, explicitly setting Event Font Size to `14px` in All Layouts keeps
 `event_font_size: '14px'` in the saved configuration. A later editor transition to Grid
 can therefore preserve `14px` after reopening, just as it does in the original session.
 Untouched defaults are not added, and a value set directly in Grid still wins.
+
+Column values and nondivergent Grid values that match what the layout inherits may be
+removed during saving. Once removed, they follow later All Layouts edits immediately,
+without needing to close and reopen the editor. Explicit List values and overrides of
+divergent Grid defaults remain stored.
 :::
 
 ### YAML & View Defaults

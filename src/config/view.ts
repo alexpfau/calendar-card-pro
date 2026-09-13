@@ -321,6 +321,11 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   show_description_allday: new Set<Types.EffectiveView>(['list', 'column']),
   show_countdown_allday: new Set<Types.EffectiveView>(['list', 'column']),
 
+  // Grid banners are title-only; its timed blocks never qualify for an all-day badge.
+  allday_badge: new Set<Types.EffectiveView>(['list', 'column']),
+  allday_badge_style: new Set<Types.EffectiveView>(['list', 'column']),
+  allday_badge_color: new Set<Types.EffectiveView>(['list', 'column']),
+
   // 🚨 Not the reason it looks like. `.event` IS emitted in grid — on the timed block, on
   // the banner and on the "+N more" overflow chip — so a grep for the class finds it and
   // says the padding rule applies. It does not. `styles.ts` is one stylesheet, and
@@ -701,6 +706,9 @@ export function normalizeTimeGridValue(
     }
     if (key === 'axis_label_minutes') {
       return [30, 60, 120, 180].includes(parsed) ? parsed : fallback;
+    }
+    if (key === 'allday_band_max_rows' || key === 'max_simultaneous_events') {
+      return Number.isFinite(parsed) && parsed > 0 ? Math.max(1, Math.floor(parsed)) : fallback;
     }
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
   }

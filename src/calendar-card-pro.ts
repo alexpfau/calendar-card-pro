@@ -348,6 +348,7 @@ class CalendarCardPro extends LitElement {
      */
     firstWeekday: number;
     weekendDaysKey: string;
+    evaluatedAt: number;
     count: number;
   };
   private _effectiveConfigCache?: {
@@ -558,6 +559,8 @@ class CalendarCardPro extends LitElement {
       this.hass?.locale,
     );
     const weekendDaysKey = FormatUtils.getWeekendDays(this.hass?.locale).join(',');
+    // Expiry and relative date windows can change without new events or configuration.
+    const evaluatedAt = Date.now();
     const cache = this._visibleCountCache;
 
     if (
@@ -567,7 +570,8 @@ class CalendarCardPro extends LitElement {
       cache.view === view &&
       cache.language === language &&
       cache.firstWeekday === firstWeekday &&
-      cache.weekendDaysKey === weekendDaysKey
+      cache.weekendDaysKey === weekendDaysKey &&
+      cache.evaluatedAt === evaluatedAt
     ) {
       return cache.count;
     }
@@ -590,6 +594,7 @@ class CalendarCardPro extends LitElement {
       language,
       firstWeekday,
       weekendDaysKey,
+      evaluatedAt,
       count,
     };
 

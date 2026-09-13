@@ -41,7 +41,9 @@ the start of it.
 
 Event timestamps keep their seconds and milliseconds when positioned on the axis. A
 positive-duration event shorter than a minute still gets a block; the minimum block height
-may make very short events look taller than their duration.
+may make very short events look taller than their duration. Near the end of the axis, that
+minimum-height block moves upward just enough to stay inside the visible hours rather than
+disappearing below them. The stored timestamps and time text are unchanged.
 
 A block sits just under the rule it starts on rather than exactly on it, and stops just
 short of the rule it ends at — the same pixel of clear space it already keeps from its
@@ -351,7 +353,7 @@ stack of uneven cards rather than a compact spanning banner.
 
 `allday_band_max_rows` caps how tall the band may grow. Banners that do not fit are
 dropped — without it, a week containing several long events would push the axis off the
-bottom of the card.
+bottom of the card. Positive fractional caps round down to whole rows, with a minimum of one.
 
 ## 🔀 Overlapping Events
 
@@ -366,6 +368,9 @@ time_grid:
 The collapsed block says how many it stands for — `+3` — and lists their titles on hover.
 Nothing is hidden without being counted. A cap of `1` still keeps the first event lane
 visible, then adds the overflow block beside it.
+
+Positive fractional caps round down to whole lanes, with a minimum of one, just like the
+all-day row cap.
 
 Raise it if you routinely have four or five things at once and would rather see them all
 narrow; lower it to keep blocks readable.
@@ -567,6 +572,10 @@ compact limit and multi-day splitting. It also omits `date_vertical_alignment` a
 preserved for other layouts. Choose List under Editing Settings For to edit list-only
 options without changing Card Displays; see
 [Options for the Selected View](/features/editor#options-for-the-selected-view).
+
+The all-day badge controls (`allday_badge`, `allday_badge_style` and `allday_badge_color`)
+are also omitted in Grid. Its all-day banners have their own shape, and timed blocks never
+draw an all-day badge. Edit those controls in List, Columns or All Layouts instead.
 
 The detail-row options also do nothing on all-day banners: `show_time`,
 `show_single_allday_time`, `show_multiday_allday_time`, `allday_badge`,

@@ -358,8 +358,8 @@ function parseTimeOfDay(
  * absent. It is reported once per distinct value, because this runs per event and a silent
  * typo is a support question nobody can answer.
  *
- * 🚨 Nothing schedules a render at the returned instant. The card's only timer is the
- * refresh interval, so an event retires on the first render after its moment passes.
+ * Nothing schedules a render at the returned instant. An event retires on the first
+ * render after its moment passes.
  *
  * @param endDate Last day the event covers, at local midnight
  * @param configured The calendar's `allday_expires_at`, unvalidated

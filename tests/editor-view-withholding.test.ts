@@ -17,6 +17,7 @@ import {
   entityConfigKeys,
   entitySchemaFor,
 } from '../src/rendering/editor/schemas/entity';
+import { configKeysForField } from '../src/rendering/editor/synthetic';
 import * as Grid from '../src/rendering/grid';
 import * as List from '../src/rendering/render';
 import * as EventUtils from '../src/utils/events';
@@ -120,7 +121,7 @@ function expectedFields(
           : undefined;
     if (owner === undefined) return true;
 
-    const keys = entity ? entityConfigKeys(node.name) : [node.name];
+    const keys = entity ? entityConfigKeys(node.name) : configKeysForField(node.name);
     return keys.some((key) => {
       const scopes = entity
         ? { ...ViewConfig.VIEW_SCOPE, ...ViewConfig.ENTITY_VIEW_SCOPE }
@@ -220,7 +221,9 @@ describe('view withholding reconciles both directions', () => {
     const encountered = new Set(
       ViewConfig.VIEWS.flatMap((view) =>
         PANELS.flatMap((panel) =>
-          fields(panel.build(context(configFor(view)))).map((field) => field.key),
+          fields(panel.build(context(configFor(view)))).flatMap((field) =>
+            configKeysForField(field.key),
+          ),
         ),
       ),
     );

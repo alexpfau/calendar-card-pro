@@ -4,6 +4,7 @@
 
 import { mdiCalendarText } from '@mdi/js';
 
+import type * as Types from '../../../config/types';
 import * as Helpers from '../../../utils/helpers';
 import type { HaFormSchema } from '../ha-form';
 import type { SchemaCtx } from '../panels';
@@ -239,6 +240,7 @@ function progressGroup(
  * @param accentMode - Derived card accent mode
  * @param badgePosition - Resolved all-day badge position, or null when off
  * @param badgeColorMode - Derived all-day badge colour mode
+ * @param view - Layout whose headings are being built
  * @returns The panel's schema
  */
 const eventsSchema = Helpers.memoizeLast(
@@ -253,6 +255,7 @@ const eventsSchema = Helpers.memoizeLast(
     accentMode: string,
     badgePosition: Helpers.AlldayBadgePosition | null,
     badgeColorMode: string,
+    view: Types.EffectiveView,
   ): HaFormSchema[] => [
     // The five switches that decide which lines an event is made of, in one visible run
     // and ahead of everything that styles them.
@@ -326,7 +329,7 @@ const eventsSchema = Helpers.memoizeLast(
     // all-day, only one of its two positions happens to sit in the time row, and gating
     // the pair on show_time would make the TITLE pill unreachable for anyone who has
     // turned times off — exactly the configuration the title position exists to serve.
-    heading('heading_icon_and_badge'),
+    heading(view === 'grid' ? 'heading_icons' : 'heading_icon_and_badge'),
     select(language, 'event_icon_vertical_alignment', ['top', 'middle', 'bottom']),
     ...alldayBadgeFields(language, badgePosition, badgeColorMode),
 
@@ -359,5 +362,6 @@ export function buildEventsSchema(ctx: SchemaCtx): HaFormSchema[] {
     ),
     // Mode and value use the same projection, including a custom color held by this view.
     Synthetic.alldayBadgeColorMode(ctx.config.allday_badge_color),
+    ctx.view,
   );
 }

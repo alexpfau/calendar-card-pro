@@ -1651,6 +1651,9 @@ describe('card stylesheet', () => {
       expect({
         above: spacing(declared('.grid-event', '--calendar-card-grid-block-gap-above')),
         below: declared('.grid-event', '--calendar-card-grid-block-gap-below'),
+        minimum: declared('.grid-event', '--calendar-card-grid-block-min-height'),
+        minHeight: declared('.grid-event', 'min-height'),
+        maxHeight: declared('.grid-event', 'max-height'),
         top: spacing(declared('.grid-event', 'top')),
         height: spacing(declared('.grid-event', 'height')),
       }).toEqual({
@@ -1665,7 +1668,10 @@ describe('card stylesheet', () => {
         // The default IS the clearance, so an edge the event owns says nothing and a
         // clipped one writes `0px` over this.
         below: gap,
-        top: 'calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above))',
+        minimum: 'min(14px, 100%)',
+        minHeight: 'var(--calendar-card-grid-block-min-height)',
+        maxHeight: '100%',
+        top: 'clamp(0px, calc(var(--calendar-card-grid-block-top) + var(--calendar-card-grid-block-gap-above)), calc(100% - var(--calendar-card-grid-block-min-height)))',
         height:
           'calc(var(--calendar-card-grid-block-height) - var(--calendar-card-grid-block-gap-above) - var(--calendar-card-grid-block-gap-below))',
       });
@@ -1693,7 +1699,9 @@ describe('card stylesheet', () => {
 
       // The floor that catches a block shorter than its own two gaps: the height resolves
       // negative, CSS clamps it to zero, and this is what is left.
-      expect(declared('.grid-event', 'min-height')).toBe('14px');
+      expect(declared('.grid-event', 'min-height')).toBe(
+        'var(--calendar-card-grid-block-min-height)',
+      );
     });
 
     it('keeps positioned event boxes inside their percentage geometry', () => {

@@ -46,6 +46,10 @@ If you would rather the card disappear completely instead of showing "No upcomin
 
 Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
 
+When past events are hidden, the card disappears on its first repaint after the last event
+expires, without waiting for another calendar fetch. This does not add an event-expiry
+timer; Home Assistant updates and the card's existing refreshes still drive repaints.
+
 ::: info What Never Triggers Hiding
 Compact mode limits never trigger hiding — a card limited to zero events with `compact_events_to_show: 0` stays visible so it can still be expanded. Configuration errors, such as a missing calendar entity, also remain visible so problems are not hidden silently.
 

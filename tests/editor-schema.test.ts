@@ -913,6 +913,9 @@ describe('editor: applicability', () => {
       show_location_allday: ['column', 'list'],
       show_description_allday: ['column', 'list'],
       show_countdown_allday: ['column', 'list'],
+      allday_badge: ['column', 'list'],
+      allday_badge_style: ['column', 'list'],
+      allday_badge_color: ['column', 'list'],
       // `.event` is emitted in grid, so the padding rule looks like it applies. It is
       // overridden 1800 lines later by `.grid-event` and `.grid-banner` at equal
       // specificity, and every grid node carrying `.event` carries one of those.

@@ -623,7 +623,8 @@ function renderRules(
  *
  * A block shorter than the two gaps computes a negative height, which CSS resolves to
  * zero, and `min-height` on `.grid-event` then floors it exactly as it already floors a
- * ten-minute event. Nothing here needs to clamp.
+ * ten-minute event. The stylesheet also keeps that minimum-height marker inside the
+ * band's end; nothing here needs a pixel scale.
  *
  * @param placement - Where the block sits in the band
  * @returns Custom properties for the block's inline style

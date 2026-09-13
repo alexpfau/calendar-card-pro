@@ -8,7 +8,7 @@ import * as EditorLocalize from './localize';
 import { type PanelDef, type PanelExtra, type SchemaCtx, walkSchema } from './panels';
 import * as Routing from './routing';
 import { entityConfigKeys } from './schemas/entity';
-import { deriveSyntheticData, isSyntheticKey } from './synthetic';
+import { configKeysForField, deriveSyntheticData, isSyntheticKey } from './synthetic';
 import { deepEqual, toStoredConfig } from './value';
 import { type EditorWorkspace, viewForWorkspace } from './workspace';
 import * as Config from '../../config/config';
@@ -444,9 +444,11 @@ export function withholdInertFields(
 
         if (dataPath.length === 0) {
           if (scope === 'card') {
-            return effectiveView === undefined
-              ? ViewConfig.appliesToSharedBase(node.name)
-              : ViewConfig.appliesToView(node.name, effectiveView);
+            return configKeysForField(node.name).some((key) =>
+              effectiveView === undefined
+                ? ViewConfig.appliesToSharedBase(key)
+                : ViewConfig.appliesToView(key, effectiveView),
+            );
           }
 
           return entityConfigKeys(node.name).some((key) => {

@@ -246,6 +246,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_accent: 'Accent',
   heading_title: 'Title',
   heading_icon_and_badge: 'Icon & Badge',
+  heading_icons: 'Icons',
   heading_between_days: 'Between Days',
   heading_across_the_grid: 'Across the Grid',
   heading_filters: 'Event Filtering',
