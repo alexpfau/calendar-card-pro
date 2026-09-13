@@ -88,6 +88,8 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 
 ### Layout
 
+- **Calendar pictures and icons sat below their title text** - Labels and adjacent titles now align vertically at their centers, including merged labels and scrolling titles
+- **Limiting title lines put the label on a row of its own** - List and Column now clamp the label and title together, keeping them inline when there is room instead of always moving the title below its label
 - **An empty card could stay visible after its last event expired** - The events disappeared, but `hide_when_empty` reused an earlier count until the next calendar fetch. It now follows the current clock on every repaint, including all-day expiry and a date window moving past yesterday
 - **Expanding a compact card, then switching layouts, filled the window** - After expanding, a card switched to column view could ignore `show_empty_days: false` and render every empty day in the window
 - **An empty day's text could be styled per view but its color could not** - `empty_day_text` accepted a `column:` override and `empty_day_color` did not, although the card honors both in exactly list and column view. Setting the color inside a `column:` block silently did nothing; it now applies, so a placeholder can be toned down in columns without changing the list

@@ -66,10 +66,9 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
       config.time_max_lines > 0 ? String(config.time_max_lines) : 'none',
     '--calendar-card-location-max-lines':
       config.location_max_lines > 0 ? String(config.location_max_lines) : 'none',
-    // Keep the title inline until clamped, so a glyph label can share its first
-    // line and the hanging indent on .summary applies. The row-height difference
-    // this once showed against the blockified form was the .summary strut, not a
-    // property of inline layout; .summary now carries a matching strut.
+    // An unlimited title keeps inline flow. A labeled summary reuses this value:
+    // it is a flex item, so `inline` blockifies the summary without blockifying its
+    // children. Only a positive limit needs the shared line's WebKit clamp.
     '--calendar-card-title-display': config.title_max_lines > 0 ? '-webkit-box' : 'inline',
     // In countdown text placement, an inline time can share a line with the countdown.
     // Clamping switches it to -webkit-box and accepts that trade-off explicitly.
@@ -642,6 +641,7 @@ export const cardStyles = css`
     font-size: var(--calendar-card-font-size-event);
     line-height: 1.2;
     padding-block: 0.2em;
+    -webkit-line-clamp: var(--calendar-card-title-max-lines);
   }
 
   /* The gutter itself. Separated from the rule above so the box model stays in one place
@@ -656,21 +656,39 @@ export const cardStyles = css`
     line-height: 1.2;
     color: var(--calendar-card-color-event);
     padding-bottom: 2px;
-    /* The hanging indent below is set on .summary, and text-indent inherits.
-       That is harmless while this span is inline, but the moment
-       title_max_lines blockifies it the inherited value would indent the
-       title's own first line as well. Neutralise it here once. */
+    /* Keep the summary's hanging indent from creating another first-line
+       offset if a theme or scrolling mode makes this span a block. */
     text-indent: 0;
-    /* Per-field line clamping. The clamp lands on this element because it is
-       what directly contains the text, and -webkit-line-clamp only takes
-       effect on a display: -webkit-box element. Unlimited is expressed as the
-       string 'none', emitted by generateCustomPropertiesObject when the option
-       is 0 -- see the note on --calendar-card-title-display for why the
-       display value is a variable rather than a literal here. */
+    /* Unlabeled titles clamp here. A labeled summary keeps this span inline and
+       clamps their shared line below, so a label cannot force the title onto a
+       separate row. Unlimited is 'none'; the display variable preserves inline
+       flow when no clamp was requested. */
     display: var(--calendar-card-title-display);
     -webkit-box-orient: vertical;
     -webkit-line-clamp: var(--calendar-card-title-max-lines);
     overflow: hidden;
+  }
+
+  /* Clamp labels and title together, not the title as a block below its labels.
+     Reuse the conditional display so unlimited List/Column lines retain their
+     existing whitespace layout. Grid supplies its own display and clamp rungs. */
+  .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
+    display: var(--calendar-card-title-display);
+    -webkit-box-orient: vertical;
+  }
+
+  .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) > .event-title {
+    display: inline;
+  }
+
+  /* Images and icons already use middle; baseline-aligned text beside them sits
+     higher. Align the text's line box too, including prose in a merged label run.
+     Keep prose-only and unlabeled summaries on their existing baseline. */
+  .summary:has(> .label-icon) > .event-title,
+  .summary:has(> .label-image) > .event-title,
+  .summary:has(> .label-icon) > .calendar-label,
+  .summary:has(> .label-image) > .calendar-label {
+    vertical-align: middle;
   }
 
   /* Hanging indent for glyph labels. Wrapped title lines align with the text
@@ -732,6 +750,13 @@ export const cardStyles = css`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* Flex centers the viewport, so bottom-only padding would still leave the
+     actual scrolling text above an otherwise centered icon or picture. */
+  .summary-scroll:has(> .label-icon) > .event-title,
+  .summary-scroll:has(> .label-image) > .event-title {
+    padding-bottom: 0;
   }
 
   .event-title.title-scrollable .event-title-scroll {

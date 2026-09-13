@@ -159,6 +159,55 @@ describe('card stylesheet', () => {
     expect(rulesFor('.event-title')).toHaveLength(1);
   });
 
+  describe('calendar labels beside title text', () => {
+    const labeledSummary = '.summary:not(.summary-scroll):has(> .event-title:not(:only-child))';
+
+    it.each(['.label-icon', '.label-image'])(
+      'centers title text with %s rather than leaving it on the baseline',
+      (label) => {
+        // Compare actual text ranges in a browser: the title's bottom padding makes its
+        // element box look centered even while the text itself sits above the picture.
+        expect(declared(`.summary:has(> ${label}) > .event-title`, 'vertical-align')).toBe(
+          'middle',
+        );
+      },
+    );
+
+    it.each(['.label-icon', '.label-image'])(
+      'keeps a merged prose label level with the title beside %s',
+      (label) => {
+        expect(declared(`.summary:has(> ${label}) > .calendar-label`, 'vertical-align')).toBe(
+          'middle',
+        );
+      },
+    );
+
+    it.each(['.label-icon', '.label-image'])(
+      'centers scrolling text, not its padded viewport, beside %s',
+      (label) => {
+        expect(declared(`.summary-scroll:has(> ${label}) > .event-title`, 'padding-bottom')).toBe(
+          '0',
+        );
+        expect(declared('.summary-scroll', 'align-items')).toBe('center');
+      },
+    );
+
+    it('clamps the shared labeled line without moving the title below its labels', () => {
+      expect(declared('.summary', '-webkit-line-clamp')).toBe(
+        'var(--calendar-card-title-max-lines)',
+      );
+      expect(declared(labeledSummary, 'display')).toBe('var(--calendar-card-title-display)');
+      expect(declared(labeledSummary, '-webkit-box-orient')).toBe('vertical');
+      expect(declared(`${labeledSummary} > .event-title`, 'display')).toBe('inline');
+    });
+
+    it('leaves unlabeled and prose-only title alignment unchanged', () => {
+      expect(declared('.event-title', 'vertical-align')).toBe('');
+      expect(declared('.calendar-label', 'vertical-align')).toBe('');
+      expect(declared('.event-title', 'padding-bottom')).toBe('2px');
+    });
+  });
+
   describe('the blockification trap', () => {
     /*
      * `.summary` is a flex *item* of the event row and holds the label and

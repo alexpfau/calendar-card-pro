@@ -420,6 +420,9 @@ location_max_lines: 2 # Allow locations up to two lines
 description_max_lines: 3 # Allow descriptions up to three lines
 ```
 
+A calendar label stays inline before the title and shares its line limit, rather than
+taking a separate row above the clamped text. This also applies to merged-calendar labels.
+
 Each option is a line count, not a toggle: `1` shows one line then an ellipsis, `2` shows two lines, and so on. All four work in both list and column view, and each can be overridden inside a `column:` block to clamp differently per view:
 
 ```yaml
