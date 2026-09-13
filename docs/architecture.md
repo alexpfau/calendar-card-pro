@@ -43,6 +43,7 @@ src/
 │   ├── render.ts                 # Card shell and the list view
 │   ├── column.ts                 # The column view
 │   ├── grid.ts                   # The timed grid and spanning all-day band
+│   ├── grid-accessibility.ts     # Full configured names for timed Grid events
 │   ├── leaves.ts                 # Leaf renderers shared across the three views
 │   ├── presentation.ts           # Layout-independent per-event presentation models
 │   └── styles.ts                 # CSS styles and dynamic styling
@@ -56,6 +57,7 @@ src/
 └── utils/                        # Utility functions
     ├── events.ts                 # Calendar event fetching and processing
     ├── grid.ts                   # Pure time-grid geometry, overlap lanes, banner spans
+    ├── grid-title-fit.ts         # Browser-measured label/title fitting, separate from geometry
     ├── format.ts                 # Date and text formatting
     ├── start-date.ts             # The `start_date` relative-date grammar
     ├── helpers.ts                # Generic utilities (color, ID generation)
@@ -230,6 +232,12 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
     admitted columns into spanning banners
   - Applies percentage-based positions and overlap lanes from `utils/grid.ts`
 
+- **grid-accessibility.ts**:
+  - Names timed event groups independently of visual clipping, using configured labels,
+    original source times, and the shared presentation/weather helpers
+  - Leaves intentionally disabled details out; the visual subtree is hidden from the
+    accessibility tree to avoid duplicate announcements
+
 - **leaves.ts**:
   - The axis-agnostic pieces: the date block, the event body, the weather badges, the
     today indicator
@@ -281,6 +289,13 @@ Provides internationalization support:
 ### Utilities (`utils/`)
 
 Provides core functionality across the card:
+
+- **grid-title-fit.ts**:
+  - Measures complete timed label/title groups after the normal Grid disclosure transaction
+  - Tries symmetric compact insets before scaling, protecting every text part's font floor
+  - Uses bounded, batched layout reads and writes; the host owns dirty-block tracking,
+    resize/font/image/content invalidation, and disconnect cleanup
+  - Leaves time geometry, all-day banners, and ordinary List/Column rendering unchanged
 
 - **events.ts**:
   - Fetches calendar events from Home Assistant API

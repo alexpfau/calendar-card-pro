@@ -18,6 +18,7 @@ import { classMap } from 'lit/directives/class-map.js';
 import { repeat } from 'lit/directives/repeat.js';
 import { styleMap } from 'lit/directives/style-map.js';
 
+import { gridEventAccessibleName } from './grid-accessibility';
 import * as Leaves from './leaves';
 import * as Presentation from './presentation';
 import * as Types from '../config/types';
@@ -675,6 +676,16 @@ function renderTimedEvent(
         'clipped-top': placement.clippedTop,
         'clipped-bottom': placement.clippedBottom,
       })}
+      role="group"
+      lang=${language}
+      aria-label=${gridEventAccessibleName(
+        event,
+        presentation.contentParts,
+        config,
+        language,
+        weatherForecasts,
+        hass,
+      )}
       style=${styleMap({
         ...verticalGeometry(placement),
         insetInlineStart: `calc(${event.laneIndex * laneWidth}% + var(--calendar-card-grid-event-gap))`,
@@ -684,7 +695,7 @@ function renderTimedEvent(
         ...presentation.accentTextProperties,
       })}
     >
-      <div class="grid-event-disclosure">
+      <div class="grid-event-disclosure" aria-hidden="true">
         ${Leaves.renderEventContent(event, config, contentParts, {
           weatherForecasts,
           weatherPlacement: 'row',

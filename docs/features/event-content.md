@@ -431,6 +431,11 @@ column:
   title_max_lines: 1 # But single-line in the denser column view
 ```
 
+Grid keeps those normal line limits whenever a complete first label/title line fits.
+Its [short timed title fallback](/features/grid-view#short-timed-titles) is the exception:
+it keeps every label but uses one static line, reducing vertical padding before reducing
+the whole group's font size. Clipping a later normal line does not activate that fallback.
+
 ## ↔️ Scrolling Long Titles
 
 A long event title normally wraps onto a second line and makes the row taller. Turn on `scroll_long_titles` and a title too wide for the space is kept to one line and scrolls sideways instead, so the whole of it can still be read on a narrow card:
@@ -454,6 +459,9 @@ time_grid:
 ```
 
 The animation is considerate of the places these cards live. It respects the operating system's **reduce motion** setting — when that is on the title never animates and falls back to a static, truncated line — and it pauses whenever the card is scrolled out of view, so a wall panel left on all day does not animate a title nobody is looking at.
+
+Grid's [short timed title fallback](/features/grid-view#short-timed-titles) also stays static,
+with all labels retained. Scrolling resumes when the block has room for its normal title.
 
 This is the sideways counterpart to [Limiting Lines Per Field](#limiting-lines-per-field): reach for `title_max_lines` when you would rather a long title wrap to a fixed number of lines and truncate, and `scroll_long_titles` when you would rather keep one line and scroll it. See [`scroll_long_titles`](/reference/configuration#event-column) in the configuration reference.
 

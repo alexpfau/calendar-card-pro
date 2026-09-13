@@ -474,47 +474,9 @@ export function renderEventWeather(
   placement: 'title' | 'row' = 'title',
   hass?: Types.Hass | null,
 ): TemplateResult {
-  const showEventWeather = hasEventWeather(config);
-
-  if (!showEventWeather || !weatherForecasts?.hourly) {
-    return html``;
-  }
-
-  if (event.end?.dateTime) {
-    const now = new Date();
-    const eventEndTime = new Date(event.end.dateTime);
-
-    if (eventEndTime < now) {
-      return html``;
-    }
-  }
-
-  const eventConfig = config.weather?.event || {};
-
-  const forecast = Weather.findForecastForEvent(
-    event,
-    weatherForecasts.hourly,
-    weatherForecasts.daily,
-    eventConfig.daily_forecast_fallback !== false,
-  );
-
-  if (!forecast) {
-    return html``;
-  }
-
-  const showConditions = eventConfig.show_conditions !== false;
-  const showTemp = eventConfig.show_temp !== false;
-  const showUvIndex =
-    eventConfig.show_uv_index === true &&
-    forecast.uv_index !== undefined &&
-    forecast.uv_index >= (eventConfig.uv_index_threshold ?? 0);
-
-  const ownRow = placement === 'row';
-  const showIcon = ownRow || showConditions;
-  const conditionText =
-    ownRow && showConditions
-      ? Weather.formatCondition(hass, config.weather?.entity, forecast.condition, config.language)
-      : undefined;
+  const content = eventWeatherContent(event, config, weatherForecasts, placement, hass);
+  if (!content) return html``;
+  const { forecast, showIcon, showTemp, showUvIndex, conditionText } = content;
 
   // prettier-ignore
   return html`
@@ -534,6 +496,59 @@ export function renderEventWeather(
         : nothing
     }</span></div>
   `;
+}
+
+/** Resolve shared weather content for the badge and Grid's unclipped accessible event name. */
+export function eventWeatherContent(
+  event: Types.CalendarEventData,
+  config: Types.Config,
+  weatherForecasts?: Types.WeatherForecasts,
+  placement: 'title' | 'row' = 'title',
+  hass?: Types.Hass | null,
+) {
+  const showEventWeather = hasEventWeather(config);
+
+  if (!showEventWeather || !weatherForecasts?.hourly) {
+    return null;
+  }
+
+  if (event.end?.dateTime) {
+    const now = new Date();
+    const eventEndTime = new Date(event.end.dateTime);
+
+    if (eventEndTime < now) {
+      return null;
+    }
+  }
+
+  const eventConfig = config.weather?.event || {};
+
+  const forecast = Weather.findForecastForEvent(
+    event,
+    weatherForecasts.hourly,
+    weatherForecasts.daily,
+    eventConfig.daily_forecast_fallback !== false,
+  );
+
+  if (!forecast) {
+    return null;
+  }
+
+  const showConditions = eventConfig.show_conditions !== false;
+  const showTemp = eventConfig.show_temp !== false;
+  const showUvIndex =
+    eventConfig.show_uv_index === true &&
+    forecast.uv_index !== undefined &&
+    forecast.uv_index >= (eventConfig.uv_index_threshold ?? 0);
+
+  const ownRow = placement === 'row';
+  const showIcon = ownRow || showConditions;
+  const conditionText =
+    ownRow && showConditions
+      ? Weather.formatCondition(hass, config.weather?.entity, forecast.condition, config.language)
+      : undefined;
+
+  return { forecast, showIcon, showTemp, showUvIndex, conditionText };
 }
 
 /**

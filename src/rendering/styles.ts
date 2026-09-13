@@ -2457,6 +2457,7 @@ export const cardStyles = css`
   }
 
   .grid-event-disclosure .summary-row {
+    --calendar-card-grid-title-eligible: 0;
     display: none;
     flex: 0 0 auto;
     min-height: 0;
@@ -2602,6 +2603,7 @@ export const cardStyles = css`
 
   @container calendar-card-grid-event (min-height: 19px) {
     .grid-event-disclosure .summary-row {
+      --calendar-card-grid-title-eligible: 1;
       display: flex;
     }
   }
@@ -2681,6 +2683,130 @@ export const cardStyles = css`
     .grid-event-disclosure .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-expanded);
     }
+  }
+
+  /* Compact only: scale the group, not its query container. */
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure {
+    position: absolute;
+    inset-block: 1px;
+    inset-inline: 4px;
+    height: auto;
+    justify-content: center;
+  }
+
+  .grid-event.clipped-top:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure {
+    inset-block-start: 2px;
+  }
+
+  .grid-event.clipped-bottom:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .grid-event-disclosure {
+    inset-block-end: 2px;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .event-content {
+    height: auto;
+  }
+
+  .grid-event[data-grid-title-fit] .summary-row {
+    transform: translateY(var(--calendar-card-grid-title-shift, 0px));
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .summary-row {
+    display: flex;
+    overflow: visible;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .summary {
+    display: flex !important;
+    align-items: center;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    text-indent: 0;
+    overflow: visible;
+    white-space: nowrap;
+    -webkit-line-clamp: unset;
+    zoom: var(--calendar-card-grid-title-scale, 1);
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .summary
+    > :not(.event-title) {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .summary
+    > .event-title {
+    display: block !important;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 0;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .event-title-scroll {
+    display: inline !important;
+    animation: none !important;
+    transform: none !important;
+    will-change: auto;
+  }
+
+  .grid-event:is(
+      [data-grid-title-fit='measuring'],
+      [data-grid-title-fit='compact'],
+      [data-grid-title-fit='blank']
+    )
+    .time-location {
+    display: none;
+  }
+
+  .grid-event:is([data-grid-title-fit='measuring'], [data-grid-title-fit='blank']) .summary-row {
+    visibility: hidden;
   }
 
   /* Stands in for events the column had no room to draw. Dashed so it reads as a

@@ -204,6 +204,25 @@ function cardWithTitle(contentWidth: number, clientWidth: number, direction = 'l
 describe('scroll_long_titles measurement', () => {
   afterEach(() => document.body.replaceChildren());
 
+  it('skips compact Grid titles and measures them again after normal disclosure returns', () => {
+    const { card, title, content } = cardWithTitle(300, 100);
+    const block = document.createElement('div');
+    block.className = 'grid-event';
+    title.replaceWith(block);
+    block.append(title);
+    card._measureTitleScroll();
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('200px');
+
+    block.dataset.gridTitleFit = 'compact';
+    Object.defineProperty(content, 'offsetWidth', { value: 500, configurable: true });
+    card._measureTitleScroll();
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('200px');
+
+    delete block.dataset.gridTitleFit;
+    card._measureTitleScroll();
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('400px');
+  });
+
   it.each([
     ['ltr', '-1'],
     ['rtl', '1'],

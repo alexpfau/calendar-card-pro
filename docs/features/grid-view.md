@@ -399,6 +399,57 @@ line rather than taking a row above it. Title line limits include the labeled li
 scrolling keeps the labels stationary while the title moves. All-day banners remain
 title-only.
 
+### Short Timed Titles
+
+A small block does not have to lose its title just because it cannot hold the usual
+padding. When no complete first label/title line would appear, Grid first tries a centered,
+single-line version at your configured font size, with **1 CSS pixel of space above and
+below**. Borders and continuation marks keep their own space too. Only if that still does
+not fit does Grid reduce the whole label/title group in **1 CSS pixel font steps**, choosing
+the largest fitting size while keeping the title and every text or emoji label at
+**10px or larger**. An already smaller text part is neither enlarged nor further reduced.
+
+Every visible timed title keeps all its calendar labels, including merged labels. Text,
+emoji, icons, and pictures scale together, retaining their relative sizes, colors, order,
+and image proportions. Grid does not remove a label to make the title fit.
+An independently smaller text label can stop the whole group from shrinking further;
+Grid never changes label and title sizes independently to get around that limit.
+
+```yaml
+view: grid
+entities:
+  - entity: calendar.anna
+    label: Anna
+  - entity: calendar.ben
+    label: 'mdi:calendar'
+time_grid:
+  event_font_size: 20px
+  hour_height: 48px
+  title_max_lines: 2
+```
+
+The usual presentation always wins when its first line fits. Normal wrapping, line limits,
+detail rows, and scrolling remain unchanged; clipping a later line does not make the font
+shrink. When height removes all otherwise-present details but the normal title fits, Grid
+centers that title without reducing its font or forcing two fitting lines onto one. A tall
+title-only event whose details were disabled or absent keeps its normal alignment.
+
+The compact fallback is static and uses an ellipsis when needed, even with
+`scroll_long_titles: true`. Normal text and scrolling return when more room becomes
+available. There is no separate fallback option or adjustable minimum.
+
+Some blocks still cannot show a useful line. Large labels, unusually tall line spacing,
+or a very narrow overlap lane may leave no room for all labels plus meaningful title text.
+Grid leaves those blocks visually empty rather than showing a label or an ellipsis alone;
+it does not shrink further just to squeeze into a narrow lane. A quarter-hour event is
+therefore not guaranteed to show text at every card height or font.
+
+Timed events retain their full, unellipsized configured information in the browser's
+accessibility tree even when their visual text is clipped or absent. Calendar and person
+names identify picture/icon labels, original event times describe continuations, and
+intentionally disabled details stay omitted. This does not add an event action or another
+keyboard tab stop. All-day banners and overflow-count blocks are outside this fallback.
+
 ::: tip Keep Detail Rows Short
 Grid blocks have less room than list rows. If you show time, location and description in
 the grid, cap the optional detail rows to one or two lines so the title stays readable:

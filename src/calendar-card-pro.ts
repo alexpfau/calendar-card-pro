@@ -39,6 +39,7 @@ import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
 import * as FormatUtils from './utils/format';
 import * as GridUtils from './utils/grid';
+import * as GridTitleFit from './utils/grid-title-fit';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
 import * as Templates from './utils/templates';
@@ -404,6 +405,11 @@ class CalendarCardPro extends LitElement {
   private _resizeObserver: ResizeObserver | null = null;
   private _gridDisclosureObserver: ResizeObserver | null = null;
   private _gridDisclosureRaf: number | null = null;
+  private _gridDisclosureReleaseRaf: number | null = null;
+  private _gridDisclosureTargets = new Map<Element, HTMLElement>();
+  private _gridDisclosureDirty = new Set<HTMLElement>();
+  private _gridDisclosureMutations: MutationObserver | null = null;
+  private _gridDisclosureAssetsCleanup: (() => void) | null = null;
   /**
    * Last size delivered for each disclosure target.
    *
@@ -641,6 +647,7 @@ class CalendarCardPro extends LitElement {
     // necessarily schedule a Lit update. Reacquire from the existing shadow DOM
     // immediately; the first connection still gets its normal post-render sync.
     this._syncTitleScroll();
+    this._syncGridDisclosureSafety();
   }
 
   disconnectedCallback() {
@@ -851,10 +858,20 @@ class CalendarCardPro extends LitElement {
 
     this._gridDisclosureFontsCleanup?.();
     this._gridDisclosureFontsCleanup = null;
+    this._gridDisclosureMutations?.disconnect();
+    this._gridDisclosureMutations = null;
+    this._gridDisclosureAssetsCleanup?.();
+    this._gridDisclosureAssetsCleanup = null;
+    this._gridDisclosureTargets.clear();
+    this._gridDisclosureDirty.clear();
 
     if (this._gridDisclosureRaf !== null) {
       cancelAnimationFrame(this._gridDisclosureRaf);
       this._gridDisclosureRaf = null;
+    }
+    if (this._gridDisclosureReleaseRaf !== null) {
+      cancelAnimationFrame(this._gridDisclosureReleaseRaf);
+      this._gridDisclosureReleaseRaf = null;
     }
 
     // Invalidate any pending double-rAF that would clear RO suppress after apply.
@@ -885,21 +902,23 @@ class CalendarCardPro extends LitElement {
    * Suppress ResizeObserver until two animation frames later so that reflow cannot re-arm
    * schedule.
    */
-  private _applyGridDisclosureSafety(): void {
+  private _applyGridDisclosureSafety(blocks?: Iterable<HTMLElement>): void {
     this._gridDisclosureSuppressGeneration += 1;
     const generation = this._gridDisclosureSuppressGeneration;
     this._gridDisclosureSuppressRo = true;
+    const pending = Array.from(
+      blocks ??
+        this.renderRoot.querySelectorAll<HTMLElement>('.grid-event:not(.grid-event-overflow)'),
+    );
+    const titles = pending
+      .map(GridTitleFit.gridTitleTarget)
+      .filter((target): target is GridTitleFit.GridTitleTarget => target !== null);
+    titles.forEach(GridTitleFit.resetGridTitle);
 
     try {
-      for (const block of this.renderRoot.querySelectorAll<HTMLElement>(
-        '.grid-event:not(.grid-event-overflow)',
-      )) {
+      const transactions = pending.flatMap((block) => {
         const content = block.querySelector<HTMLElement>('.grid-event-disclosure .event-content');
-
-        if (!content) {
-          continue;
-        }
-
+        if (!content) return [];
         const detailRows = GRID_DETAIL_ROWS.map((row) => ({
           lineProperty: row.lineProperty,
           element: content.querySelector<HTMLElement>(row.selector),
@@ -914,59 +933,75 @@ class CalendarCardPro extends LitElement {
             row.element.style.removeProperty(row.lineProperty);
           }
         }
+        return [{ content, detailRows, withdrawn: [] as HTMLElement[] }];
+      });
 
-        // Fitting a row is only worth doing if the block ends up fitting, so the pass is
-        // transactional: remember every withdrawal and put it all back if the block still
-        // overflows once there is nothing left to give.
-        //
-        // The case that forces this is a title too tall for its own block — three wrapped
-        // lines in a narrow column. No detail row is responsible for that overflow and
-        // neither shortening nor hiding one can fix it, but the loop happily gave up every
-        // one of them on the way to discovering so, and a 2.5-hour event rendered with
-        // neither its time nor its location while a taller neighbour showed both. The block
-        // clips at the bottom in that case, which is the documented behaviour and the better
-        // answer than silently dropping the rows the user asked for.
-        //
-        // A clamp needs no undo entry: the loop keeps one only when it has just resolved the
-        // overflow and stopped, so the restore below cannot be reached with a clamp standing.
-        // The clamps from the previous pass are cleared above, unconditionally, like the
-        // withdrawals.
-        const withdrawn: HTMLElement[] = [];
-
-        for (const row of detailRows) {
-          if (!gridContentOverflows(content)) {
-            break;
+      // Keep the existing priority/rollback transaction, but batch each row's reads and
+      // writes across blocks. Otherwise restoring one block forces layout for the next.
+      for (const { selector } of GRID_DETAIL_ROWS) {
+        const choices = transactions.flatMap((transaction) => {
+          if (!gridContentOverflows(transaction.content)) return [];
+          const row = transaction.detailRows.find(({ element }) => element.matches(selector));
+          if (!row || row.element.getClientRects().length === 0) return [];
+          const lines = row.lineProperty
+            ? this._gridDetailLineCount(transaction.content, row.element)
+            : 0;
+          return [{ transaction, row, lines }];
+        });
+        for (const { row, lines } of choices) {
+          if (row.lineProperty && lines > 0) {
+            row.element.style.setProperty(row.lineProperty, String(lines));
           }
-          if (row.element.getClientRects().length === 0) {
-            continue;
-          }
-
-          if (
-            row.lineProperty &&
-            this._clampGridDetailRow(content, row.element, row.lineProperty)
-          ) {
-            if (!gridContentOverflows(content)) {
-              break;
-            }
-
-            // Shortening bought lines and the block still does not fit, which means the row
-            // has a floor its text cannot go under — its icon. Nothing is left to trade
-            // there, so give up the row entirely and take its clamp with it.
-            row.element.style.removeProperty(row.lineProperty);
-          }
-
-          row.element.classList.add('grid-event-detail-clipped');
-          withdrawn.push(row.element);
         }
-
-        if (gridContentOverflows(content)) {
-          withdrawn.forEach((row) => row.classList.remove('grid-event-detail-clipped'));
+        const withdrawals = choices.filter(
+          ({ transaction, lines }) => lines < 1 || gridContentOverflows(transaction.content),
+        );
+        for (const { transaction, row } of withdrawals) {
+          if (row.lineProperty) row.element.style.removeProperty(row.lineProperty);
+          row.element.classList.add('grid-event-detail-clipped');
+          transaction.withdrawn.push(row.element);
         }
       }
+      // A too-tall title cannot be repaired by sacrificing details. Restore them if the
+      // transaction did not fit; title rescue below makes its own, separate decision.
+      const rollbacks = transactions.filter(({ content }) => gridContentOverflows(content));
+      for (const { withdrawn } of rollbacks) {
+        withdrawn.forEach((row) => row.classList.remove('grid-event-detail-clipped'));
+      }
+      const compact: GridTitleFit.GridTitleTarget[] = [];
+      const centered: GridTitleFit.GridTitleTarget[] = [];
+      for (const target of titles) {
+        if (!GridTitleFit.normalGridTitleFits(target)) {
+          compact.push(target);
+          continue;
+        }
+        const details = GRID_DETAIL_ROWS.flatMap(({ selector }) =>
+          Array.from(target.disclosure.querySelectorAll<HTMLElement>(selector)),
+        );
+        if (details.length && details.every((detail) => detail.getClientRects().length === 0)) {
+          centered.push(target);
+        }
+      }
+      GridTitleFit.centerGridTitles(centered);
+      GridTitleFit.fitCompactGridTitles(compact);
+      const resumed = titles
+        .filter(
+          (target) =>
+            (target.previousMode === 'compact' || target.previousMode === 'blank') &&
+            target.block.dataset.gridTitleFit !== 'compact' &&
+            target.block.dataset.gridTitleFit !== 'blank' &&
+            target.title.classList.contains('title-scrollable'),
+        )
+        .map((target) => target.title);
+      if (resumed.length) this._measureTitleScroll(resumed);
     } finally {
       // Two frames: layout from the class toggle, then the RO notifications that follow it.
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
+      if (this._gridDisclosureReleaseRaf !== null) {
+        cancelAnimationFrame(this._gridDisclosureReleaseRaf);
+      }
+      this._gridDisclosureReleaseRaf = requestAnimationFrame(() => {
+        this._gridDisclosureReleaseRaf = requestAnimationFrame(() => {
+          this._gridDisclosureReleaseRaf = null;
           if (generation === this._gridDisclosureSuppressGeneration) {
             this._gridDisclosureSuppressRo = false;
           }
@@ -976,21 +1011,16 @@ class CalendarCardPro extends LitElement {
   }
 
   /**
-   * Clamps one detail row to the number of its lines that still fit, if that is at least one.
+   * Measure how many lines of a detail row fit, before the batched clamp write.
    *
    * Measures the text span rather than the row, because the row is a flex line that also
    * carries an icon; the span is both what wraps and what the clamp rule targets.
    *
    * @param content - The block's disclosed content, whose overflow is being paid for
    * @param row - The detail row to shorten
-   * @param lineProperty - The custom property that row's clamp rule reads
-   * @returns Whether a clamp was applied
+   * @returns Fitting line count, or zero when the row must be withdrawn
    */
-  private _clampGridDetailRow(
-    content: HTMLElement,
-    row: HTMLElement,
-    lineProperty: string,
-  ): boolean {
+  private _gridDetailLineCount(content: HTMLElement, row: HTMLElement): number {
     const text = row.querySelector<HTMLElement>('span') ?? row;
     const lineHeight = resolveLineHeightPx(getComputedStyle(text));
     const fitted = fittedGridDetailLines(
@@ -999,21 +1029,17 @@ class CalendarCardPro extends LitElement {
       lineHeight,
     );
 
-    if (fitted < 1) {
-      return false;
-    }
-
-    row.style.setProperty(lineProperty, String(fitted));
-    return true;
+    return Math.max(0, fitted);
   }
 
   /**
    * Reconciles the disclosure safety fallback after layout has settled.
    */
-  private _scheduleGridDisclosureSafety(): void {
-    if (this._gridDisclosureRaf !== null) {
-      cancelAnimationFrame(this._gridDisclosureRaf);
+  private _scheduleGridDisclosureSafety(all = true): void {
+    if (all) {
+      this._gridDisclosureTargets.forEach((block) => this._gridDisclosureDirty.add(block));
     }
+    if (this._gridDisclosureRaf !== null) return;
 
     this._gridDisclosureRaf = requestAnimationFrame(() => {
       this._gridDisclosureRaf = null;
@@ -1023,7 +1049,9 @@ class CalendarCardPro extends LitElement {
       if (!this.isConnected || this.effectiveView !== 'grid') {
         return;
       }
-      this._applyGridDisclosureSafety();
+      const dirty = Array.from(this._gridDisclosureDirty).filter((block) => block.isConnected);
+      this._gridDisclosureDirty.clear();
+      if (dirty.length) this._applyGridDisclosureSafety(dirty);
     });
   }
 
@@ -1040,53 +1068,85 @@ class CalendarCardPro extends LitElement {
    * `document.fonts` covers detail-row font loads; `updated()` re-applies after
    * config/theme edits as a backstop.
    */
-  private _syncGridDisclosureSafety(): void {
-    this._stopGridDisclosureObserver();
-
+  private _syncGridDisclosureSafety(remeasure = true): void {
     if (
       !this.isConnected ||
       this.effectiveView !== 'grid' ||
       typeof ResizeObserver === 'undefined'
     ) {
+      this._stopGridDisclosureObserver();
       return;
     }
+    if (!remeasure && this._gridDisclosureObserver) return;
 
     const blocks = this.renderRoot.querySelectorAll<HTMLElement>(
       '.grid-event:not(.grid-event-overflow)',
     );
     if (!blocks.length) {
+      this._stopGridDisclosureObserver();
       return;
     }
 
-    this._gridDisclosureObserver = new ResizeObserver((entries) => {
-      let targetChangedSize = false;
-      for (const entry of entries) {
-        const previous = this._gridDisclosureObservedSizes.get(entry.target);
-        const next = {
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        };
-        this._gridDisclosureObservedSizes.set(entry.target, next);
-        targetChangedSize ||=
-          previous === undefined ||
-          previous.width !== next.width ||
-          previous.height !== next.height;
-      }
+    if (!this._gridDisclosureObserver) {
+      this._gridDisclosureObserver = new ResizeObserver((entries) => {
+        let targetChangedSize = false;
+        for (const entry of entries) {
+          const previous = this._gridDisclosureObservedSizes.get(entry.target);
+          const next = { width: entry.contentRect.width, height: entry.contentRect.height };
+          this._gridDisclosureObservedSizes.set(entry.target, next);
+          if (
+            previous === undefined ||
+            previous.width !== next.width ||
+            previous.height !== next.height
+          ) {
+            const block = this._gridDisclosureTargets.get(entry.target);
+            if (block) this._gridDisclosureDirty.add(block);
+            targetChangedSize = true;
+          }
+        }
 
-      if (this._gridDisclosureSuppressRo && !targetChangedSize) {
-        return;
+        if (this._gridDisclosureSuppressRo && !targetChangedSize) return;
+        if (targetChangedSize) this._scheduleGridDisclosureSafety(false);
+      });
+      this._watchGridDisclosureFonts();
+    }
+    const current = new Set<HTMLElement>(blocks);
+    for (const [target, block] of this._gridDisclosureTargets) {
+      if (!current.has(block) || !block.contains(target)) {
+        this._gridDisclosureObserver.unobserve(target);
+        this._gridDisclosureTargets.delete(target);
       }
-      this._scheduleGridDisclosureSafety();
-    });
+    }
     // Title stays visible under the clip class; detail rows do not — see the method doc.
     const contentTargets = '.summary, .event-title';
     blocks.forEach((block) => {
-      this._gridDisclosureObserver?.observe(block);
-      block
-        .querySelectorAll(contentTargets)
-        .forEach((target) => this._gridDisclosureObserver?.observe(target));
+      for (const target of [block, ...block.querySelectorAll(contentTargets)]) {
+        if (this._gridDisclosureTargets.has(target)) continue;
+        this._gridDisclosureTargets.set(target, block);
+        this._gridDisclosureObserver?.observe(target);
+      }
     });
+    this._scheduleGridDisclosureSafety();
+  }
 
+  /** Watch font loads, inherited theme changes, and late/recycled title content once per bind. */
+  private _watchGridDisclosureFonts(): void {
+    const onImage = (event: Event): void => {
+      if (!(event.target instanceof HTMLImageElement) || !event.target.matches('.label-image')) {
+        return;
+      }
+      const block = event.target.closest<HTMLElement>('.grid-event');
+      if (block) {
+        this._gridDisclosureDirty.add(block);
+        this._scheduleGridDisclosureSafety(false);
+      }
+    };
+    this.renderRoot.addEventListener('load', onImage, true);
+    this.renderRoot.addEventListener('error', onImage, true);
+    this._gridDisclosureAssetsCleanup = () => {
+      this.renderRoot.removeEventListener('load', onImage, true);
+      this.renderRoot.removeEventListener('error', onImage, true);
+    };
     const fonts = document.fonts;
     if (fonts) {
       // fonts.ready is a Promise: removeEventListener cannot cancel it. Flag the
@@ -1108,8 +1168,74 @@ class CalendarCardPro extends LitElement {
         }
       };
     }
+    if (typeof MutationObserver !== 'undefined') {
+      this._gridDisclosureMutations = new MutationObserver((records) => {
+        let all = false;
+        for (const record of records) {
+          if (record.type === 'attributes') {
+            // The host's offscreen animation class is not a typography change.
+            if (record.target === this && record.attributeName === 'class') {
+              const themeClasses = (value: string) =>
+                value
+                  .split(/\s+/)
+                  .filter((name) => name && name !== 'calendar-card-title-scroll-paused')
+                  .sort()
+                  .join(' ');
+              if (themeClasses(record.oldValue ?? '') === themeClasses(this.className)) continue;
+            }
+            all = true;
+          } else {
+            const element =
+              record.target instanceof Element ? record.target : record.target.parentElement;
+            const block = element?.closest<HTMLElement>('.grid-event:not(.grid-event-overflow)');
+            if (block) this._gridDisclosureDirty.add(block);
+            else if (element?.closest('style')) all = true;
+          }
+        }
+        if (all || this._gridDisclosureDirty.size) this._scheduleGridDisclosureSafety(all);
+      });
+      this._gridDisclosureMutations.observe(this.renderRoot, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+      const attributes = {
+        attributes: true,
+        attributeOldValue: true,
+        attributeFilter: ['style', 'class', 'dir'],
+      };
+      this._gridDisclosureMutations.observe(this, attributes);
+      const parent = (element: Element): Element | null => {
+        const root = element.getRootNode();
+        return element.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
+      };
+      for (let ancestor = parent(this); ancestor; ancestor = parent(ancestor)) {
+        this._gridDisclosureMutations.observe(ancestor, attributes);
+      }
+    }
+  }
 
-    this._scheduleGridDisclosureSafety();
+  /** Unrelated Home Assistant state ticks must not remeasure thousands of unchanged blocks. */
+  private _gridDisclosureChanged(changedProps: PropertyValues): boolean {
+    if (changedProps.size !== 1 || !changedProps.has('hass')) return true;
+    const previous = changedProps.get('hass') as Types.Hass | undefined;
+    if (
+      !previous ||
+      !this.hass ||
+      previous.locale?.language !== this.hass.locale?.language ||
+      previous.locale?.time_format !== this.hass.locale?.time_format ||
+      previous.locale?.first_weekday !== this.hass.locale?.first_weekday
+    ) {
+      return true;
+    }
+    return this.config.entities.some((entry) => {
+      const entity = typeof entry === 'string' ? entry : entry.entity;
+      const label = typeof entry === 'string' ? undefined : entry.label;
+      return (
+        previous.states[entity] !== this.hass?.states[entity] ||
+        (label?.startsWith('person.') && previous.states[label] !== this.hass?.states[label])
+      );
+    });
   }
 
   /**
@@ -1157,7 +1283,7 @@ class CalendarCardPro extends LitElement {
     // connection — a width fallback or an edit to `view` both flip it — so a timer taken
     // in `connectedCallback` would either never start or never stop.
     this._syncNowLineTimer();
-    this._syncGridDisclosureSafety();
+    this._syncGridDisclosureSafety(this._gridDisclosureChanged(changedProps));
 
     if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
       this.updateEvents(true);
@@ -1379,9 +1505,14 @@ class CalendarCardPro extends LitElement {
    * extents before changing classes, then travel toward the unread end in the text's direction.
    * Duration keeps a constant speed over the moving part of the cycle, with a short-trip floor.
    */
-  private _measureTitleScroll(): void {
-    const titles = this.renderRoot.querySelectorAll<HTMLElement>('.event-title.title-scrollable');
+  private _measureTitleScroll(
+    titles: Iterable<HTMLElement> = this.renderRoot.querySelectorAll<HTMLElement>(
+      '.event-title.title-scrollable',
+    ),
+  ): void {
     const measurements = Array.from(titles).flatMap((title) => {
+      const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
+      if (fit === 'compact' || fit === 'blank' || fit === 'measuring') return [];
       const content = title.querySelector<HTMLElement>('.event-title-scroll');
       return content
         ? [

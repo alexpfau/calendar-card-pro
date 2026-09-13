@@ -847,7 +847,15 @@ describe('list view DOM', () => {
     expect(leavesSource).toMatch(
       /progressPercentage !== null && config\.show_progress_bar[\s\S]*?: nothing\}\s*\$\{weatherRow\}\s*\$\{eventLocation/,
     );
-    expect(eventWeatherSource.match(/return html``;/g)).toHaveLength(3);
+    // Weather eligibility is shared with Grid accessibility. Its three exits now return
+    // null to one renderer exit; every branch still renders the same empty template.
+    expect(eventWeatherSource.match(/return html``;/g)).toHaveLength(1);
+    const weatherEligibility = leavesSource.slice(
+      leavesSource.indexOf('function eventWeatherContent'),
+      leavesSource.indexOf('export interface EventContentParts'),
+    );
+    expect(weatherEligibility.match(/return null;/g)).toHaveLength(3);
+    expect(eventWeatherSource).toMatch(/if \(!content\) return html``;/);
 
     // The list row's date cell renders `''`, not `nothing`, on every row but the first.
     expect(renderSource).toMatch(/\$\{index === 0\s*\? html`[\s\S]*?`\s*: ''\}/);
