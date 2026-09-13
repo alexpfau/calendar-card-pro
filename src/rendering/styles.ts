@@ -669,9 +669,7 @@ export const cardStyles = css`
     overflow: hidden;
   }
 
-  /* Clamp labels and title together, not the title as a block below its labels.
-     Reuse the conditional display so unlimited List/Column lines retain their
-     existing whitespace layout. Grid supplies its own display and clamp rungs. */
+  /* Clamp the shared line; blockifying only the title puts it below its labels. */
   .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
     display: var(--calendar-card-title-display);
     -webkit-box-orient: vertical;
@@ -681,9 +679,7 @@ export const cardStyles = css`
     display: inline;
   }
 
-  /* Images and icons already use middle; baseline-aligned text beside them sits
-     higher. Align the text's line box too, including prose in a merged label run.
-     Keep prose-only and unlabeled summaries on their existing baseline. */
+  /* Match the labels' middle alignment, including prose in a merged label run. */
   .summary:has(> .label-icon) > .event-title,
   .summary:has(> .label-image) > .event-title,
   .summary:has(> .label-icon) > .calendar-label,
@@ -752,8 +748,7 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
-  /* Flex centers the viewport, so bottom-only padding would still leave the
-     actual scrolling text above an otherwise centered icon or picture. */
+  /* Center the text rather than its bottom-padded viewport. */
   .summary-scroll:has(> .label-icon) > .event-title,
   .summary-scroll:has(> .label-image) > .event-title {
     padding-bottom: 0;
