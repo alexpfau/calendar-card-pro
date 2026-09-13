@@ -1969,16 +1969,21 @@ describe('card stylesheet', () => {
       expect(declared('.grid-event', 'container')).toBe('calendar-card-grid-event / size');
       expect(ladder).toEqual({
         19: ['.grid-event-disclosure .summary-row'],
-        36: ['.grid-event-disclosure .event-title'],
-        40: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .time'],
+        36: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
+        40: [
+          '.grid-event-disclosure .event-title',
+          '.grid-event-disclosure .summary',
+          '.grid-event-disclosure .time',
+        ],
         48: ['.grid-event-disclosure .progress-bar-row'],
         72: [
           '.grid-event-disclosure .description',
           '.grid-event-disclosure .event-title',
           '.grid-event-disclosure .event-weather',
           '.grid-event-disclosure .location',
+          '.grid-event-disclosure .summary',
         ],
-        96: ['.grid-event-disclosure .event-title'],
+        96: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
       });
 
       // Everything the ladder reveals must start hidden, or its rung is decorative.

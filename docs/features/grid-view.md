@@ -372,6 +372,12 @@ matches column view: it gets its own detail row under the time, where the condit
 can wrap beneath the temperature instead of competing with the title. The progress bar gets
 its own row under the title, while countdowns trail the time text.
 
+Calendar labels sit inline before the timed event's title, with the same small gap as in
+List and Column. Text, emoji, icon, image, and merged-calendar labels share that first
+line rather than taking a row above it. Title line limits include the labeled line;
+scrolling keeps the labels stationary while the title moves. All-day banners remain
+title-only.
+
 ::: tip Keep Detail Rows Short
 Grid blocks have less room than list rows. If you show time, location and description in
 the grid, cap the optional detail rows to one or two lines so the title stays readable:

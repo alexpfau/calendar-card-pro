@@ -2441,10 +2441,14 @@ export const cardStyles = css`
     padding-block: 0;
   }
 
+  .grid-event-disclosure .summary,
+  .grid-event-disclosure .event-title {
+    -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
+  }
+
   .grid-event-disclosure .event-title {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
     overflow: hidden;
     /* Break at spaces, and inside a word only when that word cannot fit a line on its
        own. The default here inserted soft hyphens, so a lane-split block rendered
@@ -2458,6 +2462,26 @@ export const cardStyles = css`
     overflow-wrap: break-word;
     word-break: normal;
     hyphens: manual;
+  }
+
+  /* Clamp the whole title line. */
+  .grid-event-disclosure .summary:not(.summary-scroll):has(> .event-title:not(:only-child)) {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+  }
+
+  .grid-event-disclosure
+    .summary:not(.summary-scroll):has(> .event-title:not(:only-child))
+    > .event-title {
+    display: inline;
+  }
+
+  .grid-event-disclosure .calendar-label,
+  .grid-event-disclosure .label-icon,
+  .grid-event-disclosure .label-image {
+    margin-right: 0;
+    margin-inline-end: 4px;
+    unicode-bidi: isolate;
   }
 
   .grid-event-disclosure .time-location,
@@ -2556,6 +2580,7 @@ export const cardStyles = css`
   }
 
   @container calendar-card-grid-event (min-height: 36px) {
+    .grid-event-disclosure .summary,
     .grid-event-disclosure .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-medium);
     }
@@ -2575,6 +2600,7 @@ export const cardStyles = css`
      clamp is written for: the title waits until one full row fits, adds a second line
      only when there is room, and yields back to one line when the time row appears. */
   @container calendar-card-grid-event (min-height: 40px) {
+    .grid-event-disclosure .summary,
     .grid-event-disclosure .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);
     }
@@ -2611,6 +2637,7 @@ export const cardStyles = css`
   }
 
   @container calendar-card-grid-event (min-height: 72px) {
+    .grid-event-disclosure .summary,
     .grid-event-disclosure .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-medium);
     }
@@ -2623,6 +2650,7 @@ export const cardStyles = css`
   }
 
   @container calendar-card-grid-event (min-height: 96px) {
+    .grid-event-disclosure .summary,
     .grid-event-disclosure .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-expanded);
     }
