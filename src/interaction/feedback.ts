@@ -13,10 +13,7 @@ import * as Logger from '../utils/logger';
 /**
  * Create a visual hold indicator at pointer position.
  *
- * Positioned `fixed` with `clientX`/`clientY`, not `absolute` with page
- * coordinates. Page coordinates already include the window scroll; absolute
- * placement against the initial containing block does not, so a scrolled
- * dashboard drew the disc hundreds of pixels away from the finger.
+ * Fixed positioning and client coordinates use the same viewport coordinate space.
  *
  * @param event - Pointer event that triggered the hold
  * @param config - Card configuration to use for styling

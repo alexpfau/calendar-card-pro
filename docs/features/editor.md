@@ -4,6 +4,8 @@ Configure the card with Home Assistant's visual editor and see a live preview as
 
 <img src="https://raw.githubusercontent.com/alexpfau/calendar-card-pro/main/.github/img/example_editor.png" alt="Visual Configuration Editor" width="600"><br>
 
+The v5 editor shown above is editing **All Layouts**, with **Card Displays** still set to List.
+
 To open it, click the three dots (⋮) in the top-right corner of the card and select **Configure**. If you have not added a card yet, start with [Usage](/guide/usage).
 
 ## 🗂️ Editor Organization

@@ -1063,19 +1063,13 @@ export type ConfigRoute = 'block' | 'top-level';
 /**
  * Which route an option takes when edited while configuring a view.
  *
- * The editor was built with list view as the default and the other views expressed as
- * deltas, so an edit has always gone to the top level unless the user first found the
- * exception picker. Routing by the view being configured is what lets that picker stop
- * being a user-facing concept, and this is the single place that decides it.
+ * Controls route to the view being configured, independently of the displayed layout.
  *
- * 🚨 **Derived from {@link VIEW_BLOCKS}, never from a second list.** The obvious
- * shortcut — routing anything in `TIME_GRID_OVERRIDE_KEYS` — is wrong twice over: that
- * array is an alias of `COLUMN_OVERRIDE_KEYS`, so it says nothing about grid in
- * particular, and it holds keys grid accepts but cannot act on. Reading the registry
- * means a view that gains or loses a block needs no edit here.
+ * Derived from {@link VIEW_BLOCKS}, so keys route through the same registry the renderers
+ * read. Applicability filtering separately withholds controls that a view cannot use.
  *
- * List has no block and is not an omission: list *is* the top level, so every route
- * from it is `top-level` by construction.
+ * List writes its own block too. Card-wide keys stay at the top level in every view;
+ * the shared workspace bypasses this resolver and writes all of its values at root.
  *
  * @param key - Config key being edited
  * @param view - View the editor is currently configuring
@@ -1193,10 +1187,8 @@ export function viewCssClass(view: Types.EffectiveView): string {
 /**
  * Resolves the effective value of an option for the view being rendered.
  *
- * In list view the top-level value always wins. In column view the `column:` block
- * wins where it supplies the option, and the top-level value is inherited where it
- * does not — except for the keys in `COLUMN_DEFAULT_OVERRIDES`, which substitute a
- * column-specific default instead of inheriting.
+ * An explicit view value wins, then a divergent view default, then the shared root.
+ * List has no divergent defaults, so a missing List value inherits the shared root.
  *
  * The active view is supplied rather than read from `config.view`, because a requested
  * column view may be rendering the list fallback.

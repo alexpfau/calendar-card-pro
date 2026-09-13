@@ -228,12 +228,9 @@ export function stripTimeGridDefaults(
  * that equals what the key would inherit. That is deliberate and it is the one line that
  * makes `list:` worth having beyond symmetry.
  *
- * `Helpers.filterDefaultValues` makes an authored root value equal to the shipped default
- * unrepresentable — `event_font_size: '14px'` is indistinguishable from not having set it,
- * which is why the editor carries an in-memory `_authoredRootKeys` set that dies with the
- * dialog. A block entry has no such problem: nothing puts a key inside `list:` except a
- * user editing List, so the key being there is the record. `stripTimeGridDefaults` already
- * relies on this for grid's divergent-default keys; this generalizes it to the block.
+ * A block entry records authorship without needing a separate set of root keys.
+ * `retainAuthoredSharedValues` preserves divergent shared choices through save/reopen;
+ * List keeps explicit values for every supported override, not just the divergent keys.
  *
  * The cost is that a `list:` block can hold a line that changes nothing today. That is the
  * point — it changes something the moment the shared root value beside it moves.
@@ -657,11 +654,8 @@ export function timeGridFormBlock(config: Readonly<Types.Config>): Record<string
 /**
  * Builds the `list:` block as the form should show it.
  *
- * One layer where {@link columnFormBlock} has two, and the asymmetry is the point: list
- * registers no keys of its own and no divergent defaults, so there is nothing to project.
- * The card-level value *is* what list would use, and it is already bound as its own field
- * at the top level — projecting it in here too would show the same number twice and make
- * every unset option look authored.
+ * List has no block-only keys or divergent defaults to fill in. The workspace projection
+ * resolves inherited field values separately; this block contains only stored overrides.
  *
  * @param config - Merged configuration, defaults already applied
  * @returns The stored block, unprojected

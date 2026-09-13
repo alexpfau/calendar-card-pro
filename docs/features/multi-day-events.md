@@ -34,6 +34,13 @@ The option can be applied globally to all calendars or controlled separately for
 
 This is the `split_multiday_events` option — see [Core Settings in the configuration reference](/reference/configuration#core-settings).
 
+::: tip Grid Uses Its Own Daily Coverage
+[Grid view](/features/grid-view) does not use `split_multiday_events`. Timed events keep
+timed segments on every included date; all-day events use spanning banners. Grid resolves
+those dates before weekday/weekend filtering or empty-day omission, so a continuation can
+remain even when the event's first date is excluded.
+:::
+
 ::: tip Column View Splits by Default
 In the [column layout](/features/column-view) this option starts from `true` rather than
 from your top-level value, because a column _is_ a day — an unsplit event would leave every

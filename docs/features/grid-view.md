@@ -11,8 +11,9 @@ view: grid
 days_to_show: 3
 ```
 
-In the [visual editor](/features/editor) the layout is the first control in the **Layout**
-panel. Choosing **Grid** reveals a **Time Axis** group below it, holding every option on this page.
+In the [visual editor](/features/editor), **Card Displays** chooses the visible layout above
+the search controls. Select **Grid** under **Editing Settings For** to configure its time
+axis in **Layout** and its line styles in **Rules**, without changing the displayed layout.
 
 ::: tip Start With Three Days
 Seven columns need a wide card to stay readable. Three is a good default on a dashboard
@@ -60,6 +61,14 @@ columns for both timed and all-day events. A calendar's `days_of_week` filter ju
 covered date separately, so an event that starts on an excluded date can still appear on a
 later eligible date.
 
+::: warning A Bad Time Resets Both Bounds
+If either value cannot be read as `HH:mm`, the card falls back to `07:00`–`22:00` for
+both. Honoring one half of a pair would produce a band you never asked for and could not
+recognize as a fallback. The same reset applies when `end_time` is not after `start_time`,
+so a band that wraps past midnight — `20:00` to `08:00` — is a fallback rather than an
+overnight view.
+:::
+
 ### Events in the Repeated DST Hour
 
 The axis shows each local clock time once. When clocks move backward, a valid event can
@@ -72,14 +81,6 @@ The event's stored start and end, time text, and progress remain based on its re
 instants. Clipping and overlap lanes use the displayed block interval. Other events keep
 their wall-clock endpoints, and a full local day still fills one day column whether it
 contains 23, 24, or 25 hours.
-
-::: warning A Bad Time Resets Both Bounds
-If either value cannot be read as `HH:mm`, the card falls back to `07:00`–`22:00` for
-both. Honoring one half of a pair would produce a band you never asked for and could not
-recognize as a fallback. The same reset applies when `end_time` is not after `start_time`,
-so a band that wraps past midnight — `20:00` to `08:00` — is a fallback rather than an
-overnight view.
-:::
 
 ## 📏 How Tall an Hour Is
 
@@ -202,14 +203,6 @@ time_grid:
   month_separator_width: '3px'
 ```
 
-::: warning Changed In v5
-`day_separator_width` and `day_separator_color` briefly drove all four families while grid
-view was in development. They mean what they have always meant — **the vertical rule
-between two days** — and the three horizontal families named above have their own options.
-If you set `day_separator_color` expecting the hour rules to follow, set `hour_line_color`
-as well.
-:::
-
 **Down the columns**, `day_separator_*` runs from just under the date row to the foot of
 the axis. The rules cross the all-day band, and a banner spanning several days paints over
 them, so it still reads as one thing. Grid view turns them on by default, because a shared
@@ -226,10 +219,8 @@ draws a separate short rule inside each day's own header — the grid spends it 
 line that boundary needs. It is only drawn when there are all-day events to close off; with
 none, the band collapses and the heavier rule below takes its place.
 
-**Under the all-day band**, `allday_band_line_*` is heavier, because that boundary separates
-two different kinds of row rather than two days. It used to be twice the day rule's width by
-derivation; it is its own option now, so the proportion is a default you can break rather
-than a rule you cannot see. It is drawn inside the band, growing upward, so it never bleeds
+**Under the all-day band**, `allday_band_line_*` defaults to a heavier `2px` boundary,
+independently of the day rule's width. It is drawn inside the band, growing upward, so it never bleeds
 into the first events of the day, and the band's padding grows with it so the banners keep
 an even margin above and below.
 
@@ -250,10 +241,12 @@ every rule made a heavier day boundary mean twenty-four heavier hour lines.
 The date row and the week numbers above it stay clear of all four families — they label the
 grid rather than belonging to it. The weekend tint is independent of all of them.
 
-When you choose **Grid** in the visual editor, it adds the grid defaults that differ
-from the shared card defaults into `time_grid:` for you. That makes the default day rule,
-event background opacity, finished-event visibility and empty-day behavior visible in their
-panels, where you can change them without changing the list or column layouts.
+The **Grid** editing workspace shows effective values, including Grid's built-in defaults,
+without adding untouched values to `time_grid:`. Editing a control writes its Grid override.
+**All Layouts** edits the shared root, while **List** and **Columns** edit their own blocks.
+An explicit editor transition to Grid can preserve authored shared choices by copying them
+into missing Grid overrides; [saving and reopening](/features/editor#switching-an-existing-card-to-grid)
+keeps the relevant shared choices, even when they equal a root default.
 
 ## 🔴 The Now Line
 

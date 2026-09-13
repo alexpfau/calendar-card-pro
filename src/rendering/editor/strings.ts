@@ -294,11 +294,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'entity.days_of_week.option.weekdays.label': 'Every day except the weekend',
   'entity.days_of_week.option.weekends.label': 'Weekend days only',
   'entity.days_of_week.helper':
-    'Which days this calendar may put events on. Which days count as the weekend ' +
-    'follows the Home Assistant language — Saturday and Sunday in most regions, Friday ' +
-    'and Saturday in some, Sunday alone in others. A multi-day event keeps only the ' +
-    'days that qualify, so a holiday running through a weekend still shows on the days ' +
-    'around it.',
+    'Which dates this calendar may show events on. Weekend days follow the Home Assistant ' +
+    'language. Grid checks every covered date. List and Columns check each day only when ' +
+    'multi-day splitting is enabled; otherwise they check the event’s display date.',
 
   // --- Text replacement -----------------------------------------------------
   //
@@ -614,7 +612,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
   scroll_long_titles: 'Scroll Long Titles',
   'scroll_long_titles.helper':
-    'Titles too long to fit scroll sideways instead of wrapping to more lines. Forces a ' +
+    'Long titles scroll to reveal their ending in left-to-right and right-to-left layouts. Forces a ' +
     'single line and overrides the title line limit; never animates under reduced motion.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
@@ -794,9 +792,8 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   // column card is still the live control for what that card shows on a phone.
   'scope.column_list_only': 'Applies to the list and column layouts, not to the time grid.',
   'scope.column_list_only.split_multiday_events':
-    'The time grid does not need this. An all-day event spanning several days is drawn ' +
-    'as one banner across them, and a timed one is already drawn as a separate block in ' +
-    'each day it touches.',
+    'Grid derives daily coverage itself. All-day events use spanning banners across included ' +
+    'columns; timed events use a block per included day.',
   'scope.list_only': 'Applies to the list layout, which this card also uses on narrow screens.',
   'scope.list_only.today_indicator_position':
     'Applies to the list layout — column layout places the indicator for you.',
