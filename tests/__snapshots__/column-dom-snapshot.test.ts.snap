@@ -1520,7 +1520,7 @@ exports[`column view DOM > renders the optional content rows 1`] = `
 <div class="time">
 <div class="time-actual">
 <ha-icon icon="mdi:clock-outline"></ha-icon>
-<span class="time-text"><span>All day</span><span class="time-countdown">in a day</span></span>
+<span class="time-text"><span>All day</span><span class="time-countdown">tomorrow</span></span>
 </div>
 </div>
 </div>

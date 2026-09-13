@@ -47,7 +47,7 @@ src/
 │   ├── presentation.ts           # Layout-independent per-event presentation models
 │   └── styles.ts                 # CSS styles and dynamic styling
 ├── translations/                 # Localization support
-│   ├── dayjs.ts                  # Day.js locale configuration
+│   ├── dayjs.ts                  # Relative-time localization
 │   ├── localize.ts               # Translation functions
 │   └── languages/                # Translation files (35 supported languages)
 │       ├── en.json               # English translations
@@ -263,6 +263,11 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
 ### Translations (`translations/`)
 
 Provides internationalization support:
+
+- **dayjs.ts**:
+  - Shares locale mapping between Day.js's natural relative-time wording and native relative-unit formatting
+  - Formats later-date countdowns through Day.js with both reference and target anchored to their local calendar dates, retaining its natural day/month/year selection
+  - Uses cached `Intl.RelativeTimeFormat` instances for "tomorrow" and explicit same-day hour counts, while Day.js retains its short clock phrases
 
 - **localize.ts**:
   - Manages language detection and selection

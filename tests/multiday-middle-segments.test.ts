@@ -93,8 +93,7 @@ describe('a timed event spanning four days', () => {
   });
 
   it('marks every segment as one', () => {
-    // `_isMultiDaySegment` is what the renderers read to decide a segment is part of a
-    // longer event rather than a standalone entry.
+    // The date-window filter distinguishes split segments from standalone entries.
     expect(segmentsByDay(SPANNING_EVENT).every((segment) => segment._isMultiDaySegment)).toBe(true);
   });
 

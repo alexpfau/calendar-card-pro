@@ -445,16 +445,32 @@ Show how much time remains until an event starts with the countdown display feat
 show_countdown: true
 ```
 
-When enabled, a subtle countdown string appears next to each upcoming event, showing the remaining time in a natural language format like "in 3 days" or "in 2 hours". This helps users quickly identify how soon events will begin.
+When enabled, a subtle countdown string appears next to each upcoming event. It follows the same local calendar dates as the day headers, in both list and column view:
 
-All-day events are included by default, counted in whole calendar days. If you only want countdowns on events with an actual start time, turn them off separately:
+| When the Event Starts | Countdown                                                     |
+| --------------------- | ------------------------------------------------------------- |
+| Later today           | A clock countdown, such as "in 20 minutes" or "in 5 hours"    |
+| Tomorrow, at any time | "tomorrow"                                                    |
+| On a later date       | Date-based relative text, such as "in 3 days" or "in a month" |
+
+For example, on September 8, a timed event on September 11 at 08:00 reads **in 3 days**, and one on September 12 at 12:00 reads **in 4 days**. Both counts stay the same throughout September 8 and decrease when the local date changes. Different start times no longer make the counts skip a day.
+
+**Tomorrow names a date, not a duration.** At 23:50, an event starting at 00:10 reads "tomorrow"; at midnight it changes to "in 10 minutes." Its displayed start time still tells you when it happens. If you hide event times, "tomorrow" alone does not indicate how soon after midnight it starts.
+
+Today's timed events stay in clock units even when the wait is long enough that ordinary relative-time formatting would call it "a day." Later dates are compared from the start of today to the start of the event's date, so neither the current time nor the event's start time affects the wording. Distant dates keep the previous natural phrasing: for example, "in a month" for an event 30 days away or "in a year" for one 365 days away. The wording is localized to the card's language, and the date comparison remains correct across daylight-saving changes.
+
+::: info Changed in v4.2
+Existing cards with `show_countdown: true` use this behavior automatically. Previously, ordinary timed events rounded the remaining time into days, while all-day and split multi-day rows counted calendar dates. There is no additional option to configure.
+:::
+
+All-day events are included by default and follow the same date-based rule. If you only want countdowns on events with an actual start time, turn them off separately:
 
 ```yaml
 show_countdown: true
 show_countdown_allday: false # Timed events only
 ```
 
-When [`split_multiday_events`](/features/multi-day-events) is on, a multi-day event appears as one row per day and each row counts whole calendar days to its own date, so the countdowns read consecutively down the card.
+When [`split_multiday_events`](/features/multi-day-events) is on, a multi-day event appears as one row per day and each row counts to its own start: clock units if it starts later today, "tomorrow" on the next date, and date-based relative wording thereafter. An unsplit event counts to its original start. Countdowns disappear once an event or split row has started; today's all-day events therefore have no countdown.
 
 ## 🕒 Past Events Display
 
