@@ -751,10 +751,8 @@ export const cardStyles = css`
     }
   }
 
-  /* Distance is the text's intrinsic width minus its viewport, set inline per title.
-     Direction is -1 for LTR and +1 for RTL, where the unread ending lies to the left.
-     A marquee rather than
-     a ping-pong: hold at the start, travel once to the end at constant velocity, hold there,
+  /* Intrinsic overflow sets distance; direction is -1 (LTR) or +1 (RTL).
+     Hold at the start, travel once to the end at constant velocity, hold there,
      then restart from the beginning. Reading a title backwards is the thing the alternating
      form got wrong -- the eye follows the text out and is then dragged back through words it
      has already read, at reading speed, which is why it reads as odd rather than as motion.
