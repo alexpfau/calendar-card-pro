@@ -449,6 +449,8 @@ accessibility tree even when their visual text is clipped or absent. Calendar an
 names identify picture/icon labels, original event times describe continuations, and
 intentionally disabled details stay omitted. This does not add an event action or another
 keyboard tab stop. All-day banners and overflow-count blocks are outside this fallback.
+The accessible name follows the card language without changing the visual content's
+inherited language or normal wrapping.
 
 ::: tip Keep Detail Rows Short
 Grid blocks have less room than list rows. If you show time, location and description in

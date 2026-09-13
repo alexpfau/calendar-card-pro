@@ -231,6 +231,8 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
   - Receives daily Grid occurrences from grouping and joins each all-day event's
     admitted columns into spanning banners
   - Applies percentage-based positions and overlap lanes from `utils/grid.ts`
+  - Places the named group's language on an empty, pointer-transparent sibling of the
+    visual disclosure, so it cannot change inherited hyphenation or normal label wrapping
 
 - **grid-accessibility.ts**:
   - Names timed event groups independently of visual clipping, using configured labels,

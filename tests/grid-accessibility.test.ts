@@ -5,6 +5,7 @@ import { FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import { resolveEffectiveConfig } from '../src/config/view';
 import { renderGridGroupedEvents } from '../src/rendering/grid';
+import { cardStyles } from '../src/rendering/styles';
 import { groupEventsByDay } from '../src/utils/events';
 import { formatEventTime } from '../src/utils/format';
 
@@ -45,6 +46,7 @@ function fixture(
     ...options,
   });
   const effective = resolveEffectiveConfig(config, 'grid');
+  const language = config.language ?? 'en';
   const prepared = events.map((event) => ({
     ...event,
     _matchedConfig: config.entities.find(
@@ -55,9 +57,9 @@ function fixture(
   const container = document.createElement('div');
   render(
     renderGridGroupedEvents(
-      groupEventsByDay(prepared, config, false, 'en', 'grid'),
+      groupEventsByDay(prepared, config, false, language, 'grid'),
       effective,
-      'en',
+      language,
       forecasts,
       hass,
       FROZEN_NOW,
@@ -65,6 +67,14 @@ function fixture(
     container,
   );
   return { container, effective };
+}
+
+function accessibleGroup(block: Element): HTMLElement {
+  const group = block.querySelector<HTMLElement>(':scope > .grid-event-accessible');
+  expect(group).not.toBeNull();
+  expect(group!.getAttribute('role')).toBe('group');
+  expect(block.querySelectorAll('[role="group"]')).toHaveLength(1);
+  return group!;
 }
 
 beforeEach(() => {
@@ -77,14 +87,47 @@ describe('timed Grid accessible information', () => {
   it('names short blocks without extra tab stops or duplicate visual descendants', () => {
     const { container } = fixture();
     const block = container.querySelector('.grid-event')!;
-    expect(block.getAttribute('role')).toBe('group');
+    const group = accessibleGroup(block);
+    expect(block.hasAttribute('role')).toBe(false);
+    expect(block.hasAttribute('aria-label')).toBe(false);
     expect(block.getAttribute('tabindex')).toBeNull();
-    expect(block.getAttribute('aria-label')).toContain(source.summary);
-    expect(block.getAttribute('aria-label')).toContain('Anna');
+    expect(group.getAttribute('tabindex')).toBeNull();
+    expect(group.getAttribute('aria-label')).toContain(source.summary);
+    expect(group.getAttribute('aria-label')).toContain('Anna');
     expect(block.querySelector('.grid-event-disclosure')?.getAttribute('aria-hidden')).toBe('true');
-    expect(block.getAttribute('aria-label')).toContain('10:00 - 10:05');
-    expect(block.getAttribute('aria-label')).toContain(source.location);
-    expect(block.getAttribute('aria-label')).toContain(source.description);
+    expect(group.closest('[aria-hidden="true"]')).toBeNull();
+    expect(group.getAttribute('aria-label')).toContain('10:00 - 10:05');
+    expect(group.getAttribute('aria-label')).toContain(source.location);
+    expect(group.getAttribute('aria-label')).toContain(source.description);
+  });
+
+  it.each(['', 'en', 'he'])(
+    'keeps accessible language out of the visual inheritance chain under page language "%s"',
+    (pageLanguage) => {
+      const { container } = fixture({
+        language: 'de',
+        entities: [{ entity: 'calendar.anna', label: 'Family calendar:' }],
+        time_grid: { scroll_long_titles: true },
+      });
+      if (pageLanguage) container.lang = pageLanguage;
+      const block = container.querySelector('.grid-event')!;
+      const group = accessibleGroup(block);
+      expect(group.lang).toBe('de');
+      expect(group.textContent?.trim()).toBe('');
+      expect(group.children).toHaveLength(0);
+      expect(block.hasAttribute('lang')).toBe(false);
+      for (const visual of block.querySelectorAll('.summary, .calendar-label, .event-title')) {
+        expect(visual.closest('[lang]')).toBe(pageLanguage ? container : null);
+        expect(group.contains(visual)).toBe(false);
+      }
+    },
+  );
+
+  it('gives the empty semantic group event bounds without intercepting pointer input', () => {
+    const rule = cardStyles.cssText.match(/\.grid-event-accessible\s*\{([^}]+)\}/)?.[1];
+    expect(rule).toMatch(/position:\s*absolute;/);
+    expect(rule).toMatch(/inset:\s*0;/);
+    expect(rule).toMatch(/pointer-events:\s*none;/);
   });
 
   it.each([
@@ -96,7 +139,9 @@ describe('timed Grid accessible information', () => {
     ['home-assistant', 'Anna calendar'],
   ])('keeps meaningful identity for %s without reading an image URL', (label, expected) => {
     const { container } = fixture({ entities: [{ entity: 'calendar.anna', label }] });
-    const name = container.querySelector('.grid-event')!.getAttribute('aria-label')!;
+    const name = accessibleGroup(container.querySelector('.grid-event')!).getAttribute(
+      'aria-label',
+    )!;
     expect(name.split(', ')[0]).toBe(`\u2068${expected}\u2069`);
     expect(name).not.toContain('/fictional-avatar.svg');
   });
@@ -118,7 +163,7 @@ describe('timed Grid accessible information', () => {
     );
     const blocks = container.querySelectorAll('.grid-event');
     expect(blocks).toHaveLength(1);
-    expect(blocks[0].getAttribute('aria-label')!.split(', ').slice(0, 3)).toEqual([
+    expect(accessibleGroup(blocks[0]).getAttribute('aria-label')!.split(', ').slice(0, 3)).toEqual([
       '\u2068Anna\u2069',
       '\u2068Ben calendar\u2069',
       '\u2068Family\u2069',
@@ -131,7 +176,9 @@ describe('timed Grid accessible information', () => {
       entities: [{ entity: 'calendar.anna', label: 'Anna', label_type: 'none' }],
       time_grid: { show_time: false, show_location: false, show_description: false },
     });
-    const name = container.querySelector('.grid-event')!.getAttribute('aria-label');
+    const name = accessibleGroup(container.querySelector('.grid-event')!).getAttribute(
+      'aria-label',
+    );
     expect(name).toBe(`\u2068${source.summary}\u2069`);
   });
 
@@ -144,7 +191,7 @@ describe('timed Grid accessible information', () => {
     const blocks = container.querySelectorAll('.grid-event');
     expect(blocks).toHaveLength(3);
     for (const block of blocks) {
-      expect(block.getAttribute('aria-label')).toContain(
+      expect(accessibleGroup(block).getAttribute('aria-label')).toContain(
         formatEventTime(event, effective, 'en', hass),
       );
     }
@@ -183,9 +230,9 @@ describe('timed Grid accessible information', () => {
     );
     const block = container.querySelector('.grid-event')!;
     expect(block.querySelector('.event-weather')?.textContent).toContain('19°');
-    expect(block.getAttribute('aria-label')).toContain('19°');
-    expect(block.getAttribute('aria-label')).toContain('UV3');
-    expect(block.getAttribute('aria-label')).toContain(
+    expect(accessibleGroup(block).getAttribute('aria-label')).toContain('19°');
+    expect(accessibleGroup(block).getAttribute('aria-label')).toContain('UV3');
+    expect(accessibleGroup(block).getAttribute('aria-label')).toContain(
       block.querySelector('.weather-condition')!.textContent,
     );
   });
@@ -204,8 +251,10 @@ describe('timed Grid accessible information', () => {
     const banner = container.querySelector('.grid-banner')!;
     const overflow = container.querySelector('.grid-event-overflow')!;
     expect(banner.getAttribute('role')).toBeNull();
+    expect(banner.querySelector('[role="group"]')).toBeNull();
     expect(banner.querySelector('.calendar-label')).toBeNull();
     expect(overflow.getAttribute('role')).toBeNull();
+    expect(overflow.querySelector('[role="group"]')).toBeNull();
     expect(overflow.textContent?.trim()).toBe('+1');
   });
 });

@@ -2448,6 +2448,12 @@ export const cardStyles = css`
     );
   }
 
+  .grid-event-accessible {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
   .grid-event-disclosure,
   .grid-event-disclosure .event-content {
     display: flex;
