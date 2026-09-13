@@ -139,6 +139,10 @@ entities:
     label: /local/school.png # image
 ```
 
+Icons and pictures are vertically centered with the adjacent title text in List, Column,
+and timed Grid events, including merged-calendar labels. Grid's all-day banners remain
+title-only.
+
 `label_type` is for the cases where reading the value gets it wrong. Set it to `none`,
 `text`, `icon` or `image` and it wins over the value:
 
