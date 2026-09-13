@@ -376,6 +376,54 @@ describe('scroll_long_titles lifecycle', () => {
     document.body.innerHTML = '';
   });
 
+  it('retains known offscreen state while rebinding active observers', async () => {
+    const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+      setConfig(config: Types.Config): void;
+      _syncTitleScroll(): void;
+      readonly updateComplete: Promise<boolean>;
+    };
+    card.setConfig(buildConfig({ entities: [], scroll_long_titles: true }));
+    document.body.appendChild(card);
+    await card.updateComplete;
+
+    const title = document.createElement('span');
+    title.className = 'event-title title-scrollable';
+    card.shadowRoot!.appendChild(title);
+    card._syncTitleScroll();
+    card.classList.add('calendar-card-title-scroll-paused');
+    const previousResize = RecordingResizeObserver.instances.at(-1)!;
+    const previousIntersection = RecordingIntersectionObserver.instances.at(-1)!;
+
+    card._syncTitleScroll();
+
+    expect(previousResize.disconnected).toBe(true);
+    expect(previousIntersection.disconnected).toBe(true);
+    expect(RecordingResizeObserver.instances.at(-1)?.observed).toContain(title);
+    expect(card.classList).toContain('calendar-card-title-scroll-paused');
+
+    card.remove();
+    expect(card.classList).not.toContain('calendar-card-title-scroll-paused');
+  });
+
+  it.each(['disabled', 'no titles'])(
+    'clears paused state when scrolling has %s',
+    async (reason) => {
+      const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+        setConfig(config: Types.Config): void;
+        _syncTitleScroll(): void;
+        readonly updateComplete: Promise<boolean>;
+      };
+      card.setConfig(buildConfig({ entities: [], scroll_long_titles: reason !== 'disabled' }));
+      document.body.appendChild(card);
+      await card.updateComplete;
+      card.classList.add('calendar-card-title-scroll-paused');
+
+      card._syncTitleScroll();
+
+      expect(card.classList).not.toContain('calendar-card-title-scroll-paused');
+    },
+  );
+
   it('reacquires observers when a disconnected card is reconnected', async () => {
     const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
       setConfig(config: Types.Config): void;

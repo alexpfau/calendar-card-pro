@@ -1297,13 +1297,13 @@ class CalendarCardPro extends LitElement {
    * animation while the card is off-screen — these live on 24/7 wall panels.
    */
   private _syncTitleScroll(): void {
-    this._stopTitleScrollObserver();
-
     if (!this.isConnected || !this.effectiveConfig.scroll_long_titles) {
+      this._stopTitleScrollObserver();
       return;
     }
 
     const titles = this.renderRoot.querySelectorAll<HTMLElement>('.event-title.title-scrollable');
+    this._stopTitleScrollObserver(titles.length === 0);
     if (!titles.length) {
       return;
     }
@@ -1407,8 +1407,10 @@ class CalendarCardPro extends LitElement {
 
   /**
    * Tears down the title-scroll observers, cancels pending work, and clears the pause class.
+   *
+   * @param clearPause - Keep false during active rebinding so offscreen titles stay paused
    */
-  private _stopTitleScrollObserver(): void {
+  private _stopTitleScrollObserver(clearPause = true): void {
     this._titleScrollObserver?.disconnect();
     this._titleScrollObserver = null;
 
@@ -1423,7 +1425,7 @@ class CalendarCardPro extends LitElement {
       this._titleScrollRaf = null;
     }
 
-    this.classList.remove('calendar-card-title-scroll-paused');
+    if (clearPause) this.classList.remove('calendar-card-title-scroll-paused');
   }
 
   /**
