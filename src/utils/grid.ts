@@ -15,7 +15,7 @@
  * once someone overrides the scale with card-mod. It also keeps configured lengths as
  * CSS strings, which `src/rendering/` is forbidden from turning into numbers.
  *
- * **Clock positions come from the local wall clock, never from elapsed milliseconds.**
+ * **Clock positions come from the local wall clock, not time elapsed since midnight.**
  * `date.getHours() * 60 + date.getMinutes()` and `(date - midnight) / 60000` agree on
  * 363 days a year and disagree by an hour on the two DST transitions, because a
  * spring-forward day is 23 hours long. The elapsed-milliseconds form places a 14:00
@@ -217,10 +217,10 @@ export function bandEndHasRule(band: GridBand, slotMinutes: number): boolean {
  * which has no transitions.
  *
  * @param d - Any local-time Date
- * @returns Integer minutes in `[0, 1440)`
+ * @returns Wall-clock minutes in `[0, 1440)`, including seconds and milliseconds
  */
 export function minutesFromMidnight(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes();
+  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60 + d.getMilliseconds() / 60000;
 }
 
 /**
@@ -634,9 +634,10 @@ export function splitTimedEventByDay(
  *
  * A segment running to the following local midnight reports `1440` rather than `0`, so
  * a block ending at midnight is drawn to the bottom of the band instead of collapsing.
- * When a backward clock change makes a positive-duration segment's end clock equal to
- * or earlier than its start, draw its elapsed duration from that local start. The axis
- * has only one copy of the repeated hour; the event's actual instants remain unchanged.
+ * When a backward clock change makes a positive-duration segment's displayed end minute
+ * equal to or earlier than its start minute, draw its elapsed duration from that precise
+ * local start. The axis has only one copy of the repeated hour; the event's actual
+ * instants remain unchanged.
  *
  * @param segment - A timed segment confined to one local day
  * @returns Start and end in minutes from that day's midnight
@@ -659,7 +660,10 @@ export function segmentMinutes(segment: Types.CalendarEventData): LaneInput | nu
   // Midnight reads as 0 on the *following* day, which would invert the interval.
   let endMin = FormatUtils.getCalendarDayDiff(start, end) > 0 ? MINUTES_PER_DAY : rawEndMin;
 
-  if (endMin <= startMin && end.getTimezoneOffset() > start.getTimezoneOffset()) {
+  if (
+    Math.floor(endMin) <= Math.floor(startMin) &&
+    end.getTimezoneOffset() > start.getTimezoneOffset()
+  ) {
     endMin = startMin + (end.getTime() - start.getTime()) / 60000;
   }
 

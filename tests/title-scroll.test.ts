@@ -163,9 +163,17 @@ describe('scroll_long_titles stylesheet contract', () => {
     expect(travelStart).toBe(100 - travelEnd);
   });
 
-  it('pauses the animation while the card is off-screen', () => {
-    expect(CSS).toMatch(
-      /:host\(\.calendar-card-title-scroll-paused\)\s+\.event-title-scroll\s*\{[^}]*animation-play-state:\s*paused/,
+  it('gives the offscreen pause rule more specificity than the animation shorthand', () => {
+    const animated = CSS.match(
+      /(\.event-title\.title-scrollable\.title-overflowing\s+\.event-title-scroll)\s*\{[^}]*animation:\s*calendar-card-title-scroll/,
+    );
+    const paused = CSS.match(/(:host\(\.calendar-card-title-scroll-paused\)[^{]+)\{([^}]*)\}/);
+    expect(animated).not.toBeNull();
+    expect(paused).not.toBeNull();
+    expect(paused![2]).toMatch(/animation-play-state:\s*paused/);
+    // Retain all activation qualifiers: a host class alone loses to the shorthand.
+    expect(paused![1].trim().replace(/\s+/g, ' ')).toBe(
+      `:host(.calendar-card-title-scroll-paused) ${animated![1].replace(/\s+/g, ' ')}`,
     );
   });
 });

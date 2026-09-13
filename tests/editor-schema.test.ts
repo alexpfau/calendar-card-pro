@@ -1140,12 +1140,15 @@ describe('editor: displayed view and the Layout panel', () => {
     });
   });
 
-  it('does not reconcile again after the editor session suppresses it', () => {
-    const config = buildConfig({ view: 'grid', day_spacing: '4em' });
-    const authored = new Set(['day_spacing']);
-    expect(reconcileTimeGridValues(config, false, authored).time_grid).toBeUndefined();
-    expect(reconcileTimeGridValues(config, true, authored).time_grid).toEqual({
+  it('suppresses only the options reset in the editor session', () => {
+    const config = buildConfig({ view: 'grid', day_spacing: '4em', event_font_size: '18px' });
+    const authored = new Set(['day_spacing', 'event_font_size']);
+    expect(reconcileTimeGridValues(config, new Set(['day_spacing']), authored).time_grid).toEqual({
+      event_font_size: '18px',
+    });
+    expect(reconcileTimeGridValues(config, new Set(), authored).time_grid).toEqual({
       day_spacing: '4em',
+      event_font_size: '18px',
     });
   });
 

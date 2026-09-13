@@ -468,10 +468,11 @@ export function toStoredConfig(
 function gridReconciliations(
   config: Readonly<Types.Config>,
   authoredRootKeys: ReadonlySet<string>,
+  resetKeys: ReadonlySet<string>,
 ): Array<{ key: string; value: unknown; reconciled: boolean }> {
   const block = Helpers.isConfigBlock(config.time_grid) ? config.time_grid : {};
   return Object.entries(ViewConfig.TIME_GRID_DEFAULT_OVERRIDES).flatMap(([key, gridDefault]) => {
-    if (Object.prototype.hasOwnProperty.call(block, key)) return [];
+    if (resetKeys.has(key) || Object.prototype.hasOwnProperty.call(block, key)) return [];
     const root = config[key as keyof Types.Config];
     if (!authoredRootKeys.has(key) || root === undefined || root === null) return [];
     const value = normalizeRootValue(key, root);
@@ -493,13 +494,15 @@ function gridReconciliations(
  *
  * @param config - Configuration before the editor switches the displayed view
  * @param authoredRootKeys - Root keys captured before defaults were merged, plus later root edits
+ * @param resetKeys - Grid options reset in this editor session, unless reauthored in Shared
  * @returns The conflicting options to name in one editor notice
  */
 export function gridReconciliationKeys(
   config: Readonly<Types.Config>,
   authoredRootKeys: ReadonlySet<string>,
+  resetKeys: ReadonlySet<string> = new Set(),
 ): ReadonlyArray<string> {
-  return gridReconciliations(config, authoredRootKeys)
+  return gridReconciliations(config, authoredRootKeys, resetKeys)
     .filter(({ reconciled }) => reconciled)
     .map(({ key }) => key);
 }
@@ -513,17 +516,16 @@ export function gridReconciliationKeys(
  * Existing block values are never pruned, even when they equal a Grid default.
  *
  * @param config - Configuration after the view changed
- * @param enabled - Whether this editor session still permits reconciliation after a reset
+ * @param resetKeys - Grid options reset in this editor session, unless reauthored in Shared
  * @param authoredRootKeys - Authored root keys, never inferred from the merged configuration
  * @returns The reconciled configuration, or the original when no authored value needs copying
  */
 export function reconcileTimeGridValues(
   config: Readonly<Types.Config>,
-  enabled = true,
+  resetKeys: ReadonlySet<string> = new Set(),
   authoredRootKeys: ReadonlySet<string> = new Set(),
 ): Types.Config {
-  if (!enabled) return config as Types.Config;
-  const changes = gridReconciliations(config, authoredRootKeys);
+  const changes = gridReconciliations(config, authoredRootKeys, resetKeys);
   if (changes.length === 0) return config as Types.Config;
   const block = Helpers.isConfigBlock(config.time_grid) ? config.time_grid : {};
 

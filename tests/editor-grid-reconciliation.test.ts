@@ -93,6 +93,21 @@ function notice(editor: EditorHost): HTMLElement | null {
   return editor.shadowRoot!.querySelector('[data-grid-reconciliation]');
 }
 
+async function reset(editor: EditorHost, keys: string[]): Promise<void> {
+  const buttons = [
+    ...editor.shadowRoot!.querySelectorAll<HTMLButtonElement>('[data-reset-keys]'),
+  ].filter((button) => button.dataset.resetKeys === keys.join(' '));
+  expect(buttons, `reset for ${keys.join(', ')}`).toHaveLength(1);
+  buttons[0].click();
+  await editor.updateComplete;
+}
+
+async function echo(editor: EditorHost, reports: Record<string, unknown>[]): Promise<void> {
+  expect(reports.length).toBeGreaterThan(0);
+  editor.setConfig({ config_version: Config.CURRENT_CONFIG_VERSION, ...reports.at(-1)! });
+  await editor.updateComplete;
+}
+
 function authoredValue(key: string, gridDefault: unknown): string | number | boolean {
   if (typeof gridDefault === 'boolean') return !gridDefault;
   if (typeof gridDefault === 'number') return gridDefault + 7;
@@ -108,6 +123,147 @@ const CASES = Object.entries(View.TIME_GRID_DEFAULT_OVERRIDES).map(([key, gridDe
   gridDefault,
   authored: authoredValue(key, gridDefault),
 }));
+
+describe('per-option Grid reset memory', () => {
+  it.each([false, true])(
+    'preserves unrelated authored defaults while the reset key stays reset (echo=%s)',
+    async (withEcho) => {
+      const { editor, reports } = await mount({
+        view: 'grid',
+        event_font_size: '14px',
+        show_past_events: false,
+        event_background_opacity: 0,
+        day_spacing: '10px',
+        time_grid: { event_font_size: '18px' },
+      });
+      await reset(editor, ['event_font_size']);
+      if (withEcho) await echo(editor, reports);
+      await authorAtRoot(editor, 'day_spacing', '18px');
+      if (withEcho) await echo(editor, reports);
+      await change(editor, 'view', 'list');
+      await change(editor, 'view', 'grid');
+
+      expect(reports.at(-1)?.time_grid).toEqual({
+        show_past_events: false,
+        event_background_opacity: 0,
+        day_spacing: '18px',
+      });
+      expect(reports.at(-1)).toHaveProperty('event_font_size', '14px');
+      expect(formFor(editor, 'event_font_size').data.event_font_size).toBe('12px');
+      expect(notice(editor)!.textContent).toContain(lookup('en', 'day_spacing'));
+      expect(notice(editor)!.textContent).not.toContain(lookup('en', 'event_font_size'));
+      expect(reports.at(-1)).not.toHaveProperty('time_grid.time_color');
+    },
+  );
+
+  it('preserves a previously absent Shared choice after an unrelated reset', async () => {
+    const { editor, reports } = await mount({
+      view: 'grid',
+      time_grid: { event_font_size: '18px' },
+    });
+    await reset(editor, ['event_font_size']);
+    await authorAtRoot(editor, 'day_spacing', '2em');
+    await change(editor, 'view', 'list');
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)?.time_grid).toEqual({ day_spacing: '2em' });
+  });
+
+  it.each([
+    { key: 'event_font_size', root: '18px', own: '20px', next: '14px' },
+    { key: 'event_background_opacity', root: 5, own: 10, next: 0 },
+    { key: 'show_past_events', root: true, own: false, next: false },
+  ])('a later Shared edit reauthors the reset $key', async ({ key, root, own, next }) => {
+    const { editor, reports } = await mount({
+      view: 'grid',
+      [key]: root,
+      time_grid: { [key]: own },
+    });
+    await reset(editor, [key]);
+    await echo(editor, reports);
+    await authorAtRoot(editor, key, next);
+    await echo(editor, reports);
+    await change(editor, 'view', 'list');
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)?.time_grid).toEqual({ [key]: next });
+  });
+
+  it('a normalized no-op Shared edit does not cancel the reset', async () => {
+    const { editor, reports } = await mount({
+      view: 'grid',
+      event_font_size: '14px',
+      time_grid: { event_font_size: '18px' },
+    });
+    await reset(editor, ['event_font_size']);
+    await authorAtRoot(editor, 'event_font_size', '14');
+    await change(editor, 'view', 'list');
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)).not.toHaveProperty('time_grid.event_font_size');
+  });
+
+  it('keeps reset memory across an echo but starts fresh after reopening', async () => {
+    const { editor, reports } = await mount({
+      view: 'grid',
+      event_font_size: '14px',
+      time_grid: { event_font_size: '18px' },
+    });
+    await reset(editor, ['event_font_size']);
+    await echo(editor, reports);
+    await change(editor, 'view', 'list');
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)).not.toHaveProperty('time_grid.event_font_size');
+    const reopened = await mount(reports.at(-1));
+    expect(reopened.reports).toEqual([]);
+    await change(reopened.editor, 'view', 'list');
+    await change(reopened.editor, 'view', 'grid');
+    expect(reopened.reports.at(-1)?.time_grid).toEqual({ event_font_size: '14px' });
+  });
+
+  const textKeys = [
+    'event_color',
+    'time_color',
+    'location_color',
+    'description_color',
+    'progress_bar_color',
+  ];
+  const colors = Object.fromEntries(textKeys.map((key) => [key, '#123456']));
+
+  it('resets every key in a derived control without suppressing other controls', async () => {
+    const { editor, reports } = await mount({
+      view: 'grid',
+      ...colors,
+      time_grid: { ...colors },
+    });
+    await reset(editor, textKeys);
+    await authorAtRoot(editor, 'day_spacing', '2rem');
+    await change(editor, 'view', 'list');
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)?.time_grid).toEqual({ day_spacing: '2rem' });
+
+    await authorAtRoot(editor, 'event_color', '#654321');
+    await change(editor, 'view', 'list');
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)?.time_grid).toEqual({
+      day_spacing: '2rem',
+      event_color: '#654321',
+    });
+  });
+
+  it('a later Shared derived-control edit reauthors each of its reset keys', async () => {
+    const { editor, reports } = await mount({
+      view: 'grid',
+      ...colors,
+      time_grid: { ...colors },
+    });
+    await reset(editor, textKeys);
+    await authorAtRoot(editor, 'accent_event_text', true);
+    await change(editor, 'view', 'list');
+    await change(editor, 'view', 'grid');
+    expect(reports.at(-1)?.time_grid).toEqual(
+      Object.fromEntries(textKeys.map((key) => [key, 'accent'])),
+    );
+    expect(notice(editor)).toBeNull();
+  });
+});
 
 afterEach(() => {
   document.body.replaceChildren();

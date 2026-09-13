@@ -147,6 +147,13 @@ One notice lists the options kept instead of Grid's defaults. Use the option's
 **Reset** button in the Grid workspace to return to its default; switching away and
 back in the same editing session does not recreate a reset value.
 
+A reset applies only to the options that control writes. It does not prevent a later
+switch to Grid from preserving other values you author in All Layouts. If you deliberately
+change the reset option itself in All Layouts afterward, that newer choice can be preserved
+on the next switch to Grid too. Re-entering an equivalent value, such as `14` for `14px`,
+does not replace the reset. Reset memory belongs to the current editor session; after
+reopening, the saved YAML determines which shared choices a later Grid transition preserves.
+
 This preserves continuity across an explicit editor transition, not a change made only
 in YAML. Opening an already-Grid v5 card is read-only: a YAML card with root
 `event_background_opacity: 5` and no Grid opacity still shows Grid's default of 20.

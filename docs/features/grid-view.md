@@ -39,6 +39,10 @@ time_grid:
 `end_time` also accepts `24:00`, which means midnight at the end of the day rather than
 the start of it.
 
+Event timestamps keep their seconds and milliseconds when positioned on the axis. A
+positive-duration event shorter than a minute still gets a block; the minimum block height
+may make very short events look taller than their duration.
+
 A block sits just under the rule it starts on rather than exactly on it, and stops just
 short of the rule it ends at — the same pixel of clear space it already keeps from its
 column edges, so a block clears its neighbors by one value on all four sides.
@@ -67,6 +71,10 @@ both. Honoring one half of a pair would produce a band you never asked for and c
 recognize as a fallback. The same reset applies when `end_time` is not after `start_time`,
 so a band that wraps past midnight — `20:00` to `08:00` — is a fallback rather than an
 overnight view.
+
+This also applies to a value of the wrong type, such as `start_time: 8`; a number is not
+read as an hour. An omitted bound is different: it uses its own default while preserving
+the other valid bound.
 :::
 
 ### Events in the Repeated DST Hour
@@ -81,6 +89,10 @@ The event's stored start and end, time text, and progress remain based on its re
 instants. Clipping and overlap lanes use the displayed block interval. Other events keep
 their wall-clock endpoints, and a full local day still fills one day column whether it
 contains 23, 24, or 25 hours.
+
+The repeated-hour comparison uses the minute precision shown in the time text. An event
+that crosses the clock change and ends in the same displayed minute still uses its elapsed
+duration, including any seconds and milliseconds.
 
 ## 📏 How Tall an Hour Is
 

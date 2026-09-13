@@ -786,7 +786,9 @@ export const cardStyles = css`
 
   /* A card scrolled off a 24/7 wall panel should not keep animating. The
      measurement step toggles this host class from an IntersectionObserver. */
-  :host(.calendar-card-title-scroll-paused) .event-title-scroll {
+  :host(.calendar-card-title-scroll-paused)
+    .event-title.title-scrollable.title-overflowing
+    .event-title-scroll {
     animation-play-state: paused;
   }
 

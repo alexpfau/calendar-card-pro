@@ -88,7 +88,7 @@ export class CalendarCardProEditor extends LitElement {
 
   private _lastDispatched?: Record<string, unknown>;
 
-  private _skipGridReconciliation = false;
+  private _gridResetKeys = new Set<string>();
 
   /**
    * Accepts a configuration from Home Assistant.
@@ -113,7 +113,7 @@ export class CalendarCardProEditor extends LitElement {
       this._selectedWorkspace = undefined;
       this._pending = {};
       this._gridReconciliation = [];
-      this._skipGridReconciliation = false;
+      this._gridResetKeys.clear();
     }
 
     this._lastDispatched = Value.toStoredConfig(this._config, this._authoredRootKeys);
@@ -269,7 +269,7 @@ export class CalendarCardProEditor extends LitElement {
       frame,
       nextData,
       this._pending,
-      !this._skipGridReconciliation,
+      this._gridResetKeys,
       this._authoredRootKeys,
     );
 
@@ -286,12 +286,18 @@ export class CalendarCardProEditor extends LitElement {
         if (Object.prototype.hasOwnProperty.call(applied.config, key))
           this._authoredRootKeys.add(key);
         else this._authoredRootKeys.delete(key);
+        // A later meaningful Shared edit supersedes this key's earlier Grid reset.
+        this._gridResetKeys.delete(key);
       }
     }
     if (this._viewForConfig(previousConfig) !== this._viewForConfig(applied.config)) {
       this._gridReconciliation =
-        applied.config.view === 'grid' && !this._skipGridReconciliation
-          ? Value.gridReconciliationKeys(previousConfig, this._authoredRootKeys)
+        applied.config.view === 'grid'
+          ? Value.gridReconciliationKeys(
+              previousConfig,
+              this._authoredRootKeys,
+              this._gridResetKeys,
+            )
           : [];
     }
 
@@ -843,8 +849,10 @@ export class CalendarCardProEditor extends LitElement {
   ): void {
     if (!this._config) return;
     if (!this._prepareForWrite()) return;
-    if (blockKey === 'time_grid' && keys.some((key) => ViewConfig.hasDivergentDefault(key, view))) {
-      this._skipGridReconciliation = true;
+    if (blockKey === 'time_grid') {
+      for (const key of keys) {
+        if (ViewConfig.hasDivergentDefault(key, view)) this._gridResetKeys.add(key);
+      }
     }
     for (const key of keys) this._config = Exceptions.removeException(this._config, blockKey, key);
     const pending = { ...this._pending };

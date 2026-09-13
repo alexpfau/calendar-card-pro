@@ -260,7 +260,7 @@ function writePath<T extends object>(
  * @param frame - Emitting form's schema, workspace, and last emitted data
  * @param incoming - Whole merged data returned by ha-form
  * @param pending - Held synthetic text
- * @param reconcileGrid - Whether this session permits Grid reconciliation after a reset
+ * @param gridResetKeys - Grid options whose Shared values must not undo an explicit reset
  * @param authoredRootKeys - Root choices captured by the editor before merging defaults
  * @returns Updated raw configuration and held text
  */
@@ -269,7 +269,7 @@ export function applyWorkspaceChange(
   frame: Readonly<FormFrame>,
   incoming: Readonly<Record<string, unknown>>,
   pending: Synthetic.PendingValues,
-  reconcileGrid = true,
+  gridResetKeys: ReadonlySet<string> = new Set(),
   authoredRootKeys: ReadonlySet<string> = new Set(),
 ): { config: Types.Config; pending: Record<string, string> } {
   let draft: Types.Config = { ...config };
@@ -328,7 +328,7 @@ export function applyWorkspaceChange(
     if (rawText !== undefined) held[heldKey] = rawText;
   }
   if (config.view !== 'grid' && draft.view === 'grid') {
-    draft = Value.reconcileTimeGridValues(draft, reconcileGrid, authoredRootKeys);
+    draft = Value.reconcileTimeGridValues(draft, gridResetKeys, authoredRootKeys);
   }
   return { config: draft, pending: held };
 }

@@ -38,6 +38,7 @@ import { editorModuleUrl } from './utils/editor-url';
 import * as EntityColors from './utils/entity-colors';
 import * as EventUtils from './utils/events';
 import * as FormatUtils from './utils/format';
+import * as GridUtils from './utils/grid';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
 import * as Templates from './utils/templates';
@@ -346,6 +347,7 @@ class CalendarCardPro extends LitElement {
      * profile, so it can move while the config object stays identical.
      */
     firstWeekday: number;
+    weekendDaysKey: string;
     count: number;
   };
   private _effectiveConfigCache?: {
@@ -555,6 +557,7 @@ class CalendarCardPro extends LitElement {
       this.config.first_day_of_week,
       this.hass?.locale,
     );
+    const weekendDaysKey = FormatUtils.getWeekendDays(this.hass?.locale).join(',');
     const cache = this._visibleCountCache;
 
     if (
@@ -563,7 +566,8 @@ class CalendarCardPro extends LitElement {
       cache.config === this.config &&
       cache.view === view &&
       cache.language === language &&
-      cache.firstWeekday === firstWeekday
+      cache.firstWeekday === firstWeekday &&
+      cache.weekendDaysKey === weekendDaysKey
     ) {
       return cache.count;
     }
@@ -585,6 +589,7 @@ class CalendarCardPro extends LitElement {
       view,
       language,
       firstWeekday,
+      weekendDaysKey,
       count,
     };
 
@@ -770,10 +775,8 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
-    // A minute is the resolution the line is drawn at, so anything finer repaints for a
-    // position that has not changed. The interval is deliberately not aligned to the
-    // wall-clock minute: the line moves continuously and being up to a minute stale is
-    // invisible, where the arithmetic to align it is not.
+    // Repaint once a minute, using the precise wall-clock position at each render.
+    // The interval need not align with a wall-clock minute to keep that cadence.
     this._nowLineTimerId = window.setInterval(() => {
       this._tickNowLine();
     }, Constants.TIMING.NOW_LINE_INTERVAL);
@@ -1946,6 +1949,16 @@ class CalendarCardPro extends LitElement {
     Config.normalizeLengthOptions(this.config);
     ViewConfig.validateView(this.config);
     ViewConfig.validateColumnOverrides(this.config);
+    if (this.config.time_grid) {
+      const start = ViewConfig.resolveTimeGridOption(this.config, 'start_time');
+      const end = ViewConfig.resolveTimeGridOption(this.config, 'end_time');
+      if (GridUtils.resolveBand(start, end).usedFallback) {
+        Logger.warn(
+          `Invalid time_grid time range "${start} - ${end}": expected HH:mm bounds with the end after the start ` +
+            `(24:00 is allowed for the end). Falling back to ${GridUtils.DEFAULT_BAND_START}-${GridUtils.DEFAULT_BAND_END}.`,
+        );
+      }
+    }
 
     // Column fitting is hysteretic: it holds the current answer inside a band so
     // the layout does not oscillate. Discarding that state on every setConfig()

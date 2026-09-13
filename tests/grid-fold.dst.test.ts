@@ -125,6 +125,35 @@ describe('Grid repeated-hour intervals', () => {
     ]);
   });
 
+  it.each([
+    { start: '30:10.250', end: '30:10.250', startMinute: 30 + 10.25 / 60, duration: 60 },
+    {
+      start: '30:10.250',
+      end: '30:20.750',
+      startMinute: 30 + 10.25 / 60,
+      duration: 60 + 10.5 / 60,
+    },
+    {
+      start: '45:15.125',
+      end: '15:45.625',
+      startMinute: 45 + 15.125 / 60,
+      duration: 30 + 30.5 / 60,
+    },
+  ])('retains fractional precision through the fold: $start -> $end', (row) => {
+    const source: CalendarEventData = {
+      summary: 'Repeated-hour fractional appointment',
+      start: { dateTime: `${FOLD.date}T${FOLD.hour}:${row.start}${FOLD.before}` },
+      end: { dateTime: `${FOLD.date}T${FOLD.hour}:${row.end}${FOLD.after}` },
+    };
+    const start = new Date(source.start.dateTime!);
+    const end = new Date(source.end.dateTime!);
+    expect((end.getTime() - start.getTime()) / 60000).toBeCloseTo(row.duration, 10);
+    const expectedStart = Number(FOLD.hour) * 60 + row.startMinute;
+    const extent = segmentMinutes(source)!;
+    expect(extent.startMin).toBeCloseTo(expectedStart, 10);
+    expect(extent.endMin).toBeCloseTo(expectedStart + row.duration, 10);
+  });
+
   it('renders both fold events and an ordinary control through Grid grouping', () => {
     const ordinary: CalendarEventData = {
       summary: 'Ordinary appointment',

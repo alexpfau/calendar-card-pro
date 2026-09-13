@@ -707,7 +707,9 @@ export function normalizeTimeGridValue(
 
   // Times are validated as a pair, not individually — see the docblock.
   if (key === 'start_time' || key === 'end_time') {
-    return typeof value === 'string' ? value : fallback;
+    // Keep numeric input editable but invalid; replacing it with one endpoint's
+    // default would hide the error from the joint band validator.
+    return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
   }
 
   // A color, not a length. The pixel coercion below infers length-ness from the shipped
