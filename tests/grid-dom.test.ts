@@ -7,6 +7,7 @@ import * as ViewConfig from '../src/config/view';
 import * as Column from '../src/rendering/column';
 import * as Grid from '../src/rendering/grid';
 import * as EventUtils from '../src/utils/events';
+import * as GridUtils from '../src/utils/grid';
 
 /**
  * The grid view's DOM.
@@ -113,9 +114,26 @@ function renderGridDays(
   config: Types.Config = buildConfig({ view: 'grid', days_to_show: days.length }),
 ): HTMLElement {
   const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
+  const first = new Date(days[0].timestamp);
+  const end = GridUtils.addDays(new Date(days[days.length - 1].timestamp), 1);
+  const occurrences = days.flatMap((day) =>
+    day.events.flatMap((event) => GridUtils.splitGridEventByDay(event, first, end)),
+  );
+  const prepared = days.map((day) => ({
+    ...day,
+    events: occurrences.filter((event) => {
+      const start = event.start.dateTime
+        ? new Date(event.start.dateTime)
+        : new Date(`${event.start.date}T00:00:00`);
+      return (
+        GridUtils.startOfDay(start).getTime() ===
+        GridUtils.startOfDay(new Date(day.timestamp)).getTime()
+      );
+    }),
+  }));
   const container = document.createElement('div');
   litRender(
-    Grid.renderGridGroupedEvents(days, effective, 'en', undefined, null, FROZEN_NOW),
+    Grid.renderGridGroupedEvents(prepared, effective, 'en', undefined, null, FROZEN_NOW),
     container,
   );
   return container;
@@ -949,9 +967,8 @@ describe('all-day events go in the band, not the body', () => {
 
   it('keeps distinct all-day events when their visible fields are identical', () => {
     // Calendar payloads carry no stable event id, so equal title, calendar and dates do not
-    // establish identity. The grid used that lossy tuple to suppress copies it assumed came
-    // from day expansion, but only timed events are expanded: two genuinely distinct all-day
-    // entries collapsed into one banner. They overlap and therefore must occupy two rows.
+    // establish identity. The source interval shared by daily occurrences identifies one
+    // banner; separate source objects must still occupy separate rows.
     const container = renderGrid([
       allDay('2026-06-17', '2026-06-18', 'Day off'),
       allDay('2026-06-17', '2026-06-18', 'Day off'),
@@ -1413,7 +1430,7 @@ describe('separators between grid days', () => {
     // Column adjacency is not date adjacency, and treating it as such would bleed a tint
     // across a gutter six days wide. `show_empty_days: false` drops every event-free day,
     // so a Sunday and the following Saturday can end up as neighbouring columns.
-    const config = spanConfig({ days_to_show: 9 });
+    const config = spanConfig({ days_to_show: 11 });
     config.time_grid = { show_empty_days: false } as Types.TimeGridOverrides;
 
     const container = renderGrid(

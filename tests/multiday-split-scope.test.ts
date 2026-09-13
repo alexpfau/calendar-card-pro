@@ -1,8 +1,10 @@
+import { render } from 'lit';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FROZEN_NOW, buildConfig } from './fixtures';
 import type * as Types from '../src/config/types';
 import * as ViewConfig from '../src/config/view';
+import { renderGridGroupedEvents } from '../src/rendering/grid';
 import * as EventUtils from '../src/utils/events';
 
 /**
@@ -167,18 +169,34 @@ describe('multi-day splitting is resolved per view', () => {
     await expect(daysShowing(conference, config, 'column', 'col-entity-on')).resolves.toBe(3);
   });
 
-  it('ignores both forms in grid view, which segments in its own renderer', async () => {
-    // `multidaySplitPolicy('grid')` is `never`, so neither the card-level option nor a
-    // per-calendar one reaches the upstream splitter. Asserted against the strongest
-    // input available: both saying `true`, which is what would split it anywhere else.
-    const config = buildConfig({
-      view: 'grid',
-      split_multiday_events: true,
-      entities: [{ entity: 'calendar.personal', split_multiday_events: true }],
-    });
+  it.each([true, false])(
+    'uses Grid coverage rather than List splitting set to %s',
+    async (split) => {
+      const config = buildConfig({
+        view: 'grid',
+        split_multiday_events: split,
+        entities: [{ entity: 'calendar.personal', split_multiday_events: split }],
+      });
 
-    await expect(daysShowing(conference, config, 'grid', 'grid-never')).resolves.toBe(1);
-  });
+      const { events } = await EventUtils.fetchEventData(
+        fakeHass([conference]),
+        config,
+        `grid-${split}`,
+      );
+      const effective = ViewConfig.resolveEffectiveConfig(config, 'grid');
+      const days = EventUtils.groupEventsByDay(events, effective, false, 'en', 'grid');
+      const occurrences = days.flatMap((day) => day.events.filter((event) => !event._isEmptyDay));
+      expect(occurrences).toHaveLength(3);
+      expect(new Set(occurrences.map((event) => event._gridSource)).size).toBe(1);
+      expect(occurrences[0]._gridSource).toEqual({ start: conference.start, end: conference.end });
+      const container = document.createElement('div');
+      render(renderGridGroupedEvents(days, effective, 'en'), container);
+      expect(container.querySelectorAll('.grid-banner')).toHaveLength(1);
+      expect(container.querySelector<HTMLElement>('.grid-banner')?.style.gridColumn).toBe(
+        '2 / span 3',
+      );
+    },
+  );
 
   it('drops segments that fall past the requested window', async () => {
     // Segments used to be created upstream of the fetch-time window filter and

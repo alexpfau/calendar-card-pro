@@ -739,6 +739,11 @@ export interface CalendarEventData {
    */
   _gridSegmentStartsEvent?: boolean;
   /**
+   * Original interval shared by one event's daily Grid occurrences.
+   * Keeps banner identity, true endpoints, expiry, and anniversary year across filtering.
+   */
+  _gridSource?: Pick<CalendarEventData, 'start' | 'end'>;
+  /**
    * Set on every segment produced by splitting a **timed** multi-day event, recording the
    * class of the event the segment came from rather than the shape the segment now has.
    *

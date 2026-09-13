@@ -4288,7 +4288,7 @@ describe('editor: per-calendar settings', () => {
    * different scopes, and they now answer the same question the same way: the card-level
    * key is a real column override, and the per-calendar one is honoured wherever the
    * card-level one is. Only grid fixes the answer by layout — all-day events span as one
-   * banner, and timed events split in the renderer — so neither form reaches it.
+   * banner, and timed events use Grid's daily coverage — so neither form reaches it.
    *
    * The per-calendar half used to stop at list view. That rested on a column being
    * unable to survive one calendar splitting while another did not, which never squared

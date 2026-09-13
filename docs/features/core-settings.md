@@ -598,6 +598,10 @@ weekdays.
 With `split_multiday_events: true` that same holiday becomes a row per day, each judged
 separately, and you get the Monday-to-Friday view you asked for. Column view already
 defaults the option to `true`, so this pairing only needs stating for list view.
+
+Grid always derives daily coverage, independently of `split_multiday_events`. It filters
+each timed segment and each all-day banner date, including continuations of events whose
+first day was excluded. Other calendars can still show events on the excluded days.
 :::
 
 ::: tip It Filters the Day a Row Lands On, Not the Day It Started

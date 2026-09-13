@@ -226,8 +226,8 @@ Generates the HTML and CSS for the card. Three view containers share `leaves.ts`
 
 - **grid.ts**:
   - Renders the hour gutter, timed-event columns, spanning all-day band, and now line
-  - Splits timed multi-day events into timed segments without turning middle days into
-    all-day events; the List/Column `split_multiday_events` option is not used
+  - Receives daily Grid occurrences from grouping and joins each all-day event's
+    admitted columns into spanning banners
   - Applies percentage-based positions and overlap lanes from `utils/grid.ts`
 
 - **leaves.ts**:
@@ -287,6 +287,9 @@ Provides core functionality across the card:
   - Implements caching system for calendar data
   - Processes and filters events based on configuration
   - Groups events by day for display
+  - Derives Grid's daily coverage before per-day filters and empty-day omission, without
+    using the List/Column splitter; timed occurrences stay timed and all-day occurrences
+    retain their source interval for banner identity and final-day expiry
 
 - **grid.ts**:
   - Resolves visible time bands and local wall-clock positions

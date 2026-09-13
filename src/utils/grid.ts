@@ -518,6 +518,56 @@ function assignLanes<T extends LaneInput>(
 //-----------------------------------------------------------------------------
 
 /**
+ * Derives every occupied Grid date before per-day filtering and empty-day omission.
+ *
+ * Timed occurrences stay timed. All-day occurrences share their original interval so
+ * the renderer can join admitted columns into banners without merging distinct events.
+ *
+ * @param event - One source event
+ * @param windowStart - First configured local midnight
+ * @param windowEnd - Local midnight after the configured window
+ * @returns Daily occurrences inside the window, with source identity preserved
+ */
+export function splitGridEventByDay(
+  event: Types.CalendarEventData,
+  windowStart: Date,
+  windowEnd: Date,
+): Types.CalendarEventData[] {
+  const source = { start: event.start, end: event.end };
+  if (event.start.dateTime) {
+    return splitTimedEventByDay(event, windowStart, windowEnd)
+      .filter((segment) => segment.end.dateTime !== undefined)
+      .map((segment) => ({ ...segment, _gridSource: source }));
+  }
+
+  if (!event.start.date || !event.end.date) return [];
+  const start = FormatUtils.parseAllDayDate(event.start.date);
+  const end = FormatUtils.parseAllDayDate(event.end.date);
+  if (
+    FormatUtils.getLocalDateKey(start) !== event.start.date ||
+    FormatUtils.getLocalDateKey(end) !== event.end.date ||
+    end <= start
+  ) {
+    return [];
+  }
+
+  const segments: Types.CalendarEventData[] = [];
+  for (
+    let day = start < windowStart ? startOfDay(windowStart) : start;
+    day < end && day < windowEnd;
+    day = addDays(day, 1)
+  ) {
+    segments.push({
+      ...event,
+      start: { date: FormatUtils.getLocalDateKey(day) },
+      end: { date: FormatUtils.getLocalDateKey(addDays(day, 1)) },
+      _gridSource: source,
+    });
+  }
+  return segments;
+}
+
+/**
  * Split a timed event at local day boundaries, keeping every segment timed.
  *
  * 🚨 This exists because `events.ts:splitMultiDayEvent` cannot be used here. That

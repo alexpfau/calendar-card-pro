@@ -295,12 +295,11 @@ export const VIEW_SCOPE: Readonly<Record<string, ReadonlySet<Types.EffectiveView
   compact_events_complete_days: new Set<Types.EffectiveView>(['list']),
 
   // Inert as a card-level grid override: the grid never uses the upstream list splitter.
-  // All-day multi-day events become one spanning banner, and timed multi-day events are
-  // segmented by the grid renderer so every segment stays timed.
+  // All-day multi-day events become spanning banners. Grid's own daily coverage keeps
+  // every timed segment timed before filters and empty-day omission run.
   split_multiday_events: new Set<Types.EffectiveView>(['list', 'column']),
 
-  // Grid discards _isEmptyDay rows in both sortDayEvents and
-  // splitTimedEventsAcrossGridDays. show_empty_days still controls which columns exist;
+  // Grid discards _isEmptyDay rows in sortDayEvents. show_empty_days controls which columns exist;
   // only the placeholder's text and color are irrelevant there.
   empty_day_text: new Set<Types.EffectiveView>(['list', 'column']),
   empty_day_color: new Set<Types.EffectiveView>(['list', 'column']),
@@ -1152,8 +1151,8 @@ export function viewAppliesCompactLimits(view: Types.EffectiveView): boolean {
  * always been able to turn it off card-wide, and a per-calendar value can now do the
  * same for one calendar.
  *
- * Grid view returns `never`: it does its own timed segmentation at render time, and the
- * upstream list splitter would rewrite the middle day of a timed event as all-day data.
+ * Grid view returns `never`: grouping uses Grid's daily coverage instead of the List
+ * splitter, which would rewrite the middle day of a timed event as all-day data.
  *
  * @param view - View currently being rendered
  * @returns Split policy for the shared event processor

@@ -92,60 +92,6 @@ function sortDayEvents(day: Types.EventsByDay): DayParts {
 }
 
 /**
- * Expand timed events across the day columns the grid is about to draw.
- *
- * The shared event processor deliberately leaves grid events unsplit: its list-view
- * splitter turns a timed event's middle days into all-day-looking data. Splitting here
- * keeps every segment timed and makes the DOM path depend on `splitTimedEventByDay`, so
- * a missing caller leaves visible columns empty and fails the grid DOM tests.
- *
- * @param days - Days to render
- * @returns Days with timed multi-day events copied into every touched column
- */
-function splitTimedEventsAcrossGridDays(days: Types.EventsByDay[]): Types.EventsByDay[] {
-  if (days.length === 0) {
-    return days;
-  }
-
-  const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
-  const dayIndexByTime = new Map(visibleDayStarts.map((day, index) => [day.getTime(), index]));
-  const windowStart = visibleDayStarts[0];
-  const windowEnd = Grid.addDays(visibleDayStarts[visibleDayStarts.length - 1], 1);
-  const expanded = days.map((day) => ({ ...day, events: [] as Types.CalendarEventData[] }));
-
-  for (const day of days) {
-    for (const event of day.events) {
-      if (event._isEmptyDay) {
-        continue;
-      }
-
-      if (!event.start.dateTime) {
-        const index = dayIndexByTime.get(Grid.startOfDay(new Date(day.timestamp)).getTime());
-        if (index !== undefined) {
-          expanded[index].events.push(event);
-        }
-        continue;
-      }
-
-      for (const segment of Grid.splitTimedEventByDay(event, windowStart, windowEnd)) {
-        if (!segment.start.dateTime) {
-          continue;
-        }
-
-        const segmentDay = Grid.startOfDay(new Date(segment.start.dateTime));
-        const index = dayIndexByTime.get(segmentDay.getTime());
-
-        if (index !== undefined) {
-          expanded[index].events.push(segment);
-        }
-      }
-    }
-  }
-
-  return expanded;
-}
-
-/**
  * Classify every day by the boundary it opens.
  *
  * This mirrors column view rather than importing a shared renderer helper: the
@@ -907,13 +853,36 @@ function layoutBanners(
 ): Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement; row: number }> {
   const banners: Array<{ event: Types.CalendarEventData; placement: Grid.BannerPlacement }> = [];
   const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
-
-  for (const day of days) {
+  const sources = new Map<
+    Pick<Types.CalendarEventData, 'start' | 'end'>,
+    { event: Types.CalendarEventData; columns: number[] }
+  >();
+  days.forEach((day, column) => {
     for (const event of sortDayEvents(day).allDay) {
-      const placement = Grid.computeBannerPlacement(event, visibleDayStarts);
+      const source = event._gridSource ?? event;
+      const existing = sources.get(source);
+      if (existing) {
+        existing.columns.push(column);
+      } else {
+        sources.set(source, { event: { ...event, ...source }, columns: [column] });
+      }
+    }
+  });
 
+  for (const { event, columns } of sources.values()) {
+    const runs: Array<{ first: number; last: number }> = [];
+    for (const column of columns) {
+      const previous = runs[runs.length - 1];
+      if (previous && previous.last + 1 === column) previous.last = column;
+      else runs.push({ first: column, last: column });
+    }
+    for (const { first, last } of runs) {
+      const placement = Grid.computeBannerPlacement(event, visibleDayStarts.slice(first, last + 1));
       if (placement) {
-        banners.push({ event, placement });
+        banners.push({
+          event,
+          placement: { ...placement, columnIndex: placement.columnIndex + first },
+        });
       }
     }
   }
@@ -971,7 +940,7 @@ function layoutBanners(
  *
  * Rows, top to bottom: week numbers, day headers, the all-day band, the time body.
  *
- * @param days - Days to render, already grouped and sorted
+ * @param gridDays - Daily Grid occurrences, already filtered, grouped, and sorted
  * @param config - Card configuration
  * @param language - Language code for translations
  * @param weatherForecasts - Fetched forecasts, if any
@@ -981,18 +950,16 @@ function layoutBanners(
  * @returns Rendered grid
  */
 export function renderGridGroupedEvents(
-  days: Types.EventsByDay[],
+  gridDays: Types.EventsByDay[],
   config: Types.Config,
   language: string,
   weatherForecasts?: Types.WeatherForecasts,
   hass?: Types.Hass | null,
   now: Date = new Date(),
 ): TemplateResult {
-  if (days.length === 0) {
+  if (gridDays.length === 0) {
     return html`<div class="grid-container"></div>`;
   }
-
-  const gridDays = splitTimedEventsAcrossGridDays(days);
 
   const band = Grid.resolveBand(
     ViewConfig.resolveTimeGridOption(config, 'start_time'),

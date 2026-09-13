@@ -55,6 +55,11 @@ shows the event's start time and countdown, while continuation blocks show neith
 detail rows such as weather, location and description can still appear because they describe
 the event rather than when it starts.
 
+Days occupied by a continuing event are not empty: `show_empty_days: false` keeps those
+columns for both timed and all-day events. A calendar's `days_of_week` filter judges each
+covered date separately, so an event that starts on an excluded date can still appear on a
+later eligible date.
+
 ::: warning A Bad Time Resets Both Bounds
 If either value cannot be read as `HH:mm`, the card falls back to `07:00`–`22:00` for
 both. Honoring one half of a pair would produce a band you never asked for and could not
@@ -313,6 +318,10 @@ than as ending exactly at the card's edge. The shape says the same thing before 
 for the arrow: an end where the event genuinely starts or finishes is rounded into a
 full pill, and an end that runs past the card's edge is squared back off.
 
+A per-calendar weekday/weekend filter can leave gaps in a banner. The banner joins
+adjacent visible columns where that event qualifies, but never crosses an excluded column
+kept visible by another calendar. Its continuation marks still refer to the original event.
+
 All-day banners are title-only. They carry the calendar's color as their whole fill, with
 no accent edge — a bar on top of a fill that is already that color names nothing, and
 against a rounded end it curves into a shape of its own. Timed blocks keep their edge,
@@ -514,8 +523,9 @@ they draw a different rule than they do in column view — see
 
 `split_multiday_events` has no effect here, and the reason is worth stating because it
 looks like it should. The grid answers the question in both directions itself: an all-day
-event spanning several days is drawn as one banner across them, and timed events are split
-by the grid renderer into one timed block for each day they touch. The list splitter is not
+event spanning several days is drawn as a banner across its admitted columns, and timed
+events become one timed block for each day they touch. Grid resolves those dates before
+filtering or omitting empty days. The list splitter is not
 used, because it would turn the middle day of a timed event into an all-day banner.
 
 `empty_day_text` and `empty_day_color` also have no effect: grid discards the placeholder

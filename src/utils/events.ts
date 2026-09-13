@@ -7,6 +7,7 @@ import * as EntityColors from './entity-colors';
 import * as EntityIcons from './entity-icons';
 import * as EventAge from './event-age';
 import * as FormatUtils from './format';
+import * as Grid from './grid';
 import * as Helpers from './helpers';
 import * as Logger from './logger';
 import * as PersonPictures from './person-pictures';
@@ -277,11 +278,9 @@ function deduplicateEvents(
 // list changes whenever either does and `serializeEntities` already forces a reprocess —
 // belt and braces, but the render-time read is the load-bearing half.
 //
-// They run **after** `processMultiDayEvents`, which is the opposite of where
-// `filterEventsByType` has to sit and for a related reason. Splitting rewrites the middle
-// days of a timed multi-day event as `start: { date }`, so a filter reading an event's
-// *class* must precede it. These two read an event's *day* instead, which only exists once
-// the splitter has decided how many days the event occupies.
+// They run after daily coverage is resolved: List/Column use `processMultiDayEvents`,
+// while Grid uses `splitGridEventByDay` to keep every timed segment timed. Event-class
+// filtering runs earlier, before the List splitter can reshape a timed middle day.
 
 /**
  * Which day a grouped event is drawn on.
@@ -482,18 +481,6 @@ export function groupEventsByDay(
   const expandApplies = isExpanded && ViewConfig.viewAppliesCompactLimits(effectiveView);
   const compactLimitsApply = !expandApplies && ViewConfig.viewAppliesCompactLimits(effectiveView);
 
-  // Always run the splitter and let `shouldSplitEvent` decide per event, rather
-  // than gating the call on the card-level value. A per-entity
-  // `split_multiday_events: true` has to win over a card-level `false`, and a
-  // gate here would never consult it. Column uses the same per-calendar precedence,
-  // starting from a different card-level default. Grid view
-  // opts out of this splitter entirely and keeps timed segmentation in its renderer.
-  const splitEvents = processMultiDayEvents(
-    events,
-    config,
-    ViewConfig.multidaySplitPolicy(effectiveView),
-  );
-
   const referenceDate = getStartDateReference(
     config,
     FormatUtils.getFirstDayOfWeek(config.first_day_of_week, hassLocale),
@@ -502,8 +489,8 @@ export function groupEventsByDay(
   const referenceEnd = new Date(referenceStart);
   referenceEnd.setHours(23, 59, 59, 999);
 
-  // Upper bound of the configured window. Multi-day events are split into
-  // per-day segments just above, and a segment can land past the window when an
+  // Upper bound of the configured window. Multi-day events become
+  // per-day segments below, and a segment can land past the window when an
   // event starts inside it but runs beyond. Splitting used to happen at fetch
   // time, where `processRawEvents` trimmed those segments before they were ever
   // grouped; now that it is view-scoped and happens here, the same bound has to
@@ -511,6 +498,13 @@ export function groupEventsByDay(
   // have events, not a date range — would fill with days past the window.
   const windowEnd = new Date(referenceStart);
   windowEnd.setDate(windowEnd.getDate() + config.days_to_show);
+
+  // Grid needs occupied dates before any per-day filter or empty-day omission.
+  // Its splitter keeps timed middle days timed and all-day banner identity intact.
+  const splitEvents =
+    ViewConfig.multidaySplitPolicy(effectiveView) === 'never'
+      ? events.flatMap((event) => Grid.splitGridEventByDay(event, referenceStart, windowEnd))
+      : processMultiDayEvents(events, config);
 
   const now = new Date();
 
@@ -589,7 +583,10 @@ export function groupEventsByDay(
         ? undefined
         : getEntitySetting(event._entityId, 'allday_expires_at', config, event);
 
-      if (isAllDayEvent && now >= allDayExpiryInstant(endDate, configuredExpiry)) {
+      const allDayEnd = event._gridSource?.end.date
+        ? Grid.addDays(FormatUtils.parseAllDayDate(event._gridSource.end.date), -1)
+        : endDate;
+      if (isAllDayEvent && now >= allDayExpiryInstant(allDayEnd, configuredExpiry)) {
         return false;
       }
     }
@@ -679,8 +676,16 @@ export function groupEventsByDay(
       // `split_multiday_events: false` an ongoing event's display date is clamped to the
       // window start, which moves every day — so reading the display date would make the
       // count change from one day to the next while the card just sits there.
+      const sourceStart = event._gridSource?.start;
+      const occurrenceStart = sourceStart?.dateTime
+        ? new Date(sourceStart.dateTime)
+        : sourceStart?.date
+          ? FormatUtils.parseAllDayDate(sourceStart.date)
+          : startDate;
       const ageCount =
-        markerYear === null ? null : EventAge.resolveAgeCount(startDate.getFullYear(), markerYear);
+        markerYear === null
+          ? null
+          : EventAge.resolveAgeCount(occurrenceStart.getFullYear(), markerYear);
 
       const summary = event.summary || '';
 
@@ -769,6 +774,8 @@ export function groupEventsByDay(
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
         _splitFromTimedEvent: event._splitFromTimedEvent,
+        _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
+        _gridSource: event._gridSource,
       });
     });
   }
@@ -1108,12 +1115,7 @@ function processEvents(
 function processMultiDayEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
-  splitPolicy: ViewConfig.MultidaySplitPolicy = 'inherit',
 ): Types.CalendarEventData[] {
-  if (splitPolicy === 'never') {
-    return events;
-  }
-
   const result: Types.CalendarEventData[] = [];
 
   for (const event of events) {

@@ -114,7 +114,7 @@ const CROSS_VIEW_ACKNOWLEDGEMENTS: Readonly<
   grid: {
     split_multiday_events: {
       verdict: 'ignores',
-      why: 'Deliberately absent from TIME_GRID_DEFAULT_OVERRIDES rather than defaulted off: a default in that table is overridable from the view block, so time_grid: { split_multiday_events: true } would imply the upstream list splitter could be switched back on. Grid answers never via multidaySplitPolicy and segments timed events in its own renderer.',
+      why: 'Deliberately absent from TIME_GRID_DEFAULT_OVERRIDES rather than defaulted off: a default in that table is overridable from the view block, so time_grid: { split_multiday_events: true } would imply the upstream list splitter could be switched back on. Grid answers never via multidaySplitPolicy and derives its own daily coverage before filtering.',
     },
   },
 };
