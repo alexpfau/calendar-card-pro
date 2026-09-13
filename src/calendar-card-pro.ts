@@ -1363,23 +1363,26 @@ class CalendarCardPro extends LitElement {
   /**
    * Toggles the scrolling class per title and publishes the overflow distance and duration.
    *
-   * A title scrolls only when it genuinely overflows — `scrollWidth` past `clientWidth` — so
-   * a title that fits never moves and an unconditional marquee is avoided. The duration is
-   * derived from the distance (a constant px/s over the moving part of the cycle, floored so
-   * a tiny overflow does not snap) so every title travels at the same perceived speed. The
-   * class this sets is what the stylesheet keys the animation, the reduced-motion fallback
-   * and the off-screen pause on.
-   *
-   * The cycle covers the distance once and then restarts, so the distance is divided through
-   * as it stands. It was doubled while the animation ran out and back, and leaving that in
-   * place after the marquee replaced the ping-pong would have halved every title's speed
-   * while every test still passed — the duration would have stayed proportional to distance,
-   * which is all the scaling test can see.
+   * The text's own offsetWidth is unaffected by its animation. The viewport's scrollWidth
+   * is not: translated RTL overflow can enlarge it on each measurement. Read all intrinsic
+   * extents before changing classes, then travel toward the unread end in the text's direction.
+   * Duration keeps a constant speed over the moving part of the cycle, with a short-trip floor.
    */
   private _measureTitleScroll(): void {
     const titles = this.renderRoot.querySelectorAll<HTMLElement>('.event-title.title-scrollable');
-    titles.forEach((title) => {
-      const distance = title.scrollWidth - title.clientWidth;
+    const measurements = Array.from(titles).flatMap((title) => {
+      const content = title.querySelector<HTMLElement>('.event-title-scroll');
+      return content
+        ? [
+            {
+              title,
+              distance: content.offsetWidth - title.clientWidth,
+              direction: getComputedStyle(title).direction === 'rtl' ? '1' : '-1',
+            },
+          ]
+        : [];
+    });
+    measurements.forEach(({ title, distance, direction }) => {
       if (distance > Constants.TITLE_SCROLL.MIN_OVERFLOW_PX) {
         const seconds = Math.max(
           Constants.TITLE_SCROLL.MIN_DURATION_S,
@@ -1387,11 +1390,13 @@ class CalendarCardPro extends LitElement {
             (Constants.TITLE_SCROLL.SPEED_PX_PER_S * Constants.TITLE_SCROLL.TRAVEL_FRACTION),
         );
         title.style.setProperty('--calendar-card-title-scroll-distance', `${distance}px`);
+        title.style.setProperty('--calendar-card-title-scroll-direction', direction);
         title.style.setProperty('--calendar-card-title-scroll-duration', `${seconds.toFixed(2)}s`);
         title.classList.add('title-overflowing');
       } else {
         title.classList.remove('title-overflowing');
         title.style.removeProperty('--calendar-card-title-scroll-distance');
+        title.style.removeProperty('--calendar-card-title-scroll-direction');
         title.style.removeProperty('--calendar-card-title-scroll-duration');
       }
     });

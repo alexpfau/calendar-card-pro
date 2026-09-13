@@ -424,6 +424,10 @@ scroll_long_titles: true
 
 Off by default, because it changes titles from wrapping to a single line and because motion on an always-on dashboard is a matter of taste. When it is on, only titles that genuinely overflow move — one that already fits stays perfectly still. The scroll speed is derived from how far each title has to travel, so a slightly-too-long title and a very long one drift at the same pace rather than one crawling while the other races, and each pauses at the start and the end so both ends are readable.
 
+The travel follows the text direction: left-to-right titles move left, and right-to-left
+titles move right to reveal their ending. Resizing or redrawing measures the text's
+untransformed width, so an animation already in progress cannot lengthen its own next cycle.
+
 Scrolling replaces `title_max_lines` for as long as it is on: you cannot scroll a single line sideways and clamp it to several lines at once, so scrolling wins and the title is always one line. It is a card-wide motion option rather than a per-calendar one — mixing scrolling and static titles in the same list would look chaotic — but it can be set per view, which is where it earns its keep. The card is at its narrowest in the [grid layout](/features/grid-view), where titles wrap the most, so a common setup is to scroll only there and leave the wider list wrapping:
 
 ```yaml

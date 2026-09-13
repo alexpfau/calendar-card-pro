@@ -132,7 +132,9 @@ describe('scroll_long_titles stylesheet contract', () => {
     // and the wrap back to 0% does the return instantly.
     expect(kfSlice.match(/translateX/g)?.length).toBe(2);
     expect(kfSlice).toMatch(/0%,\s*15%\s*\{\s*transform:\s*translateX\(0\)/);
-    expect(kfSlice).toMatch(/85%,\s*100%\s*\{\s*transform:\s*translateX\(calc\(-1 \*/);
+    expect(kfSlice).toMatch(
+      /85%,\s*100%\s*\{\s*transform:\s*translateX\(\s*calc\(\s*var\(--calendar-card-title-scroll-direction, -1\) \*/,
+    );
 
     // The last stop must be the far end. If the cycle ended back at zero it would be a
     // ping-pong again whatever the percentages said.
@@ -169,24 +171,65 @@ describe('scroll_long_titles stylesheet contract', () => {
 });
 
 /** A card with a stubbed shadow root carrying one scrollable title of a chosen geometry. */
-function cardWithTitle(scrollWidth: number, clientWidth: number) {
+function cardWithTitle(contentWidth: number, clientWidth: number, direction = 'ltr') {
   const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
     _measureTitleScroll(): void;
   };
-  const root = card.attachShadow({ mode: 'open' });
+  const styleHost = document.createElement('div');
+  document.body.appendChild(styleHost);
+  const root = styleHost.attachShadow({ mode: 'open' });
   Object.defineProperty(card, 'renderRoot', { value: root });
   root.innerHTML =
     '<span class="event-title title-scrollable">' +
     '<span class="event-title-scroll">A long event title</span></span>';
   const title = root.querySelector<HTMLElement>('.event-title')!;
+  const content = root.querySelector<HTMLElement>('.event-title-scroll')!;
+  title.style.direction = direction;
   Object.defineProperties(title, {
-    scrollWidth: { value: scrollWidth, configurable: true },
+    scrollWidth: { value: contentWidth, configurable: true },
     clientWidth: { value: clientWidth, configurable: true },
   });
-  return { card, title };
+  Object.defineProperty(content, 'offsetWidth', { value: contentWidth, configurable: true });
+  return { card, title, content };
 }
 
 describe('scroll_long_titles measurement', () => {
+  afterEach(() => document.body.replaceChildren());
+
+  it.each([
+    ['ltr', '-1'],
+    ['rtl', '1'],
+  ])('travels toward the unread ending in %s', (direction, sign) => {
+    const { card, title } = cardWithTitle(300, 100, direction);
+    card._measureTitleScroll();
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-direction')).toBe(sign);
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('200px');
+  });
+
+  it('ignores transform-expanded ancestor scroll extents on repeated measurements', () => {
+    const { card, title } = cardWithTitle(400, 100, 'rtl');
+    card._measureTitleScroll();
+    const duration = title.style.getPropertyValue('--calendar-card-title-scroll-duration');
+    for (const transformedWidth of [550, 700, 1000]) {
+      Object.defineProperty(title, 'scrollWidth', { value: transformedWidth, configurable: true });
+      card._measureTitleScroll();
+      expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('300px');
+      expect(title.style.getPropertyValue('--calendar-card-title-scroll-duration')).toBe(duration);
+    }
+  });
+
+  it('remeasures intrinsic content and the viewport after a resize or font change', () => {
+    const { card, title, content } = cardWithTitle(400, 100, 'rtl');
+    Object.defineProperty(title, 'scrollWidth', { value: 1000, configurable: true });
+    Object.defineProperty(content, 'offsetWidth', { value: 500, configurable: true });
+    Object.defineProperty(title, 'clientWidth', { value: 200, configurable: true });
+    card._measureTitleScroll();
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('300px');
+    Object.defineProperty(title, 'clientWidth', { value: 350, configurable: true });
+    card._measureTitleScroll();
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('150px');
+  });
+
   it('marks a title that overflows and publishes the distance', () => {
     const { card, title } = cardWithTitle(300, 100);
     card._measureTitleScroll();
@@ -247,14 +290,16 @@ describe('scroll_long_titles measurement', () => {
   });
 
   it('clears the class and properties when a title stops overflowing', () => {
-    const { card, title } = cardWithTitle(300, 100);
+    const { card, title, content } = cardWithTitle(300, 100);
     card._measureTitleScroll();
     expect(title.classList.contains('title-overflowing')).toBe(true);
 
     Object.defineProperty(title, 'scrollWidth', { value: 100, configurable: true });
+    Object.defineProperty(content, 'offsetWidth', { value: 100, configurable: true });
     card._measureTitleScroll();
     expect(title.classList.contains('title-overflowing')).toBe(false);
     expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('');
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-direction')).toBe('');
   });
 });
 

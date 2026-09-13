@@ -751,7 +751,9 @@ export const cardStyles = css`
     }
   }
 
-  /* distance is scrollWidth minus clientWidth, set inline per title. A marquee rather than
+  /* Distance is the text's intrinsic width minus its viewport, set inline per title.
+     Direction is -1 for LTR and +1 for RTL, where the unread ending lies to the left.
+     A marquee rather than
      a ping-pong: hold at the start, travel once to the end at constant velocity, hold there,
      then restart from the beginning. Reading a title backwards is the thing the alternating
      form got wrong -- the eye follows the text out and is then dragged back through words it
@@ -775,7 +777,12 @@ export const cardStyles = css`
     }
     85%,
     100% {
-      transform: translateX(calc(-1 * var(--calendar-card-title-scroll-distance, 0px)));
+      transform: translateX(
+        calc(
+          var(--calendar-card-title-scroll-direction, -1) *
+            var(--calendar-card-title-scroll-distance, 0px)
+        )
+      );
     }
   }
 
