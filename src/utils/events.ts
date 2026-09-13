@@ -168,7 +168,7 @@ function processRawEvents(
 }
 
 /**
- * Drop events that are missing a start or an end.
+ * Drop events with unusable dates or text before they reach the shared pipeline.
  *
  * Everything downstream — deduplication, grouping, multi-day splitting, sorting — reads
  * `start` and `end` without checking they are there, because Home Assistant's calendar API
@@ -182,12 +182,55 @@ function processRawEvents(
  * whatever it is handed before any of that filtering has run.
  *
  * @param events Events to check
- * @returns Only those events with both a start and an end
+ * @returns Events with matching, parseable endpoints and string-valued text
  */
 function keepWellFormedEvents(
   events: ReadonlyArray<Types.CalendarEventData>,
 ): Types.CalendarEventData[] {
-  return events.filter((event) => Boolean(event.start) && Boolean(event.end));
+  const valid = events.filter((event) => {
+    if (!event || !Helpers.isConfigBlock(event.start) || !Helpers.isConfigBlock(event.end)) {
+      return false;
+    }
+
+    const fields = [
+      event.start.date,
+      event.start.dateTime,
+      event.end.date,
+      event.end.dateTime,
+      event.summary,
+      event.location,
+      event.description,
+    ];
+    if (fields.some((value) => value != null && typeof value !== 'string')) return false;
+
+    if (event.start.dateTime) {
+      return (
+        !event.start.date &&
+        !event.end.date &&
+        typeof event.end.dateTime === 'string' &&
+        Number.isFinite(Date.parse(event.start.dateTime)) &&
+        Number.isFinite(Date.parse(event.end.dateTime))
+      );
+    }
+
+    return (
+      !event.end.dateTime &&
+      [event.start.date, event.end.date].every(
+        (value) =>
+          typeof value === 'string' &&
+          FormatUtils.getLocalDateKey(FormatUtils.parseAllDayDate(value)) === value,
+      )
+    );
+  });
+
+  const malformedCount = events.length - valid.length;
+  if (malformedCount > 0) {
+    Logger.warn(
+      `Ignoring ${malformedCount} malformed calendar event(s): expected matching, parseable start/end values and string text fields`,
+    );
+  }
+
+  return valid;
 }
 
 /**
@@ -676,7 +719,7 @@ export function groupEventsByDay(
       // `split_multiday_events: false` an ongoing event's display date is clamped to the
       // window start, which moves every day — so reading the display date would make the
       // count change from one day to the next while the card just sits there.
-      const sourceStart = event._gridSource?.start;
+      const sourceStart = event._gridSource?.start ?? event._sourceStart;
       const occurrenceStart = sourceStart?.dateTime
         ? new Date(sourceStart.dateTime)
         : sourceStart?.date
@@ -773,6 +816,7 @@ export function groupEventsByDay(
         _isEmptyDay: event._isEmptyDay,
         _isCustomEmptyText: event._isCustomEmptyText,
         _isMultiDaySegment: event._isMultiDaySegment,
+        _sourceStart: event._sourceStart,
         _splitFromTimedEvent: event._splitFromTimedEvent,
         _gridSegmentStartsEvent: event._gridSegmentStartsEvent,
         _gridSource: event._gridSource,
@@ -1075,12 +1119,6 @@ function processEvents(
   const processedEvents: Types.CalendarEventData[] = [];
 
   const wellFormed = keepWellFormedEvents(events);
-  const malformedCount = events.length - wellFormed.length;
-  if (malformedCount > 0) {
-    Logger.warn(
-      `Ignoring ${malformedCount} calendar event(s) missing a start or end; the calendar integration returned an incomplete payload`,
-    );
-  }
 
   config.entities.forEach((entityConfig) => {
     const entityId = typeof entityConfig === 'string' ? entityConfig : entityConfig.entity;
@@ -1178,6 +1216,7 @@ function formatAllDayDate(date: Date): string {
 
 function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEventData[] {
   const segments: Types.CalendarEventData[] = [];
+  const sourceStart = event._sourceStart ?? event.start;
 
   if (event.start.date && event.end.date) {
     const startDate = FormatUtils.parseAllDayDate(event.start.date);
@@ -1196,6 +1235,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { date: currentDateStr },
         end: { date: nextDateStr },
         _isMultiDaySegment: true,
+        _sourceStart: sourceStart,
       };
 
       segments.push(segment);
@@ -1207,12 +1247,8 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
     const firstDayEnd = new Date(startDateTime);
     firstDayEnd.setHours(23, 59, 59, 999);
 
-    // An event that ends at exactly local midnight occupies no time on the following
-    // day, so it is not multi-day. Testing against the last millisecond of the start
-    // day treated it as one and pushed a zero-length segment (start === end) into the
-    // next day's bucket, which surfaced as a phantom entry there. Testing against the
-    // next day's first millisecond instead keeps the event whole and preserves the end
-    // time the user actually set, rather than truncating it to 23:59:59.999.
+    // Midnight opens the next date but occupies no time there. Keep a one-day event
+    // whole, preserving its actual end instead of replacing it with 23:59:59.999.
     const nextDayStart = new Date(firstDayEnd.getTime() + 1);
 
     if (nextDayStart < endDateTime) {
@@ -1221,6 +1257,7 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
         start: { dateTime: startDateTime.toISOString() },
         end: { dateTime: firstDayEnd.toISOString() },
         _isMultiDaySegment: true,
+        _sourceStart: sourceStart,
         _splitFromTimedEvent: true,
       };
       segments.push(firstDaySegment);
@@ -1247,20 +1284,24 @@ function splitMultiDayEvent(event: Types.CalendarEventData): Types.CalendarEvent
           start: { date: currentDateStr },
           end: { date: nextDateStr },
           _isMultiDaySegment: true,
+          _sourceStart: sourceStart,
           _splitFromTimedEvent: true,
         };
 
         segments.push(middleDaySegment);
       }
 
-      const lastDaySegment: Types.CalendarEventData = {
-        ...event,
-        start: { dateTime: lastDayStart.toISOString() },
-        end: { dateTime: endDateTime.toISOString() },
-        _isMultiDaySegment: true,
-        _splitFromTimedEvent: true,
-      };
-      segments.push(lastDaySegment);
+      if (endDateTime > lastDayStart) {
+        const lastDaySegment: Types.CalendarEventData = {
+          ...event,
+          start: { dateTime: lastDayStart.toISOString() },
+          end: { dateTime: endDateTime.toISOString() },
+          _isMultiDaySegment: true,
+          _sourceStart: sourceStart,
+          _splitFromTimedEvent: true,
+        };
+        segments.push(lastDaySegment);
+      }
     } else {
       segments.push({ ...event });
     }

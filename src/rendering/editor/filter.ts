@@ -220,8 +220,13 @@ export function matchesPanel(panel: PanelDef, ctx: FilterCtx): boolean {
   return anyMatches(
     [
       panel.id,
-      EditorLocalize.lookup(ctx.language, panel.titleKey),
-      EditorLocalize.lookup(ctx.language, `${panel.titleKey}.helper`),
+      EditorLocalize.lookupForView(ctx.language, panel.titleKey, ctx.workspace ?? ctx.view),
+      EditorLocalize.lookupForView(
+        ctx.language,
+        panel.titleKey,
+        ctx.workspace ?? ctx.view,
+        '.helper',
+      ),
     ],
     query,
   );

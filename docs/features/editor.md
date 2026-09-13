@@ -222,6 +222,9 @@ Typing filters every panel down to what matches and drops the panels — and the
 
 Search matches what is on screen: the name of a setting, the sentence explaining it, and the choices a dropdown offers. Typing `width` finds **Minimum Day Width**; typing `iso` finds the week-number control, because that is where the word appears. It also matches the YAML option name, so a key copied out of the [Configuration Options reference](/reference/configuration) leads straight to its control.
 
+Searching a panel's displayed title or helper shows its relevant controls, including a
+workspace-specific title such as Grid's **Rules** in your editor language.
+
 **Customized Only** hides everything still set to the value the card would use anyway, leaving exactly what this card changes. It reads values the way the card does, so a number written as `"3"` in YAML counts as untouched when `3` is the default, and a value the card rejects counts as untouched too — because that is what the card is using.
 
 Three things follow their own rule under it, for reasons worth knowing:

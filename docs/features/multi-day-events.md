@@ -22,6 +22,9 @@ When enabled, multi-day events are split in a way that preserves their original 
   - Middle days: Full all-day events
   - Last day: Event from start of day to end time (e.g., 00:00-15:00)
 
+A timed event ending exactly at midnight has no row on the date that midnight opens,
+even when it spans several days. An event ending after midnight still has a final-day row.
+
 This feature is especially useful for:
 
 - Visualizing event conflicts across multiple days

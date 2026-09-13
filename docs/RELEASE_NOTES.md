@@ -69,7 +69,7 @@ All-day banners have rounded ends where the event begins or finishes and squared
 
 ## 🐛 Bug Fixes
 
-These fixes address List and Column behavior present in v4.2. They also apply to the new Grid view.
+These fixes address behavior present in v4.2, including the shared processing and lifecycle paths used by the new Grid view.
 
 ### Tap & Hold
 
@@ -91,6 +91,13 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 - **An empty card could stay visible after its last event expired** - The events disappeared, but `hide_when_empty` reused an earlier count until the next calendar fetch. It now follows the current clock on every repaint, including all-day expiry and a date window moving past yesterday
 - **Expanding a compact card, then switching layouts, filled the window** - After expanding, a card switched to column view could ignore `show_empty_days: false` and render every empty day in the window
 - **An empty day's text could be styled per view but its color could not** - `empty_day_text` accepted a `column:` override and `empty_day_color` did not, although the card honors both in exactly list and column view. Setting the color inside a `column:` block silently did nothing; it now applies, so a placeholder can be toned down in columns without changing the list
+
+### Events & Language
+
+- **Midnight could add a day the event did not cover** - A split List or Column event spanning several days could gain an extra `00:00–00:00` row. An exact midnight end now stays exclusive on every segment
+- **An anniversary could gain a year halfway through** - Split List and Column events crossing New Year now keep their original occurrence year on every row, rather than increasing the count on January 1
+- **One malformed event could break valid calendars** - Unusable dates or non-string event text are now rejected individually and reported in the log, instead of crashing processing or rendering for the valid events beside them
+- **Language changes waited for another update** - Changing the card language or Home Assistant's language now updates the rendered dates and event text in the first repaint
 
 ## Related Issues
 

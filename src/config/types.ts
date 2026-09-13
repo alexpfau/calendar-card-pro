@@ -730,6 +730,8 @@ export interface CalendarEventData {
    * The date-window filter uses this to exclude segments beyond the window's end.
    */
   _isMultiDaySegment?: boolean;
+  /** Original start of a split List/Column occurrence, preserving its anniversary year. */
+  _sourceStart?: CalendarEventData['start'];
   /**
    * Set on grid-owned timed segments that keep the original event's start time.
    *

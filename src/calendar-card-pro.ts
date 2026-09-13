@@ -1142,6 +1142,16 @@ class CalendarCardPro extends LitElement {
     this.requestUpdate();
   }
 
+  /** Resolve language before rendering so the current update uses the new strings. */
+  protected willUpdate(changedProps: PropertyValues): void {
+    if (
+      changedProps.has('hass') ||
+      (changedProps.has('config') && changedProps.get('config')?.language !== this.config.language)
+    ) {
+      this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
+    }
+  }
+
   updated(changedProps: PropertyValues) {
     // Reconciled after every update rather than acquired once: the view can change after
     // connection — a width fallback or an edit to `view` both flip it — so a timer taken
@@ -1151,13 +1161,6 @@ class CalendarCardPro extends LitElement {
 
     if (changedProps.has('hass') && this.hass && !changedProps.get('hass')) {
       this.updateEvents(true);
-    }
-
-    if (
-      (changedProps.has('hass') && this.hass?.locale) ||
-      (changedProps.has('config') && changedProps.get('config')?.language !== this.config.language)
-    ) {
-      this._language = Localize.getEffectiveLanguage(this.config.language, this.hass?.locale);
     }
 
     const hassJustAvailable = changedProps.has('hass') && this.hass && !changedProps.get('hass');

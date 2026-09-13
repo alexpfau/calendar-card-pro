@@ -287,6 +287,10 @@ Provides core functionality across the card:
   - Implements caching system for calendar data
   - Processes and filters events based on configuration
   - Groups events by day for display
+  - Rejects malformed endpoint or text payloads before processing, without discarding
+    valid neighboring events
+  - Retains the original start of split List/Column events for anniversary counts,
+    without changing their per-day countdown or expiry behavior
   - Derives Grid's daily coverage before per-day filters and empty-day omission, without
     using the List/Column splitter; timed occurrences stay timed and all-day occurrences
     retain their source interval for banner identity and final-day expiry

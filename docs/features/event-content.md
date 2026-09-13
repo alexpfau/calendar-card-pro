@@ -46,6 +46,12 @@ If you would rather the card disappear completely instead of showing "No upcomin
 
 Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
 
+The count covers the **full configured date range**, after past-event and per-calendar
+filters, but before display-only limits. A card can therefore remain visible when all
+qualifying events fall outside Grid's drawn hours, on days dropped by responsive density,
+or beyond a compact limit. Those limits change what is drawn, not whether the date range
+has events.
+
 When past events are hidden, the card disappears on its first repaint after the last event
 expires, without waiting for another calendar fetch. This does not add an event-expiry
 timer; Home Assistant updates and the card's existing refreshes still drive repaints.
@@ -360,6 +366,10 @@ Anna's Birthday  →  Anna's Birthday (50)
 ```
 
 The event you already have is the one that carries it. Birthdays are normally stored as an event that repeats every year, and each occurrence carries its own year, so the number is a subtraction and nothing else — the 2026 occurrence of a 1976 birthday is `(50)`, and the 2027 one is `(51)` without anyone touching the card again. It never needs the full date of birth, and it never has to work out whether the day has passed yet this year, because the event **is** the birthday.
+
+Splitting an occurrence across New Year does not change that count halfway through it.
+Every segment uses the original start's year; a separate occurrence starting in the new
+year gets the new count.
 
 The same marker counts anniversaries, because it is the same subtraction. A wedding in 2005 shows `(21)` in 2026. The number stands on its own without saying what it counts, which is what lets one marker serve both.
 

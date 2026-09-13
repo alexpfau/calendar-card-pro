@@ -426,7 +426,7 @@ time_grid:
 `min_day_width` is the narrowest a day column may be before the card sheds a day. The
 default is `100`, lower than column view's `140`, because a grid day mostly carries timed
 blocks against a shared axis rather than full text rows. At the default spacing and
-content-sized axis, three grid days need 410px before hysteresis, or 426px when the card is
+content-sized axis, three grid days need 383px before hysteresis, or 399px when the card is
 entering grid view from the list fallback.
 
 `min_days_to_show` defaults to `1`, not to `days_to_show`. A one-column grid is a useful
@@ -581,7 +581,7 @@ The detail-row options also do nothing on all-day banners: `show_time`,
 `show_single_allday_time`, `show_multiday_allday_time`, `allday_badge`,
 `show_location_allday`, `show_description_allday`, `show_countdown_allday`,
 `show_progress_bar`, `weather.position: event`, per-calendar `label`,
-`label_type: home-assistant`, `label_icon_color` and their max-line companions affect
+`label_type`, `label_icon_color` and their max-line companions affect
 timed blocks or the other views, not the all-day band.
 
 **→ [Grid-Only Options in the configuration reference](/reference/configuration#grid-only-options)** — full option table.

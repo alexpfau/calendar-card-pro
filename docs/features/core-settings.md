@@ -509,7 +509,7 @@ below, and it composes with the name filters: a block may set `event_type` and a
 
 ::: tip Listing a Calendar Twice in the Visual Editor
 Home Assistant's calendar picker hides a calendar you have already chosen, so the second
-listing cannot be added there. Use **Duplicate** at the foot of the calendar's own panel
+listing cannot be added there. Use **Duplicate** above the calendar's own settings
 instead: it lists the calendar again with the same settings, ready for you to change the
 one option that differs. The two panels are numbered so you can tell them apart, and
 **Remove** on the panel drops one block without taking the other — see
@@ -564,10 +564,11 @@ over, so this option has nothing left to do and the event stays.
 :::
 
 ::: tip It Takes Effect on the Next Refresh, Not on the Minute
-The card has one timer, the refresh interval, and nothing schedules a redraw at the time
-you name here. An event retires on the first render after its moment passes — which may be
-the refresh, a dashboard reload, or any edit that redraws the card. Expect the row to go
-within the refresh interval of the time you set, not exactly on it.
+Nothing schedules a redraw at the expiry time you name here. An event retires on the first
+render after its moment passes — a data refresh, Home Assistant update, dashboard reload,
+or edit can cause that render. Grid also repaints once a minute while its now line is
+enabled and the page is visible. These repaints are not an expiry alarm; do not expect
+the row to disappear at the exact time you set.
 :::
 
 ### Showing a Calendar on Weekdays Only
@@ -741,7 +742,7 @@ This technique lets you:
 - Use accent colors with backgrounds (when event_background_opacity > 0) for even more distinction
 - Avoid needing to create separate calendars for different event categories
 
-In the visual editor, build this with **Duplicate** at the foot of the calendar's panel —
+In the visual editor, build this with **Duplicate** above the calendar's settings —
 once for each extra block — and then give each copy its own filter, label and color. See
 [Per-Calendar Panels & Actions](/features/editor#per-calendar-panels-actions).
 
