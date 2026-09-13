@@ -212,10 +212,10 @@ describe('resolveEffectiveConfig', () => {
     expect(COLUMN_OVERRIDE_KEYS.length).toBeGreaterThan(30);
 
     for (const key of COLUMN_OVERRIDE_KEYS) {
-      // Resolution is pass-through, so a sentinel exercises it as well as a
-      // well-typed value would — and unlike a real value it cannot coincide with
-      // whatever the top level or the shipped default happens to hold.
-      const sentinel = `__${key}__`;
+      // Numeric overrides use the root's normalization, so their distinguishing value
+      // must be a number rather than a rejected text sentinel.
+      const reference = DEFAULT_CONFIG[key];
+      const sentinel = typeof reference === 'number' ? reference + 17 : `__${key}__`;
       const config = buildConfig({
         column: { [key]: sentinel } as Partial<Types.Config>['column'],
       });

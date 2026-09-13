@@ -644,12 +644,29 @@ entities:
 filter_duplicates: true
 ```
 
-An event counts as a duplicate of another when its **title**, **start**, **end** and
-**location** all match. The surviving copy is the one from the entry listed **first** in
+An event counts as a duplicate of another when its original **title**, **start**, **end** and
+**location** all match. Among copies that pass their calendar's filters, the surviving copy
+is the one from the eligible entry listed **first** in
 `entities`, carrying that entry's own `color` and `accent_color` — so reordering `entities`
 changes which calendar's styling a shared event shows. That same first-listed priority also
 picks the winner when the two competing entries are blocks of one calendar, which is what
 [keyword icon mapping](#mapping-icons-onto-events-by-keyword) relies on.
+
+Weekday restrictions and all-day expiry are applied before choosing that winner. A calendar
+that excludes a date cannot remove another calendar's eligible copy:
+
+```yaml
+filter_duplicates: true
+entities:
+  - entity: calendar.anna
+    days_of_week: weekdays
+  - calendar.ben
+```
+
+On a weekend, a shared event still appears from Ben's calendar. Daily occurrences are
+compared on their displayed dates, so a split multi-day event can have different contributing
+calendars on different days. An eligible first-listed unsplit List or Column copy keeps its
+single-row shape; lower-priority copies do not force it to split.
 
 When the merge spans two or more **distinct** calendars, the surviving row can do more than
 inherit one calendar's styling: it can name every calendar the event belongs to and take a
@@ -955,6 +972,10 @@ list:
   # Ensure complete days are shown
   compact_events_complete_days: true # Never cut off a day's events mid-day
 ```
+
+Numeric limits follow the same rules inside `list:` as at the top level. Quoted values such
+as `compact_events_to_show: '5'` still limit the card and can be expanded. Blank, negative,
+or nonnumeric limits mean no limit; zero is valid for the event limit, but not the day limit.
 
 ::: warning Compact Mode Applies to List View Only
 All three options on this page cap the card as a whole, which a stack of days can express

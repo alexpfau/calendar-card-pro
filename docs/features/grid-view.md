@@ -342,6 +342,10 @@ A per-calendar weekday/weekend filter can leave gaps in a banner. The banner joi
 adjacent visible columns where that event qualifies, but never crosses an excluded column
 kept visible by another calendar. Its continuation marks still refer to the original event.
 
+With `filter_duplicates: true`, only eligible calendar copies contribute on each date. If
+those contributors change, the banner separates into runs so a shared-event color does not
+extend into dates where only one calendar qualifies.
+
 All-day banners are title-only. They carry the calendar's color as their whole fill, with
 no accent edge — a bar on top of a fill that is already that color names nothing, and
 against a rounded end it curves into a shape of its own. Timed blocks keep their edge,

@@ -96,6 +96,7 @@ Switching dashboard tabs disconnects a card without destroying it, and several t
 
 ### Events & Language
 
+- **A filtered duplicate could hide an event that still qualified** - When the first calendar excluded a date or had already expired an all-day event, duplicate filtering also discarded eligible copies from later calendars. It now chooses among eligible copies, with shared labels and colors reflecting those contributors
 - **Midnight could add a day the event did not cover** - A split List or Column event spanning several days could gain an extra `00:00–00:00` row. An exact midnight end now stays exclusive on every segment
 - **An anniversary could gain a year halfway through** - Split List and Column events crossing New Year now keep their original occurrence year on every row, rather than increasing the count on January 1
 - **One malformed event could break valid calendars** - Unusable dates or non-string event text are now rejected individually and reported in the log, instead of crashing processing or rendering for the valid events beside them

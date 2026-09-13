@@ -4,7 +4,12 @@
  * Resolves per-view configuration, column-only defaults and width fallback.
  */
 
-import { DEFAULT_CONFIG, coercePixelLength, coercePixelLengthAgainst } from './config';
+import {
+  DEFAULT_CONFIG,
+  coercePixelLength,
+  coercePixelLengthAgainst,
+  normalizeNumericOptions,
+} from './config';
 import * as Types from './types';
 import * as EntityColors from '../utils/entity-colors';
 import * as Logger from '../utils/logger';
@@ -1222,16 +1227,13 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
   const overrides = blockValues(config, effectiveView);
 
   if (overrides && hasOverride(overrides, key)) {
-    // `hasOverride` has established that the option is present and not `undefined`,
-    // which is the only way the optional override type can widen the config type.
-    //
-    // Coerced for the same reason as in `resolveEffectiveConfig`: both resolvers read
-    // the same block, so a bare `day_spacing: 4` has to become `'4px'` whichever one the
-    // caller reached for. A total no-op on non-length keys — `coercePixelLength` acts
-    // only when the value is a bare number and the shipped default is a `px` string, and
-    // every current call site passes a boolean — so this is here to keep the two answers
-    // identical as keys are added, not to fix a live defect.
-    return coercePixelLength(key, overrides[key]) as Types.Config[K];
+    // Both resolvers apply the root's length and numeric rules after the override.
+    // Otherwise a quoted number works at root but changes behavior inside a view block.
+    const resolved = normalizeNumericOptions({
+      ...config,
+      [key]: coercePixelLength(key, overrides[key]),
+    });
+    return resolved[key];
   }
 
   // `??` rather than a presence test on purpose: a view default of `false` is a
@@ -1281,7 +1283,9 @@ export function resolveEffectiveConfig(
   // `list:` leaves nothing to apply — and the card memoizes on configuration identity and
   // hands the result to caches that compare by reference. A fresh equal object would still
   // render correctly and quietly turn every one of those comparisons into a miss.
-  return Object.keys(applied).length === 0 ? config : ({ ...config, ...applied } as Types.Config);
+  return Object.keys(applied).length === 0
+    ? config
+    : normalizeNumericOptions({ ...config, ...applied } as Types.Config);
 }
 
 //-----------------------------------------------------------------------------

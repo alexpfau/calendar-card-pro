@@ -192,7 +192,7 @@ describe.each(['timed', 'all-day'] as const)('Grid %s daily coverage', (kind) =>
     }
   });
 
-  it('deduplicates sources once before deriving their daily coverage', () => {
+  it('keeps one daily occurrence of a duplicate source without changing its interval', () => {
     const source = spanning(kind, 19, 21);
     const result = draw(
       [source, { ...source, _entityId: 'calendar.ben' }],

@@ -1,21 +1,14 @@
 /**
  * One malformed event from one calendar must not take the whole card down.
  *
- * The processing pipeline dereferences `event.start` and `event.end` unguarded in about a
- * dozen places — deduplication, day grouping, multi-day splitting, sorting. Every one of
- * them assumes Home Assistant supplied both. A single event missing `end` therefore does
- * not degrade that event, it throws, and the card renders nothing at all: the perfectly
- * good events from the same calendar, and from every other configured calendar, disappear
- * with it.
+ * Downstream date and text operations rely on validated input. Both fetch processing and
+ * grouping guard their entry points so an unusable record cannot crash valid neighbors.
  *
  * That payload comes from whichever integration backs the calendar entity — CalDAV, ICS,
  * Google, or any of the third-party ones — so the card cannot assume it is well formed.
  *
- * Under the default configuration the event happened to fall out of the time-window filter
- * before anything dereferenced it, so this only ever surfaced for users who had turned
- * `filter_duplicates` on: deduplication reads `start.dateTime` and `end.dateTime` on every
- * event before any filtering runs. That is why the deduplicating cases below are the ones
- * that matter, and why asserting on default config alone would have proved nothing.
+ * The original missing-end failure was exposed by duplicate comparison before date
+ * filtering. Keep both deduplicating and ordinary cases covered as pipeline ordering changes.
  *
  * The controls are all-valid payloads, which pin the filter to malformed input only: a
  * filter that is too eager would silently drop real events, and this suite would be the
@@ -122,8 +115,8 @@ describe('malformed calendar payloads', () => {
   });
 
   it('groups a malformed payload handed straight to the renderer', () => {
-    // Not the same guard as the fetch path: `groupEventsByDay` deduplicates whatever it is
-    // given before any of the fetch-side filtering has run, so it has to defend itself.
+    // Independent of the fetch path: grouping must validate inputs before deriving
+    // occurrences, even when no fetch-side processing ran.
     const config = buildConfig({
       entities: ['calendar.one'],
       filter_duplicates: true,

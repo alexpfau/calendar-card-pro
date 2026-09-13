@@ -177,9 +177,8 @@ function processRawEvents(
  * while grouping does not cost that one event a row: it costs the whole card, taking every
  * other calendar's events down with it.
  *
- * Applied at both entry points, because they are reachable independently: the fetch path
- * processes events before they are ever grouped, while `groupEventsByDay` deduplicates
- * whatever it is handed before any of that filtering has run.
+ * Applied at both entry points, because they are reachable independently: grouping must
+ * also reject malformed input before deriving daily occurrences or comparing duplicates.
  *
  * @param events Events to check
  * @returns Events with matching, parseable endpoints and string-valued text
@@ -250,12 +249,14 @@ function keepWellFormedEvents(
  * @param events Events to deduplicate
  * @param config Card configuration, already resolved for the view being rendered
  * @param enabled Whether `filter_duplicates` is on for this view
+ * @param signatureFor Original event identity and the eligible display occurrence to compare
  * @returns The surviving events, with merged rows carrying `_mergedFrom`
  */
 function deduplicateEvents(
   events: Types.CalendarEventData[],
   config: Types.Config,
   enabled: boolean,
+  signatureFor: (event: Types.CalendarEventData) => string = generateEventSignature,
 ): Types.CalendarEventData[] {
   if (!enabled || events.length < 2) {
     return events;
@@ -271,7 +272,7 @@ function deduplicateEvents(
     for (const event of events) {
       if (event._entityId !== entityId) continue;
 
-      const signature = generateEventSignature(event);
+      const signature = signatureFor(event);
 
       // Recorded *before* the duplicate test below, because a copy about to be dropped is
       // precisely what this has to remember. One entry per distinct calendar, taken from
@@ -294,7 +295,7 @@ function deduplicateEvents(
   const survivors: Types.CalendarEventData[] = [];
 
   for (const event of events) {
-    const signature = generateEventSignature(event);
+    const signature = signatureFor(event);
 
     // The same test the previous `filter` made, negated: drop a copy only when some other
     // copy of its signature was kept. An event whose calendar is not in `entities` reaches
@@ -508,11 +509,7 @@ export function groupEventsByDay(
   // on its own terms rather than to fix a live defect.
   const config = ViewConfig.resolveEffectiveConfig(rawConfig, effectiveView);
 
-  const events = deduplicateEvents(
-    keepWellFormedEvents(rawEvents),
-    config,
-    config.filter_duplicates,
-  );
+  const events = keepWellFormedEvents(rawEvents);
 
   const showEmptyDays = config.show_empty_days;
 
@@ -544,10 +541,19 @@ export function groupEventsByDay(
 
   // Grid needs occupied dates before any per-day filter or empty-day omission.
   // Its splitter keeps timed middle days timed and all-day banner identity intact.
-  const splitEvents =
-    ViewConfig.multidaySplitPolicy(effectiveView) === 'never'
-      ? events.flatMap((event) => Grid.splitGridEventByDay(event, referenceStart, windowEnd))
-      : processMultiDayEvents(events, config);
+  const sourceSignatures = new Map<Types.CalendarEventData, string>();
+  const displayDays = new Map<Types.CalendarEventData, string>();
+  const splitEvents = events.flatMap((event) => {
+    const occurrences =
+      ViewConfig.multidaySplitPolicy(effectiveView) === 'never'
+        ? Grid.splitGridEventByDay(event, referenceStart, windowEnd)
+        : processMultiDayEvents([event], config);
+    if (config.filter_duplicates) {
+      const signature = generateEventSignature(event);
+      occurrences.forEach((occurrence) => sourceSignatures.set(occurrence, signature));
+    }
+    return occurrences;
+  });
 
   const now = new Date();
 
@@ -647,13 +653,49 @@ export function groupEventsByDay(
       return false;
     }
 
+    if (config.filter_duplicates) {
+      displayDays.set(
+        event,
+        FormatUtils.getLocalDateKey(resolveDisplayDate(startDate, endDate, referenceStart)),
+      );
+    }
     return true;
   });
 
+  // Eligibility must precede choosing a duplicate's winner. Otherwise a filtered first
+  // calendar also discards the eligible copy behind it. Compare original intervals, not
+  // sliced endpoints: distinct multi-day events can share an identical middle day.
+  const firstEligible = new Map<string, Types.CalendarEventData>();
+  if (config.filter_duplicates && effectiveView !== 'grid') {
+    for (const event of upcomingEvents) {
+      const signature = sourceSignatures.get(event)!;
+      const previous = firstEligible.get(signature);
+      if (
+        !previous ||
+        getEntityIndex(event._entityId, config) < getEntityIndex(previous._entityId, config)
+      ) {
+        firstEligible.set(signature, event);
+      }
+    }
+  }
+  const visibleEvents = deduplicateEvents(
+    upcomingEvents,
+    config,
+    config.filter_duplicates,
+    (event) => {
+      const signature = sourceSignatures.get(event)!;
+      const first = firstEligible.get(signature);
+      // An eligible unsplit winner represents the whole event. A lower-priority calendar
+      // opting into splitting must not add its own rows beside that winner.
+      const wholeEvent = first !== undefined && !first._isMultiDaySegment;
+      return JSON.stringify([signature, wholeEvent ? null : displayDays.get(event)]);
+    },
+  );
+
   const eventsByDay: Record<string, Types.EventsByDay> = {};
 
-  if (upcomingEvents.length > 0) {
-    upcomingEvents.forEach((event) => {
+  if (visibleEvents.length > 0) {
+    visibleEvents.forEach((event) => {
       const isAllDayEvent = !event.start.dateTime;
 
       let startDate: Date | null;

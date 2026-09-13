@@ -856,21 +856,30 @@ function layoutBanners(
   const visibleDayStarts = days.map((day) => Grid.startOfDay(new Date(day.timestamp)));
   const sources = new Map<
     Pick<Types.CalendarEventData, 'start' | 'end'>,
-    { event: Types.CalendarEventData; columns: number[] }
+    Map<string, { event: Types.CalendarEventData; columns: number[] }>
   >();
   days.forEach((day, column) => {
     for (const event of sortDayEvents(day).allDay) {
       const source = event._gridSource ?? event;
-      const existing = sources.get(source);
+      let variants = sources.get(source);
+      if (!variants) {
+        variants = new Map();
+        sources.set(source, variants);
+      }
+      // Per-day filters can change which calendars contribute while the winning
+      // source stays the same. Keep their shared-color boundaries in the banner band.
+      const contributors = JSON.stringify(event._mergedFrom?.map((entry) => entry.entityId) ?? []);
+      const existing = variants.get(contributors);
       if (existing) {
         existing.columns.push(column);
       } else {
-        sources.set(source, { event: { ...event, ...source }, columns: [column] });
+        variants.set(contributors, { event: { ...event, ...source }, columns: [column] });
       }
     }
   });
 
-  for (const { event, columns } of sources.values()) {
+  const bannerRuns = [...sources.values()].flatMap((variants) => [...variants.values()]);
+  for (const { event, columns } of bannerRuns) {
     const runs: Array<{ first: number; last: number }> = [];
     for (const column of columns) {
       const previous = runs[runs.length - 1];

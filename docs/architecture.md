@@ -294,6 +294,8 @@ Provides core functionality across the card:
   - Derives Grid's daily coverage before per-day filters and empty-day omission, without
     using the List/Column splitter; timed occurrences stay timed and all-day occurrences
     retain their source interval for banner identity and final-day expiry
+  - Selects duplicate winners after calendar-specific date and expiry filters, retaining
+    original source signatures so identical daily slices of distinct events never merge
 
 - **grid.ts**:
   - Resolves visible time bands and local wall-clock positions
