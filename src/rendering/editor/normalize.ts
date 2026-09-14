@@ -15,6 +15,7 @@ import * as Helpers from '../../utils/helpers';
  * @returns A comparable value, preserving missing values
  */
 export function normalizeRootValue(key: string, value: unknown): unknown {
+  if (key === 'past_event_opacity') return Config.toValidPercentage(value);
   if (value === undefined || value === null) return value;
   const defaults = Config.DEFAULT_CONFIG as unknown as Record<string, unknown>;
   return typeof defaults[key] === 'number'
@@ -37,6 +38,7 @@ export function normalizeFieldValue(
   key: string,
   value: unknown,
 ): unknown {
+  if (key === 'past_event_opacity') return normalizeRootValue(key, value);
   if (value === undefined || value === null) return value;
   if (path.length === 0) return normalizeRootValue(key, value);
 

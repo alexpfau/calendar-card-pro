@@ -2525,7 +2525,7 @@ describe('editor: the Events panel opening run', () => {
    * Pinned by value and in order, because the order is the change. Every field is under a
    * heading — a bare option above the first one would be captioned by nothing.
    */
-  it('captions all four subjects, with the title no longer split', () => {
+  it('captions each subject, with state before accent and the title kept together', () => {
     // The default config resolves the accent mode to `custom`, so the conditional colour
     // field is present — which is the shape the row was designed around.
     //
@@ -2540,6 +2540,8 @@ describe('editor: the Events panel opening run', () => {
       'show_description',
       'show_countdown',
       'show_progress_bar',
+      'heading_event_state',
+      'past_event_opacity',
       'heading_accent',
       'accent_event_text',
       'accent_color_mode',

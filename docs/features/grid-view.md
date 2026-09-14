@@ -524,6 +524,33 @@ Anything the block does not mention keeps its top-level value, except for the th
 options listed below. In the visual editor, choose the Grid workspace to edit these
 values directly without changing Card Displays.
 
+### A Full Week Without Dimming
+
+Grid shows finished events by default, but dims their contents to 60%, just like List
+and Column. Use `past_event_opacity: 100` inside `time_grid:` to retain full-strength
+contents throughout the week without changing the other views:
+
+```yaml
+type: custom:calendar-card-pro
+entities:
+  - calendar.family
+view: grid
+start_date: start_of_week
+first_day_of_week: monday
+days_to_show: 7
+time_grid:
+  min_days_to_show: 7
+  show_now_line: true
+  past_event_opacity: 100
+```
+
+This applies to timed-event contents and all-day banner titles, not their background
+fills or accent stripes. The now line is independent: hiding it or browsing another week
+does not change opacity. If the card is too narrow and falls back to List, List's opacity
+applies instead. See [Past Events Display](/features/event-content#past-events-display)
+for fractional percentages, clear-to-inherit behavior, and why zero is not a visibility
+switch.
+
 ## 🔀 Options That Start From a Different Default
 
 Thirteen shared options do not inherit their top-level value in grid view. The **Default**

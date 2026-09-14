@@ -36,6 +36,36 @@ card_mod:
     }
 ```
 
+## 🕒 Past Event Opacity
+
+Use [`past_event_opacity`](/features/event-content#past-events-display) for built-in
+past-content dimming, shared or per view. The option accepts a percentage from 0 to 100;
+the CSS property `--calendar-card-past-event-opacity` carries its **0-1 alpha**, default
+`0.6`, on `ha-card`.
+
+Both `.past-event .event-content` and
+`.grid-banner.past-event .grid-banner-title` read that property. The `.past-event` class
+stays present even at 100%, and outer fills and accent stripes do not dim.
+
+The generated property is inline on `ha-card`, so an inherited theme value alone does
+not replace it. For an explicit card-mod override, target that same element and use
+`!important`:
+
+```yaml
+card_mod:
+  style: |
+    ha-card {
+      --calendar-card-past-event-opacity: 0.8 !important;
+    }
+```
+
+Existing rules setting `opacity` directly on the two content selectors still work through
+the normal cascade. Setting the option to 100 removes the card's built-in dimming, not
+additional author CSS. Normal colors, translucent ink, and badge fills retain their own
+treatments beneath the layer; full opacity is not a contrast guarantee.
+
+**→ [Event Column in the configuration reference](/reference/configuration#event-column)**
+
 ## 🎨 Card-Mod Examples
 
 ### Day container classes

@@ -280,6 +280,9 @@ export function applyWorkspaceChange(
     const comparisonKey = synthetic ? Synthetic.configKeysForField(node.name)[0] : node.name;
     const previousRaw = atPath(frame.data, path, node.name);
     const nextRaw = atPath(incoming, path, node.name);
+    if (node.name === 'past_event_opacity' && !Value.deepEqual(previousRaw, nextRaw)) {
+      Config.validatePastEventOpacity(nextRaw, pendingKey(node.name, frame.workspace, path));
+    }
     const previous = normalizeFieldValue(config, path, comparisonKey, previousRaw);
     const next = normalizeFieldValue(config, path, comparisonKey, nextRaw);
     const textChanged = 'text' in node.selector && !Value.deepEqual(previousRaw, nextRaw);

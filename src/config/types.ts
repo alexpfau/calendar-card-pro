@@ -95,6 +95,7 @@ export interface Config {
 
   // Event column
   event_background_opacity: number;
+  past_event_opacity: number;
   show_past_events: boolean;
   show_countdown: boolean;
   show_countdown_allday: boolean;
@@ -286,6 +287,7 @@ export interface SharedViewOverrides {
 
   // Event column
   event_background_opacity?: number;
+  past_event_opacity?: number;
   event_color?: string;
   event_font_size?: string;
   show_countdown?: boolean;

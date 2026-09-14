@@ -29,6 +29,7 @@ import * as ViewConfig from '../src/config/view';
 import type { HaFormSchema } from '../src/rendering/editor/ha-form';
 import { buildContentSchema } from '../src/rendering/editor/schemas/content';
 import { buildEntitySchema } from '../src/rendering/editor/schemas/entity';
+import { buildEventsSchema } from '../src/rendering/editor/schemas/events';
 import { buildLayoutSchema } from '../src/rendering/editor/schemas/layout';
 
 const config = buildConfig({});
@@ -180,6 +181,21 @@ describe('editor numeric ceilings have a basis', () => {
     // defects, so it has to fail loudly rather than pass vacuously.
     expect(layoutMinima.has('min_day_width')).toBe(true);
     expect(layoutMinima.has('min_days_to_show')).toBe(true);
+  });
+
+  describe('past-event opacity selector bounds', () => {
+    const schema = buildEventsSchema(ctx);
+    const min = numericMinima(schema).get('past_event_opacity');
+    const max = numericMaxima(schema).get('past_event_opacity');
+
+    it('offers both endpoints and fractional input with the same runtime bounds', () => {
+      expect({ min, max }).toEqual({ min: 0, max: 100 });
+      expect(Config.toValidPercentage(min)).toBe(0);
+      expect(Config.toValidPercentage(max)).toBe(100);
+      expect(Config.toValidPercentage(min! - 0.1)).toBeUndefined();
+      expect(Config.toValidPercentage(max! + 0.1)).toBeUndefined();
+      expect(Config.toValidPercentage(75.25)).toBe(75.25);
+    });
   });
 
   it('min_day_width declares no ceiling, because the runtime has none', () => {

@@ -2120,8 +2120,15 @@ describe('card stylesheet', () => {
       // emits a bare title span rather than an event-content wrapper -- so it carried the
       // past-event class from the day it was written with nothing selecting it. A finished
       // holiday stayed bright while the finished meeting under it dimmed.
-      expect(declared('.past-event .event-content', 'opacity')).toBe('0.6');
-      expect(declared('.grid-banner.past-event .grid-banner-title', 'opacity')).toBe('0.6');
+      expect(declared('.past-event .event-content', 'opacity')).toBe(
+        'var(--calendar-card-past-event-opacity, 0.6)',
+      );
+      expect(declared('.grid-banner.past-event .grid-banner-title', 'opacity')).toBe(
+        'var(--calendar-card-past-event-opacity, 0.6)',
+      );
+      for (const selector of ['.event', '.grid-event', '.grid-banner', '.event-title']) {
+        expect(declared(selector, 'opacity'), selector).toBe('');
+      }
     });
 
     it('matches all-day banner titles to timed event titles', () => {

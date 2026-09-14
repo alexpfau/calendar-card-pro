@@ -288,6 +288,15 @@ const eventsSchema = Helpers.memoizeLast(
     bool('show_countdown'),
     bool('show_progress_bar'),
 
+    // State affects the whole content layer, before the individual accent and ink choices.
+    heading('heading_event_state'),
+    {
+      name: 'past_event_opacity',
+      selector: {
+        number: { min: 0, max: 100, step: 'any', mode: 'box', unit_of_measurement: '%' },
+      },
+    },
+
     // Accent next, because it is the coarsest of the styling runs: one color, taken from
     // the calendar, that the bar, the tint and — through the switch leading this run —
     // every line of text can be drawn from. Those four were spread across the panel with

@@ -78,6 +78,7 @@ export const DEFAULT_CONFIG: Types.Config = {
   today_month_color: undefined, // Inherit from month_color or weekend_month_color,
 
   event_background_opacity: 0,
+  past_event_opacity: 60,
   show_past_events: false,
   show_countdown: false,
   show_countdown_allday: true,
@@ -213,6 +214,35 @@ export function toValidNumber(value: unknown, minimum = 0): number | undefined {
   return parsed;
 }
 
+/**
+ * Parses a finite percentage without treating a clear or boolean as zero.
+ *
+ * @param value - Raw YAML or selector value
+ * @returns A number from 0 through 100, or undefined
+ */
+export function toValidPercentage(value: unknown): number | undefined {
+  const parsed = toValidNumber(value);
+  return parsed !== undefined && parsed <= 100 ? parsed : undefined;
+}
+
+/**
+ * Reports invalid past-content opacity at the configuration or editor write boundary.
+ *
+ * @param value - Raw value; missing, null and blank values mean clear
+ * @param path - Option path used in the diagnostic
+ */
+export function validatePastEventOpacity(value: unknown, path = 'past_event_opacity'): void {
+  if (
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim() === '') ||
+    toValidPercentage(value) !== undefined
+  ) {
+    return;
+  }
+  Logger.warn(`Ignoring "${path}": expected a finite percentage from 0 to 100.`);
+}
+
 // Also read by the editor's upgrade path.
 export const DEPRECATED_CONFIG_MAP: Readonly<Record<string, string>> = {
   max_events_to_show: 'compact_events_to_show',
@@ -321,6 +351,9 @@ export function normalizeNumericOptions(config: Types.Config): Types.Config {
     toValidNumber(config.refresh_interval, 1) ?? DEFAULT_CONFIG.refresh_interval;
   config.event_background_opacity =
     toValidNumber(config.event_background_opacity, 0) ?? DEFAULT_CONFIG.event_background_opacity;
+  validatePastEventOpacity(config.past_event_opacity);
+  config.past_event_opacity =
+    toValidPercentage(config.past_event_opacity) ?? DEFAULT_CONFIG.past_event_opacity;
 
   // Optional limits: `undefined` means "no limit", so invalid values clear them rather
   // than collapsing to zero and hiding content.

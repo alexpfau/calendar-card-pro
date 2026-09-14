@@ -108,6 +108,19 @@ describe('custom property mapping', () => {
     expect(custom['--calendar-card-empty-day-color']).toBe('rgb(14, 0, 0)');
   });
 
+  it.each([
+    [undefined, '0.6'],
+    [60, '0.6'],
+    [100, '1'],
+    [0, '0'],
+    [1, '0.01'],
+    [12.5, '0.125'],
+  ])('maps past content percentage %s to one inherited alpha', (value, alpha) => {
+    expect(propsFor({ past_event_opacity: value })['--calendar-card-past-event-opacity']).toBe(
+      alpha,
+    );
+  });
+
   it('covers every property the stylesheet reads', () => {
     // Without this the table can fall behind the source: a theming option added later would
     // arrive with no assertion and nothing would say so.
@@ -116,6 +129,7 @@ describe('custom property mapping', () => {
       ...PASS_THROUGH.map(([, property]) => property),
       '--calendar-card-date-column-width',
       '--calendar-card-empty-day-color',
+      '--calendar-card-past-event-opacity',
     ]);
     const known = new Set<string>([
       // Asserted in their own dedicated files, listed here so this check stays exhaustive.

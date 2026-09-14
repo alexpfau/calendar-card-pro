@@ -47,6 +47,7 @@ export function generateCustomPropertiesObject(config: Types.Config): Record<str
     '--calendar-card-line-width-vertical': config.vertical_line_width,
     '--calendar-card-day-spacing': config.day_spacing,
     '--calendar-card-event-spacing': config.event_spacing,
+    '--calendar-card-past-event-opacity': String(config.past_event_opacity / 100),
     '--calendar-card-spacing-additional': config.additional_card_spacing,
     '--calendar-card-height': config.height || 'auto',
     '--calendar-card-max-height': config.max_height,
@@ -584,7 +585,7 @@ export const cardStyles = css`
   }
 
   .past-event .event-content {
-    opacity: 0.6;
+    opacity: var(--calendar-card-past-event-opacity, 0.6);
   }
 
   /* The grid's all-day banner is title-only, so it emits no event-content for the rule
@@ -593,7 +594,7 @@ export const cardStyles = css`
      finished meeting that dimmed, and dimmed in list and column but not here. Same
      opacity, applied to what the banner does emit. */
   .grid-banner.past-event .grid-banner-title {
-    opacity: 0.6;
+    opacity: var(--calendar-card-past-event-opacity, 0.6);
   }
 
   .event-content {

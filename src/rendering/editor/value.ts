@@ -116,6 +116,7 @@ export function stripColumnDefaults(
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (value === undefined) continue;
+    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
 
     if (isSyntheticKey(key)) continue;
 
@@ -189,6 +190,7 @@ export function stripTimeGridDefaults(
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (value === undefined) continue;
+    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
     if (isSyntheticKey(key)) continue;
 
     if (key in gridDefaults) {
@@ -252,6 +254,7 @@ export function stripListDefaults(
 
   for (const [key, value] of Object.entries(block as Record<string, unknown>)) {
     if (value === undefined) continue;
+    if (key === 'past_event_opacity' && Config.toValidPercentage(value) === undefined) continue;
     if (isSyntheticKey(key)) continue;
     if (!overrideKeys.has(key)) continue;
 
@@ -412,6 +415,9 @@ export function toStoredConfig(
   authoredRootKeys: ReadonlySet<string> = new Set(),
 ): Record<string, unknown> {
   const draft = { ...(config as unknown as Record<string, unknown>) };
+  if (Config.toValidPercentage(draft.past_event_opacity) === undefined) {
+    delete draft.past_event_opacity;
+  }
 
   for (const key of Object.keys(draft)) {
     if (isSyntheticKey(key)) delete draft[key];
@@ -571,7 +577,12 @@ export function applyFormChange(
 
   for (const key of changedKeys(previousData, nextData)) {
     if (!isSyntheticKey(key)) {
-      write(key, nextData[key]);
+      if (key === 'past_event_opacity') {
+        Config.validatePastEventOpacity(nextData[key]);
+        write(key, normalizeRootValue(key, nextData[key]));
+      } else {
+        write(key, nextData[key]);
+      }
       continue;
     }
 

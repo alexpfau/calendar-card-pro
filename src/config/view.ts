@@ -9,6 +9,8 @@ import {
   coercePixelLength,
   coercePixelLengthAgainst,
   normalizeNumericOptions,
+  toValidPercentage,
+  validatePastEventOpacity,
 } from './config';
 import * as Types from './types';
 import * as EntityColors from '../utils/entity-colors';
@@ -52,6 +54,7 @@ export const COLUMN_OVERRIDE_KEYS = [
   'show_month',
   'month_font_size',
   'event_background_opacity',
+  'past_event_opacity',
   'event_color',
   'event_font_size',
   'show_countdown',
@@ -831,7 +834,9 @@ export function scaleLength(value: string, factor: number): string {
 function hasOverride(overrides: Types.ColumnOverrides, key: keyof Types.ColumnOverrides): boolean {
   return (
     Object.prototype.hasOwnProperty.call(overrides, key) &&
-    (overrides as Record<string, unknown>)[key] !== undefined
+    (overrides as Record<string, unknown>)[key] !== undefined &&
+    // This option's null/blank/invalid values mean inherit, not the root's 60 default.
+    (key !== 'past_event_opacity' || toValidPercentage(overrides[key]) !== undefined)
   );
 }
 
@@ -1364,6 +1369,8 @@ function validateViewOverrides(config: Types.Config, view: Types.EffectiveView):
   }
 
   const ownKeys = new Set<string>([...block.overrideKeys, ...block.onlyKeys]);
+
+  validatePastEventOpacity(overrides.past_event_opacity, `${block.blockKey}.past_event_opacity`);
 
   for (const key of Object.keys(overrides)) {
     if (ownKeys.has(key)) {

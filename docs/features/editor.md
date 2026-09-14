@@ -28,6 +28,15 @@ Panels open one at a time, and options inside them appear only when they apply �
 
 The longer panels are divided further by sub-headings, which name what the options beneath them decide. **Calendars** and **Time Range & Content** share the same spine, because they configure the same pipeline one level apart: **Event Filtering** comes first, then **Multi-Day Events**. A calendar adds **Label & Colors** above them, **Text Replacement** between the two — its options are written the same way the filters are, so the two read as a pair — and **Event Details** below; the card-level panel adds **Empty Days** at the end. Reading either panel therefore answers the same questions in the same order.
 
+In **Events**, **Event State** follows the Event Details switches and precedes Accent.
+Its **Past Event Opacity** control accepts 0-100%, including fractions: 60% preserves the
+default appearance, 100% removes dimming, and 0% makes contents transparent without hiding
+events. It stays available in every workspace even when All Layouts has Show Past Events
+off, because Grid can show past events independently. Clear the number to restore 60 at
+the shared level or inheritance in a view; a view's Reset control does the same.
+See [Past Events Display](/features/event-content#past-events-display) and the
+[configuration reference](/reference/configuration#event-column).
+
 ## 🧭 Options for the Selected View
 
 Two controls sit together above search. **Card Displays** chooses the card's starting

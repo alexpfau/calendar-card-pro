@@ -255,6 +255,7 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   heading_nothing: 'Empty Days',
   heading_appearance: 'Label & Colors',
   heading_details: 'Event Details',
+  heading_event_state: 'Event State',
 
   'entity.event_type': 'Event Type',
   'entity.event_type.option.inherit.label': 'Follow the card',
@@ -609,6 +610,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   event_background_opacity: 'Event Background Opacity',
   'event_background_opacity.helper':
     'Tints each event with its accent color. Zero leaves it untinted.',
+  past_event_opacity: 'Past Event Opacity',
+  'past_event_opacity.helper':
+    'Opacity of finished event contents and Grid banner titles: 0-100%, including fractions. ' +
+    '60% is the default; 100% removes dimming; 0% makes contents transparent, not hidden. ' +
+    'Applies where Show Past Events is on. Backgrounds and accent stripes stay unchanged.',
   title_max_lines: 'Title Line Limit',
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
   scroll_long_titles: 'Scroll Long Titles',

@@ -510,7 +510,45 @@ Control visibility of events that have already occurred:
 show_past_events: true # Show events that have already ended
 ```
 
-When enabled, past events appear with reduced opacity (60%) to visually distinguish them from upcoming events.
+When enabled, finished event contents use 60% opacity in every view. Set
+`past_event_opacity` to any number from **0 to 100**, including fractions, to change that
+strength. `100` removes the built-in dimming; `1` means 1%, not full strength.
+
+```yaml
+show_past_events: true
+past_event_opacity: 75.5
+time_grid:
+  past_event_opacity: 100 # Keep finished events at full strength in Grid
+```
+
+The top-level value is shared. `list:`, `column:`, and `time_grid:` can each override it;
+there is no different Grid default. A view with no override inherits the shared value.
+Clearing the option (a blank or `null`) restores inheritance in a view, or 60 at the top
+level. Invalid values are ignored rather than clamped or treated as zero.
+
+Only the contents dim: titles, labels, pictures, icons, and the detail rows that are still
+eligible to appear. Grid all-day banners dim their titles, including continuation marks.
+Outer background fills and accent stripes stay unchanged, as do ordinary title and label
+colors underneath the opacity layer. The [theming hook](/features/theming#past-event-opacity)
+retains the existing `.past-event` selectors.
+
+::: warning Transparent Is Not Hidden
+`past_event_opacity: 0` makes contents transparent but keeps event boxes, counts, actions,
+and configured accessible names. To remove finished events, use `show_past_events: false`
+in the relevant view instead. Dimming does not restore filtered events, countdowns, or
+progress bars.
+:::
+
+An event becomes past after its displayed end, not when it starts. Today's all-day events
+stay at normal strength until the next local midnight. Split rows use their own ends;
+Grid all-day banners use the original event's end. Changing opacity does not change these
+rules or fetch calendar data. Grid's [now line](/features/grid-view#the-now-line) is
+independent of dimming.
+
+In the [editor](/features/editor), find **Past Event Opacity** under **Events → Event
+State**, in any workspace.
+
+**→ [Event Column in the configuration reference](/reference/configuration#event-column)**
 
 ## 🎨 Event Text in Calendar Colors
 
@@ -561,9 +599,9 @@ want it.
 **→ [Grid Options That Start From a Different Default](/features/grid-view#options-that-start-from-a-different-default)**
 :::
 
-Nothing else changes about the text. The secondary rows are drawn at full opacity, exactly
-as before — the title is what carries the weight, at `font-weight: 500` against normal, and
-that hierarchy survives the recoloring without dimming anything.
+Nothing else changes about the text. The secondary rows have no additional dimming — the
+title carries the weight, at `font-weight: 500` against normal. Finished events still use
+the shared [past-content opacity](#past-events-display), applied after their colors resolve.
 
 Two things are deliberately left out. An **empty day** belongs to no calendar, so its _No
 upcoming events_ notice keeps `empty_day_color`; so does the grid's **`+N` overflow block**,
