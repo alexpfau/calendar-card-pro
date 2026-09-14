@@ -69,6 +69,9 @@ inherit that option; it does not overwrite their explicit choices or built-in de
 Card-wide options such as calendars, title, language, and actions stay card-wide in every
 workspace.
 
+An edit still pending when you switch workspaces stays with the workspace where you made
+it. It cannot overwrite the newly selected layout's values.
+
 Hiding a control does not delete its stored value. For example, these empty-day options
 remain available to the list fallback, even though their controls are absent while
 editing Grid:

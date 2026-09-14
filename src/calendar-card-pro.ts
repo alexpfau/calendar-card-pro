@@ -107,6 +107,31 @@ export function adoptEditorComponent(module: unknown, tagName: string): void {
   }
 }
 
+/** Observe inherited typography and direction changes across shadow boundaries. */
+function observeTypographyAncestors(observer: MutationObserver, host: HTMLElement): void {
+  for (let ancestor: Element | null = host; ancestor; ) {
+    observer.observe(ancestor, {
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ['style', 'class', 'dir'],
+    });
+    const root = ancestor.getRootNode();
+    ancestor = ancestor.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
+  }
+}
+
+/** The host's offscreen animation state does not change its typography. */
+function isScrollPauseOnlyMutation(record: MutationRecord, host: HTMLElement): boolean {
+  if (record.target !== host || record.attributeName !== 'class') return false;
+  const typographyClasses = (value: string) =>
+    value
+      .split(/\s+/)
+      .filter((name) => name && name !== 'calendar-card-title-scroll-paused')
+      .sort()
+      .join(' ');
+  return typographyClasses(record.oldValue ?? '') === typographyClasses(host.className);
+}
+
 /**
  * How far content may exceed its box before the grid calls it clipped.
  *
@@ -462,6 +487,7 @@ class CalendarCardPro extends LitElement {
    */
   private _titleScrollObserver: ResizeObserver | null = null;
   private _titleScrollIntersectionObserver: IntersectionObserver | null = null;
+  private _titleScrollMutations: MutationObserver | null = null;
   private _titleScrollRaf: number | null = null;
   private _titleScrollFontsCleanup: (() => void) | null = null;
 
@@ -1173,16 +1199,7 @@ class CalendarCardPro extends LitElement {
         let all = false;
         for (const record of records) {
           if (record.type === 'attributes') {
-            // The host's offscreen animation class is not a typography change.
-            if (record.target === this && record.attributeName === 'class') {
-              const themeClasses = (value: string) =>
-                value
-                  .split(/\s+/)
-                  .filter((name) => name && name !== 'calendar-card-title-scroll-paused')
-                  .sort()
-                  .join(' ');
-              if (themeClasses(record.oldValue ?? '') === themeClasses(this.className)) continue;
-            }
+            if (isScrollPauseOnlyMutation(record, this)) continue;
             all = true;
           } else {
             const element =
@@ -1199,19 +1216,7 @@ class CalendarCardPro extends LitElement {
         characterData: true,
         subtree: true,
       });
-      const attributes = {
-        attributes: true,
-        attributeOldValue: true,
-        attributeFilter: ['style', 'class', 'dir'],
-      };
-      this._gridDisclosureMutations.observe(this, attributes);
-      const parent = (element: Element): Element | null => {
-        const root = element.getRootNode();
-        return element.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
-      };
-      for (let ancestor = parent(this); ancestor; ancestor = parent(ancestor)) {
-        this._gridDisclosureMutations.observe(ancestor, attributes);
-      }
+      observeTypographyAncestors(this._gridDisclosureMutations, this);
     }
   }
 
@@ -1424,11 +1429,11 @@ class CalendarCardPro extends LitElement {
    * changes with the events, and re-observing is cheaper than tracking which moved. A card
    * that never enables the option pays only one boolean read and returns.
    *
-   * Shares the detached-card guard the other reconcilers use, and re-measures on the three
-   * things that change the answer: the card's own resize (a column re-fits, the section
-   * relayouts), a late font load that changes text width, and this `updated()` pass as the
-   * backstop after a config or data change. A separate IntersectionObserver pauses the
-   * animation while the card is off-screen — these live on 24/7 wall panels.
+   * Shares the detached-card guard the other reconcilers use, and re-measures after a
+   * card/title resize, a late font load, or an inherited style or direction change.
+   * This `updated()` pass is the backstop after a config or data change. A separate
+   * IntersectionObserver pauses the animation while the card is off-screen — these live
+   * on 24/7 wall panels.
    */
   private _syncTitleScroll(): void {
     if (!this.isConnected || !this.effectiveConfig.scroll_long_titles) {
@@ -1456,6 +1461,16 @@ class CalendarCardPro extends LitElement {
         this.classList.toggle('calendar-card-title-scroll-paused', offscreen);
       });
       this._titleScrollIntersectionObserver.observe(this);
+    }
+
+    // A direction change can leave every observed width unchanged.
+    if (typeof MutationObserver !== 'undefined') {
+      this._titleScrollMutations = new MutationObserver((records) => {
+        if (records.some((record) => !isScrollPauseOnlyMutation(record, this))) {
+          this._scheduleTitleScrollMeasure();
+        }
+      });
+      observeTypographyAncestors(this._titleScrollMutations, this);
     }
 
     const fonts = document.fonts;
@@ -1555,6 +1570,9 @@ class CalendarCardPro extends LitElement {
 
     this._titleScrollIntersectionObserver?.disconnect();
     this._titleScrollIntersectionObserver = null;
+
+    this._titleScrollMutations?.disconnect();
+    this._titleScrollMutations = null;
 
     this._titleScrollFontsCleanup?.();
     this._titleScrollFontsCleanup = null;

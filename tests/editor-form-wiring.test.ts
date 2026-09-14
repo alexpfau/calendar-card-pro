@@ -156,6 +156,53 @@ describe('editor filter bar', () => {
 });
 
 describe('editor panel option forms', () => {
+  const workspaces = ['shared', 'list', 'column', 'grid'] as const;
+
+  it.each(
+    workspaces.flatMap((from) =>
+      workspaces.filter((to) => to !== from).map((to) => ({ from, to })),
+    ),
+  )('keeps a delayed $from form event in $from after selecting $to', async ({ from, to }) => {
+    const config = {
+      entities: ['calendar.anna'],
+      view: 'grid',
+      event_font_size: '17px',
+      list: { event_font_size: '19px' },
+      column: { event_font_size: '21px' },
+      time_grid: { event_font_size: '23px' },
+    };
+    const element = await mount(config);
+    const seen = reported(element);
+    change(element.shadowRoot!.querySelector('.workspace-form')!, { editing_workspace: from });
+    await element.updateComplete;
+    const origin = panelOwning(element, 'event_font_size');
+    const pending = { ...formData(origin), event_font_size: '31px' };
+
+    change(element.shadowRoot!.querySelector('.workspace-form')!, { editing_workspace: to });
+    await element.updateComplete;
+    expect(seen).toHaveLength(0);
+
+    change(origin, pending);
+    await element.updateComplete;
+
+    const block = from === 'grid' ? 'time_grid' : from;
+    const expected =
+      from === 'shared'
+        ? { ...config, event_font_size: '31px' }
+        : { ...config, [block]: { event_font_size: '31px' } };
+    expect(seen).toEqual([expected]);
+    expect(panelOwning(element, 'event_font_size')).not.toBe(origin);
+  });
+
+  it('keeps the same panel form across ordinary edits within one workspace', async () => {
+    const element = await mount({ entities: ['calendar.anna'], view: 'grid' });
+    const form = panelOwning(element, 'event_font_size');
+    change(form, { ...formData(form), event_font_size: '18px' });
+    await element.updateComplete;
+
+    expect(panelOwning(element, 'event_font_size')).toBe(form);
+  });
+
   it('reports the changed option and preserves the configured calendars', async () => {
     const element = await mount({
       entities: [{ entity: 'calendar.a', label: 'A' }, 'calendar.b'],
