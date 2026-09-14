@@ -360,7 +360,7 @@
   "event_background_opacity": "Nepriehľadnosť pozadia udalostí",
   "event_background_opacity.helper": "Podfarbí každú udalosť jej farbou zvýraznenia. Nula ju nechá bez podfarbenia.",
   "past_event_opacity": "Nepriehľadnosť minulých udalostí",
-  "past_event_opacity.helper": "Nepriehľadnosť obsahu ukončených udalostí a názvov pásov v časovej mriežke: 0–100 %, aj desatinné hodnoty. Predvolene 60 %; 100 % odstráni stlmenie; 0 % spraví obsah priehľadným, ale udalosti neskryje. Platí, keď je zapnuté „Zobraziť minulé udalosti“. Pozadia a pruhy zvýraznenia zostávajú nezmenené.",
+  "past_event_opacity.helper": "Nepriehľadnosť obsahu ukončených udalostí, názvov pásov v časovej mriežke a oznámení minulých dní v Zozname a Stĺpcoch: 0–100 %, aj desatinné hodnoty. Predvolene 60 %; 100 % odstráni stlmenie; 0 % spraví obsah priehľadným, ale udalosti neskryje. Oznámenia prázdnych dní sa stlmia, keď sa skončí ich vlastný miestny dátum – vždy, keď sú zobrazené. Pozadia a pruhy zvýraznenia zostávajú nezmenené.",
   "title_max_lines": "Limit riadkov názvu",
   "title_max_lines.helper": "Nula znamená bez limitu. Skrátený názov sa končí tromi bodkami.",
   "scroll_long_titles": "Posúvať dlhé názvy",

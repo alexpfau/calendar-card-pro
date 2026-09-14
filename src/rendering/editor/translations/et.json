@@ -360,7 +360,7 @@
   "event_background_opacity": "Sündmuse tausta katvus",
   "event_background_opacity.helper": "Toonib iga sündmuse selle esiletõstevärviga. Null jätab toonimata.",
   "past_event_opacity": "Möödunud sündmuste katvus",
-  "past_event_opacity.helper": "Lõppenud sündmuste sisu ja ajarasteri ribade pealkirjade katvus: 0–100%, ka murdarvud. Vaikimisi 60%; 100% eemaldab tuhmistuse; 0% muudab sisu läbipaistvaks, kuid ei peida sündmusi. Rakendub, kui „Näita möödunud sündmusi“ on sisse lülitatud. Taustad ja esiletõsteribad jäävad muutumatuks.",
+  "past_event_opacity.helper": "Lõppenud sündmuste sisu, ajarasteri ribade pealkirjade ja möödunud päevade teadete katvus loetelus ja veergudes: 0–100%, ka murdarvud. Vaikimisi 60%; 100% eemaldab tuhmistuse; 0% muudab sisu läbipaistvaks, kuid ei peida sündmusi. Tühjade päevade teated tuhmistatakse, kui nende oma kohalik kuupäev on läbi – alati, kui neid näidatakse. Taustad ja esiletõsteribad jäävad muutumatuks.",
   "title_max_lines": "Pealkirja reapiirang",
   "title_max_lines.helper": "Null tähendab piiranguta. Kärbitud pealkiri lõpeb kolme punktiga.",
   "scroll_long_titles": "Keri pikad pealkirjad",

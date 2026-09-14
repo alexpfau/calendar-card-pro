@@ -360,7 +360,7 @@
   "event_background_opacity": "Händelsebakgrundens opacitet",
   "event_background_opacity.helper": "Tonar varje händelse med sin accentfärg. Noll lämnar den otonad.",
   "past_event_opacity": "Opacitet för passerade händelser",
-  "past_event_opacity.helper": "Opacitet för avslutade händelsers innehåll och bannertitlar i tidsrutnätet: 0–100 %, även decimaltal. Standard är 60 %; 100 % tar bort nedtoningen; 0 % gör innehållet genomskinligt utan att dölja händelserna. Gäller när ”Visa passerade händelser” är på. Bakgrunder och accentränder förblir oförändrade.",
+  "past_event_opacity.helper": "Opacitet för avslutade händelsers innehåll, bannertitlar i tidsrutnätet och meddelanden för passerade dagar i Lista och Kolumner: 0–100 %, även decimaltal. Standard är 60 %; 100 % tar bort nedtoningen; 0 % gör innehållet genomskinligt utan att dölja händelserna. Meddelanden för tomma dagar tonas ned när deras egen lokala datum är förbi – varje gång de visas. Bakgrunder och accentränder förblir oförändrade.",
   "title_max_lines": "Radgräns för titel",
   "title_max_lines.helper": "Noll betyder ingen gräns. En avkortad titel slutar med uteslutningstecken.",
   "scroll_long_titles": "Rulla långa titlar",

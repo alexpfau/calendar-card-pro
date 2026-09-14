@@ -360,7 +360,7 @@
   "event_background_opacity": "Terminhintergrund-Deckkraft",
   "event_background_opacity.helper": "Färbt jeden Termin in seiner Akzentfarbe ein. Bei null bleibt er ungefärbt.",
   "past_event_opacity": "Deckkraft vergangener Termine",
-  "past_event_opacity.helper": "Deckkraft der Inhalte beendeter Termine und der Bannertitel im Zeitraster: 0–100 %, auch mit Nachkommastellen. 60 % ist der Standard; 100 % hebt die Abdunklung auf; 0 % macht die Inhalte transparent, blendet die Termine aber nicht aus. Gilt, wenn „Vergangene Termine anzeigen“ aktiviert ist. Hintergründe und Akzentstreifen bleiben unverändert.",
+  "past_event_opacity.helper": "Deckkraft der Inhalte beendeter Termine, der Bannertitel im Zeitraster und der Hinweise für vergangene Tage in Liste und Spalten: 0–100 %, auch mit Nachkommastellen. 60 % ist der Standard; 100 % hebt die Abdunklung auf; 0 % macht die Inhalte transparent, blendet die Termine aber nicht aus. Hinweise für leere Tage werden abgedunkelt, sobald ihr eigenes lokales Datum vorbei ist – wann immer sie angezeigt werden. Hintergründe und Akzentstreifen bleiben unverändert.",
   "title_max_lines": "Titel-Zeilenlimit",
   "title_max_lines.helper": "Null bedeutet kein Limit. Ein gekürzter Titel endet mit drei Punkten.",
   "scroll_long_titles": "Lange Titel scrollen",

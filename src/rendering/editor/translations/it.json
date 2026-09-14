@@ -360,7 +360,7 @@
   "event_background_opacity": "Opacità sfondo evento",
   "event_background_opacity.helper": "Colora ogni evento con il suo colore accento. Zero lo lascia senza tinta.",
   "past_event_opacity": "Opacità degli eventi passati",
-  "past_event_opacity.helper": "Opacità dei contenuti degli eventi terminati e dei titoli delle fasce nella griglia oraria: 0–100%, anche valori decimali. Il valore predefinito è 60%; 100% elimina l'attenuazione; 0% rende i contenuti trasparenti senza nascondere gli eventi. Si applica quando «Mostra gli eventi passati» è attivo. Sfondi e barre accento restano invariati.",
+  "past_event_opacity.helper": "Opacità dei contenuti degli eventi terminati, dei titoli delle fasce nella griglia oraria e degli avvisi dei giorni passati in Lista e Colonne: 0–100%, anche valori decimali. Il valore predefinito è 60%; 100% elimina l’attenuazione; 0% rende i contenuti trasparenti senza nascondere gli eventi. Gli avvisi dei giorni vuoti si attenuano quando la loro data locale è terminata, ogni volta che vengono mostrati. Sfondi e barre accento restano invariati.",
   "title_max_lines": "Limite righe titolo",
   "title_max_lines.helper": "Zero significa nessun limite. Un titolo troncato termina con i puntini di sospensione.",
   "scroll_long_titles": "Scorri i titoli lunghi",

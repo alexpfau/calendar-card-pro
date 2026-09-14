@@ -360,7 +360,7 @@
   "event_background_opacity": "Įvykio fono nepermatomumas",
   "event_background_opacity.helper": "Nuspalvina kiekvieną įvykį jo akcentine spalva. Nulis palieka nenuspalvintą.",
   "past_event_opacity": "Praėjusių įvykių nepermatomumas",
-  "past_event_opacity.helper": "Pasibaigusių įvykių turinio ir laiko tinklelio juostų pavadinimų nepermatomumas: 0–100 %, leidžiamos ir trupmenos. Numatytoji reikšmė – 60 %; 100 % pašalina pritemdymą; 0 % padaro turinį skaidrų, bet nepaslepia įvykių. Taikoma, kai įjungta „Rodyti praėjusius įvykius“. Fonai ir akcentinės juostos nesikeičia.",
+  "past_event_opacity.helper": "Pasibaigusių įvykių turinio, laiko tinklelio juostų pavadinimų ir praėjusių dienų pranešimų nepermatomumas sąraše ir stulpeliuose: 0–100 %, leidžiamos ir trupmenos. Numatytoji reikšmė – 60 %; 100 % pašalina pritemdymą; 0 % padaro turinį skaidrų, bet nepaslepia įvykių. Tuščių dienų pranešimai pritemdomi, kai baigiasi jų pačių vietinė data – kaskart, kai jie rodomi. Fonai ir akcentinės juostos nesikeičia.",
   "title_max_lines": "Pavadinimo eilučių riba",
   "title_max_lines.helper": "Nulis reiškia, kad ribos nėra. Sutrumpintas pavadinimas baigiasi daugtaškiu.",
   "scroll_long_titles": "Slinkti ilgus pavadinimus",

@@ -360,7 +360,7 @@
   "event_background_opacity": "Notikuma fona necaurspīdīgums",
   "event_background_opacity.helper": "Tonē katru notikumu tā akcenta krāsā. Nulle atstāj to netonētu.",
   "past_event_opacity": "Pagājušo notikumu necaurspīdīgums",
-  "past_event_opacity.helper": "Beigušos notikumu satura un laika režģa joslu virsrakstu necaurspīdīgums: 0–100 %, atļautas arī daļskaitļu vērtības. Noklusējums ir 60 %; 100 % noņem aptumšojumu; 0 % padara saturu caurspīdīgu, bet neslēpj notikumus. Tiek piemērots, kad ieslēgts „Rādīt pagājušos notikumus“. Foni un akcenta joslas paliek nemainīti.",
+  "past_event_opacity.helper": "Beigušos notikumu satura, laika režģa joslu virsrakstu un pagājušo dienu paziņojumu necaurspīdīgums sarakstā un kolonnās: 0–100 %, atļautas arī daļskaitļu vērtības. Noklusējums ir 60 %; 100 % noņem aptumšojumu; 0 % padara saturu caurspīdīgu, bet neslēpj notikumus. Tukšu dienu paziņojumi tiek aptumšoti, kad beidzies to pašu vietējais datums – ikreiz, kad tie tiek rādīti. Foni un akcenta joslas paliek nemainīti.",
   "title_max_lines": "Virsraksta rindu ierobežojums",
   "title_max_lines.helper": "Nulle nozīmē, ka ierobežojuma nav. Saīsināts virsraksts beidzas ar daudzpunkti.",
   "scroll_long_titles": "Ritināt garus virsrakstus",

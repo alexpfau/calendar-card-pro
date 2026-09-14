@@ -612,9 +612,11 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
     'Tints each event with its accent color. Zero leaves it untinted.',
   past_event_opacity: 'Past Event Opacity',
   'past_event_opacity.helper':
-    'Opacity of finished event contents and Grid banner titles: 0-100%, including fractions. ' +
+    'Opacity of finished event contents and Grid banner titles, and of past-day notices in ' +
+    'List and Columns: 0-100%, including fractions. ' +
     '60% is the default; 100% removes dimming; 0% makes contents transparent, not hidden. ' +
-    'Applies where Show Past Events is on. Backgrounds and accent stripes stay unchanged.',
+    'Empty-day notices dim once their own local date has ended, whenever they are shown. ' +
+    'Backgrounds and accent stripes stay unchanged.',
   title_max_lines: 'Title Line Limit',
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
   scroll_long_titles: 'Scroll Long Titles',
