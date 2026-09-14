@@ -15,7 +15,10 @@ public release in January 2025 to today.
 - ⚙️ **An Axis You Set**: `start_time`, `end_time`, `hour_height`, `slot_minutes` and `axis_width` decide which hours are drawn and how they are ruled
 - 📐 **It Gives Way Gracefully**: `min_day_width`, `min_days_to_show` and `min_days_fallback` decide how narrow the grid may get before it sheds a column, and what happens when even that will not fit
 - 🎚️ **Grid Defaults You Can Edit Directly**: filled event blocks, empty days kept, past events kept, a hairline between columns and a full-width progress bar. The [Grid workspace](/features/editor#view-exceptions) shows the effective values and their sources; editing writes an override, while untouched defaults stay out of YAML
-- 🐛 **Tap, Hold & Background Work**: default cards no longer advertise or dispatch empty actions; a second finger no longer steals an active hold. Detached cards cannot restart their refresh timer or subscriptions, and late event or weather responses cannot overwrite current data
+- 🌗 **Set How Faded Finished Events Look**: [`past_event_opacity`](/features/event-content#past-events-display) replaces the fixed 60% dimming with anything from 0 to 100, and takes a value per view — `100` keeps finished events at full strength, which a calendar kept as a log has wanted for a while, and `0` makes them transparent without removing the row
+- 🐛 **Empty Days Say Something True**: the default message dropped "upcoming" in all 35 languages, because a day already behind you is not waiting for anything — and a finished day's notice now fades along with the events around it instead of sitting bright among them
+- 🐛 **A Limited Weather Line Stayed Whole**: setting `weather → event → max_lines` pushed the condition onto a row of its own, so a line meant to read `28° · Cloudy` showed `28°` above `· Cloudy` at any width. It clamps without breaking the line now
+- 🐛 **Tap, Hold & Background Work**: default cards no longer advertise or dispatch empty actions; a second finger no longer steals an active hold, and the gray hold disc no longer draws far above your finger on a scrolled dashboard. Detached cards cannot restart their refresh timer or subscriptions, and late event or weather responses cannot overwrite current data
 
 ## v4.2
 

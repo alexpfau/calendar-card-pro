@@ -155,7 +155,9 @@ Swap `calendar.family` for one of your own `calendar.*` entities and you have a 
 - 🕒 **A Line Across Today**: [`show_now_line`](https://calendar-card-pro.alexpfau.com/features/grid-view) marks the current time on today's column only, and only while it falls inside the hours you draw
 - 🏷️ **An All-Day Band**: all-day events span their included dates above the axis; timed multi-day events remain on the hour grid
 - ⚙️ **An Axis You Set**: `start_time`, `end_time`, `hour_height`, `slot_minutes` and `axis_width` decide which hours are drawn and how they are ruled, and the grid sheds columns or falls back to the list when it runs out of width
-- 🐛 **Tap, Hold & Background Work**: default cards no longer advertise actions they cannot perform; a second finger no longer steals an active hold, and late fetches or subscriptions cannot revive work after a card disconnects
+- 🌗 **Set How Faded Finished Events Look**: [`past_event_opacity`](https://calendar-card-pro.alexpfau.com/features/event-content#past-events-display) replaces the fixed 60% dimming with anything from 0 to 100, and takes a value per view — `100` keeps finished events at full strength, which a calendar kept as a log has wanted for a while
+- 🐛 **Empty Days Say Something True**: the default message dropped "upcoming" in all 35 languages, because a day already behind you is not waiting for anything — and a finished day's notice now fades along with the events around it instead of sitting bright among them
+- 🐛 **Tap, Hold & Background Work**: default cards no longer advertise actions they cannot perform; a second finger no longer steals an active hold and the gray hold disc no longer draws far above your finger on a scrolled dashboard, and late fetches or subscriptions cannot revive work after a card disconnects
 
 ### v4.2
 
