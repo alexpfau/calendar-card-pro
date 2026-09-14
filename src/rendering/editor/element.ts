@@ -5,6 +5,7 @@
 
 import { LitElement, TemplateResult, html, nothing } from 'lit';
 import { property, state } from 'lit/decorators.js';
+import { keyed } from 'lit/directives/keyed.js';
 
 import * as Entities from './entities';
 import * as Exceptions from './exceptions';
@@ -402,6 +403,8 @@ export class CalendarCardProEditor extends LitElement {
     const schema = wholePanel ? built : Filter.filterSchema(built, filterCtx);
 
     const data = this._formData();
+    // Key the form node as well as its callback: reusing a node would redirect its
+    // pending events into the next workspace's frame.
     const frame: Routing.FormFrame = {
       workspace: ctx.workspace ?? ctx.view,
       schema,
@@ -432,16 +435,21 @@ export class CalendarCardProEditor extends LitElement {
       >
         <ha-svg-icon slot="leading-icon" .path=${panel.iconPath}></ha-svg-icon>
         <div class="panel-body">
-          <ha-form
-            class="panel-form"
-            .hass=${this.hass}
-            .data=${data}
-            .schema=${schema}
-            .computeLabel=${this._computeLabel}
-            .computeHelper=${this._computeHelper}
-            .localizeValue=${this._localizeValue}
-            @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
-          ></ha-form>
+          ${keyed(
+            frame.workspace,
+            html`
+              <ha-form
+                class="panel-form"
+                .hass=${this.hass}
+                .data=${data}
+                .schema=${schema}
+                .computeLabel=${this._computeLabel}
+                .computeHelper=${this._computeHelper}
+                .localizeValue=${this._localizeValue}
+                @value-changed=${(event: CustomEvent) => this._valueChanged(frame, event)}
+              ></ha-form>
+            `,
+          )}
           ${extras.map((extra) => this._renderExtra(extra))} ${entities} ${resets}
         </div>
       </ha-expansion-panel>

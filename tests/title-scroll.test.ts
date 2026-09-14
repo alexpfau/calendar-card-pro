@@ -395,6 +395,51 @@ describe('scroll_long_titles lifecycle', () => {
     document.body.innerHTML = '';
   });
 
+  it.each(['dir', 'style', 'class'])(
+    'remeasures inherited %s changes across a shadow boundary and stops on detach',
+    async (attribute) => {
+      const ancestor = document.createElement('div');
+      const root = ancestor.attachShadow({ mode: 'open' });
+      document.body.appendChild(ancestor);
+      const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
+        setConfig(config: Types.Config): void;
+        _syncTitleScroll(): void;
+        _scheduleTitleScrollMeasure(): void;
+        readonly updateComplete: Promise<boolean>;
+      };
+      card.setConfig(buildConfig({ entities: [], scroll_long_titles: true }));
+      root.appendChild(card);
+      await card.updateComplete;
+      const title = document.createElement('span');
+      title.className = 'event-title title-scrollable';
+      card.shadowRoot!.appendChild(title);
+      card._syncTitleScroll();
+      const schedule = vi.spyOn(card, '_scheduleTitleScrollMeasure').mockImplementation(() => {});
+      const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+      try {
+        await flush();
+        schedule.mockClear();
+        ancestor.setAttribute(attribute, attribute === 'style' ? 'direction: rtl' : 'rtl');
+        await flush();
+        expect(schedule).toHaveBeenCalledTimes(1);
+
+        schedule.mockClear();
+        card.classList.add('calendar-card-title-scroll-paused');
+        await flush();
+        expect(schedule).not.toHaveBeenCalled();
+
+        card.remove();
+        schedule.mockClear();
+        ancestor.removeAttribute(attribute);
+        await flush();
+        expect(schedule).not.toHaveBeenCalled();
+      } finally {
+        schedule.mockRestore();
+      }
+    },
+  );
+
   it('retains known offscreen state while rebinding active observers', async () => {
     const card = document.createElement('calendar-card-pro-dev') as unknown as HTMLElement & {
       setConfig(config: Types.Config): void;
