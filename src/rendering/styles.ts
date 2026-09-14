@@ -729,6 +729,13 @@ export const cardStyles = css`
     min-width: 0;
   }
 
+  /* Applied only after the full natural label run leaves a useful title prefix.
+     Longer runs retain their existing wrapping instead of squeezing the title out. */
+  .summary-scroll[data-scroll-labels] > :not(.event-title) {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
   /* The label hanging indent above is for wrapped lines and does nothing useful on
      a flex row; neutralise the padding it adds so the scrolling title keeps its
      full width. Matched at the same specificity as the :has rules it overrides, and

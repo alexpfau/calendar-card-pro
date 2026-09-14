@@ -448,6 +448,10 @@ Off by default, because it changes titles from wrapping to a single line and bec
 on an always-on dashboard is a matter of taste. Only titles that genuinely overflow move;
 one that already fits stays still. Empty-day messages and Grid all-day banners stay static.
 
+Calendar labels stay stationary. A short label keeps its natural single-line width when
+the complete label run leaves room for useful title text. Longer or combined labels keep
+wrapping when that space is needed, including in narrow Grid columns.
+
 In supported browsers, **visible titles on the same card start their forward passes
 together**. Each keeps its own reading pace, pauses briefly at its ending, then returns
 quickly and waits at its **beginning** until the next shared start. Returns are deliberately

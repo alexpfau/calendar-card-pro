@@ -318,6 +318,9 @@ Provides core functionality across the card:
     and original independent animation timing stay unchanged on unsupported engines
 
 - **grid-title-fit.ts**:
+  - Reserves a scrolling label run's natural width only when the existing title-prefix
+    and ellipsis criterion still fits; otherwise keeps the labels' normal wrapping.
+    The same batched measurement runs before Grid disclosure and List/Column title scrolling
   - Measures complete timed label/title groups after the normal Grid disclosure transaction
   - Tries symmetric compact insets before scaling, protecting every text part's font floor
   - Uses bounded, batched layout reads and writes; the host owns dirty-block tracking,

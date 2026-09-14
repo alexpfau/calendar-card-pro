@@ -1,5 +1,5 @@
 /**
- * Layout-boundary measurements for Grid's timed title disclosure.
+ * Layout-boundary measurements for scrolling labels and Grid's timed title disclosure.
  *
  * Only compact titles use zoom: scaling the existing group preserves authored CSS units,
  * independently sized labels, fixed leading, and image proportions without compounding em.
@@ -223,6 +223,101 @@ function inside(bounds: Bounds, clip: Bounds): boolean {
 
 function px(value: string): number {
   return Number.parseFloat(value) || 0;
+}
+
+/**
+ * Keeps a complete scrolling label run at natural width only when useful title text fits.
+ *
+ * WebKit may shrink even a short label to its automatically hyphenated min-content
+ * width. Test the natural run as one batch, then leave longer runs on their existing
+ * wrapping path. Native flex layout accounts for every label, gap, and authored unit.
+ */
+export function reserveScrollingLabelWidths(titles: Iterable<HTMLElement>): void {
+  const targets = Array.from(titles).flatMap((title) => {
+    const summary = title.parentElement;
+    const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
+    if (
+      !summary?.matches('.summary-scroll') ||
+      fit === 'compact' ||
+      fit === 'blank' ||
+      fit === 'measuring'
+    ) {
+      return [];
+    }
+    const labels = Array.from(summary.children).filter((label) => label !== title);
+    if (!labels.some((label) => label.matches('.calendar-label:not(.label-emoji)'))) {
+      summary.removeAttribute('data-scroll-labels');
+      return [];
+    }
+    return [{ title, summary, labels, reserved: summary.hasAttribute('data-scroll-labels') }];
+  });
+  if (!targets.length) return;
+
+  const canvas = targets[0].title.ownerDocument.createElement('canvas').getContext('2d');
+  const reserved = new Set<HTMLElement>();
+  let measured = false;
+  for (const { summary } of targets) summary.setAttribute('data-scroll-labels', '');
+  try {
+    for (const { title, summary, labels } of targets) {
+      const style = getComputedStyle(summary);
+      const borderBox =
+        px(style.width) +
+        (style.boxSizing === 'border-box'
+          ? 0
+          : px(style.paddingLeft) +
+            px(style.paddingRight) +
+            px(style.borderLeftWidth) +
+            px(style.borderRightWidth));
+      const bounds = summary.getBoundingClientRect();
+      const scale = borderBox > 0 ? bounds.width / borderBox : 0;
+      const left = bounds.left + (px(style.borderLeftWidth) + px(style.paddingLeft)) * scale;
+      const right = bounds.right - (px(style.borderRightWidth) + px(style.paddingRight)) * scale;
+      const titleBox = title.getBoundingClientRect();
+      const viewportStyle = getComputedStyle(title);
+      const runs = textRuns(title);
+      const first = runs[0];
+      const titleStyle = getComputedStyle(first?.node.parentElement ?? title);
+      if (canvas)
+        canvas.font = titleStyle.font || `${titleStyle.fontSize} ${titleStyle.fontFamily}`;
+      const ellipsis = canvas
+        ? (canvas.measureText('\u2026').width + px(titleStyle.letterSpacing)) * scale
+        : Infinity;
+      const titleInsets =
+        (px(viewportStyle.paddingLeft) +
+          px(viewportStyle.paddingRight) +
+          px(viewportStyle.borderLeftWidth) +
+          px(viewportStyle.borderRightWidth)) *
+        scale;
+      const labelsFit = labels.every((label) => {
+        const rect = label.getBoundingClientRect();
+        return rect.width > 0 && rect.left >= left - PRECISION && rect.right <= right + PRECISION;
+      });
+      const imagesReady = Array.from(summary.querySelectorAll('img')).every(
+        (image) => image.complete && image.naturalWidth > 0,
+      );
+      if (
+        scale > 0 &&
+        labelsFit &&
+        imagesReady &&
+        gridTitleHasUsefulWidth(
+          titleBox.width - titleInsets,
+          runs.flatMap((run) => run.rects).reduce((width, rect) => width + rect.width, 0),
+          prefixWidth(first, gridTitlePrefix(first?.text ?? '')),
+          ellipsis,
+        )
+      ) {
+        reserved.add(summary);
+      }
+    }
+    measured = true;
+  } finally {
+    for (const target of targets) {
+      target.summary.toggleAttribute(
+        'data-scroll-labels',
+        measured ? reserved.has(target.summary) : target.reserved,
+      );
+    }
+  }
 }
 
 function blockScale(block: HTMLElement): number {

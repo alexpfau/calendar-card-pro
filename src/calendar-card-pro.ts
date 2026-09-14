@@ -947,6 +947,7 @@ class CalendarCardPro extends LitElement {
       .map(GridTitleFit.gridTitleTarget)
       .filter((target): target is GridTitleFit.GridTitleTarget => target !== null);
     titles.forEach(GridTitleFit.resetGridTitle);
+    GridTitleFit.reserveScrollingLabelWidths(titles.map((target) => target.title));
 
     try {
       const transactions = pending.flatMap((block) => {
@@ -1464,7 +1465,16 @@ class CalendarCardPro extends LitElement {
       // The card catches a width change that reflows every title at once; each title catches
       // its own. A transform animation resizes neither, so this cannot re-arm itself.
       this._titleScrollObserver.observe(this);
-      titles.forEach((title) => this._titleScrollObserver?.observe(title));
+      titles.forEach((title) => {
+        this._titleScrollObserver?.observe(title);
+        const summary = title.parentElement;
+        if (summary) {
+          this._titleScrollObserver?.observe(summary);
+          Array.from(summary.children).forEach((label) =>
+            this._titleScrollObserver?.observe(label),
+          );
+        }
+      });
     }
 
     if (!this._titleMotion && typeof IntersectionObserver !== 'undefined') {
@@ -1481,6 +1491,11 @@ class CalendarCardPro extends LitElement {
         if (records.some((record) => !isScrollPauseOnlyMutation(record, this))) {
           this._scheduleTitleScrollMeasure();
         }
+      });
+      this._titleScrollMutations.observe(this.renderRoot, {
+        childList: true,
+        characterData: true,
+        subtree: true,
       });
       observeTypographyAncestors(this._titleScrollMutations, this);
     }
@@ -1537,7 +1552,9 @@ class CalendarCardPro extends LitElement {
       '.event-title.title-scrollable',
     ),
   ): void {
-    const candidates = Array.from(titles).flatMap((title) => {
+    const current = Array.from(titles);
+    GridTitleFit.reserveScrollingLabelWidths(current);
+    const candidates = current.flatMap((title) => {
       const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
       if (fit === 'compact' || fit === 'blank' || fit === 'measuring') return [];
       const content = title.querySelector<HTMLElement>('.event-title-scroll');
@@ -1633,6 +1650,9 @@ class CalendarCardPro extends LitElement {
     if (clearPause) {
       this._titleMotion?.dispose();
       this._titleMotion = null;
+      this.renderRoot.querySelectorAll('[data-scroll-labels]').forEach((summary) => {
+        summary.removeAttribute('data-scroll-labels');
+      });
       this.classList.remove('calendar-card-title-scroll-paused');
     }
   }
