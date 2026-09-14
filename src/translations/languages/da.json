@@ -7,7 +7,7 @@
   "at": "kl.",
   "endsToday": "slutter i dag",
   "endsTomorrow": "slutter i morgen",
-  "noEvents": "Ingen kommende begivenheder",
+  "noEvents": "Ingen begivenheder",
   "loading": "Indlæser kalenderbegivenheder...",
   "error": "Fejl: Kalenderenheden blev ikke fundet eller er ikke konfigureret korrekt"
 }

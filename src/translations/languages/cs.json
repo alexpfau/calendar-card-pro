@@ -7,7 +7,7 @@
   "at": "v",
   "endsToday": "končí dnes",
   "endsTomorrow": "končí zítra",
-  "noEvents": "Žádné nadcházející události",
+  "noEvents": "Žádné události",
   "loading": "Načítání událostí z kalendáře...",
   "error": "Chyba: Entita kalendáře nebyla nalezena nebo je nesprávně nakonfigurována"
 }

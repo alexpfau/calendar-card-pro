@@ -7,7 +7,7 @@
   "at": "da",
   "endsToday": "bugün sona eriyor",
   "endsTomorrow": "yarın sona eriyor",
-  "noEvents": "Yaklaşan etkinlik yok",
+  "noEvents": "Etkinlik yok",
   "loading": "Takvim etkinlikleri yükleniyor...",
   "error": "Hata: Takvim içeriği bulunamadı veya yanlış yapılandırılmış"
 }

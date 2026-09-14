@@ -15,7 +15,7 @@
   "at": "kl",
   "endsToday": "lýkur í dag",
   "endsTomorrow": "lýkur á morgun",
-  "noEvents": "Engir viðburðir á næstunni",
+  "noEvents": "Engir viðburðir",
   "loading": "Hleður inn dagatal...",
   "error": "Villa: Dagatalseining finnst ekki eða er vanstillt"
 }

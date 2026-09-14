@@ -7,7 +7,7 @@
   "at": "alle",
   "endsToday": "termina oggi",
   "endsTomorrow": "termina domani",
-  "noEvents": "Nessun evento in arrivo",
+  "noEvents": "Nessun evento",
   "loading": "Caricamento eventi del calendario...",
   "error": "Errore: entità calendario non trovata o configurata in modo errato"
 }

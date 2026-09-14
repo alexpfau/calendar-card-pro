@@ -65,7 +65,7 @@ function allDay(summary: string, start: string, endExclusive: string): Types.Cal
  * Group a fixture and return the real summaries that survived.
  *
  * Empty-day placeholders are dropped: a card the filter has emptied pads the window with
- * *No upcoming events* notices, which are not events and would otherwise read as several.
+ * *No events* notices, which are not events and would otherwise read as several.
  *
  * @param events Events to group
  * @param entity The calendar's own settings

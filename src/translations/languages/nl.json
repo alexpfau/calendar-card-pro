@@ -15,7 +15,7 @@
   "at": "om",
   "endsToday": "eindigt vandaag",
   "endsTomorrow": "eindigt morgen",
-  "noEvents": "Geen afspraken gepland",
+  "noEvents": "Geen afspraken",
   "loading": "Kalender afspraken laden...",
   "error": "Fout: Kalender niet gevonden of verkeerd geconfigureerd"
 }

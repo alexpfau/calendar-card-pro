@@ -7,7 +7,7 @@
   "at": "kl. ",
   "endsToday": "sluttar i dag",
   "endsTomorrow": "sluttar i morgon",
-  "noEvents": "Ingen kommande hendingar",
+  "noEvents": "Ingen hendingar",
   "loading": "Lastar kalenderhendingar...",
   "error": "Feil: Kalendereininga vart ikkje funnen eller er ikkje konfigurert riktig"
 }

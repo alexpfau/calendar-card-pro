@@ -108,7 +108,7 @@ function dateKeyOf(timestamp: number): string {
  * Group a fixture and return what survived, keyed by day.
  *
  * **Real events only.** A card the filter has emptied falls through to the empty-day
- * padding and renders a *No upcoming events* placeholder on every day of the window, so a
+ * padding and renders a *No events* placeholder on every day of the window, so a
  * helper that read summaries indiscriminately would report nine events where the answer is
  * none — and the two cases asserting that a calendar is filtered away entirely would both
  * fail against correct behavior. Placeholders are reached through {@link placeholderDays}
@@ -382,7 +382,7 @@ describe('days_of_week: what happens to the day that is left empty', () => {
     );
 
     expect(Object.keys(placeholders)).toContain(DATES.saturday);
-    expect(placeholders[DATES.saturday]).toBe('No upcoming events');
+    expect(placeholders[DATES.saturday]).toBe('No events');
   });
 
   /**

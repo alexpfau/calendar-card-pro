@@ -136,7 +136,7 @@ export function accentTextProperties(
   const properties: Record<string, string> = {};
 
   // An empty day belongs to no calendar, so there is no accent to take: `_entityId` is the
-  // first configured calendar's, which would paint "No upcoming events" in whatever color
+  // first configured calendar's, which would paint "No events" in whatever color
   // that one happens to use and say something false about the day.
   if (isEmptyDay || !accent) {
     return properties;

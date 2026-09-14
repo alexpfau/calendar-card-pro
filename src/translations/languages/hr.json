@@ -7,7 +7,7 @@
   "at": "u",
   "endsToday": "završava danas",
   "endsTomorrow": "završava sutra",
-  "noEvents": "Nema nadolazećih događaja",
+  "noEvents": "Nema događaja",
   "loading": "Učitavanje događaja...",
   "error": "Greška: Kalendar entitet nije pronađen ili je neispravno postavljen"
 }

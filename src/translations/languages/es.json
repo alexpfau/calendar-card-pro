@@ -7,7 +7,7 @@
   "at": "a las",
   "endsToday": "termina hoy",
   "endsTomorrow": "termina mañana",
-  "noEvents": "No hay eventos próximos",
+  "noEvents": "No hay eventos",
   "loading": "Cargando eventos del calendario...",
   "error": "Error: La entidad del calendario no se encontró o está mal configurada"
 }

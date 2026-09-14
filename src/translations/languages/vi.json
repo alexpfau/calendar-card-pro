@@ -7,7 +7,7 @@
   "at": "lúc",
   "endsToday": "kết thúc hôm nay",
   "endsTomorrow": "kết thúc ngày mai",
-  "noEvents": "Không có sự kiện sắp tới",
+  "noEvents": "Không có sự kiện",
   "loading": "Đang tải sự kiện...",
   "error": "Lỗi: Không tìm thấy lịch hoặc cấu hình không đúng"
 }

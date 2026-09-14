@@ -227,7 +227,7 @@ export function buildEventPresentation(
   // disagree about which events qualify.
   //
   // `!isEmptyDay` is the one guard the two positions do NOT share, and leaving it out shipped
-  // a pill around "No upcoming events". An empty day is a placeholder the card invents for a
+  // a pill around the empty-day notice. An empty day is a placeholder the card invents for a
   // day with nothing on it, not an event, and it carries a date-only start — so it looks
   // exactly like an all-day event to `allDayLabel` and qualified. The time position never
   // showed it because a badge is only PLACED inside the `shouldShowTime` branch and that
