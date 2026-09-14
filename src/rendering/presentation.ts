@@ -57,7 +57,29 @@ export function buildEventPresentation(
 
   let isPastEvent = false;
 
-  if (!isEmptyDay) {
+  if (isEmptyDay) {
+    // An empty-day placeholder is not an event and has no interval. `groupEventsByDay`
+    // builds it with `start.date === end.date ===` the date it is drawn on, so the only
+    // question it can answer is whether that displayed local date has already ended.
+    //
+    // 🚨 This branch exists so the placeholder never reaches the real all-day branch
+    // below, and that is not tidiness. A real all-day event's `end.date` is EXCLUSIVE,
+    // so that branch subtracts a day to find the last date the event occupies. Run a
+    // placeholder through it and the subtraction names the day BEFORE the one on
+    // screen — which makes `today > endDate` true for today's own notice and dims it
+    // from the moment it appears. Deleting this branch and dropping the `!isEmptyDay`
+    // guard is the obvious-looking simplification and it is the one thing here that is
+    // immediately visible to every user.
+    //
+    // `parseAllDayDate` rather than `new Date(dateString)`: the latter reads the date
+    // as UTC, which lands a day early for every user behind UTC. Both halves are
+    // pinned in `tests/past-empty-day-opacity.dst.test.ts`.
+    //
+    // Derived at render time, like real-event dimming. No midnight timer is added, so a
+    // notice changes state on the next ordinary repaint after its date ends rather than
+    // exactly at midnight.
+    isPastEvent = event.start.date ? FormatUtils.parseAllDayDate(event.start.date) < today : false;
+  } else {
     const isAllDayEvent = !event.start.dateTime;
 
     if (isAllDayEvent) {
