@@ -192,6 +192,80 @@ function boundary(target: TitleScrollMeasurement): void {
   flush();
 }
 
+/**
+ * A past empty-day notice is dimmed, and dimming must not make it eligible for motion.
+ *
+ * `past_event_opacity` now reaches empty-day notices, so a placeholder can carry
+ * `past-event` alongside `empty-day-title`. Both guards — the one in
+ * `calendar-card-pro.ts` and the one in this controller — test only for
+ * `empty-day-title`, so neither can see the past class at all. That is the intended
+ * design, and the natural worry on reading the opacity change is the opposite: that a
+ * newly classified row starts animating. These pin that it does not.
+ *
+ * Each case carries its own control, because "did not animate" is otherwise evidence
+ * about the harness rather than about the guard.
+ */
+describe('dimmed empty-day placeholders stay outside the motion cohort', () => {
+  it('retires a past placeholder while an identically overflowing sibling keeps running', () => {
+    const { targets, controller } = setup([713, 720]);
+
+    // Both animate first, so the retirement below is a change of state rather than a
+    // title that was never eligible to begin with.
+    expect(targets[0].content.getAnimations()).toHaveLength(1);
+    expect(targets[1].content.getAnimations()).toHaveLength(1);
+
+    targets[0].title.classList.add('empty-day-title', 'past-event');
+    controller.measure(targets);
+
+    expect(targets[0].content.getAnimations()).toHaveLength(0);
+    expect(targets[0].title.getAttribute('data-title-motion')).toBe('pending');
+
+    // Control: the unmarked sibling is untouched, so the cohort itself still runs.
+    expect(targets[1].content.getAnimations()).toHaveLength(1);
+    expect(['a', 'b']).toContain(targets[1].title.getAttribute('data-title-motion'));
+  });
+
+  it('cannot lead a cohort even as the only overflowing title', () => {
+    const { targets, controller } = setup([713]);
+    expect(targets[0].content.getAnimations()).toHaveLength(1);
+
+    targets[0].title.classList.add('empty-day-title', 'past-event');
+    controller.measure(targets);
+
+    expect(targets[0].content.getAnimations()).toHaveLength(0);
+    expect(targets[0].content.style.getPropertyValue('--calendar-card-title-cohort-period')).toBe(
+      '',
+    );
+  });
+
+  /**
+   * The load-bearing one. Dropping `empty-day-title` while KEEPING `past-event` lets the
+   * title rejoin at the next cohort boundary — so the exclusion is the placeholder class
+   * doing its job, not the past class accidentally suppressing motion. Without this, the
+   * first two cases would pass just as well against a guard that wrongly excluded every
+   * finished event's title.
+   */
+  it('excludes on the placeholder class alone, never on the past class', () => {
+    const { targets, controller } = setup([713, 720]);
+    targets[0].title.classList.add('empty-day-title', 'past-event');
+    controller.measure(targets);
+    expect(targets[0].content.getAnimations()).toHaveLength(0);
+
+    targets[0].title.classList.remove('empty-day-title');
+    controller.measure(targets);
+    boundary(targets[1]);
+
+    expect(targets[0].title.classList.contains('past-event')).toBe(true);
+    expect(targets[0].content.getAnimations()).toHaveLength(1);
+    expect(['a', 'b']).toContain(targets[0].title.getAttribute('data-title-motion'));
+
+    // And re-marking retires it again, mid-cohort.
+    targets[0].title.classList.add('empty-day-title');
+    controller.measure(targets);
+    expect(targets[0].content.getAnimations()).toHaveLength(0);
+  });
+});
+
 describe('native title cohort adapter', () => {
   it('uses the native iteration phase when rounded currentTime is below the nominal boundary', () => {
     const { targets, controller } = setup([178, 720]);
