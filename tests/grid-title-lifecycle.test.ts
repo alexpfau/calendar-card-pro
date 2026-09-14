@@ -16,6 +16,7 @@ interface TestCard extends HTMLElement {
   _gridDisclosureReleaseRaf: number | null;
   _gridDisclosureMutations: MutationObserver | null;
   _applyGridDisclosureSafety(): void;
+  _scheduleGridDisclosureSafety(all?: boolean): void;
 }
 
 function card(): TestCard {
@@ -59,6 +60,66 @@ describe('Grid fitting invalidation', () => {
       expect(element._gridDisclosureChanged(new Map([[property, undefined]]))).toBe(true);
     }
   });
+
+  it.each(['card', 'shadow ancestor', 'document'])(
+    'invalidates inherited language changes on the %s without a resize',
+    async (scope) => {
+      const ancestor = document.createElement('div');
+      const root = ancestor.attachShadow({ mode: 'open' });
+      document.body.append(ancestor);
+      const element = card();
+      vi.spyOn(element, 'updateEvents').mockResolvedValue(undefined);
+      root.append(element);
+      await element.updateComplete;
+      element.shadowRoot!.innerHTML =
+        '<div class="grid-event"><div class="grid-event-disclosure"><div class="event-content">' +
+        '<div class="summary-row"><div class="summary"><span class="event-title">Library pickup</span></div></div>' +
+        '</div></div></div>';
+      const target =
+        scope === 'card'
+          ? element
+          : scope === 'shadow ancestor'
+            ? ancestor
+            : document.documentElement;
+      const previousLanguage = target.getAttribute('lang');
+      target.setAttribute('lang', 'en');
+      const schedule = vi
+        .spyOn(element, '_scheduleGridDisclosureSafety')
+        .mockImplementation(() => {});
+      const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+      try {
+        element.updated(new Map());
+        await flush();
+        schedule.mockClear();
+
+        target.removeAttribute('lang');
+        await flush();
+        expect(schedule).toHaveBeenCalledExactlyOnceWith(true);
+
+        schedule.mockClear();
+        element.classList.add('calendar-card-title-scroll-paused');
+        target.setAttribute('data-unrelated', 'changed');
+        await flush();
+        expect(schedule).not.toHaveBeenCalled();
+
+        target.setAttribute('lang', 'de');
+        await flush();
+        expect(schedule).toHaveBeenCalledExactlyOnceWith(true);
+
+        element.remove();
+        schedule.mockClear();
+        target.removeAttribute('lang');
+        await flush();
+        expect(schedule).not.toHaveBeenCalled();
+      } finally {
+        element.remove();
+        if (previousLanguage === null) target.removeAttribute('lang');
+        else target.setAttribute('lang', previousLanguage);
+        target.removeAttribute('data-unrelated');
+      }
+    },
+  );
 
   it('reacquires fitting on reconnect without a fetch or another Lit update', async () => {
     const element = card();

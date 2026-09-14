@@ -436,7 +436,8 @@ title-only event whose details were disabled or absent keeps its normal alignmen
 
 The compact fallback is static and uses an ellipsis when needed, even with
 `scroll_long_titles: true`. Normal text and scrolling return when more room becomes
-available. There is no separate fallback option or adjustable minimum.
+available. Font, picture, and inherited page-language changes also trigger a new fit.
+There is no separate fallback option or adjustable minimum.
 
 Some blocks still cannot show a useful line. Large labels, unusually tall line spacing,
 or a very narrow overlap lane may leave no room for all labels plus meaningful title text.

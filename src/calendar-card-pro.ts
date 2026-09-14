@@ -107,13 +107,14 @@ export function adoptEditorComponent(module: unknown, tagName: string): void {
   }
 }
 
-/** Observe inherited typography and direction changes across shadow boundaries. */
+/** Observe inherited typography, language, and direction changes across shadow boundaries. */
 function observeTypographyAncestors(observer: MutationObserver, host: HTMLElement): void {
   for (let ancestor: Element | null = host; ancestor; ) {
     observer.observe(ancestor, {
       attributes: true,
       attributeOldValue: true,
-      attributeFilter: ['style', 'class', 'dir'],
+      // Compact boxes may not resize when a language change alters normal hyphenation.
+      attributeFilter: ['style', 'class', 'dir', 'lang'],
     });
     const root = ancestor.getRootNode();
     ancestor = ancestor.parentElement ?? (root instanceof ShadowRoot ? root.host : null);

@@ -395,9 +395,14 @@ describe('scroll_long_titles lifecycle', () => {
     document.body.innerHTML = '';
   });
 
-  it.each(['dir', 'style', 'class'])(
+  it.each([
+    ['dir', 'rtl'],
+    ['style', 'direction: rtl'],
+    ['class', 'rtl'],
+    ['lang', 'en'],
+  ])(
     'remeasures inherited %s changes across a shadow boundary and stops on detach',
-    async (attribute) => {
+    async (attribute, value) => {
       const ancestor = document.createElement('div');
       const root = ancestor.attachShadow({ mode: 'open' });
       document.body.appendChild(ancestor);
@@ -420,7 +425,7 @@ describe('scroll_long_titles lifecycle', () => {
       try {
         await flush();
         schedule.mockClear();
-        ancestor.setAttribute(attribute, attribute === 'style' ? 'direction: rtl' : 'rtl');
+        ancestor.setAttribute(attribute, value);
         await flush();
         expect(schedule).toHaveBeenCalledTimes(1);
 
