@@ -34,6 +34,8 @@ export function supportsTitleMotion(): boolean {
     CSS.supports('animation-timing-function', 'linear(0, 1, 0)') &&
     typeof CSSAnimation !== 'undefined' &&
     typeof Animation !== 'undefined' &&
+    typeof AnimationEffect !== 'undefined' &&
+    typeof AnimationEffect.prototype.getComputedTiming === 'function' &&
     typeof Object.getOwnPropertyDescriptor(Animation.prototype, 'startTime')?.set === 'function' &&
     typeof Element.prototype.getAnimations === 'function' &&
     typeof IntersectionObserver !== 'undefined' &&
@@ -221,12 +223,24 @@ export class TitleMotionController {
       // refresh may schedule the initial commit again; this callback already owns it.
       this.cancelFrame();
       if (!this.cohort.pending || this.cohort.empty) return;
-      const clock = this.leader && this.active.get(this.leader)?.animation.currentTime;
-      if (typeof clock === 'number' && this.cohort.period > 0) {
-        const phase = (clock / 1000) % this.cohort.period;
+      if (this.leader) {
+        const timing = this.active.get(this.leader)?.animation.effect?.getComputedTiming();
+        if (
+          typeof timing?.progress !== 'number' ||
+          !Number.isFinite(timing.progress) ||
+          typeof timing.duration !== 'number' ||
+          !Number.isFinite(timing.duration) ||
+          timing.duration <= 0
+        ) {
+          this.useFallback('Native title animation phase is unavailable.');
+          return;
+        }
+        // Native duration/progress share the engine's precision. Modulo of a rounded
+        // currentTime and the requested JS period can label every new cycle as its end.
+        const phaseMs = timing.progress * timing.duration;
         // A delayed iteration event must not interrupt a forward pass. Wait for the
         // next native boundary rather than polling or advancing an independent clock.
-        if (phase > TITLE_SCROLL.START_PAUSE_S) return;
+        if (phaseMs > TITLE_SCROLL.START_PAUSE_S * 1000) return;
       }
       this.commit();
     });

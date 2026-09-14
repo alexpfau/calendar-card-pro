@@ -303,6 +303,8 @@ Provides core functionality across the card:
     operations; ordinary observer rebinding preserves membership and clocks
   - Withdraw changed trajectories immediately, admit replacements at a surviving reader's
     native iteration boundary, and start fresh when no reader survives
+  - Check that boundary using the engine's progress and used duration; rounded native
+    clocks and requested JavaScript seconds can otherwise disagree at every exact rollover
   - Publish a whole-timeline CSS `linear()` curve on each moving span, not the viewport
     whose inline color Lit replaces. Two fixed keyframe names produce fresh effects for a
     commit, with one explicit shared `CSSAnimation.startTime` assignment per member

@@ -21,7 +21,16 @@ const controllers: TitleMotionController[] = [];
 class FakeAnimation {
   playState: AnimationPlayState = 'running';
   private start: number | null = null;
-  constructor(readonly animationName: string) {}
+  constructor(
+    readonly animationName: string,
+    private readonly duration: () => number,
+  ) {}
+  readonly effect = {
+    getComputedTiming: () => {
+      const duration = this.duration();
+      return { duration, progress: ((now - (this.start ?? now)) % duration) / duration };
+    },
+  };
   get startTime(): number | null {
     return this.start;
   }
@@ -136,7 +145,13 @@ function title(distance: number, index: number): TitleScrollMeasurement {
       const name = `calendar-card-title-cohort-${mode}`;
       if (animation?.animationName !== name || animation.playState === 'idle') {
         if (animation) animation.playState = 'idle';
-        animation = new FakeAnimation(name);
+        animation = new FakeAnimation(
+          name,
+          () =>
+            Number.parseFloat(
+              content.style.getPropertyValue('--calendar-card-title-cohort-period'),
+            ) * 1000,
+        );
       }
       return [animation];
     },
@@ -178,6 +193,45 @@ function boundary(target: TitleScrollMeasurement): void {
 }
 
 describe('native title cohort adapter', () => {
+  it('uses the native iteration phase when rounded currentTime is below the nominal boundary', () => {
+    const { targets, controller } = setup([178, 720]);
+    targets[0].title.classList.add('empty-day-title');
+    controller.measure(targets);
+    targets[0].title.classList.remove('empty-day-title');
+    controller.measure(targets);
+    const leader = effect(targets[1]);
+    // Firefox reported 17800ms and iteration 1, while the requested JS period was
+    // 17.800000000000004s. Modulo that period falsely places every boundary at its end.
+    Object.defineProperty(leader, 'currentTime', { value: 17800 });
+    vi.spyOn(leader.effect, 'getComputedTiming').mockReturnValue({
+      duration: 17800,
+      progress: 2.996254682141597e-7,
+    });
+    boundary(targets[1]);
+    expect(targets[0].title.getAttribute('data-title-motion')).not.toBe('pending');
+    expect(writes).toHaveLength(4);
+  });
+
+  it('does not interrupt a native forward phase when an iteration event arrives late', () => {
+    const { targets, controller } = setup([178, 720]);
+    targets[0].title.classList.add('empty-day-title');
+    controller.measure(targets);
+    targets[0].title.classList.remove('empty-day-title');
+    controller.measure(targets);
+    const leader = effect(targets[1]);
+    Object.defineProperty(leader, 'currentTime', { value: 0 });
+    const timing = vi.spyOn(leader.effect, 'getComputedTiming').mockReturnValue({
+      duration: 17800,
+      progress: 0.2,
+    });
+    boundary(targets[1]);
+    expect(targets[0].title.getAttribute('data-title-motion')).toBe('pending');
+    expect(writes).toHaveLength(2);
+    timing.mockReturnValue({ duration: 17800, progress: 0 });
+    boundary(targets[1]);
+    expect(writes).toHaveLength(4);
+  });
+
   it('withdraws placeholders without letting them set the next visible cohort period', () => {
     const { targets, controller } = setup([178, 713]);
     const survivor = effect(targets[0]);
