@@ -178,6 +178,19 @@ function boundary(target: TitleScrollMeasurement): void {
 }
 
 describe('native title cohort adapter', () => {
+  it('withdraws placeholders without letting them set the next visible cohort period', () => {
+    const { targets, controller } = setup([178, 713]);
+    const survivor = effect(targets[0]);
+    targets[1].title.classList.add('empty-day-title');
+    controller.measure(targets);
+    expect(targets[1].title.getAttribute('data-title-motion')).toBe('pending');
+    expect(effect(targets[0])).toBe(survivor);
+    boundary(targets[0]);
+    expect(targets[0].content.style.getPropertyValue('--calendar-card-title-cohort-period')).toBe(
+      `${titleMotionTiming(178).total}s`,
+    );
+  });
+
   it('observes stable viewports, commits once, and ignores unchanged rebinding and measurements', () => {
     const { targets, controller, observer, host } = setup();
     expect(observer.observed).toEqual(new Set([host, ...targets.map(({ title }) => title)]));

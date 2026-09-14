@@ -1584,7 +1584,10 @@ class CalendarCardPro extends LitElement {
       }
     }
     measurements.forEach(({ title, distance, direction }) => {
-      if (distance > Constants.TITLE_SCROLL.MIN_OVERFLOW_PX) {
+      if (
+        distance > Constants.TITLE_SCROLL.MIN_OVERFLOW_PX &&
+        !title.classList.contains('empty-day-title')
+      ) {
         const seconds = Math.max(
           Constants.TITLE_SCROLL.MIN_DURATION_S,
           distance /

@@ -155,6 +155,7 @@ export class TitleMotionController {
         title.isConnected &&
         title.contains(measurement.content) &&
         title.classList.contains('title-scrollable') &&
+        !title.classList.contains('empty-day-title') &&
         measurement.distance > TITLE_SCROLL.MIN_OVERFLOW_PX &&
         mode !== 'compact' &&
         mode !== 'blank' &&

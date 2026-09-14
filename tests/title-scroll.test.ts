@@ -221,6 +221,15 @@ function cardWithTitle(contentWidth: number, clientWidth: number, direction = 'l
 describe('scroll_long_titles measurement', () => {
   afterEach(() => document.body.replaceChildren());
 
+  it('keeps overflowing empty-day placeholders static without changing their markup', () => {
+    const { card, title } = cardWithTitle(500, 100);
+    title.classList.add('empty-day-title');
+    card._measureTitleScroll();
+    expect(title.classList.contains('title-scrollable')).toBe(true);
+    expect(title.classList.contains('title-overflowing')).toBe(false);
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('');
+  });
+
   it('measures enhanced pending text in its moving box without changing the legacy measurement', () => {
     const { card, content, title } = cardWithTitle(301, 100);
     content.style.display = 'inline';

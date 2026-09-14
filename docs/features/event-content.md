@@ -446,7 +446,7 @@ scroll_long_titles: true
 
 Off by default, because it changes titles from wrapping to a single line and because motion
 on an always-on dashboard is a matter of taste. Only titles that genuinely overflow move;
-one that already fits stays still.
+one that already fits stays still. Empty-day messages and Grid all-day banners stay static.
 
 In supported browsers, **visible titles on the same card start their forward passes
 together**. Each keeps its own reading pace, pauses briefly at its ending, then returns
