@@ -756,9 +756,13 @@ export const cardStyles = css`
     text-overflow: ellipsis;
   }
 
-  /* Center the text rather than its bottom-padded viewport. */
-  .summary-scroll:has(> .label-icon) > .event-title,
-  .summary-scroll:has(> .label-image) > .event-title {
+  /* Center the text rather than its bottom-padded viewport, beside every label kind.
+     A flex row centers boxes, so the title's 2px of bottom padding sat its glyphs 1px
+     above a prose or emoji label's. Icons and pictures were reset here already; prose,
+     emoji and merged runs carrying neither were not, which is the misalignment this
+     widens to cover. An unlabeled title keeps its padding: nothing sits beside it to
+     align to, and its row height should not move. */
+  .summary-scroll:has(> :not(.event-title)) > .event-title {
     padding-bottom: 0;
   }
 

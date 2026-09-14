@@ -450,7 +450,9 @@ one that already fits stays still. Empty-day messages and Grid all-day banners s
 
 Calendar labels stay stationary. A short label keeps its natural single-line width when
 the complete label run leaves room for useful title text. Longer or combined labels keep
-wrapping when that space is needed, including in narrow Grid columns.
+wrapping when that space is needed, including in narrow Grid columns. A label and the
+title beside it share one vertical center, whether the label is text, an emoji, an icon,
+a picture, or several of those merged together.
 
 In supported browsers, **visible titles on the same card start their forward passes
 together**. Each keeps its own reading pace, pauses briefly at its ending, then returns

@@ -182,15 +182,35 @@ describe('card stylesheet', () => {
       },
     );
 
-    it.each(['.label-icon', '.label-image'])(
+    it.each(['.label-icon', '.label-image', '.calendar-label', '.label-emoji'])(
       'centers scrolling text, not its padded viewport, beside %s',
       (label) => {
-        expect(declared(`.summary-scroll:has(> ${label}) > .event-title`, 'padding-bottom')).toBe(
-          '0',
-        );
+        // Widened from the icon/picture pair to every label kind: a flex row centers
+        // boxes, so the title's own bottom padding sat its glyphs one pixel above a
+        // prose or emoji label's. Matched against real markup rather than by selector
+        // text, so an equivalent rewrite of the rule cannot fail this for no reason.
+        const reset = '.summary-scroll:has(> :not(.event-title)) > .event-title';
+        expect(declared(reset, 'padding-bottom')).toBe('0');
         expect(declared('.summary-scroll', 'align-items')).toBe('center');
+
+        const summary = document.createElement('div');
+        summary.className = 'summary summary-scroll';
+        summary.innerHTML = `<span class="${label.slice(1)}"></span><span class="event-title"></span>`;
+        expect(summary.querySelector('.event-title')!.matches(reset)).toBe(true);
       },
     );
+
+    it('leaves an unlabeled scrolling title on its own padding', () => {
+      // Nothing sits beside it to align to, so its row height must not move.
+      const summary = document.createElement('div');
+      summary.className = 'summary summary-scroll';
+      summary.innerHTML = '<span class="event-title"></span>';
+      expect(
+        summary
+          .querySelector('.event-title')!
+          .matches('.summary-scroll:has(> :not(.event-title)) > .event-title'),
+      ).toBe(false);
+    });
 
     it('clamps the shared labeled line without moving the title below its labels', () => {
       expect(declared('.summary', '-webkit-line-clamp')).toBe(

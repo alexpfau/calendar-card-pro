@@ -167,7 +167,16 @@ describe('stripComments', () => {
   // 68% today; the
   // band below is what actually holds it.
   //
-  // The ceiling last moved for tinted's ring naming --badge-solid instead of currentColor.
+  // The ceiling last moved for the scrolling label reset widening to every label kind. The
+  // rule is one declaration and its note is a paragraph, because what it records cannot be
+  // read off `padding-bottom: 0`: a flex row centres BOXES, so the title's own bottom padding
+  // sat its glyphs one pixel above a prose or emoji label's while both boxes measured
+  // perfectly centred. Element geometry cannot see that defect at all -- only text ranges
+  // can -- which is exactly why it survived a prior fix that exempted icons and pictures and
+  // stopped there. The note also records why an unlabeled title deliberately keeps the
+  // padding, which otherwise reads as an oversight in the selector.
+  //
+  // The ceiling before that moved for tinted's ring naming --badge-solid instead of currentColor.
   // Two rules wrote the identical declaration and painted different rings, because
   // currentColor resolves against each rule's own colour -- a difference that is invisible in
   // the source and cost a live-card report to find. A comment is the only place that can say
@@ -202,8 +211,11 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(82_000);
-    // The clipped-edge continuation marks moved the ceiling last, from 79,000, and the note
+    expect(saved).toBeLessThan(83_000);
+    // The scrolling label reset moved the ceiling last, from 82,000; see the paragraph above
+    // for what its note buys that the declaration cannot say.
+    //
+    // The clipped-edge continuation marks moved the ceiling before that, from 79,000, and the note
     // they bought is a table of painted pixel rows. Where a dashed mark lands relative to the
     // rule beside it cannot be read off `top: 0` — the mark is a border-block-start on a
     // zero-height box, so the same value paints the block's first row at one edge and its
