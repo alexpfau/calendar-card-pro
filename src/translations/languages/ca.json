@@ -16,6 +16,6 @@
   "endsToday": "acaba avui",
   "endsTomorrow": "acaba damà",
   "noEvents": "Cap esdeveniment",
-  "loading": "Carregant events...",
+  "loading": "Carregant esdeveniments...",
   "error": "Error: No s'ha trobat l'entitat del calendari o aquesta està mal configurada"
 }
