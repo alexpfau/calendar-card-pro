@@ -621,7 +621,7 @@ Filtering runs before the card pads out its window, so a Saturday whose only ent
 calendar supplied becomes an empty day like any other. With
 [`show_empty_days`](/reference/configuration#core-settings) off — the default in list view
 — that day is left out entirely and a later one takes its place. With it on, as column
-view defaults to, the day still appears carrying the usual _No upcoming events_ notice.
+view defaults to, the day still appears carrying the usual _No events_ notice.
 :::
 
 Which days are the weekend comes from your Home Assistant language, not from the card's

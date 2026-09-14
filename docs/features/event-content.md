@@ -13,7 +13,7 @@ event_color: 'var(--primary-text-color)'
 
 # Empty days display
 show_empty_days: true # Show days with no events
-empty_day_text: 'Leftovers' # Replaces "No upcoming events" on any empty day
+empty_day_text: 'Leftovers' # Replaces "No events" on any empty day
 empty_day_color: 'var(--secondary-text-color)' # Color for "No events" text
 
 # Or remove the card entirely when there is nothing to show
@@ -24,9 +24,9 @@ When `show_empty_days` is set to `true`, days without events will display a "No 
 
 ### Custom Empty-Day Text
 
-The default message is deliberately neutral, but an empty day often means something specific to you. A meal-plan calendar reads far better with "Leftovers" than with "No upcoming events", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
+The default message is deliberately date-neutral — "No events", not "No upcoming events" — because the card draws empty days in the past as readily as in the future, and a past day is not waiting for anything. An empty day often means something specific to you, though. A meal-plan calendar reads far better with "Leftovers", and the point of showing the day at all is to keep the week's layout stable rather than letting it collapse.
 
-The **`empty_day_text`** option replaces that message on every day the card renders as empty, and falls back to the translated default when unset. It applies wherever an empty day appears: a gap in the middle of a planned week, an entire range with nothing scheduled, or the single row the card shows for today when `show_empty_days` is off and there is nothing at all to display.
+The **`empty_day_text`** option replaces that message on every day the card renders as empty, and falls back to the translated default when unset. It applies wherever an empty day appears: a gap in the middle of a planned week, an entire range with nothing scheduled, or the single row the card shows when `show_empty_days` is off and there is nothing at all to display. That single row sits on the range's own reference date, which is today only when your `start_date` resolves to today — a card pointed at last week shows last week's date there.
 
 ```yaml
 days_to_show: 7
@@ -36,13 +36,15 @@ empty_day_text: 'Leftovers'
 
 By default, empty days are prefixed with a ✓ so they read as "nothing on". That prefix is dropped as soon as you set your own text, since a string such as "Leftovers" already carries its own meaning.
 
+Your text is kept exactly as written. It is never translated, trimmed or migrated, so a message that happens to match an older default stays as you typed it, and a message of only spaces is treated as your wording rather than as no wording at all. Clearing the option entirely — leaving it out, or setting it empty — brings the translated default back.
+
 ::: info Wording Only, Never Layout
 `empty_day_text` changes only the wording, never the layout. Whether an empty day appears at all — and how many — is decided by `show_empty_days`, and its color by `empty_day_color`.
 :::
 
 The `empty_day_color` option lets you customize the color of this message to match your theme or stand out as needed.
 
-If you would rather the card disappear completely instead of showing "No upcoming events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
+If you would rather the card disappear completely instead of showing "No events", set `hide_when_empty: true`. The card removes itself from the dashboard whenever it has no events to display, and surrounding cards close the gap. It reappears automatically as soon as an event shows up, and always stays visible while you are editing the dashboard so you can still select and configure it.
 
 Hiding takes precedence over anything that only decorates an empty day: `show_empty_days` fills the range with "No events" placeholders, but those placeholders are not events, so a card with nothing but empty days still hides. The same applies to `empty_day_text` — a hidden card shows nothing at all, custom text included. If you want your own wording to be visible, leave `hide_when_empty` off.
 
@@ -576,6 +578,24 @@ stay at normal strength until the next local midnight. Split rows use their own 
 Grid all-day banners use the original event's end. Changing opacity does not change these
 rules or fetch calendar data. Grid's [now line](/features/grid-view#the-now-line) is
 independent of dimming.
+
+Empty-day notices in list and column views follow the same dimming, judged on their own
+date rather than on an end time. A notice dims once its whole local calendar date has
+ended, so today's stays at full strength from midnight to midnight and future days are
+never dimmed. Grid is unaffected, because it represents an empty day with an empty column
+rather than a notice.
+
+::: tip Past Notices Dim Even With Past Events Hidden
+`show_past_events` decides which real events are eligible, and the card pads its window
+with empty days afterwards. A past day whose events were filtered away can therefore still
+show a notice, and that notice dims like any other past date. Visibility and dimming are
+separate questions.
+:::
+
+A notice changes state on the card's next ordinary repaint after its date ends, not on a
+timer of its own. Home Assistant updates and the card's existing refreshes drive that, the
+same way finished events are re-judged — so a card left open across midnight updates when
+it next repaints rather than at the stroke of twelve.
 
 In the [editor](/features/editor), find **Past Event Opacity** under **Events → Event
 State**, in any workspace.

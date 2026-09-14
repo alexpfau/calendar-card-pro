@@ -47,6 +47,11 @@ Both `.past-event .event-content` and
 `.grid-banner.past-event .grid-banner-title` read that property. The `.past-event` class
 stays present even at 100%, and outer fills and accent stripes do not dim.
 
+Empty-day notices in list and column views carry `.past-event` too, once their own local
+date has ended, and dim through the same `.event-content` rule as any finished event. A
+rule written for finished events therefore reaches past notices as well; to treat them
+differently, add `.empty-day-title` to the selector.
+
 The generated property is inline on `ha-card`, so an inherited theme value alone does
 not replace it. For an explicit card-mod override, target that same element and use
 `!important`:
