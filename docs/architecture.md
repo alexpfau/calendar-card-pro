@@ -63,6 +63,8 @@ src/
     ├── helpers.ts                # Generic utilities (color, ID generation)
     ├── logger.ts                 # Logging system
     ├── templates.ts              # Jinja2 title templates over the HA websocket
+    ├── title-motion.ts           # Pure per-title timing and cohort admission state
+    ├── title-motion-controller.ts # Visible per-card membership and native clock alignment
     ├── editor-url.ts             # Where the editor file lives, relative to the card
     ├── weather.ts                # Weather data fetching and processing
     └── weather-i18n.ts           # Condition text in the card's language
@@ -291,6 +293,27 @@ Provides internationalization support:
 ### Utilities (`utils/`)
 
 Provides core functionality across the card:
+
+- **title-motion.ts / title-motion-controller.ts**:
+  - Keep each title's readable forward leg, 600ms start/end pauses, and individual
+    200-600ms return; the longest visible trip sets the common period and shorter titles
+    spend the surplus at their beginnings
+  - Observe stable title viewports, including ancestor scrolling clips, in one per-card
+    cohort. Full scene reconciliation and partial Grid recovery measurements are distinct
+    operations; ordinary observer rebinding preserves membership and clocks
+  - Withdraw changed trajectories immediately, admit replacements at a surviving reader's
+    native iteration boundary, and start fresh when no reader survives
+  - Publish a whole-timeline CSS `linear()` curve on each moving span, not the viewport
+    whose inline color Lit replaces. Two fixed keyframe names produce fresh effects for a
+    commit, with one explicit shared `CSSAnimation.startTime` assignment per member
+  - Leave movement and offscreen pausing to native CSS, with no per-frame JavaScript loop.
+    Reduced motion, disabled scrolling, static Grid rescue, and disconnect retire effects;
+    whole-card offscreen state freezes the cohort instead of treating all-false
+    intersection entries as removed members
+  - Measure pending text in its eventual inline-block box, with batched temporary display
+    changes restored before paint. WebKit rounds inline fragment widths differently, which
+    must not turn an unchanged update into a new trajectory. Legacy fallback measurements
+    and original independent animation timing stay unchanged on unsupported engines
 
 - **grid-title-fit.ts**:
   - Measures complete timed label/title groups after the normal Grid disclosure transaction

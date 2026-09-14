@@ -364,7 +364,7 @@
   "title_max_lines": "Titel-Zeilenlimit",
   "title_max_lines.helper": "Null bedeutet kein Limit. Ein gekürzter Titel endet mit drei Punkten.",
   "scroll_long_titles": "Lange Titel scrollen",
-  "scroll_long_titles.helper": "Lange Titel scrollen, um ihr Ende in beiden Schreibrichtungen sichtbar zu machen. Erzwingt eine einzelne Zeile und überschreibt das Titel-Zeilenlimit; bei reduzierter Bewegung wird nie animiert.",
+  "scroll_long_titles.helper": "Sichtbare überlange Titel starten gemeinsam, kehren einzeln schnell zurück und warten am Anfang, sofern der Browser dies unterstützt. Erzwingt eine Zeile in beiden Schreibrichtungen und überschreibt das Titel-Zeilenlimit. Bei reduzierter Bewegung keine Animation; ältere Browser scrollen unabhängig.",
   "allday_badge_position": "Ganztags-Badge",
   "allday_badge_position.helper": "Hebt ganztägige Termine mit einem abgerundeten Badge in der Akzentfarbe des Kalenders hervor. In der Zeitzeile ersetzt es das Ganztags-Label, beim Titel umschließt es den Terminnamen. Ein Titel-Badge bleibt einzeilig und wird bei Bedarf mit Auslassungspunkten gekürzt.",
   "allday_badge_position.option.off.label": "Aus",

@@ -19,8 +19,8 @@ import * as EventUtils from '../src/utils/events';
  * `scroll_long_titles` — the opt-in horizontal auto-scroll of overflowing event titles.
  *
  * The behaviour a browser shows — real overflow measurement, the animation, the observers,
- * reduced motion and off-screen pausing — needs layout happy-dom does not compute, and is
- * verified live in Home Assistant. What is pinned here is everything a unit test *can* own:
+ * reduced motion and off-screen pausing — needs native-browser coverage because happy-dom
+ * does not compute layout. What is pinned here is everything a unit test *can* own:
  * the config wiring, the DOM contract the measurement step keys off, the stylesheet
  * contract, and the measurement arithmetic itself with the geometry stubbed.
  *
@@ -118,7 +118,7 @@ describe('scroll_long_titles stylesheet contract', () => {
     );
   });
 
-  it('travels in one direction and restarts, rather than alternating', () => {
+  it('retains the independent snapping keyframes for the unsupported-engine fallback', () => {
     expect(CSS).toMatch(/@keyframes\s+calendar-card-title-scroll/);
     expect(CSS).toContain('var(--calendar-card-title-scroll-distance, 0px)');
     expect(CSS).toContain('var(--calendar-card-title-scroll-duration, 8s)');
@@ -127,9 +127,8 @@ describe('scroll_long_titles stylesheet contract', () => {
     expect(kfIdx).toBeGreaterThan(-1);
     const kfSlice = CSS.slice(kfIdx, kfIdx + CSS.slice(kfIdx).indexOf('\n  }\n') + 5);
 
-    // Two stops, not three. A third one returning to translateX(0) is what made the title
-    // run backwards through words the reader had just read; the marquee ends at the far end
-    // and the wrap back to 0% does the return instantly.
+    // The compatibility path must keep its original two-stop shape and duration.
+    // The enhanced whole-timeline curve uses separate from/to keyframes below.
     expect(kfSlice.match(/translateX/g)?.length).toBe(2);
     expect(kfSlice).toMatch(/0%,\s*15%\s*\{\s*transform:\s*translateX\(0\)/);
     expect(kfSlice).toMatch(
@@ -161,6 +160,24 @@ describe('scroll_long_titles stylesheet contract', () => {
     expect((travelEnd - travelStart) / 100).toBeCloseTo(Constants.TITLE_SCROLL.TRAVEL_FRACTION, 10);
     // Split evenly, so neither end is held longer than the other.
     expect(travelStart).toBe(100 - travelEnd);
+  });
+
+  it('gives each enhanced curve one interpolation interval and only two fixed names', () => {
+    const names = [...CSS.matchAll(/@keyframes\s+(calendar-card-title-cohort-[\w-]+)/g)].map(
+      (match) => match[1],
+    );
+    expect(names).toEqual(['calendar-card-title-cohort-a', 'calendar-card-title-cohort-b']);
+    for (const name of names) {
+      const start = CSS.indexOf(`@keyframes ${name}`);
+      const keyframes = CSS.slice(start, start + CSS.slice(start).indexOf('\n  }\n') + 5);
+      expect(keyframes.match(/translateX/g)).toHaveLength(2);
+      expect(keyframes).toMatch(/from\s*\{/);
+      expect(keyframes).toMatch(/to\s*\{/);
+      expect(keyframes).not.toMatch(/\d+%/);
+    }
+    expect(CSS).toContain('animation-duration: var(--calendar-card-title-cohort-period)');
+    expect(CSS).toContain('animation-timing-function: var(--calendar-card-title-cohort-curve)');
+    expect(CSS).toMatch(/data-title-motion='pending'[^}]*animation:\s*none/);
   });
 
   it('gives the offscreen pause rule more specificity than the animation shorthand', () => {
@@ -203,6 +220,29 @@ function cardWithTitle(contentWidth: number, clientWidth: number, direction = 'l
 
 describe('scroll_long_titles measurement', () => {
   afterEach(() => document.body.replaceChildren());
+
+  it('measures enhanced pending text in its moving box without changing the legacy measurement', () => {
+    const { card, content, title } = cardWithTitle(301, 100);
+    content.style.display = 'inline';
+    Object.defineProperty(content, 'offsetWidth', {
+      configurable: true,
+      get: () => (content.style.display === 'inline-block' ? 300 : 301),
+    });
+    card._measureTitleScroll();
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('201px');
+
+    const measure = vi.fn();
+    Object.defineProperty(card, '_titleMotion', { value: { enhanced: true, measure } });
+    card._measureTitleScroll();
+    expect(content.style.display).toBe('inline');
+    expect(title.style.getPropertyValue('--calendar-card-title-scroll-distance')).toBe('200px');
+    expect(measure).toHaveBeenLastCalledWith([expect.objectContaining({ distance: 200 })]);
+
+    content.style.display = 'inline-block';
+    card._measureTitleScroll();
+    expect(content.style.display).toBe('inline-block');
+    expect(measure).toHaveBeenLastCalledWith([expect.objectContaining({ distance: 200 })]);
+  });
 
   it('skips compact Grid titles and measures them again after normal disclosure returns', () => {
     const { card, title, content } = cardWithTitle(300, 100);

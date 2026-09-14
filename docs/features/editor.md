@@ -37,6 +37,11 @@ the shared level or inheritance in a view; a view's Reset control does the same.
 See [Past Events Display](/features/event-content#past-events-display) and the
 [configuration reference](/reference/configuration#event-column).
 
+**Events → Title → Scroll Long Titles** remains the only motion control. In supported
+browsers, visible titles share forward starts, return individually, and wait at their
+beginnings. It can be set separately in each workspace; reduced motion always keeps titles
+static. See [Scrolling Long Titles](/features/event-content#scrolling-long-titles).
+
 ## 🧭 Options for the Selected View
 
 Two controls sit together above search. **Card Displays** chooses the card's starting

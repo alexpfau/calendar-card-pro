@@ -444,7 +444,25 @@ A long event title normally wraps onto a second line and makes the row taller. T
 scroll_long_titles: true
 ```
 
-Off by default, because it changes titles from wrapping to a single line and because motion on an always-on dashboard is a matter of taste. When it is on, only titles that genuinely overflow move — one that already fits stays perfectly still. The scroll speed is derived from how far each title has to travel, so a slightly-too-long title and a very long one drift at the same pace rather than one crawling while the other races, and each pauses at the start and the end so both ends are readable.
+Off by default, because it changes titles from wrapping to a single line and because motion
+on an always-on dashboard is a matter of taste. Only titles that genuinely overflow move;
+one that already fits stays still.
+
+In supported browsers, **visible titles on the same card start their forward passes
+together**. Each keeps its own reading pace, pauses briefly at its ending, then returns
+quickly and waits at its **beginning** until the next shared start. Returns are deliberately
+individual, not synchronized. Shorter titles therefore show their useful beginnings while
+the longest visible title finishes.
+
+The start and end pauses are each 0.6 seconds. Forward travel takes at least 2.8 seconds,
+at up to 45 CSS pixels per second; a small overflow moves more slowly rather than rushing
+through a tiny trip. Each return takes 0.2-0.6 seconds. There is no travel or cycle cap, so a
+very long visible title can lengthen the wait before shorter titles repeat.
+
+Titles clipped out of the card's scrolling area do not set the group's period. A new or
+changed title waits at its beginning until surviving readers finish their current cycle;
+a wholly new scene starts fresh. Ordinary Home Assistant updates and opacity or color edits
+do not restart unchanged readers.
 
 The travel follows the text direction: left-to-right titles move left, and right-to-left
 titles move right to reveal their ending. Changes to inherited direction take effect
@@ -459,7 +477,15 @@ time_grid:
   scroll_long_titles: true # Scroll in the narrow grid columns
 ```
 
-The animation is considerate of the places these cards live. It respects the operating system's **reduce motion** setting — when that is on the title never animates and falls back to a static, truncated line — and it pauses whenever the card is scrolled out of view, so a wall panel left on all day does not animate a title nobody is looking at.
+The animation respects the operating system's **reduce motion** setting: turning that on
+stops it immediately and leaves a static, truncated line. Turning `scroll_long_titles` off
+also stops it immediately. When the whole card is scrolled offscreen, its group pauses in
+place, including during a quick return or a beginning wait, and resumes when it reappears.
+
+Browsers without CSS `linear()` easing or the required native animation-clock facilities
+keep the older independent animation and its original timing, including its instant reset
+at the end. They do not receive synchronized starts or quick returns. The option remains
+the same; there is no second motion setting or dashboard-wide coordinator.
 
 Grid's [short timed title fallback](/features/grid-view#short-timed-titles) also stays static,
 with all labels retained. Scrolling resumes when the block has room for its normal title.

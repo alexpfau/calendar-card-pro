@@ -364,7 +364,7 @@
   "title_max_lines": "Limit riadkov názvu",
   "title_max_lines.helper": "Nula znamená bez limitu. Skrátený názov sa končí tromi bodkami.",
   "scroll_long_titles": "Posúvať dlhé názvy",
-  "scroll_long_titles.helper": "Dlhé názvy sa posúvajú, aby ukázali svoj koniec v rozložení zľava doprava aj sprava doľava. Vynúti jeden riadok a prepíše limit riadkov názvu; pri obmedzenom pohybe sa nikdy neanimuje.",
+  "scroll_long_titles.helper": "Ak to prehliadač podporuje, viditeľné príliš dlhé názvy začnú spolu, po jednom sa rýchlo vrátia a čakajú na začiatku. Vynúti jeden riadok v oboch smeroch textu a prepíše limit riadkov názvu. Pri obmedzenom pohybe bez animácie; staršie prehliadače zachovajú nezávislé posúvanie.",
   "allday_badge_position": "Celodenný odznak",
   "allday_badge_position.helper": "Zvýrazní celodenné udalosti zaobleným odznakom vo farbe zvýraznenia kalendára. V riadku s časom nahradí celodenný štítok, pri názve obklopí názov udalosti. Odznak pri názve zostáva jednoriadkový a skráti sa tromi bodkami.",
   "allday_badge_position.option.off.label": "Vypnuté",

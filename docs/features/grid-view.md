@@ -439,6 +439,11 @@ The compact fallback is static and uses an ellipsis when needed, even with
 available. Font, picture, and inherited page-language changes also trigger a new fit.
 There is no separate fallback option or adjustable minimum.
 
+Only normal, overflowing timed titles join the card's
+[shared forward starts](/features/event-content#scrolling-long-titles). A recovered title
+waits at its beginning until the current group finishes; compact or blank titles, all-day
+banners, and overflow-count blocks never join. Labels and pictures remain stationary.
+
 Some blocks still cannot show a useful line. Large labels, unusually tall line spacing,
 or a very narrow overlap lane may leave no room for all labels plus meaningful title text.
 Grid leaves those blocks visually empty rather than showing a label or an ellipsis alone;

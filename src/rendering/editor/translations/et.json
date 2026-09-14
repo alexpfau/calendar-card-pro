@@ -364,7 +364,7 @@
   "title_max_lines": "Pealkirja reapiirang",
   "title_max_lines.helper": "Null tähendab piiranguta. Kärbitud pealkiri lõpeb kolme punktiga.",
   "scroll_long_titles": "Keri pikad pealkirjad",
-  "scroll_long_titles.helper": "Pikad pealkirjad kerivad, et näidata nende lõppu nii vasakult paremale kui ka paremalt vasakule paigutuses. Sunnib ühe rea ja alistab pealkirja reapiirangu; vähendatud liikumise korral ei animeerita kunagi.",
+  "scroll_long_titles.helper": "Toetatud brauserites alustavad nähtavad liiga pikad pealkirjad korraga, naasevad ükshaaval kiiresti ja ootavad alguses. Sunnib mõlemas tekstisuunas ühe rea ja alistab pealkirja reapiirangu. Vähendatud liikumise korral ei animeerita; vanemates brauserites kerivad pealkirjad sõltumatult.",
   "allday_badge_position": "Terve päeva märk",
   "allday_badge_position.helper": "Tõstab terve päeva sündmused esile ümardatud märgiga kalendri esiletõstevärvis. Ajareal asendab see terve päeva sildi, pealkirja juures ümbritseb sündmuse nime. Pealkirjamärk jääb ühele reale ja lühendatakse kolme punktiga.",
   "allday_badge_position.option.off.label": "Väljas",

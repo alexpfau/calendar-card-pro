@@ -364,7 +364,7 @@
   "title_max_lines": "Radgräns för titel",
   "title_max_lines.helper": "Noll betyder ingen gräns. En avkortad titel slutar med uteslutningstecken.",
   "scroll_long_titles": "Rulla långa titlar",
-  "scroll_long_titles.helper": "Långa titlar rullar för att visa slutet i layouter med text från vänster till höger och från höger till vänster. Tvingar en enda rad och åsidosätter radgränsen för titel; animeras aldrig vid reducerad rörelse.",
+  "scroll_long_titles.helper": "När webbläsaren stöder det startar synliga titlar som är för långa tillsammans, återvänder snabbt en i taget och väntar vid början. Tvingar en rad i båda textriktningarna och åsidosätter radgränsen för titel. Ingen animation vid reducerad rörelse; äldre webbläsare behåller oberoende rullning.",
   "allday_badge_position": "Heldagsmärke",
   "allday_badge_position.helper": "Markerar heldagshändelser med ett rundat märke i kalenderns accentfärg. På tidsraden ersätter det heldagsetiketten; på titeln omsluter det händelsens namn. Ett titelmärke hålls till en rad och kortas av med uteslutningstecken.",
   "allday_badge_position.option.off.label": "Av",

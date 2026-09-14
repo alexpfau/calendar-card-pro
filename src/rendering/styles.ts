@@ -721,7 +721,7 @@ export const cardStyles = css`
    * full-width inner element. It stays inline so the parent's text-overflow
    * ellipsis is the static fallback (reduced motion, or motion allowed but no
    * overflow). The measurement step in calendar-card-pro.ts promotes it to
-   * inline-block and animates it only once it has confirmed scrollWidth exceeds
+   * inline-block and animates it only once it has confirmed the content offsetWidth exceeds
    * clientWidth. */
   .summary-scroll {
     display: flex;
@@ -770,25 +770,38 @@ export const cardStyles = css`
         infinite;
       will-change: transform;
     }
+
+    /* Pending arrivals and changed titles show their beginning until a safe boundary.
+       The data attribute is only installed when all native enhancement facilities exist. */
+    .event-title.title-scrollable[data-title-motion='pending'] {
+      text-overflow: ellipsis;
+    }
+
+    .event-title.title-scrollable[data-title-motion='pending'] .event-title-scroll {
+      display: inline;
+      animation: none;
+      transform: none;
+      will-change: auto;
+    }
+
+    .event-title.title-scrollable.title-overflowing[data-title-motion='a'] .event-title-scroll,
+    .event-title.title-scrollable.title-overflowing[data-title-motion='b'] .event-title-scroll {
+      animation-duration: var(--calendar-card-title-cohort-period);
+      animation-timing-function: var(--calendar-card-title-cohort-curve);
+    }
+
+    .event-title.title-scrollable.title-overflowing[data-title-motion='a'] .event-title-scroll {
+      animation-name: calendar-card-title-cohort-a;
+    }
+
+    .event-title.title-scrollable.title-overflowing[data-title-motion='b'] .event-title-scroll {
+      animation-name: calendar-card-title-cohort-b;
+    }
   }
 
-  /* Intrinsic overflow sets distance; direction is -1 (LTR) or +1 (RTL).
-     Hold at the start, travel once to the end at constant velocity, hold there,
-     then restart from the beginning. Reading a title backwards is the thing the alternating
-     form got wrong -- the eye follows the text out and is then dragged back through words it
-     has already read, at reading speed, which is why it reads as odd rather than as motion.
-
-     The return is an instant reset at the end of the trailing hold, which is the ordinary
-     marquee convention and is deliberate. A fade across the seam was the alternative and was
-     rejected: the two holds exist so the start and the end stay legible, and dimming the text
-     during either of them spends the very thing the holds were added to buy. An instant reset
-     also keeps the whole animation on transform, so it stays on the compositor for a card
-     that may run for weeks on a wall panel.
-
-     Travel occupies 15% to 85%, so 70% of the cycle moves and the remaining 30% is split
-     evenly between the two holds. That fraction is mirrored by TRAVEL_FRACTION in
-     constants.ts, which the duration is derived through; the two must move together or every
-     title changes speed. */
+  /* Legacy fallback: keep the original independent snap and its original duration on
+     engines without linear() or native clock alignment. Its 15%-85% travel fraction
+     still matches TRAVEL_FRACTION; enhanced timings must never reach these keyframes. */
   @keyframes calendar-card-title-scroll {
     0%,
     15% {
@@ -796,6 +809,37 @@ export const cardStyles = css`
     }
     85%,
     100% {
+      transform: translateX(
+        calc(
+          var(--calendar-card-title-scroll-direction, -1) *
+            var(--calendar-card-title-scroll-distance, 0px)
+        )
+      );
+    }
+  }
+
+  /* One interpolation interval is required: the whole-timeline linear() curve supplies
+     start dwell, forward travel, end dwell, quick return, and surplus beginning wait.
+     Two fixed names let a committed cohort acquire fresh, explicitly aligned clocks. */
+  @keyframes calendar-card-title-cohort-a {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(
+        calc(
+          var(--calendar-card-title-scroll-direction, -1) *
+            var(--calendar-card-title-scroll-distance, 0px)
+        )
+      );
+    }
+  }
+
+  @keyframes calendar-card-title-cohort-b {
+    from {
+      transform: translateX(0);
+    }
+    to {
       transform: translateX(
         calc(
           var(--calendar-card-title-scroll-direction, -1) *

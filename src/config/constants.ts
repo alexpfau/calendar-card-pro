@@ -102,21 +102,26 @@ export const TITLE_SCROLL = {
 
   /**
    * Perceived travel speed, in CSS pixels per second, over the part of the cycle actually
-   * moving. Duration is derived from the overflow distance and this constant so every title
-   * scrolls at the same speed rather than the same duration — a short overflow does not crawl
-   * while a long one sprints.
+   * moving, except short trips that use the minimum forward duration.
    */
   SPEED_PX_PER_S: 45,
 
+  START_PAUSE_S: 0.6,
+  MIN_FORWARD_S: 2.8,
+  END_PAUSE_S: 0.6,
+  RETURN_SPEED_PX_PER_S: 360,
+  MIN_RETURN_S: 0.2,
+  MAX_RETURN_S: 0.6,
+
   /**
-   * Fraction of the cycle spent moving rather than paused. Must match the
+   * Legacy fallback's fraction spent moving rather than paused. Must match the
    * calendar-card-title-scroll keyframes in styles.ts: 15%->85% is 70% travel, the
    * remaining 30% split evenly as holds at the start and the end.
    */
   TRAVEL_FRACTION: 0.7,
 
   /**
-   * Shortest scroll, in seconds, so a small overflow eases rather than snaps.
+   * Shortest legacy fallback cycle, in seconds.
    *
    * It also bounds how often the marquee's reset is seen. The cycle travels the overflow
    * once and then restarts, so the floor is what stops a title that overflows by a few

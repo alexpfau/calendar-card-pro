@@ -43,6 +43,11 @@ import * as GridTitleFit from './utils/grid-title-fit';
 import * as Helpers from './utils/helpers';
 import * as Logger from './utils/logger';
 import * as Templates from './utils/templates';
+import {
+  TitleMotionController,
+  type TitleScrollMeasurement,
+  supportsTitleMotion,
+} from './utils/title-motion-controller';
 import * as Weather from './utils/weather';
 import * as WeatherI18n from './utils/weather-i18n';
 
@@ -483,7 +488,7 @@ class CalendarCardPro extends LitElement {
    *
    * Kept apart from the grid disclosure observer above, which reshapes layout by hiding
    * detail rows and so has to suppress its own re-entrancy. Title scrolling only ever adds
-   * a transform animation and two inline custom properties, and neither resizes the box the
+   * a transform animation and inline custom properties, and neither resizes the box the
    * observer measures, so it needs no such guard.
    */
   private _titleScrollObserver: ResizeObserver | null = null;
@@ -491,6 +496,7 @@ class CalendarCardPro extends LitElement {
   private _titleScrollMutations: MutationObserver | null = null;
   private _titleScrollRaf: number | null = null;
   private _titleScrollFontsCleanup: (() => void) | null = null;
+  private _titleMotion: TitleMotionController | null = null;
 
   //-----------------------------------------------------------------------------
   // COMPUTED GETTERS
@@ -1021,6 +1027,7 @@ class CalendarCardPro extends LitElement {
         )
         .map((target) => target.title);
       if (resumed.length) this._measureTitleScroll(resumed);
+      this._titleMotion?.refresh();
     } finally {
       // Two frames: layout from the class toggle, then the RO notifications that follow it.
       if (this._gridDisclosureReleaseRaf !== null) {
@@ -1426,9 +1433,8 @@ class CalendarCardPro extends LitElement {
   /**
    * Reconciles horizontal title scrolling after every render.
    *
-   * Rebuilt from scratch each time rather than diffed: the set of `.event-title` nodes
-   * changes with the events, and re-observing is cheaper than tracking which moved. A card
-   * that never enables the option pays only one boolean read and returns.
+   * Measurement observers rebind as titles change; the visible cohort and native clocks
+   * survive those rebinds. A card that never enables the option returns immediately.
    *
    * Shares the detached-card guard the other reconcilers use, and re-measures after a
    * card/title resize, a late font load, or an inherited style or direction change.
@@ -1448,6 +1454,11 @@ class CalendarCardPro extends LitElement {
       return;
     }
 
+    if (!this._titleMotion && supportsTitleMotion()) {
+      this._titleMotion = new TitleMotionController(this, () => this._scheduleTitleScrollMeasure());
+    }
+    this._titleMotion?.sync(titles);
+
     if (typeof ResizeObserver !== 'undefined') {
       this._titleScrollObserver = new ResizeObserver(() => this._scheduleTitleScrollMeasure());
       // The card catches a width change that reflows every title at once; each title catches
@@ -1456,7 +1467,7 @@ class CalendarCardPro extends LitElement {
       titles.forEach((title) => this._titleScrollObserver?.observe(title));
     }
 
-    if (typeof IntersectionObserver !== 'undefined') {
+    if (!this._titleMotion && typeof IntersectionObserver !== 'undefined') {
       this._titleScrollIntersectionObserver = new IntersectionObserver((entries) => {
         const offscreen = entries.every((entry) => !entry.isIntersecting);
         this.classList.toggle('calendar-card-title-scroll-paused', offscreen);
@@ -1526,20 +1537,52 @@ class CalendarCardPro extends LitElement {
       '.event-title.title-scrollable',
     ),
   ): void {
-    const measurements = Array.from(titles).flatMap((title) => {
+    const candidates = Array.from(titles).flatMap((title) => {
       const fit = title.closest<HTMLElement>('.grid-event')?.dataset.gridTitleFit;
       if (fit === 'compact' || fit === 'blank' || fit === 'measuring') return [];
       const content = title.querySelector<HTMLElement>('.event-title-scroll');
-      return content
-        ? [
-            {
-              title,
-              distance: content.offsetWidth - title.clientWidth,
-              direction: getComputedStyle(title).direction === 'rtl' ? '1' : '-1',
-            },
-          ]
-        : [];
+      return content ? [{ title, content }] : [];
     });
+    // WebKit rounds an inline fragment's offsetWidth differently from an inline-block.
+    // Measure pending text in the same local-pixel box it will move in, then restore its
+    // static ellipsis before paint. Otherwise an unchanged tick withdraws a reader over
+    // a one-pixel measurement-only change. Existing moving effects never change display.
+    const inline = this._titleMotion?.enhanced
+      ? candidates
+          .filter(({ content }) => getComputedStyle(content).display === 'inline')
+          .map(({ content }) => ({
+            content,
+            display: content.style.getPropertyValue('display'),
+            priority: content.style.getPropertyPriority('display'),
+          }))
+      : [];
+    for (const { content } of inline) {
+      content.style.setProperty('display', 'inline-block', 'important');
+    }
+    let measurements: TitleScrollMeasurement[];
+    try {
+      measurements = candidates.map(({ title, content }) => {
+        const style = getComputedStyle(title);
+        return {
+          title,
+          content,
+          distance: content.offsetWidth - title.clientWidth,
+          direction: style.direction === 'rtl' ? 1 : -1,
+          signature: JSON.stringify([
+            content.textContent,
+            style.font,
+            style.letterSpacing,
+            style.wordSpacing,
+            style.textTransform,
+          ]),
+        };
+      });
+    } finally {
+      for (const { content, display, priority } of inline) {
+        if (display) content.style.setProperty('display', display, priority);
+        else content.style.removeProperty('display');
+      }
+    }
     measurements.forEach(({ title, distance, direction }) => {
       if (distance > Constants.TITLE_SCROLL.MIN_OVERFLOW_PX) {
         const seconds = Math.max(
@@ -1548,7 +1591,7 @@ class CalendarCardPro extends LitElement {
             (Constants.TITLE_SCROLL.SPEED_PX_PER_S * Constants.TITLE_SCROLL.TRAVEL_FRACTION),
         );
         title.style.setProperty('--calendar-card-title-scroll-distance', `${distance}px`);
-        title.style.setProperty('--calendar-card-title-scroll-direction', direction);
+        title.style.setProperty('--calendar-card-title-scroll-direction', String(direction));
         title.style.setProperty('--calendar-card-title-scroll-duration', `${seconds.toFixed(2)}s`);
         title.classList.add('title-overflowing');
       } else {
@@ -1558,6 +1601,7 @@ class CalendarCardPro extends LitElement {
         title.style.removeProperty('--calendar-card-title-scroll-duration');
       }
     });
+    this._titleMotion?.measure(measurements);
   }
 
   /**
@@ -1583,7 +1627,11 @@ class CalendarCardPro extends LitElement {
       this._titleScrollRaf = null;
     }
 
-    if (clearPause) this.classList.remove('calendar-card-title-scroll-paused');
+    if (clearPause) {
+      this._titleMotion?.dispose();
+      this._titleMotion = null;
+      this.classList.remove('calendar-card-title-scroll-paused');
+    }
   }
 
   /**

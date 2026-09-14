@@ -619,8 +619,9 @@ export const EDITOR_STRINGS: Readonly<Record<string, string>> = {
   'title_max_lines.helper': 'Zero means no limit. A truncated title ends in an ellipsis.',
   scroll_long_titles: 'Scroll Long Titles',
   'scroll_long_titles.helper':
-    'Long titles scroll to reveal their ending in left-to-right and right-to-left layouts. Forces a ' +
-    'single line and overrides the title line limit; never animates under reduced motion.',
+    'Where supported, visible overflowing titles start together, return quickly one by one, ' +
+    'and wait at their beginnings. Forces one line in either text direction and overrides ' +
+    'the title line limit. Never animates under reduced motion; older browsers keep independent scrolling.',
   allday_badge_position: 'All-Day Badge',
   'allday_badge_position.helper':
     'Marks all-day events with a rounded badge in the calendar accent color. On the time ' +

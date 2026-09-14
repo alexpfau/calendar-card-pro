@@ -364,7 +364,7 @@
   "title_max_lines": "Pavadinimo eilučių riba",
   "title_max_lines.helper": "Nulis reiškia, kad ribos nėra. Sutrumpintas pavadinimas baigiasi daugtaškiu.",
   "scroll_long_titles": "Slinkti ilgus pavadinimus",
-  "scroll_long_titles.helper": "Ilgi pavadinimai slenka, kad jų pabaiga būtų matoma tiek iš kairės į dešinę, tiek iš dešinės į kairę išdėstymuose. Priverčia vieną eilutę ir nepaiso pavadinimo eilučių ribos; esant sumažintam judesiui, niekada neanimuojama.",
+  "scroll_long_titles.helper": "Jei naršyklė palaiko, matomi per ilgi pavadinimai pradeda slinkti kartu, po vieną greitai grįžta ir laukia pradžioje. Priverčia vieną eilutę abiem teksto kryptimis ir nepaiso pavadinimo eilučių ribos. Esant sumažintam judesiui neanimuojama; senesnėse naršyklėse pavadinimai slenka nepriklausomai.",
   "allday_badge_position": "Visos dienos ženklelis",
   "allday_badge_position.helper": "Išryškina visos dienos įvykius suapvalintu ženkleliu kalendoriaus akcentine spalva. Laiko eilutėje jis pakeičia visos dienos etiketę, o prie pavadinimo apgaubia įvykio pavadinimą. Pavadinimo ženklelis lieka vienoje eilutėje ir sutrumpinamas daugtaškiu.",
   "allday_badge_position.option.off.label": "Išjungta",

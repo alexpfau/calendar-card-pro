@@ -364,7 +364,7 @@
   "title_max_lines": "Limit wierszy tytułu",
   "title_max_lines.helper": "Zero oznacza brak limitu. Skrócony tytuł kończy się wielokropkiem.",
   "scroll_long_titles": "Przewijaj długie tytuły",
-  "scroll_long_titles.helper": "Długie tytuły przewijają się, aby pokazać zakończenie w układach od lewej do prawej i od prawej do lewej. Wymusza jeden wiersz i zastępuje limit wierszy tytułu; przy ograniczonym ruchu nigdy nie jest animowany.",
+  "scroll_long_titles.helper": "Jeśli przeglądarka to obsługuje, widoczne zbyt długie tytuły zaczynają razem, szybko wracają pojedynczo i czekają na początku. Wymusza jeden wiersz w obu kierunkach tekstu i zastępuje limit wierszy tytułu. Brak animacji przy ograniczonym ruchu; starsze przeglądarki zachowują niezależne przewijanie.",
   "allday_badge_position": "Odznaka całodniowa",
   "allday_badge_position.helper": "Wyróżnia wydarzenia całodniowe zaokrągloną odznaką w kolorze akcentu kalendarza. W wierszu godziny zastępuje etykietę całodniową, a przy tytule otacza nazwę wydarzenia. Odznaka przy tytule pozostaje jednowierszowa i jest skracana wielokropkiem.",
   "allday_badge_position.option.off.label": "Wyłączona",

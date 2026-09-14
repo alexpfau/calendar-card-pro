@@ -364,7 +364,7 @@
   "title_max_lines": "Virsraksta rindu ierobežojums",
   "title_max_lines.helper": "Nulle nozīmē, ka ierobežojuma nav. Saīsināts virsraksts beidzas ar daudzpunkti.",
   "scroll_long_titles": "Ritināt garus virsrakstus",
-  "scroll_long_titles.helper": "Gari virsraksti ritinās, lai parādītu to beigas izkārtojumos gan no kreisās uz labo, gan no labās uz kreiso pusi. Piespiež vienu rindu un ignorē virsraksta rindu ierobežojumu; ar samazinātu kustību nekad netiek animēts.",
+  "scroll_long_titles.helper": "Ja pārlūks to atbalsta, redzamie pārāk garie virsraksti sāk ritināties kopā, pa vienam ātri atgriežas un gaida sākumā. Piespiež vienu rindu abos teksta virzienos un ignorē virsraksta rindu ierobežojumu. Ar samazinātu kustību animācijas nav; vecāki pārlūki saglabā neatkarīgu ritināšanu.",
   "allday_badge_position": "Visas dienas nozīmīte",
   "allday_badge_position.helper": "Izceļ visas dienas notikumus ar noapaļotu nozīmīti kalendāra akcenta krāsā. Laika rindā tā aizstāj visas dienas etiķeti, bet pie virsraksta ietver notikuma nosaukumu. Virsraksta nozīmīte paliek vienā rindā un tiek saīsināta ar daudzpunkti.",
   "allday_badge_position.option.off.label": "Izslēgts",
