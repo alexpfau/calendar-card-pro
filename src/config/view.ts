@@ -1232,8 +1232,10 @@ export function resolveViewOption<K extends keyof Types.ColumnOverrides & keyof 
   const overrides = blockValues(config, effectiveView);
 
   if (overrides && hasOverride(overrides, key)) {
-    // Both resolvers apply the root's length and numeric rules after the override.
-    // Otherwise a quoted number works at root but changes behavior inside a view block.
+    // Both resolvers apply the root's length and numeric rules after the override — on
+    // this path only. Otherwise a quoted number works at root but changes behavior inside
+    // a view block. The default path below is where the two diverge: it returns the view
+    // default raw, where `resolveEffectiveConfig` normalizes it with the merged object.
     const resolved = normalizeNumericOptions({
       ...config,
       [key]: coercePixelLength(key, overrides[key]),
@@ -1509,7 +1511,7 @@ export function sanitizeGutter(value: string): string {
 
 // Threshold arithmetic can only use plain pixel lengths.
 function parsePx(value: string, fallback: number): number {
-  const match = /^(\d+(?:\.\d+)?)px$/.exec(sanitizeGutter(value).trim());
+  const match = /^(\d+(?:\.\d+)?)px$/i.exec(sanitizeGutter(value).trim());
   return match ? Number.parseFloat(match[1]) : fallback;
 }
 
@@ -1583,7 +1585,7 @@ function dayColumnViewOverheadPx(
   }
 
   const axisWidth = String(resolveTimeGridOption(config, 'axis_width')).trim();
-  const match = /^(\d+(?:\.\d+)?)px$/.exec(axisWidth);
+  const match = /^(\d+(?:\.\d+)?)px$/i.exec(axisWidth);
   const axis =
     match !== null
       ? Number.parseFloat(match[1])

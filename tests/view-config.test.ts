@@ -1100,6 +1100,25 @@ describe('computeColumnThresholdPx', () => {
     expect(computeColumnThresholdPx(config)).toBe(492);
   });
 
+  it('reads a pixel gutter whatever case its unit is written in', () => {
+    // CSS units are case-insensitive, so `20PX` is a 20px gutter the browser renders as
+    // one. A case-sensitive match reads it as unresolvable and substitutes the 10px
+    // default, under-counting the threshold by twice the difference.
+    //
+    // The value matters for the same reason it does above: `10PX` would pass either way,
+    // because the fallback is also 10.
+    const lower = computeColumnThresholdPx(buildConfig({ column: { day_spacing: '20px' } }));
+
+    expect(lower).toBe(492);
+
+    for (const written of ['20PX', '20Px', '20pX'] as const) {
+      const config = buildConfig();
+      config.column = { day_spacing: written };
+
+      expect(computeColumnThresholdPx(config), written).toBe(lower);
+    }
+  });
+
   it('falls back rather than producing NaN for a non-px gutter', () => {
     // `day_spacing` is a CSS length, so `2em` and `calc(...)` are legal values the card
     // cannot resolve without layout. A NaN threshold compares false against every
@@ -1631,6 +1650,22 @@ describe('resolveColumnFit — grid reduction', () => {
 
     expect(computeColumnThresholdPxFor(config, 3, 'grid')).toBe(383);
     expect(resolveColumnFit('grid', config, 368, null)).toEqual({ view: 'grid', columns: 2 });
+  });
+
+  it('reads a pixel axis width whatever case its unit is written in', () => {
+    // CSS units are case-insensitive, so `128PX` paints at 128px. A case-sensitive match
+    // reserves the 48px `max-content` fallback instead and accepts a day column the card
+    // has no room for. `48px` cannot state this: the fallback is also 48, so both branches
+    // agree by coincidence and the assertion holds whether the match succeeds or not.
+    const lower = computeColumnThresholdPxFor(build({ axis_width: '128px' }), 3, 'grid');
+
+    expect(lower).toBe(463);
+
+    for (const written of ['128PX', '128Px', '128pX'] as const) {
+      expect(computeColumnThresholdPxFor(build({ axis_width: written }), 3, 'grid'), written).toBe(
+        lower,
+      );
+    }
   });
 
   it('keeps the axis-to-day gap when hidden max-content labels collapse the axis', () => {

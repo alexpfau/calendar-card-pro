@@ -138,6 +138,24 @@ export function resolveBand(startTime: string, endTime: string): GridBand {
 }
 
 /**
+ * Coerces a configured label cadence to one the axis can be laid out with.
+ *
+ * Exposed rather than left inline because the cadence decides two things at once — which
+ * minutes get a label, and whether those labels carry minutes at all. A caller deriving
+ * one from the guarded value and the other from the raw one would generate labels at the
+ * fallback and then format them for the raw cadence, so a gutter that should read `7, 8`
+ * reads `07:00, 08:00`. Today `resolveTimeGridOption` admits only the offered cadences,
+ * every one of them finite and positive, so the fallback is unreachable through
+ * configuration; this keeps both derivations tied to one value regardless.
+ *
+ * @param cadenceMinutes - Configured `axis_label_minutes`
+ * @returns The cadence to lay out with, or the hourly fallback
+ */
+export function axisCadenceMinutes(cadenceMinutes: number): number {
+  return Number.isFinite(cadenceMinutes) && cadenceMinutes > 0 ? cadenceMinutes : 60;
+}
+
+/**
  * Minutes from midnight that get an axis label, one per cadence boundary on or inside
  * the band's bounds.
  *
@@ -166,7 +184,7 @@ export function resolveBand(startTime: string, endTime: string): GridBand {
  * @returns Ascending minutes from midnight, each on or inside the band's bounds
  */
 export function axisLabelMinutes(band: GridBand, cadenceMinutes: number): number[] {
-  const cadence = Number.isFinite(cadenceMinutes) && cadenceMinutes > 0 ? cadenceMinutes : 60;
+  const cadence = axisCadenceMinutes(cadenceMinutes);
   const first = Math.ceil(band.startMin / cadence) * cadence;
   const minutes: number[] = [];
 

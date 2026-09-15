@@ -449,7 +449,7 @@ export function coercePixelLengthAgainst(
  *
  * Inferring length-ness from the default is right for almost every option and is what
  * keeps this from being a list somebody has to remember to update — but it can only work
- * when the default *is* a pixel length. These five ship something else, so the inference
+ * when the default *is* a pixel length. These six ship something else, so the inference
  * reads them as ordinary strings and returns every value untouched:
  *
  * | Option                | Ships          | Why it is not a pixel length          |
@@ -465,7 +465,7 @@ export function coercePixelLengthAgainst(
  * it breaks `day_spacing`: `font-size: var(--calendar-card-font-size-title, …)` given a
  * unitless `24` **substitutes** rather than falling back, so the declaration goes invalid
  * at computed-value time and the title silently drops to its inherited size — worse than
- * never setting the option. Three of the five are free-text fields in the visual editor,
+ * never setting the option. Four of the six are free-text fields in the visual editor,
  * where typing `24` is the natural thing to do.
  *
  * `today_indicator_position` is deliberately absent. It ships `'15% 50%'`, which is a

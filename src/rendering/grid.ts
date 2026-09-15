@@ -452,7 +452,9 @@ function renderAxis(
 ): TemplateResult {
   const bandLength = band.endMin - band.startMin;
   const use24h = FormatUtils.resolveTimeFormat24h(config, hass);
-  const cadence = Number(ViewConfig.resolveTimeGridOption(config, 'axis_label_minutes'));
+  const cadence = Grid.axisCadenceMinutes(
+    Number(ViewConfig.resolveTimeGridOption(config, 'axis_label_minutes')),
+  );
   const withMinutes = cadence % 60 !== 0;
   const labels = Grid.axisLabelMinutes(band, cadence).map((minute) => ({
     text: formatAxisLabel(minute, use24h, withMinutes),
