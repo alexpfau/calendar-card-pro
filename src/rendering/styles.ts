@@ -6,6 +6,12 @@ import { ACCENT_TEXT_OPTIONS } from './accent-text';
 import * as Config from '../config/config';
 import type * as Types from '../config/types';
 import * as ViewConfig from '../config/view';
+// Imported by name rather than reached through ViewConfig so that the one declaration
+// interpolating them stays inside prettier's 100-column limit. The qualified form is
+// four characters too long, and prettier answers that by breaking the declaration
+// across two lines -- which changes the emitted text from `4px 8px` to `4px\n  8px`
+// and fails the stylesheet assertion that pins it. Do not "tidy" these back.
+import { GRID_AXIS_PADDING_END_PX, GRID_AXIS_PADDING_START_PX } from '../config/view';
 import * as EntityColors from '../utils/entity-colors';
 
 /**
@@ -2144,7 +2150,12 @@ export const cardStyles = css`
   .grid-axis {
     position: relative;
     box-sizing: border-box;
-    padding-inline: 4px 8px;
+    /* Interpolated, not written out, because the width fitter subtracts exactly this
+       padding before scaling its axis reservation by time_font_size and adds it back
+       after -- padding is fixed where the labels are not. A literal here would be a
+       second copy of a number that arithmetic elsewhere depends on matching, and the
+       drift would show up as mis-fitted day columns rather than as a visible defect. */
+    padding-inline: ${GRID_AXIS_PADDING_START_PX}px ${GRID_AXIS_PADDING_END_PX}px;
     /* Labels are clamped to their half-line inset below. This is still needed when a
        user makes the content area shorter than one line: the axis owns the clipping
        instead of extending the calendar beyond its configured height. */

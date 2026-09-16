@@ -1491,12 +1491,34 @@ function warnAboutTopLevelOnlyKeys(config: Types.Config, block: ViewBlock): void
 const COLUMN_CARD_PADDING_PX = 32;
 
 /**
- * Conservative pixel reservation for a content-sized grid axis labelled on the hour.
+ * Inline padding on the grid's axis track, in pixels — start, then end.
+ *
+ * 🚨 These two are the *source* of `.grid-axis { padding-inline: … }`, which
+ * interpolates them rather than restating them. {@link maxContentAxisPx} subtracts this
+ * padding before scaling its reservation by `time_font_size` and adds it back after,
+ * because padding is a fixed length that does not follow the font. A second copy of `4`
+ * and `8` in the stylesheet is exactly how that subtraction would quietly stop matching
+ * the width it is subtracted from — the reservation would keep scaling a padding the
+ * card no longer draws, or stop scaling text the card does.
+ */
+export const GRID_AXIS_PADDING_START_PX = 4;
+export const GRID_AXIS_PADDING_END_PX = 8;
+
+/** The part of a painted axis track that is padding rather than text. */
+const GRID_AXIS_PADDING_PX = GRID_AXIS_PADDING_START_PX + GRID_AXIS_PADDING_END_PX;
+
+/**
+ * Conservative pixel reservation for a content-sized grid axis labelled on the hour,
+ * **at the shipped {@link GRID_AXIS_BASE_FONT_PX} label size**.
  *
  * The actual track is measured by CSS from the widest hour label. Width fitting runs
  * before that grid exists, so it cannot read the track. Forty-eight pixels covers the
  * shipped 12px labels in both 24-hour and 12-hour formats, including the axis's 12px
  * inline padding. An explicit pixel `axis_width` is accounted for exactly.
+ *
+ * It is a baseline rather than an absolute: `time_font_size` scales the labels, so
+ * {@link maxContentAxisPx} scales this constant's text portion with it. Read the two
+ * together — this number alone is only the answer at the default font.
  *
  * Measured on the deployed build (`?v=585`, 1920px viewport) at the shipped
  * `axis_label_minutes: 60`: the painted `.grid-axis` track is 46.77px in 12-hour format
@@ -1523,6 +1545,9 @@ const GRID_MAX_CONTENT_AXIS_PX = 48;
  * decided until a `hass` is in hand — so it reserves the wider of the two. 72 rather
  * than 64 because over-reserving sheds a column marginally early and under-reserving
  * overflows the card, and only one of those is recoverable by widening the browser.
+ *
+ * Like its hourly counterpart this is the figure at the shipped
+ * {@link GRID_AXIS_BASE_FONT_PX}; {@link maxContentAxisPx} scales its text portion.
  */
 const GRID_MAX_CONTENT_AXIS_MINUTES_PX = 72;
 
@@ -1572,14 +1597,32 @@ export function sanitizeGutter(value: string): string {
   return value.trim().startsWith('-') ? DEFAULT_CONFIG.day_spacing : value;
 }
 
-// Threshold arithmetic can only use plain pixel lengths.
-function parsePx(value: string, fallback: number): number {
-  const match = /^(\d+(?:\.\d+)?)px$/i.exec(sanitizeGutter(value).trim());
+/**
+ * Reads a plain pixel length, or falls back.
+ *
+ * Shares {@link AXIS_WIDTH_PX} with `normalizeAxisWidth` for the reason that regex's own
+ * docblock gives: a second copy is how two readers of the same CSS length start
+ * disagreeing about what counts as one.
+ */
+function parsePixelLength(value: string, fallback: number): number {
+  const match = AXIS_WIDTH_PX.exec(value.trim());
   return match ? Number.parseFloat(match[1]) : fallback;
+}
+
+// Threshold arithmetic can only use plain pixel lengths. Gutters additionally route
+// through `sanitizeGutter`, so a negative one reserves the shipped default rather than
+// subtracting width. Do not reuse this for lengths that are not gutters: substituting
+// `day_spacing` for a negative font size would scale the axis by 10/12 and under-reserve.
+function parsePx(value: string, fallback: number): number {
+  return parsePixelLength(sanitizeGutter(value), fallback);
 }
 
 // Derived so the threshold fallback matches the rendered default gutter.
 const DEFAULT_DAY_GAP_PX = parsePx(DEFAULT_CONFIG.day_spacing, 10);
+
+// Derived, for the same reason, so the font the axis constants were measured at is read
+// from the shipped default rather than restated as a literal beside it.
+const GRID_AXIS_BASE_FONT_PX = parsePixelLength(DEFAULT_CONFIG.time_font_size, 12);
 
 /**
  * Computes the card width, in pixels, at or above which column view can render.
@@ -1660,27 +1703,53 @@ function dayColumnViewOverheadPx(
       ? Number.parseFloat(match[1])
       : axisWidth === 'max-content' && !resolveTimeGridOption(config, 'show_axis_labels')
         ? 0
-        : maxContentAxisPx(config);
+        : maxContentAxisPx(config, view);
 
   return axis + gutter;
 }
 
 /**
- * Reservation for a `max-content` axis, chosen by what the labels will say.
+ * Reservation for a `max-content` axis, chosen by what the labels say and how large
+ * they are drawn.
  *
  * The cadence decides the format — below the hour every label carries minutes — so it
- * decides the width, and this is the only place the arithmetic can learn that. The
- * `show_axis_labels: false` branch above is deliberately tested first, so switching the
- * labels off still reserves nothing whatever the cadence says; the cadence is moot then
- * and must not cost anything.
+ * decides how many characters there are, and this is the only place the arithmetic can
+ * learn that. The `show_axis_labels: false` branch above is deliberately tested first,
+ * so switching the labels off still reserves nothing whatever the cadence says; the
+ * cadence is moot then and must not cost anything.
+ *
+ * `time_font_size` decides how wide each of those characters is drawn. Both constants
+ * were measured at the shipped {@link GRID_AXIS_BASE_FONT_PX}, so a larger font paints a
+ * wider axis than they reserve, and `fitColumns` — believing it has room it does not
+ * have — grants a day column that will not fit. Nothing is mis-painted: `max-content`
+ * always sizes the track correctly. Only this estimate of it was wrong.
+ *
+ * Only the *text* scales. {@link GRID_AXIS_PADDING_PX} is a fixed length that does not
+ * follow the font, so it is subtracted before scaling and added back after; scaling the
+ * whole constant would over-reserve badly at large sizes. At the shipped font the factor
+ * is exactly 1 and this returns each constant unchanged — an identity that falls out of
+ * the arithmetic rather than a special case guarding it.
+ *
+ * A non-pixel `time_font_size` (`1.5em`, `larger`, `calc(…)`) cannot be resolved without
+ * a layout context, so it falls back to the base font and the factor is 1 again: the
+ * unscaled constant, which is precisely what shipped before this scaled anything and so
+ * is strictly no worse. Deliberately no warning — `time_font_size` is card-wide and
+ * behaves correctly in list and column view, so warning from grid would fire on
+ * configurations that are fine.
  *
  * @param config - Merged configuration, defaults already applied
+ * @param view - Effective view, so a `time_grid:` block override is honored
  * @returns Pixels to reserve for the axis track
  */
-function maxContentAxisPx(config: Types.Config): number {
+function maxContentAxisPx(config: Types.Config, view: Types.EffectiveView): number {
   const cadence = Number(resolveTimeGridOption(config, 'axis_label_minutes'));
+  const base = cadence % 60 === 0 ? GRID_MAX_CONTENT_AXIS_PX : GRID_MAX_CONTENT_AXIS_MINUTES_PX;
+  const fontPx = parsePixelLength(
+    String(resolveViewOption(config, 'time_font_size', view)),
+    GRID_AXIS_BASE_FONT_PX,
+  );
 
-  return cadence % 60 === 0 ? GRID_MAX_CONTENT_AXIS_PX : GRID_MAX_CONTENT_AXIS_MINUTES_PX;
+  return (base - GRID_AXIS_PADDING_PX) * (fontPx / GRID_AXIS_BASE_FONT_PX) + GRID_AXIS_PADDING_PX;
 }
 
 // Resolved through `resolveViewOption` rather than by hand, so this cannot disagree with
