@@ -2189,6 +2189,16 @@ class CalendarCardPro extends LitElement {
             `(24:00 is allowed for the end). Falling back to ${GridUtils.DEFAULT_BAND_START}-${GridUtils.DEFAULT_BAND_END}.`,
         );
       }
+      // Read raw rather than through `resolveTimeGridOption`, which returns the value
+      // already folded — the point of the message is to name what was written.
+      const axisWidth = this.config.time_grid.axis_width;
+      if (axisWidth !== undefined && ViewConfig.normalizeAxisWidth(axisWidth).usedFallback) {
+        Logger.warn(
+          `Invalid time_grid axis_width "${axisWidth}": expected a pixel length such as "128px", or "max-content". ` +
+            `Other CSS lengths cannot be reserved before the grid is laid out, so the day columns would be ` +
+            `fitted against the wrong axis width. Falling back to "max-content".`,
+        );
+      }
     }
 
     // Column fitting is hysteretic: it holds the current answer inside a band so

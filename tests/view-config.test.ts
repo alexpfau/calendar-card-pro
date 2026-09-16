@@ -1812,7 +1812,9 @@ describe('resolveColumnFit — grid reduction', () => {
   it('coerces bare grid length values without discarding non-pixel units', () => {
     expect(resolveTimeGridOption(build({ axis_width: 60 as never }), 'axis_width')).toBe('60px');
     expect(resolveTimeGridOption(build({ axis_width: '60' }), 'axis_width')).toBe('60px');
-    expect(resolveTimeGridOption(build({ axis_width: '4rem' }), 'axis_width')).toBe('4rem');
+    // `axis_width` is the exception to the second half of this test's name: it is
+    // reserved in pixels before layout exists, so a non-pixel unit is folded rather
+    // than carried. The moved case lives in `tests/grid-axis-width.test.ts`.
     expect(resolveTimeGridOption(build({ hour_height: 72 as never }), 'hour_height')).toBe('72px');
     expect(resolveTimeGridOption(build({ hour_height: '5em' }), 'hour_height')).toBe('5em');
   });

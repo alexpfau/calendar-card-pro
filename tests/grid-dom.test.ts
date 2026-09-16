@@ -237,12 +237,12 @@ describe('the grid shares one column template', () => {
       buildConfig({
         view: 'grid',
         days_to_show: 7,
-        time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp', axis_width: '4em' },
+        time_grid: { min_days_to_show: 7, min_days_fallback: 'cramp', axis_width: '128px' },
       }),
     );
     const grid = requireElement<HTMLElement>(container, '.grid-container');
 
-    expect(grid.style.gridTemplateColumns).toBe('4em repeat(7, minmax(2rem, 1fr))');
+    expect(grid.style.gridTemplateColumns).toBe('128px repeat(7, minmax(2rem, 1fr))');
     expect(grid.style.overflowX).toBe('auto');
     expect(grid.tabIndex).toBe(0);
     expect(container.querySelectorAll('.grid-day-body')).toHaveLength(7);

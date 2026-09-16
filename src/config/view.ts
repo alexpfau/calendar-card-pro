@@ -675,6 +675,58 @@ type TimeGridOptionValue<K extends keyof typeof TIME_GRID_DEFAULTS> =
       : string;
 
 /**
+ * A pixel length the axis reservation can read: digits, optional decimals, `px`.
+ *
+ * Shared deliberately between {@link normalizeAxisWidth}, which decides what may be
+ * painted, and {@link dayColumnViewOverheadPx}, which reserves the painted width in
+ * pixels. They are the two halves of one contract, so a second copy of this pattern is
+ * a way for them to disagree — which is the defect this constant exists to close, and
+ * which case-sensitivity alone has already produced here once.
+ *
+ * Carries a capture group for the reservation's `exec`; the normalizer only tests.
+ * No `g` flag, so there is no `lastIndex` for the two callers to share.
+ */
+const AXIS_WIDTH_PX = /^(\d+(?:\.\d+)?)px$/i;
+
+/**
+ * Normalizes `axis_width` to a value the browser and the width fitter read the same way.
+ *
+ * `axis_width` is written straight into `grid-template-columns`, so the browser honors any
+ * CSS length — while {@link dayColumnViewOverheadPx} has to reserve that gutter in pixels
+ * *before* the grid exists, and can only read {@link AXIS_WIDTH_PX} and `max-content`.
+ * Anything else painted at its true width and reserved 48px, so the fitter granted day
+ * columns the card had no room for and the tracks fell below `min_day_width`.
+ *
+ * Teaching the reservation `em`/`rem`/`%`/`calc()` is not on the table: it runs before
+ * layout, so it cannot measure a painted track — {@link GRID_MAX_CONTENT_AXIS_PX} states
+ * that — `calc()` needs a CSS parser, and `em` resolves against a font size that is itself
+ * free-form. Half of that would leave the same defect, rarer and harder to find. So the two
+ * sides are instead made to agree by construction: accept only what both can read, and fold
+ * the rest to the shipped default. `setConfig` warns when it folds, so the substitution is
+ * visible rather than silent.
+ *
+ * Runs **after** {@link coercePixelLengthAgainst} rather than before it. `axis_width` is in
+ * {@link LENGTH_OPTIONS_WITHOUT_PIXEL_DEFAULT}, so a bare `128` from YAML or from the
+ * editor's text field is already a supported spelling of `128px`; validating first would
+ * mean restating that rule here, and `config.ts` keeps it in one place precisely so the two
+ * tables of lengths cannot drift apart. Ordering it after also means exactly one
+ * accept-test, against a value already in its final spelling.
+ *
+ * @param value - Raw configured value
+ * @returns The value to paint, and whether it replaced one the reservation cannot read
+ */
+export function normalizeAxisWidth(value: unknown): { value: string; usedFallback: boolean } {
+  const fallback = TIME_GRID_DEFAULTS.axis_width;
+  const coerced = String(coercePixelLengthAgainst(fallback, value, 'axis_width'));
+
+  if (coerced === 'max-content' || AXIS_WIDTH_PX.test(coerced)) {
+    return { value: coerced, usedFallback: false };
+  }
+
+  return { value: fallback, usedFallback: true };
+}
+
+/**
  * Normalizes a grid-only option to a usable value of its declared type.
  *
  * These values never pass through `normalizeConfig`, so a malformed `slot_minutes` or a
@@ -688,6 +740,10 @@ type TimeGridOptionValue<K extends keyof typeof TIME_GRID_DEFAULTS> =
  *
  * `start_time` and `end_time` are deliberately **not** validated here — they are a pair,
  * and a bad half must reset both. {@link Grid.resolveBand} owns that.
+ *
+ * `axis_width` is the one length narrower than "any CSS length": it is reserved in pixels
+ * before layout exists, so {@link normalizeAxisWidth} folds anything the reservation
+ * cannot read back to the shipped default.
  *
  * @param key - Option being resolved
  * @param value - Raw configured value
@@ -735,6 +791,13 @@ export function normalizeTimeGridValue(
   // into `0px`.
   if (key === 'weekend_background_color') {
     return typeof value === 'string' ? value : fallback;
+  }
+
+  // A length, but not a free one: it is reserved in pixels before the grid is laid out.
+  // See {@link normalizeAxisWidth} for why the accepted set is this narrow, and why the
+  // check runs after the pixel coercion rather than before it.
+  if (key === 'axis_width') {
+    return normalizeAxisWidth(value).value;
   }
 
   return String(coercePixelLengthAgainst(fallback, value, key));
@@ -1574,6 +1637,12 @@ export function computeColumnThresholdPxFor(
  *
  * Column view has no leading track. Grid view has a time axis followed by a gap, and
  * omitting either lets the fitted day tracks fall below `min_day_width`.
+ *
+ * The axis value arrives through {@link normalizeAxisWidth}, so it is either a pixel
+ * length this reads exactly or `max-content`, and the two branches below are the whole
+ * vocabulary rather than a match plus a catch-all. That is what stops a length the
+ * browser honors and this cannot read — `3.5em`, `50%`, `calc(48px + 1em)` — from
+ * painting its true width while being reserved at {@link GRID_MAX_CONTENT_AXIS_PX}.
  */
 function dayColumnViewOverheadPx(
   config: Types.Config,
@@ -1585,7 +1654,7 @@ function dayColumnViewOverheadPx(
   }
 
   const axisWidth = String(resolveTimeGridOption(config, 'axis_width')).trim();
-  const match = /^(\d+(?:\.\d+)?)px$/i.exec(axisWidth);
+  const match = AXIS_WIDTH_PX.exec(axisWidth);
   const axis =
     match !== null
       ? Number.parseFloat(match[1])

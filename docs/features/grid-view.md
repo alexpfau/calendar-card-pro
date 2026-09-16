@@ -145,12 +145,15 @@ hour rules are drawn more strongly than the ones between them, so the eye still 
 the hour.
 
 `axis_width` sets the label gutter. It defaults to `max-content`, so the gutter sizes to
-the widest visible hour label with fixed padding on both sides. Set a CSS length when you
-want a fixed gutter:
+the widest visible hour label with fixed padding on both sides. The only other value it
+accepts is a pixel length, because the card reserves the gutter's width before the grid
+exists and cannot measure a track it has not drawn yet — a bare number is read as pixels,
+so `axis_width: 56` and `axis_width: 56px` are the same thing. Any other length folds back
+to `max-content` and the card logs a warning naming the value it ignored.
 
 ```yaml
 time_grid:
-  axis_width: 3.5em
+  axis_width: 56px
 ```
 
 `show_axis_labels: false` removes the hour labels while keeping the scale — useful on a
