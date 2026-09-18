@@ -50,6 +50,11 @@ docs/.vitepress/cache/
 # Ignore local-only MCP server config (may contain access tokens)
 .mcp.json
 
+# Timestamped backups of the above. The `.mcp.json` rule matches that name exactly, so a
+# `.mcp.json.bak.20260918-224359` written before an edit shows up as untracked and is one
+# `git add -A` away from publishing a token-bearing URL from a private config.
+*.bak.*
+
 # Local agent skills (machine-specific, not for contributors).
 # No trailing slash: worktrees reach these through a symlink, and a
 # `.agents/` pattern matches real directories only, so the link would
