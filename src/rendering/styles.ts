@@ -2612,6 +2612,31 @@ export const cardStyles = css`
     white-space: normal;
   }
 
+  /* Grid is the only view that forbids the time from wrapping, so it is the only one where
+     a too-narrow row has to end somewhere rather than flow onto a second line. Left alone
+     it ends mid-glyph: the span carrying the time inherits display: -webkit-box from the
+     time_max_lines rule, and a -webkit-box cannot draw a text-overflow ellipsis at all,
+     while the clamp that would draw its own is none at the shipped default of 0. The
+     result is a flat vertical cut through a digit — "10:00 - 12" with the colon of the
+     second time sheared in half.
+
+     Blockifying the span in grid restores the ellipsis and costs nothing, because the
+     clamp it replaces is already inert here: white-space: nowrap pins this text to one
+     line, so no line count above one is reachable whatever time_max_lines says. Note the
+     ellipsis declarations on .time and .time-actual above cannot do this job — the first
+     has no inline content of its own and the second is a flex container, and
+     text-overflow applies to neither.
+
+     Scoped to .grid-event-disclosure deliberately. Outside grid the same span keeps
+     white-space: normal and an .time-actual that does not hide its overflow, so it wraps
+     instead of slicing; list and column were measured at zero clipped rows and must stay
+     that way. .time-text keeps its own path, which wraps by design so a folded countdown
+     breaks inside itself. */
+  .grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge) {
+    display: block;
+    text-overflow: ellipsis;
+  }
+
   /* The event starts before or ends after the visible band. */
   .grid-event.clipped-top {
     border-start-start-radius: 0;
@@ -2700,8 +2725,29 @@ export const cardStyles = css`
      block's own overflow: hidden cuts it off at the bottom. The ladder of 1, 2 and 3
      lines applies only once a user sets a limit, and it is that configured case the
      clamp is written for: the title waits until one full row fits, adds a second line
-     only when there is room, and yields back to one line when the time row appears. */
-  @container calendar-card-grid-event (min-height: 40px) {
+     only when there is room, and yields back to one line when the time row appears.
+
+     This rung is the one place a width also has to be asked about, because the two axes
+     are independent: block height is duration times hour_height, block width is day width
+     divided by the number of concurrent columns, so a two-hour event is the same 96px tall
+     whether it is 400px or 37px wide. Height alone therefore revealed a time row into
+     blocks that could not hold one. 60px is measured, at the shipped 12px type: the clock
+     icon and its margin take 18px of the row, leaving 42px, which is exactly the width of
+     "10:00" plus an ellipsis. So 60px of content box is the narrowest block that can show a
+     complete start time and an honest mark that more was cut; below it the row would read
+     "10…", which is noise beside a clock icon rather than information.
+
+     Twelve-hour locales clear the same bar, because the rung is calibrated on the hour and
+     minute rather than on the whole string: at 60px a 12-hour block paints "9:00 …" and
+     picks up its AM at about 78px. Measured in Chromium at each width, not derived — an
+     earlier reading of this taken outside the grid's own ancestry inherited a 16px font
+     instead of 12px and put the figure out by a third.
+
+     The width sits on the whole rung rather than on the time row alone, which is what
+     keeps the sentence above true — the title yields its second line exactly when the time
+     row appears, so in a block too narrow for a time the title keeps the two lines the
+     36px rung gave it instead of shortening for a row that never arrives. */
+  @container calendar-card-grid-event (min-height: 40px) and (min-width: 60px) {
     .grid-event-disclosure .summary,
     .grid-event-disclosure .event-title {
       -webkit-line-clamp: var(--calendar-card-grid-title-lines-compact);

@@ -234,7 +234,10 @@ export function fittedGridDetailLines(
  * the shipped clamp — including the ellipsis it draws on the last visible line.
  *
  * Only the two rows whose content is a paragraph carry one. `.time` is `white-space: nowrap`
- * inside a grid block and so is one line by construction, ellipsised horizontally already.
+ * inside a grid block and so is one line by construction: there is no line count left to
+ * reduce, which is why it is all-or-nothing here. What that single line does horizontally is
+ * a separate problem, settled in the stylesheet by blockifying the span so it can draw an
+ * ellipsis; this pass only ever decides whether the row is shown at all.
  * `.event-weather` clamps a chip run whose text stays `display: inline` unless
  * `weather.event.max_lines` is set, so a line count alone would not bind. `.progress-bar-row`
  * has no text at all. Those three remain all-or-nothing.

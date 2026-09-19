@@ -850,6 +850,56 @@ describe('overlapping events share the column', () => {
     }
   });
 
+  it('hands a halved block a full time range in a span the ellipsis rule can reach', () => {
+    // The narrow-block regression, at the DOM end. `stylesheet.test.ts` pins the rule that
+    // ellipsizes a too-narrow grid time; this pins the half of the claim that lives in the
+    // renderer, namely that the rule's selector matches something real. Without it the CSS
+    // could target a shape the renderer never emits and every assertion would still pass.
+    //
+    // Two concurrent events are what make a block narrow: width is the day column divided
+    // by the number of overlapping events, and it moves independently of height, which is
+    // duration x hour_height. Default config renders one event per slot at full width and
+    // so cannot produce this case at all -- a test written on it would pass against the
+    // unfixed stylesheet.
+    //
+    // happy-dom has no layout engine, so "narrow" here is the 50% the renderer wrote, not a
+    // measured pixel width. What is measured, in Chromium against the real cascade, is that
+    // a block this size cannot hold the string below and that the unfixed rule cut it
+    // mid-glyph.
+    const container = renderGrid([
+      timed(17, '09:00', '11:00', 'Review'),
+      timed(17, '10:00', '12:00', 'Interview'),
+    ]);
+
+    const blocks = Array.from(container.querySelectorAll<HTMLElement>('.grid-event'));
+    expect(blocks).toHaveLength(2);
+    for (const block of blocks) {
+      expect(block.getAttribute('style')).toContain('50%');
+    }
+
+    // The exact selector the grid-only ellipsis rule uses. `:not(.time-text)` excludes the
+    // folded-countdown wrapper, which keeps its own wrapping path, and `:not(.allday-badge)`
+    // the badge that was excluded from the clamp long ago for this same failure mode.
+    const ellipsized = '.time .time-actual > span:not(.time-text):not(.allday-badge)';
+
+    const times = blocks.map((block) => block.querySelector<HTMLElement>('.time .time-actual'));
+    expect(times.every((element) => element !== null)).toBe(true);
+
+    const spans = blocks.map((block) => block.querySelector<HTMLElement>(ellipsized));
+    expect(spans.map((span) => span?.textContent?.trim() ?? null)).toEqual([
+      '9:00 AM - 11:00 AM',
+      '10:00 AM - 12:00 PM',
+    ]);
+
+    // The renderer hands over the whole range and never shortens it, so shortening is
+    // entirely the stylesheet's job -- which is why the defect could only ever be fixed
+    // there, and why a renderer-side start-only form would be a different change.
+    for (const span of spans) {
+      expect(span!.matches(ellipsized)).toBe(true);
+      expect(span!.className).toBe('');
+    }
+  });
+
   it('leaves a lone event the full width', () => {
     const container = renderGrid([timed(17, '09:00', '10:00', 'Standup')]);
 

@@ -2011,7 +2011,7 @@ describe('card stylesheet', () => {
       );
     });
 
-    it('uses height container queries for grid event disclosure', () => {
+    it('gates grid event disclosure on block height, and the time row on width too', () => {
       // This is a stylesheet gate because happy-dom does not evaluate container queries.
       // It does not prove the browser's layout result; paired with `grid-dom.test.ts`, it
       // proves the renderer emits short blocks into the CSS-only mechanism and that the
@@ -2023,8 +2023,16 @@ describe('card stylesheet', () => {
       // the only guard, and that idiom cannot notice a rung *leaving*: drop one and the
       // remaining assertions all still pass. Comparing the full map by value fails in both
       // directions, on a removed rung and on an unexplained new one.
-      const ladder: Record<number, string[]> = {};
-      const opening = /@container calendar-card-grid-event \(min-height: (\d+)px\)\s*\{/g;
+      //
+      // Both axes are pinned, because the 40px rung carries a width as well. `openings`
+      // is the denominator: the pattern below only understands a height with an optional
+      // width, so a rung written in any other shape would silently drop out of the ladder
+      // and read as a deletion. Counting the raw openings separately makes that a loud
+      // failure instead of a quiet one.
+      const ladder: { minHeight: number; minWidth: number | null; selectors: string[] }[] = [];
+      const openings = [...CSS.matchAll(/@container calendar-card-grid-event /g)].length;
+      const opening =
+        /@container calendar-card-grid-event \(min-height: (\d+)px\)(?: and \(min-width: (\d+)px\))?\s*\{/g;
       let match = opening.exec(CSS);
       while (match !== null) {
         let depth = 1;
@@ -2035,33 +2043,62 @@ describe('card stylesheet', () => {
           cursor += 1;
         }
         const body = CSS.slice(opening.lastIndex, cursor - 1);
-        ladder[Number(match[1])] = [...body.matchAll(/([^{}]+)\{/g)]
-          .flatMap((rule) => rule[1].split(','))
-          .map((selector) => selector.replace(/\s+/g, ' ').trim())
-          .filter(Boolean)
-          .sort();
+        ladder.push({
+          minHeight: Number(match[1]),
+          minWidth: match[2] === undefined ? null : Number(match[2]),
+          selectors: [...body.matchAll(/([^{}]+)\{/g)]
+            .flatMap((rule) => rule[1].split(','))
+            .map((selector) => selector.replace(/\s+/g, ' ').trim())
+            .filter(Boolean)
+            .sort(),
+        });
         match = opening.exec(CSS);
       }
+      ladder.sort((a, b) => a.minHeight - b.minHeight);
 
       expect(declared('.grid-event', 'container')).toBe('calendar-card-grid-event / size');
-      expect(ladder).toEqual({
-        19: ['.grid-event-disclosure .summary-row'],
-        36: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
-        40: [
-          '.grid-event-disclosure .event-title',
-          '.grid-event-disclosure .summary',
-          '.grid-event-disclosure .time',
-        ],
-        48: ['.grid-event-disclosure .progress-bar-row'],
-        72: [
-          '.grid-event-disclosure .description',
-          '.grid-event-disclosure .event-title',
-          '.grid-event-disclosure .event-weather',
-          '.grid-event-disclosure .location',
-          '.grid-event-disclosure .summary',
-        ],
-        96: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
-      });
+      expect(ladder).toHaveLength(openings);
+      expect(ladder).toEqual([
+        { minHeight: 19, minWidth: null, selectors: ['.grid-event-disclosure .summary-row'] },
+        {
+          minHeight: 36,
+          minWidth: null,
+          selectors: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
+        },
+        // The one rung that asks about width. Height and width are independent here --
+        // height is duration x hour_height, width is day width / concurrent columns -- so
+        // asking only about height revealed a time row into blocks far too narrow to hold
+        // one, and grid's own nowrap then cut it mid-glyph. The width rides on the whole
+        // rung rather than on `.time` alone so that the title still yields its second line
+        // exactly when the time row appears, which is the contract the ladder's comment
+        // states.
+        {
+          minHeight: 40,
+          minWidth: 60,
+          selectors: [
+            '.grid-event-disclosure .event-title',
+            '.grid-event-disclosure .summary',
+            '.grid-event-disclosure .time',
+          ],
+        },
+        { minHeight: 48, minWidth: null, selectors: ['.grid-event-disclosure .progress-bar-row'] },
+        {
+          minHeight: 72,
+          minWidth: null,
+          selectors: [
+            '.grid-event-disclosure .description',
+            '.grid-event-disclosure .event-title',
+            '.grid-event-disclosure .event-weather',
+            '.grid-event-disclosure .location',
+            '.grid-event-disclosure .summary',
+          ],
+        },
+        {
+          minHeight: 96,
+          minWidth: null,
+          selectors: ['.grid-event-disclosure .event-title', '.grid-event-disclosure .summary'],
+        },
+      ]);
 
       // Everything the ladder reveals must start hidden, or its rung is decorative.
       for (const row of ['.time', '.location', '.description', '.event-weather']) {
@@ -2104,6 +2141,50 @@ describe('card stylesheet', () => {
         'normal',
       );
       expect(declared('.grid-event-disclosure .location', 'flex')).toBe('0 0 auto');
+    });
+
+    it('ends a too-narrow grid time on an ellipsis rather than mid-glyph', () => {
+      // The defect this pins: a grid time row was cut through a digit -- "10:00 - 12" with
+      // the second colon sheared in half -- rather than ellipsized. happy-dom has no layout
+      // engine, so this is the CSS contract, measured in Chromium against the real cascade
+      // and recorded here.
+      //
+      // Why none of the ellipsis declarations one test above did this job: `.time` is a
+      // block whose only child is the block-level flex box `.time-actual`, so it has no
+      // inline content to ellipsize; `.time-actual` is `display: flex`, and text-overflow
+      // does not apply to a flex container. The element that actually clips is the span
+      // inside, and it inherits `display: -webkit-box` from the time_max_lines rule. A
+      // -webkit-box cannot draw a text-overflow ellipsis at all, and the clamp that would
+      // draw its own resolves to `none` at the shipped default of time_max_lines: 0. So it
+      // hid the overflow and marked nothing. Adding `text-overflow: ellipsis` to the span
+      // alone renders pixel-identically to the defect; blockifying it is the part that
+      // works.
+      const span =
+        '.grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge)';
+      expect(declared(span, 'display')).toBe('block');
+      expect(declared(span, 'text-overflow')).toBe('ellipsis');
+
+      // The clamp being replaced is already unreachable here, which is why blockifying
+      // costs nothing: grid pins this text to one line, so no line count above one can be
+      // reached whatever time_max_lines is set to.
+      expect(declared('.grid-event-disclosure .time', 'white-space')).toBe('nowrap');
+
+      // Scoping, in both directions. The unscoped rule must keep -webkit-box, because list
+      // and column rely on it and on their own `white-space: normal` to *wrap* this text
+      // instead of slicing it -- both were measured at zero clipped rows and the fix must
+      // not reach them. If this assertion fails, the fix has leaked out of grid.
+      const global = '.time .time-actual > span:not(.time-text):not(.allday-badge)';
+      expect(declared(global, 'display')).toBe('-webkit-box');
+      expect(declared(global, 'text-overflow')).toBe('');
+      expect(rulesFor(span)).toHaveLength(1);
+      expect(rulesFor(global)).toHaveLength(1);
+
+      // `.time-text` keeps its own path and is excluded from the selector above. It wraps
+      // by design so a folded countdown breaks inside itself rather than dropping the whole
+      // flex item to its own line; ellipsizing it would regress that.
+      expect(declared('.grid-event-disclosure .time .time-actual .time-text', 'white-space')).toBe(
+        'normal',
+      );
     });
 
     it('sizes the grid axis gutter from its visible labels with fixed inline padding', () => {

@@ -167,7 +167,20 @@ describe('stripComments', () => {
   // 68% today; the
   // band below is what actually holds it.
   //
-  // The ceiling last moved for the scrolling label reset widening to every label kind. The
+  // The ceiling last moved for the grid time row's width rung and the ellipsis that goes with
+  // it. Two notes, and neither fact is readable from the declarations they sit on. `min-width:
+  // 60px` cannot say that a grid block's two axes are independent -- height is duration times
+  // hour_height, width is day width over the concurrent column count -- so a rung asked only
+  // about height revealed a time row into blocks a third its width, where it was sliced
+  // through a glyph rather than ellipsized. Nor can it say that 60 is measured rather than
+  // chosen: it is the clock icon's 18px plus "10:00" plus the ellipsis, taken in Chromium at
+  // the shipped 12px, and an earlier reading of the same number was out by a third because the
+  // rig was appended outside the grid's ancestry and inherited a 16px font. The ellipsis rule's
+  // note is the other kind -- it records why the three text-overflow: ellipsis declarations a
+  // few rules above it are inert, which is the only thing standing between the new rule and a
+  // later reader deleting it as a duplicate of them.
+  //
+  // The ceiling before that moved for the scrolling label reset widening to every label kind. The
   // rule is one declaration and its note is a paragraph, because what it records cannot be
   // read off `padding-bottom: 0`: a flex row centres BOXES, so the title's own bottom padding
   // sat its glyphs one pixel above a prose or emoji label's while both boxes measured
@@ -211,9 +224,13 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(83_000);
-    // The scrolling label reset moved the ceiling last, from 82,000; see the paragraph above
-    // for what its note buys that the declaration cannot say.
+    expect(saved).toBeLessThan(86_000);
+    // The grid time row's width rung moved the ceiling last, from 83,000; see the paragraph
+    // above for what its two notes buy that the declarations cannot say. The reading went
+    // 82,476 to 85,463, so the band keeps about the same slack it had before rather than
+    // being opened wide enough to stop meaning anything.
+    //
+    // The scrolling label reset moved the ceiling before that, from 82,000.
     //
     // The clipped-edge continuation marks moved the ceiling before that, from 79,000, and the note
     // they bought is a table of painted pixel rows. Where a dashed mark lands relative to the
