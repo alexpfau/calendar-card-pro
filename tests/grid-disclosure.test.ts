@@ -1175,6 +1175,15 @@ describe('grid disclosure wrapped time rung', () => {
  *
  * The first two are pinned here; the DOM-order half needs a rendered grid and is pinned in
  * `grid-dom.test.ts`, beside the other structural claims about that markup.
+ *
+ * Confirmed empirically as well as structurally, because a layout argument is exactly the
+ * kind that reads as airtight and is not. On the live dashboard the wrap class was forced
+ * on and off on one 46px block and every box `grid-title-fit.ts` reads was compared across
+ * the two frames: the event box, the disclosure, `.summary`, `.summary-row` and
+ * `.event-title` were identical to the thousandth of a pixel in top, height and width, and
+ * the rendered title kept its text and its single line. The control in the same run --
+ * `.time` itself -- moved by 14.39px, one line height, so the probe was demonstrably able
+ * to see a change and the null is not a probe that measured nothing.
  */
 describe('grid disclosure layout order', () => {
   it('stacks the disclosed column from the top, so the title never moves', () => {

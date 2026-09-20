@@ -2144,16 +2144,41 @@ describe('card stylesheet', () => {
       expect(degradation).toEqual([
         { rung: 'no-icon', target: '.time .time-actual > ha-icon', body: 'display: none;' },
         { rung: 'no-end', target: '.time .time-actual .time-end', body: 'display: none;' },
-        { rung: 'wrap', target: '.time .time-actual .time-end', body: 'display: block;' },
+        {
+          rung: 'wrap',
+          target: '.time .time-actual .time-end',
+          body: 'display: block; overflow: hidden; text-overflow: ellipsis;',
+        },
       ]);
 
       // The end time is inline, never inline-block. `.time span` makes every span in a
       // time row an inline-block, and an inline-block is a block container: leading white
       // space on its first line is stripped, so the separator this element carries would
       // vanish and a row would read `10:0012:00`.
-      expect(declared('.grid-event-disclosure .time .time-actual .time-end', 'display')).toBe(
-        'inline',
-      );
+      expect(declared('.time .time-actual .time-end', 'display')).toBe('inline');
+
+      // 🚨 And it must reset the alignment that came with that display, which is a separate
+      // declaration in the same rule and was missing. `.time span` sets `vertical-align:
+      // middle` alongside `inline-block`, where it correctly re-centres the box on the
+      // surrounding text; on an inline box `middle` means box-centre against the parent's
+      // baseline plus half an x-height, which is not where the parent's own text sits. The
+      // start time is an anonymous inline on that baseline, so a clock reading ends up
+      // split across two of them. Measured on one live dashboard at 0.625px on 74 of 74
+      // one-line grid rows, and injecting exactly this declaration took all 74 to zero.
+      //
+      // Pinned as a pair, because either one alone is the bug: `inline` without the reset
+      // is the misalignment above, and the reset without `inline` is `10:0012:00`.
+      expect(declared('.time .time-actual .time-end', 'vertical-align')).toBe('baseline');
+
+      // Neither is scoped to grid, deliberately — `grid-dom.test.ts` reconciles that
+      // against the callers that can draw a split range, which is where the reasoning is.
+      expect(declared('.grid-event-disclosure .time .time-actual .time-end', 'display')).toBe('');
+
+      // The source of the alignment being reset. If this ever stops saying `middle` the
+      // reset above becomes a no-op that reads as load-bearing -- so reconcile against it
+      // rather than trusting the rule to stay put.
+      expect(declared('.time span', 'vertical-align')).toBe('middle');
+      expect(declared('.time span', 'display')).toBe('inline-block');
 
       // The wrapped rung turns that same stripping into the mechanism rather than the bug:
       // as a block the element starts a line, loses the separator's leading space, and
@@ -2162,6 +2187,41 @@ describe('card stylesheet', () => {
       expect(
         declared('.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end', 'display'),
       ).toBe('block');
+
+      // 🚨 And it must carry its own ellipsis, which is not decoration. Blockifying the
+      // element takes it out of the outer span's line box, so the ellipsis declared there
+      // stops reaching it and line two falls back to text-overflow's initial `clip`.
+      // Captured live in the stale-class frame the backstop rule is written for: line two
+      // rendered `- 12:` with the colon cut vertically in half — the precise artefact that
+      // rule exists to prevent, one line down. `overflow` is required with it, because the
+      // `hidden` that makes an ellipsis possible sits on `.time-actual` and does not
+      // inherit; an A/B on the same live row with only `text-overflow` still sheared.
+      expect(
+        declared('.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end', 'overflow'),
+      ).toBe('hidden');
+      expect(
+        declared(
+          '.grid-event-disclosure.grid-time-wrap .time .time-actual .time-end',
+          'text-overflow',
+        ),
+      ).toBe('ellipsis');
+
+      // Line one needs no declaration of its own and must not grow one by cargo cult: its
+      // text becomes an anonymous block box inside the outer span, and the browser applies
+      // that span's ellipsis to it. Pinned here so the pairing stays legible — the ellipsis
+      // line two needs explicitly is the one line one already inherits structurally.
+      expect(
+        declared(
+          '.grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge)',
+          'display',
+        ),
+      ).toBe('block');
+      expect(
+        declared(
+          '.grid-event-disclosure .time .time-actual > span:not(.time-text):not(.allday-badge)',
+          'text-overflow',
+        ),
+      ).toBe('ellipsis');
 
       // Every degradation must come after the rung that reveals the row.
       const reveal = CSS.indexOf('@container calendar-card-grid-event (min-height: 40px)');

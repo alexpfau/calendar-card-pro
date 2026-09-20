@@ -167,8 +167,36 @@ describe('stripComments', () => {
   // 68% today; the
   // band below is what actually holds it.
   //
-  // The ceiling last moved for the fit ladder's wrapped rung, and the note it carries is
-  // almost entirely an explanation of why the rule is `display: block` and not a
+  // The ceiling last moved for two things at once: the wrapped rung's follow-up, and the
+  // end time's baseline reset.
+  //
+  // The reset is one declaration and about a fifth of the note, which is the ratio this
+  // band exists to allow. `vertical-align: baseline` on an element whose rule already says
+  // `display: inline` reads as redundant -- both are the initial value, and nothing in the
+  // two declarations hints that either is overriding anything. What makes it necessary is a
+  // rule two thousand lines away setting `inline-block` and `middle` together on every span
+  // in the row, and the fact that taking the display back does not take the alignment back
+  // with it. Without the note the obvious tidy-up is to delete the line, which silently
+  // restores a 0.625px split through the middle of every clock reading in the view. The
+  // measurement is in there too, because a sub-pixel defect that 74 of 74 rows showed and
+  // no reviewer noticed is one that will be argued away again otherwise.
+  //
+  // The wrapped rung's follow-up is the ellipsis the blockified `.time-end` needs, plus the
+  // correction of two paragraphs the rung had quietly falsified. All the expensive kind.
+  // The ellipsis note records a measurement no declaration can carry -- line one ellipsizes
+  // on its own because its text becomes an anonymous block inside a span that already
+  // declares one, while line two sheared through a colon until it got `overflow` *and*
+  // `text-overflow` of its own, `text-overflow` alone being measurably not enough because
+  // the `hidden` that makes an ellipsis possible sits on `.time-actual` and does not
+  // inherit. The corrected paragraphs are worse to leave wrong than to carry: one had
+  // justified replacing the `time_max_lines` clamp with block+ellipsis on the grounds that
+  // "no line count above one is reachable", which the rung made false, and the other told
+  // the next reader that the ladder never blockifies `.time-end` -- the one element this
+  // rung blockifies. A reader who believes either goes on to make a change the declarations
+  // cannot argue with.
+  //
+  // The ceiling before that moved for the fit ladder's wrapped rung, and the note it carries
+  // is almost entirely an explanation of why the rule is `display: block` and not a
   // `white-space` change. A reader reaching for the obvious fix finds three hazards none of
   // the declarations can mention: `overflow-wrap: break-word` is inherited from `.summary`,
   // so a naive wrap shatters digits into `10:0` / `0 -` rather than failing to fit; the
@@ -251,11 +279,23 @@ describe('stripComments', () => {
     const share = saved / body.length;
 
     expect(saved).toBeGreaterThan(26_000);
-    expect(saved).toBeLessThan(90_600);
-    // The fit ladder's wrapped rung moved the ceiling last, from 89,500; see the paragraph
-    // above for what its note buys that the declarations cannot say. The reading went
-    // 88,813 to 90,087, and the ceiling keeps roughly the slack the band had before rather
-    // than being opened wide enough to stop meaning anything.
+    expect(saved).toBeLessThan(95_800);
+    // The wrapped rung's follow-up and the end time's baseline reset moved the ceiling last,
+    // from 90,600; see the paragraph above for what their notes buy that the declarations
+    // cannot say. The reading went 90,087 to 95,001, and the ceiling keeps roughly the slack
+    // the band had before rather than being opened wide enough to stop meaning anything.
+    //
+    // 🚨 95,001 is the third reading this one commit produced, and the first two were wrong
+    // in the two different ways the header warns about. 93,656 was taken while the same
+    // commit was still adding comment and was ~1,300 low by the time it was written down.
+    // 94,263 was taken with a hand-written /\*[\s\S]*?\*\// instead of stripComments and was
+    // ~740 low, because the plugin strips more than that regex expresses -- a second
+    // derivation that shared no parser with the first and disagreed with it, which is the
+    // only reason the error surfaced at all. Take the reading from stripComments, and take
+    // it after the last comment in the change is written.
+    //
+    // The fit ladder's wrapped rung moved the ceiling before that, from 89,500. The reading
+    // went 88,813 to 90,087.
     //
     // The grid time row's fit ladder moved the ceiling before that, from 86,000. The
     // reading went 85,463 to 88,813.

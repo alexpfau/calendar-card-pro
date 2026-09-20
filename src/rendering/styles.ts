@@ -2634,14 +2634,30 @@ export const cardStyles = css`
      why this rule is not allowed to become the way a narrow row is handled.
 
      Blockifying the span in grid restores the ellipsis and costs nothing, because the
-     clamp it replaces is already inert here: white-space: nowrap pins this text to one
-     line, so no line count above one is reachable whatever time_max_lines says. Note the
-     ellipsis declarations on .time and .time-actual above cannot do this job — the first
-     has no inline content of its own and the second is a flex container, and
-     text-overflow applies to neither.
+     clamp it replaces cannot act here: display: block is what -webkit-line-clamp needs and
+     does not get, so the time_max_lines clamp is off in grid whatever the option says.
+
+     🚨 That used to be argued from white-space instead -- "nowrap pins this text to one
+     line, so no line count above one is reachable" -- and the wrapped rung made the
+     premise false without touching the conclusion. Two lines are now reachable in grid.
+     The conclusion survives because it never depended on the line count: this rule is
+     unconditional within .grid-event-disclosure, so the clamp is disabled on a wrapped row
+     and an unwrapped one alike. Nor could it reach the second line if it were on, since
+     that line is a sibling block box rather than a line box of this element.
+
+     So time_max_lines: 1 does not collapse the wrapped rung, and should not. The second
+     line is an authored structural break chosen by the fit ladder against the block's own
+     height, not text that wrapped because it ran out of room -- verified live by setting
+     the option on the card and watching the row stay at two lines. Note the ellipsis
+     declarations on .time and .time-actual above cannot do this job — the first has no
+     inline content of its own and the second is a flex container, and text-overflow
+     applies to neither.
 
      The end time sits inside this span rather than beside it, so the child combinator here
-     does not reach it and it keeps flowing inline. That nesting is what lets the ladder
+     does not reach it and it keeps flowing inline — on every rung but one. The wrapped
+     rung blockifies it deliberately, under .grid-time-wrap, and carries its own overflow
+     and text-overflow because of it; see that rule below before concluding from this
+     paragraph that .time-end is never a block. That nesting is still what lets the ladder
      hide an end time without blockifying anything.
 
      Scoped to .grid-event-disclosure deliberately. Outside grid the same span keeps
@@ -2798,9 +2814,44 @@ export const cardStyles = css`
      tidy. .time span above makes every span in a time row an inline-block, and an
      inline-block is a block container: white space at the start of its first line is
      removed, so the separator this element leads with would vanish and the row would read
-     "10:0012:00". An inline box is not the start of a line and keeps it. */
-  .grid-event-disclosure .time .time-actual .time-end {
+     "10:0012:00". An inline box is not the start of a line and keeps it.
+
+     🚨 Resetting display alone is half the job, and the missing half was a visible defect.
+     That same .time span rule also sets vertical-align: middle, which it is entitled to:
+     on an inline-block that re-centres the box on the surrounding text. Taking the display
+     back to inline does not take the alignment back with it, and on an inline box middle
+     means something else -- the box centre is aligned to the parent's baseline plus half
+     its x-height, which is not where the parent's own text sits. The start time is an
+     anonymous inline on that baseline, so the two halves of one clock reading end up on
+     two baselines.
+
+     Measured, because it is small enough to argue away: every one-line grid row on the
+     dashboard, 74 of 74 across four views, drew its end time exactly 0.625px lower than
+     its start. Injecting vertical-align: baseline on this element took all 74 to exactly
+     zero, which is what makes this the cause rather than a plausible candidate.
+
+     That count is a reading of one dashboard on 2026-09-20 and is deliberately not
+     reproducible: the corpus changed days later when three capture cards stopped setting
+     show_end_time: false, which moves the population of this very element. It is recorded
+     as the evidence that settled a defect, not as a figure anyone should expect to obtain
+     again. What survives is the A/B -- offset on every row with middle, zero on every row
+     with baseline -- and that reproduces on any row that draws a split range.
+
+     🚨 Deliberately NOT scoped to .grid-event-disclosure, though grid is the only view
+     that can reach it today. .time-end is emitted only under splitTimeEnd, and grid.ts is
+     its only caller -- so a grid-scoped rule is correct now and arms both traps above for
+     the next view that sets that flag. Such a view would emit the element, inherit
+     inline-block and middle from .time span, fall outside a scoped reset, and reproduce
+     both the swallowed separator and the 0.625px split, with this paragraph sitting one
+     file away explaining the whole thing for the case it happens to cover. The unscoped
+     form costs nothing to check -- the element does not exist elsewhere, so the rule is
+     inert everywhere else by construction -- and it is the correct default for any view
+     that draws a split range, not a grid quirk. The rungs below still scope themselves to
+     grid, because those are decisions the fit ladder makes and it only runs there.
+     See tests/grid-dom.test.ts, which reconciles this against splitTimeEnd's callers. */
+  .time .time-actual .time-end {
     display: inline;
+    vertical-align: baseline;
   }
 
   /* The rungs of the fit ladder that give something up. All are set by the host, which
@@ -2831,9 +2882,26 @@ export const cardStyles = css`
      the second line wants. The inline rule is untouched for every other view and rung.
 
      Set by the host only where the row measured narrow enough AND the block had the height
-     to spare - see grid-time-fit.ts and _applyGridDisclosureSafety. */
+     to spare - see grid-time-fit.ts and _applyGridDisclosureSafety.
+
+     🚨 overflow and text-overflow are both required here, and for the same reason the
+     backstop above exists rather than for tidiness. Blockifying this element takes it out
+     of its parent's line box, so the ellipsis declared on that parent stops reaching it and
+     line two reverts to text-overflow's initial clip. Measured in the stale-class frame the
+     backstop is written for -- the wrap class from the previous layout still on a block
+     that has already narrowed -- line two rendered "- 12:" with the colon cut vertically in
+     half, the exact artefact that rule prevents one line up. text-overflow alone does not
+     fix it: it needs a scroll container on this element, because overflow: hidden lives on
+     .time-actual and does not inherit. Both declarations were A/B'd live against the same
+     row; with only text-overflow it still sheared.
+
+     Line one needs nothing. Its text becomes an anonymous block box inside the outer span,
+     and Chromium applies that span's ellipsis to it -- verified rather than assumed, in the
+     same capture that caught line two. */
   .grid-event-disclosure.grid-time-wrap .time .time-actual .time-end {
     display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* The progress bar earns its own rung. It is the one row here whose value is highest
